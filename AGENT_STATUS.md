@@ -5,6 +5,10 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Codex — Frontend 1: identidade e shell (12/10/2026)
+
+- **Em andamento:** clonagem da identidade UI/UX do ERPKuryosBeauty com dois desenvolvedores, em branches/worktrees separados. Frontend 1 cuida da consolidação de tokens e componentes, sidebar, temas, integração global e QA. Arquivos reservados: `public/auth_check.js`, `public/shared/kuryos-ui-{tokens,components,layout}.css`, `public/shared/kuryos-ui.js`, `public/shared/kuryos-repo-visual.css`, `public/shared/kuryos-enterprise-shell.{css,js}`, `public/shared/executive-dashboard.css`, `public/shared/sector-dashboard.css`, páginas públicas/login/manuais, testes de identidade/shell e documentação `CLONAGEM_UI_UX.md`. O Frontend 2 terá seu próprio bloco e worktree, responsável pelos layouts operacionais e seus testes. Regras de negócio, backend e contratos Firebase permanecem preservados. Sem deploy nesta tarefa.
+
 ### Codex — CRM 1/2/3 e P&D canônicos dentro do PCP (06/10/2026)
 
 - **Publicação inicial no GitHub concluída (12/10/2026):** remoto público `origin` configurado para `DEVMarlosGomes/ERP-PCPKURYOS`; estado atual publicado na branch `main` pelo commit `d013d97` (`feat: importar estado atual do ERP PCP Kuryos`). A triagem incluiu 633 arquivos/26,18 MiB e não encontrou chaves privadas ou credenciais no índice. `.gitignore` exclui credenciais locais, logs, relatórios operacionais, planilhas de exemplo e capturas de teste. Publicação confirmada no remoto; nenhum deploy Firebase foi realizado.
