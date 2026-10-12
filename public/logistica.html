@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logística</title>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://erpkuryos-default-rtdb.firebaseio.com">
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-functions-compat.js"></script>
+  <script src="shared/qrcode-lib.js"></script>
+  <script src="shared/utils.js"></script>
+  <script src="shared/etiquetas-wms.js"></script>
+  <script src="shared/propriedade-estoque.js"></script>
+  <script src="shared/rotas-pc.js"></script>
+  <script src="shared/calendario-logistica.js"></script>
+  <script src="shared/seletor-endereco.js"></script>
+  <script src="auth_check.js"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="shared/theme.css">
+  <style>
+    :root{--primary:#0a1c69;--primary-light:#2456d6;--success:#0ca30c;--danger:#d03b3b;--warning:#c9910a;--bg:#f5f5f7;--card:#fff;--border:#d2d2d7;--text:#1d1d1f;--muted:#6e6e73;--purple:#7c3aed;--surface-2:#f9fafb;--tint-green-bg:#d1fae5;--tint-green-fg:#065f46;--tint-red-bg:#fee2e2;--tint-red-fg:#991b1b;--tint-gray-bg:#f3f4f6;--tint-blue-bg:#eff6ff;--tint-orange-bg:#fff7ed;--tint-orange-fg:#c2410c;--tint-purple-bg:#f3e8ff}
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --primary:#5e83ea; --bg:#000000; --card:#1c1c1e; --border:#38383a; --text:#f5f5f7; --muted:#98989d; --purple:#a78bfa; --surface-2:#242426; --tint-green-bg:rgba(16,185,129,.18); --tint-green-fg:#6ee7b7; --tint-red-bg:rgba(239,68,68,.18); --tint-red-fg:#fca5a5; --tint-gray-bg:rgba(255,255,255,.08); --tint-blue-bg:rgba(94,131,234,.18); --tint-orange-bg:rgba(251,146,60,.18); --tint-orange-fg:#fdba74; --tint-purple-bg:rgba(167,139,250,.18); } }
+    :root[data-theme="dark"] { color-scheme: dark; --primary:#5e83ea; --bg:#000000; --card:#1c1c1e; --border:#38383a; --text:#f5f5f7; --muted:#98989d; --purple:#a78bfa; --surface-2:#242426; --tint-green-bg:rgba(16,185,129,.18); --tint-green-fg:#6ee7b7; --tint-red-bg:rgba(239,68,68,.18); --tint-red-fg:#fca5a5; --tint-gray-bg:rgba(255,255,255,.08); --tint-blue-bg:rgba(94,131,234,.18); --tint-orange-bg:rgba(251,146,60,.18); --tint-orange-fg:#fdba74; --tint-purple-bg:rgba(167,139,250,.18); }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:var(--font-ui);background:var(--bg);color:var(--text);min-height:100vh}
+    .header{padding:26px 0 6px;display:flex;align-items:flex-start;justify-content:space-between;max-width:96%;margin:0 auto}
+    .header h1{font-size:28px;font-weight:700;letter-spacing:-.02em}
+    .header-sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+    .status-pill{display:flex;align-items:center;gap:6px;background:color-mix(in srgb, var(--text) 6%, transparent);border-radius:20px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--muted)}
+    .dot{width:8px;height:8px;border-radius:50%;background:#94a3b8}
+    .dot.on{background:var(--success);animation:p 2s infinite}
+    @keyframes p{0%,100%{opacity:1}50%{opacity:.4}}
+    @media(prefers-reduced-motion:reduce){.dot.on{animation:none}}
+    .kt-toolbar{max-width:96%;margin:0 auto 12px}
+    .main{padding:0 0 40px;max-width:96%;margin:0 auto}
+    .alert{padding:12px 16px;border-radius:8px;font-size:13px;font-weight:500;margin-bottom:12px;display:none}
+    .alert.show{display:block}
+    .alert-success{background:var(--tint-green-bg);color:var(--tint-green-fg);border:1px solid color-mix(in srgb, var(--tint-green-fg) 40%, transparent)}
+    .alert-danger{background:var(--tint-red-bg);color:var(--tint-red-fg);border:1px solid color-mix(in srgb, var(--tint-red-fg) 40%, transparent)}
+    .btn{padding:8px 16px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap}
+    .btn-green{background:var(--success);color:white}.btn-green:hover{filter:brightness(.9)}
+    .btn-primary{background:var(--primary);color:white}.btn-primary:hover{filter:brightness(.9)}
+    .btn-ghost{background:var(--card);border:1.5px solid var(--border);color:var(--text)}.btn-ghost:hover{background:var(--surface-2)}
+    .btn-sm{padding:5px 10px;font-size:12px}
+    .btn:disabled{opacity:.45;cursor:not-allowed}
+    .tabs{display:flex;gap:2px;max-width:96%;margin:0 auto 14px;border-bottom:2px solid var(--border)}
+    .tab{padding:10px 18px;font-size:13.5px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;background:none;border-top:none;border-left:none;border-right:none}
+    .tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+    .tab-panel{display:none}
+    .tab-panel.active{display:block}
+    .card{background:var(--card);border-radius:18px;box-shadow:var(--shadow);margin-bottom:14px;border-left:4px solid var(--primary)}
+    .card-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:14px 16px;border-bottom:1px solid var(--border)}
+    .pc-card{background:var(--card);border-radius:16px;box-shadow:var(--shadow);margin-bottom:14px;padding:16px}
+    .pc-card-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:10px}
+    .pc-titulo{font-size:15px;font-weight:700}
+    .pc-sub{font-size:12px;color:var(--muted);margin-top:2px}
+    .badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+    .badge-gray{background:var(--tint-gray-bg);color:var(--muted)}
+    .badge-blue{background:var(--tint-blue-bg);color:var(--primary)}
+    .badge-orange{background:var(--tint-orange-bg);color:var(--tint-orange-fg)}
+    .badge-green{background:var(--tint-green-bg);color:var(--tint-green-fg)}
+    .badge-purple{background:var(--tint-purple-bg);color:var(--purple)}
+    .badge-red{background:var(--tint-red-bg);color:var(--tint-red-fg)}
+    .progresso-bar-wrap{background:var(--tint-gray-bg);border-radius:20px;height:8px;overflow:hidden;margin:8px 0}
+    .progresso-bar{background:var(--success);height:100%;border-radius:20px;transition:width .3s}
+    table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+    thead th{background:var(--surface-2);padding:7px 10px;text-align:left;font-weight:700;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid var(--border)}
+    td{padding:6px 10px;border-bottom:1px solid var(--tint-gray-bg);vertical-align:middle}
+    .agendamento-box{background:color-mix(in srgb, var(--primary) 6%, var(--card));border:1px solid color-mix(in srgb, var(--primary) 20%, var(--border));border-radius:10px;padding:10px 12px;font-size:12.5px;margin:8px 0}
+    .no-data{text-align:center;padding:40px;color:var(--muted);font-size:14px}
+    .empty-hint{color:var(--muted);font-size:12.5px;padding:10px 0}
+    .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+    .modal-bg.open{display:flex}
+    .modal{background:var(--card);border-radius:14px;width:100%;max-width:640px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden}
+    .modal-header{background:linear-gradient(135deg,#065f46,var(--success));color:white;padding:16px 20px;display:flex;align-items:center;justify-content:space-between}
+    .modal-header.blue{background:linear-gradient(135deg,#1e3a8a,var(--primary))}
+    .modal-header h2{font-size:16px;font-weight:700}
+    .modal-close{background:none;border:none;color:white;font-size:22px;cursor:pointer;line-height:1;opacity:.8}
+    .modal-body{padding:20px;max-height:70vh;overflow-y:auto}
+    .modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;background:var(--surface-2)}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .form-group{margin-bottom:0}
+    .form-group.full{grid-column:1/-1}
+    label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px}
+    input[type=text],input[type=number],input[type=date],select,textarea{width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;color:var(--text);background:var(--card)}
+    input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent)}
+    .field-hint{font-size:11px;color:var(--muted);margin-top:3px}
+    .rc-intro{background:color-mix(in srgb,var(--primary) 6%,var(--card));border:1px solid color-mix(in srgb,var(--primary) 20%,var(--border));border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.5}
+    .rc-item-card{border:1px solid var(--border);border-radius:14px;padding:14px;margin-top:12px;background:var(--card)}
+    .rc-item-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--tint-gray-bg)}
+    .rc-item-title{font-size:13.5px;font-weight:750;line-height:1.35}
+    .rc-item-progress{font-size:11px;color:var(--muted);text-align:right;white-space:nowrap}
+    .rc-form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+    .rc-form-grid .span-2{grid-column:span 2}
+    .rc-lotes{display:grid;gap:10px;margin-top:10px}
+    .rc-lote-row{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:12px;position:relative}
+    .rc-lote-title{font-size:11px;font-weight:750;color:var(--primary);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+    .rc-lote-remove{position:absolute;right:10px;top:8px;border:0;background:none;color:var(--danger);font-size:12px;font-weight:700;cursor:pointer}
+    .rc-auto-lote{padding:9px 11px;border:1.5px dashed var(--border);border-radius:7px;background:var(--card);color:var(--muted);font-size:12px}
+    .rc-readonly{background:var(--surface-2)!important;color:var(--muted)!important}
+    .rc-required-note{font-size:11px;color:var(--muted);margin-top:12px}
+    @media(max-width:920px){.rc-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:700px){.form-grid{grid-template-columns:1fr}}
+    @media(max-width:600px){.rc-form-grid{grid-template-columns:1fr}.rc-form-grid .span-2{grid-column:span 1}.rc-item-head{display:block}.rc-item-progress{text-align:left;margin-top:4px}}
+  </style>
+<script src="shared/contatos-cliente.js"></script><script src="shared/contatos-cliente-ui.js"></script><link rel="stylesheet" href="shared/contatos-cliente.css"></head>
+<body class="kuryos-theme has-sidebar">
+<div class="header">
+  <div>
+    <h1>Logística</h1>
+    <div class="header-sub">Recebimento de materiais e agendamento de saídas de produto acabado</div>
+  </div>
+  <div class="status-pill"><div class="dot" id="sDot"></div><span id="sTxt">Conectando...</span></div>
+</div>
+
+<div class="main" style="padding-top:6px">
+  <div id="alertBox" class="alert alert-success"></div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-tab="receber">A Receber</button>
+  <button class="tab" data-tab="historico">Histórico</button>
+  <button class="tab" data-tab="agenda-pa">Saídas de PA</button>
+  <button class="tab" data-tab="calendario">Calendário</button>
+</div>
+
+<div class="main">
+  <div class="tab-panel active" id="tab-receber">
+    <div id="receberList"></div>
+  </div>
+  <div class="tab-panel" id="tab-historico">
+    <div id="historicoList"></div>
+  </div>
+  <div class="tab-panel" id="tab-calendario">
+    <div class="card cal-card">
+      <div class="cal-toolbar">
+        <div class="cal-nav">
+          <button type="button" class="btn btn-ghost btn-sm" id="calAnterior" aria-label="Período anterior">‹</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="calHoje">Hoje</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="calProximo" aria-label="Próximo período">›</button>
+          <h2 class="cal-titulo" id="calTitulo"></h2>
+        </div>
+        <div class="cal-seg" id="calVista" role="group" aria-label="Vista do calendário"><button type="button" data-vista="mes">Mês</button><button type="button" data-vista="semana">Semana</button></div>
+      </div>
+      <div class="cal-filtros">
+        <label><input type="checkbox" id="calF-entradas"> ↓ Entradas (Pedidos de Compra)</label>
+        <label><input type="checkbox" id="calF-saidas"> ↑ Saídas de PA</label>
+        <label><input type="checkbox" id="calF-previstos"> Previsão de Compras sem agendamento</label>
+        <label><input type="checkbox" id="calF-concluidos"> Concluídos</label>
+      </div>
+      <div class="cal-resumo" id="calResumo"></div>
+      <div id="calGrade"></div>
+      <div class="cal-legenda"><span><i style="background:var(--cal-entrada)"></i>↓ Entrada de material</span><span><i style="background:var(--cal-saida)"></i>↑ Saída de PA</span><span><i style="border:1.5px dashed var(--muted)"></i>Previsão de Compras</span><span>M = manhã · T = tarde</span><span style="color:var(--danger)">⚠ atrasado</span><span>◐ parcial</span></div>
+    </div>
+    <dialog class="cal-modal" id="calDetalhe"><div class="cal-corpo"></div><div class="cal-acoes"></div></dialog>
+  </div>
+  <div class="tab-panel" id="tab-agenda-pa"><div class="card"><h2>Agenda de saídas de PA</h2><p class="field-hint">Transportadora, motorista e placa são compartilhados com a Expedição. Para montar uma carga, use Expedição — Montar carga; faturamento e saída ficam em Expedição — Faturamento e Acompanhamento.</p><div id="agendaPA"></div></div></div>
+</div>
+
+<!-- MODAL: Agendar Entrega -->
+<div class="modal-bg" id="modalAgendar">
+  <div class="modal">
+    <div class="modal-header blue"><h2 id="modalAgendarTitulo">Agendar Entrega</h2><button class="modal-close" id="modalAgendarClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body">
+      <div id="agendarPcInfo" class="field-hint" style="margin-bottom:12px"></div>
+      <div id="agFreteInfo" class="agendamento-box" style="margin-bottom:12px"></div>
+      <div id="agRotaBox" style="margin-bottom:12px"></div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label id="agDataLabel">Data agendada *</label>
+          <input type="date" id="agData">
+          <div id="agDataHint" class="field-hint" style="margin-top:4px"></div>
+        </div>
+        <div class="form-group">
+          <label>Janela</label>
+          <select id="agJanela">
+            <option value="dia_todo">Dia todo</option>
+            <option value="manha">Manhã</option>
+            <option value="tarde">Tarde</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Prestador / transportadora</label>
+          <select id="agTransportadora">
+            <option value="">Selecione...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Motorista</label>
+          <input type="text" id="agMotorista">
+        </div>
+        <div class="form-group">
+          <label>Placa do veículo</label>
+          <input type="text" id="agPlaca">
+        </div>
+        <div id="agColetaFields" class="full" style="display:none">
+          <div class="agendamento-box" style="margin:4px 0 12px"><b>Dados da coleta / viagem</b><br><span class="field-hint">Registre como a Kuryos fará a retirada e o valor que foi acordado.</span></div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Modalidade</label>
+              <select id="agModalidade">
+                <option value="">Selecione...</option>
+                <option value="UBER">Uber</option>
+                <option value="LALAMOVE">Lalamove</option>
+                <option value="TRANSPORTADORA">Transportadora</option>
+                <option value="VEICULO_PROPRIO">Veículo próprio</option>
+                <option value="OUTRO">Outro</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Status da coleta</label>
+              <select id="agStatusColeta">
+                <option value="SOLICITADA">Solicitada</option>
+                <option value="CONFIRMADA">Confirmada</option>
+                <option value="COLETADA">Coletada</option>
+                <option value="CANCELADA">Cancelada</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Valor negociado (R$)</label>
+              <input type="number" id="agValorFrete" min="0" step="0.01" placeholder="Ex: 85,00">
+            </div>
+            <div class="form-group">
+              <label>Referência da solicitação</label>
+              <input type="text" id="agReferenciaColeta" placeholder="Ex: código Uber/Lalamove">
+            </div>
+          </div>
+        </div>
+        <div class="form-group full">
+          <label>Observações</label>
+          <textarea id="agObservacoes" rows="2"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="modalAgendarCancel">Cancelar</button>
+      <button class="btn btn-primary" id="modalAgendarSave">Salvar Agendamento</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Registrar Recebimento -->
+<div class="modal-bg" id="modalReceber">
+  <div class="modal" style="max-width:980px">
+    <div class="modal-header"><h2>Registrar Recebimento</h2><button class="modal-close" id="modalReceberClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body">
+      <div id="receberPcInfo" class="field-hint" style="margin-bottom:12px"></div>
+      <div id="rcPropriedadeBox"></div>
+      <div class="rc-intro"><b>Entrada de materiais e envio ao Controle de Qualidade</b><br>Os dados abaixo substituem o formulário externo. Cada item recebido será endereçado no WMS com status <b>Quarentena</b> e aparecerá automaticamente na fila da Qualidade.</div>
+      <div class="form-grid" style="margin-bottom:14px">
+        <div class="form-group">
+          <label>Fornecedor</label>
+          <input type="text" id="rcFornecedor" class="rc-readonly" readonly>
+          <div class="field-hint">Vem do Pedido de Compra.</div>
+        </div>
+        <div class="form-group">
+          <label>Data do recebimento *</label>
+          <input type="date" id="rcData">
+        </div>
+        <div class="form-group">
+          <label>Nº da nota fiscal *</label>
+          <input type="text" id="rcNotaFiscal" placeholder="Use “SEM NF” quando não houver">
+        </div>
+        <div class="form-group full">
+          <label>Condições do veículo *</label>
+          <select id="rcCondVeiculo">
+            <option value="">Selecione…</option><option value="5">5 — Ótimo</option><option value="4">4 — Bom</option><option value="3">3 — Regular</option><option value="2">2 — Ruim</option><option value="1">1 — Péssimo</option>
+          </select>
+          <div class="field-hint">Avalie limpeza, odores e evidências de pragas.</div>
+        </div>
+      </div>
+      <div class="section-label" style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Itens recebidos nesta entrega</div>
+      <div class="field-hint" style="margin-bottom:8px">Para não receber um item nesta entrega, informe quantidade zero. Os demais campos tornam-se obrigatórios apenas nos itens com quantidade recebida.</div>
+      <div id="rcItensBody"></div>
+      <div class="rc-required-note">* Campos obrigatórios. Validade é opcional quando não se aplica ao material.</div>
+      <div class="form-group full" style="margin-top:14px">
+        <label>Observações</label>
+        <textarea id="rcObservacoes" rows="2" placeholder="Ex: divergência de quantidade, avaria, etc."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="modalReceberCancel">Cancelar</button>
+      <button class="btn btn-green" id="modalReceberSave">Confirmar Recebimento</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Checklist de Etiqueta (padrão de identificação do fornecedor) -->
+<div class="modal-bg" id="modalChecklist">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header"><h2>Checklist de Etiqueta</h2><button class="modal-close" id="modalChecklistClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body">
+      <div id="clPcInfo" class="field-hint" style="margin-bottom:6px"></div>
+      <div class="field-hint" style="margin-bottom:14px">Confira, na etiqueta que veio na caixa/fardo, se cada campo abaixo está presente e correto -- não trava o recebimento, só registra o que foi conferido.</div>
+      <div id="clItensList"></div>
+      <div class="form-group full" style="margin-top:14px">
+        <label>Observações</label>
+        <textarea id="clObservacoes" rows="2" placeholder="Ex: etiqueta sem lote, código de material trocado, etc."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="modalChecklistCancel">Cancelar</button>
+      <button class="btn btn-green" id="modalChecklistSave">Salvar Checklist</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var firebaseConfig = {
+  apiKey: "AIzaSyBvASzcbKyv3uW7NBzDFDyLsKls3An3UUs",
+  authDomain: "erpkuryos.firebaseapp.com",
+  databaseURL: kuryosDatabaseURL("https://erpkuryos-default-rtdb.firebaseio.com"),
+  projectId: "erpkuryos",
+  storageBucket: "erpkuryos.firebasestorage.app",
+  messagingSenderId: "272752392739",
+  appId: "1:272752392739:web:047a6c4aa60145d77f4f96"
+};
+firebase.initializeApp(firebaseConfig);
+kuryosConnectEmulatorsIfLocal();
+var db = firebase.database();
+var functionsInstance = firebase.functions();
+var allPedidosCompra = {};
+var allTransportadoras = {};
+var allMateriais = {};
+var allEnderecosEstoque = {}; // WMS -- destinos do seletor visual de endereço no recebimento
+var allEstoqueLotes = {};     // só leitura: ocupação das posições no seletor
+var agendandoKey = null;
+var recebendoKey = null;
+var recebimentoIdempotencyKey = null;
+var historicoLimite = 100;
+
+// Transportadora é um Tipo dentro do cadastro de Fornecedores (aba
+// Cadastros) -- não tem coleção própria, era redundante com Fornecedores
+// (mesmos campos, e cadastro separado não tinha nada que Fornecedor não
+// já tivesse). allTransportadoras aqui é só fornecedores filtrado por
+// tipo==='transportadora'. Preserva o valor legado como opção extra se
+// ele não bater com nenhuma cadastrada, pra não perder dado de
+// agendamentos já salvos ao simplesmente trocar pra <select>.
+function nomePrestador(fornecedor) {
+  return fornecedor && (fornecedor.nomeFantasia || fornecedor.razaoSocial || fornecedor.nome || '');
+}
+
+function refreshTransportadoraSelect(desiredValue) {
+  var el = document.getElementById('agTransportadora');
+  var atual = desiredValue != null ? desiredValue : el.value;
+  // Uber e Lalamove já vivem no cadastro de Fornecedores. A coleta pode
+  // usar também um fornecedor que negocie o frete junto com a venda, então
+  // lista os cadastros ativos em vez de restringir ao tipo Transportadora.
+  var prestadores = Object.entries(allTransportadoras).filter(function(entry) {
+    return entry[1] && entry[1].ativo !== false && nomePrestador(entry[1]);
+  }).map(function(entry) { return { key: entry[0], nome: nomePrestador(entry[1]) }; })
+    .sort(function(a, b) { return norm(a.nome).localeCompare(norm(b.nome)); });
+  var opts = '<option value="">Selecione...</option>';
+  prestadores.forEach(function(prestador) { opts += '<option value="' + escapeAttr(prestador.key) + '">' + escapeHtml(prestador.nome) + '</option>'; });
+  var selecionado = prestadores.some(function(p) { return p.key === atual; }) ? atual : '';
+  if (!selecionado && atual) {
+    var porNome = prestadores.filter(function(p) { return p.nome === atual; })[0];
+    selecionado = porNome ? porNome.key : '';
+  }
+  if (atual && !selecionado) {
+    opts += '<option value="' + escapeAttr(atual) + '">' + escapeHtml(atual) + ' (não cadastrada)</option>';
+    selecionado = atual;
+  }
+  el.innerHTML = opts;
+  el.value = selecionado;
+}
+
+// norm() vem de shared/utils.js -- normalização única do sistema (minúscula,
+// sem acento). Havia uma cópia local aqui, e as 12 cópias divergiam entre si.
+function showAlert(msg, type) {
+  var box = document.getElementById('alertBox');
+  box.className = 'alert alert-' + (type || 'success') + ' show';
+  box.textContent = msg;
+  window.scrollTo({top: 0, behavior: 'smooth'});
+  setTimeout(function() { box.classList.remove('show'); }, 6000);
+}
+function setStatus(on, txt) {
+  document.getElementById('sDot').className = 'dot' + (on ? ' on' : '');
+  document.getElementById('sTxt').textContent = txt;
+}
+function currentUserNome() {
+  return (window.currentUser && window.currentUser.nome) || (firebase.auth().currentUser && firebase.auth().currentUser.email) || 'Usuário';
+}
+function fmtData(iso) {
+  if (!iso) return '—';
+  try { return new Date(iso).toLocaleDateString('pt-BR'); } catch (e) { return '—'; }
+}
+function fmtDataHora(iso) {
+  if (!iso) return '—';
+  try { return new Date(iso).toLocaleString('pt-BR'); } catch (e) { return '—'; }
+}
+var statusBadges = {
+  ABERTO: '<span class="badge badge-orange">Aberto</span>',
+  ENVIADO: '<span class="badge badge-blue">Enviado</span>',
+  RECEBIDO_PARCIAL: '<span class="badge badge-purple">Recebido parcial</span>',
+  RECEBIDO_TOTAL: '<span class="badge badge-green">Recebido total</span>',
+  CANCELADO: '<span class="badge badge-red">Cancelado</span>'
+};
+
+/* ══════════════ Tabs ══════════════ */
+document.querySelectorAll('.tab').forEach(function(tab) {
+  tab.addEventListener('click', function() {
+    var target = tab.getAttribute('data-tab');
+    document.querySelectorAll('.tab').forEach(function(t) { t.classList.toggle('active', t.getAttribute('data-tab') === target); });
+    document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.toggle('active', p.id === 'tab-' + target); });
+  });
+});
+
+/* ══════════════ Progresso de recebimento por PC ══════════════ */
+function progressoPc(p) {
+  var itens = Object.values(p.itens || {});
+  var totalPedido = itens.reduce(function(s, it) { return s + (parseFloat(it.qtd) || 0); }, 0);
+  var totalRecebido = itens.reduce(function(s, it) { return s + Math.min(parseFloat(it.qtdRecebida) || 0, parseFloat(it.qtd) || 0); }, 0);
+  var pctPorQtd = totalPedido > 0 ? (totalRecebido / totalPedido) * 100 : 0;
+  // Achado do Auditor: somar quantidade em unidades DIFERENTES (kg + un no
+  // mesmo total) deixa um item pequeno "invisível" -- ex: 10.000un completas
+  // + 1kg de um insumo crítico ainda zerado dava 100% de progresso, quando
+  // na verdade falta um item inteiro. A barra agora usa o MENOR entre o
+  // progresso por quantidade e o progresso por CONTAGEM de itens completos
+  // -- um item zerado sempre puxa a porcentagem pra baixo, nos dois casos.
+  var itensCompletos = itens.filter(function(it) { return (parseFloat(it.qtdRecebida) || 0) >= (parseFloat(it.qtd) || 0) - 0.0001; }).length;
+  var pctPorContagem = itens.length > 0 ? (itensCompletos / itens.length) * 100 : 0;
+  var pct = Math.round(Math.min(pctPorQtd, pctPorContagem));
+  return {totalPedido: totalPedido, totalRecebido: totalRecebido, pct: pct};
+}
+
+/* ══════════════ Aba "A Receber" ══════════════ */
+function renderReceberList() {
+  var box = document.getElementById('receberList');
+  var pcs = Object.entries(allPedidosCompra).filter(function(e) {
+    return e[1].status === 'ENVIADO' || e[1].status === 'RECEBIDO_PARCIAL';
+  }).sort(function(a, b) { return (a[1].dataCriacao || '').localeCompare(b[1].dataCriacao || ''); });
+
+  if (!pcs.length) {
+    box.innerHTML = '<div class="card"><div class="no-data">Nenhum Pedido de Compra aguardando entrega ou recebimento no momento.</div></div>';
+    return;
+  }
+
+  box.innerHTML = pcs.map(function(entry) {
+    var key = entry[0], p = entry[1];
+    var prog = progressoPc(p);
+    var itens = Object.entries(p.itens || {});
+    var ag = p.agendamento;
+    var agendamentoHtml = ag
+      ? '<div class="agendamento-box">📅 <b>Agendado:</b> ' + fmtData(ag.dataAgendada) + ' (' +
+        (ag.janela === 'manha' ? 'manhã' : ag.janela === 'tarde' ? 'tarde' : 'dia todo') + ')' +
+        (ag.transportadora ? ' · ' + escapeHtml(ag.transportadora) : '') +
+        (ag.coleta && ag.coleta.modalidade ? ' · ' + escapeHtml(rotuloModalidadeColeta(ag.coleta.modalidade)) : '') +
+        (ag.coleta && ag.coleta.valorNegociado != null ? ' · frete ' + fmtValorBRL(ag.coleta.valorNegociado) : '') +
+        (ag.coleta && ag.coleta.status ? ' · <b>' + escapeHtml(rotuloStatusColeta(ag.coleta.status)) + '</b>' : '') +
+        (ag.placa ? ' · placa ' + escapeHtml(ag.placa) : '') +
+        (ag.rotaEfetiva && (!rotaConfirmadaPedido(p) || !RotasPC.rotasIguais(ag.rotaEfetiva, rotaConfirmadaPedido(p))) ? ' · <b style="color:var(--warning)">rota excepcional</b>' : '') + '</div>'
+      : '<div class="field-hint" style="margin:8px 0">Nenhuma entrega agendada ainda.</div>';
+
+    var itensRows = itens.map(function(itEntry) {
+      var it = itEntry[1];
+      var qtd = parseFloat(it.qtd) || 0;
+      var qtdRec = parseFloat(it.qtdRecebida) || 0;
+      var restante = Math.max(0, qtd - qtdRec);
+      var itemBadge = restante <= 0 ? '<span class="badge badge-green">Completo</span>' : (qtdRec > 0 ? '<span class="badge badge-purple">Parcial</span>' : '<span class="badge badge-gray">Pendente</span>');
+      return '<tr><td>' + escapeHtml(it.materialCodigo) + ' — ' + escapeHtml(it.materialNome || '') + '</td>' +
+        '<td>' + fmtNum(qtd) + ' ' + escapeHtml(it.unidade || '') + '</td>' +
+        '<td>' + fmtNum(qtdRec) + ' ' + escapeHtml(it.unidade || '') + '</td>' +
+        '<td>' + itemBadge + '</td></tr>';
+    }).join('');
+
+    return '<div class="pc-card">' +
+      '<div class="pc-card-head">' +
+        '<div><div class="pc-titulo">' + escapeHtml(p.numeroFormatado) + ' — ' + escapeHtml(nomeOrigemPedido(p)) + '</div>' +
+        '<div class="pc-sub">Criado em ' + fmtData(p.dataCriacao) + (p.dataEmissao ? ' · Enviado em ' + fmtData(p.dataEmissao) : '') + '</div></div>' +
+        '<div>' + (statusBadges[p.status] || '') + '</div>' +
+      '</div>' +
+      '<div class="progresso-bar-wrap"><div class="progresso-bar" style="width:' + prog.pct + '%"></div></div>' +
+      '<div class="field-hint">' + fmtNum(prog.totalRecebido) + ' de ' + fmtNum(prog.totalPedido) + ' unidades recebidas (' + prog.pct + '%)</div>' +
+      previsaoLogisticaHtml(p) +
+      freteOperacionalHtml(p) +
+      rotaResumoCardHtml(p) +
+      agendamentoHtml +
+      '<table><thead><tr><th>Material</th><th>Pedido</th><th>Recebido</th><th>Status</th></tr></thead><tbody>' + itensRows + '</tbody></table>' +
+      checklistBadgeHtml(p) +
+      '<div style="display:flex;gap:8px;margin-top:12px">' +
+        '<button class="btn btn-ghost btn-sm btn-agendar" data-key="' + escapeAttr(key) + '">📅 ' + (dadosTransporte(p).responsavel === 'KURYOS' ? 'Programar Coleta' : 'Agendar Entrega') + '</button>' +
+        '<button class="btn btn-ghost btn-sm btn-checklist" data-key="' + escapeAttr(key) + '">🏷️ Checklist de Etiqueta</button>' +
+        '<button class="btn btn-green btn-sm btn-receber" data-key="' + escapeAttr(key) + '">📦 Registrar Recebimento</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  document.querySelectorAll('.btn-agendar').forEach(function(btn) {
+    btn.addEventListener('click', function() { openModalAgendar(btn.getAttribute('data-key')); });
+  });
+  document.querySelectorAll('.btn-receber').forEach(function(btn) {
+    btn.addEventListener('click', function() { openModalReceber(btn.getAttribute('data-key')); });
+  });
+  document.querySelectorAll('.btn-checklist').forEach(function(btn) {
+    btn.addEventListener('click', function() { openModalChecklist(btn.getAttribute('data-key')); });
+  });
+}
+
+// A Logística opera por responsabilidade, não pelo nome comercial da origem.
+// Em compra, FOB/CIF continua sendo a fonte de verdade quando não houver a
+// estrutura nova. Em remessa de cliente/terceiro, `transporte.responsavel`
+// resolve sem forçar um conceito fiscal de compra onde ele não existe.
+function dadosTransporte(p) {
+  var pedido = p || {};
+  var natureza = pedido.naturezaMovimentacao || 'COMPRA_KURYOS';
+  var responsavel = (pedido.transporte || {}).responsavel || '';
+  if (responsavel !== 'KURYOS' && responsavel !== 'REMETENTE') {
+    var tipoFrete = ((pedido.frete || {}).tipo || '').toUpperCase();
+    responsavel = tipoFrete === 'FOB' ? 'KURYOS' : (tipoFrete === 'CIF' ? 'REMETENTE' : '');
+  }
+  return { natureza: natureza, responsavel: responsavel };
+}
+
+function nomeOrigemPedido(p) {
+  var pedido = p || {};
+  return pedido.origemNome || pedido.fornecedorNome || 'Origem não informada';
+}
+
+function rotuloModalidadeColeta(modalidade) {
+  return ({ UBER: 'Uber', LALAMOVE: 'Lalamove', TRANSPORTADORA: 'Transportadora', VEICULO_PROPRIO: 'Veículo próprio', OUTRO: 'Outro' })[modalidade] || modalidade || '—';
+}
+
+function rotuloStatusColeta(status) {
+  return ({ SOLICITADA: 'Coleta solicitada', CONFIRMADA: 'Coleta confirmada', COLETADA: 'Coletada', CANCELADA: 'Coleta cancelada' })[status] || status || '—';
+}
+
+function fmtValorBRL(valor) {
+  var numero = Number(valor);
+  return isFinite(numero) ? numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—';
+}
+
+function modalidadeSugerida(prestadorNome) {
+  var nome = norm(prestadorNome || '');
+  if (nome.indexOf('lalamove') !== -1) return 'LALAMOVE';
+  if (nome.indexOf('uber') !== -1) return 'UBER';
+  return '';
+}
+
+// A previsão do PC é o ponto de partida operacional: para CIF, recebimento;
+// para FOB, a data em que o fornecedor deve liberar a carga para coleta.
+// Ela não substitui o agendamento, que a Logística confirma ou ajusta.
+function previsaoLogisticaHtml(p) {
+  if (!p || !p.dataPrevistaEntrega) return '';
+  var t = dadosTransporte(p);
+  var ehColetaKuryos = t.responsavel === 'KURYOS';
+  var texto = ehColetaKuryos ? 'Previsão de disponibilidade para coleta' : 'Previsão de recebimento';
+  return '<div class="field-hint" style="margin:7px 0">🗓️ ' + texto + ' (Compras): <b>' + fmtData(p.dataPrevistaEntrega) + '</b>' +
+    (p.prazoEntregaDiasUteis != null ? ' · prazo informado: ' + escapeHtml(String(p.prazoEntregaDiasUteis)) + ' dia(s) útil(eis)' : '') + '</div>';
+}
+
+function freteOperacionalHtml(p) {
+  var t = dadosTransporte(p);
+  var compra = t.natureza === 'COMPRA_KURYOS';
+  var origem = nomeOrigemPedido(p);
+  if (t.responsavel === 'KURYOS') {
+    return '<div class="agendamento-box">🚚 <b>' + (compra ? 'Frete FOB' : 'Remessa') + ' — responsabilidade da Kuryos.</b> ' +
+      'A Logística deve programar a <b>coleta</b> com transportadora/veículo.</div>';
+  }
+  if (t.responsavel === 'REMETENTE') {
+    return '<div class="agendamento-box">📦 <b>' + (compra ? 'Frete CIF' : 'Remessa') + ' — responsabilidade de ' + escapeHtml(origem) + '.</b> ' +
+      'A Logística deve aguardar a <b>entrega</b> e programar o recebimento.</div>';
+  }
+  return '<div class="agendamento-box" style="border-color:var(--warning);color:var(--warning)">⚠ <b>Responsabilidade do transporte não informada.</b> Confirme quem fará a coleta/entrega antes de programar.</div>';
+}
+
+function rotaConfirmadaPedido(p) {
+  var rota = p && p.rota ? RotasPC.normalizarRota(p.rota) : null;
+  return rota && rota.statusConfirmacao === 'CONFIRMADA' && RotasPC.validarRota(rota).pronto ? rota : null;
+}
+
+function rotaResumoCardHtml(p) {
+  var rota = rotaConfirmadaPedido(p);
+  if (!rota) return '<div class="agendamento-box" style="border-color:var(--warning);color:var(--warning)">⚠ <b>Rota pendente no Pedido de Compra.</b> Confirme origem e destino antes de agendar.</div>';
+  return '<div class="agendamento-box" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px">' +
+    '<div><b>Origem confirmada no PC</b><br>' + escapeHtml(rota.origem.nome || '—') + '<br><span class="field-hint">' + escapeHtml(RotasPC.formatarEndereco(rota.origem) || '—') + '</span></div>' +
+    '<div><b>Destino confirmado no PC</b><br>' + escapeHtml(rota.destino.nome || '—') + '<br><span class="field-hint">' + escapeHtml(RotasPC.formatarEndereco(rota.destino) || '—') + '</span></div>' +
+  '</div>';
+}
+
+function camposLocalAgendamentoHtml(prefix, titulo) {
+  return '<div style="border:1px solid var(--border);border-radius:10px;padding:10px"><b>' + escapeHtml(titulo) + '</b><div class="form-grid" style="margin-top:8px">' +
+    '<div class="form-group"><label>Local / empresa *</label><input id="' + prefix + 'Nome"></div>' +
+    '<div class="form-group"><label>CEP *</label><input id="' + prefix + 'Cep" maxlength="9"></div>' +
+    '<div class="form-group"><label>Logradouro *</label><input id="' + prefix + 'Logradouro"></div>' +
+    '<div class="form-group"><label>Número *</label><input id="' + prefix + 'Numero" placeholder="ou S/N"></div>' +
+    '<div class="form-group"><label>Complemento</label><input id="' + prefix + 'Complemento"></div>' +
+    '<div class="form-group"><label>Bairro *</label><input id="' + prefix + 'Bairro"></div>' +
+    '<div class="form-group"><label>Cidade *</label><input id="' + prefix + 'Cidade"></div>' +
+    '<div class="form-group"><label>UF *</label><input id="' + prefix + 'Uf" maxlength="2"></div>' +
+    '<div class="form-group"><label>Contato</label><input id="' + prefix + 'ContatoNome"></div>' +
+    '<div class="form-group"><label>Telefone</label><input id="' + prefix + 'ContatoTelefone"></div>' +
+    '<div class="form-group"><label>Horário</label><input id="' + prefix + 'HorarioAtendimento"></div>' +
+    '<div class="form-group full"><label>Referência</label><input id="' + prefix + 'Referencia"></div>' +
+    '<div class="form-group full"><label>Instruções</label><textarea id="' + prefix + 'Instrucoes" rows="2"></textarea></div>' +
+  '</div></div>';
+}
+
+var agRotaBase = null;
+var agRotaEfetivaBase = null;
+
+function resumoLocalAgendamento(titulo, local, origem) {
+  var mapa = RotasPC.urlMapa(local);
+  return '<div style="border:1px solid var(--border);border-radius:10px;padding:10px"><b>' + escapeHtml(titulo) + '</b>' +
+    '<div style="font-size:12.5px;line-height:1.5;margin-top:4px;white-space:pre-line">' + escapeHtml(RotasPC.resumoLocal(local) || 'Endereço não informado') + '</div>' +
+    '<div style="display:flex;gap:6px;margin-top:7px"><button type="button" class="btn btn-ghost btn-sm ag-copy-rota" data-lado="' + (origem ? 'origem' : 'destino') + '">Copiar</button>' +
+    (mapa ? '<a class="btn btn-ghost btn-sm" href="' + escapeAttr(mapa) + '" target="_blank" rel="noopener">Abrir mapa</a>' : '') + '</div></div>';
+}
+
+function renderRotaAgendamento(p) {
+  var pcRota = rotaConfirmadaPedido(p);
+  agRotaBase = pcRota || RotasPC.rotaInicial(p, null);
+  var ag = p.agendamento || {};
+  agRotaEfetivaBase = ag.rotaEfetiva ? RotasPC.normalizarRota(ag.rotaEfetiva) : RotasPC.normalizarRota(agRotaBase);
+  var corrigida = pcRota && !RotasPC.rotasIguais(agRotaEfetivaBase, pcRota);
+  var box = document.getElementById('agRotaBox');
+  box.innerHTML = '<div class="agendamento-box" style="margin:0">' +
+    '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><b>' + (pcRota ? 'Rota confirmada no Pedido de Compra' : 'Rota pendente no Pedido de Compra') + '</b><br><span class="field-hint">' +
+      (pcRota ? 'A agenda usa este snapshot; alterações de cadastro não mudam o pedido.' : 'Pedido antigo ou incompleto: preencha a exceção operacional antes de agendar.') + '</span></div>' +
+      '<button type="button" class="btn btn-ghost btn-sm" id="agEditarRota">' + (pcRota ? 'Corrigir para esta viagem' : 'Completar rota') + '</button></div>' +
+    (corrigida ? '<div style="margin-top:8px;color:var(--warning)"><b>Exceção operacional ativa nesta viagem.</b> <button type="button" class="btn btn-ghost btn-sm" id="agVoltarRotaPc">Voltar à rota do PC</button></div>' : '') +
+    '<div id="agRotaResumo" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;margin-top:9px">' +
+      resumoLocalAgendamento('Origem', agRotaEfetivaBase.origem, true) + resumoLocalAgendamento('Destino', agRotaEfetivaBase.destino, false) + '</div>' +
+    '<div id="agRotaEditor" style="display:none;margin-top:10px">' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px">' + camposLocalAgendamentoHtml('agOrigem', 'Origem efetiva') + camposLocalAgendamentoHtml('agDestino', 'Destino efetivo') + '</div>' +
+      '<div class="form-group full" style="margin-top:10px"><label>Motivo da exceção *</label><textarea id="agMotivoRota" rows="2" placeholder="Explique por que esta viagem não seguirá exatamente a rota do PC (mínimo 10 caracteres)"></textarea></div>' +
+      '<div class="field-hint">Exceção operacional — não altera o cadastro nem o Pedido de Compra.</div>' +
+    '</div></div>';
+  document.getElementById('agEditarRota').addEventListener('click', function() {
+    document.getElementById('agRotaEditor').style.display = '';
+    RotasPC.preencherEditor('agOrigem', agRotaEfetivaBase.origem);
+    RotasPC.preencherEditor('agDestino', agRotaEfetivaBase.destino);
+  });
+  var voltar = document.getElementById('agVoltarRotaPc');
+  if (voltar) voltar.addEventListener('click', function() { agRotaEfetivaBase = RotasPC.normalizarRota(pcRota); renderRotaAgendamento(Object.assign({}, p, {agendamento: Object.assign({}, ag, {rotaEfetiva: pcRota})})); });
+  box.querySelectorAll('.ag-copy-rota').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var txt = RotasPC.resumoLocal(btn.getAttribute('data-lado') === 'origem' ? agRotaEfetivaBase.origem : agRotaEfetivaBase.destino);
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function() { showAlert('Endereço copiado.', 'success'); });
+      else window.prompt('Copie o endereço:', txt);
+    });
+  });
+}
+
+// Resumo visual do checklist de etiqueta direto no card do PC -- não trava
+// nada, só dá visibilidade de quem já conferiu e se sobrou pendência.
+function checklistBadgeHtml(p) {
+  var cl = p.checklistEtiqueta;
+  if (!cl) return '<div class="field-hint" style="margin:6px 0">🏷️ Etiqueta ainda não conferida.</div>';
+  var total = PADRAO_ETIQUETA_FORNECEDOR.length;
+  var okCount = Object.values(cl.campos || {}).filter(Boolean).length;
+  var completo = okCount === total;
+  return '<div class="field-hint" style="margin:6px 0">🏷️ Etiqueta conferida por ' + escapeHtml(cl.conferidoPor || '—') +
+    ' (' + fmtData(cl.conferidoEm) + ') -- ' + okCount + '/' + total + ' campos' +
+    (completo ? ' <span style="color:var(--success)">✓ completo</span>' : ' <span style="color:var(--warning)">⚠ pendência</span>') + '</div>';
+}
+
+/* ══════════════ Aba Histórico ══════════════ */
+function renderHistoricoList() {
+  var box = document.getElementById('historicoList');
+  var recebimentos = [];
+  Object.entries(allPedidosCompra).forEach(function(pcEntry) {
+    Object.entries(pcEntry[1].recebimentos || {}).forEach(function(recEntry) {
+      recebimentos.push({pedidoKey:pcEntry[0], pedido:pcEntry[1], recebimentoKey:recEntry[0], recebimento:recEntry[1]});
+    });
+  });
+  recebimentos.sort(function(a, b) { return (b.recebimento.criadoEm || b.recebimento.data || '').localeCompare(a.recebimento.criadoEm || a.recebimento.data || ''); });
+  if (!recebimentos.length) {
+    box.innerHTML = '<div class="card"><div class="no-data">Nenhum recebimento registrado ainda.</div></div>';
+    return;
+  }
+  var totalRecebimentos = recebimentos.length;
+  recebimentos = recebimentos.slice(0, historicoLimite);
+  box.innerHTML = '<div class="field-hint" style="margin:0 0 10px">Exibindo ' + recebimentos.length + ' de ' + totalRecebimentos + ' recebimento(s), do mais recente para o mais antigo.</div>' + recebimentos.map(function(reg) {
+    var rec = reg.recebimento, cancelado = rec.status === 'CANCELADO';
+    var linhas = Object.entries(rec.itensRecebidos || {});
+    var operavel = !!rec.idempotencyKey && linhas.length > 0 && linhas.every(function(entry) { return !!entry[1].loteKey; });
+    var itensHtml = linhas.map(function(entry) {
+      var l = entry[1], q = l.entradaQualidade || {}, disponivelDevolver = Math.max(0, Number(l.qtdRecebidaAgora || 0) - Number(l.qtdDevolvida || 0));
+      return '<div style="padding:8px 0;border-top:1px solid var(--tint-gray-bg);display:flex;justify-content:space-between;gap:10px;align-items:center">' +
+        '<div><b>' + escapeHtml(q.loteInterno || 'Legado sem AK automático') + '</b> · ' + escapeHtml(l.materialCodigo || '') + ' — ' + escapeHtml(l.materialNome || '') +
+        '<div class="field-hint">Lote fornecedor: ' + escapeHtml(q.loteOrigem || '—') + ' · ' + fmtNum(l.qtdRecebidaAgora) + ' ' + escapeHtml(l.unidade || '') +
+        (l.qtdDevolvida ? ' · devolvido: ' + fmtNum(l.qtdDevolvida) : '') + '</div></div>' +
+        (!cancelado && operavel && q.loteInterno && l.loteKey && disponivelDevolver > 0 ? '<button class="btn btn-ghost btn-sm btn-devolver-rec" data-pc="' + escapeAttr(reg.pedidoKey) + '" data-rec="' + escapeAttr(reg.recebimentoKey) + '" data-linha="' + escapeAttr(entry[0]) + '" data-max="' + escapeAttr(String(disponivelDevolver)) + '">Devolver</button>' : '') + '</div>';
+    }).join('');
+    return '<div class="pc-card"><div class="pc-card-head"><div><div class="pc-titulo">' + escapeHtml(reg.pedido.numeroFormatado || reg.pedidoKey) + ' — ' + escapeHtml(nomeOrigemPedido(reg.pedido)) + '</div>' +
+      '<div class="pc-sub">Recebido em ' + fmtData(rec.data || rec.criadoEm) + ' · NF ' + escapeHtml(rec.notaFiscal || '—') + ' · por ' + escapeHtml(rec.recebidoPor || '—') + '</div></div>' +
+      '<span class="badge ' + (cancelado ? 'badge-red' : 'badge-green') + '">' + (cancelado ? 'Cancelado' : 'Recebido') + '</span></div>' + itensHtml +
+      '<div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-ghost btn-sm btn-etiquetas-rec" data-pc="' + escapeAttr(reg.pedidoKey) + '" data-rec="' + escapeAttr(reg.recebimentoKey) + '">🏷️ Reimprimir etiquetas</button>' +
+      (!cancelado && operavel ? '<button class="btn btn-ghost btn-sm btn-cancelar-rec" style="color:var(--danger)" data-pc="' + escapeAttr(reg.pedidoKey) + '" data-rec="' + escapeAttr(reg.recebimentoKey) + '">Cancelar recebimento</button>' : '') + '</div></div>';
+  }).join('') + (historicoLimite < totalRecebimentos ? '<button id="btnMaisHistorico" class="btn btn-ghost" style="width:100%;justify-content:center">Mostrar mais recebimentos</button>' : '');
+  box.querySelectorAll('.btn-etiquetas-rec').forEach(function(btn) { btn.addEventListener('click', function() { reimprimirRecebimento(btn.dataset.pc, btn.dataset.rec); }); });
+  box.querySelectorAll('.btn-cancelar-rec').forEach(function(btn) { btn.addEventListener('click', function() { cancelarRecebimentoTela(btn.dataset.pc, btn.dataset.rec); }); });
+  box.querySelectorAll('.btn-devolver-rec').forEach(function(btn) { btn.addEventListener('click', function() { devolverRecebimentoTela(btn.dataset.pc, btn.dataset.rec, btn.dataset.linha, Number(btn.dataset.max)); }); });
+  var mais = document.getElementById('btnMaisHistorico');
+  if (mais) mais.addEventListener('click', function() { historicoLimite += 100; renderHistoricoList(); });
+}
+
+function lotesEtiquetaDoRecebimento(pedidoKey, recebimentoKey) {
+  var p = allPedidosCompra[pedidoKey] || {}, rec = p.recebimentos && p.recebimentos[recebimentoKey] || {};
+  return Object.values(rec.itensRecebidos || {}).map(function(l) {
+    var q = l.entradaQualidade || {};
+    return {loteInterno:q.loteInterno, loteOrigem:q.loteOrigem, materialCodigo:l.materialCodigo, materialNome:l.materialNome,
+      quantidade:l.qtdRecebidaAgora, qtdVolumes:q.qtdVolumes || 1, unidade:l.unidade, enderecoCodigo:q.enderecoCodigo || '', dataRecebimento:rec.data,
+      dataValidade:q.dataValidade, fornecedorNome:p.fornecedorNome || p.origemNome, notaFiscal:rec.notaFiscal};
+  }).filter(function(l) { return l.loteInterno; });
+}
+function reimprimirRecebimento(pedidoKey, recebimentoKey) { imprimirEtiquetasRecebimento(lotesEtiquetaDoRecebimento(pedidoKey, recebimentoKey)); }
+function cancelarRecebimentoTela(pedidoKey, recebimentoKey) {
+  var motivo = window.prompt('Informe o motivo do cancelamento. Só é permitido antes da análise ou movimentação dos lotes:');
+  if (!motivo || !motivo.trim()) return;
+  functionsInstance.httpsCallable('cancelarRecebimento')({pedidoKey:pedidoKey, recebimentoKey:recebimentoKey, motivo:motivo.trim()})
+    .then(function() { showAlert('Recebimento cancelado e saldos estornados.', 'success'); })
+    .catch(function(err) { showAlert(err.message || 'Não foi possível cancelar.', 'danger'); });
+}
+function devolverRecebimentoTela(pedidoKey, recebimentoKey, linhaKey, maximo) {
+  var qtd = Number(window.prompt('Quantidade a devolver (máximo ' + fmtNum(maximo) + '):', String(maximo)));
+  if (!(qtd > 0)) return;
+  var motivo = window.prompt('Informe o motivo da devolução ao fornecedor:');
+  if (!motivo || !motivo.trim()) return;
+  var operacaoKey = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : db.ref('devolucoes_operacoes').push().key.replace(/[^A-Za-z0-9_-]/g, '');
+  functionsInstance.httpsCallable('registrarDevolucaoRecebimento')({pedidoKey:pedidoKey, recebimentoKey:recebimentoKey, linhaKey:linhaKey, quantidade:qtd, motivo:motivo.trim(), idempotencyKey:operacaoKey})
+    .then(function() { showAlert('Devolução registrada, estoque baixado e saldo do pedido reaberto.', 'success'); })
+    .catch(function(err) { showAlert(err.message || 'Não foi possível registrar a devolução.', 'danger'); });
+}
+
+/* ══════════════ Modal Agendar ══════════════ */
+function openModalAgendar(key) {
+  agendandoKey = key;
+  var p = allPedidosCompra[key];
+  if (!p) return;
+  document.getElementById('agendarPcInfo').textContent = p.numeroFormatado + ' — ' + nomeOrigemPedido(p);
+  var transporte = dadosTransporte(p);
+  var ehColetaKuryos = transporte.responsavel === 'KURYOS';
+  document.getElementById('modalAgendarTitulo').textContent = ehColetaKuryos ? 'Programar Coleta' : 'Agendar Entrega';
+  document.getElementById('agDataLabel').textContent = ehColetaKuryos ? 'Data programada da coleta *' : 'Data agendada da entrega *';
+  document.getElementById('agFreteInfo').innerHTML = freteOperacionalHtml(p);
+  renderRotaAgendamento(p);
+  var ag = p.agendamento || {};
+  var coleta = ag.coleta || {};
+  var previsaoPc = p.dataPrevistaEntrega ? p.dataPrevistaEntrega.slice(0, 10) : '';
+  document.getElementById('agData').value = ag.dataAgendada ? ag.dataAgendada.slice(0, 10) : previsaoPc;
+  document.getElementById('agDataHint').textContent = previsaoPc
+    ? (ehColetaKuryos
+      ? 'Sugerida pela previsão de disponibilidade do fornecedor em Compras. Confirme ou ajuste a coleta.'
+      : 'Sugerida pela previsão de recebimento informada em Compras. Confirme ou ajuste a entrega.')
+    : 'Nenhuma previsão foi informada em Compras.';
+  document.getElementById('agJanela').value = ag.janela || 'dia_todo';
+  refreshTransportadoraSelect(coleta.prestadorKey || ag.prestadorKey || ag.transportadora || '');
+  document.getElementById('agMotorista').value = ag.motorista || '';
+  document.getElementById('agPlaca').value = ag.placa || '';
+  document.getElementById('agColetaFields').style.display = ehColetaKuryos ? '' : 'none';
+  document.getElementById('agModalidade').value = coleta.modalidade || modalidadeSugerida(coleta.prestadorNome || ag.transportadora) || '';
+  document.getElementById('agStatusColeta').value = coleta.status || 'SOLICITADA';
+  document.getElementById('agValorFrete').value = coleta.valorNegociado != null ? coleta.valorNegociado : '';
+  document.getElementById('agReferenciaColeta').value = coleta.referencia || '';
+  document.getElementById('agObservacoes').value = ag.observacoes || '';
+  document.getElementById('modalAgendar').classList.add('open');
+}
+function closeModalAgendar() { document.getElementById('modalAgendar').classList.remove('open'); agendandoKey = null; agRotaBase = null; agRotaEfetivaBase = null; }
+function saveAgendar() {
+  var data = document.getElementById('agData').value;
+  if (!data) { showAlert('Informe a data agendada.', 'danger'); return; }
+  var p = allPedidosCompra[agendandoKey] || {};
+  var agAnterior = p.agendamento || {};
+  var transporte = dadosTransporte(p);
+  var ehColetaKuryos = transporte.responsavel === 'KURYOS';
+  var prestadorSelect = document.getElementById('agTransportadora');
+  var prestadorKey = prestadorSelect.value;
+  var prestador = allTransportadoras[prestadorKey];
+  var prestadorNome = prestador ? nomePrestador(prestador) : prestadorKey;
+  var valorFrete = document.getElementById('agValorFrete').value;
+  var coleta = ehColetaKuryos ? {
+    modalidade: document.getElementById('agModalidade').value || null,
+    prestadorKey: prestador ? prestadorKey : null,
+    prestadorNome: prestadorNome || null,
+    status: document.getElementById('agStatusColeta').value || 'SOLICITADA',
+    valorNegociado: valorFrete === '' ? null : Number(valorFrete),
+    referencia: document.getElementById('agReferenciaColeta').value.trim() || null
+  } : null;
+  var editorRota = document.getElementById('agRotaEditor');
+  var editandoRota = editorRota && editorRota.style.display !== 'none';
+  var rotaEfetiva = RotasPC.normalizarRota(agRotaEfetivaBase || agRotaBase || {});
+  if (editandoRota) {
+    rotaEfetiva.origem = RotasPC.lerEditor('agOrigem', rotaEfetiva.origem);
+    rotaEfetiva.destino = RotasPC.lerEditor('agDestino', rotaEfetiva.destino);
+  }
+  var validaRota = RotasPC.validarRota(rotaEfetiva);
+  if (!validaRota.pronto) {
+    showAlert('Não é possível agendar sem a rota completa: ' + validaRota.faltando.join(', ') + '.', 'danger');
+    return;
+  }
+  var rotaDoPcConfirmada = rotaConfirmadaPedido(p);
+  var divergeDoPc = !rotaDoPcConfirmada || !RotasPC.rotasIguais(rotaEfetiva, rotaDoPcConfirmada);
+  var mesmaExcecaoAnterior = agAnterior.rotaEfetiva && RotasPC.rotasIguais(rotaEfetiva, agAnterior.rotaEfetiva);
+  var motivoRota = editandoRota ? document.getElementById('agMotivoRota').value.trim() : '';
+  if (divergeDoPc && !mesmaExcecaoAnterior && motivoRota.length < 10) {
+    showAlert('Informe um motivo com ao menos 10 caracteres para a exceção de rota.', 'danger');
+    return;
+  }
+  var alteracoesRota = Object.assign({}, agAnterior.alteracoesRota || {});
+  if (divergeDoPc && !mesmaExcecaoAnterior) {
+    var alteracaoKey = db.ref('pedidos_compra/' + agendandoKey + '/agendamento/alteracoesRota').push().key;
+    alteracoesRota[alteracaoKey] = {
+      rotaDoPedido: RotasPC.normalizarRota(agRotaBase || {}), rotaEfetiva: rotaEfetiva,
+      motivo: motivoRota, alteradoPor: currentUserNome(), alteradoEm: new Date().toISOString()
+    };
+  }
+  var payload = {
+    dataAgendada: data,
+    janela: document.getElementById('agJanela').value,
+    transportadora: prestadorNome || '',
+    prestadorKey: prestador ? prestadorKey : null,
+    motorista: document.getElementById('agMotorista').value.trim(),
+    placa: document.getElementById('agPlaca').value.trim(),
+    coleta: coleta,
+    observacoes: document.getElementById('agObservacoes').value.trim(),
+    naturezaMovimentacao: transporte.natureza,
+    responsavelTransporte: transporte.responsavel || null,
+    previsaoOrigemPc: p.dataPrevistaEntrega || null,
+    acaoLogistica: transporte.responsavel === 'KURYOS' ? 'PROGRAMAR_COLETA' : (transporte.responsavel === 'REMETENTE' ? 'AGUARDAR_ENTREGA' : null),
+    rotaEfetiva: rotaEfetiva,
+    rotaConfirmadaNoPc: !!rotaDoPcConfirmada,
+    rotaConfirmadaNoPcEm: rotaDoPcConfirmada ? rotaDoPcConfirmada.confirmadaEm : null,
+    alteracoesRota: Object.keys(alteracoesRota).length ? alteracoesRota : null,
+    agendadoPor: currentUserNome(),
+    agendadoEm: new Date().toISOString()
+  };
+  document.getElementById('modalAgendarSave').disabled = true;
+  db.ref('pedidos_compra/' + agendandoKey + '/agendamento').set(payload)
+    .then(function() { showAlert(ehColetaKuryos ? 'Coleta programada com sucesso!' : 'Entrega agendada com sucesso!', 'success'); closeModalAgendar(); })
+    .catch(function(err) { showAlert('Erro: ' + err.message, 'danger'); })
+    .finally(function() { document.getElementById('modalAgendarSave').disabled = false; });
+}
+
+/* ══════════════ Modal Receber ══════════════ */
+function materialRecebimentoPorCodigo(codigo) {
+  return allMateriais[sanitizeKey(codigo)] || Object.values(allMateriais).find(function(m) { return m && m.mpCodigo === codigo; }) || null;
+}
+function tipoMaterialRecebimento(codigo, material) {
+  var tipo = material && material.tipo;
+  if (tipo === 'MPGR' || tipo === 'MPES') return 'MATERIA_PRIMA';
+  if (tipo === 'EP' || tipo === 'ES' || tipo === 'ET') return 'EMBALAGEM';
+  var prefixo = String(codigo || '').toUpperCase();
+  if (prefixo.indexOf('MP') === 0) return 'MATERIA_PRIMA';
+  if (prefixo.indexOf('EP') === 0 || prefixo.indexOf('ES') === 0 || prefixo.indexOf('ET') === 0) return 'EMBALAGEM';
+  return '';
+}
+function codigoFornecedorRecebimento(material, fornecedorKey) {
+  var vinculo = material && material.fornecedores && material.fornecedores[fornecedorKey];
+  return vinculo && vinculo.codigoFornecedor ? String(vinculo.codigoFornecedor) : '';
+}
+function opcoesAvaliacaoRecebimento() {
+  return '<option value="">Selecione…</option><option value="5">5 — Ótimo</option><option value="4">4 — Bom</option><option value="3">3 — Regular</option><option value="2">2 — Ruim</option><option value="1">1 — Péssimo</option>';
+}
+/* Amostragem por atributos: √n + 1 sobre a QUANTIDADE RECEBIDA do lote,
+   arredondado para cima. Decisão do usuário (2026-09-14): a regra vale
+   sempre, então o campo é calculado e travado -- mesmo tratamento do lote
+   interno e do SKU interno. A coleta é destrinchada entre os volumes do
+   lote: o total sai de uma amostra por volume até fechar a conta, e é isso
+   que a dica embaixo do campo mostra.
+   O valor gravado é recalculado na leitura da tela (lerItensRecebimentoDaTela),
+   não lido do input -- o campo é só o espelho, e assim um DOM desatualizado
+   nunca vira número errado na fila da Qualidade. */
+function amostragemDoLote(qtd) {
+  var n = Number(qtd);
+  if (!isFinite(n) || n <= 0) return 0;
+  return Math.ceil(Math.sqrt(n) + 1);
+}
+function atualizarAmostragemLote(row) {
+  if (!row) return;
+  var campoQtd = row.querySelector('.rc-qtd'), campoVol = row.querySelector('.rc-volumes');
+  var qtd = Number((campoQtd && campoQtd.value) || 0);
+  var volumes = Math.max(1, Math.floor(Number((campoVol && campoVol.value) || 1)) || 1);
+  var total = amostragemDoLote(qtd);
+  var campo = row.querySelector('.rc-amostragem');
+  if (campo) campo.value = String(total);
+  var hint = row.querySelector('.rc-amostragem-hint');
+  if (!hint) return;
+  hint.textContent = total > 0
+    ? '√' + fmtNum(qtd) + ' + 1 → ' + fmtNum(total) + ' (arredondado para cima). Colete de todos os ' +
+      fmtNum(volumes) + ' volume(s), cerca de ' + fmtNum(Math.ceil(total / volumes)) + ' de cada.'
+    : 'Informe a quantidade recebida para calcular.';
+}
+function htmlLoteRecebimento(qtd, unidade, removivel) {
+  return '<div class="rc-lote-row">' +
+    (removivel ? '<button type="button" class="rc-lote-remove" title="Remover este lote">Remover</button>' : '') +
+    '<div class="rc-lote-title">Lote físico do fornecedor</div><div class="rc-form-grid">' +
+      '<div class="form-group"><label>Lote do fornecedor *</label><input class="rc-lote" type="text" placeholder="Use NÃO INFORMADO quando não existir"></div>' +
+      '<div class="form-group"><label>Lote interno</label><div class="rc-auto-lote">Gerado automaticamente ao confirmar</div></div>' +
+      '<div class="form-group"><label>Quantidade deste lote *</label><input type="number" class="rc-qtd" min="0" step="any" value="' + escapeAttr(String(qtd || 0)) + '"><div class="field-hint">' + escapeHtml(unidade || '') + '</div></div>' +
+      '<div class="form-group"><label>Volumes / embalagens *</label><input type="number" class="rc-volumes" min="1" step="1" value="1"><div class="field-hint">Gera uma etiqueta por volume.</div></div>' +
+      '<div class="form-group"><label>Quantidade de amostragem *</label><input class="rc-readonly rc-amostragem" type="number" readonly value="0"><div class="field-hint rc-amostragem-hint">Informe a quantidade recebida para calcular.</div></div>' +
+      '<div class="form-group"><label>Certificado do fornecedor *</label><select class="rc-certificado"><option value="">Selecione…</option><option value="SIM">Sim</option><option value="NAO">Não</option></select></div>' +
+      '<div class="form-group"><label>Condições da embalagem *</label><select class="rc-cond-embalagem">' + opcoesAvaliacaoRecebimento() + '</select></div>' +
+      '<div class="form-group"><label>Validade</label><input type="date" class="rc-validade"></div>' +
+      '<div class="form-group"><label>Endereço físico de entrada *</label>' + SeletorEndereco.campoHtml('rc-endereco', SeletorEndereco.docaPadrao(allEnderecosEstoque), allEnderecosEstoque, {titulo: 'Endereço de entrada do lote'}) + '<div class="field-hint">Padrão: Doca. Guarde depois em Estoque › Endereçamento, ou escolha a posição agora. Quarentena é status, não endereço.</div></div>' +
+    '</div></div>';
+}
+/* De quem é o material e para qual cliente/pedido -- definido em Compras, só
+   exibido aqui (a doca não sabe). PC incompleto não pode ser recebido: o
+   servidor recusa, e a tela já avisa e trava o botão antes. */
+function renderPropriedadeRecebimento(p) {
+  var box = document.getElementById('rcPropriedadeBox');
+  var btn = document.getElementById('modalReceberSave');
+  if (typeof PropriedadeEstoque === 'undefined') { box.innerHTML = ''; return null; }
+  var v = PropriedadeEstoque.validarVinculoPC(p);
+  var tipo = PropriedadeEstoque.propriedadeDoPC(p);
+  if (!v.ok) {
+    box.innerHTML = '<div class="rc-intro" style="border-color:var(--danger);background:color-mix(in srgb, var(--danger) 8%, var(--card))">' +
+      '<b>⚠ Este pedido ainda não pode ser recebido.</b> Compras precisa definir de quem é o material e o cliente/pedido de cada item:' +
+      '<ul style="margin:6px 0 0 18px">' + v.pendencias.map(function(t) { return '<li>' + escapeHtml(t) + '</li>'; }).join('') + '</ul></div>';
+    btn.disabled = true;
+    return {ok: false, tipo: tipo};
+  }
+  btn.disabled = false;
+  box.innerHTML = '<div class="rc-intro"><b>' + (tipo === PropriedadeEstoque.CLIENTE
+    ? '📦 Material de propriedade do cliente'
+    : '🏭 Material da Kuryos (estoque geral)') + '</b> — definido no Pedido de Compra. ' +
+    (tipo === PropriedadeEstoque.CLIENTE ? 'Só pode ser usado nos produtos e pedidos desse cliente.' : 'O cliente e o pedido abaixo são o destino da compra.') + '</div>';
+  return {ok: true, tipo: tipo};
+}
+function destinoItemRecebimentoHtml(vinculoPc, it) {
+  if (!vinculoPc || !vinculoPc.ok) return '';
+  var v = it.vinculo || {};
+  if (PropriedadeEstoque.vinculoGeral(v)) {
+    return '<div class="field-hint" style="margin:-4px 0 8px">Destino: <b>uso e consumo / estoque geral da Kuryos</b> (sem cliente e sem pedido)</div>';
+  }
+  return '<div class="field-hint" style="margin:-4px 0 8px">' +
+    (vinculoPc.tipo === PropriedadeEstoque.CLIENTE ? 'Proprietário' : 'Destino') + ': <b>' + escapeHtml(v.clienteNome || v.clienteKey || '—') + '</b>' +
+    ' · pedido' + ((v.pedidos || []).length > 1 ? 's' : '') + ' ' + escapeHtml((v.pedidos || []).join(', ')) + '</div>';
+}
+
+function openModalReceber(key) {
+  recebendoKey = key;
+  recebimentoIdempotencyKey = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : db.ref('recebimentos_operacoes').push().key.replace(/[^A-Za-z0-9_-]/g, '');
+  var p = allPedidosCompra[key];
+  if (!p) return;
+  document.getElementById('receberPcInfo').textContent = p.numeroFormatado + ' — ' + (p.fornecedorNome || p.origemNome || 'Origem não informada');
+  // Pergunta 7 do formulário de entrada. Já ia no dado (fornecedorKey/Nome no
+  // payload), mas não existia como campo na tela -- quem preenchia não via o
+  // que estava confirmando.
+  document.getElementById('rcFornecedor').value = p.fornecedorNome || p.origemNome || '';
+  document.getElementById('rcData').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('rcNotaFiscal').value = '';
+  document.getElementById('rcCondVeiculo').value = '';
+  document.getElementById('rcObservacoes').value = '';
+
+  SeletorEndereco.ligar(document.getElementById('modalReceber'), {fonte: fonteEnderecosRecebimento});
+  var vinculoPc = renderPropriedadeRecebimento(p);
+  var lista = document.getElementById('rcItensBody');
+  var itens = Object.entries(p.itens || {});
+  lista.innerHTML = itens.map(function(entry) {
+    var itemKey = entry[0], it = entry[1];
+    var qtd = parseFloat(it.qtd) || 0;
+    var qtdRec = parseFloat(it.qtdRecebida) || 0;
+    var restante = Math.max(0, qtd - qtdRec);
+    var material = materialRecebimentoPorCodigo(it.materialCodigo);
+    var tipo = tipoMaterialRecebimento(it.materialCodigo, material);
+    var skuFornecedor = codigoFornecedorRecebimento(material, p.fornecedorKey);
+    return '<div class="rc-item-card" data-item="' + escapeAttr(itemKey) + '">' +
+      '<div class="rc-item-head"><div class="rc-item-title">' + escapeHtml(it.materialCodigo) + ' — ' + escapeHtml(it.materialNome || '') + '</div>' +
+      '<div class="rc-item-progress">Pedido: ' + fmtNum(qtd) + ' ' + escapeHtml(it.unidade || '') + '<br>Já recebido: ' + fmtNum(qtdRec) + ' ' + escapeHtml(it.unidade || '') + '</div></div>' +
+      destinoItemRecebimentoHtml(vinculoPc, it) +
+      '<div class="rc-form-grid">' +
+        '<div class="form-group"><label>Tipo de material *</label><select class="rc-tipo"><option value="">Selecione…</option><option value="EMBALAGEM"' + (tipo === 'EMBALAGEM' ? ' selected' : '') + '>Embalagem</option><option value="MATERIA_PRIMA"' + (tipo === 'MATERIA_PRIMA' ? ' selected' : '') + '>Matéria-prima</option></select></div>' +
+        '<div class="form-group span-2"><label>Identificação do material *</label><input class="rc-identificacao" type="text" value="' + escapeAttr(it.materialNome || '') + '" placeholder="Descrição conferida na etiqueta"></div>' +
+        '<div class="form-group"><label>SKU interno</label><input class="rc-readonly rc-sku-interno" type="text" readonly value="' + escapeAttr(it.materialCodigo || '') + '"></div>' +
+        '<div class="form-group"><label>SKU do fornecedor *</label><input class="rc-sku-fornecedor" type="text" value="' + escapeAttr(skuFornecedor) + '" placeholder="Código na etiqueta/NF"></div>' +
+      '</div><div class="rc-lotes">' + htmlLoteRecebimento(restante, it.unidade || '', false) + '</div>' +
+      '<button type="button" class="btn btn-ghost btn-sm rc-add-lote" style="margin-top:10px">＋ Outro lote deste material</button></div>';
+  }).join('');
+  lista.querySelectorAll('.rc-add-lote').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var card = btn.closest('.rc-item-card');
+      card.querySelector('.rc-lotes').insertAdjacentHTML('beforeend', htmlLoteRecebimento(0, (p.itens[card.getAttribute('data-item')] || {}).unidade || '', true));
+      atualizarAmostragemLote(card.querySelector('.rc-lotes').lastElementChild);
+    });
+  });
+  lista.onclick = function(e) {
+    if (e.target.classList.contains('rc-lote-remove')) e.target.closest('.rc-lote-row').remove();
+  };
+  // oninput (não addEventListener) de propósito: openModalReceber roda a cada
+  // abertura do modal e listeners empilhariam.
+  lista.oninput = function(e) {
+    if (e.target.classList.contains('rc-qtd') || e.target.classList.contains('rc-volumes')) {
+      atualizarAmostragemLote(e.target.closest('.rc-lote-row'));
+    }
+  };
+  lista.querySelectorAll('.rc-lote-row').forEach(atualizarAmostragemLote);
+  document.getElementById('modalReceber').classList.add('open');
+}
+
+// WMS Fase 1: opções do <select> de endereço de destino, uma por posição
+// cadastrada em Endereços (cadastros.html) -- ordenado por código pra ficar
+// fácil de achar (1.1.1, 1.1.2, 1.1.3...). O vazio força uma escolha
+// consciente. Quarentena é status, não endereço: a Logística registra a
+// posição física real onde o material ficará.
+function fonteEnderecosRecebimento() { return {enderecos: allEnderecosEstoque, lotes: allEstoqueLotes}; }
+function closeModalReceber() { document.getElementById('modalReceber').classList.remove('open'); recebendoKey = null; }
+function lerItensRecebimentoDaTela() {
+  var linhas = [];
+  document.querySelectorAll('.rc-item-card').forEach(function(card) {
+    var comum = {
+      itemKey: card.getAttribute('data-item'), tipoMaterial: card.querySelector('.rc-tipo').value,
+      identificacaoMaterial: card.querySelector('.rc-identificacao').value.trim(),
+      skuInterno: card.querySelector('.rc-sku-interno').value.trim(),
+      skuFornecedor: card.querySelector('.rc-sku-fornecedor').value.trim()
+    };
+    card.querySelectorAll('.rc-lote-row').forEach(function(row) {
+      var qtd = Number(row.querySelector('.rc-qtd').value || 0);
+      if (qtd <= 0) return;
+      linhas.push(Object.assign({}, comum, {
+        loteOrigem: row.querySelector('.rc-lote').value.trim(), qtdRecebida: qtd,
+        qtdVolumes: Number(row.querySelector('.rc-volumes').value),
+        qtdAmostragem: amostragemDoLote(qtd),
+        certificadoFornecedor: row.querySelector('.rc-certificado').value,
+        condicoesEmbalagem: Number(row.querySelector('.rc-cond-embalagem').value),
+        dataValidade: row.querySelector('.rc-validade').value || null,
+        enderecoKey: row.querySelector('.rc-endereco').value
+      }));
+    });
+  });
+  return linhas;
+}
+function validarEntradaRecebimento(dados) {
+  if (!dados.data) return 'Informe a data do recebimento.';
+  if (!String(dados.notaFiscal || '').trim()) return 'Informe o número da nota fiscal. Quando não existir, registre “SEM NF”.';
+  if (![1, 2, 3, 4, 5].includes(Number(dados.condicoesVeiculo))) return 'Avalie as condições do veículo de 1 a 5.';
+  var qtdInvalida = (dados.itens || []).find(function(it) { return !isFinite(it.qtdRecebida) || Number(it.qtdRecebida) < 0; });
+  if (qtdInvalida) return 'A quantidade recebida de ' + (qtdInvalida.skuInterno || 'um item') + ' é inválida.';
+  var ativos = (dados.itens || []).filter(function(it) { return Number(it.qtdRecebida) > 0; });
+  if (!ativos.length) return 'Informe ao menos uma quantidade recebida maior que zero.';
+  for (var i = 0; i < ativos.length; i++) {
+    var it = ativos[i], rotulo = it.skuInterno || ('item ' + (i + 1));
+    if (!isFinite(it.qtdRecebida) || it.qtdRecebida <= 0) return 'A quantidade recebida de ' + rotulo + ' é inválida.';
+    if (it.tipoMaterial !== 'EMBALAGEM' && it.tipoMaterial !== 'MATERIA_PRIMA') return 'Selecione o tipo de material de ' + rotulo + '.';
+    if (!it.identificacaoMaterial) return 'Informe a identificação do material de ' + rotulo + '.';
+    if (!it.skuFornecedor) return 'Informe o SKU do fornecedor de ' + rotulo + '.';
+    if (!it.loteOrigem) return 'Informe o lote do fornecedor de ' + rotulo + '.';
+    if (!isFinite(it.qtdAmostragem) || it.qtdAmostragem < 0) return 'Informe uma quantidade de amostragem válida para ' + rotulo + '.';
+    if (it.certificadoFornecedor !== 'SIM' && it.certificadoFornecedor !== 'NAO') return 'Informe se ' + rotulo + ' veio com certificado do fornecedor.';
+    if (![1, 2, 3, 4, 5].includes(Number(it.condicoesEmbalagem))) return 'Avalie as condições da embalagem de ' + rotulo + ' de 1 a 5.';
+    if (!it.enderecoKey) return 'Informe o endereço físico de entrada de ' + rotulo + '.';
+  }
+  return null;
+}
+// Achado do Auditor: a versão anterior lia `qtdRecebida` do estado em
+// memória (`allPedidosCompra`, populado pelo listener) e gravava um valor
+// ABSOLUTO novo via `.update()` simples -- sem proteção contra dois usuários
+// de logística registrando recebimento do MESMO Pedido de Compra quase ao
+// mesmo tempo. Isso perdia atualizações de duas formas: (1) soma de
+// quantidade do MESMO item (o segundo `update()` sobrescrevia o total do
+// primeiro); (2) recálculo de `status` mesmo entre itens DIFERENTES do
+// mesmo PC (cada usuário calculava "RECEBIDO_PARCIAL" com base no que via
+// localmente, e o último a escrever vencia, podendo travar o status mesmo
+// com todos os itens 100% recebidos). Agora tudo -- soma dos itens,
+// registro do recebimento e recálculo de status -- acontece dentro de
+// `.transaction()` no nó INTEIRO do Pedido de Compra: o Firebase reexecuta
+// a função automaticamente com o dado mais recente do servidor sempre que
+// há conflito, então o resultado final sempre reflete TODOS os
+// recebimentos concorrentes, não só o último a chegar.
+function saveReceberLegado() {
+  var p = allPedidosCompra[recebendoKey];
+  if (!p) return;
+  // Captura antes de fechar o modal. closeModalReceber limpa recebendoKey;
+  // usar a global depois disso criava lote sem origemRef e quebrava o elo
+  // automático da Qualidade com o fornecedor e o Pedido de Compra.
+  var pedidoKeyRecebimento = recebendoKey;
+  var data = document.getElementById('rcData').value;
+  var notaFiscal = document.getElementById('rcNotaFiscal').value.trim();
+  var condicoesVeiculo = Number(document.getElementById('rcCondVeiculo').value);
+  var itensEntrada = lerItensRecebimentoDaTela();
+  var erroLocal = validarEntradaRecebimento({ data:data, notaFiscal:notaFiscal, condicoesVeiculo:condicoesVeiculo, itens:itensEntrada });
+  if (erroLocal) { showAlert(erroLocal, 'danger'); return; }
+
+  var qtdsDigitadas = {}; // itemKey -> quantidade recebida nesta entrega
+  var dadosLotePorItem = {};
+  itensEntrada.filter(function(it) { return it.qtdRecebida > 0; }).forEach(function(it) {
+    qtdsDigitadas[it.itemKey] = it.qtdRecebida;
+    dadosLotePorItem[it.itemKey] = {
+      tipoMaterial: it.tipoMaterial,
+      identificacaoMaterial: it.identificacaoMaterial,
+      skuInterno: it.skuInterno,
+      skuFornecedor: it.skuFornecedor,
+      loteOrigem: it.loteOrigem,
+      loteInterno: it.loteInterno,
+      qtdAmostragem: it.qtdAmostragem,
+      certificadoFornecedor: it.certificadoFornecedor === 'SIM',
+      condicoesVeiculo: condicoesVeiculo,
+      condicoesEmbalagem: it.condicoesEmbalagem,
+      dataValidade: it.dataValidade,
+      enderecoKey: it.enderecoKey,
+      notaFiscal: notaFiscal,
+      dataRecebimento: data,
+      fornecedorKey: p.fornecedorKey || null,
+      fornecedorNome: p.fornecedorNome || p.origemNome || null
+    };
+  });
+
+  document.getElementById('modalReceberSave').disabled = true;
+  var recKey = db.ref('pedidos_compra/' + pedidoKeyRecebimento + '/recebimentos').push().key;
+  var observacoes = document.getElementById('rcObservacoes').value.trim();
+  var recebidoPor = currentUserNome();
+  var erroExcedente = null; // preenchido dentro da transaction se algum item passar do total pedido
+  var itensRecebidosParaEstoque = null; // idem -- só o resultado da tentativa que de fato commitou importa
+
+  db.ref('pedidos_compra/' + pedidoKeyRecebimento).transaction(function(atual) {
+    if (!atual) return atual; // PC sumiu do banco entretanto -- aborta sem tocar em nada
+    erroExcedente = null; // a função pode rodar mais de uma vez em caso de conflito -- reseta a cada tentativa
+    var itens = atual.itens || {};
+    var itensRecebidos = {};
+
+    var itemKeys = Object.keys(qtdsDigitadas);
+    for (var i = 0; i < itemKeys.length; i++) {
+      var itemKey = itemKeys[i];
+      var it = itens[itemKey];
+      if (!it) continue;
+      var qtdAgora = qtdsDigitadas[itemKey];
+      var qtd = parseFloat(it.qtd) || 0;
+      var qtdRecAtual = parseFloat(it.qtdRecebida) || 0;
+      var novoTotal = qtdRecAtual + qtdAgora;
+      // Recebimento não pode ultrapassar o que foi pedido -- checado contra
+      // o valor mais atual do SERVIDOR (dentro da transaction), não contra
+      // o snapshot local que pode estar desatualizado por outro recebimento
+      // concorrente já commitado.
+      if (novoTotal > qtd + 0.0001) {
+        erroExcedente = 'Recebendo ' + fmtNum(qtdAgora) + ' de ' + it.materialCodigo + ' passaria do total pedido (' + fmtNum(qtd) + '). Máximo permitido agora: ' + fmtNum(Math.max(0, qtd - qtdRecAtual)) + '.';
+        return; // aborta a transaction sem gravar nada
+      }
+      itensRecebidos[itemKey] = {
+        materialCodigo: it.materialCodigo, materialNome: it.materialNome || '',
+        qtdRecebidaAgora: qtdAgora, unidade: it.unidade || '',
+        entradaQualidade: Object.assign({}, dadosLotePorItem[itemKey])
+      };
+      itens[itemKey] = Object.assign({}, it, {qtdRecebida: novoTotal});
+    }
+
+    atual.itens = itens;
+    if (!atual.recebimentos) atual.recebimentos = {};
+    atual.recebimentos[recKey] = {
+      data: data, notaFiscal: notaFiscal, itensRecebidos: itensRecebidos,
+      condicoesVeiculo: condicoesVeiculo,
+      observacoes: observacoes, recebidoPor: recebidoPor, criadoEm: new Date().toISOString()
+    };
+
+    var todosCompletos = true, algumRecebido = false;
+    Object.values(itens).forEach(function(it) {
+      var qtd = parseFloat(it.qtd) || 0;
+      var qtdRecFinal = parseFloat(it.qtdRecebida) || 0;
+      if (qtdRecFinal > 0) algumRecebido = true;
+      if (qtdRecFinal < qtd - 0.0001) todosCompletos = false;
+    });
+    atual.status = todosCompletos ? 'RECEBIDO_TOTAL' : (algumRecebido ? 'RECEBIDO_PARCIAL' : atual.status);
+    itensRecebidosParaEstoque = itensRecebidos;
+
+    return atual;
+  }).then(function(result) {
+    if (erroExcedente) { showAlert(erroExcedente, 'danger'); return; }
+    if (!result.committed) { showAlert('Não foi possível registrar o recebimento (o pedido pode ter sido removido). Atualize a lista e tente de novo.', 'danger'); return; }
+    // A confirmação visual só acontece depois do saldo e do lote em
+    // quarentena. Assim "recebido com sucesso" também significa que o item
+    // já está disponível na fila da Qualidade, não apenas dentro do PC.
+    var falhasIntegracao = [];
+    return Promise.all([
+      incrementarEstoque(itensRecebidosParaEstoque, 'recebimento_pc', pedidoKeyRecebimento).catch(function(err) {
+        console.error('Falha ao atualizar saldo de estoque:', err);
+        falhasIntegracao.push('saldo de estoque: ' + err.message);
+      }),
+      registrarPutawayRecebimento(itensRecebidosParaEstoque, dadosLotePorItem, recKey, pedidoKeyRecebimento).catch(function(err) {
+        console.error('Falha ao registrar putaway do recebimento:', err);
+        falhasIntegracao.push('fila da Qualidade/WMS: ' + err.message);
+      })
+    ]).then(function() {
+      closeModalReceber();
+      if (falhasIntegracao.length) {
+        showAlert('O recebimento foi gravado no Pedido de Compra, mas houve falha na integração com ' + falhasIntegracao.join(' e ') + '. Não registre a entrega novamente; acione o administrador.', 'danger');
+      } else {
+        showAlert('Recebimento registrado e enviado para a fila da Qualidade!', 'success');
+      }
+    });
+  }).catch(function(err) { showAlert('Erro: ' + err.message, 'danger'); })
+    .finally(function() { document.getElementById('modalReceberSave').disabled = false; });
+}
+
+// WMS Fase 1: cria o registro granular (estoque_lotes) pra cada item
+// recebido. itensRecebidos vem da MESMA transaction que já commitou o
+// recebimento (fonte de verdade); dadosLotePorItem carrega também a ficha
+// de entrada que a Qualidade recebe sem redigitação.
+function registrarPutawayRecebimento(itensRecebidos, dadosLotePorItem, recKey, pedidoKeyRecebimento) {
+  var recebidoPor = currentUserNome();
+  var itens = Object.entries(itensRecebidos || {}).filter(function(entry) {
+    return entry[1].qtdRecebidaAgora > 0 && dadosLotePorItem[entry[0]];
+  });
+  if (!itens.length) return Promise.resolve();
+  return Promise.all(itens.map(function(entry) {
+    var itemKey = entry[0], it = entry[1], dadosLote = dadosLotePorItem[itemKey];
+    var enderecoInfo = allEnderecosEstoque[dadosLote.enderecoKey];
+    return putawayEstoqueLote(db, 'material', it.materialCodigo, {
+      itemNome: it.materialNome, unidade: it.unidade,
+      loteOrigem: dadosLote.loteOrigem, loteInterno: dadosLote.loteInterno,
+      dataValidade: dadosLote.dataValidade || null,
+      dataRecebimento: dadosLote.dataRecebimento,
+      saldoLote: it.qtdRecebidaAgora, qtdOriginal: it.qtdRecebidaAgora,
+      enderecoKey: dadosLote.enderecoKey, enderecoCodigo: (enderecoInfo && enderecoInfo.codigo) || null,
+      origemTipo: 'recebimento_pc', origemRef: pedidoKeyRecebimento, recebimentoKey: recKey,
+      recebimento: {
+        tipoMaterial: dadosLote.tipoMaterial,
+        identificacaoMaterial: dadosLote.identificacaoMaterial,
+        skuInterno: dadosLote.skuInterno,
+        skuFornecedor: dadosLote.skuFornecedor,
+        loteInterno: dadosLote.loteInterno,
+        notaFiscal: dadosLote.notaFiscal,
+        qtdRecebida: it.qtdRecebidaAgora,
+        qtdAmostragem: dadosLote.qtdAmostragem,
+        certificadoFornecedor: dadosLote.certificadoFornecedor,
+        condicoesVeiculo: dadosLote.condicoesVeiculo,
+        condicoesEmbalagem: dadosLote.condicoesEmbalagem,
+        fornecedorKey: dadosLote.fornecedorKey,
+        fornecedorNome: dadosLote.fornecedorNome,
+        recebidoPor: recebidoPor,
+        recebidoEm: new Date().toISOString()
+      },
+      // Material recebido entra em QUARENTENA, não liberado -- decisão do
+      // usuário, e é o padrão da indústria cosmética (mesmo modelo de
+      // "estoque em inspeção" de SAP/TOTVS). O lote conta no estoque físico
+      // e aparece no endereço, mas sugerirAlocacaoFefo já filtra
+      // status === 'LIBERADO', então a Separação Guiada não o enxerga até a
+      // Qualidade liberar. O mecanismo já existia no sistema e nunca tinha
+      // sido usado; o formulário de entrada da Logística (planilha do CQ,
+      // 605 registros) mostra que a liberação é justamente o controle que
+      // hoje se perde -- Status estava preenchido em só 13% das entradas.
+      status: 'QUARENTENA',
+      criadoPor: recebidoPor
+    });
+  }));
+}
+
+/* ══════════════ Estoque (Fase 4a -- entrada) ══════════════ */
+// estoque/{materialKey} espelha a chave de materiais/{materialKey}
+// (sanitizeKey(mpCodigo), mesmo padrão usado pra gravar o material em
+// cadastros.html) -- não precisa carregar o cadastro inteiro aqui pra
+// resolver a chave. Cada item recebido soma no saldo via .transaction()
+// (dois recebimentos do mesmo material ao mesmo tempo, PCs diferentes,
+// não podem se perder um no outro).
+function incrementarEstoque(itensRecebidos, origemTipo, origemRef) {
+  var itens = Object.values(itensRecebidos || {}).filter(function(it) { return it.qtdRecebidaAgora > 0; });
+  return Promise.all(itens.map(function(it) {
+    return ajustarEstoque(db, it.materialCodigo, it.qtdRecebidaAgora, origemTipo, origemRef, { materialNome: it.materialNome, unidade: it.unidade });
+  }));
+}
+
+// Etiqueta do lote recebido (AK-…): modelo único do armazém em
+// shared/etiquetas-wms.js desde 29/09 -- código de barras na largura toda,
+// com margem branca, e QR ao lado do número (lê em térmica e celular,
+// ver run_etiquetas_leitura_test.js).
+function imprimirEtiquetasRecebimento(lotes) {
+  if (!lotes || !lotes.length) return;
+  if (!EtiquetasWMS.imprimir('recebimento', lotes, 'Etiquetas de recebimento')) {
+    showAlert('O navegador bloqueou a janela de etiquetas. Libere pop-ups e use Reimprimir no Histórico.', 'danger');
+  }
+}
+
+// Fluxo vigente: o navegador apenas coleta os dados. O servidor gera os AKs
+// e confirma PC + estoque + lotes + movimentos na mesma operação idempotente.
+function saveReceber() {
+  var p = allPedidosCompra[recebendoKey];
+  if (!p) return;
+  var pedidoKey = recebendoKey;
+  var payload = {
+    pedidoKey: pedidoKey,
+    idempotencyKey: recebimentoIdempotencyKey,
+    data: document.getElementById('rcData').value,
+    notaFiscal: document.getElementById('rcNotaFiscal').value.trim(),
+    condicoesVeiculo: Number(document.getElementById('rcCondVeiculo').value),
+    observacoes: document.getElementById('rcObservacoes').value.trim(),
+    linhas: lerItensRecebimentoDaTela()
+  };
+  var erro = validarEntradaRecebimento({data:payload.data, notaFiscal:payload.notaFiscal, condicoesVeiculo:payload.condicoesVeiculo, itens:payload.linhas});
+  if (erro) { showAlert(erro, 'danger'); return; }
+  document.getElementById('modalReceberSave').disabled = true;
+  document.getElementById('modalReceberSave').textContent = 'Registrando com segurança…';
+  functionsInstance.httpsCallable('registrarRecebimento')(payload).then(function(res) {
+    var resultado = res.data || {};
+    closeModalReceber();
+    showAlert((resultado.lotes || []).length + ' lote(s) interno(s) gerado(s): ' + (resultado.lotes || []).map(function(l) { return l.loteInterno; }).join(', '), 'success');
+    imprimirEtiquetasRecebimento(resultado.lotes || []);
+  }).catch(function(err) {
+    var msg = err && err.message ? err.message.replace(/^.*?:\s*/, '') : 'Não foi possível registrar o recebimento.';
+    showAlert(msg, 'danger');
+  }).finally(function() {
+    var btn = document.getElementById('modalReceberSave');
+    btn.disabled = false; btn.textContent = 'Confirmar Recebimento';
+  });
+}
+
+/* ══════════════ Modal Checklist de Etiqueta ══════════════ */
+// Confere se a etiqueta de identificação do fornecedor (PADRAO_ETIQUETA_FORNECEDOR,
+// shared/utils.js) trouxe cada campo, presente e correto. Não bloqueia o
+// recebimento -- é um registro à parte, `.update()` simples (não mexe em
+// quantidade/status do PC, que já tem sua própria proteção transacional
+// em saveReceber() acima).
+var checklistKey = null;
+function openModalChecklist(key) {
+  checklistKey = key;
+  var p = allPedidosCompra[key];
+  if (!p) return;
+  document.getElementById('clPcInfo').textContent = p.numeroFormatado + ' — ' + (p.fornecedorNome || '');
+  var atual = (p.checklistEtiqueta && p.checklistEtiqueta.campos) || {};
+  document.getElementById('clObservacoes').value = (p.checklistEtiqueta && p.checklistEtiqueta.observacoes) || '';
+
+  var box = document.getElementById('clItensList');
+  box.innerHTML = PADRAO_ETIQUETA_FORNECEDOR.map(function(f) {
+    return '<label style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--tint-gray-bg,#f3f4f6);font-size:13px">' +
+      '<input type="checkbox" class="cl-campo" data-campo="' + escapeAttr(f.campo) + '" style="margin-top:3px"' + (atual[f.campo] ? ' checked' : '') + '>' +
+      '<span>' + escapeHtml(f.label) + '</span>' +
+    '</label>';
+  }).join('');
+  document.getElementById('modalChecklist').classList.add('open');
+}
+function closeModalChecklist() { document.getElementById('modalChecklist').classList.remove('open'); checklistKey = null; }
+function saveChecklist() {
+  if (!checklistKey) return;
+  var campos = {};
+  document.querySelectorAll('.cl-campo').forEach(function(cb) { campos[cb.getAttribute('data-campo')] = cb.checked; });
+
+  document.getElementById('modalChecklistSave').disabled = true;
+  db.ref('pedidos_compra/' + checklistKey + '/checklistEtiqueta').set({
+    campos: campos,
+    observacoes: document.getElementById('clObservacoes').value.trim(),
+    conferidoPor: currentUserNome(),
+    conferidoEm: new Date().toISOString()
+  }).then(function() {
+    showAlert('Checklist de etiqueta salvo!', 'success');
+    closeModalChecklist();
+  }).catch(function(err) { showAlert('Erro: ' + err.message, 'danger'); })
+    .finally(function() { document.getElementById('modalChecklistSave').disabled = false; });
+}
+
+/* ══════════════ Boot ══════════════ */
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('modalAgendarClose').addEventListener('click', closeModalAgendar);
+  document.getElementById('modalAgendarCancel').addEventListener('click', closeModalAgendar);
+  document.getElementById('modalAgendarSave').addEventListener('click', saveAgendar);
+  document.getElementById('modalAgendar').addEventListener('click', function(e) { if (e.target === this) closeModalAgendar(); });
+  document.getElementById('agTransportadora').addEventListener('change', function() {
+    var prestador = allTransportadoras[this.value];
+    var sugestao = modalidadeSugerida(nomePrestador(prestador));
+    // Uber e Lalamove são reconhecidos pelo cadastro; nos demais casos a
+    // modalidade é uma decisão operacional do usuário, sem suposição.
+    if (sugestao) document.getElementById('agModalidade').value = sugestao;
+  });
+
+  document.getElementById('modalReceberClose').addEventListener('click', closeModalReceber);
+  document.getElementById('modalReceberCancel').addEventListener('click', closeModalReceber);
+  document.getElementById('modalReceberSave').addEventListener('click', saveReceber);
+  document.getElementById('modalReceber').addEventListener('click', function(e) { if (e.target === this) closeModalReceber(); });
+
+  document.getElementById('modalChecklistClose').addEventListener('click', closeModalChecklist);
+  document.getElementById('modalChecklistCancel').addEventListener('click', closeModalChecklist);
+  document.getElementById('modalChecklistSave').addEventListener('click', saveChecklist);
+  document.getElementById('modalChecklist').addEventListener('click', function(e) { if (e.target === this) closeModalChecklist(); });
+
+  try {
+    db.ref('.info/connected').on('value', function(snap) {
+      setStatus(snap.val(), snap.val() ? 'Conectado' : 'Reconectando...');
+    });
+    dbOnValue(db.ref('fornecedores'), function(snap) {
+      allTransportadoras = snap.val() || {};
+      refreshTransportadoraSelect();
+    });
+    dbOnValue(db.ref('materiais'), function(snap) {
+      allMateriais = snap.val() || {};
+    });
+    dbOnValue(db.ref('pedidos_compra'), function(snap) {
+      allPedidosCompra = snap.val() || {};
+      renderReceberList();
+      renderCalendario();
+      renderHistoricoList();
+    });
+    dbOnValue(db.ref('enderecos_estoque'), function(snap) {
+      allEnderecosEstoque = snap.val() || {};
+    });
+    dbOnValue(db.ref('estoque_lotes'), function(snap) {
+      allEstoqueLotes = snap.val() || {};
+    });
+  } catch (err) {
+    setStatus(false, 'Erro');
+    console.error(err);
+  }
+});
+</script>
+<link rel="stylesheet" href="shared/agenda-pa.css">
+<style>
+  /* Calendário de agendamentos: entrada e saída com cor + seta (nunca só cor). */
+  :root{--cal-entrada:#2e4fc0;--cal-saida:#12967d}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--cal-entrada:#5b7ae0;--cal-saida:#28a186}}
+  :root[data-theme="dark"]{--cal-entrada:#5b7ae0;--cal-saida:#28a186}
+  .cal-card{padding:14px 16px}
+  .cal-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .cal-nav{display:flex;gap:6px;align-items:center}
+  .cal-titulo{font-size:18px;font-weight:700;margin:0 8px;min-width:200px}
+  .cal-seg{display:inline-flex;border:1.5px solid var(--border);border-radius:8px;overflow:hidden}
+  .cal-seg button{border:0;background:var(--card);color:var(--text);padding:6px 12px;font-size:12.5px;font-weight:600;cursor:pointer}
+  .cal-seg button.ativo{background:var(--primary);color:#fff}
+  .cal-filtros{display:flex;flex-wrap:wrap;gap:12px;font-size:12.5px;color:var(--muted);align-items:center}
+  .cal-filtros label{display:inline-flex;gap:5px;align-items:center;cursor:pointer;margin:0;font-weight:600}
+  .cal-resumo{font-size:12.5px;color:var(--muted);margin:2px 0 10px}
+  .cal-mes{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-top:1px solid var(--border);border-left:1px solid var(--border)}
+  .cal-cab{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);padding:6px 8px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface-2)}
+  .cal-dia{min-height:112px;padding:5px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:3px;min-width:0}
+  .cal-dia.fora{background:var(--surface-2)}
+  .cal-dia.fora .cal-num{color:var(--muted);opacity:.6}
+  .cal-dia.hoje{box-shadow:inset 0 0 0 2px var(--primary)}
+  .cal-num{font-size:12px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+  .cal-num small{font-weight:600;color:var(--muted);font-size:10.5px}
+  .cal-ev{display:block;width:100%;text-align:left;border:1px solid transparent;border-left:3px solid var(--cal-entrada);background:color-mix(in srgb,var(--cal-entrada) 9%,var(--card));color:var(--text);border-radius:5px;padding:3px 6px;font-size:11.5px;line-height:1.3;cursor:pointer;min-height:24px}
+  .cal-ev:hover{filter:brightness(.97)}
+  .cal-ev.saida{border-left-color:var(--cal-saida);background:color-mix(in srgb,var(--cal-saida) 10%,var(--card))}
+  .cal-ev.sit-PREVISTO{border-style:dashed;border-left-style:dashed;border-color:color-mix(in srgb,var(--cal-entrada) 50%,transparent);background:var(--card)}
+  .cal-ev.sit-CONCLUIDO{opacity:.55}
+  .cal-ev .t{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cal-ev .s{display:block;color:var(--muted);font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cal-flag{font-weight:700;font-size:10px;margin-left:3px}
+  .cal-semana .cal-ev .s,.cal-lista .cal-ev .s{white-space:normal}
+  .cal-flag.ATRASADO{color:var(--danger)}.cal-flag.PARCIAL{color:var(--warning)}.cal-flag.CONCLUIDO{color:var(--success)}.cal-flag.PREVISTO{color:var(--muted)}
+  .cal-mais{border:0;background:none;color:var(--primary);font-size:11px;font-weight:700;text-align:left;cursor:pointer;padding:2px 4px}
+  .cal-semana{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+  .cal-col{border:1px solid var(--border);border-radius:10px;padding:6px;min-height:260px;min-width:0;display:flex;flex-direction:column;gap:4px}
+  .cal-col.hoje{box-shadow:inset 0 0 0 2px var(--primary)}
+  .cal-col h4{font-size:12px;margin:0 0 4px;text-transform:capitalize}
+  .cal-faixa{font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);margin:4px 0 1px}
+  .cal-lista .cal-dia-l{border-bottom:1px solid var(--border);padding:8px 0}
+  .cal-lista h4{font-size:13px;margin:0 0 6px;text-transform:capitalize}
+  .cal-lista .cal-ev{margin-bottom:4px;font-size:12.5px}
+  .cal-legenda{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted);margin-top:10px}
+  .cal-legenda i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:4px}
+  .cal-vazio{padding:18px;text-align:center;color:var(--muted);font-size:13px}
+  .cal-modal{width:min(560px,92vw);border:1px solid var(--border);border-radius:14px;padding:20px;color:var(--text);background:var(--card)}
+  .cal-modal::backdrop{background:rgba(0,0,0,.4)}
+  .cal-modal h3{margin:0 0 4px;font-size:17px}
+  .cal-modal dl{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:13px;margin:12px 0}
+  .cal-modal dt{color:var(--muted)}
+  .cal-modal dd{margin:0}
+  .cal-acoes{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:12px}
+  @media(max-width:760px){.cal-titulo{min-width:0;font-size:16px}}
+</style>
+<script>
+/* ══════════════ Calendário de agendamentos (shared/calendario-logistica.js) ══════════════
+   Entradas (PC) e saídas de PA numa vista de mês/semana. Só leitura: as
+   ações abrem os fluxos que já existem nesta tela e na Expedição. */
+var calAgendas = {}, calEventos = [], calEstado = {vista: 'mes', ref: todayLocal(), entradas: true, saidas: true, previstos: true, concluidos: false};
+try { Object.assign(calEstado, JSON.parse(localStorage.getItem('logistica-calendario') || '{}'), {ref: todayLocal()}); } catch (e) {}
+var CAL_SIT = {AGENDADO: '', ATRASADO: '⚠ atrasado', PREVISTO: 'previsão', PARCIAL: '◐ parcial', CONCLUIDO: '✓ concluído'};
+var CAL_SIT_LONGA = {AGENDADO: 'Agendado', ATRASADO: 'Atrasado: a data passou e não foi concluído', PREVISTO: 'Previsão de entrega de Compras (ainda sem agendamento)',
+  PARCIAL: 'Parcial', CONCLUIDO: 'Concluído'};
+function calSalvarEstado() { try { localStorage.setItem('logistica-calendario', JSON.stringify(calEstado)); } catch (e) {} }
+function calDataBR(d) { return d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '—'; }
+function calChip(ev, completo) {
+  // No mês só o ícone cabe; o texto completo fica no título (hover) e na semana.
+  var sit = CAL_SIT[ev.situacao] ? '<span class="cal-flag ' + ev.situacao + '">' + (completo ? CAL_SIT[ev.situacao] : (CAL_SIT[ev.situacao].split(' ')[0].length === 1 ? CAL_SIT[ev.situacao].split(' ')[0] : '·')) + '</span>' : '';
+  var seta = ev.tipo === 'ENTRADA' ? '↓' : '↑', faixa = ev.faixa === 'manha' ? 'M · ' : ev.faixa === 'tarde' ? 'T · ' : '';
+  return '<button type="button" class="cal-ev ' + (ev.tipo === 'SAIDA' ? 'saida' : 'entrada') + ' sit-' + ev.situacao + '" data-ev="' + escapeAttr(ev.id) + '" title="' +
+    escapeAttr((ev.tipo === 'ENTRADA' ? 'Entrada' : 'Saída de PA') + ': ' + ev.titulo + ' · ' + ev.subtitulo + (ev.janela ? ' · ' + ev.janela : '') + ' · ' + CAL_SIT_LONGA[ev.situacao]) + '">' +
+    '<span class="t">' + seta + ' ' + faixa + escapeHtml(ev.titulo) + sit + '</span>' +
+    (completo ? '<span class="s">' + escapeHtml(ev.numero + ' · ' + ev.subtitulo) + '</span>' + (ev.detalhes.transportadora ? '<span class="s">🚚 ' + escapeHtml(ev.detalhes.transportadora) + '</span>' : '') : '') + '</button>';
+}
+function calIntervalo() {
+  var r = calEstado.ref;
+  return calEstado.vista === 'semana' ? CalendarioLogistica.gradeSemana(r) : CalendarioLogistica.gradeMes(+r.slice(0, 4), +r.slice(5, 7) - 1);
+}
+function renderCalendario() {
+  var painel = document.getElementById('tab-calendario');
+  if (!painel || !painel.classList.contains('active')) return;
+  var hoje = todayLocal();
+  calEventos = CalendarioLogistica.eventos(allPedidosCompra, calAgendas, {hoje: hoje, incluirPrevistos: calEstado.previstos, incluirConcluidos: calEstado.concluidos, nomeOrigem: nomeOrigemPedido});
+  var lista = CalendarioLogistica.filtrar(calEventos, {entradas: calEstado.entradas, saidas: calEstado.saidas});
+  var dias = CalendarioLogistica.porDia(lista), g = calIntervalo();
+  document.getElementById('calTitulo').textContent = g.titulo.charAt(0).toUpperCase() + g.titulo.slice(1);
+  document.querySelectorAll('#calVista button').forEach(function(b) { b.classList.toggle('ativo', b.dataset.vista === calEstado.vista); b.setAttribute('aria-pressed', b.dataset.vista === calEstado.vista); });
+  ['entradas', 'saidas', 'previstos', 'concluidos'].forEach(function(k) { document.getElementById('calF-' + k).checked = !!calEstado[k]; });
+  var noPeriodo = lista.filter(function(e) { return e.data >= g.inicio && e.data <= g.fim; });
+  var r = CalendarioLogistica.resumo(noPeriodo), atrasadosTotal = lista.filter(function(e) { return e.situacao === 'ATRASADO' && e.data < g.inicio; }).length;
+  document.getElementById('calResumo').innerHTML = r.entradas + ' entrada(s) · ' + r.saidas + ' saída(s) de PA neste período' +
+    (r.atrasados ? ' · <b style="color:var(--danger)">' + r.atrasados + ' atrasada(s)</b>' : '') + (r.parciais ? ' · ' + r.parciais + ' parcial(is)' : '') +
+    (atrasadosTotal ? ' · <b style="color:var(--danger)">+' + atrasadosTotal + ' atrasada(s) antes deste período</b>' : '');
+  var box = document.getElementById('calGrade'), html = '';
+  if (window.innerWidth < 760) {
+    // Celular: lista dos dias com agendamento no período.
+    var datas = Object.keys(dias).filter(function(d) { return d >= g.inicio && d <= g.fim; }).sort();
+    html = '<div class="cal-lista">' + (datas.map(function(d) {
+      return '<div class="cal-dia-l"><h4>' + CalendarioLogistica.DIAS[CalendarioLogistica.diaSemana(d)] + ' ' + calDataBR(d) + (d === hoje ? ' · hoje' : '') + '</h4>' +
+        dias[d].map(function(ev) { return calChip(ev, true); }).join('') + '</div>';
+    }).join('') || '<div class="cal-vazio">Nenhum agendamento neste período.</div>') + '</div>';
+  } else if (calEstado.vista === 'semana') {
+    html = '<div class="cal-semana">' + g.dias.map(function(d) {
+      var evs = dias[d.data] || [];
+      var faixas = ['manha', 'tarde', 'dia_todo'].map(function(f) {
+        var fe = evs.filter(function(e) { return e.faixa === f; });
+        return fe.length ? '<div class="cal-faixa">' + CalendarioLogistica.JANELAS[f] + '</div>' + fe.map(function(ev) { return calChip(ev, true); }).join('') : '';
+      }).join('');
+      return '<div class="cal-col' + (d.data === hoje ? ' hoje' : '') + '"><h4>' + d.rotulo + '</h4>' + (faixas || '<div class="cal-vazio" style="padding:8px 0">—</div>') + '</div>';
+    }).join('') + '</div>';
+  } else {
+    html = '<div class="cal-mes">' + CalendarioLogistica.DIAS.map(function(d) { return '<div class="cal-cab">' + d + '</div>'; }).join('') +
+      g.semanas.map(function(sem) {
+        return sem.map(function(d) {
+          var evs = dias[d.data] || [], ent = evs.filter(function(e) { return e.tipo === 'ENTRADA'; }).length, sai = evs.length - ent;
+          return '<div class="cal-dia' + (d.doMes ? '' : ' fora') + (d.data === hoje ? ' hoje' : '') + '"><div class="cal-num"><span>' + d.dia + '</span>' +
+            (evs.length ? '<small>' + (ent ? ent + '↓' : '') + (ent && sai ? ' ' : '') + (sai ? sai + '↑' : '') + '</small>' : '') + '</div>' +
+            evs.slice(0, 3).map(function(ev) { return calChip(ev, false); }).join('') +
+            (evs.length > 3 ? '<button type="button" class="cal-mais" data-dia="' + d.data + '">+' + (evs.length - 3) + ' mais</button>' : '') + '</div>';
+        }).join('');
+      }).join('') + '</div>';
+  }
+  box.innerHTML = html;
+  box.querySelectorAll('[data-ev]').forEach(function(b) { b.onclick = function() { calAbrirEvento(b.dataset.ev); }; });
+  box.querySelectorAll('[data-dia]').forEach(function(b) { b.onclick = function() { calAbrirDia(b.dataset.dia); }; });
+}
+function calAbrirDia(data) {
+  var lista = CalendarioLogistica.filtrar(calEventos, {entradas: calEstado.entradas, saidas: calEstado.saidas}).filter(function(e) { return e.data === data; });
+  var dlg = document.getElementById('calDetalhe');
+  dlg.querySelector('.cal-corpo').innerHTML = '<h3>' + CalendarioLogistica.DIAS[CalendarioLogistica.diaSemana(data)] + ' ' + calDataBR(data) + '</h3>' +
+    '<div style="margin-top:10px">' + lista.map(function(ev) { return calChip(ev, true); }).join('') + '</div>';
+  dlg.querySelector('.cal-acoes').innerHTML = '<button type="button" class="btn btn-ghost" data-fechar>Fechar</button>';
+  dlg.querySelectorAll('.cal-corpo [data-ev]').forEach(function(b) { b.onclick = function() { calAbrirEvento(b.dataset.ev); }; });
+  dlg.querySelector('[data-fechar]').onclick = function() { dlg.close(); };
+  if (!dlg.open) dlg.showModal();
+}
+function calAbrirEvento(id) {
+  var ev = calEventos.find(function(e) { return e.id === id; });
+  if (!ev) return;
+  var d = ev.detalhes, dlg = document.getElementById('calDetalhe'), linhas = [];
+  var add = function(r, v) { if (v !== '' && v != null) linhas.push('<dt>' + r + '</dt><dd>' + v + '</dd>'); };
+  add('Data', calDataBR(ev.data) + (ev.janela ? ' · ' + escapeHtml(ev.janela) : ''));
+  add('Situação', escapeHtml(CAL_SIT_LONGA[ev.situacao]));
+  add(ev.tipo === 'ENTRADA' ? 'Pedido de Compra' : 'Pedido(s)', escapeHtml(ev.numero));
+  add('Tipo', escapeHtml(ev.subtitulo));
+  add('Transportadora', escapeHtml(d.transportadora));
+  add('Motorista / placa', escapeHtml([d.motorista, d.placa].filter(Boolean).join(' · ')));
+  if (ev.tipo === 'ENTRADA') {
+    add('Recebido', fmtNum(d.progresso.recebido) + ' de ' + fmtNum(d.progresso.pedido) + ' (' + d.progresso.pct + '%)');
+    if (d.coleta && d.coleta.status) add('Coleta', escapeHtml(rotuloStatusColeta(d.coleta.status)));
+  } else {
+    add('Faturamento', escapeHtml({NAO_SOLICITADO: 'Não solicitado', SOLICITADO: 'Solicitado ao Financeiro', FATURADO: 'Faturado'}[d.faturamento] || d.faturamento) + (d.nfs.length ? ' · NF ' + escapeHtml(d.nfs.join(', ')) : ''));
+    if (d.aguardandoEmbarque) add('Aguardando embarque', '<b style="color:var(--warning)">' + fmtNum(d.aguardandoEmbarque) + ' un</b> · ' + d.viagens + ' viagem(ns) já saíram');
+    add('Destino', escapeHtml(d.enderecoEntrega));
+    if (d.contatoCliente) add('Recebimento', escapeHtml([d.contatoCliente.nome, d.contatoCliente.telefone].filter(Boolean).join(' · ')));
+  }
+  add('Observações', escapeHtml(d.observacoes));
+  dlg.querySelector('.cal-corpo').innerHTML = '<div class="field-hint">' + (ev.tipo === 'ENTRADA' ? '↓ Entrada de material' : '↑ Saída de produto acabado') + '</div>' +
+    '<h3>' + escapeHtml(ev.titulo) + '</h3><dl>' + linhas.join('') + '</dl>';
+  var acoes = '<button type="button" class="btn btn-ghost" data-fechar>Fechar</button>';
+  if (ev.tipo === 'ENTRADA' && ev.situacao !== 'CONCLUIDO') {
+    acoes += '<button type="button" class="btn btn-ghost" data-acao="agendar">📅 ' + (ev.situacao === 'PREVISTO' ? 'Agendar' : 'Reagendar') + '</button>' +
+      '<button type="button" class="btn btn-green" data-acao="receber">📦 Registrar recebimento</button>';
+  }
+  if (ev.tipo === 'SAIDA') {
+    acoes += '<button type="button" class="btn btn-ghost" data-acao="agenda">Ver na agenda de PA</button>' +
+      (ev.situacao !== 'CONCLUIDO' ? '<a class="btn btn-primary" href="cargas.html?carga=' + encodeURIComponent(ev.ref) + '">Acompanhar a carga</a>' : '');
+  }
+  dlg.querySelector('.cal-acoes').innerHTML = acoes;
+  dlg.querySelector('[data-fechar]').onclick = function() { dlg.close(); };
+  dlg.querySelectorAll('[data-acao]').forEach(function(b) {
+    b.onclick = function() {
+      dlg.close();
+      if (b.dataset.acao === 'agendar') openModalAgendar(ev.ref);
+      if (b.dataset.acao === 'receber') openModalReceber(ev.ref);
+      if (b.dataset.acao === 'agenda') document.querySelector('.tab[data-tab="agenda-pa"]').click();
+    };
+  });
+  if (!dlg.open) dlg.showModal();
+}
+(function iniciarCalendario() {
+  var mover = function(k) {
+    var r = calEstado.ref;
+    if (calEstado.vista === 'semana') calEstado.ref = CalendarioLogistica.somarDias(r, 7 * k);
+    else { var dt = new Date(Date.UTC(+r.slice(0, 4), +r.slice(5, 7) - 1 + k, 1)); calEstado.ref = dt.toISOString().slice(0, 10); }
+    renderCalendario();
+  };
+  document.getElementById('calAnterior').onclick = function() { mover(-1); };
+  document.getElementById('calProximo').onclick = function() { mover(1); };
+  document.getElementById('calHoje').onclick = function() { calEstado.ref = todayLocal(); renderCalendario(); };
+  document.querySelectorAll('#calVista button').forEach(function(b) { b.onclick = function() { calEstado.vista = b.dataset.vista; calSalvarEstado(); renderCalendario(); }; });
+  ['entradas', 'saidas', 'previstos', 'concluidos'].forEach(function(k) {
+    document.getElementById('calF-' + k).onchange = function() { calEstado[k] = this.checked; calSalvarEstado(); renderCalendario(); };
+  });
+  document.querySelector('.tab[data-tab="calendario"]').addEventListener('click', function() { setTimeout(renderCalendario, 0); });
+  var t; window.addEventListener('resize', function() { clearTimeout(t); t = setTimeout(renderCalendario, 150); });
+  dbOnValue(db.ref('agendamentos_expedicao'), function(snap) { calAgendas = snap.val() || {}; renderCalendario(); });
+  if (new URLSearchParams(location.search).get('tab') === 'calendario') document.querySelector('.tab[data-tab="calendario"]').click();
+})();
+</script>
+<script src="shared/agenda-pa-tela.js"></script>
+<script>AgendaPAUI.iniciar({container:document.getElementById('agendaPA'),db:db,fn:firebase.functions(),onErro:function(msg){showAlert(msg,'danger');}});</script>
+</body>
+</html>

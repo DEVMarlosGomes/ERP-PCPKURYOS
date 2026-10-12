@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manual — Compras</title>
+  <link rel="stylesheet" href="shared/manual.css">
+  <link rel="stylesheet" href="shared/kuryos-apple-system.css?v=20261007-1">
+  <link rel="stylesheet" href="shared/kuryos-repo-visual.css?v=20261009-1">
+  <script defer src="shared/kuryos-icon-system.js?v=20261007-1"></script>
+</head>
+<body>
+<div class="container">
+  <a class="manual-voltar" href="manuais.html">← Todos os manuais</a>
+
+  <div class="header">
+    <img src="kuryos-logo.svg" alt="Kuryos">
+    <h1>Compras</h1>
+    <p>Comprador — Compras › Compras</p>
+  </div>
+
+  <div class="intro-box">
+    <strong>A regra da casa:</strong> a Logística <b>nunca dá entrada em material sem um Pedido de
+    Compra</b>. Tudo que chega precisa ter passado por aqui. Existe um atalho para a entrega de
+    última hora, mas ele também cria um PC — o que não existe é receber sem pedido.
+  </div>
+
+  <div class="section-title"><span class="icon">📄</span> 1. Solicitação</div>
+  <p class="where">Aba <code>Solicitações</code></p>
+  <ul class="step-list">
+    <li class="step-item"><div class="step-number">1</div><div class="step-content">
+      <strong>+ Nova Solicitação → Enviar Solicitação</strong>
+      <p>Quem precisa do material pede. Informe material, quantidade e para quando.</p></div></li>
+    <li class="step-item"><div class="step-number">2</div><div class="step-content">
+      <strong>Aprovar ou Rejeitar</strong>
+      <p>A solicitação é avaliada antes de virar compra. Só a aprovada entra em cotação.</p></div></li>
+  </ul>
+
+  <div class="section-title"><span class="icon">🧭</span> 1a. O que comprar para atender um pedido</div>
+  <p class="txt">
+    Menu <b>PCP › O que comprar</b> (e em Compras). Escolha um ou mais pedidos e a tela mostra, material a material,
+    quanto o pedido precisa e de onde vem cada peça: <b>estoque livre</b> (verde), <b>a caminho</b> (azul, PC já enviado ao
+    fornecedor), <b>já em compra</b> (amarelo, solicitação pendente/aprovada ou PC ainda não enviado) e <b>falta comprar</b>
+    (vermelho). Clique no material para ver a conta, quem disputa e as compras já feitas.
+  </p>
+  <ul class="txt">
+    <li><b>Vários pedidos:</b> o estoque vai primeiro para quem entrega antes (depois prioridade). As setas ▲▼ trocam a
+      ordem de atendimento e a conta refaz na hora. O que as OPs já emitidas desses pedidos reservaram fica com eles.</li>
+    <li><b>Dono do material:</b> estoque ou remessa do cliente só cobre o pedido dele; o geral da Kuryos cobre qualquer um.</li>
+    <li><b>Chega tarde:</b> se a previsão do PC é depois da entrega do pedido, a tela avisa.</li>
+    <li><b>Solicitar compra do que falta</b> cria uma solicitação pendente com só o que ainda falta (não repete o que já
+      está em compra ou a caminho), com a conta anotada em cada item.</li>
+    <li>Pedido sem fórmula/BOM, sem densidade ou sem produto cadastrado <b>não entra na conta</b>: aparece em cinza com o
+      motivo. E, enquanto o Dia D não termina, material com saldo negativo ou sem registro vem marcado: confira o galpão
+      antes de enviar a compra.</li>
+  </ul>
+
+  <div class="section-title"><span class="icon">🤝</span> 2. Cotação</div>
+  <p class="where">Aba <code>🤝 Cotações</code></p>
+  <ul class="step-list">
+    <li class="step-item"><div class="step-number">1</div><div class="step-content">
+      <strong>Iniciar Cotação e Criar Rascunhos</strong>
+      <p>Consolida uma ou mais solicitações aprovadas num processo de cotação.</p></div></li>
+    <li class="step-item"><div class="step-number">2</div><div class="step-content">
+      <strong>+ Adicionar à lista de convidados</strong>
+      <p>Os fornecedores que vão orçar. Marque <b>Marcar Enviado</b> e <b>Declinou</b> conforme as
+      respostas chegam.</p></div></li>
+    <li class="step-item"><div class="step-number">3</div><div class="step-content">
+      <strong>Registrar o orçamento de cada fornecedor</strong>
+      <p>Preencha a coluna do fornecedor com o que ele mandou. Veja a tabela de campos abaixo.</p></div></li>
+    <li class="step-item"><div class="step-number">4</div><div class="step-content">
+      <strong>Gerar Pedido de Compra</strong>
+      <p>Fecha com o fornecedor escolhido. O PC passa a existir para a Logística receber.</p></div></li>
+  </ul>
+
+  <div class="sub-title">Os campos do orçamento — e por que cada um importa</div>
+  <div class="table-scroll">
+    <table class="field-guide">
+      <thead><tr><th style="width:26%">Campo</th><th>O que faz no cálculo</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Preço unitário</strong></td><td>Preço na unidade que o fornecedor cotou.</td></tr>
+        <tr><td><strong>Quantidade cotada</strong></td><td>Quanto ele se propõe a entregar — pode diferir do pedido, por lote mínimo. É esta que vale para o valor.</td></tr>
+        <tr><td><strong>Unidade cotada</strong></td><td><b>O campo mais perigoso da tela.</b> O material pode estar cadastrado em <i>rolo</i> e o fornecedor orçar em <i>kg</i>. Se a unidade estiver errada, o número fica certo e a unidade errada — e ninguém desconfia do documento.</td></tr>
+        <tr><td><strong>Conversão</strong></td><td>Quantas unidades cotadas cabem em 1 unidade de estoque. Vem do cadastro do material quando ele já sabe; só preencha para sobrescrever.</td></tr>
+        <tr><td><strong>% NF</strong></td><td>Quanto do valor é faturado em nota. Vazio significa 100%.</td></tr>
+        <tr><td><strong>% IPI</strong> · <strong>% ICMS-ST</strong> · <strong>% ISS</strong></td><td>Somam ao custo — são impostos “por fora”.</td></tr>
+        <tr><td><strong>% ICMS</strong></td><td><b>Reduz</b> o custo: é crédito que a Kuryos recupera. ISS e ICMS não convivem — um é serviço, o outro é mercadoria.</td></tr>
+        <tr><td><strong>Frete FOB / CIF</strong></td><td><b>FOB</b>: nós pagamos, então o valor é rateado entre os itens e entra no custo. <b>CIF</b>: o fornecedor paga e já embutiu no preço — não soma.</td></tr>
+        <tr><td><strong>Prazo de pagamento</strong></td><td>No padrão <code class="inline">14/21/28 DDL</code>. O sistema interpreta e guarda as parcelas.</td></tr>
+        <tr><td><strong>Prazo de entrega</strong></td><td>Em <b>dias úteis</b>. O sistema converte em data usando o calendário do PCP, com feriados.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="ok-card">
+    <strong>A comparação é por CUSTO, não por preço.</strong> O sistema elege o vencedor pelo custo
+    na <b>unidade do cadastro</b>, já com imposto, desconto, crédito de ICMS e frete rateado. Um
+    fornecedor com preço menor e IPI alto perde para outro mais caro e sem imposto — e é isso que
+    você quer. Se algum item ficar com a conversão de unidade indefinida, o sistema
+    <b>se recusa a eleger vencedor</b> naquele item, em vez de escolher com um número sem sentido.
+  </div>
+
+  <div class="sub-title">🔬 O selo de qualidade do fornecedor</div>
+  <p class="txt">
+    Ao lado do nome de cada fornecedor convidado aparece um selo com o histórico de qualidade dele —
+    calculado a partir dos laudos e das não conformidades registrados pelo CQ. É a informação que
+    antes ficava só na tela da Qualidade, que o comprador não abria.
+  </p>
+  <div class="table-scroll">
+    <table class="field-guide">
+      <thead><tr><th style="width:24%">Selo</th><th>O que significa</th></tr></thead>
+      <tbody>
+        <tr><td><span class="badge badge-green">✓ verde</span></td><td>95% ou mais dos lotes aprovados, sem RNC aberta.</td></tr>
+        <tr><td><span class="badge badge-orange">⚠ laranja</span></td><td>Entre 80% e 94% de aprovação. Vale conferir antes de aumentar o volume.</td></tr>
+        <tr><td><span class="badge badge-red">⚠ vermelho</span></td><td>Abaixo de 80% <b>ou</b> com RNC em aberto.</td></tr>
+        <tr><td><span class="badge badge-gray">sem selo</span></td><td>Sem histórico. <b>Não é o mesmo que "sem problema"</b> — é fornecedor novo ou avulso, do qual não se sabe nada.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note-card">
+    <strong>Como ler o selo.</strong> Uma <b>RNC aberta deixa o selo vermelho mesmo com 100% de
+    aprovação</b>: problema não resolvido agora pesa mais que histórico bom. E
+    <b>aprovação com concessão não conta como aprovação</b> — se contasse, o fornecedor que mais dá
+    trabalho seria o que pareceria melhor. Passe o mouse no selo para ver os números absolutos.
+    <br>O selo <b>não bloqueia nada</b>: quem decide é você, decidindo com a informação à vista.
+  </div>
+
+  <div class="section-title"><span class="icon">🚚</span> 3. Coleta FOB</div>
+  <p class="txt">
+    Quando o frete é FOB, quem coordena a coleta é a Logística. Preencha, ainda na cotação,
+    <b>endereço de coleta</b>, <b>contato no local</b>, <b>telefone</b> e <b>peso total</b> — é o
+    conjunto mínimo que a Logística precisa para fechar com transportadora, motorista ou aplicativo.
+    Esses dados vão impressos no pedido. Em CIF esse bloco nem aparece: quem entrega é o fornecedor.
+  </p>
+
+  <div class="section-title"><span class="icon">🖨️</span> 4. Pedido de Compra e etiqueta</div>
+  <p class="txt">
+    O botão de <b>impressão do PC</b> gera um documento com a identidade da Kuryos, pronto para
+    mandar ao fornecedor, e <b>as páginas de etiqueta junto</b> — uma por item, com o que já
+    sabemos preenchido e o resto em branco para o fornecedor completar. Vão no mesmo arquivo de
+    propósito: mandar o pedido e o padrão de identificação separados é o caminho mais curto para
+    chegar material sem etiqueta.
+  </p>
+  <div class="note-card">
+    <strong>Confirme a rota antes de marcar o PC como enviado.</strong> Clique em <b>Marcar Enviado</b>:
+    se a rota ainda não foi confirmada, abre a tela <b>Confirmar rota e enviar</b> — ela mostra só origem
+    e destino, sem liberar a edição de itens e preços (essa continua com o administrador). Confira os
+    cartões de origem e destino: CEP, logradouro, número, bairro, cidade/UF, contato, telefone,
+    horário e instruções. O cadastro do fornecedor é apenas uma sugestão. Ao marcar a confirmação,
+    o sistema congela uma cópia no Pedido de Compra; alterações futuras no cadastro não mudam o
+    documento nem o que a Logística receberá. FOB exige também contato e telefone na origem; CIF
+    exige o destino completo. Remessas usam “Kuryos coleta” ou “remetente entrega”, sem chamar de
+    FOB/CIF.
+  </div>
+  <div class="table-scroll">
+    <table class="field-guide">
+      <thead><tr><th style="width:30%">No documento</th><th>O que o fornecedor lê</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Quantidade</strong></td><td>Na unidade <b>cotada</b> — "35 kg" — com o equivalente em estoque abaixo ("≈ 3 rolo").</td></tr>
+        <tr><td><strong>Preço</strong></td><td>Com a unidade explícita: "por kg".</td></tr>
+        <tr><td><strong>Totais</strong></td><td>Subtotal dos itens, desconto e cada imposto em linha própria, depois o total. O subtotal bate com a soma da tabela.</td></tr>
+        <tr><td><strong>Frete FOB</strong></td><td>Aparece como nota, <b>fora do total</b> — quem contrata a transportadora somos nós, e ele não estará na nota fiscal dele.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section-title"><span class="icon">✏️</span> 5. Corrigir um pedido</div>
+  <p class="txt">
+    Um administrador pode editar o PC <b>enquanto ele estiver ABERTO</b>. Depois de
+    <b>Marcar Enviado</b>, não — o fornecedor já tem o documento em mãos, e mudar no sistema sem
+    ele saber cria exatamente a divergência que a página impressa existe para evitar.
+  </p>
+  <p class="txt">
+    Na edição dá para corrigir quantidade, preço, <b>unidade</b>, conversão, frete, prazos e local
+    de entrega. Ao salvar, o total é recalculado inteiro — tirar o frete faz o total baixar.
+    <b>Reimprima o documento antes de enviar.</b>
+  </p>
+  <div class="note-card">
+    <strong>Pedido antigo pede confirmação de unidade.</strong> Pedidos criados antes de o sistema
+    ler a unidade de compra do cadastro não registraram em que unidade o orçamento veio. Ao tentar
+    imprimir um desses, o sistema <b>bloqueia</b> e manda confirmar a unidade na edição. Não é
+    burocracia: é a diferença entre o fornecedor mandar 35 kg e mandar 35 rolos.
+  </div>
+
+  <div class="section-title"><span class="icon">✖</span> 5a. Cancelar um pedido</div>
+  <p class="txt">
+    Só <b>administrador</b> cancela, pelo botão <b>✖ Cancelar</b> na aba Pedidos de Compra — vale
+    para PC <b>Aberto</b>, <b>Enviado</b> ou <b>Recebido parcial</b>. O motivo é obrigatório. É o
+    caminho para um PC já enviado que precisa mudar: <b>cancele e emita um novo</b>, em vez de
+    alterar o que o fornecedor já tem em mãos.
+  </p>
+  <div class="table-scroll">
+    <table class="field-guide">
+      <thead><tr><th style="width:30%">Situação</th><th>O que acontece</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Aberto ou Enviado</strong></td><td>O pedido inteiro é cancelado. A tela oferece devolver a solicitação de origem para <b>Aprovada</b>, para a necessidade poder ser cotada de novo — desmarque se ela deixou de existir.</td></tr>
+        <tr><td><strong>Recebido parcial</strong></td><td>Cancela só o <b>saldo que ainda não veio</b>. O que entrou continua recebido, com lote e estoque. A solicitação não é reaberta.</td></tr>
+        <tr><td><strong>Recebido total</strong></td><td>Não há saldo para cancelar — o botão não aparece.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="txt">
+    O PC cancelado <b>não é apagado</b> e não pode ser reaberto. Ele sai da lista padrão, da fila
+    da Logística e do MRP. Para consultar, use o filtro <b>Cancelados</b> (ou <b>Todos</b>): cada
+    linha mostra quem cancelou, quando, em que situação o pedido estava e o motivo. O documento
+    impresso de um PC cancelado sai com a faixa <b>“PEDIDO CANCELADO — NÃO ATENDER”</b>, que serve
+    de aviso ao fornecedor. Pedido cancelado não entra no Histórico de Preços nem na Análise de
+    Fornecedores.
+  </p>
+
+  <div class="section-title"><span class="icon">⚡</span> 6. Pedido de Compra Direto</div>
+  <p class="txt">
+    Botão <b>Criar e liberar pra recebimento</b>. Para a entrega que chega em cima da hora, sem
+    tempo de passar por solicitação e cotação. Cria o PC já pronto para o recebimento. É atalho, não
+    rotina — o que ele preserva é a regra de que nada entra sem pedido.
+    Ele já nasce com <b>de quem é o material</b> e <b>cliente/pedido</b> preenchidos (veja 6a).
+  </p>
+
+  <div class="section-title"><span class="icon">🔗</span> 6a. De quem é o material e para qual pedido</div>
+  <p class="txt">
+    Botão <b>🔗 Cliente/pedido</b> em cada pedido de compra. O cadastro do material é amplo (a mesma
+    válvula serve a vários clientes), então é <b>aqui</b> que se define de quem é o estoque — a
+    Logística, na doca, não sabe. <b>Sem isso o pedido não pode ser marcado como enviado nem
+    recebido.</b>
+    <br>· <b>De quem é:</b> <b>compra</b> é sempre da Kuryos. <b>Remessa</b> é do cliente — a do
+    próprio cliente sempre; a de terceiro já vem marcada como do cliente, e só se troca para Kuryos
+    na exceção em que a Kuryos comprou e o terceiro apenas entregou.
+    <br>· <b>Material de uso geral</b> (álcool, glicerina, água): na compra, vincule ao cliente e
+    pedido que motivou a compra. É só referência — o estoque continua da Kuryos e atende qualquer
+    cliente.
+    <br>· <b>Uso e consumo sem cliente nem pedido</b> (etiqueta térmica, ribbon, limpeza): no
+    seletor de cliente, escolha <i>Sem cliente — uso e consumo / estoque geral</i>. Só vale para
+    compra da Kuryos; remessa sempre precisa do cliente e do pedido.
+    <br>· <b>Cliente e pedido(s):</b> por item, obrigatórios, podendo marcar vários pedidos. A lista
+    mostra os pedidos em aberto do cliente (marque “mostrar concluídos” se preciso). Itens iguais:
+    use <i>Aplicar a todos os itens</i>.
+    <br>· <b>Como o estoque usa isso:</b> material <b>da Kuryos</b> vai para o estoque geral e pode
+    atender qualquer OP, mesmo tendo sido comprado para o pedido de outro cliente. Material <b>do
+    cliente</b> só é consumido, separado e planejado (MRP) para os produtos e pedidos desse cliente.
+    <br>· Item já recebido fica travado: os lotes que entraram guardam o vínculo daquele momento.
+  </p>
+
+  <div class="section-title"><span class="icon">📊</span> 7. Consultas</div>
+  <div class="table-scroll">
+    <table class="field-guide">
+      <thead><tr><th style="width:36%">Aba</th><th>Para quê</th></tr></thead>
+      <tbody>
+        <tr><td><strong>📊 Histórico de Preços</strong></td><td>O que já se pagou por aquele material.</td></tr>
+        <tr><td><strong>📈 Análise de Fornecedores</strong></td><td>Desempenho comercial do fornecedor.</td></tr>
+        <tr><td><strong>🔎 Busca Fornecedores × Materiais</strong></td><td>Quem fornece o quê.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section-title"><span class="icon">🔄</span> De quem vem, pra quem vai</div>
+  <div class="handoff">
+    <div class="handoff-cx">
+      <h4>↓ Chega até você</h4>
+      <p><b>De quem precisa do material:</b> a solicitação.</p>
+      <p><b>Dos Cadastros:</b> o material com unidade, unidade de compra e fator de conversão, e o
+      fornecedor com CNPJ, contato e endereço. Cadastro incompleto vira digitação manual em toda
+      cotação.</p>
+      <p><b>Do PCP:</b> a solicitação gerada pela Matriz de Insumos, marcada como vinda do MRP e
+      com o registro de como a quantidade foi apurada.</p>
+    </div>
+    <div class="handoff-cx">
+      <h4>↑ Sai de você</h4>
+      <p><b>Para o fornecedor:</b> o pedido impresso e o padrão de etiqueta.</p>
+      <p><b>Para a Logística:</b> o PC, com data prevista, local de entrega e dados de coleta FOB —
+      ela recebe contra este documento.</p>
+      <p><b>Para o financeiro:</b> <span class="badge badge-orange">manual</span> as parcelas de
+      pagamento ficam gravadas no pedido, mas <b>não existe tela de contas a pagar</b> no sistema.
+      O título é lançado fora daqui.</p>
+    </div>
+  </div>
+
+  <div class="note-card">
+    <strong>Dois pontos cegos ao decidir a compra.</strong>
+    <br>· <b>O saldo não aparece ao lado do item.</b> Existe o atalho <i>📦 Ver Estoque / WMS →</i>
+    no topo da tela, mas o número não vem até a cotação. Atenção: hoje esse saldo ainda
+    <b>não é confiável</b> — a maioria dos materiais nunca teve entrada registrada, e alguns
+    aparecem negativos. Até o inventário geral, confirme a quantidade com quem opera o galpão.
+    <br>· <b>O selo de qualidade não substitui o histórico completo.</b> A coluna de cada
+    fornecedor mostra taxa de aprovação e RNCs abertas (veja abaixo), mas para causa raiz e ação
+    corretiva abra <i>Qualidade › Desempenho de Fornecedor</i>.
+  </div>
+
+  <div class="footer">Kuryos Cosméticos · Sistema PCP — Manual de Compras</div>
+</div>
+</body>
+</html>

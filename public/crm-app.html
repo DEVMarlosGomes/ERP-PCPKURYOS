@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="description" content="CRM e P&D integrados ao Kuryos PCP">
+  <base href="/">
+  <script>
+    // Links da sidebar do PCP são relativos. Em rotas React como /crm/clients,
+    // sem uma base eles viravam /crm/pd.html, /crm/dashboard.html etc. Além de
+    // fixar links futuros, recupera URLs ruins já abertas antes desta correção.
+    (function() {
+      var legacy = location.pathname.match(/^\/(?:crm|pd)\/([^/]+\.html)$/);
+      if (legacy) history.replaceState(null, '', '/' + legacy[1] + location.search + location.hash);
+    })();
+
+    // O adaptador Firebase é um chunk lazy com nome versionado pelo build original.
+    // Como ele recebeu correções locais sem recompilar todo o React, force uma URL
+    // nova para impedir que o Chrome reutilize a cópia antiga desse único arquivo.
+    (function() {
+      var originalAppendChild = Element.prototype.appendChild;
+      Element.prototype.appendChild = function(node) {
+        if (node && node.tagName === 'SCRIPT' && /\/static\/js\/9752\.[^/]+\.chunk\.js(?:\?|$)/.test(node.src || '')) {
+          var url = new URL(node.src, location.href);
+          url.searchParams.set('pcp-rev', 'master-integration-20261008-1');
+          node.src = url.href;
+        }
+        return originalAppendChild.call(this, node);
+      };
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/shared/theme.css">
+  <link rel="stylesheet" href="/static/css/main.6a86a9a0.css">
+    <link rel="stylesheet" href="/shared/crm-pd-responsive.css?v=20261009-2">
+  <link rel="stylesheet" href="/shared/crm-pd-master-integration.css">
+  <title>CRM e P&D · Kuryos PCP</title>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+  <script>
+    firebase.initializeApp({
+      apiKey:'AIzaSyBvASzcbKyv3uW7NBzDFDyLsKls3An3UUs',
+      authDomain:'erpkuryos.firebaseapp.com',
+      databaseURL:'https://erpkuryos-default-rtdb.firebaseio.com',
+      projectId:'erpkuryos',
+      storageBucket:'erpkuryos.firebasestorage.app',
+      messagingSenderId:'272752392739',
+      appId:'1:272752392739:web:047a6c4aa60145d77f4f96'
+    });
+    window.__PCP_EMBEDDED__ = true;
+    window.addEventListener('error', function(e) {
+      if (e.error instanceof DOMException && e.error.name === 'DataCloneError' && e.message && e.message.includes('PerformanceServerTiming')) {
+        e.stopImmediatePropagation(); e.preventDefault();
+      }
+    }, true);
+  </script>
+  <script src="/auth_check.js"></script>
+  <script src="/shared/crm-pd-shell-bridge.js?v=20261009-1"></script>
+  <script defer src="/static/js/main.6cbbf5dd.js?pcp-rev=master-integration-20261008-1"></script>
+  <script defer src="/shared/crm-pd-master-integration.js"></script>
+</head>
+<body class="has-sidebar">
+  <noscript>Você precisa habilitar JavaScript para executar este módulo.</noscript>
+  <div id="root"></div>
+</body>
+</html>

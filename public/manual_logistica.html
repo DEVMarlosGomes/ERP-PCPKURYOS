@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manual — Agendamento e Recebimento</title>
+  <link rel="stylesheet" href="shared/manual.css">
+  <link rel="stylesheet" href="shared/kuryos-apple-system.css?v=20261007-1">
+  <link rel="stylesheet" href="shared/kuryos-repo-visual.css?v=20261009-1">
+  <script defer src="shared/kuryos-icon-system.js?v=20261007-1"></script>
+</head>
+<body>
+<div class="container">
+  <a class="manual-voltar" href="manuais.html">← Todos os manuais</a>
+
+  <div class="header">
+    <img src="kuryos-logo.svg" alt="Kuryos">
+    <h1>Agendamento e Recebimento</h1>
+    <p>Logística — Logística › Agendamentos</p>
+  </div>
+
+  <div class="intro-box">
+    <strong>A porta de entrada da fábrica.</strong> Tudo que entra passa por aqui, e o que você
+    registra neste momento é o que todo mundo vai enxergar depois — Qualidade, Estoque, Produção e
+    Compras. É o ponto do sistema onde o material físico vira dado.
+  </div>
+
+  <div class="stop-card">
+    <strong>Nada entra sem Pedido de Compra.</strong> Se chegou material sem PC, não dê entrada:
+    peça a Compras que gere o pedido — existe o botão <b>Criar e liberar pra recebimento</b>
+    exatamente para a entrega de última hora. Receber sem pedido deixa o material sem origem, sem
+    preço e sem fornecedor rastreável.
+  </div>
+
+  <div class="section-title"><span class="icon">📅</span> 1. Agendar</div>
+  <p class="where">Aba <code>A Receber</code></p>
+  <ul class="step-list">
+    <li class="step-item"><div class="step-number">1</div><div class="step-content">
+      <strong>📅 Agendar Entrega → Salvar Agendamento</strong>
+      <p>Marca quando o fornecedor entrega. O pedido já traz a <b>data prevista</b>, calculada em
+      dias úteis a partir do prazo que o fornecedor deu — use-a como ponto de partida.</p></div></li>
+    <li class="step-item"><div class="step-number">2</div><div class="step-content">
+      <strong>Coleta FOB</strong>
+      <p>Quando o frete é FOB, a coleta é por nossa conta e é você quem contrata. O pedido traz
+      <b>endereço, contato, telefone e peso</b> preenchidos por Compras. Se algum desses estiver em
+      branco, cobre antes de acionar a transportadora.</p></div></li>
+    <li class="step-item"><div class="step-number">3</div><div class="step-content">
+      <strong>Conferir origem e destino</strong>
+      <p>A agenda mostra a rota congelada no Pedido de Compra, com botões para copiar o endereço e
+      abrir no mapa. Se um pedido antigo estiver sem rota, o agendamento fica bloqueado até completar
+      os dados. Uma mudança excepcional vale somente para aquela viagem: use <b>Corrigir para esta
+      viagem</b> e registre o motivo. O sistema preserva rota do PC, antes/depois, usuário e data.</p></div></li>
+  </ul>
+
+  <div class="section-title"><span class="icon">🏷️</span> 2. Conferir a etiqueta</div>
+  <p class="txt">
+    <b>🏷️ Checklist de Etiqueta → Salvar Checklist.</b> Confere se a identificação que o fornecedor
+    colou está no padrão que foi enviado junto com o pedido. Caixa sem identificação completa atrasa
+    a liberação do material — o checklist é o registro de que isso foi conferido na chegada, e não
+    descoberto três dias depois.
+  </p>
+
+  <div class="section-title"><span class="icon">📦</span> 3. Registrar o recebimento</div>
+  <p class="txt"><b>📦 Registrar Recebimento → Confirmar Recebimento.</b> Este registro substitui o
+  Microsoft Forms de entrada. Fornecedor, identificação e SKU interno vêm do Pedido de Compra; o
+  SKU do fornecedor vem da homologação quando cadastrado. Confira os dados e complete o que foi
+  observado na chegada.</p>
+  <div class="table-scroll">
+    <table class="field-guide">
+      <thead><tr><th style="width:28%">Campo</th><th>Por que preencher</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Quantidade e volumes</strong> <span class="badge badge-red">obrigatório</span></td><td>Pode ser parcial. Se o mesmo material vier com dois lotes do fornecedor, use <b>+ Outro lote deste material</b> e informe a quantidade e os volumes físicos de cada um separadamente.</td></tr>
+        <tr><td><strong>Tipo, identificação e SKUs</strong> <span class="badge badge-red">obrigatório</span></td><td>Confira o material físico contra o cadastro e a identificação do fornecedor.</td></tr>
+        <tr><td><strong>Lote do fornecedor</strong> <span class="badge badge-red">obrigatório</span></td><td>Copie da embalagem; quando realmente não existir, use <b>NÃO INFORMADO</b>. O lote interno não é digitado: o sistema gera automaticamente no padrão <b>AK-AAAA-NNNNNN</b>.</td></tr>
+        <tr><td><strong>Amostragem e certificado</strong> <span class="badge badge-red">obrigatório</span></td><td>Informa ao CQ quanto foi separado e se o certificado acompanhou a carga.</td></tr>
+        <tr><td><strong>Veículo e embalagem</strong> <span class="badge badge-red">obrigatório</span></td><td>Avalie de 1 a 5. Veículo considera limpeza, odores e evidências de pragas.</td></tr>
+        <tr><td><strong>Validade</strong></td><td>Alimenta o FEFO: sem validade, o lote vai para o fim da fila de separação e vence no fundo do galpão.</td></tr>
+        <tr><td><strong>Endereço de destino</strong> <span class="badge badge-red">obrigatório</span></td><td>Onde o palete foi <b>fisicamente colocado</b> agora. É o que cria o lote na fila da Qualidade; não é liberação.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="ok-card">
+    <strong>Material recebido entra em QUARENTENA.</strong> Ele conta no estoque e ocupa a posição,
+    mas a <b>Separação de Materiais não o enxerga</b> até a Qualidade liberar. Escolher o endereço no
+    recebimento não libera nada — só registra onde o material está. Esse bloqueio é deliberado: é o
+    controle que hoje se perde no papel.
+  </div>
+
+  <div class="ok-card">
+    <strong>QUARENTENA é um status, não uma área física obrigatória.</strong> O lote deve ser endereçado
+    onde realmente foi colocado. Enquanto estiver com status de quarentena, ele ocupa a posição, mas
+    continua bloqueado para separação ou expedição até a decisão da Qualidade.
+  </div>
+
+  <div class="note-card">
+    <strong>Etiquetas, cancelamento e devolução.</strong> Após confirmar, o sistema abre as etiquetas
+    de quarentena com AK, código de barras e QR. A aba <b>Histórico</b> permite reimprimir. Um
+    recebimento só pode ser cancelado integralmente antes da análise ou movimentação; nesse caso os
+    saldos são estornados e os números AK permanecem no histórico. Para material em quarentena ou
+    reprovado, use <b>Devolver</b>: a quantidade sai do estoque e o saldo do Pedido de Compra reabre.
+  </div>
+
+  <div class="section-title"><span class="icon">📦</span> 4. Conferir Produto Acabado</div>
+  <p class="txt"><b>Estoque / WMS → Conferência de PA.</b> Assim que a Produção encerra a OP, ela já
+  aparece para a Logística. Enquanto o PCP não confirmar a conclusão, a linha fica destacada como
+  <b>Pendente PCP</b> e a entrada permanece bloqueada — essa fila também serve para cobrar a
+  regularização. Depois da confirmação, registre cada palete recebido: caixas fechadas, unidades
+  por caixa, caixa parcial, total físico e endereço real.</p>
+  <div class="note-card">
+    <strong>Se o total físico não bater com a OP, nada entra no estoque.</strong> O sistema abre o
+    alerta de tripla conferência e exige três contagens, mantendo cada fotografia dos paletes. Duas
+    das três últimas precisam concordar. Se o consenso continuar diferente da OP, informe a causa e
+    a explicação: o servidor registra a conciliação e abre uma RNC automaticamente. Só depois os
+    paletes entram no WMS com status de quarentena.
+  </div>
+
+  <div class="note-card">
+    <strong>Recebimento entra na Doca; guardar é da Logística.</strong> O endereço de entrada já vem
+    como <b>Doca</b>. Se quiser guardar direto, clique no endereço e escolha a posição no mapa
+    (primeiro Galpão ou Fábrica, depois a posição). O que fica na Doca aparece em
+    <i>Estoque › Endereçamento › Na Doca</i> e com o selo <b>📦 guardar</b>; guarde a qualquer
+    momento — o que a Qualidade já liberou aparece primeiro. Uma posição guarda <b>um palete</b>, que
+    pode ter mais de um produto: posição ocupada pede <b>“Colocar no mesmo palete”</b>. A liberação
+    da Qualidade não move nada nem cria pendência para palete que já está na posição.
+  </div>
+
+  <div class="section-title"><span class="icon">↔️</span> Movimentar material no armazém</div>
+  <div class="ok-card">
+    Em <a href="movimentar.html">Movimentar material</a> (pensada para o celular), quatro passos:
+    <b>1. De onde</b> — digite ou leia a etiqueta da posição (FAB-1.1.1), do palete (PA-…) ou do lote (AK-…); ou escolha no mapa, ou toque em Doca.
+    Posição lida marca tudo o que está nela (o palete inteiro); palete ou lote lido marca só ele.
+    <b>2. O que vai</b> — desmarque o que fica. Material pode ir só em parte (“mover só uma parte”); palete de produto acabado vai inteiro.
+    <b>3. Para onde</b> — leia ou escolha o destino. O sistema diz antes: <b>livre</b>, <b>ocupada</b> (vai para o mesmo palete, pede confirmação),
+    <b>Doca</b> ou <b>bloqueada</b> (não aceita). As posições livres mais perto aparecem como atalho.
+    <b>4. Confirmar</b> — o resumo diz exatamente o que vai acontecer. Mover nunca muda saldo, só a posição; fica registrado quem, quando, de onde e para onde.
+    Errou? <b>Mover de volta</b>, logo após mover.
+  </div>
+  <div class="note-card">
+    <b>Etiquetas.</b> Todas as etiquetas do armazém foram testadas para leitura em impressora térmica (203 dpi) e em câmera de celular:
+    lote recebido (AK-…), palete (PA-…), endereço e caixa de embarque. As de <b>endereço</b> saem em Movimentar → Etiquetas de endereço
+    (impressora de etiqueta 100 × 50 mm ou folha A4); a de <b>palete/lote</b>, pelo 🏷️ ao lado de cada lote no passo 2 — para o que
+    chegou sem etiqueta ou teve a etiqueta danificada. Com as posições etiquetadas, os passos 1 e 3 viram só apontar o leitor ou a câmera
+    (📷 Ler, no Chrome do Android). Leitor de código de barras que “digita” funciona direto no campo.
+  </div>
+
+  <div class="section-title"><span class="icon">🚚</span> Expedição de produto acabado</div>
+  <div class="ok-card">
+    <b>Três telas, uma para cada etapa</b> (a faixa no topo mostra onde você está e quantas cargas esperam em cada uma):
+    <b>1. <a href="expedicao.html">Montar carga</a></b> — escolher os paletes e agendar o transporte;
+    <b>2. <a href="faturamento.html">Faturamento</a></b> — solicitar o faturamento ao Financeiro e registrar a NF emitida;
+    <b>3. <a href="cargas.html">Acompanhamento de cargas</a></b> — a carga até sair: a NF assim que registrada, o carregamento,
+    a saída física (em uma ou mais viagens) e o histórico de saídas.
+  </div>
+  <div class="note-card">
+    Em <a href="expedicao.html">Montar carga</a>, selecione os <b>paletes físicos do estoque</b>.
+    Cada palete leva automaticamente o pedido de origem, cliente, SKU, OP, lote, conferência e laudo.
+    A carga aceita paletes inteiros do mesmo cliente e destino, respeitando o CIF/FOB de cada pedido.
+    A grade tem uma linha por palete. A composição mostra, por exemplo, <b>12 cx × 24 + 1 parcial com 7 = 295 unidades</b>.
+    Uma caixa parcial sozinha aparece como <b>1 parcial com 7</b>, sem inventar uma caixa cheia ou criar outra linha.
+    Use busca e filtros por cliente/status. Paletes com pendências explicam os bloqueios de Qualidade,
+    endereço definitivo, validade ou vínculo com o pedido. “Datas e peso” abre as colunas adicionais;
+    peso ausente permanece em branco (—), sem estimativa.
+  </div>
+  <div class="note-card">
+    <b>Agende a carga sem baixar o estoque.</b> Selecione os paletes e clique em <b>Agendar carga</b>.
+    Informe data, horário, transportadora, motorista, contato e placa conforme disponíveis.
+    Agendada, a carga vai para o <b>Faturamento</b>. O transporte pode ser editado depois na
+    <b>Logística → Saídas de PA → Transporte</b> ou no <b>Acompanhamento de cargas</b>.
+    Em <b>Contato do cliente para recebimento</b>, o sistema sugere o principal da área Logística
+    cadastrado em Clientes. Você pode escolher outra pessoa, filtrar por área ou preencher manualmente.
+    O contato fica registrado na agenda e na saída: mudanças posteriores no cadastro não alteram a carga salva.
+    Se outra pessoa alterar a carga com o carregamento aberto, o Acompanhamento avisa e pede para reabrir. Um palete não entra em duas cargas ativas.
+    Para mudar os paletes da carga, cancele o agendamento com motivo e monte outro; cancelar a agenda não movimenta estoque.
+    A saída só é confirmada após nova validação de todos os paletes, e preserva o transporte agendado e o efetivamente usado.
+  </div>
+  <div class="note-card">
+    <b>Faturamento:</b> em <a href="faturamento.html">Faturamento</a>, <b>Solicitar faturamento</b> envia ao Financeiro
+    (cópia à diretoria) paletes, lotes, validades, preços e total. Quando a NF for emitida, <b>Registrar NF</b> — número,
+    série, valor, data e chave. A NF vale para todas as viagens da carga. Carga faturada não pode ser cancelada.
+  </div>
+  <div class="note-card">
+    <b>Confirme a saída no momento em que a carga sair</b>, no <a href="cargas.html">Acompanhamento de cargas</a>.
+    A saída só é liberada com a NF registrada. Em <b>Carregar e confirmar saída</b>, marque o que subiu no veículo
+    (inteiro, parcial por caixas ou não carregado): o que ficar segue reservado para a próxima viagem, com a mesma NF.
+    A confirmação baixa os paletes no WMS, atualiza o expedido dos pedidos e registra os movimentos juntos. Se a conexão
+    falhar, use “Verificar / repetir confirmação” (mesmo depois de recarregar a página): a mesma operação não baixa duas vezes.
+    Cargas anteriores continuam visíveis como legado e não são baixadas novamente automaticamente.
+  </div>
+
+  <div class="section-title"><span class="icon">🔄</span> De quem vem, pra quem vai</div>
+  <div class="handoff">
+    <div class="handoff-cx">
+      <h4>↓ Chega até você</h4>
+      <p><b>De Compras:</b> o Pedido de Compra, com data prevista, itens, unidade, local de entrega e
+      dados de coleta FOB.</p>
+      <p><b>Do fornecedor:</b> o material e a etiqueta de identificação no padrão enviado.</p>
+    </div>
+    <div class="handoff-cx">
+      <h4>↑ Sai de você</h4>
+      <p><b>Para a Qualidade:</b> o lote entra sozinho na fila de inspeção, em quarentena. Você não
+      precisa avisar ninguém — mas material parado ali ocupa posição sem poder ser usado, então vale
+      acompanhar.</p>
+      <p><b>Para Compras:</b> o pedido muda de status conforme o recebido. Divergência de quantidade
+      ou de qualidade é assunto do comprador — <b>avise</b>, o sistema não avisa.</p>
+      <p><b>Para o Estoque:</b> o lote passa a existir com endereço, saldo, validade e status.</p>
+    </div>
+  </div>
+
+  <div class="footer">Kuryos Cosméticos · Sistema PCP — Manual de Agendamento e Recebimento</div>
+</div>
+</body>
+</html>

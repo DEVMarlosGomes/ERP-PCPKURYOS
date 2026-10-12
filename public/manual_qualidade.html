@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manual — Qualidade</title>
+  <link rel="stylesheet" href="shared/manual.css">
+  <link rel="stylesheet" href="shared/kuryos-apple-system.css?v=20261007-1">
+  <link rel="stylesheet" href="shared/kuryos-repo-visual.css?v=20261009-1">
+  <script defer src="shared/kuryos-icon-system.js?v=20261007-1"></script>
+</head>
+<body>
+<div class="container">
+  <a class="manual-voltar" href="manuais.html">← Todos os manuais</a>
+
+  <div class="header">
+    <img src="kuryos-logo.svg" alt="Kuryos">
+    <h1>Qualidade</h1>
+    <p>Analista de CQ — Qualidade › Fila de Inspeção e Não Conformidades</p>
+  </div>
+
+  <div class="intro-box">
+    <strong>O que depende de você.</strong> Nenhum material recebido entra em produção antes do seu
+    laudo, e nenhum palete vai para expedição antes da sua liberação. O sistema garante isso
+    sozinho: lote em quarentena não aparece para a Separação. O contrapeso é que material parado na
+    sua fila ocupa posição no galpão sem poder ser usado — a fila destaca a espera longa por isso.
+  </div>
+
+  <div class="section-title"><span class="icon">🔬</span> 1. Laudar um lote</div>
+  <ul class="step-list">
+    <li class="step-item"><div class="step-number">1</div><div class="step-content">
+      <strong>Abra a fila de inspeção</strong>
+      <p>Tudo em quarentena aparece ali sozinho: material recebido pela Logística e palete de
+      produto acabado já conferido. A fila é separada em abas por tipo de análise —
+      <b>Matéria-prima</b>, <b>Embalagem</b>, <b>Bulk</b> e <b>Produto acabado</b> —, cada uma com o
+      número de pendências. <b>Ver tudo</b> junta as quatro numa lista só; a tela lembra a sua
+      escolha neste aparelho. Para material recebido, a coluna <b>Entrada da Logística</b>
+      mostra NF, quantidade de amostra, certificado e notas de veículo/embalagem.</p></div></li>
+    <li class="step-item"><div class="step-number">2</div><div class="step-content">
+      <strong>🔬 Laudar</strong>
+      <p>Os dados de chegada já vêm preenchidos pela Logística e ficam protegidos contra alteração.
+      Registre integridade, vazamento e os ensaios. Se o item tem especificação cadastrada, os ensaios aparecem como formulário. Onde há faixa
+      numérica, digite o valor e o sistema diz na hora se está dentro. Onde a especificação é
+      descritiva ("aspecto: líquido"), marque <b>C</b> ou <b>NC</b>.</p></div></li>
+    <li class="step-item"><div class="step-number">3</div><div class="step-content">
+      <strong>Decida</strong>
+      <p><b>Liberar</b> · <b>Aprovar c/ concessão</b> (pede o nome de quem autorizou) ·
+      <b>Reprovar</b> · <b>⏸ Reter</b>. Reprovar e reter <b>exigem o motivo escrito</b> — ele vira a
+      descrição da não conformidade.</p></div></li>
+  </ul>
+
+  <div class="ok-card">
+    <strong>📷 Fotos em qualquer análise.</strong> No laudo (matéria-prima, embalagem e produto acabado),
+    na análise do bulk e na não conformidade há o botão <b>Anexar foto</b>: até <b>6 fotos</b> por registro,
+    cada uma com legenda opcional (“lacre rompido”, “caixa molhada”). No celular ele abre a câmera.
+    <b>Na reprovação, pelo menos uma foto é obrigatória</b> — se não há o que fotografar (reprovado por
+    documento ausente, por exemplo), marque <b>Não há o que fotografar</b> e descreva o motivo. As fotos
+    sobem quando você salva a análise, vão junto para a RNC aberta sozinha (é a prova para o fornecedor) e
+    aparecem no histórico, nas não conformidades e no Dossiê do Lote, no botão <b>📷 N</b>.
+  </div>
+
+  <div class="ok-card">
+    <strong>Reprovar abre a RNC sozinho</strong>, já vinculada ao fornecedor e ao pedido de compra
+    que trouxe o material. Ninguém redigita nada.
+  </div>
+
+  <div class="note-card">
+    <strong>Reprovar não tira o material do estoque.</strong> Ele continua fisicamente lá,
+    bloqueado para uso, até ser <b>devolvido ou descartado</b> — que são saídas próprias, lançadas
+    na tela de Estoque. Marcar reprovado e esquecer deixa material morto ocupando posição.
+  </div>
+
+  <div class="section-title"><span class="icon">🧪</span> 1b. Bulk reprovado que dá para corrigir</div>
+  <p class="txt">
+    Bulk reprovado (por exemplo, turvo) fica travado para o envase. Se der para corrigir — adicionar
+    matérias-primas —, é <b>você</b> quem autoriza, no card <b>Bulk reprovado — aguardando decisão de
+    correção</b> da Fila de Inspeção, em <b>Abrir correção</b>:
+  </p>
+  <ul class="step-list">
+    <li class="step-item"><div class="step-number">1</div><div class="step-content"><strong>RNC obrigatória</strong>
+      <p>A reprovação já abriu uma; ela vem escolhida. Sem RNC a correção não abre.</p></div></li>
+    <li class="step-item"><div class="step-number">2</div><div class="step-content"><strong>Massa que entra e matérias-primas</strong>
+      <p>A massa vem com o rendimento reprovado (ex.: 500 kg). Liste cada matéria-prima (a lista só oferece MP, nunca embalagem) e a
+      quantidade — é exatamente o que a Manipulação vai pesar, com foto, lote e conferência, e o que
+      sai do estoque.</p></div></li>
+    <li class="step-item"><div class="step-number">3</div><div class="step-content"><strong>Nova análise</strong>
+      <p>O bulk corrigido volta para a sua fila de granel com a indicação "correção". Liberou, o
+      envase destrava. Reprovou de novo, pode abrir outra correção — a RNC continua a mesma.</p></div></li>
+  </ul>
+  <div class="ok-card">
+    <strong>O lote continua o mesmo.</strong> O ciclo reprovado fica inteiro no Dossiê do Lote, seguido
+    da correção. Se o bulk corrigido rende mais (500 → 800 kg), a Manipulação, ao fechar, converte a
+    massa a mais em <b>unidades de excedente</b> na mesma OP, pela proporção da fórmula (sempre
+    arredondando para baixo), e as embalagens do excedente entram na separação e no empenho.
+  </div>
+  <div class="note-card">
+    <strong>Registro retroativo</strong> é só para regularizar uma correção que já foi feita
+    fisicamente: dispensa a foto da balança, exige justificativa e fica marcado no lote.
+  </div>
+
+  <div class="section-title"><span class="icon">⚖️</span> 1c. Análise do bulk e peso do palete (INMETRO)</div>
+  <p class="txt">
+    <b>Bulk:</b> a análise físico-química aponta aspecto, cor, odor, pH, densidade e teor alcoólico.
+    Em <b>pH, densidade e teor</b> a faixa (mín–máx) já vem da especificação do produto e pode ser
+    ajustada ali mesmo; você digita <b>só o resultado</b> e o sistema diz se está dentro. Faixa ajustada
+    vale só para aquele lote e fica registrada. Nos descritivos (aspecto, cor, odor), marque C ou NC.
+    O que não se aplica ao produto, marque <b>NA</b> — não conta como pendência nem reprova.
+    <b>Faixa em branco:</b> se o produto não tem especificação, ou tem mas aquele ensaio está sem faixa
+    ("-"), a faixa que você informar é gravada na especificação do produto (nova versão; a anterior fica
+    guardada), e o próximo lote já vem preenchido. Faixa que já existia e você ajustou vale só para o lote. <b>Aponte sempre a densidade</b>: é ela que converte o peso do
+    envase. Se você liberar sem densidade, ou com ensaio sem resultado, o sistema pergunta antes.
+  </p>
+  <p class="txt">
+    <b>Palete:</b> pese o conteúdo líquido em gramas, com a balança tarada na embalagem vazia. Produto
+    declarado em ml usa a densidade do lote para converter o nominal: vale a que você medir na hora
+    (campo <b>Densidade da amostra</b>); sem ela, a do bulk; em último caso, a do cadastro, com aviso.
+    A quantidade de pesagens já vem pelo plano do INMETRO para o tamanho do lote, e você pode mudar.
+  </p>
+  <div class="note-card">
+    <strong>O lote só passa se cumprir os três critérios da Portaria INMETRO 249/2021:</strong>
+    média ≥ nominal − k·s; no máximo <i>c</i> unidades abaixo de nominal − T (o <i>c</i> depende de
+    quantas foram pesadas); nenhuma abaixo de nominal − 2T. T sai da tabela da Portaria por faixa
+    de conteúdo (ex.: 9 ml para 200 ml), e não é mais um −3% fixo. A tela mostra todos os limites
+    já em gramas.
+  </div>
+
+  <div class="section-title"><span class="icon">🧫</span> 1d. Resultados do laudo de produto acabado</div>
+  <p class="txt">
+    No laudo do palete, o bloco <b>Resultados do laudo — físico-químico e microbiologia</b> é onde se
+    digitam os resultados que o Relatório de Análise imprime. Nada vai para o papel.
+  </p>
+  <ul class="step-list">
+    <li class="step-item"><div class="step-number">1</div><div class="step-content"><strong>Físico-químico</strong>
+      <p>Os parâmetros vêm da especificação do produto (ou do modelo: aspecto, cor, odor, pH, densidade).
+      O que a análise do bulk do lote já mediu vem preenchido, marcado <b>do bulk</b> — confira. Digite o
+      resto no <b>Resultado obtido</b>. <b>＋ Parâmetro</b> acrescenta um ensaio.</p></div></li>
+    <li class="step-item"><div class="step-number">2</div><div class="step-content"><strong>Microbiologia</strong>
+      <p><b>Realizada:</b> escolha o resultado de cada análise e informe laboratório e nº do laudo externo.
+      <b>Dispensada</b> (ex.: álcool ≥ 60%): escreva a justificativa — ela vai no lugar da tabela.</p></div></li>
+  </ul>
+  <div class="note-card">
+    <strong>Micro "Presente" ou contagem acima do limite não libera o palete</strong> — retenha ou reprove.
+    Resultado em branco não trava, mas o sistema avisa antes de liberar e ele sai <b>em branco</b> no
+    relatório: o laudo nunca imprime um resultado que não foi registrado.
+  </div>
+
+  <div class="section-title"><span class="icon">📈</span> 1d. Histórico e indicadores</div>
+  <p class="txt">
+    Em <b>Qualidade › Histórico e Indicadores</b> ficam todas as análises já decididas, de matéria-prima,
+    embalagem, bulk (inclusive a reprovação que abriu uma correção) e produto acabado. A aba
+    <b>Semana</b> abre na semana anterior completa e mostra o pipeline: <b>em aberto no início + entraram
+    − decididas = em aberto no fim</b>, cada número comparado com a semana antes, as decisões por
+    resultado, a quebra por tipo e a lista das análises da semana (◀ ▶ navega). A aba
+    <b>Período</b> mostra, no período escolhido, a taxa de aprovação, as reprovações, o tempo da
+    entrada na Qualidade até a decisão, o bulk aprovado na 1ª análise, a fila atual, as análises por
+    semana (clique numa barra para abrir aquela semana no pipeline) e a reprovação por fornecedor. A aba <b>Histórico de análises</b> busca por item, lote,
+    fornecedor, cliente, analista ou RNC e leva direto à emissão do laudo (<b>Laudo</b>) ou ao
+    <b>Dossiê</b> do lote.
+  </p>
+
+  <div class="section-title"><span class="icon">⚠️</span> 2. Tratar uma não conformidade</div>
+  <div class="table-scroll">
+    <table class="field-guide">
+      <thead><tr><th style="width:30%">Ação</th><th>O que faz</th></tr></thead>
+      <tbody>
+        <tr><td><strong>+ Nova RNC</strong></td><td>Abre à mão, para o que não veio de um laudo: produção, expedição, reclamação de cliente.</td></tr>
+        <tr><td><strong>▶ Assumir</strong></td><td>Move para “Em análise”. Só uma pessoa assume — é o que evita duas pessoas tratando a mesma coisa.</td></tr>
+        <tr><td><strong>✓ Encerrar</strong></td><td>Exige <b>causa raiz</b>, <b>ação corretiva</b> e <b>disposição do material</b> (devolver, descartar, retrabalhar, usar com concessão ou aceitar).</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="txt">
+    <b>A ordem da lista é a ordem de tratar:</b> abertas primeiro, crítica antes de maior, mais
+    antiga antes. O indicador “mais antiga em aberto” denuncia tratativa parada.
+  </p>
+
+  <div class="section-title"><span class="icon">📋</span> 3. Especificações</div>
+  <p class="txt">
+    A aba <b>📋 Especificações</b> é só consulta dos planos de inspeção — a edição é em
+    <i>Cadastros</i>. Quanto mais ensaio tiver <b>mínimo e máximo como número</b>, mais o sistema
+    julga sozinho se o lote está dentro. Onde a faixa está escrita só no texto, a avaliação fica
+    inteiramente por sua conta.
+  </p>
+  <div class="note-card">
+    <strong>Vale conferir o seu cadastro.</strong> Hoje só cerca de um quarto dos ensaios tem faixa
+    numérica preenchida, e pouquíssimos estão marcados como <b>críticos</b> — e é a marcação de
+    crítico que decide se um desvio para o lote. Se um ensaio deveria parar o lote e não está
+    marcado, o sistema não vai barrar.
+  </div>
+
+  <div class="section-title"><span class="icon">🏭</span> 4. Desempenho de fornecedor</div>
+  <p class="txt">
+    Taxa de aprovação por fornecedor, <b>pior primeiro</b>. Aprovação com concessão não conta como
+    aprovação — se contasse, o indicador esconderia exatamente o fornecedor que mais dá trabalho.
+  </p>
+  <div class="ok-card">
+    <strong>Este número chega a Compras sozinho.</strong> Na cotação, a coluna de cada fornecedor
+    exibe a taxa de aprovação e o número de RNCs abertas. <b>RNC aberta deixa o selo vermelho mesmo
+    com histórico bom</b> — problema não resolvido pesa mais que média. Ou seja: deixar uma RNC
+    parada na sua fila afeta a decisão de compra. Encerrá-la é o que limpa o selo.
+  </div>
+
+  <div class="section-title"><span class="icon">🔄</span> De quem vem, pra quem vai</div>
+  <div class="handoff">
+    <div class="handoff-cx">
+      <h4>↓ Chega até você</h4>
+      <p><b>Da Logística:</b> material recebido, em quarentena, com lote e validade do fornecedor e lote interno automático no padrão <b>AK-AAAA-NNNNNN</b>. Lotes distintos da mesma entrega chegam separados para amostragem e decisão.</p>
+      <p><b>Da Produção e Logística:</b> palete de produto acabado conferido.</p>
+      <p><b>Dos Cadastros:</b> a especificação e o plano de inspeção. Item sem especificação
+      cadastrada chega na fila sem formulário — o laudo vira texto livre.</p>
+    </div>
+    <div class="handoff-cx">
+      <h4>↑ Sai de você</h4>
+      <p><b>Para a Logística:</b> a liberação, que faz o lote aparecer na Separação de Materiais.
+      Isso é automático.</p>
+      <p><b>Para Compras:</b> a RNC e a taxa de aprovação, que aparecem como selo na coluna do
+      fornecedor durante a cotação.</p>
+      <p><b>Para o Estoque:</b> a disposição do material reprovado — devolução ou descarte são
+      lançados lá, por alguém.</p>
+    </div>
+  </div>
+
+  <div class="footer">Kuryos Cosméticos · Sistema PCP — Manual de Qualidade</div>
+</div>
+</body>
+</html>

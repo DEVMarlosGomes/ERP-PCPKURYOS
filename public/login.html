@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acesso - Sistema PCP Kuryos</title>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://erpkuryos-default-rtdb.firebaseio.com">
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="shared/theme.css">
+  <link rel="stylesheet" href="shared/kuryos-apple-system.css?v=20261007-1">
+  <link rel="stylesheet" href="shared/kuryos-repo-visual.css?v=20261009-1">
+  <script defer src="shared/kuryos-icon-system.js?v=20261007-1"></script>
+  <script>
+    // Aplica a preferência manual de tema (se houver) antes da primeira renderização,
+    // pra não piscar tema errado ao trocar entre login e páginas autenticadas.
+    (function() {
+      try {
+        var saved = localStorage.getItem('kuryos-theme');
+        if (saved === 'light' || saved === 'dark') {
+          document.documentElement.setAttribute('data-theme', saved);
+        }
+        var effective = saved === 'dark' || (!saved && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', effective);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-ui);
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .login-container {
+      width: 100%;
+      max-width: 440px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 40px 32px;
+      box-shadow: var(--shadow);
+    }
+
+    .logo-area {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .logo-area span {
+      font-size: 40px;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .logo-area h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -.01em;
+    }
+
+    .logo-area p {
+      font-size: 13px;
+      color: var(--ink-mute);
+      margin-top: 4px;
+    }
+
+    .tabs {
+      display: inline-flex;
+      width: 100%;
+      margin-bottom: 26px;
+      background: color-mix(in srgb, var(--ink) 6%, transparent);
+      border-radius: 10px;
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 8px;
+      background: none;
+      border: none;
+      border-radius: 8px;
+      color: var(--ink-soft);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      font-family: var(--font-ui);
+    }
+
+    .tab.active {
+      color: var(--ink);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--ink-mute);
+      margin-bottom: 6px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--ink);
+      font-size: 15px;
+      font-family: var(--font-ui);
+      transition: all 0.15s;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: var(--font-ui);
+      cursor: pointer;
+      transition: opacity 0.15s;
+      margin-top: 8px;
+    }
+
+    .btn:hover {
+      opacity: .88;
+    }
+
+    .feedback-message {
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 20px;
+      display: none;
+      line-height: 1.4;
+    }
+
+    .feedback-message.error {
+      background: color-mix(in srgb, var(--critical) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--critical) 30%, transparent);
+      color: var(--critical);
+      display: block;
+    }
+
+    .feedback-message.success {
+      background: color-mix(in srgb, var(--good) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--good) 30%, transparent);
+      color: var(--good);
+      display: block;
+    }
+
+    .feedback-message.warning {
+      background: color-mix(in srgb, var(--warn) 15%, transparent);
+      border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+      color: color-mix(in srgb, var(--warn) 65%, black);
+      display: block;
+    }
+  </style>
+</head>
+<body class="kuryos-theme">
+
+<div class="login-container">
+  <div class="logo-area">
+    <span>🏭</span>
+    <h1>Kuryos PCP</h1>
+    <p>Sistema de Controle de Produção</p>
+  </div>
+  
+  <div class="tabs">
+    <button class="tab active" id="tab-login" onclick="switchTab('login')">Entrar</button>
+    <button class="tab" id="tab-register" onclick="switchTab('register')">Cadastrar</button>
+  </div>
+  
+  <div id="feedback" class="feedback-message"></div>
+  
+  <!-- Form Login -->
+  <form id="form-login" onsubmit="handleLogin(event)">
+    <div class="form-group">
+      <label for="login-email">E-mail</label>
+      <input type="email" id="login-email" required placeholder="exemplo@kuryos.com">
+    </div>
+    <div class="form-group">
+      <label for="login-password">Senha</label>
+      <input type="password" id="login-password" required placeholder="Sua senha">
+    </div>
+    <button type="submit" class="btn">Entrar no Sistema</button>
+  </form>
+  
+  <!-- Form Cadastro -->
+  <form id="form-register" onsubmit="handleRegister(event)" style="display:none;">
+    <div class="form-group">
+      <label for="reg-name">Nome Completo</label>
+      <input type="text" id="reg-name" required placeholder="Seu nome">
+    </div>
+    <div class="form-group">
+      <label for="reg-email">E-mail</label>
+      <input type="email" id="reg-email" required placeholder="exemplo@kuryos.com">
+    </div>
+    <div class="form-group">
+      <label for="reg-password">Senha</label>
+      <input type="password" id="reg-password" required minlength="6" placeholder="Mínimo 6 caracteres">
+    </div>
+    <button type="submit" class="btn">Criar Conta</button>
+  </form>
+</div>
+
+<script>
+  // Firebase Configuration
+  // Fase 0 do ERP unificado: se estiver rodando local (emulador), aponta o
+  // databaseURL pro emulador (com ?ns= -- .database().useEmulator(host,port)
+  // sozinho NÃO inclui esse parâmetro nesta versão do SDK e devolve null pra
+  // tudo, silenciosamente; achado testando essa fase) e conecta o Auth
+  // também. login.html não carrega shared/utils.js (é a página mais enxuta
+  // do app de propósito), por isso essa checagem é inline em vez de chamar
+  // kuryosDatabaseURL/kuryosConnectEmulatorsIfLocal(). Nunca faz nada fora
+  // de localhost/127.0.0.1, então é seguro em produção.
+  var isLocalDev = (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+  var firebaseConfig = {
+    apiKey: "AIzaSyBvASzcbKyv3uW7NBzDFDyLsKls3An3UUs",
+    authDomain: "erpkuryos.firebaseapp.com",
+    databaseURL: isLocalDev ? "http://localhost:9000/?ns=erpkuryos" : "https://erpkuryos-default-rtdb.firebaseio.com",
+    projectId: "erpkuryos",
+    storageBucket: "erpkuryos.firebasestorage.app",
+    messagingSenderId: "272752392739",
+    appId: "1:272752392739:web:047a6c4aa60145d77f4f96"
+  };
+  firebase.initializeApp(firebaseConfig);
+
+  if (isLocalDev) {
+    firebase.auth().useEmulator('http://localhost:9099', { disableWarnings: true });
+    console.info('[Kuryos] Rodando local -- conectado aos emuladores do Firebase.');
+  }
+
+  const auth = firebase.auth();
+  const db = firebase.database();
+  
+  // Check URL query parameters for pending status
+  window.onload = function() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('status') === 'pending') {
+      showFeedback('warning', 'Acesso pendente: Sua conta foi criada, mas ainda não foi ativada por um administrador. Entre em contato para liberação.');
+    }
+    
+    // Check if user is already logged in but pending
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        db.ref('usuarios/' + user.uid).once('value')
+          .then(snap => {
+            const profile = snap.val();
+            if (profile && profile.role !== 'pending') {
+              // Already approved, redirect
+              redirectUser(profile.role);
+            }
+          })
+          .catch(err => {
+            console.error('Erro ao verificar perfil do usuário logado:', err);
+          });
+      }
+    });
+  };
+  
+  function switchTab(mode) {
+    const tabLogin = document.getElementById('tab-login');
+    const tabRegister = document.getElementById('tab-register');
+    const formLogin = document.getElementById('form-login');
+    const formRegister = document.getElementById('form-register');
+    const feedback = document.getElementById('feedback');
+    
+    feedback.className = 'feedback-message';
+    feedback.style.display = 'none';
+    
+    if (mode === 'login') {
+      tabLogin.classList.add('active');
+      tabRegister.classList.remove('active');
+      formLogin.style.display = 'block';
+      formRegister.style.display = 'none';
+    } else {
+      tabLogin.classList.remove('active');
+      tabRegister.classList.add('active');
+      formLogin.style.display = 'none';
+      formRegister.style.display = 'block';
+    }
+  }
+  
+  function showFeedback(type, text) {
+    // Achado do agente de auditoria (4a rodada): 'warning' caía no branch
+    // else e ganhava a classe/cor de 'success' -- um aviso de "acesso ainda
+    // não liberado" aparecia verde, como se o cadastro tivesse dado certo.
+    const feedback = document.getElementById('feedback');
+    feedback.textContent = text;
+    var cls = (type === 'error' || type === 'warning') ? type : 'success';
+    feedback.className = 'feedback-message ' + cls;
+    feedback.style.display = 'block';
+  }
+  
+  function handleLogin(e) {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value.trim();
+    const pass = document.getElementById('login-password').value;
+    const feedback = document.getElementById('feedback');
+    
+    feedback.style.display = 'none';
+    
+    auth.signInWithEmailAndPassword(email, pass)
+      .then(cred => {
+        return db.ref('usuarios/' + cred.user.uid).once('value')
+          .then(snap => {
+            const profile = snap.val();
+            if (!profile || profile.role === 'pending') {
+              showFeedback('error', 'Acesso pendente: Sua conta ainda não foi aprovada pelo Administrador.');
+              auth.signOut();
+            } else {
+              redirectUser(profile.role);
+            }
+          })
+          .catch(err => {
+            showFeedback('error', 'Login realizado, mas houve um erro ao carregar seu perfil de acesso. Tente novamente em instantes. (' + err.message + ')');
+          });
+      })
+      .catch(err => {
+        let msg = 'Erro ao realizar login. Verifique seu e-mail e senha.';
+        if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+          msg = 'E-mail ou senha incorretos.';
+        } else if (err.code === 'auth/invalid-email') {
+          msg = 'Formato de e-mail inválido.';
+        } else {
+          msg = 'Erro ao realizar login: ' + err.message + ' (' + err.code + ')';
+        }
+        showFeedback('error', msg);
+      });
+  }
+  
+  function handleRegister(e) {
+    e.preventDefault();
+    const name = document.getElementById('reg-name').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
+    const pass = document.getElementById('reg-password').value;
+    const feedback = document.getElementById('feedback');
+    
+    feedback.style.display = 'none';
+    
+    auth.createUserWithEmailAndPassword(email, pass)
+      .then(cred => {
+        // Create user node in DB. Achado do agente de auditoria (4a rodada):
+        // esse .then() interno não tinha `return` nem `.catch()` próprio --
+        // se a escrita do perfil falhasse (rede instável etc.), a rejeição
+        // não chegava no .catch() externo (vira unhandled rejection) e o
+        // usuário não via nem sucesso nem erro, ficando sem saber se o
+        // cadastro funcionou. Tentar de novo com o mesmo e-mail dava
+        // "e-mail já em uso" -- confuso, porque pra ele nada tinha dado certo.
+        return db.ref('usuarios/' + cred.user.uid).set({
+          nome: name,
+          email: email,
+          role: 'pending',
+          created_at: new Date().toISOString()
+        })
+        .then(() => {
+          auth.signOut(); // logout newly created user
+          showFeedback('success', 'Cadastro realizado com sucesso! Sua conta (' + email + ') agora aguarda ativação pelo administrador do PCP.');
+          document.getElementById('form-register').reset();
+          switchTab('login');
+        })
+        .catch(err => {
+          auth.signOut();
+          showFeedback('error', 'Sua conta foi criada, mas houve uma falha ao salvar seu perfil de acesso. Contate o administrador do PCP informando o e-mail ' + email + '. (' + err.message + ')');
+        });
+      })
+      .catch(err => {
+        let msg = 'Erro ao criar conta. Tente novamente.';
+        if (err.code === 'auth/email-already-in-use') {
+          msg = 'Este e-mail já está em uso por outro usuário.';
+        } else if (err.code === 'auth/weak-password') {
+          msg = 'A senha fornecida é muito fraca. Deve conter pelo menos 6 caracteres.';
+        } else {
+          msg = 'Erro ao criar conta: ' + err.message + ' (' + err.code + ')';
+        }
+        showFeedback('error', msg);
+      });
+  }
+  
+  function redirectUser(role) {
+    // Achado (relato do usuário: Adlai, perfil 'pcp', caiu aqui no "Perfil
+    // desconhecido" ao logar): esta função nunca foi atualizada quando os
+    // papéis 'pcp'/'rh'/'gestor' foram criados -- só reconhecia
+    // 'admin'/'production'/'rotulagem'. Mesmo destino de página que
+    // auth_check.js já usa pra cada papel (isPcpAdmin, rhHome).
+    if (role === 'admin' || role === 'pcp') {
+      window.location.href = 'dashboard.html';
+    } else if (role === 'production' || role === 'rotulagem') {
+      window.location.href = 'form.html';
+    } else if (role === 'logistica') {
+      window.location.href = 'logistica.html';
+    } else if (role === 'rh') {
+      window.location.href = 'rh_dashboard.html';
+    } else if (role === 'gestor') {
+      window.location.href = 'rh_avaliacao.html';
+    } else if (role === 'qualidade') {
+      // Módulo de Qualidade: pousa na fila de inspeção, sua tela de
+      // trabalho. Adicionado JUNTO com a criação do papel, de propósito --
+      // foi exatamente esta função que deixou o perfil 'pcp' de fora quando
+      // ele nasceu, e o usuário caiu em "Perfil desconhecido" ao logar.
+      window.location.href = 'qualidade.html?tab=fila';
+    } else {
+      showFeedback('error', 'Perfil desconhecido no sistema.');
+    }
+  }
+</script>
+</body>
+</html>

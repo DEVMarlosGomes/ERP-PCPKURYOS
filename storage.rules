@@ -1,0 +1,45 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Foto de prova da pesagem do granel (manipulacao.html). Só imagem, e
+    // menor que o documento comercial: é foto de celular, não anexo de proposta.
+    match /manipulacao/{lote}/{arquivo} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && (request.resource == null
+          || (request.resource.size < 10 * 1024 * 1024
+              && request.resource.contentType.matches('image/.*')));
+    }
+
+    // Fotos das análises da Qualidade (laudo de insumo/embalagem/PA, bulk e RNC):
+    // até 6 por registro, só imagem, menor que 10 MB. Um nível de pasta:
+    // qualidade/{contexto}_{chave}/{arquivo} (shared/fotos-qualidade.js).
+    match /qualidade/{pasta}/{arquivo} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && (request.resource == null
+          || (request.resource.size < 10 * 1024 * 1024
+              && request.resource.contentType.matches('image/.*')));
+    }
+
+    // Logo do cliente para a etiqueta de caixa (Cadastros › Clientes,
+    // shared/etiqueta-caixa.js): PNG reduzido no navegador, até 2 MB.
+    match /clientes_logo/{arquivo} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && (request.resource == null
+          || (request.resource.size < 2 * 1024 * 1024
+              && request.resource.contentType.matches('image/.*')));
+    }
+
+    match /comercial/{documento}/{arquivo} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.size < 20 * 1024 * 1024
+        && (request.resource.contentType.matches('application/pdf')
+          || request.resource.contentType.matches('image/.*')
+          || request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.*')
+          || request.resource.contentType == 'application/msword');
+    }
+  }
+}

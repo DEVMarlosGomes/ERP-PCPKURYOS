@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manipulação</title>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://erpkuryos-default-rtdb.firebaseio.com">
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage-compat.js"></script>
+  <script src="shared/utils.js"></script>
+  <script src="shared/propriedade-estoque.js"></script>
+  <script src="shared/manipulacao.js"></script>
+  <script src="shared/perdas-etapa.js"></script>
+  <script src="shared/anexos.js"></script>
+  <script src="auth_check.js"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="shared/theme.css">
+  <style>
+    :root{--primary:#0a1c69;--success:#0ca30c;--danger:#d03b3b;--warning:#c9910a;--bg:#f5f5f7;--card:#fff;--border:#d2d2d7;--text:#1d1d1f;--muted:#6e6e73;--purple:#7c3aed;--surface-2:#f9fafb;--tint-green-bg:#d1fae5;--tint-green-fg:#065f46;--tint-red-bg:#fee2e2;--tint-red-fg:#991b1b;--tint-gray-bg:#f3f4f6;--tint-blue-bg:#eff6ff;--tint-orange-bg:#fff7ed;--tint-orange-fg:#c2410c;--tint-purple-bg:#f3e8ff}
+    @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){color-scheme:dark;--primary:#5e83ea;--bg:#000;--card:#1c1c1e;--border:#38383a;--text:#f5f5f7;--muted:#98989d;--purple:#a78bfa;--surface-2:#242426;--tint-green-bg:rgba(16,185,129,.18);--tint-green-fg:#6ee7b7;--tint-red-bg:rgba(239,68,68,.18);--tint-red-fg:#fca5a5;--tint-gray-bg:rgba(255,255,255,.08);--tint-blue-bg:rgba(94,131,234,.18);--tint-orange-bg:rgba(251,146,60,.18);--tint-orange-fg:#fdba74;--tint-purple-bg:rgba(167,139,250,.18)}}
+    :root[data-theme="dark"]{color-scheme:dark;--primary:#5e83ea;--bg:#000;--card:#1c1c1e;--border:#38383a;--text:#f5f5f7;--muted:#98989d;--purple:#a78bfa;--surface-2:#242426;--tint-green-bg:rgba(16,185,129,.18);--tint-green-fg:#6ee7b7;--tint-red-bg:rgba(239,68,68,.18);--tint-red-fg:#fca5a5;--tint-gray-bg:rgba(255,255,255,.08);--tint-blue-bg:rgba(94,131,234,.18);--tint-orange-bg:rgba(251,146,60,.18);--tint-orange-fg:#fdba74;--tint-purple-bg:rgba(167,139,250,.18)}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:var(--font-ui);background:var(--bg);color:var(--text);min-height:100vh}
+    .header{padding:26px 0 6px;display:flex;align-items:flex-start;justify-content:space-between;max-width:96%;margin:0 auto}
+    .header h1{font-size:28px;font-weight:700;letter-spacing:-.02em}
+    .header-sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+    .status-pill{display:flex;align-items:center;gap:6px;background:color-mix(in srgb,var(--text) 6%,transparent);border-radius:20px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--muted)}
+    .dot{width:8px;height:8px;border-radius:50%;background:#94a3b8}.dot.on{background:var(--success)}
+    .main{padding:0 0 40px;max-width:96%;margin:0 auto}
+    .section-note{font-size:12px;color:var(--muted);margin:0 auto 12px;line-height:1.5}
+    .alert{padding:12px 16px;border-radius:8px;font-size:13px;font-weight:500;margin-bottom:12px;display:none}
+    /* O aviso geral flutua no TOPO: ao aparecer e sumir não empurra a tela
+       (no celular o botão mudava de lugar embaixo do dedo) e não cobre os
+       botões de ação, que ficam embaixo. O toque atravessa o aviso. */
+    #alertBox{position:fixed;left:50%;transform:translateX(-50%);top:12px;z-index:1000;width:min(560px,calc(100% - 24px));box-shadow:0 8px 24px rgba(0,0,0,.18);margin:0;pointer-events:none}
+    .alert.show{display:block}
+    .alert-success{background:var(--tint-green-bg);color:var(--tint-green-fg)}
+    .alert-danger{background:var(--tint-red-bg);color:var(--tint-red-fg)}
+    .alert-warn{background:var(--tint-orange-bg);color:var(--tint-orange-fg)}
+    .card{background:var(--card);border-radius:18px;box-shadow:var(--shadow);margin-bottom:14px;border-left:4px solid var(--primary)}
+    .card-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .card-header h3{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+    .card-body{padding:14px 16px}
+    .btn{padding:8px 16px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+    .btn-primary{background:var(--primary);color:#fff}.btn-green{background:var(--success);color:#fff}
+    .btn-danger{background:var(--danger);color:#fff}.btn-ghost{background:var(--card);border:1.5px solid var(--border);color:var(--text)}
+    .btn:disabled{opacity:.45;cursor:not-allowed}
+    .btn-sm{padding:5px 10px;font-size:12px}
+    table{width:100%;border-collapse:collapse;font-size:12.5px}
+    thead th{background:var(--surface-2);padding:7px 10px;text-align:left;font-weight:700;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid var(--border)}
+    td{padding:6px 10px;border-bottom:1px solid var(--tint-gray-bg);vertical-align:middle}
+    .no-data{text-align:center;padding:30px;color:var(--muted);font-size:14px}
+    .badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+    .badge-gray{background:var(--tint-gray-bg);color:var(--muted)}.badge-blue{background:var(--tint-blue-bg);color:var(--primary)}
+    .badge-green{background:var(--tint-green-bg);color:var(--tint-green-fg)}.badge-orange{background:var(--tint-orange-bg);color:var(--tint-orange-fg)}
+    .badge-red{background:var(--tint-red-bg);color:var(--tint-red-fg)}.badge-purple{background:var(--tint-purple-bg);color:var(--purple)}
+    label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px}
+    input[type=text],input[type=number],select,textarea{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;color:var(--text);background:var(--card)}
+    .field-hint{font-size:11px;color:var(--muted);margin-top:3px}
+    .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:12px}
+    .etapas{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+    .etapa{padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700;background:var(--tint-gray-bg);color:var(--muted)}
+    .etapa.feita{background:var(--tint-green-bg);color:var(--tint-green-fg)}
+    .etapa.atual{background:var(--primary);color:#fff}
+    .val{width:96px}.lote{width:150px}
+    .linha-alerta{background:var(--tint-orange-bg)}
+    /* Câmera por matéria-prima (pedido do usuário: "um ícone de câmera ao
+       lado da pesagem"). Alvo de toque grande: é usado com luva, no celular. */
+    .cam{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:44px;height:40px;padding:0 12px;border-radius:10px;border:1.5px solid var(--primary);color:var(--primary);background:var(--card);font-size:18px;cursor:pointer;font-weight:700}
+    .cam.ok{border-color:var(--success);color:var(--success)}
+    .cam input{display:none}
+    .cam small{font-size:12px}
+    .miniaturas{display:inline-flex;gap:6px;vertical-align:middle;margin-left:6px;flex-wrap:wrap}
+    .celula-foto{display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px;vertical-align:middle}
+    .mini{position:relative;display:block;width:40px;height:40px;flex:0 0 40px}
+    .mini a{display:block;width:40px;height:40px}
+    .mini img{width:40px;height:40px;object-fit:cover;overflow:hidden;background:var(--bg-secondary,#eee);border-radius:6px;border:1px solid var(--border);display:block}
+    .mini button{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:none;background:var(--danger);color:#fff;font-size:12px;line-height:20px;padding:0;cursor:pointer}
+    /* Pesagem em três telas (lista -> MP -> nova pesagem), feita para o
+       celular do operador: alvos de toque grandes, números grandes, ações
+       fixas no rodapé, campos com fonte 16px (sem zoom automático no iOS). */
+    .pz-topo{margin-bottom:10px}
+    .pz-topo b{font-size:14px}
+    .barra{height:10px;border-radius:6px;background:var(--tint-gray-bg);margin:8px 0 6px;overflow:hidden}
+    .barra span{display:block;height:100%;background:var(--primary);border-radius:6px}
+    .pz-ok .barra span{background:var(--success)}.pz-alerta .barra span{background:var(--warning)}
+    .pz-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;cursor:pointer;color:var(--text);font:inherit;min-height:60px}
+    .pz-row.pz-ok{border-color:color-mix(in srgb,var(--success) 45%,var(--border))}
+    .pz-row.pz-alerta{border-color:var(--warning);background:var(--tint-orange-bg)}
+    .pz-row.pz-parcial{border-color:var(--primary)}
+    .pz-num{flex:0 0 32px;height:32px;border-radius:50%;background:var(--tint-gray-bg);color:var(--muted);font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
+    .pz-ok .pz-num{background:var(--tint-green-bg);color:var(--tint-green-fg)}
+    .pz-parcial .pz-num{background:var(--tint-blue-bg);color:var(--primary)}
+    .pz-txt{flex:1;min-width:0}.pz-txt b{display:block;font-size:14px}.pz-txt small{display:block;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pz-dir{font-size:12.5px;font-weight:700;white-space:nowrap}
+    .pz-falta{color:var(--primary)}.pz-ok{color:var(--success)}.pz-alerta{color:var(--warning)}
+    .pz-seta{color:var(--muted);font-size:20px}
+    .pz-voltar{background:none;border:none;color:var(--primary);font-weight:700;font-size:15px;padding:8px 0;cursor:pointer}
+    .pz-cab{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:4px 0 10px}
+    .pz-cab b{font-size:16px}
+    .pz-x{background:none;border:1.5px solid var(--border);border-radius:10px;width:40px;height:40px;font-size:18px;cursor:pointer;color:var(--text)}
+    .pz-grande{text-align:center;padding:14px 12px 8px;border-radius:14px;background:var(--surface-2);margin-bottom:12px}
+    .pz-grande small{color:var(--muted);font-size:12.5px}
+    .pz-grande-num{font-size:40px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
+    .pz-sec{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin:14px 0 6px}
+    .pz-lote{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;margin-bottom:6px;font-size:13.5px}
+    .pz-lote.atual{border-color:var(--primary);background:var(--tint-blue-bg)}
+    .pz-lote.feito{opacity:.65}
+    .pz-lote.fora{border-color:var(--warning);background:var(--tint-orange-bg)}
+    .pz-lote-q{font-weight:700;white-space:nowrap}
+    .pz-aviso{background:var(--tint-orange-bg);color:var(--tint-orange-fg);padding:10px 12px;border-radius:10px;font-size:12.5px;margin:10px 0}
+    .parcela{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px dashed var(--border)}
+    .parcela .p-num{flex:0 0 32px;height:32px;border-radius:50%;background:var(--tint-blue-bg);color:var(--primary);font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center}
+    .parcela .p-foto{width:52px;height:52px;flex:0 0 52px;border-radius:8px;object-fit:cover;border:1px solid var(--border);display:block;background:var(--tint-gray-bg)}
+    .parcela .p-info{flex:1;min-width:0;font-size:13.5px}
+    .parcela.cancelada{opacity:.6}.parcela.cancelada .p-info b{text-decoration:line-through}
+    .parcela.cancelada .p-num{background:var(--tint-red-bg);color:var(--tint-red-fg)}
+    .pz-mais{background:none;border:none;font-size:22px;color:var(--muted);width:40px;height:40px;cursor:pointer;line-height:1}
+    .pz-guardar{margin-top:14px;padding:12px;border:1.5px dashed var(--warning);border-radius:12px;background:var(--tint-orange-bg);font-size:13.5px}
+    .pz-guardar.feito{border-style:solid;border-color:var(--success);background:var(--tint-green-bg);color:var(--tint-green-fg)}
+    .pz-guardar select{margin-top:6px;font-size:16px;padding:10px;width:100%}
+    .pz-just{margin-top:12px}.pz-just input{border-color:var(--warning)}
+    .pz-opcoes{margin-top:12px;font-size:13px}.pz-opcoes summary{color:var(--muted);cursor:pointer;padding:6px 0}
+    .pz-link{background:none;border:none;color:var(--primary);font-weight:600;font-size:13.5px;padding:8px 0;cursor:pointer;text-decoration:underline}
+    .pz-acoes{position:sticky;bottom:0;z-index:5;background:var(--card);padding:12px 0 6px;margin-top:14px;display:flex;gap:8px;border-top:1px solid var(--border)}
+    .pz-acoes .btn{flex:1;justify-content:center;padding:14px 10px;font-size:15px}
+    .btn-camera{flex:2;display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;border-radius:12px;background:var(--primary);color:#fff;font-size:16px;font-weight:700;cursor:pointer;margin:0}
+    .btn-camera input{display:none}
+    .form-parcela{padding:2px 0}
+    .fp-preview{width:100%;max-width:360px;height:200px;object-fit:cover;border-radius:12px;border:1px solid var(--border);display:block;background:var(--tint-gray-bg)}
+    .fp-peso{display:flex;align-items:center;gap:8px}
+    .fp-peso input{font-size:30px!important;font-weight:700;padding:10px 12px!important;height:60px;border-width:2px;border-color:var(--primary)}
+    .fp-peso span{font-size:18px;color:var(--muted);font-weight:700}
+    #formParcela input[type=text]{font-size:16px;padding:10px}
+    .fp-faltando{font-size:12.5px;color:var(--tint-red-fg);margin:10px 0 0;min-height:16px}
+    .obrig{color:var(--tint-red-fg);font-weight:700}
+    #mPesagemRodape{position:sticky;bottom:0;z-index:5;background:var(--card);padding:10px 0 4px}
+    .modo-mp #mPesagemRodape,.modo-form #mPesagemRodape,.modo-mp #mPesagemErros,.modo-form #mPesagemErros,.modo-mp .pz-intro,.modo-form .pz-intro{display:none!important}
+    .conf-bts{display:flex;gap:6px}
+    .conf-bts button{flex:1;min-height:40px;border-radius:10px;border:1.5px solid var(--border);background:var(--card);font-weight:700;font-size:13px;cursor:pointer;color:var(--text);padding:0 10px}
+    .conf-bts button.sim.on{background:var(--tint-green-bg);border-color:var(--success);color:var(--tint-green-fg)}
+    .conf-bts button.nao.on{background:var(--tint-red-bg);border-color:var(--danger);color:var(--tint-red-fg)}
+    .conf-bts button:disabled{cursor:default;opacity:.8}
+    /* Conferência de Pesagem ligada e a pessoa não confere: os botões ficam
+       visivelmente apagados, não só desabilitados. */
+    #mConferenciaBody.bloqueado .conf-bts button,#mConferenciaBody.bloqueado input{opacity:.35}
+    /* Celular: cada linha vira um cartão, com o rótulo do campo à esquerda. */
+    @media(max-width:700px){
+      .header h1{font-size:22px}
+      table.resp thead{display:none}
+      table.resp,table.resp tbody,table.resp tr,table.resp td{display:block;width:100%}
+      table.resp tr{border:1.5px solid var(--border);border-radius:12px;margin-bottom:10px;padding:6px 4px;background:var(--card)}
+      table.resp td{border:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 8px;text-align:left!important}
+      table.resp td[data-label]::before{content:attr(data-label);font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;flex:0 0 38%}
+      table.resp td input,table.resp td select{flex:1;font-size:16px;padding:10px}
+      table.resp td.cabeca{display:block;font-size:14px;background:var(--surface-2);border-radius:8px}
+      .btn{padding:12px 16px;font-size:15px}
+      #mBtnFecharPesagem,#mBtnIniciarPesagem,#mBtnConferir,#mBtnIniciarManipulacao,#mBtnFecharManipulacao{width:100%;justify-content:center;padding:14px}
+      /* Lote aberto no celular: o painel é a tela; lista e explicação somem. */
+      body.lote-aberto .section-note,body.lote-aberto #mCardLista{display:none}
+      body.lote-aberto .header{padding-top:14px}
+      #alertBox{top:62px}
+      /* Com uma MP aberta, a tela é dela: some o cabeçalho do lote. */
+      #mPainel.foco-mp > .card-header,#mPainel.foco-mp #mEtapas,#mPainel.foco-mp #mResumoTempos,#mPainel.foco-mp #mBlocoPesagem > h4{display:none}
+      .mp-perdas{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+      .mp-perda{display:flex;align-items:center;gap:10px;border:1.5px solid var(--border);border-radius:8px;padding:7px 10px}
+      .mp-perda.tem{border-color:#fca5a5}
+      .mp-perda .nm{flex:1;min-width:0;font-size:13.5px;font-weight:600;line-height:1.3}
+      .mp-perda .nm small{display:block;font-weight:400;color:var(--muted);font-size:11.5px}
+      .mp-perda input{width:96px;flex:none;font-size:16px;padding:9px 10px;text-align:right}
+      #mRendimento,#mPerdaResiduo,#mPerdaAmostra,#mPerdaOutra,#mObsManipulacao{font-size:16px;padding:10px}
+      .card-body,.card-header{padding:12px}
+      .main,.header{max-width:100%;padding-left:12px;padding-right:12px}
+    }
+    @media(max-width:700px){.val,.lote{width:100%}}
+  </style>
+</head>
+<body class="kuryos-theme has-sidebar">
+<div class="header">
+  <div>
+    <h1>Manipulação</h1>
+    <div class="header-sub">Pesagem, conferência e manipulação do bulk — mesma numeração de lote da OP</div>
+  </div>
+  <div class="status-pill"><span class="dot" id="sDot"></span><span id="sTxt">Conectando...</span></div>
+</div>
+
+<div class="main">
+  <div class="alert" id="alertBox"></div>
+  <div class="section-note">
+    O bulk é a primeira fase do lote. Quem <b>pesa</b> registra o que saiu do estoque; depois a pesagem é
+    <b>conferida</b> por outra pessoa antes da manipulação. A baixa de estoque acontece na pesagem. O envase só é
+    liberado depois que a Qualidade aprovar o bulk.
+  </div>
+
+  <div class="card" id="mCardLista">
+    <div class="card-header">
+      <h3>Lotes em produção</h3>
+      <span class="field-hint" id="mListaResumo"></span>
+    </div>
+    <div style="overflow-x:auto"><table class="resp">
+      <thead><tr><th>Lote / produto</th><th>Cliente</th><th style="text-align:right">Planejado</th><th>Fase do bulk</th><th></th></tr></thead>
+      <tbody id="mListaBody"><tr><td colspan="5" class="no-data">Carregando...</td></tr></tbody>
+    </table></div>
+  </div>
+
+  <div class="card" id="mPainel" style="display:none">
+    <div class="card-header">
+      <h3 id="mPainelTitulo">Fase de bulk</h3>
+      <button class="btn btn-ghost btn-sm" id="mFechar">Fechar</button>
+    </div>
+    <div class="card-body">
+      <div class="etapas" id="mEtapas"></div>
+      <div id="mResumoTempos" class="field-hint" style="margin-bottom:10px"></div>
+      <div id="mCorrecaoInfo" class="pz-aviso" style="display:none"></div>
+
+      <!-- 1. Pesagem -->
+      <div id="mBlocoPesagem">
+        <h4 style="font-size:13px;margin-bottom:4px">1 · Pesagem <span class="field-hint" id="mPesagemQuem"></span></h4>
+        <div class="field-hint pz-intro" style="margin-bottom:10px">Toque na matéria-prima, fotografe a balança e digite o peso. Pese quantas vezes precisar: o sistema soma, mostra quanto falta e indica o lote pelo FEFO.</div>
+        <div id="mPesagemCards"></div>
+        <div id="mPesagemErros" class="alert alert-danger" style="margin-top:10px"></div>
+        <div id="mPesagemRodape" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" id="mBtnIniciarPesagem">Iniciar pesagem</button>
+          <button class="btn btn-green" id="mBtnFecharPesagem">Fechar pesagem e baixar estoque</button>
+        </div>
+      </div>
+
+      <!-- 2. Conferência -->
+      <div id="mBlocoConferencia" style="margin-top:18px">
+        <h4 style="font-size:13px;margin-bottom:8px">2 · Conferência da pesagem</h4>
+        <div class="field-hint" style="margin-bottom:8px" id="mConfRegra">Confere item a item o que foi pesado. Quem confere não pode ser quem pesou.</div>
+        <div id="mConfAviso" class="pz-aviso" style="display:none"></div>
+        <div style="overflow-x:auto"><table class="resp">
+          <thead><tr><th>Matéria-prima</th><th style="text-align:right">Pesado</th><th>Lote</th><th>Confere?</th><th>Observação</th></tr></thead>
+          <tbody id="mConferenciaBody"></tbody>
+        </table></div>
+        <div id="mConferenciaErros" class="alert alert-danger" style="margin-top:10px"></div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" id="mBtnConferir">Confirmar conferência</button>
+          <button class="btn btn-ghost" id="mBtnLiberarSemConf" style="display:none">Liberar sem conferência (admin)</button>
+        </div>
+        <div id="mConfLiberacao" class="field-hint" style="margin-top:8px"></div>
+      </div>
+
+      <!-- 3. Manipulação -->
+      <div id="mBlocoManipulacao" style="margin-top:18px">
+        <h4 style="font-size:13px;margin-bottom:8px">3 · Manipulação</h4>
+        <div class="form-grid">
+          <div><label>Rendimento obtido (kg)</label><input type="number" step="any" min="0" id="mRendimento"></div>
+          <div><label>Perda — resíduo de tacho (kg)</label><input type="number" step="any" min="0" id="mPerdaResiduo"></div>
+          <div><label>Perda — amostra/análise (kg)</label><input type="number" step="any" min="0" id="mPerdaAmostra"></div>
+          <div><label>Perda — outra (kg)</label><input type="number" step="any" min="0" id="mPerdaOutra"></div>
+        </div>
+        <!-- Perda por matéria-prima (25/09): o que foi pesado e não entrou no
+             tacho. A MP já saiu do estoque na pesagem -- isto é registro, não
+             baixa. Perda do bulk já misturado segue nos campos acima. -->
+        <div style="margin:4px 0 10px">
+          <label>Perda por matéria-prima (pesada e que não foi para o tacho)</label>
+          <div id="mPerdasMp" class="mp-perdas"></div>
+          <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-top:8px"><input type="checkbox" id="mSemPerda" style="width:20px;height:20px"> Não houve perda nesta manipulação</label>
+        </div>
+        <div><label>Observação da manipulação</label><textarea id="mObsManipulacao" rows="2" placeholder="Ajustes, intercorrências, equipamento usado..."></textarea></div>
+        <div id="mManipulacaoResumo" class="field-hint" style="margin-top:8px"></div>
+        <div id="mManipulacaoErros" class="alert alert-danger" style="margin-top:10px"></div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" id="mBtnIniciarManipulacao">Iniciar manipulação</button>
+          <button class="btn btn-green" id="mBtnFecharManipulacao">Fechar e enviar para a Qualidade</button>
+        </div>
+      </div>
+
+      <div id="mExcedente" class="pz-aviso" style="display:none;margin-top:18px"></div>
+      <div id="mBlocoReprovado" class="alert alert-danger" style="margin-top:18px;display:none"></div>
+
+      <div id="mBlocoCq" class="alert alert-warn" style="margin-top:18px">
+        Bulk aguardando análise da Qualidade. O envase deste lote fica travado até a liberação.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var firebaseConfig = {
+  apiKey: "AIzaSyBvASzcbKyv3uW7NBzDFDyLsKls3An3UUs",
+  authDomain: "erpkuryos.firebaseapp.com",
+  databaseURL: kuryosDatabaseURL("https://erpkuryos-default-rtdb.firebaseio.com"),
+  projectId: "erpkuryos",
+  storageBucket: "erpkuryos.firebasestorage.app",
+  messagingSenderId: "272752392739",
+  appId: "1:272752392739:web:047a6c4aa60145d77f4f96"
+};
+firebase.initializeApp(firebaseConfig);
+kuryosConnectEmulatorsIfLocal();
+var db = firebase.database();
+var storage = firebase.storage();
+
+var allOps = {}, allProdutos = {}, allFormulas = {}, allBom = {}, allMateriais = {};
+var opAtual = null;   // chave em ops/
+var previstos = {};   // itemKey -> {mpCodigo, mpNome, unidade, previsto}
+var perdasMp = {};    // itemKey -> texto digitado (kg) -- rascunho da perda por MP
+var assinaturaPerdasMp = '';
+var rascunho = {};    // pesagem digitada antes de fechar
+var conferencia = {}; // itemKey -> {ok, obs}
+var formParcela = null;     // pesagem sendo lançada: {itemKey, arquivo, previewUrl, peso, lote, outroLote, motivoForaFefo, enviando}
+var mpAberta = null;        // MP na tela de detalhe (null = lista)
+var menuParcela = null;     // pesagem com o menu "⋯" aberto
+var devolverOutro = null;   // MP escolhendo outro endereço para guardar
+var allLotes = {}, allEnderecos = {}; // WMS: base do FEFO que indica o lote
+var assinaturaPesagem = ''; // só redesenha os cartões quando o conteúdo muda
+var configConfPesagem = {};  // config/conferenciaPesagem: {ativa, alteradoPor, alteradoEm}
+
+function setStatus(on, txt) {
+  document.getElementById('sDot').classList.toggle('on', !!on);
+  document.getElementById('sTxt').textContent = txt;
+}
+function showAlert(msg, tipo) {
+  var box = document.getElementById('alertBox');
+  box.textContent = msg;
+  box.className = 'alert alert-' + (tipo || 'success') + ' show';
+  setTimeout(function() { box.classList.remove('show'); }, 7000);
+}
+/* Conferência de Pesagem (23/09). Com a chave ligada, só confere quem tem a
+   permissão (Qualidade/P&D, marcados em Usuários), com o próprio login; o
+   admin pode liberar informando o motivo. Quem só tem a permissão de
+   conferir (sem o setor Manipulação) vê apenas as pesagens esperando por ela. */
+function regraConf() { return Manipulacao.regraConferencia(configConfPesagem); }
+function autorizadoConferir() {
+  return !!window.currentUser && typeof window.podeConferirPesagem === 'function' && window.podeConferirPesagem(window.currentUser);
+}
+function ehAdmin() { return !!window.currentUser && window.currentUser.role === 'admin'; }
+function soConfere() {
+  var u = window.currentUser;
+  if (!u || typeof window.setoresOperacao !== 'function') return false;
+  var s = window.setoresOperacao(u);
+  return !s.manipulacao && !s.gestao && autorizadoConferir();
+}
+function meuUid() { var u = firebase.auth().currentUser; return u ? u.uid : null; }
+
+function eu() {
+  return (window.currentUser && (window.currentUser.nome || window.currentUser.email)) ||
+    (firebase.auth().currentUser && firebase.auth().currentUser.email) || 'Desconhecido';
+}
+
+dbOnValue(db.ref('ops'), function(snap) { allOps = snap.val() || {}; setStatus(true, 'Conectado'); render(); });
+dbOnValue(db.ref('produtos'), function(snap) { allProdutos = snap.val() || {}; render(); });
+dbOnValue(db.ref('formulas'), function(snap) { allFormulas = snap.val() || {}; render(); });
+dbOnValue(db.ref('bom'), function(snap) { allBom = snap.val() || {}; render(); });
+dbOnValue(db.ref('materiais'), function(snap) { allMateriais = snap.val() || {}; render(); });
+dbOnValue(db.ref('estoque_lotes'), function(snap) { allLotes = snap.val() || {}; if (opAtual) renderPainel(); });
+dbOnValue(db.ref('enderecos_estoque'), function(snap) { allEnderecos = snap.val() || {}; if (opAtual) renderPainel(); });
+dbOnValue(db.ref('config/conferenciaPesagem'), function(snap) { configConfPesagem = snap.val() || {}; render(); });
+// O perfil (window.currentUser) chega depois do primeiro desenho.
+var esperaPerfilManip = setInterval(function() { if (window.currentUser) { clearInterval(esperaPerfilManip); render(); } }, 300);
+
+/* Previstos da fórmula (o granel). O BOM de embalagem não entra aqui: ele é
+   consumido no envase, não na manipulação. */
+function calcularPrevistos(op) {
+  var produto = allProdutos[sanitizeKey(op.sku)] || Object.values(allProdutos).find(function(p) { return p && p.sku === op.sku; });
+  var achado = produto ? melhorFormulaDoProduto(produto.sku || op.sku, allFormulas) : null;
+  if (!produto || !achado) return {};
+  var formula = achado.registro;
+  var bom = bomDaVersao(allBom, produto.sku || op.sku, formula.versao) || {itens: {}};
+  var calc = explodirMateriaisNecessarios(produto, Number(op.qtdPlanejada) || 0, formula, bom, allMateriais);
+  if (!calc || !calc.ok) return {};
+  var out = {};
+  (calc.itens || []).filter(function(it) { return it.origem === 'formula'; }).forEach(function(it, i) {
+    // `ordem`: a sequência da fórmula, que é a ordem da lista de pesagem.
+    out[sanitizeKey(it.mpCodigo)] = {mpCodigo: it.mpCodigo, mpNome: it.mpNome, unidade: it.unidade || 'kg', previsto: it.quantidade, ordem: i};
+  });
+  return out;
+}
+
+/* Na correção de um bulk reprovado, o que se pesa são as matérias-primas que a
+   Qualidade definiu (gravados em manipulacao/previstos), não a fórmula. */
+function previstosDaOp(op) {
+  var f = Manipulacao.fase(op);
+  if (Manipulacao.ehCorrecao(f)) return f.previstos || {};
+  return calcularPrevistos(op);
+}
+function opcoesPesagem(f) {
+  return {dispensaFoto: Manipulacao.dispensaFoto(f), correcao: Manipulacao.ehCorrecao(f)};
+}
+
+/* OP concluída continua aqui enquanto o BULK dela estiver aberto (29/09, OP
+   26267/01): a produção encerrou a OP com a manipulação ainda "Em
+   manipulação"; a tela escondia toda OP Concluída, ninguém conseguia fechar
+   a manipulação e o bulk nunca chegava à Qualidade para ser liberado. Sai da
+   lista quando o bulk vai para a análise (AGUARDANDO_CQ em diante). */
+var FASES_ABERTAS_MANIPULACAO = {AGUARDANDO_PESAGEM: 1, PESADO: 1, CONFERIDO: 1, EM_MANIPULACAO: 1, CORRECAO_ABERTA: 1};
+function bulkAberto(o) {
+  return !!(o && o.manipulacao) && !!FASES_ABERTAS_MANIPULACAO[Manipulacao.estado(o)];
+}
+function opsAtivas() {
+  return Object.keys(allOps).map(function(k) { return Object.assign({key: k}, allOps[k]); })
+    .filter(function(o) { return o && o.lote && o.status !== 'Cancelado' && (o.status !== 'Concluído' || bulkAberto(o)); })
+    .sort(function(a, b) { return String(b.dataEmissao || '').localeCompare(String(a.dataEmissao || '')); })
+    .slice(0, 60);
+}
+
+function render() {
+  var lista = opsAtivas();
+  var conferidor = soConfere();
+  if (conferidor) lista = lista.filter(function(o) { return Manipulacao.estado(o) === 'PESADO'; });
+  document.querySelector('#mCardLista h3').textContent = conferidor ? 'Pesagens aguardando conferência' : 'Lotes em produção';
+  document.getElementById('mListaResumo').textContent = lista.length + (conferidor ? ' pesagem(ns) para conferir' : ' OP(s) ativas');
+  var tb = document.getElementById('mListaBody');
+  if (!lista.length) {
+    tb.innerHTML = '<tr><td colspan="5" class="no-data">' + (conferidor ? 'Nenhuma pesagem esperando conferência agora.' : 'Nenhuma OP ativa.') + '</td></tr>';
+    if (opAtual) renderPainel();
+    return;
+  }
+  tb.innerHTML = lista.map(function(o) {
+    var st = Manipulacao.estado(o);
+    var badge = !st ? '<span class="badge badge-gray">sem fase</span>'
+      : st === 'LIBERADO' ? '<span class="badge badge-green">' + escapeHtml(Manipulacao.rotulo(st)) + '</span>'
+      : st === 'REPROVADO' ? '<span class="badge badge-red">' + escapeHtml(Manipulacao.rotulo(st)) + '</span>'
+      : '<span class="badge badge-orange">' + escapeHtml(Manipulacao.rotulo(st)) + '</span>';
+    return '<tr><td class="cabeca"><b>' + escapeHtml(o.lote) + '</b> · ' + escapeHtml(o.produto || '—') + '<div class="field-hint">' + escapeHtml(o.sku || '') + '</div></td>' +
+      '<td data-label="Cliente">' + escapeHtml(o.cliente || '—') + '</td>' +
+      '<td data-label="Planejado" style="text-align:right">' + fmtNum(o.qtdPlanejada || 0) + '</td>' +
+      '<td data-label="Bulk">' + badge + '</td>' +
+      '<td style="text-align:right"><button class="btn btn-primary" data-abrir="' + escapeAttr(o.key) + '">' + (conferidor ? 'Conferir' : 'Abrir') + '</button></td></tr>';
+  }).join('');
+  tb.querySelectorAll('[data-abrir]').forEach(function(b) {
+    b.addEventListener('click', function() { abrirOp(b.getAttribute('data-abrir')); });
+  });
+  if (opAtual) renderPainel();
+}
+
+function abrirOp(key) {
+  opAtual = key;
+  previstos = previstosDaOp(allOps[key] || {});
+  rascunho = {};
+  conferencia = {};
+  perdasMp = {};
+  assinaturaPerdasMp = '';
+  descartarFormParcela();
+  assinaturaPesagem = '';
+  mpAberta = null; menuParcela = null;
+  document.body.classList.add('lote-aberto');
+  var f = Manipulacao.fase(allOps[key]);
+  if (f && f.pesagem && f.pesagem.itens) rascunho = JSON.parse(JSON.stringify(f.pesagem.itens));
+  if (f && f.conferencia && f.conferencia.itens) conferencia = JSON.parse(JSON.stringify(f.conferencia.itens));
+  var salvas = (f && f.manipulacao && f.manipulacao.perdasMp) || {};
+  Object.keys(salvas).forEach(function(k) { perdasMp[k] = String(salvas[k]); });
+  document.getElementById('mSemPerda').checked = !!(f && f.manipulacao && f.manipulacao.semPerda);
+  document.getElementById('mPainel').style.display = '';
+  renderPainel();
+  document.getElementById('mPainel').scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+document.getElementById('mFechar').addEventListener('click', function() {
+  opAtual = null; mpAberta = null; descartarFormParcela(); manterTelaAcesa(false);
+  document.body.classList.remove('lote-aberto');
+  document.getElementById('mPainel').style.display = 'none';
+});
+
+function faseComRascunho() {
+  var f = JSON.parse(JSON.stringify(Manipulacao.fase(allOps[opAtual]) || {}));
+  f.pesagem = f.pesagem || {};
+  f.pesagem.itens = rascunho;
+  f.conferencia = f.conferencia || {};
+  f.conferencia.itens = conferencia;
+  f.manipulacao = f.manipulacao || {};
+  var r = function(id) { var v = document.getElementById(id).value; return v === '' ? null : Number(v); };
+  if (document.getElementById('mRendimento').value !== '') f.manipulacao.rendimento = r('mRendimento');
+  f.manipulacao.perdas = {
+    residuo_tacho: r('mPerdaResiduo') || 0, amostra: r('mPerdaAmostra') || 0, outra: r('mPerdaOutra') || 0
+  };
+  f.manipulacao.perdasMp = PerdasEtapa.limparPerdasMp(perdasMp);
+  return f;
+}
+
+// Perda por matéria-prima (kg). Os valores digitados ficam em `perdasMp`.
+// renderPainel roda a cada mudança do banco e a cada "change" dos campos de
+// cima: redesenhar a lista trocaria o campo que o operador acabou de tocar
+// (o "change" do campo anterior dispara antes do foco chegar no novo) e o que
+// ele digitasse se perdia. Só redesenha quando as MPs ou o pesado mudam.
+// Só aparecem MPs já pesadas: sem pesado, não há o que perder.
+function renderPerdasMp(linhas, editavel) {
+  var box = document.getElementById('mPerdasMp');
+  var pesadas = linhas.filter(function(l) { return l.pesado != null && l.pesado > 0; });
+  var assinatura = JSON.stringify(pesadas.map(function(l) { return [l.itemKey, l.pesado, l.unidade]; }));
+  if (assinatura === assinaturaPerdasMp && box.childElementCount) {
+    box.querySelectorAll('[data-perdamp]').forEach(function(inp) { inp.disabled = !editavel; });
+    return;
+  }
+  assinaturaPerdasMp = assinatura;
+  if (!pesadas.length) { box.innerHTML = '<div class="field-hint">Nenhuma matéria-prima pesada ainda.</div>'; return; }
+  var foco = document.activeElement && document.activeElement.getAttribute && document.activeElement.getAttribute('data-perdamp');
+  box.innerHTML = pesadas.map(function(l) {
+    var v = perdasMp[l.itemKey] == null ? '' : perdasMp[l.itemKey];
+    var tem = v !== '' && Number(String(v).replace(',', '.')) > 0;
+    return '<div class="mp-perda' + (tem ? ' tem' : '') + '"><div class="nm">' + escapeHtml(l.mpNome || l.mpCodigo) +
+      '<small>' + escapeHtml(l.mpCodigo) + ' · pesado ' + fmtNum(l.pesado) + ' ' + escapeHtml(l.unidade || 'kg') + '</small></div>' +
+      '<input type="text" inputmode="decimal" placeholder="0" data-perdamp="' + escapeAttr(l.itemKey) + '" value="' + escapeAttr(v) + '"' + (editavel ? '' : ' disabled') +
+      ' aria-label="Perda de ' + escapeAttr(l.mpNome || l.mpCodigo) + '"><span class="field-hint">' + escapeHtml(l.unidade || 'kg') + '</span></div>';
+  }).join('');
+  box.querySelectorAll('[data-perdamp]').forEach(function(inp) {
+    inp.addEventListener('input', function() {
+      perdasMp[inp.getAttribute('data-perdamp')] = inp.value;
+      var tem = inp.value !== '' && Number(String(inp.value).replace(',', '.')) > 0;
+      inp.closest('.mp-perda').classList.toggle('tem', tem);
+      if (tem) document.getElementById('mSemPerda').checked = false;
+    });
+    if (foco && inp.getAttribute('data-perdamp') === foco) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+  });
+}
+
+function renderPainel() {
+  var op = allOps[opAtual];
+  if (!op) { document.getElementById('mPainel').style.display = 'none'; return; }
+  var st = Manipulacao.estado(op);
+  var acoes = Manipulacao.acoesDisponiveis(op);
+  // A Qualidade pode abrir a correção com a tela aberta: os previstos mudam.
+  previstos = previstosDaOp(op);
+  var faseOp = Manipulacao.fase(op) || {};
+  var nCiclo = Manipulacao.ciclo(faseOp);
+  document.getElementById('mPainelTitulo').textContent = 'Bulk do lote ' + (op.lote || opAtual) + ' — ' + (op.produto || '') +
+    (nCiclo > 1 ? ' · correção (ciclo ' + nCiclo + ')' : '');
+  renderCorrecaoInfo(op, faseOp, st);
+
+  var ordem = ['AGUARDANDO_PESAGEM', 'PESADO', 'CONFERIDO', 'EM_MANIPULACAO', 'AGUARDANDO_CQ', 'LIBERADO'];
+  var idx = ordem.indexOf(st);
+  document.getElementById('mEtapas').innerHTML = ['Pesagem', 'Conferência', 'Manipulação', 'Qualidade'].map(function(nome, i) {
+    var limites = [0, 1, 3, 4];
+    var cls = idx < 0 ? (st === 'CORRECAO_ABERTA' && i === 0 ? 'atual' : '') : (idx > limites[i] ? 'feita' : idx === limites[i] || (i === 2 && idx === 2) ? 'atual' : '');
+    if (st === 'LIBERADO') cls = 'feita';
+    return '<span class="etapa ' + cls + '">' + (i + 1) + ' · ' + nome + '</span>';
+  }).join('') + (st ? '<span class="etapa ' + (st === 'REPROVADO' ? 'atual' : '') + '">' + escapeHtml(Manipulacao.rotulo(st)) + '</span>' : '');
+
+  var f = faseComRascunho();
+  var resumo = Manipulacao.resumoManipulacao(previstos, f);
+  document.getElementById('mResumoTempos').innerHTML =
+    (resumo.entradaBulk > 0 ? 'Bulk reprovado que entra ' + fmtNum(resumo.entradaBulk) + ' kg · ' : '') +
+    (resumo.entradaBulk > 0 ? 'correção prevista ' : 'Previsto ') + fmtNum(resumo.previstoTotal) + ' kg · pesado ' + fmtNum(resumo.pesadoTotal) + ' kg' +
+    (resumo.minutosPesagem != null ? ' · pesagem ' + resumo.minutosPesagem + ' min' : '') +
+    (resumo.minutosManipulacao != null ? ' · manipulação ' + resumo.minutosManipulacao + ' min' : '') +
+    (resumo.rendimento != null ? ' · rendimento ' + fmtNum(resumo.rendimento) + ' kg (' + resumo.rendimentoPct + '%)' : '');
+
+  // ── Pesagem ──
+  var val = Manipulacao.validarPesagem(previstos, f.pesagem, opcoesPesagem(f));
+  var podeEditarPesagem = st === 'AGUARDANDO_PESAGEM';
+  document.getElementById('mPesagemQuem').textContent = (f.pesagem && f.pesagem.por) ? '— por ' + f.pesagem.por : '';
+  renderPesagem(f, st, val, podeEditarPesagem);
+  manterTelaAcesa(podeEditarPesagem);
+  atualizarValidacaoPesagem(val, podeEditarPesagem);
+
+  document.getElementById('mBtnIniciarPesagem').style.display = acoes.indexOf('INICIAR_PESAGEM') >= 0 ? '' : 'none';
+  document.getElementById('mBtnFecharPesagem').style.display = acoes.indexOf('FECHAR_PESAGEM') >= 0 ? '' : 'none';
+
+  // ── Conferência ──
+  var mostraConf = st === 'PESADO' || (st && ['CONFERIDO', 'EM_MANIPULACAO', 'AGUARDANDO_CQ', 'LIBERADO', 'REPROVADO'].indexOf(st) >= 0);
+  document.getElementById('mBlocoConferencia').style.display = mostraConf ? '' : 'none';
+  if (mostraConf) {
+    var podeConferir = st === 'PESADO';
+    var linhasConf = Manipulacao.linhasPesagem(previstos, f.pesagem);
+    document.getElementById('mConferenciaBody').innerHTML = linhasConf.map(function(l) {
+      var c = conferencia[l.itemKey] || {};
+      var dis = podeConferir ? '' : ' disabled';
+      return '<tr><td class="cabeca"><b>' + escapeHtml(l.mpCodigo) + '</b><div class="field-hint">' + escapeHtml(l.mpNome) + '</div></td>' +
+        '<td data-label="Pesado" style="text-align:right">' + fmtNum(l.pesado || 0) + ' ' + escapeHtml(l.unidade) +
+          (l.parcelas > 1 ? '<div class="field-hint">em ' + l.parcelas + ' pesagens</div>' : '') + celulaFoto(f, l) + '</td>' +
+        '<td data-label="Lote">' + escapeHtml(l.loteMaterial || '—') + '</td>' +
+        '<td data-label="Confere?"><div class="conf-bts">' +
+          '<button type="button" class="sim' + (c.ok === true ? ' on' : '') + '" data-conf="' + escapeAttr(l.itemKey) + '" data-valor="sim"' + dis + '>✓ Confere</button>' +
+          '<button type="button" class="nao' + (c.ok === false ? ' on' : '') + '" data-conf="' + escapeAttr(l.itemKey) + '" data-valor="nao"' + dis + '>✕ Diverge</button>' +
+        '</div></td>' +
+        '<td data-label="Observação"><input type="text" data-confobs="' + escapeAttr(l.itemKey) + '" value="' + escapeAttr(c.obs || '') + '"' + dis +
+          (c.ok === false ? ' placeholder="Descreva a divergência"' : '') + '></td></tr>';
+    }).join('');
+    var regra = regraConf();
+    var autorizado = autorizadoConferir();
+    var bloqueadoPelaRegra = regra.exigeAutorizado && !autorizado;
+    document.getElementById('mConfRegra').textContent = regra.exigeAutorizado
+      ? 'Conferência de Pesagem ligada: quem confere é a Qualidade ou o P&D, com o próprio login, item a item.'
+      : 'Confere item a item o que foi pesado. Quem confere não pode ser quem pesou.';
+    var aviso = document.getElementById('mConfAviso');
+    aviso.style.display = podeConferir && bloqueadoPelaRegra ? '' : 'none';
+    aviso.textContent = 'Aguardando a Qualidade ou o P&D conferir esta pesagem. Elas foram avisadas por e-mail quando a pesagem foi fechada.';
+    document.getElementById('mConferenciaBody').classList.toggle('bloqueado', podeConferir && bloqueadoPelaRegra);
+    if (bloqueadoPelaRegra) {
+      document.querySelectorAll('#mConferenciaBody button, #mConferenciaBody input').forEach(function(el) { el.disabled = true; });
+    }
+    var valConf = Manipulacao.validarConferencia(previstos, f, eu(), {exigeAutorizado: regra.exigeAutorizado, autorizado: autorizado});
+    var errosConf = document.getElementById('mConferenciaErros');
+    errosConf.className = 'alert alert-danger' + (podeConferir && !bloqueadoPelaRegra && (valConf.erros.length || valConf.divergencias.length) ? ' show' : '');
+    errosConf.textContent = valConf.erros.concat(valConf.divergencias.map(function(d) { return 'Divergência em ' + d.mpCodigo + ': ' + d.obs; })).join(' ');
+    document.getElementById('mBtnConferir').style.display = podeConferir && !bloqueadoPelaRegra ? '' : 'none';
+    document.getElementById('mBtnConferir').disabled = !valConf.ok;
+    document.getElementById('mBtnLiberarSemConf').style.display = podeConferir && ehAdmin() ? '' : 'none';
+    var c = f.conferencia || {};
+    document.getElementById('mConfLiberacao').innerHTML = c.modo === 'LIBERADO_PELO_ADMIN'
+      ? '⚠ Liberado sem conferência por <b>' + escapeHtml(c.por || '') + '</b>' + (c.em ? ' em ' + escapeHtml(horaCurta(c.em)) : '') + ' — motivo: ' + escapeHtml(c.motivoLiberacao || '')
+      : (c.por && st !== 'PESADO' ? 'Conferido por <b>' + escapeHtml(c.por) + '</b>' + (c.em ? ' em ' + escapeHtml(horaCurta(c.em)) : '') +
+          (c.modo === 'CONFERENCIA_PESAGEM' ? ' (Conferência de Pesagem)' : '') : '');
+  }
+
+  // ── Manipulação ──
+  var mostraMan = st && ['CONFERIDO', 'EM_MANIPULACAO', 'AGUARDANDO_CQ', 'LIBERADO', 'REPROVADO'].indexOf(st) >= 0;
+  document.getElementById('mBlocoManipulacao').style.display = mostraMan ? '' : 'none';
+  if (mostraMan) {
+    var podeFechar = st === 'EM_MANIPULACAO';
+    ['mRendimento', 'mPerdaResiduo', 'mPerdaAmostra', 'mPerdaOutra', 'mObsManipulacao', 'mSemPerda'].forEach(function(id) {
+      document.getElementById(id).disabled = !podeFechar;
+    });
+    renderPerdasMp(Manipulacao.linhasPesagem(previstos, f.pesagem || {}), podeFechar);
+    var valMan = Manipulacao.validarFechamentoManipulacao(previstos, f);
+    document.getElementById('mManipulacaoResumo').innerHTML = resumo.rendimento != null
+      ? 'Perda de processo: <b>' + fmtNum(resumo.perdaProcesso) + ' kg</b> (' + resumo.perdaProcessoPct + '%) · perdas declaradas ' + fmtNum(resumo.perdasManipulacao) + ' kg'
+      : 'Informe o rendimento para o sistema calcular a perda de processo.';
+    var errosMan = document.getElementById('mManipulacaoErros');
+    errosMan.className = 'alert alert-danger' + (podeFechar && valMan.erros.length ? ' show' : '');
+    errosMan.textContent = valMan.erros.join(' ') + (valMan.avisos.length ? ' ⚠ ' + valMan.avisos.join(' ') : '');
+    document.getElementById('mBtnIniciarManipulacao').style.display = acoes.indexOf('INICIAR_MANIPULACAO') >= 0 ? '' : 'none';
+    document.getElementById('mBtnFecharManipulacao').style.display = podeFechar ? '' : 'none';
+    document.getElementById('mBtnFecharManipulacao').disabled = !valMan.ok;
+  }
+
+  if (soConfere()) {
+    document.getElementById('mPesagemRodape').style.display = 'none';
+    document.getElementById('mBlocoManipulacao').style.display = 'none';
+  } else {
+    document.getElementById('mPesagemRodape').style.display = '';
+  }
+  // `.alert` nasce escondido (display:none) -- '' não mostrava o aviso.
+  document.getElementById('mBlocoCq').style.display = st === 'AGUARDANDO_CQ' ? 'block' : 'none';
+  var reprov = document.getElementById('mBlocoReprovado');
+  reprov.style.display = st === 'REPROVADO' ? 'block' : 'none';
+  if (st === 'REPROVADO') {
+    var an = faseOp.analise || {};
+    reprov.innerHTML = '<b>Bulk reprovado pela Qualidade</b>' + (an.por ? ' (' + escapeHtml(an.por) + ')' : '') +
+      (an.observacao ? ': ' + escapeHtml(an.observacao) : '') +
+      '. Se o bulk puder ser corrigido (ex.: adicionar matérias-primas), a <b>Qualidade</b> abre a correção na tela Qualidade, ' +
+      'com a RNC e as matérias-primas a adicionar. A correção aparece aqui para pesar, conferir e manipular, no mesmo lote.';
+  }
+  renderExcedente(op, faseOp);
+  document.getElementById('mBlocoPesagem').style.display = (st === 'LIBERADO' || st === 'REPROVADO') ? 'none' : '';
+
+  ligarCampos();
+}
+
+function ligarCampos() {
+  // Perda e justificativa atualizam o rascunho enquanto se digita, sem
+  // redesenhar os cartões (redesenhar tirava o foco e mexia no layout).
+  [['perda', 'perda', true], ['just', 'justificativa', false]].forEach(function(m) {
+    document.querySelectorAll('[data-' + m[0] + ']').forEach(function(el) {
+      el.oninput = function() {
+        var k = el.getAttribute('data-' + m[0]);
+        rascunho[k] = rascunho[k] || {};
+        rascunho[k][m[1]] = m[2] ? numeroDigitado(el.value) : el.value.trim();
+        var fr = faseComRascunho();
+        atualizarValidacaoPesagem(Manipulacao.validarPesagem(previstos, fr.pesagem, opcoesPesagem(fr)),
+          Manipulacao.estado(allOps[opAtual]) === 'AGUARDANDO_PESAGEM');
+      };
+    });
+  });
+  document.querySelectorAll('[data-conf]').forEach(function(b) {
+    b.onclick = function() {
+      var k = b.getAttribute('data-conf');
+      conferencia[k] = conferencia[k] || {};
+      var valor = b.getAttribute('data-valor') === 'sim';
+      // Tocar de novo no botão marcado desmarca.
+      conferencia[k].ok = conferencia[k].ok === valor ? null : valor;
+      renderPainel();
+    };
+  });
+  document.querySelectorAll('[data-confobs]').forEach(function(inp) {
+    inp.onchange = function() {
+      var k = inp.getAttribute('data-confobs');
+      conferencia[k] = conferencia[k] || {};
+      conferencia[k].obs = inp.value.trim();
+      renderPainel();
+    };
+  });
+  ['mRendimento', 'mPerdaResiduo', 'mPerdaAmostra', 'mPerdaOutra'].forEach(function(id) {
+    document.getElementById(id).onchange = renderPainel;
+  });
+  ligarPesagem();
+}
+
+/* ── Pesagem: uma MP por vez, pensada para o celular ───────────────────
+   Pedidos do usuário (18/09): pesar o mesmo item várias vezes até o total
+   ("+ adicionar pesagem"), a maior parte do uso é no celular de cada
+   operador, a lista segue a ORDEM DA FÓRMULA, a FOTO VEM ANTES do peso, e o
+   LOTE é indicado pelo FEFO ("quanto de cada lote tem que ser utilizado").
+   Três telas dentro do bloco de pesagem:
+     lista  -> uma linha por MP, na ordem da fórmula, com o que falta
+     mp     -> "Faltam X kg" grande, lotes do FEFO, pesagens feitas
+     form   -> foto já tirada, peso grande, lote do FEFO já escolhido
+   Cada pesagem é gravada NA HORA em pesagem/parcelas/{mp}; errada é
+   cancelada com motivo, nunca apagada. */
+function numeroDigitado(v) {
+  var t = String(v == null ? '' : v).trim().replace(/\s/g, '');
+  if (!t) return null;
+  // "1.250,5" (milhar com ponto) e "12,5" (vírgula decimal) viram número.
+  if (t.indexOf(',') >= 0) t = t.replace(/\./g, '').replace(',', '.');
+  var x = Number(t);
+  return isFinite(x) ? x : null;
+}
+function ordinal(i) { return i + 'ª'; }
+function horaCurta(iso) {
+  if (!iso) return '';
+  var d = new Date(iso);
+  return isNaN(d) ? '' : d.toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'});
+}
+function validadeCurta(iso) {
+  if (!iso) return '';
+  var d = new Date(String(iso).length === 10 ? iso + 'T12:00:00' : iso);
+  return isNaN(d) ? '' : d.toLocaleDateString('pt-BR', {month: '2-digit', year: '2-digit'});
+}
+
+function descartarFormParcela() {
+  if (formParcela && formParcela.previewUrl && window.URL && URL.revokeObjectURL) {
+    try { URL.revokeObjectURL(formParcela.previewUrl); } catch (e) { /* nada */ }
+  }
+  formParcela = null;
+}
+
+/* Plano FEFO da MP: o congelado no início da pesagem ou, antes disso, o
+   calculado agora. Separado para esta OP vem primeiro (separadoPara), e o
+   material do cliente antes do geral (clienteKey), como no apontamento. */
+function calcularPlanoFefo(itemKey) {
+  var prev = previstos[itemKey], op = allOps[opAtual] || {};
+  if (!prev || typeof sugerirAlocacaoFefo !== 'function') return [];
+  var lotes = allLotes[sanitizeKey(prev.mpCodigo)] || {};
+  var bloqueados = {};
+  Object.keys(allEnderecos).forEach(function(k) { if (allEnderecos[k] && allEnderecos[k].ativo === false) bloqueados[k] = true; });
+  var clienteKey = (typeof PropriedadeEstoque !== 'undefined') ? PropriedadeEstoque.clienteKeyDoSku(op.sku, allProdutos, null, op.cliente) : null;
+  var r = sugerirAlocacaoFefo(prev.mpCodigo, Number(prev.previsto) || 0, lotes, bloqueados, {clienteKey: clienteKey || null, separadoPara: op.lote});
+  var grupos = [], porLote = {};
+  r.alocacoes.forEach(function(a) {
+    var l = lotes[a.loteKey] || {};
+    var id = l.loteInterno || l.loteOrigem || a.loteKey;
+    if (!porLote[id]) { porLote[id] = {loteInterno: id, qtd: 0, enderecos: [], dataValidade: a.dataValidade || null}; grupos.push(porLote[id]); }
+    porLote[id].qtd = Math.round((porLote[id].qtd + a.qtdSugerida) * 1000) / 1000;
+    if (a.enderecoCodigo && porLote[id].enderecos.indexOf(a.enderecoCodigo) < 0) porLote[id].enderecos.push(a.enderecoCodigo);
+  });
+  return grupos;
+}
+function planoDaMp(itemKey) {
+  var congelado = ((((Manipulacao.fase(allOps[opAtual]) || {}).pesagem || {}).planoLotes) || {})[itemKey];
+  if (congelado && congelado.length) return congelado;
+  return calcularPlanoFefo(itemKey);
+}
+
+function renderPesagem(f, st, val, podeEditar) {
+  var pes = f.pesagem || {};
+  var modo = formParcela && podeEditar ? 'form' : (mpAberta && previstos[mpAberta] ? 'mp' : 'lista');
+  var bloco = document.getElementById('mBlocoPesagem');
+  bloco.classList.remove('modo-lista', 'modo-mp', 'modo-form');
+  bloco.classList.add('modo-' + modo);
+  document.getElementById('mPainel').classList.toggle('foco-mp', modo !== 'lista');
+  var assinatura = JSON.stringify([opAtual, st, podeEditar, modo, mpAberta, menuParcela, devolverOutro, previstos, pes.parcelas || null, pes.devolucoes || null,
+    pes.planoLotes || null, pes.fotosItens || null, modo === 'mp' || modo === 'form' ? allLotes[sanitizeKey((previstos[mpAberta] || {}).mpCodigo || '')] || null : null,
+    formParcela ? [formParcela.itemKey, formParcela.previewUrl || '', !!formParcela.enviando, !!formParcela.outroLote] : null]);
+  if (assinatura === assinaturaPesagem) return;
+  var trocouTela = assinaturaPesagem && JSON.parse(assinaturaPesagem)[3] !== modo;
+  assinaturaPesagem = assinatura;
+  var box = document.getElementById('mPesagemCards');
+  if (!val.linhas.length) {
+    box.innerHTML = '<div class="no-data">Fórmula não encontrada para este produto — cadastre em Fórmulas/BOM.</div>';
+    return;
+  }
+  if (modo === 'form') box.innerHTML = telaForm(pes, val.linhas.find(function(l) { return l.itemKey === formParcela.itemKey; }));
+  else if (modo === 'mp') box.innerHTML = telaMp(pes, val.linhas, val.linhas.find(function(l) { return l.itemKey === mpAberta; }), podeEditar);
+  else box.innerHTML = telaLista(val.linhas, podeEditar, !st);
+  // Trocou de tela: volta o topo do bloco para a vista (no celular a página
+  // é longa e a tela nova começaria fora da tela).
+  if (trocouTela && bloco.scrollIntoView) bloco.scrollIntoView({block: 'start'});
+}
+
+function statusLinha(l) {
+  if (l.pendente) return 'pend';
+  if (!l.foraTolerancia) return 'ok';
+  return l.excesso > 0 ? 'alerta' : 'parcial';
+}
+
+function telaLista(linhas, podeEditar, naoIniciada) {
+  var pesDaLista = ((Manipulacao.fase(allOps[opAtual]) || {}).pesagem) || {};
+  var feitas = linhas.filter(function(l) { return statusLinha(l) === 'ok' || (statusLinha(l) === 'alerta'); }).length;
+  var pctGeral = linhas.length ? feitas / linhas.length * 100 : 0;
+  return '<div class="pz-topo"><b>' + feitas + ' de ' + linhas.length + ' matérias-primas pesadas</b>' +
+      '<div class="barra"><span style="width:' + pctGeral.toFixed(1) + '%"></span></div>' +
+      (naoIniciada ? '<div class="field-hint">Toque em <b>Iniciar pesagem</b> para começar. A lista segue a ordem da fórmula.</div>' : '') +
+    '</div>' +
+    linhas.map(function(l, i) {
+      var s = statusLinha(l), un = escapeHtml(l.unidade);
+      var dir = s === 'ok' ? '<span class="pz-ok">✓ ' + fmtNum(l.pesado) + ' ' + un + '</span>'
+        : s === 'alerta' ? '<span class="pz-alerta">passou ' + fmtNum(l.excesso) + ' ' + un + '</span>'
+        : '<span class="pz-falta">faltam ' + fmtNum(l.falta) + ' ' + un + '</span>';
+      return '<button type="button" class="pz-row pz-' + s + '" data-abrir-mp="' + escapeAttr(l.itemKey) + '">' +
+        '<span class="pz-num">' + (s === 'ok' ? '✓' : (i + 1)) + '</span>' +
+        '<span class="pz-txt"><b>' + escapeHtml(l.mpCodigo) + '</b><small>' + escapeHtml(l.mpNome) + ' · ' +
+          (l.pesado ? fmtNum(l.pesado) + ' de ' : '') + fmtNum(l.previsto) + ' ' + un + (l.parcelas ? ' · ' + l.parcelas + ' pesagem(ns)' : '') +
+          (l.parcelas && !Manipulacao.devolucaoDoItem(pesDaLista, l.itemKey) ? ' · <b style="color:var(--warning)">guardar embalagem</b>' : '') + '</small></span>' +
+        '<span class="pz-dir">' + dir + '</span><span class="pz-seta">›</span></button>';
+    }).join('');
+}
+
+function telaMp(pes, linhas, l, podeEditar) {
+  var un = escapeHtml(l.unidade), s = statusLinha(l);
+  var idx = linhas.indexOf(l);
+  var todas = Manipulacao.parcelasDoItem(pes, l.itemKey, true);
+  var plano = planoDaMp(l.itemKey);
+  var sit = Manipulacao.situacaoLotes(plano, Manipulacao.parcelasDoItem(pes, l.itemKey));
+  var pct = l.previsto > 0 ? Math.min(100, (l.pesado || 0) / l.previsto * 100) : 0;
+  var grande = s === 'ok'
+    ? '<small>Completo</small><div class="pz-grande-num" style="color:var(--success)">✓ ' + fmtNum(l.pesado) + ' ' + un + '</div><small>previsto ' + fmtNum(l.previsto) + ' ' + un + (l.desvioPct ? ' · ' + (l.desvioPct > 0 ? '+' : '') + l.desvioPct + '%' : '') + '</small>'
+    : s === 'alerta'
+    ? '<small>Passou do previsto</small><div class="pz-grande-num" style="color:var(--warning)">+' + fmtNum(l.excesso) + ' ' + un + '</div><small>pesado ' + fmtNum(l.pesado) + ' de ' + fmtNum(l.previsto) + ' ' + un + ' (+' + l.desvioPct + '%)</small>'
+    : '<small>Faltam</small><div class="pz-grande-num">' + fmtNum(l.falta) + ' ' + un + '</div><small>de ' + fmtNum(l.previsto) + ' ' + un + ' previstos' + (l.pesado ? ' · pesado ' + fmtNum(l.pesado) : '') + '</small>';
+
+  var lotesHtml = plano.length
+    ? '<div class="pz-sec">Lotes indicados (FEFO)</div>' + sit.linhas.map(function(x) {
+        var feito = x.falta <= 0;
+        return '<div class="pz-lote' + (feito ? ' feito' : (sit.sugerido && sit.sugerido.loteInterno === x.loteInterno ? ' atual' : '')) + '">' +
+          '<div><b>' + escapeHtml(x.loteInterno) + '</b> <span class="field-hint">' + escapeHtml(x.enderecos.join(', ')) + (x.dataValidade ? ' · vence ' + validadeCurta(x.dataValidade) : '') + '</span></div>' +
+          '<div class="pz-lote-q">' + (feito ? '✓ ' : '') + fmtNum(x.pesado) + ' / ' + fmtNum(x.planejado) + ' ' + un + '</div></div>';
+      }).join('') + sit.fora.map(function(x) {
+        return '<div class="pz-lote fora"><div><b>' + escapeHtml(x.loteInterno) + '</b> <span class="field-hint">fora do FEFO</span></div><div class="pz-lote-q">' + fmtNum(x.pesado) + ' ' + un + '</div></div>';
+      }).join('')
+    : '<div class="pz-aviso">Sem saldo desta MP por lote no estoque — informe o lote da embalagem em cada pesagem.</div>';
+
+  var n = 0;
+  var parcelasHtml = todas.length ? '<div class="pz-sec">Pesagens</div>' + todas.map(function(p) {
+    var cancelada = !!p.canceladaEm;
+    if (!cancelada) n++;
+    var url = p.foto && p.foto.url;
+    return '<div class="parcela' + (cancelada ? ' cancelada' : '') + '">' +
+      '<span class="p-num">' + (cancelada ? '✕' : ordinal(n)) + '</span>' +
+      (url ? '<a href="' + escapeAttr(url) + '" target="_blank" rel="noopener"><img class="p-foto" src="' + escapeAttr(url) + '" alt="Balança"></a>' : '<span class="p-foto"></span>') +
+      '<div class="p-info"><b>' + fmtNum(p.peso) + ' ' + un + '</b> · ' + escapeHtml(p.loteMaterial || '—') +
+        '<div class="field-hint">' + escapeHtml(p.por || '') + (p.em ? ' · ' + horaCurta(p.em) : '') + '</div>' +
+        (p.motivoForaFefo ? '<div class="field-hint" style="color:var(--tint-orange-fg)">Fora do FEFO: ' + escapeHtml(p.motivoForaFefo) + '</div>' : '') +
+        (cancelada ? '<div class="field-hint" style="color:var(--tint-red-fg)">Cancelada por ' + escapeHtml(p.canceladaPor || '—') + ': ' + escapeHtml(p.motivoCancelamento || '') + '</div>' : '') +
+        (menuParcela === p.id && podeEditar && !cancelada ? '<button type="button" class="btn btn-danger btn-sm" style="margin-top:6px" data-cancelar-parcela="' + escapeAttr(l.itemKey) + '|' + escapeAttr(p.id) + '">Cancelar esta pesagem</button>' : '') +
+      '</div>' +
+      (podeEditar && !cancelada ? '<button type="button" class="pz-mais" aria-label="Opções da pesagem" data-menu-parcela="' + escapeAttr(p.id) + '">⋯</button>' : '') +
+    '</div>';
+  }).join('') : '';
+
+  var r = rascunho[l.itemKey] || {};
+  var dis = podeEditar ? '' : ' disabled';
+  var justHtml = (l.foraTolerancia && !l.falta) || r.justificativa || l.justificativa
+    ? '<div class="pz-just"><label>Justificativa do desvio <span class="obrig">obrigatória</span></label><input type="text" data-just="' + escapeAttr(l.itemKey) + '" value="' + escapeAttr(r.justificativa || '') + '"' + dis + ' placeholder="Por que passou do previsto?"></div>' : '';
+  var perdaHtml = '<details class="pz-opcoes"' + (r.perda ? ' open' : '') + '><summary>Mais opções</summary><label>Perda na pesagem (' + un + ')</label>' +
+    '<input type="text" inputmode="decimal" data-perda="' + escapeAttr(l.itemKey) + '" value="' + escapeAttr(r.perda == null ? '' : r.perda) + '"' + dis + '></details>';
+
+  var guardarHtml = l.parcelas > 0 ? blocoGuardar(pes, l, podeEditar) : '';
+  var proxima = Manipulacao.proximaPendente(previstos, pes, l.itemKey);
+  var acoes = podeEditar
+    ? '<div class="pz-acoes">' +
+        '<label class="btn-camera"><input type="file" accept="image/*" capture="environment" id="pzFoto">📷 ' + (l.parcelas ? 'Nova pesagem' : 'Fotografar a balança') + '</label>' +
+        (Manipulacao.dispensaFoto(Manipulacao.fase(allOps[opAtual])) ? '<button type="button" class="btn btn-ghost" id="pzSemFoto" title="Registro retroativo autorizado pela Qualidade">Sem foto (retroativo)</button>' : '') +
+        (s !== 'pend' && proxima ? '<button type="button" class="btn btn-ghost pz-prox" data-abrir-mp="' + escapeAttr(proxima) + '">Próxima MP ›</button>' : '') +
+      '</div>'
+    : '';
+
+  return '<button type="button" class="pz-voltar" data-voltar-lista>‹ Todas as MPs</button>' +
+    '<div class="pz-cab"><div><b>' + escapeHtml(l.mpCodigo) + '</b><div class="field-hint">' + escapeHtml(l.mpNome) + '</div></div><span class="field-hint">' + (idx + 1) + ' de ' + linhas.length + '</span></div>' +
+    '<div class="pz-grande pz-' + s + '">' + grande + '<div class="barra"><span style="width:' + pct.toFixed(1) + '%"></span></div></div>' +
+    lotesHtml + parcelasHtml + guardarHtml + justHtml + perdaHtml + acoes;
+}
+
+function telaForm(pes, l) {
+  var fp = formParcela, un = escapeHtml(l.unidade);
+  var plano = planoDaMp(l.itemKey);
+  var sit = Manipulacao.situacaoLotes(plano, Manipulacao.parcelasDoItem(pes, l.itemKey));
+  var sug = sit.sugerido;
+  var loteHtml;
+  if (plano.length && !fp.outroLote) {
+    var alvo = sit.linhas.find(function(x) { return x.loteInterno === fp.lote; }) || sug;
+    loteHtml = '<div class="pz-sec">Lote (indicado pelo FEFO)</div>' +
+      '<div class="pz-lote atual"><div><b>' + escapeHtml(fp.lote || '—') + '</b> <span class="field-hint">' + escapeHtml(alvo ? alvo.enderecos.join(', ') : '') +
+        (alvo && alvo.dataValidade ? ' · vence ' + validadeCurta(alvo.dataValidade) : '') + '</span></div>' +
+        '<div class="pz-lote-q">' + (alvo && alvo.falta > 0 ? 'faltam ' + fmtNum(alvo.falta) + ' ' + un : 'plano do FEFO cumprido') + '</div></div>' +
+      '<button type="button" class="pz-link" id="fpOutroLote">Usar outro lote</button>';
+  } else {
+    loteHtml = '<div class="pz-sec">Lote da embalagem</div>' +
+      '<input type="text" id="fpLote" autocomplete="off" placeholder="AK-2026-000576" value="' + escapeAttr(fp.lote || '') + '">' +
+      (plano.length ? '<label style="margin-top:8px">Motivo para não usar o lote do FEFO (' + escapeHtml(plano.map(function(x) { return x.loteInterno; }).join(', ')) + ')</label>' +
+        '<input type="text" id="fpMotivo" autocomplete="off" value="' + escapeAttr(fp.motivoForaFefo || '') + '" placeholder="Ex.: tambor do lote indicado está no fim">' +
+        '<button type="button" class="pz-link" id="fpVoltarFefo">Voltar para o lote do FEFO</button>' : '');
+  }
+  var outras = Manipulacao.proximaPendente(previstos, pes, l.itemKey);
+  return '<div class="pz-cab"><button type="button" class="pz-x" id="fpCancelar" aria-label="Cancelar">✕</button>' +
+      '<div style="flex:1"><b>' + ordinal(l.parcelas + 1) + ' pesagem · ' + escapeHtml(l.mpCodigo) + '</b><div class="field-hint">' + escapeHtml(l.mpNome) + '</div></div></div>' +
+    '<div class="form-parcela" id="formParcela">' +
+      (fp.previewUrl ? '<img class="fp-preview" src="' + escapeAttr(fp.previewUrl) + '" alt="Foto da balança">'
+        : fp.arquivo === null ? '<div class="pz-aviso">Registro retroativo sem foto, autorizado pela Qualidade na correção.</div>' : '<div class="fp-preview"></div>') +
+      '<label class="pz-link" style="display:inline-block"><input type="file" accept="image/*" capture="environment" id="fpFoto" style="display:none">' + (fp.previewUrl ? 'Refazer a foto' : 'Anexar foto') + '</label>' +
+      '<div class="pz-sec">Peso que a balança mostra</div>' +
+      '<div class="fp-peso"><input type="text" inputmode="decimal" id="fpPeso" autocomplete="off" placeholder="0,0" value="' + escapeAttr(fp.peso || '') + '"><span>' + un + '</span></div>' +
+      '<div class="field-hint">' + (l.pesado ? (l.falta > 0 ? 'Faltam ' + fmtNum(l.falta) + ' ' + un + ' desta MP.' : 'O previsto desta MP já foi atingido.') : 'Previsto: ' + fmtNum(l.previsto) + ' ' + un + '.') + '</div>' +
+      loteHtml +
+      '<div class="fp-faltando" id="fpFaltando"></div>' +
+    '</div>' +
+    '<div class="pz-acoes">' +
+      '<button type="button" class="btn ' + (outras ? 'btn-ghost' : 'btn-green') + '" id="fpSalvar"' + (fp.enviando ? ' disabled' : '') + '>' + (fp.enviando ? 'Enviando...' : '✓ Salvar') + '</button>' +
+      (outras ? '<button type="button" class="btn btn-green" id="fpSalvarProxima"' + (fp.enviando ? ' disabled' : '') + '>' + (fp.enviando ? 'Enviando...' : 'Salvar e próxima ›') + '</button>' : '') +
+    '</div>';
+}
+
+// O que ainda falta preencher no formulário -- dito em português, na hora.
+function atualizarFormParcela() {
+  if (!formParcela) return;
+  var v = Manipulacao.validarParcela({peso: numeroDigitado(formParcela.peso), loteMaterial: formParcela.lote,
+    temFoto: !!formParcela.arquivo, motivoForaFefo: formParcela.motivoForaFefo}, planoDaMp(formParcela.itemKey),
+    opcoesPesagem(Manipulacao.fase(allOps[opAtual])));
+  var falt = document.getElementById('fpFaltando');
+  if (falt) falt.textContent = v.ok ? '' : v.erros.join(' ');
+  ['fpSalvar', 'fpSalvarProxima'].forEach(function(id) {
+    var b = document.getElementById(id);
+    if (b && !formParcela.enviando) b.disabled = !v.ok;
+  });
+}
+
+function atualizarValidacaoPesagem(val, podeEditar) {
+  var errosPes = document.getElementById('mPesagemErros');
+  errosPes.className = 'alert alert-danger' + (podeEditar && val.erros.length ? ' show' : '');
+  errosPes.textContent = val.erros.join(' ');
+  var btn = document.getElementById('mBtnFecharPesagem');
+  btn.disabled = !val.ok;
+  var faltam = val.linhas.filter(function(l) { return statusLinha(l) === 'pend' || statusLinha(l) === 'parcial'; }).length;
+  btn.textContent = val.ok ? 'Fechar pesagem e baixar estoque' : (faltam ? 'Fechar pesagem · faltam ' + faltam + ' MP(s)' : 'Fechar pesagem · veja as pendências');
+}
+
+function ligarPesagem() {
+  document.querySelectorAll('[data-abrir-mp]').forEach(function(b) {
+    b.onclick = function() { mpAberta = b.getAttribute('data-abrir-mp'); menuParcela = null; renderPainel(); };
+  });
+  document.querySelectorAll('[data-voltar-lista]').forEach(function(b) {
+    b.onclick = function() { mpAberta = null; menuParcela = null; renderPainel(); };
+  });
+  document.querySelectorAll('[data-menu-parcela]').forEach(function(b) {
+    b.onclick = function() { var id = b.getAttribute('data-menu-parcela'); menuParcela = menuParcela === id ? null : id; renderPainel(); };
+  });
+  document.querySelectorAll('[data-cancelar-parcela]').forEach(function(b) {
+    b.onclick = function() { var partes = b.getAttribute('data-cancelar-parcela').split('|'); cancelarParcela(partes[0], partes[1]); };
+  });
+  document.querySelectorAll('[data-guardar]').forEach(function(b) {
+    b.onclick = function() { guardarItem(b.getAttribute('data-guardar'), b.getAttribute('data-outro') === '1'); };
+  });
+  document.querySelectorAll('[data-guardar-outro]').forEach(function(b) {
+    b.onclick = function() { devolverOutro = b.getAttribute('data-guardar-outro'); renderPainel(); };
+  });
+  document.querySelectorAll('[data-guardar-cancelar]').forEach(function(b) {
+    b.onclick = function() { devolverOutro = null; renderPainel(); };
+  });
+  // Foto primeiro: o botão da MP abre a câmera; escolhida a foto, abre o formulário.
+  var cam = document.getElementById('pzFoto');
+  if (cam) cam.onchange = function() { receberFoto(this, mpAberta); };
+  var semFoto = document.getElementById('pzSemFoto');
+  if (semFoto) semFoto.onclick = function() {
+    descartarFormParcela();
+    var plano = planoDaMp(mpAberta);
+    formParcela = {itemKey: mpAberta, arquivo: null, previewUrl: '', peso: '', lote: loteSugerido(mpAberta),
+      outroLote: !plano.length, motivoForaFefo: '', enviando: false};
+    renderPainel();
+  };
+  var refazer = document.getElementById('fpFoto');
+  if (refazer) refazer.onchange = function() { receberFoto(this, formParcela && formParcela.itemKey); };
+  if (!formParcela) return;
+  var peso = document.getElementById('fpPeso');
+  if (peso) peso.oninput = function() { formParcela.peso = peso.value; atualizarFormParcela(); };
+  var lote = document.getElementById('fpLote');
+  if (lote) lote.oninput = function() { formParcela.lote = lote.value.trim(); atualizarFormParcela(); };
+  var motivo = document.getElementById('fpMotivo');
+  if (motivo) motivo.oninput = function() { formParcela.motivoForaFefo = motivo.value.trim(); atualizarFormParcela(); };
+  var outro = document.getElementById('fpOutroLote');
+  if (outro) outro.onclick = function() { formParcela.outroLote = true; formParcela.lote = ''; renderPainel(); var c = document.getElementById('fpLote'); if (c) c.focus(); };
+  var voltar = document.getElementById('fpVoltarFefo');
+  if (voltar) voltar.onclick = function() { formParcela.outroLote = false; formParcela.motivoForaFefo = ''; formParcela.lote = loteSugerido(formParcela.itemKey); renderPainel(); };
+  var cancelar = document.getElementById('fpCancelar');
+  if (cancelar) cancelar.onclick = function() { descartarFormParcela(); renderPainel(); };
+  var salvar = document.getElementById('fpSalvar');
+  if (salvar) salvar.onclick = function() { salvarParcela(false); };
+  var salvarProx = document.getElementById('fpSalvarProxima');
+  if (salvarProx) salvarProx.onclick = function() { salvarParcela(true); };
+  atualizarFormParcela();
+}
+
+function loteSugerido(itemKey) {
+  var pes = (Manipulacao.fase(allOps[opAtual]) || {}).pesagem;
+  var sit = Manipulacao.situacaoLotes(planoDaMp(itemKey), Manipulacao.parcelasDoItem(pes, itemKey));
+  if (sit.sugerido) return sit.sugerido.loteInterno;
+  if (sit.linhas.length) return sit.linhas[sit.linhas.length - 1].loteInterno;
+  // Sem FEFO: o lote costuma se repetir entre idas à balança -- sugere o
+  // último usado (inclusive de pesagem cancelada; a embalagem é a mesma).
+  var anteriores = Manipulacao.parcelasDoItem(pes, itemKey, true);
+  return anteriores.length ? (anteriores[anteriores.length - 1].loteMaterial || '') : '';
+}
+
+function receberFoto(input, itemKey) {
+  var arquivo = input.files && input.files[0];
+  if (!arquivo || !itemKey) return;
+  var v = Anexos.validar(arquivo, {perfil: 'imagem'});
+  if (!v.ok) { showAlert(v.erros.join(' '), 'danger'); input.value = ''; return; }
+  var url = (window.URL && URL.createObjectURL) ? URL.createObjectURL(arquivo) : '';
+  if (formParcela && formParcela.itemKey === itemKey) {
+    if (formParcela.previewUrl && URL.revokeObjectURL) { try { URL.revokeObjectURL(formParcela.previewUrl); } catch (e) { /* nada */ } }
+    formParcela.arquivo = arquivo; formParcela.previewUrl = url;
+  } else {
+    descartarFormParcela();
+    var plano = planoDaMp(itemKey);
+    formParcela = {itemKey: itemKey, arquivo: arquivo, previewUrl: url, peso: '', lote: loteSugerido(itemKey),
+      outroLote: !plano.length, motivoForaFefo: '', enviando: false};
+  }
+  renderPainel();
+  var campo = document.getElementById('fpPeso');
+  if (campo) campo.focus();
+}
+
+function salvarParcela(irParaProxima) {
+  var fp = formParcela;
+  if (!fp || fp.enviando) return;
+  var peso = numeroDigitado(fp.peso);
+  var plano = planoDaMp(fp.itemKey);
+  var v = Manipulacao.validarParcela({peso: peso, loteMaterial: fp.lote, temFoto: !!fp.arquivo, motivoForaFefo: fp.motivoForaFefo}, plano,
+    opcoesPesagem(Manipulacao.fase(allOps[opAtual])));
+  if (!v.ok) { showAlert(v.erros.join(' '), 'danger'); return; }
+  var opKey = opAtual, itemKey = fp.itemKey;
+  var mp = (previstos[itemKey] || {}).mpCodigo || itemKey;
+  var arquivo = fp.arquivo;
+  // Sem arquivo só chega aqui no registro retroativo autorizado pela
+  // Qualidade (validarParcela barra o resto): a parcela fica marcada.
+  var caminhoArq = arquivo ? Anexos.caminho('manipulacao', opKey, itemKey + '_' + arquivo.name) : null;
+  var ref = arquivo ? storage.ref(caminhoArq) : null;
+  var noPlano = plano.some(function(x) { return x.loteInterno === String(fp.lote).trim(); });
+  fp.enviando = true;
+  renderPainel();
+  Promise.resolve()
+    .then(function() { return ref ? ref.put(arquivo, {contentType: arquivo.type}) : null; })
+    .then(function() { return ref ? ref.getDownloadURL() : null; })
+    .then(function(url) {
+      var foto = null;
+      if (arquivo) { foto = Anexos.registro(arquivo, caminhoArq, url, eu()); foto.mpCodigo = mp; }
+      return db.ref('ops/' + opKey + '/manipulacao/pesagem/parcelas/' + itemKey).push({
+        peso: peso, loteMaterial: String(fp.lote).trim(), foto: foto,
+        semFotoRetroativo: arquivo ? null : true,
+        motivoForaFefo: (!noPlano && plano.length) ? (fp.motivoForaFefo || null) : null,
+        por: eu(), em: new Date().toISOString(), mpCodigo: mp
+      });
+    })
+    .then(function() {
+      if (formParcela === fp) descartarFormParcela();
+      var pes = faseComRascunho().pesagem;
+      var l = Manipulacao.linhasPesagem(previstos, pes).find(function(x) { return x.itemKey === itemKey; }) || {};
+      showAlert(ordinal(l.parcelas || 1) + ' pesagem de ' + mp + ': ' + fmtNum(peso) + ' kg. ' +
+        (l.falta > 0 ? 'Faltam ' + fmtNum(l.falta) + ' kg.' : 'Total ' + fmtNum(l.pesado) + ' kg.'), 'success');
+      mpAberta = irParaProxima ? (Manipulacao.proximaPendente(previstos, pes, itemKey) || itemKey) : itemKey;
+      renderPainel();
+    })
+    .catch(function(e) {
+      fp.enviando = false;
+      renderPainel();
+      showAlert('Não foi possível salvar a pesagem de ' + mp + ': ' + e.message, 'danger');
+    });
+}
+
+function cancelarParcela(itemKey, id) {
+  var pes = (Manipulacao.fase(allOps[opAtual]) || {}).pesagem;
+  var p = Manipulacao.parcelasDoItem(pes, itemKey).find(function(x) { return x.id === id; });
+  if (!p) return;
+  var motivo = prompt('Cancelar a pesagem de ' + (p.mpCodigo || itemKey) + ' (' + fmtNum(p.peso) + ' kg)?\n\n' +
+    'Ela deixa de somar, mas continua registrada no dossiê do lote. Qual o motivo?');
+  if (motivo == null) return;
+  if (!motivo.trim()) { showAlert('Informe o motivo do cancelamento.', 'danger'); return; }
+  var base = 'ops/' + opAtual + '/manipulacao/pesagem/parcelas/' + itemKey + '/' + id + '/';
+  var u = {};
+  u[base + 'canceladaEm'] = new Date().toISOString();
+  u[base + 'canceladaPor'] = eu();
+  u[base + 'motivoCancelamento'] = motivo.trim();
+  menuParcela = null;
+  db.ref().update(u)
+    .then(function() { showAlert('Pesagem cancelada. O registro continua no dossiê.', 'success'); })
+    .catch(function(e) { showAlert('Erro ao cancelar: ' + e.message, 'danger'); });
+}
+
+/* Guardar de volta: a embalagem inteira volta ao endereço de onde saiu.
+   Como a fábrica trabalha hoje (usuário, 18/09): "recebem embalagem inteira,
+   vão pegando, item a item. Próprio operador quem guarda também" -- não há
+   separação nem sobra a reconciliar, o que falta é a CONFIRMAÇÃO de que
+   voltou. Guardou em outro lugar? O sistema move o lote, senão o WMS passa
+   a mentir sobre onde o material está. */
+function enderecosDoItem(pes, l) {
+  var lotes = allLotes[sanitizeKey(l.mpCodigo)] || {};
+  var usados = Manipulacao.parcelasDoItem(pes, l.itemKey).map(function(p) { return String(p.loteMaterial || '').trim(); });
+  var achados = [];
+  Object.keys(lotes).forEach(function(k) {
+    var lt = lotes[k] || {};
+    if (usados.indexOf(String(lt.loteInterno || '').trim()) < 0 || !lt.enderecoKey) return;
+    achados.push({loteKey: k, loteInterno: lt.loteInterno, enderecoKey: lt.enderecoKey, enderecoCodigo: lt.enderecoCodigo || lt.enderecoKey});
+  });
+  return achados;
+}
+function opcoesEndereco(selecionado) {
+  return Object.keys(allEnderecos).filter(function(k) { return allEnderecos[k] && allEnderecos[k].ativo !== false; })
+    .sort(function(a, b) { return String((allEnderecos[a] || {}).codigo || a).localeCompare(String((allEnderecos[b] || {}).codigo || b)); })
+    .map(function(k) {
+      var e = allEnderecos[k] || {};
+      return '<option value="' + escapeAttr(k) + '"' + (k === selecionado ? ' selected' : '') + '>' + escapeHtml(e.codigo || k) + (e.area ? ' (' + escapeHtml(e.area) + ')' : '') + '</option>';
+    }).join('');
+}
+function blocoGuardar(pes, l, podeEditar) {
+  var d = Manipulacao.devolucaoDoItem(pes, l.itemKey);
+  if (d) {
+    return '<div class="pz-guardar feito">✓ Embalagem guardada' + (d.enderecoCodigo ? ' em <b>' + escapeHtml(d.enderecoCodigo) + '</b>' : '') +
+      '<div class="field-hint">' + escapeHtml(d.por || '') + (d.em ? ' · ' + horaCurta(d.em) : '') +
+      (d.mudou ? ' · mudou de lugar' + (d.enderecoAnteriorCodigo ? ' (saiu de ' + escapeHtml(d.enderecoAnteriorCodigo) + ')' : '') : '') + '</div></div>';
+  }
+  if (!podeEditar) return '<div class="pz-guardar">Embalagem ainda não confirmada como guardada.</div>';
+  var ends = enderecosDoItem(pes, l);
+  var codigos = ends.map(function(e) { return e.enderecoCodigo; })
+    .filter(function(c, i, a) { return a.indexOf(c) === i; }).sort();
+  if (devolverOutro === l.itemKey) {
+    return '<div class="pz-guardar"><b>Onde você guardou a embalagem?</b>' +
+      '<select id="pzEndereco" style="margin-top:8px">' + opcoesEndereco(ends.length ? ends[0].enderecoKey : null) + '</select>' +
+      '<div class="pz-acoes" style="position:static;border:none;padding-top:10px">' +
+        '<button type="button" class="btn btn-green" data-guardar="' + escapeAttr(l.itemKey) + '" data-outro="1">Confirmar novo lugar</button>' +
+        '<button type="button" class="btn btn-ghost" data-guardar-cancelar>Cancelar</button>' +
+      '</div></div>';
+  }
+  return '<div class="pz-guardar"><b>Guardar de volta</b>' +
+    '<div class="field-hint">' + (codigos.length ? 'Leve a embalagem de volta para <b>' + escapeHtml(codigos.join(', ')) + '</b> e confirme.' : 'Guarde a embalagem no lugar de onde tirou e confirme.') + '</div>' +
+    '<div class="pz-acoes" style="position:static;border:none;padding-top:10px">' +
+      '<button type="button" class="btn btn-green" data-guardar="' + escapeAttr(l.itemKey) + '">✓ Guardei' +
+        (codigos.length === 1 ? ' em ' + escapeHtml(codigos[0]) : codigos.length ? ' cada um no seu lugar' : '') + '</button>' +
+      '<button type="button" class="btn btn-ghost" data-guardar-outro="' + escapeAttr(l.itemKey) + '">Guardei em outro lugar</button>' +
+    '</div></div>';
+}
+function guardarItem(itemKey, outro) {
+  var pes = (Manipulacao.fase(allOps[opAtual]) || {}).pesagem || {};
+  var l = Manipulacao.linhasPesagem(previstos, pes).find(function(x) { return x.itemKey === itemKey; });
+  if (!l) return;
+  var ends = enderecosDoItem(pes, l);
+  var destinoKey = outro ? (document.getElementById('pzEndereco') || {}).value : (ends.length ? ends[0].enderecoKey : null);
+  var mudou = !!outro && !!destinoKey && ends.some(function(e) { return e.enderecoKey !== destinoKey; });
+  var destinoCodigo = destinoKey ? ((allEnderecos[destinoKey] || {}).codigo || destinoKey) : null;
+  var autor = eu();
+  var movidos = mudou ? ends.filter(function(e) { return e.enderecoKey !== destinoKey; }) : [];
+  // De onde saiu: todos os endereços que a embalagem deixou, em ordem.
+  var anteriores = movidos.map(function(e) { return e.enderecoCodigo; })
+    .filter(function(c, i, a) { return c && a.indexOf(c) === i; }).sort().join(', ');
+  var mover = movidos.reduce(function(cadeia, e) {
+    return cadeia.then(function() {
+      return transferirLoteEndereco(db, 'material', l.mpCodigo, e.loteKey, destinoKey, 'DEVOLUÇÃO APÓS PESAGEM', autor);
+    });
+  }, Promise.resolve());
+  mover.then(function() {
+    return db.ref('ops/' + opAtual + '/manipulacao/pesagem/devolucoes/' + itemKey).set({
+      em: new Date().toISOString(), por: autor, mpCodigo: l.mpCodigo,
+      enderecoKey: destinoKey || null, enderecoCodigo: destinoCodigo || null,
+      enderecoAnteriorCodigo: anteriores || null, mudou: mudou
+    });
+  }).then(function() {
+    devolverOutro = null;
+    showAlert('Embalagem de ' + l.mpCodigo + ' guardada' + (destinoCodigo ? ' em ' + destinoCodigo : '') + '.' +
+      (mudou ? ' Endereço do lote atualizado no estoque.' : ''), 'success');
+    renderPainel();
+  }).catch(function(e) { showAlert('Erro ao registrar a devolução: ' + e.message, 'danger'); });
+}
+
+// Fotos da MP, só leitura (conferência): as das parcelas, numeradas.
+function celulaFoto(f, l) {
+  var fotos = Manipulacao.fotosDaLinha(f.pesagem, l.itemKey);
+  if (!fotos.length) return ' <span class="badge badge-red">sem foto</span>';
+  return '<span class="celula-foto"><span class="miniaturas">' + fotos.map(function(a) {
+    return '<span class="mini">' + (a.url ? '<a href="' + escapeAttr(a.url) + '" target="_blank" rel="noopener" title="' +
+      escapeAttr((a.parcela ? a.parcela + 'ª pesagem: ' + a.peso + ' kg' : 'Foto da pesagem')) + '"><img src="' + escapeAttr(a.url) +
+      '" alt="Foto da pesagem de ' + escapeAttr(l.mpCodigo) + '"></a>' : '') + '</span>';
+  }).join('') + '</span></span>';
+}
+
+// Celular de cada operador: a tela não apaga no meio da pesagem.
+var travaTela = null;
+function manterTelaAcesa(ligar) {
+  try {
+    if (ligar && !travaTela && navigator.wakeLock && navigator.wakeLock.request) {
+      navigator.wakeLock.request('screen').then(function(t) { travaTela = t; t.addEventListener && t.addEventListener('release', function() { travaTela = null; }); }).catch(function() { /* sem suporte */ });
+    } else if (!ligar && travaTela) { travaTela.release(); travaTela = null; }
+  } catch (e) { /* nada */ }
+}
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible' && opAtual && Manipulacao.estado(allOps[opAtual]) === 'AGUARDANDO_PESAGEM') manterTelaAcesa(true);
+});
+
+function gravarFase(updates) {
+  var u = {};
+  Object.keys(updates).forEach(function(k) { u['ops/' + opAtual + '/manipulacao/' + k] = updates[k]; });
+  return db.ref().update(u);
+}
+
+document.getElementById('mBtnIniciarPesagem').addEventListener('click', function() {
+  if (!Object.keys(previstos).length) {
+    showAlert(Manipulacao.ehCorrecao(Manipulacao.fase(allOps[opAtual])) ? 'A correção não tem matérias-primas a pesar.' : 'Sem fórmula cadastrada não há o que pesar.', 'danger');
+    return;
+  }
+  var t = Manipulacao.transicao('INICIAR_PESAGEM', {quem: eu()});
+  t.previstos = previstos;
+  // O FEFO do momento fica registrado: é o que o sistema mandou usar.
+  var plano = {};
+  Object.keys(previstos).forEach(function(k) { var p = calcularPlanoFefo(k); if (p.length) plano[k] = p; });
+  t['pesagem/planoLotes'] = Object.keys(plano).length ? plano : null;
+  gravarFase(t).then(function() { showAlert('Pesagem iniciada. O relógio está correndo.', 'success'); })
+    .catch(function(e) { showAlert('Erro ao iniciar: ' + e.message, 'danger'); });
+});
+
+/* Fechar a pesagem é o momento em que a MP sai do estoque: baixa o saldo e o
+   lote endereçado (FEFO), como o apontamento já faz no envase. */
+document.getElementById('mBtnFecharPesagem').addEventListener('click', function() {
+  var op = allOps[opAtual];
+  var pesagemAtual = faseComRascunho().pesagem;
+  var val = Manipulacao.validarPesagem(previstos, pesagemAtual, opcoesPesagem(Manipulacao.fase(op)));
+  if (!val.ok) { showAlert(val.erros.join(' '), 'danger'); return; }
+  var aGuardar = Manipulacao.pendentesDevolucao(previstos, pesagemAtual);
+  var avisoGuardar = aGuardar.length
+    ? '\n\nAinda não foi confirmado que a embalagem voltou ao lugar: ' + aGuardar.map(function(x) { return x.mpCodigo; }).join(', ') + '.'
+    : '';
+  if (!confirm('Fechar a pesagem do lote ' + op.lote + '?\n\nIsso baixa do estoque o que foi pesado.' + avisoGuardar)) return;
+  var btn = this; btn.disabled = true; btn.textContent = 'Baixando estoque...';
+  var autor = eu();
+  var clienteKey = (typeof PropriedadeEstoque !== 'undefined')
+    ? PropriedadeEstoque.clienteKeyDoSku(op.sku, allProdutos, null, op.cliente) : null;
+  // Saldo agregado: uma baixa por MP (o total). Lotes do WMS: uma baixa por
+  // lote pesado, saindo do lote que o operador usou -- e, dentro dele, do
+  // pedaço que a Separação levou para esta OP.
+  // Material sem controle de estoque (ex.: água) é pesado e registrado, mas não baixa (01/10).
+  var semControle = function(c) { return materialSemControleEstoque(c, allMateriais); };
+  var agregadas = val.linhas.filter(function(l) { return l.pesado > 0 && !semControle(l.mpCodigo); }).map(function(l) {
+    return Promise.resolve()
+      .then(function() {
+        return ajustarEstoque(db, l.mpCodigo, -Math.abs(l.pesado), 'consumo_manipulacao', op.lote,
+          {clienteKeyConsumidor: clienteKey || null});
+      })
+      .catch(function(err) { console.error('Falha na baixa de ' + l.mpCodigo + ':', err); return null; });
+  });
+  // Em sequência: dois lotes da mesma MP em paralelo disputariam o mesmo
+  // lote do WMS quando um deles cai no FEFO.
+  var porLote = Manipulacao.baixasPorLote(previstos, pesagemAtual).filter(function(b) { return !semControle(b.mpCodigo); }).reduce(function(cadeia, b) {
+    return cadeia.then(function() {
+      return baixarLotesFefo(db, 'material', b.mpCodigo, Math.abs(b.qtd), 'CONSUMO DE MANIPULAÇÃO', autor, op.lote,
+        {clienteKey: clienteKey || null, loteInterno: b.loteMaterial || null, separadoPara: op.lote});
+    }).catch(function(err) { console.error('Falha na baixa do lote ' + b.loteMaterial + ' de ' + b.mpCodigo + ':', err); return null; });
+  }, Promise.resolve());
+  var baixas = agregadas.concat([porLote]);
+  Promise.all(baixas).then(function() {
+    var t = Manipulacao.transicao('FECHAR_PESAGEM', {quem: autor});
+    t['pesagem/itens'] = Manipulacao.itensParaFechamento(previstos, pesagemAtual);
+    t.previstos = previstos;
+    return gravarFase(t);
+  }).then(function() {
+    btn.disabled = false; btn.textContent = 'Fechar pesagem e baixar estoque';
+    showAlert(regraConf().exigeAutorizado
+      ? 'Pesagem fechada e estoque baixado. A Qualidade e o P&D foram avisados por e-mail para conferir.'
+      : 'Pesagem fechada e estoque baixado. Agora outra pessoa precisa conferir.', 'success');
+  }).catch(function(e) {
+    btn.disabled = false; btn.textContent = 'Fechar pesagem e baixar estoque';
+    showAlert('Erro ao fechar a pesagem: ' + e.message, 'danger');
+  });
+});
+
+document.getElementById('mBtnConferir').addEventListener('click', function() {
+  var f = faseComRascunho();
+  var regra = regraConf();
+  var val = Manipulacao.validarConferencia(previstos, f, eu(), {exigeAutorizado: regra.exigeAutorizado, autorizado: autorizadoConferir()});
+  if (!val.ok) { showAlert(val.erros.concat(val.divergencias.map(function(d) { return 'Divergência em ' + d.mpCodigo; })).join(' '), 'danger'); return; }
+  var t = Manipulacao.transicao('CONFERIR', {quem: eu(), uid: meuUid(),
+    modo: regra.exigeAutorizado ? 'CONFERENCIA_PESAGEM' : 'OPERADOR'});
+  t['conferencia/itens'] = conferencia;
+  gravarFase(t).then(function() { showAlert('Conferência registrada. Pode manipular.', 'success'); })
+    .catch(function(e) { showAlert('Erro ao conferir: ' + e.message, 'danger'); });
+});
+
+document.getElementById('mBtnLiberarSemConf').addEventListener('click', function() {
+  var f = Manipulacao.fase(allOps[opAtual]) || {};
+  var motivo = prompt('Liberar a manipulação do lote ' + ((allOps[opAtual] || {}).lote || '') + ' SEM a conferência da pesagem?\n\n' +
+    'Fica registrado no lote como liberação do administrador. Qual o motivo?');
+  if (motivo == null) return;
+  var val = Manipulacao.validarLiberacaoSemConferencia(f, motivo, ehAdmin());
+  if (!val.ok) { showAlert(val.erros.join(' '), 'danger'); return; }
+  gravarFase(Manipulacao.transicao('LIBERAR_SEM_CONFERENCIA', {quem: eu(), uid: meuUid(), motivo: motivo}))
+    .then(function() { showAlert('Manipulação liberada sem conferência. O motivo ficou registrado no lote.', 'success'); })
+    .catch(function(e) { showAlert('Erro ao liberar: ' + e.message, 'danger'); });
+});
+
+document.getElementById('mBtnIniciarManipulacao').addEventListener('click', function() {
+  gravarFase(Manipulacao.transicao('INICIAR_MANIPULACAO', {quem: eu()}))
+    .then(function() { showAlert('Manipulação iniciada.', 'success'); })
+    .catch(function(e) { showAlert('Erro ao iniciar: ' + e.message, 'danger'); });
+});
+
+document.getElementById('mBtnFecharManipulacao').addEventListener('click', function() {
+  var f = faseComRascunho();
+  var val = Manipulacao.validarFechamentoManipulacao(previstos, f);
+  if (!val.ok) { showAlert(val.erros.join(' '), 'danger'); return; }
+  var linhasMp = Manipulacao.linhasPesagem(previstos, f.pesagem || {});
+  var valMp = PerdasEtapa.validarPerdasMp(linhasMp.map(function(l) { return {itemKey: l.itemKey, nome: l.mpNome, codigo: l.mpCodigo, pesado: l.pesado}; }), perdasMp);
+  if (!valMp.ok) { showAlert(valMp.erros.join(' '), 'danger'); return; }
+  var semPerda = document.getElementById('mSemPerda').checked;
+  var temPerda = Object.keys(f.manipulacao.perdasMp).length ||
+    Object.keys(f.manipulacao.perdas || {}).some(function(k) { return Number(f.manipulacao.perdas[k]) > 0; });
+  if (!temPerda && !semPerda) { showAlert('Informe as perdas da manipulação (por matéria-prima ou do bulk), ou marque "Não houve perda nesta manipulação".', 'danger'); return; }
+  var t = Manipulacao.transicao('FECHAR_MANIPULACAO', {quem: eu()});
+  t['manipulacao/rendimento'] = f.manipulacao.rendimento;
+  t['manipulacao/perdas'] = f.manipulacao.perdas;
+  t['manipulacao/perdasMp'] = Object.keys(f.manipulacao.perdasMp).length ? f.manipulacao.perdasMp : null;
+  t['manipulacao/semPerda'] = temPerda ? null : true;
+  t['manipulacao/observacao'] = document.getElementById('mObsManipulacao').value.trim() || null;
+  var op = allOps[opAtual], opKey = opAtual;
+  var exc = Manipulacao.ehCorrecao(f) ? planoExcedente(op, f.manipulacao.rendimento) : null;
+  if (exc && exc.ok && exc.excedente > 0 &&
+      !confirm('O bulk corrigido rende ' + fmtNum(f.manipulacao.rendimento) + ' kg.\n\n' +
+        'Pela fórmula (' + fmtNum(exc.kgPorUnidade) + ' kg por unidade), isso dá ' + fmtNum(exc.capacidade) + ' unidades: ' +
+        fmtNum(exc.excedente) + ' a mais que as ' + fmtNum(exc.qtdBase) + ' planejadas.\n\n' +
+        'A OP passa a planejar ' + fmtNum(exc.qtdNova) + ' unidades no mesmo lote, e as embalagens do excedente ' +
+        '(frascos, rótulos, caixas) entram na separação e no empenho. Confirma?')) return;
+  if (exc && exc.ok) t['manipulacao/excedente'] = {unidades: exc.excedente, capacidade: exc.capacidade, qtdBase: exc.qtdBase,
+    kgPorUnidade: exc.kgPorUnidade, em: new Date().toISOString(), por: eu()};
+  gravarFase(t).then(function() {
+    return exc && exc.ok ? aplicarExcedente(opKey, op, exc) : null;
+  }).then(function(r) {
+    showAlert('Bulk fechado e enviado para a Qualidade. O envase continua travado até a liberação.' +
+      (r && r.excedente ? ' OP ajustada para ' + fmtNum(r.qtdNova) + ' unidades (+' + fmtNum(r.excedente) + ' de excedente).' : ''), 'success');
+  }).catch(function(e) { showAlert('Erro ao fechar: ' + e.message, 'danger'); });
+});
+
+/* ══════════ Correção do bulk reprovado (25/09) ══════════
+   A Qualidade abre a correção (tela Qualidade). Aqui a correção é pesada,
+   conferida e manipulada como qualquer bulk; ao fechar, a massa a mais vira
+   excedente de unidades na OP, no mesmo lote. */
+function renderCorrecaoInfo(op, f, st) {
+  var box = document.getElementById('mCorrecaoInfo');
+  if (!Manipulacao.ehCorrecao(f)) { box.style.display = 'none'; return; }
+  var c = f.correcao || {};
+  var itens = Object.keys(f.previstos || {}).map(function(k) {
+    var p = f.previstos[k] || {};
+    return escapeHtml(p.mpCodigo || k) + (p.mpNome ? ' ' + escapeHtml(p.mpNome) : '') + ' — ' + fmtNum(p.previsto) + ' ' + escapeHtml(p.unidade || 'kg');
+  });
+  box.style.display = '';
+  box.innerHTML = '<b>Correção do bulk — ciclo ' + Manipulacao.ciclo(f) + '</b> · RNC <b>' + escapeHtml(c.rncNumero || '—') + '</b>' +
+    ' · autorizada por ' + escapeHtml(c.por || '—') + (c.em ? ' em ' + escapeHtml(horaCurta(c.em)) : '') +
+    '<br>Motivo: ' + escapeHtml(c.motivo || '—') +
+    (c.instrucao ? '<br>Instrução: ' + escapeHtml(c.instrucao) : '') +
+    '<br>Entra no tanque: <b>' + fmtNum((f.entradaBulk || {}).kg) + ' kg</b> do bulk reprovado + ' + itens.join('; ') +
+    (c.retroativo ? '<br>⚠ Registro retroativo: foto da balança dispensada — ' + escapeHtml(c.justificativaRetroativo || '') : '');
+}
+
+// Quantidade planejada ANTES de qualquer excedente e a massa teórica que a
+// fórmula pediu para ela (previstos do 1º ciclo, gravados no início da
+// pesagem). É o que converte kg do bulk corrigido em unidades.
+function baseExcedente(op) {
+  var f = Manipulacao.fase(op) || {};
+  var c1 = (f.historico || {}).c1 || {};
+  var qtdBase = op.qtdPlanejadaOriginal != null ? Number(op.qtdPlanejadaOriginal) : Number(op.qtdPlanejada) || 0;
+  var teorico = Manipulacao.massaTeorica(c1.previstos);
+  // Lote que começou antes de a pesagem gravar os previstos: recalcula a
+  // fórmula para a quantidade ORIGINAL (a atual pode já ter excedente).
+  if (!(teorico > 0)) teorico = Manipulacao.massaTeorica(calcularPrevistos(Object.assign({}, op, {qtdPlanejada: qtdBase})));
+  return {qtdBase: qtdBase, massaTeoricaKg: teorico};
+}
+function planoExcedente(op, rendimentoKg) {
+  var b = baseExcedente(op);
+  return Manipulacao.calcularExcedente({rendimentoKg: rendimentoKg, qtdBase: b.qtdBase, massaTeoricaKg: b.massaTeoricaKg});
+}
+
+/* Grava na OP: quantidade planejada nova (a original fica guardada),
+   embalagens do BOM escaladas em materiaisConsumo (a Separação lê daqui) e o
+   empenho da diferença. Refazer (novo ciclo) recalcula a partir do original,
+   então não acumula. O crédito ao pedido não muda: ele segue o envasado. */
+function aplicarExcedente(opKey, op, exc) {
+  var qtdNova = exc.qtdNova;
+  var mat = Manipulacao.materiaisDoExcedente(op.materiaisConsumo || {}, exc.qtdBase, qtdNova);
+  var u = {};
+  u['ops/' + opKey + '/qtdPlanejadaOriginal'] = exc.qtdBase;
+  u['ops/' + opKey + '/qtdPlanejada'] = qtdNova;
+  u['ops/' + opKey + '/excedenteBulk'] = {unidades: exc.excedente, qtdBase: exc.qtdBase, qtdNova: qtdNova,
+    kgPorUnidade: exc.kgPorUnidade, ciclo: Manipulacao.ciclo(Manipulacao.fase(op)), em: new Date().toISOString(), por: eu()};
+  if (op.materiaisConsumo) u['ops/' + opKey + '/materiaisConsumo'] = mat.materiais;
+  // Separação já concluída com a quantidade antiga: as embalagens a mais
+  // ainda precisam ir para a linha.
+  if (op.separacaoConcluida && mat.deltas.some(function(d) { return d.quantidade > 0; })) {
+    var sep = Manipulacao.separacaoAposExcedente(op, new Date().toISOString(), eu());
+    Object.keys(sep).forEach(function(k) { u['ops/' + opKey + '/' + k] = sep[k]; });
+  }
+  return db.ref().update(u).then(function() {
+    return Promise.all(mat.deltas.map(function(d) { return somarEmpenho(op, d); }))
+      .catch(function(e) { console.error('Empenho do excedente:', e); });
+  }).then(function() { return {excedente: exc.excedente, qtdNova: qtdNova}; });
+}
+/* Soma a diferença ao empenho que o lote já tem. empenharMateriais (utils)
+   GRAVA o empenho do lote com a quantidade passada -- chamado com só a
+   diferença, apagaria o empenho original. */
+function somarEmpenho(op, d) {
+  var loteKey = sanitizeKey(op.lote);
+  var agora = new Date().toISOString();
+  return db.ref('estoque/' + sanitizeKey(d.mpCodigo)).transaction(function(atual) {
+    if (!atual) atual = {saldoAtual: 0, materialCodigo: d.mpCodigo};
+    atual.empenhos = atual.empenhos || {};
+    var emp = atual.empenhos[loteKey] || {lote: op.lote, sku: op.sku || '', qtdEmpenhada: 0, criadoEm: agora};
+    var antes = Number(emp.qtdEmpenhada) || 0;
+    var depois = Math.max(0, Math.round((antes + d.quantidade) * 1000) / 1000);
+    emp.qtdEmpenhada = depois; emp.atualizadoEm = agora;
+    atual.saldoEmpenhado = Math.max(0, Math.round(((Number(atual.saldoEmpenhado) || 0) + depois - antes) * 1000) / 1000);
+    if (depois > 0) atual.empenhos[loteKey] = emp; else delete atual.empenhos[loteKey];
+    return atual;
+  });
+}
+
+function renderExcedente(op, f) {
+  var box = document.getElementById('mExcedente');
+  var e = op.excedenteBulk;
+  if (!e || !(e.unidades > 0)) { box.style.display = 'none'; return; }
+  box.style.display = '';
+  box.innerHTML = '<b>Excedente de produção:</b> o bulk corrigido rende ' + fmtNum(e.qtdNova) + ' unidades — ' +
+    fmtNum(e.unidades) + ' a mais que as ' + fmtNum(e.qtdBase) + ' planejadas. O envase segue no mesmo lote; as embalagens do ' +
+    'excedente já estão na separação e no empenho da OP.';
+}
+</script>
+</body>
+</html>

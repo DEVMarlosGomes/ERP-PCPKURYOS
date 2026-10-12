@@ -1,0 +1,1762 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard de Producao</title>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://erpkuryos-default-rtdb.firebaseio.com">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="shared/theme.css">
+  <script src="shared/utils.js"></script>
+  <script src="shared/manipulacao.js"></script>
+  <script src="shared/progresso-op.js"></script>
+  <script src="shared/situacao-op.js"></script>
+  <script src="shared/andon-cadeia.js"></script>
+  <script src="auth_check.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    /* Tokens ligados à linguagem visual Apple aprovada (shared/theme.css) —
+       nomes de variável mantidos iguais aos originais de propósito, só os
+       valores mudaram, pra nenhuma regra abaixo precisar ser tocada. */
+    :root { --primary:#0a1c69; --primary-light:#2456d6; --success:#0ca30c; --warning:#c9910a; --danger:#d03b3b; --bg:#f5f5f7; --card:#ffffff; --border:#d2d2d7; --text:#1d1d1f; --muted:#6e6e73; }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --primary:#5e83ea; --bg:#000000; --card:#1c1c1e; --border:#38383a; --text:#f5f5f7; --muted:#98989d; } }
+    :root[data-theme="dark"] { color-scheme: dark; --primary:#5e83ea; --bg:#000000; --card:#1c1c1e; --border:#38383a; --text:#f5f5f7; --muted:#98989d; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:var(--font-ui);background:var(--bg);color:var(--text);min-height:100vh}
+    /* Cabeçalho: eyebrow + título + indicador ao vivo, estilo Apple */
+    .top-row{display:flex;justify-content:space-between;align-items:flex-start;padding:30px 34px 18px;max-width:1180px;margin:0 auto;flex-wrap:wrap;gap:16px}
+    .top-row .eyebrow{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px}
+    .top-row h1{font-size:32px;font-weight:700;letter-spacing:-.02em}
+    .header-sub{font-size:13px;color:var(--muted);margin-top:2px}
+    .header-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+    .clock{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text)}
+    .live-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--success)}
+    .live-dot{width:7px;height:7px;border-radius:50%;background:#f87171}
+    .live-dot.on{background:var(--success);animation:pulse 1.5s infinite}
+    @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+    @media(prefers-reduced-motion:reduce){.live-dot.on{animation:none}}
+    .date-nav-bar{display:inline-flex;align-items:center;gap:2px;background:color-mix(in srgb, var(--text) 6%, transparent);border-radius:12px;padding:4px;flex-wrap:wrap}
+    .date-nav-bar input[type=date]{padding:7px 10px;border:none;border-radius:8px;font-size:13px;background:transparent;color:var(--text);font-family:var(--font-ui)}
+    .date-nav-bar button{padding:7px 12px;border:none;border-radius:8px;background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);font-family:var(--font-ui)}
+    .date-nav-bar button:hover{background:var(--card);color:var(--text)}
+    .btn-today{background:var(--primary)!important;color:white!important;font-size:12.5px!important}
+    .main{padding:0 34px 60px;max-width:1180px;margin:0 auto}
+    @media(max-width:640px){.top-row,.main{padding-left:16px;padding-right:16px}}
+    .meta-card{background:var(--card);border-radius:20px;padding:20px;box-shadow:var(--shadow);margin-bottom:16px}
+    .meta-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+    .meta-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+    .meta-desc{font-size:16px;font-weight:800;color:var(--text);margin-top:2px}
+    .meta-pct{font-size:36px;font-weight:900;color:var(--primary);line-height:1}
+    .meta-pct-label{font-size:12px;color:var(--muted);text-align:right}
+    .progress-bg{background:#e2e8f0;border-radius:999px;height:22px;overflow:hidden}
+    .progress-fill{height:100%;border-radius:999px;transition:width .6s}
+    .progress-fill.low{background:linear-gradient(90deg,#ef4444,#f87171)}
+    .progress-fill.mid{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+    .progress-fill.high{background:linear-gradient(90deg,#059669,#34d399)}
+    .progress-stats{display:flex;justify-content:space-between;margin-top:8px;font-size:13px}
+    .progress-stats span{color:var(--muted)}
+    .progress-stats strong{color:var(--text)}
+    .pbadge{background:#eff6ff;color:var(--primary);border:1px solid #bfdbfe;border-radius:6px;padding:3px 8px;font-size:12px;font-weight:600;display:inline-block;margin-top:6px}
+    .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-bottom:20px}
+    .metric{background:var(--card);border-radius:20px;padding:20px;text-align:left;box-shadow:var(--shadow);position:relative;overflow:hidden}
+    .metric::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--primary)}
+    .metric.green::before{background:var(--success)}
+    .metric.red::before{background:var(--danger)}
+    .metric.orange::before{background:var(--warning)}
+    .metric-val{font-size:30px;font-weight:700;letter-spacing:-.02em;color:var(--text)}
+    .metric-lbl{font-size:12.5px;color:var(--muted);font-weight:500;margin-top:2px}
+    .card{background:var(--card);border-radius:20px;padding:22px;box-shadow:var(--shadow);margin-bottom:16px;border-left:4px solid var(--primary)}
+    .card-title{font-size:16px;font-weight:700;letter-spacing:-.01em;color:var(--text);margin-bottom:18px}
+    .chart-wrapper{position:relative;height:230px}
+    .prod-bar{margin-bottom:10px}
+    .prod-bar-top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px}
+    .prod-bar-top strong{color:var(--text)}
+    .prod-bar-top span{color:var(--muted)}
+    .prod-bar-bg{background:#e2e8f0;border-radius:999px;height:8px;overflow:hidden}
+    .prod-bar-fill{height:100%;border-radius:999px;transition:width .5s}
+    .parada-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+    .parada-item:last-child{border-bottom:none}
+    .parada-icon{font-size:24px}
+    .parada-hora{font-weight:700;color:var(--danger)}
+    .parada-desc{font-size:13px;color:var(--text);margin-top:2px}
+    .parada-meta{font-size:12px;color:var(--muted);margin-top:2px}
+    .feed-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);align-items:center;font-size:13px}
+    .feed-item:last-child{border-bottom:none}
+    .feed-hora{font-weight:700;color:var(--primary);min-width:44px;font-variant-numeric:tabular-nums}
+    .feed-info{flex:1}
+    .feed-prod{font-weight:600}
+    .feed-sub{color:var(--muted);font-size:12px}
+    .feed-qtd{font-weight:800;font-size:15px}
+    .badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:11px;font-weight:600}
+    .badge-red{background:#fee2e2;color:#991b1b}
+    .badge-blue{background:#eff6ff;color:#1a56db}
+    .badge-orange{background:#fff7ed;color:#c2410c}
+    .badge-purple{background:#f5f3ff;color:#6d28d9}
+    .badge-green{background:#d1fae5;color:#065f46}
+    .no-data{text-align:center;padding:30px;color:var(--muted);font-size:14px}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    @media(max-width:640px){.two-col{grid-template-columns:1fr}}
+    .last-update{text-align:center;font-size:12px;color:var(--muted);padding:8px;margin-top:4px}
+    .meta-linha-row{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+    .meta-linha-row:last-child{border-bottom:none}
+    .meta-linha-nome{font-weight:600;font-size:14px}
+    .meta-linha-nums{font-size:13px;color:var(--muted);white-space:nowrap;text-align:right}
+    .meta-linha-pct{font-size:13px;font-weight:800;min-width:44px;text-align:right}
+    .meta-linha-bar{grid-column:1/-1;margin-top:2px}
+    /* Programacao vs Realizado */
+    .prog-block{padding:14px 0;border-bottom:1px solid var(--border)}
+    .prog-block:last-child{border-bottom:none;padding-bottom:0}
+    .prog-block:first-child{padding-top:0}
+    .prog-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px}
+    .prog-nome{font-weight:800;font-size:15px;color:var(--text)}
+    .prog-produto{font-size:12px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}
+    .prog-pct{font-size:22px;font-weight:900;line-height:1;white-space:nowrap;margin-left:10px}
+    .prog-stats{display:flex;gap:14px;font-size:12px;margin:6px 0 8px;flex-wrap:wrap}
+    .prog-stats span{color:var(--muted)}
+    .prog-stats strong{color:var(--text)}
+    .prog-bar-bg{height:8px;border-radius:999px;background:#e2e8f0;overflow:hidden}
+    .prog-bar-fill{height:100%;border-radius:999px;transition:width .6s}
+    /* Acompanhamento de Pedidos */
+    .pedido-row{padding:13px 0;border-bottom:1px solid var(--border)}
+    .pedido-row:last-child{border-bottom:none;padding-bottom:0}
+    .pedido-row:first-child{padding-top:0}
+    .pedido-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px;gap:8px}
+    .pedido-id-badge{background:#f5f3ff;color:#6d28d9;border:1px solid #c4b5fd;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700;white-space:nowrap}
+    .pedido-concluido-badge{background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700;white-space:nowrap}
+    .pedido-produto{font-size:13px;font-weight:600;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0 8px}
+    .pedido-pct{font-size:20px;font-weight:900;line-height:1;white-space:nowrap}
+    .pedido-stats{display:flex;gap:12px;font-size:12px;margin:4px 0 7px;flex-wrap:wrap}
+    .pedido-stats span{color:var(--muted)}
+    .pedido-stats strong{color:var(--text)}
+    .pedido-bar-bg{height:7px;border-radius:999px;background:#e2e8f0;overflow:hidden}
+    .pedido-bar-fill{height:100%;border-radius:999px;transition:width .6s}
+
+    /* ANDON Realtime Dashboard Styles */
+    .andon-dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 8px; }
+    .andon-db-card { border: none; border-radius: 18px; padding: 16px 18px; text-align: left; background: var(--card); box-shadow: var(--shadow); transition: all .2s; }
+    .andon-db-card.stopped { background: color-mix(in srgb, var(--danger) 6%, var(--card)); animation: flashing-db 2.5s infinite; }
+    @keyframes flashing-db {
+      0%, 100% { box-shadow: var(--shadow); }
+      50% { box-shadow: 0 0 0 2px var(--danger); }
+    }
+    @media(prefers-reduced-motion:reduce){ .andon-db-card.stopped{ animation:none; box-shadow:0 0 0 2px var(--danger); } }
+    .andon-db-title { font-weight: 700; font-size: 14px; color: var(--text); margin-bottom: 6px; }
+    .andon-db-status { font-weight: 700; font-size: 10.5px; letter-spacing: .03em; padding: 3px 10px; border-radius: 999px; display: inline-block; margin-bottom: 8px; }
+    .andon-db-card.active .andon-db-status { background: color-mix(in srgb, var(--success) 15%, transparent); color: var(--success); }
+    .andon-db-card.stopped .andon-db-status { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
+    .andon-db-info { font-size: 12px; color: var(--muted); line-height: 1.3; min-height: 32px; display: flex; align-items: flex-start; }
+    .andon-db-op-produto { font-size: 12.5px; font-weight: 700; color: var(--text); margin-bottom: 6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+    .andon-db-op-bar-bg { height: 6px; border-radius: 999px; background: color-mix(in srgb, var(--text) 8%, transparent); overflow: hidden; margin-bottom: 5px }
+    .andon-db-op-bar-fill { height: 100%; border-radius: 999px }
+    .andon-db-op-nums { font-size: 11px; color: var(--muted); display: flex; justify-content: space-between }
+    .andon-db-card.livre .andon-db-status { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--muted); }
+    /* Cadeia do lote: por padrão só números; o detalhe abre por clique. */
+    .cadeia-faixa { display: flex; align-items: stretch; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .cadeia-chip { flex: 1 1 130px; text-align: left; border: 1.5px solid var(--border, #e5e7eb); background: var(--card); color: var(--text); border-radius: 14px; padding: 10px 12px; cursor: pointer; font: inherit; }
+    .cadeia-chip .rot { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+    .cadeia-chip .n { font-size: 24px; font-weight: 800; line-height: 1.1; display: block; }
+    .cadeia-chip small { font-size: 11px; color: var(--muted); }
+    .cadeia-chip.zero { opacity: .55; }
+    .cadeia-chip.atencao { border-color: var(--warning, #d97706); background: color-mix(in srgb, var(--warning, #d97706) 10%, var(--card)); }
+    .cadeia-chip.atencao small { color: var(--warning, #b45309); font-weight: 700; }
+    .cadeia-chip.on { box-shadow: 0 0 0 2px var(--primary); }
+    .cadeia-seta { align-self: center; color: var(--muted); font-weight: 700; }
+    .cadeia-detalhe { margin-top: 10px; font-size: 12.5px; }
+    .cadeia-detalhe table { width: 100%; border-collapse: collapse; }
+    .cadeia-detalhe td, .cadeia-detalhe th { padding: 5px 8px; text-align: left; border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent); }
+    .cadeia-detalhe th { font-size: 10.5px; text-transform: uppercase; color: var(--muted); }
+    .cadeia-fila { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 10px; font-size: 12px; color: var(--muted); }
+    .cadeia-fila .q { border: 1px solid var(--border, #e5e7eb); background: var(--card); color: var(--text); border-radius: 999px; padding: 3px 11px; cursor: pointer; font: inherit; font-size: 12px; }
+    .cadeia-fila .q.atencao { border-color: var(--warning, #d97706); color: var(--warning, #b45309); font-weight: 700; }
+    .cadeia-fila .q.on { box-shadow: 0 0 0 2px var(--primary); }
+    .postos-andon { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; color: var(--muted); align-items: center; }
+    .postos-andon .p { background: color-mix(in srgb, var(--success) 12%, transparent); color: var(--text); border-radius: 999px; padding: 3px 11px; }
+    .andon-db-empty { font-size: 12px; color: var(--muted); font-style: italic }
+    .andon-db-setup-badge { display: inline-block; font-size: 10px; font-weight: 700; background: color-mix(in srgb, var(--warning) 15%, transparent); color: var(--warning); border-radius: 999px; padding: 2px 8px; margin-bottom: 6px }
+
+    /* OPs Encerradas Hoje */
+    .opfim-item { display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); align-items:center; font-size:13px }
+    .opfim-item:last-child { border-bottom:none }
+    .opfim-hora { font-weight:700; color:var(--primary); min-width:40px; font-variant-numeric:tabular-nums; font-size:12.5px }
+    .opfim-info { flex:1; min-width:0 }
+    .opfim-prod { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+    .opfim-sub { color:var(--muted); font-size:11.5px; margin-top:1px }
+    .opfim-qtd { font-weight:800; font-size:14px; white-space:nowrap }
+
+    /* Turnos do Dia */
+    .turno-status-row { display:flex; justify-content:space-between; align-items:center; padding:11px 0; border-bottom:1px solid var(--border); gap:10px }
+    .turno-status-row:last-child { border-bottom:none }
+    .turno-status-nome { font-weight:700; font-size:14px }
+    .turno-status-sub { font-size:11.5px; color:var(--muted); margin-top:1px }
+    .turno-status-badge { font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px; white-space:nowrap }
+    .turno-status-badge.ok { background:color-mix(in srgb, var(--success) 15%, transparent); color:var(--success) }
+    .turno-status-badge.pending { background:color-mix(in srgb, var(--warning) 15%, transparent); color:var(--warning) }
+    .turno-status-badge.late { background:color-mix(in srgb, var(--danger) 15%, transparent); color:var(--danger) }
+
+    /* Stacked Goals Style Rules */
+    .meta-stack-item { background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; transition: transform .15s; position: relative }
+    .meta-stack-item:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.03) }
+    .meta-stack-hdr { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px }
+    .meta-stack-title { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px }
+    .meta-stack-desc { font-size: 14px; font-weight: 800; color: var(--text); margin-top: 1px }
+    .meta-stack-pct { font-size: 22px; font-weight: 900; color: var(--primary); line-height: 1 }
+    .meta-stack-pct-label { font-size: 10px; color: var(--muted); text-align: right; margin-top: 2px }
+    .meta-stack-progress-bg { background: #e2e8f0; border-radius: 999px; height: 10px; overflow: hidden; margin: 8px 0 }
+    .meta-stack-progress-fill { height: 100%; border-radius: 999px; transition: width .5s }
+    .meta-stack-progress-fill.low { background: linear-gradient(90deg,#ef4444,#f87171) }
+    .meta-stack-progress-fill.mid { background: linear-gradient(90deg,#f59e0b,#fbbf24) }
+    .meta-stack-progress-fill.high { background: linear-gradient(90deg,#059669,#34d399) }
+    .meta-stack-stats { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted) }
+    .meta-stack-stats strong { color: var(--text) }
+  </style>
+  <link rel="stylesheet" href="shared/dashboard-showcase.css?v=20261008-1">
+  <script defer src="shared/dashboard-showcase.js?v=20261008-1"></script>
+</head>
+<body class="kuryos-theme has-sidebar dashboard-showcase">
+<div class="top-row">
+  <div>
+    <div class="eyebrow">Sistema PCP · Produção do dia</div>
+    <h1 id="hDate">—</h1>
+    <div class="live-badge" style="margin-top:10px">
+      <div class="live-dot" id="liveDot"></div>
+      <span id="liveText">Conectando...</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="clock" id="hClock">—</div>
+    <div class="date-nav-bar">
+      <button id="btnPrev">&#9664;</button>
+      <input type="date" id="dateInput">
+      <button id="btnNext">&#9654;</button>
+      <button class="btn-today" id="btnToday">Hoje</button>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="metrics">
+    <div class="metric"><div class="metric-val" id="mTotal">—</div><div class="metric-lbl">Total do Dia</div></div>
+    <div class="metric green"><div class="metric-val" id="mRegs">—</div><div class="metric-lbl">Registros</div></div>
+    <div class="metric orange"><div class="metric-val" id="mMedia">—</div><div class="metric-lbl">Média/Registro</div></div>
+    <div class="metric red"><div class="metric-val" id="mParadas">—</div><div class="metric-lbl">Paradas</div></div>
+  </div>
+
+  <div class="card" id="crmPdModules" style="margin-bottom:20px;border-left-color:#7c3aed">
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <span>Comercial e Desenvolvimento</span>
+      <span style="font-size:11px;color:var(--muted);font-weight:600">Firebase ERP Kuryos</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px">
+      <a href="crm1.html" style="display:block;padding:14px 16px;border:1px solid var(--border);border-radius:14px;text-decoration:none;color:var(--text);background:color-mix(in srgb,#2563eb 7%,var(--card))">
+        <strong style="display:block">CRM 1</strong><span style="font-size:12px;color:var(--muted)">Clientes e prospecção</span>
+      </a>
+      <a href="crm2.html" style="display:block;padding:14px 16px;border:1px solid var(--border);border-radius:14px;text-decoration:none;color:var(--text);background:color-mix(in srgb,#2563eb 7%,var(--card))">
+        <strong style="display:block">CRM 2</strong><span style="font-size:12px;color:var(--muted)">Projetos comerciais</span>
+      </a>
+      <a href="crm3.html" style="display:block;padding:14px 16px;border:1px solid var(--border);border-radius:14px;text-decoration:none;color:var(--text);background:color-mix(in srgb,#2563eb 7%,var(--card))">
+        <strong style="display:block">CRM 3</strong><span style="font-size:12px;color:var(--muted)">Amostras e variações</span>
+      </a>
+      <a href="pd.html" style="display:block;padding:14px 16px;border:1px solid var(--border);border-radius:14px;text-decoration:none;color:var(--text);background:color-mix(in srgb,#7c3aed 8%,var(--card))">
+        <strong style="display:block">P&amp;D</strong><span style="font-size:12px;color:var(--muted)">Pesquisa e desenvolvimento</span>
+      </a>
+    </div>
+  </div>
+  <!-- CADEIA DO LOTE: onde as OPs estão esperando (Manipulação → Qualidade → Envase → Rotulagem → Conferência → Qualidade) -->
+  <div class="card" id="cadeiaCard" style="margin-bottom: 20px;">
+    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+      <span>🔗 Cadeia do lote · onde está esperando</span>
+      <span id="cadeiaResumo" style="font-size:11.5px; font-weight:600; color:var(--muted)">carregando…</span>
+    </div>
+    <div class="cadeia-faixa" id="cadeiaFaixa"></div>
+    <div class="cadeia-fila" id="cadeiaFila"></div>
+    <div class="cadeia-detalhe" id="cadeiaDetalhe"></div>
+  </div>
+
+  <!-- PAINEL ANDON REALTIME (STATUS DAS LINHAS) -->
+  <div class="card" style="margin-bottom: 20px;">
+    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+      <span>🚨 Status das Linhas · OP em Andamento</span>
+      <span style="font-size:11px; background:#fee2e2; color:#b91c1c; padding:2px 8px; border-radius:12px; font-weight:700; animation: pulse 2.5s infinite;">Tempo Real</span>
+    </div>
+    <div class="andon-dashboard-grid">
+      <!-- Gerado dinamicamente -->
+    </div>
+  </div>
+
+  <!-- ANDON DA ROTULAGEM E POSTOS -->
+  <div class="card" id="rotulagemAndonCard" style="margin-bottom: 20px; display:none">
+    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+      <span>🏷️ Rotulagem e Postos de Trabalho</span>
+      <span style="font-size:11px; background:#fee2e2; color:#b91c1c; padding:2px 8px; border-radius:12px; font-weight:700; animation: pulse 2.5s infinite;">Tempo Real</span>
+    </div>
+    <div class="andon-dashboard-grid" id="rotulagemGrid"></div>
+    <div class="postos-andon" id="postosAndon"></div>
+  </div>
+
+  <style>
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+  </style>
+
+  <div class="card" id="metasCard" style="display:none">
+    <div class="card-title">Acompanhamento e Empilhamento de Metas</div>
+    <div id="stackedMetasContainer" style="display:flex; flex-direction:column; gap:14px"></div>
+  </div>
+
+  <!-- OPs encerradas hoje + status dos turnos -->
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">Lançamentos por OP / Posto — Hoje</div>
+      <div id="opsEncerradasList"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Turnos do Dia</div>
+      <div id="turnosStatusList"></div>
+    </div>
+  </div>
+
+  <!-- Charts Row 2: Linhas e Postos -->
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">Linhas de Envase (Envase)</div>
+      <div class="chart-wrapper" id="chartLinhasWrapper"><canvas id="chartLinhas"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Rotulagem & Postos de Trabalho</div>
+      <div class="chart-wrapper" id="chartPostosWrapper"><canvas id="chartPostos"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Fechamento do Dia (Fase 9 do plano) -->
+  <div class="card" id="fechamentoDoDiaCard" style="display:none">
+    <div class="card-title">🔒 Fechamento do Dia</div>
+    <div class="section-note" style="font-size:11.5px;color:var(--muted);margin:-10px 0 14px">Painel de conferência, não de digitação — agrega o que já foi capturado ao longo do dia (apontamento, paradas, encerramento de OP) pra você confirmar e tratar exceções, não preencher de novo.</div>
+    <div id="fechamentoDoDiaBody"></div>
+  </div>
+
+  <!-- Meta diaria por linha -->
+  <div class="card" id="metaDiariaCard" style="display:none">
+    <div class="card-title">Progresso Diário por Linha / Posto</div>
+    <div id="metaDiariaContent"></div>
+  </div>
+
+  <!-- Programacao vs Realizado -->
+  <div class="card" id="progCard" style="display:none">
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>Programacao vs Realizado</span>
+      <a href="planejamento.html" style="font-size:11px;color:var(--primary);text-decoration:none;font-weight:600">Programar ↗</a>
+    </div>
+    <div id="progContent"></div>
+  </div>
+
+  <!-- Acompanhamento de Pedidos -->
+  <div class="card" id="pedidosCard" style="display:none">
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>Acompanhamento de Pedidos</span>
+    </div>
+    <div id="pedidosContent"></div>
+  </div>
+
+  <div class="two-col">
+    <div class="card"><div class="card-title">Por Produto</div><div id="prodProd"></div></div>
+    <div class="card"><div class="card-title">Paradas</div><div id="paradasList"></div></div>
+  </div>
+
+  <div class="two-col">
+    <div class="card"><div class="card-title">Por Colaborador</div><div id="prodColab"></div></div>
+    <div class="card"><div class="card-title">Por Lote</div><div id="prodLote"></div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Ultimos Registros</div>
+    <div id="feedLive"></div>
+  </div>
+
+  <div class="last-update">Atualizado em tempo real · <span id="lastUpdate">—</span></div>
+</div>
+
+<script>
+var firebaseConfig = {
+  apiKey: "AIzaSyBvASzcbKyv3uW7NBzDFDyLsKls3An3UUs",
+  authDomain: "erpkuryos.firebaseapp.com",
+  databaseURL: kuryosDatabaseURL("https://erpkuryos-default-rtdb.firebaseio.com"),
+  projectId: "erpkuryos",
+  storageBucket: "erpkuryos.firebasestorage.app",
+  messagingSenderId: "272752392739",
+  appId: "1:272752392739:web:047a6c4aa60145d77f4f96",
+  measurementId: "G-PTVWKLRHTG"
+};
+
+var db, cfg = {}, chartLinhas = null, chartPostos = null, currentRef = null, progRef = null, turnosStatusRef = null, turnosIniciadosRef = null;
+var paradasHistoricoCache = [];
+var turnosEncerradosHoje = {};
+// Achado do agente de UX: o botão "▶️ Iniciar turno" (form.html, Fase 3)
+// já grava esse checkpoint, mas este painel ainda não lia -- os badges
+// "Ainda não começou"/"Em andamento" continuavam só inferidos pelo
+// relógio, sem usar a confirmação real de quem abriu o turno.
+var turnosIniciadosHoje = {};
+var currentDate = today();
+var progData = null;
+var regsData = [];
+var BAR_COLORS = ['#0a6848','#29936c','#5bb78e','#8bd0ad','#247d6a','#5a9d83','#0e5140','#a6d9bf'];
+
+function isWorking(dateObj) {
+  var plan = cfg.planejamento || {};
+  var diasAtivos = plan.diasSemana || [1, 2, 3, 4, 5];
+  var feriados = plan.feriados || {};
+  var ymd = dateObj.toISOString().split('T')[0];
+  var dw = dateObj.getDay();
+  var dwConfig = dw === 0 ? 7 : dw; // 1 = Seg, 7 = Dom
+  var isWorkingDay = diasAtivos.indexOf(dwConfig) !== -1;
+  var isHoliday = feriados[ymd] !== undefined;
+  return isWorkingDay && !isHoliday;
+}
+
+function countWorkingDays(iniStr, fimStr) {
+  if (!iniStr || !fimStr) return 0;
+  var cursor = new Date(iniStr + 'T12:00:00');
+  var limit = new Date(fimStr + 'T12:00:00');
+  var count = 0;
+  while (cursor <= limit) {
+    if (isWorking(cursor)) count++;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return count;
+}
+
+function today() {
+  var d = new Date();
+  var localDate = new Date(d.getTime() - (d.getTimezoneOffset() * 60000));
+  return localDate.toISOString().split('T')[0];
+}
+// fmtNum vem de shared/utils.js
+function fmtDate(d) { if(!d)return'—'; var p=d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+function fmtTime() { return new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+// fmtHoraRange vem de shared/utils.js
+
+var lastTodayDate = today();
+function updateClock() {
+  var now = new Date();
+  document.getElementById('hClock').textContent = now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('hDate').textContent = now.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+
+  var currentToday = today();
+  if (currentToday !== lastTodayDate) {
+    if (currentDate === lastTodayDate) {
+      currentDate = currentToday;
+      var dateInput = document.getElementById('dateInput');
+      if (dateInput) dateInput.value = currentDate;
+      listenToDate(currentDate);
+    }
+    lastTodayDate = currentToday;
+  }
+}
+
+function setLive(on, text) {
+  document.getElementById('liveDot').className = 'live-dot' + (on ? ' on' : '');
+  document.getElementById('liveText').textContent = text;
+}
+
+function updateStackedMetas() {
+  var container = document.getElementById('stackedMetasContainer');
+  var card = document.getElementById('metasCard');
+  if (!container || !card) return;
+
+  var plan = cfg.planejamento || {};
+  var metasPadrao = cfg.metasPorLinha || {};
+  
+  // 1. Calculate soma das metas das linhas de envase
+  var linesList = cfg.linhas || ['Linha 01', 'Linha 02', 'Linha 03', 'Linha 04'];
+  var somaLinhas = 0;
+  linesList.forEach(function(l) {
+    somaLinhas += Number(metasPadrao[l] || 0);
+  });
+  if (somaLinhas === 0) somaLinhas = 20600; // Fallback se não configurado
+  
+  // ── 1. META DE HOJE ───────────────────────────────────
+  var todayDateObj = new Date(currentDate + 'T12:00:00');
+  var todayIsWorking = isWorking(todayDateObj);
+  
+  var metaHoje = 0;
+  var matrizHoje = cfg.metasMatriz && cfg.metasMatriz[currentDate];
+  if (matrizHoje) {
+    linesList.forEach(function(l) {
+      metaHoje += Number(matrizHoje[l] || 0);
+    });
+    todayIsWorking = metaHoje > 0;
+  } else {
+    metaHoje = todayIsWorking ? somaLinhas : 0;
+  }
+  // Achado do agente de auditoria (3ª rodada): mesma classe de bug do
+  // #mTotal (renderAll) -- somava os 3 setores juntos contra uma meta que só
+  // existe pro envase, inflando o % das 3 barras (Hoje/Semana/Período).
+  // isLinhaDeProducao já existe no arquivo (extraída pra este propósito).
+  var prodHoje = regsData.reduce(function(s, r) { return isLinhaDeProducao(r.linha) ? s + (r.quantidade || 0) : s; }, 0);
+  
+  // ── 2. META DA SEMANA ─────────────────────────────────
+  // Find Monday and Sunday of selected week
+  var Monday = new Date(todayDateObj);
+  var dw = Monday.getDay();
+  Monday.setDate(Monday.getDate() + (dw === 0 ? -6 : 1 - dw));
+  var Sunday = new Date(Monday);
+  Sunday.setDate(Sunday.getDate() + 6);
+  
+  var weekStartStr = Monday.toISOString().split('T')[0];
+  var weekEndStr = Sunday.toISOString().split('T')[0];
+  
+  var metaSemanal = 0;
+  var cursor = new Date(Monday);
+  while (cursor <= Sunday) {
+    var dKey = cursor.toISOString().split('T')[0];
+    var matrizDia = cfg.metasMatriz && cfg.metasMatriz[dKey];
+    if (matrizDia) {
+      linesList.forEach(function(l) {
+        metaSemanal += Number(matrizDia[l] || 0);
+      });
+    } else {
+      if (isWorking(cursor)) {
+        metaSemanal += somaLinhas;
+      }
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  
+  var workingDaysInWeek = countWorkingDays(weekStartStr, weekEndStr);
+  
+  // ── 3. META DO PERÍODO PCP ────────────────────────────
+  var metaPcp = cfg.meta || {};
+  var pcpStartStr = metaPcp.inicio;
+  var pcpEndStr = metaPcp.fim;
+  var pcpDesc = metaPcp.descricao || "Meta do Período";
+  var metaPcpQty = Number(metaPcp.quantidade) || 0;
+  
+  if (!pcpStartStr || !pcpEndStr) {
+    if (metaHoje === 0 && prodHoje === 0) {
+      card.style.display = 'none';
+      return;
+    }
+  }
+  
+  card.style.display = 'block';
+  
+  // Fetch weekly and period records from Firebase in parallel
+  var promises = [];
+  promises.push(db.ref('registros').orderByKey().startAt(weekStartStr).endAt(weekEndStr).once('value'));
+  if (pcpStartStr && pcpEndStr) {
+    promises.push(db.ref('registros').orderByKey().startAt(pcpStartStr).endAt(pcpEndStr).once('value'));
+  }
+  
+  Promise.all(promises).then(function(snaps) {
+    var prodSemanal = 0;
+    var snapWeek = snaps[0];
+    if (snapWeek && snapWeek.exists()) {
+      snapWeek.forEach(function(dateSnap) {
+        dateSnap.forEach(function(r) { var v = r.val(); if (isLinhaDeProducao(v.linha)) prodSemanal += (v.quantidade || 0); });
+      });
+    }
+
+    var prodPcp = 0;
+    if (snaps.length > 1) {
+      var snapPcp = snaps[1];
+      if (snapPcp && snapPcp.exists()) {
+        snapPcp.forEach(function(dateSnap) {
+          dateSnap.forEach(function(r) { var v = r.val(); if (isLinhaDeProducao(v.linha)) prodPcp += (v.quantidade || 0); });
+        });
+      }
+    }
+    
+    var list = [];
+    
+    // Item 1: Meta de Hoje
+    var pctHoje = metaHoje ? Math.min(100, Math.round(prodHoje / metaHoje * 100)) : 0;
+    var statusHoje = todayIsWorking ? pctHoje + '%' : 'Folga / Sem Meta';
+    var fillClsHoje = pctHoje >= 80 ? 'high' : pctHoje >= 50 ? 'mid' : 'low';
+    var descHoje = todayIsWorking ? 'Meta Diária de Produção' : 'Folga / Sem Programação Planejada';
+    
+    var itemHojeHtml = '<div class="meta-stack-item">' +
+      '<div class="meta-stack-hdr">' +
+        '<div>' +
+          '<div class="meta-stack-title">Meta de Hoje (' + fmtDate(currentDate) + ')</div>' +
+          '<div class="meta-stack-desc" style="' + (!todayIsWorking ? 'color:var(--muted); font-weight:normal; font-style:italic' : '') + '">' + descHoje + '</div>' +
+        '</div>' +
+        '<div style="text-align:right">' +
+          '<div class="meta-stack-pct" style="' + (!todayIsWorking ? 'color:var(--muted)' : '') + '">' + statusHoje + '</div>' +
+          (todayIsWorking ? '<div class="meta-stack-pct-label">concluído</div>' : '') +
+        '</div>' +
+      '</div>' +
+      (todayIsWorking ? 
+        '<div class="meta-stack-progress-bg"><div class="meta-stack-progress-fill ' + fillClsHoje + '" style="width:' + pctHoje + '%"></div></div>' +
+        '<div class="meta-stack-stats">' +
+          '<span>Produzido: <strong>' + fmtNum(prodHoje) + ' un</strong></span>' +
+          '<span>Meta: <strong>' + fmtNum(metaHoje) + ' un</strong></span>' +
+          '<span>Saldo: <strong>' + (prodHoje >= metaHoje ? 'Atingida!' : fmtNum(metaHoje - prodHoje) + ' un') + '</strong></span>' +
+        '</div>' : 
+        '<div style="font-size:11px; color:var(--muted); margin-top:4px">Nenhuma meta programada no calendário de planejamento para este dia.</div>'
+      ) +
+    '</div>';
+    
+    list.push({ days: 1, html: itemHojeHtml });
+    
+    // Item 2: Meta da Semana
+    if (metaSemanal > 0) {
+      var pctSemanal = Math.min(100, Math.round(prodSemanal / metaSemanal * 100));
+      var fillClsSemanal = pctSemanal >= 80 ? 'high' : pctSemanal >= 50 ? 'mid' : 'low';
+      
+      var itemSemanalHtml = '<div class="meta-stack-item">' +
+        '<div class="meta-stack-hdr">' +
+          '<div>' +
+            '<div class="meta-stack-title">Meta da Semana (' + fmtDate(weekStartStr) + ' a ' + fmtDate(weekEndStr) + ')</div>' +
+            '<div class="meta-stack-desc">Acumulado da Semana Útil</div>' +
+          '</div>' +
+          '<div style="text-align:right">' +
+            '<div class="meta-stack-pct">' + pctSemanal + '%</div>' +
+            '<div class="meta-stack-pct-label">concluído</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="meta-stack-progress-bg"><div class="meta-stack-progress-fill ' + fillClsSemanal + '" style="width:' + pctSemanal + '%"></div></div>' +
+        '<div class="meta-stack-stats">' +
+          '<span>Produzido: <strong>' + fmtNum(prodSemanal) + ' un</strong></span>' +
+          '<span>Meta: <strong>' + fmtNum(metaSemanal) + ' un <span style="font-weight:normal; font-size:10px">(' + workingDaysInWeek + 'd úteis)</span></strong></span>' +
+          '<span>Saldo: <strong>' + (prodSemanal >= metaSemanal ? 'Atingida!' : fmtNum(metaSemanal - prodSemanal) + ' un') + '</strong></span>' +
+        '</div>' +
+      '</div>';
+      
+      list.push({ days: 7, html: itemSemanalHtml });
+    }
+    
+    // Item 3: Meta do Período PCP
+    if (metaPcpQty > 0 && pcpStartStr && pcpEndStr) {
+      var pctPcp = Math.min(100, Math.round(prodPcp / metaPcpQty * 100));
+      var fillClsPcp = pctPcp >= 80 ? 'high' : pctPcp >= 50 ? 'mid' : 'low';
+      var pcpDaysCount = countWorkingDays(pcpStartStr, pcpEndStr);
+      
+      var itemPcpHtml = '<div class="meta-stack-item">' +
+        '<div class="meta-stack-hdr">' +
+          '<div>' +
+            '<div class="meta-stack-title">Meta do Período (' + fmtDate(pcpStartStr) + ' a ' + fmtDate(pcpEndStr) + ')</div>' +
+            '<div class="meta-stack-desc">' + pcpDesc + '</div>' +
+          '</div>' +
+          '<div style="text-align:right">' +
+            '<div class="meta-stack-pct">' + pctPcp + '%</div>' +
+            '<div class="meta-stack-pct-label">concluído</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="meta-stack-progress-bg"><div class="meta-stack-progress-fill ' + fillClsPcp + '" style="width:' + pctPcp + '%"></div></div>' +
+        '<div class="meta-stack-stats">' +
+          '<span>Produzido: <strong>' + fmtNum(prodPcp) + ' un</strong></span>' +
+          '<span>Meta: <strong>' + fmtNum(metaPcpQty) + ' un <span style="font-weight:normal; font-size:10px">(' + pcpDaysCount + 'd úteis)</span></strong></span>' +
+          '<span>Saldo: <strong>' + (prodPcp >= metaPcpQty ? 'Atingida!' : fmtNum(metaPcpQty - prodPcp) + ' un') + '</strong></span>' +
+        '</div>' +
+      '</div>';
+      
+      var totalDaysSpan = Math.round((new Date(pcpEndStr) - new Date(pcpStartStr)) / 864e5) + 1;
+      list.push({ days: totalDaysSpan, html: itemPcpHtml });
+    }
+    
+    list.sort(function(a, b) { return a.days - b.days; });
+    container.innerHTML = list.map(function(item) { return item.html; }).join('');
+    
+  }).catch(function(e) {
+    console.error("Erro ao calcular empilhamento de metas: ", e);
+  });
+}
+
+function listenToDate(date) {
+  if (currentRef) { currentRef.off(); currentRef = null; }
+  if (progRef) { progRef.off(); progRef = null; }
+  if (turnosStatusRef) { turnosStatusRef.off(); turnosStatusRef = null; }
+  if (turnosIniciadosRef) { turnosIniciadosRef.off(); turnosIniciadosRef = null; }
+  progData = null;
+  regsData = [];
+  turnosEncerradosHoje = {};
+  turnosIniciadosHoje = {};
+
+  currentRef = db.ref('registros/' + date);
+  dbOnValue(currentRef, function(snap) {
+    var data = snap.val() || {};
+    regsData = Object.values(data);
+    regsData.sort(function(a, b) { return (a.hora || '').localeCompare(b.hora || ''); });
+    renderAll(regsData);
+    document.getElementById('lastUpdate').textContent = fmtTime();
+    updateStackedMetas();
+  });
+
+  progRef = db.ref('programacao/' + date);
+  dbOnValue(progRef, function(snap) {
+    progData = snap.val();
+    renderProgramacao(progData, regsData);
+  });
+
+  turnosStatusRef = db.ref('turnosEncerrados/' + date);
+  dbOnValue(turnosStatusRef, function(snap) {
+    turnosEncerradosHoje = snap.val() || {};
+    renderTurnosStatus();
+  });
+
+  turnosIniciadosRef = db.ref('turnosIniciados/' + date);
+  dbOnValue(turnosIniciadosRef, function(snap) {
+    turnosIniciadosHoje = snap.val() || {};
+    renderTurnosStatus();
+  });
+}
+
+function getParadasFromReg(r) {
+  // Suporte ao novo formato (array) e ao formato legado (campo unico)
+  if (Array.isArray(r.paradas) && r.paradas.length > 0) return r.paradas;
+  if (r.parada && (r.motivoParada || r.horaInicioParada)) {
+    return [{ motivo: r.motivoParada||'', horaInicio: r.horaInicioParada||'', horaFim: r.horaFimParada||'' }];
+  }
+  return [];
+}
+
+// Paradas do dia: mescla o formato antigo (embutido no registro, ainda
+// possível via Modo Avançado) com paradas_historico (parada/retomada do
+// Painel de Turno, que não grava nada dentro do registro). paradasDoDia()
+// filtra o cache inteiro de paradas_historico pela data local selecionada
+// -- comparado como string local (mesma lógica de today()) pra não
+// depender de índice/range query no Firebase.
+function localDateFromIso(iso) {
+  if (!iso) return '';
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  var local = new Date(d.getTime() - (d.getTimezoneOffset() * 60000));
+  return local.toISOString().split('T')[0];
+}
+
+// Agrupa pelo dia em que a parada COMEÇOU (inicio), não em que foi retomada
+// (fim) -- uma parada de "Fim de turno" que fica parada a noite inteira e só
+// é retomada na manhã seguinte tem fim no dia seguinte, mas pertence ao dia
+// anterior (foi o turno de ontem que fechou). Agrupar por fim fazia esse
+// "Fim de turno" de ontem aparecer no card de hoje, como se o turno de hoje
+// já tivesse sido encerrado quando na verdade ainda estava aberto.
+function paradasDoDia() {
+  return paradasHistoricoCache.filter(function(p) { return localDateFromIso(p.inicio || p.fim) === currentDate; });
+}
+
+// Distingue registro de Envase (linha) de Rotulagem/Posto pelo nome da
+// linha gravada no registro, contra o cadastro (cfg.linhas/postosTrabalho).
+// Extraído de dentro de renderMetaDiaria (que já usava isto certo) pra
+// também corrigir renderAll, que somava os 3 setores juntos sem filtro --
+// mesma função, uma só fonte da verdade, sem duplicar a lista de fallback.
+function isLinhaDeProducao(name) {
+  var linesList = cfg.linhas || ['Linha 01', 'Linha 02', 'Linha 03', 'Linha 04'];
+  var postosList = cfg.postosTrabalho || ['Rotuladora 01', 'Rotuladora 02'];
+  if (!name) return true;
+  if (linesList.indexOf(name) !== -1) return true;
+  if (postosList.indexOf(name) !== -1) return false;
+  return name.toLowerCase().indexOf('linha') === 0;
+}
+
+function renderAll(regs) {
+  // Achado do agente de auditoria: este total (o KPI de topo da tela) não
+  // filtrava por setor -- somava Linha + Rotulagem + Posto juntos pro
+  // mesmo lote, inflando o número em qualquer dia com apontamento em mais
+  // de um setor. É a MESMA classe de bug já documentada e corrigida em
+  // pedidos/{key}.produzido (form.html, isSetorEnvase -- caso real: pedido
+  // 0022/Briá Beauty, 18.657 gravado quando a soma real de envase era
+  // 13.170) -- só que aqui, no card "Total do Dia", nunca foi aplicada.
+  // "Progresso do Envase" (renderMetaDiaria, mais abaixo) já filtra
+  // certo com isLinhaDeProducao; reusa a mesma função.
+  var regsEnvase = regs.filter(function(r) { return isLinhaDeProducao(r.linha); });
+  var total = regsEnvase.reduce(function(s,r){ return s+(r.quantidade||0); }, 0);
+  var media = regsEnvase.length ? Math.round(total / regsEnvase.length) : 0;
+  document.getElementById('mTotal').textContent = fmtNum(total);
+  document.getElementById('mRegs').textContent = regs.length;
+  document.getElementById('mMedia').textContent = fmtNum(media);
+  renderLinhasPostosTurnosCharts(regs);
+  renderOpsEncerradasHoje(regs);
+  renderProdutos(regs, total);
+  renderParadas(regs);
+  renderColaboradores(regs, total);
+  renderLotes(regs);
+  renderMetaDiaria(regs);
+  renderFechamentoDoDia(regs);
+  renderProgramacao(progData, regs);
+  renderFeed(regs.slice().reverse().slice(0,8));
+}
+
+function renderLinhasPostosTurnosCharts(regs) {
+  var linesData = {}, postosData = {};
+
+  var linesList = cfg.linhas || ['Linha 01', 'Linha 02', 'Linha 03', 'Linha 04'];
+  var postosList = cfg.postosTrabalho || ['Rotuladora 01', 'Rotuladora 02'];
+
+  function isLinhaDeProducao(name) {
+    if (!name) return true;
+    if (linesList.indexOf(name) !== -1) return true;
+    if (postosList.indexOf(name) !== -1) return false;
+    return name.toLowerCase().indexOf('linha') === 0;
+  }
+
+  regs.forEach(function(r) {
+    var l = r.linha || 'Não Informado';
+    var q = r.quantidade || 0;
+
+    // Group by line / post
+    if (isLinhaDeProducao(l)) {
+      linesData[l] = (linesData[l] || 0) + q;
+    } else {
+      postosData[l] = (postosData[l] || 0) + q;
+    }
+  });
+
+  // ── Render Chart: Linhas ──────────────────────────────────────
+  renderDoughnutChart('chartLinhasWrapper', 'chartLinhas', linesData, {
+    'Linha 1': '#10b981', 'Linha 01': '#10b981', 'linha 1': '#10b981', 'linha 01': '#10b981',
+    'Linha 2': '#3b82f6', 'Linha 02': '#3b82f6', 'linha 2': '#3b82f6', 'linha 02': '#3b82f6',
+    'Linha 3': '#8b5cf6', 'Linha 03': '#8b5cf6', 'linha 3': '#8b5cf6', 'linha 03': '#8b5cf6',
+    'Linha 4': '#f59e0b', 'Linha 04': '#f59e0b', 'linha 4': '#f59e0b', 'linha 04': '#f59e0b',
+    'Linha 5': '#10b981', 'Linha 05': '#10b981',
+    'Linha 6': '#06b6d4', 'Linha 06': '#06b6d4',
+    'Linha 7': '#64748b', 'Linha 07': '#64748b',
+    'Linha 8': '#14b8a6', 'Linha 08': '#14b8a6',
+    'default': '#475569'
+  }, 'Linhas de Envase');
+
+  // ── Render Chart: Postos / Rotulagem ─────────────────────────
+  renderDoughnutChart('chartPostosWrapper', 'chartPostos', postosData, {
+    'Rotuladora 01': '#f43f5e', // Rose
+    'Rotuladora 02': '#06b6d4', // Cyan
+    'default': '#14b8a6'
+  }, 'Rotulagem & Postos');
+}
+
+function renderDoughnutChart(wrapperId, canvasId, groupedData, colorMap, title) {
+  var wrapper = document.getElementById(wrapperId);
+  if (!wrapper) return;
+  
+  var labels = [];
+  var values = [];
+  var colors = [];
+  var total = 0;
+  
+  Object.entries(groupedData).forEach(function(entry) {
+    var label = entry[0];
+    var val = entry[1];
+    if (val > 0) {
+      labels.push(label);
+      values.push(val);
+      total += val;
+      
+      var c = colorMap[label] || colorMap[label.toLowerCase()] || colorMap['default'] || '#64748b';
+      colors.push(c);
+    }
+  });
+  
+  if (canvasId === 'chartLinhas' && chartLinhas) { chartLinhas.destroy(); chartLinhas = null; }
+  if (canvasId === 'chartPostos' && chartPostos) { chartPostos.destroy(); chartPostos = null; }
+
+  if (total === 0) {
+    wrapper.innerHTML = '<div class="no-data">Nenhuma produção registrada hoje.</div>';
+    return;
+  }
+  
+  wrapper.innerHTML = '<canvas id="' + canvasId + '"></canvas>';
+  var ctx = document.getElementById(canvasId);
+  
+  var chartInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors,
+        borderWidth: 2,
+        borderColor: '#ffffff',
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: {
+            font: { size: 11, weight: 'bold' },
+            boxWidth: 12,
+            padding: 8
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              var val = context.raw || 0;
+              var pct = total ? ((val / total) * 100).toFixed(1) : 0;
+              return context.label + ': ' + fmtNum(val) + ' (' + pct + '%)';
+            }
+          }
+        }
+      },
+      cutout: '60%'
+    },
+    plugins: [{
+      id: 'centerText',
+      afterDraw: function(chart) {
+        var ctx = chart.ctx;
+        ctx.save();
+        var activeMeta = chart.getDatasetMeta(0);
+        if (activeMeta && activeMeta.data && activeMeta.data.length > 0) {
+          var centerPoint = activeMeta.data[0];
+          var x = centerPoint.x;
+          var y = centerPoint.y;
+          
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          
+          ctx.font = 'bold 15px sans-serif';
+          ctx.fillStyle = '#0f172a';
+          ctx.fillText(fmtNum(total), x, y - 6);
+          
+          ctx.font = '600 9px sans-serif';
+          ctx.fillStyle = '#64748b';
+          ctx.fillText('PEÇAS', x, y + 10);
+        }
+        ctx.restore();
+      }
+    }]
+  });
+  
+  if (canvasId === 'chartLinhas') chartLinhas = chartInstance;
+  if (canvasId === 'chartPostos') chartPostos = chartInstance;
+}
+
+function renderProdutos(regs, total) {
+  var c = document.getElementById('prodProd');
+  // Achado do agente de auditoria (3ª rodada): numerador somava os 3 setores
+  // (regs cru) contra um denominador (total) já filtrado pra só envase --
+  // % podia passar de 100% ou a soma de todos os produtos ultrapassar o
+  // total do card sempre que um lote passasse por Linha e Rotulagem no
+  // mesmo dia. Filtra aqui igual o total já é filtrado em renderAll.
+  regs = regs.filter(function(r) { return isLinhaDeProducao(r.linha); });
+  if (!regs.length) { c.innerHTML = '<div class="no-data">Sem dados.</div>'; return; }
+  var byP = {};
+  regs.forEach(function(r){ byP[r.produto] = (byP[r.produto]||0) + (r.quantidade||0); });
+  var sorted = Object.entries(byP).sort(function(a,b){ return b[1]-a[1]; });
+  c.innerHTML = sorted.map(function(entry, i) {
+    var prod = entry[0], qtd = entry[1];
+        var pct = total ? Math.round((qtd/total)*100) : 0;
+    var color = BAR_COLORS[i % BAR_COLORS.length];
+    return '<div class="prod-bar">' +
+      '<div class="prod-bar-top"><strong>' + (prod||'—') + '</strong><span>' + fmtNum(qtd) + ' (' + pct + '%)</span></div>' +
+      '<div class="prod-bar-bg"><div class="prod-bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderParadas(regs) {
+  var c = document.getElementById('paradasList');
+  var allParadas = [];
+  // Formato antigo: parada embutida dentro do registro horário (ainda existe
+  // via Modo Avançado). Formato novo (Painel de Turno): parada/retomada de
+  // linha não grava nada no registro -- vive só em paradas_historico.
+  regs.forEach(function(r) {
+    getParadasFromReg(r).forEach(function(p) {
+      allParadas.push({ horaSort: r.hora || '', hora: r.hora, linha: r.linha, motivo: p.motivo||p.motivoParada||'—', duracao: p.duracao||0 });
+    });
+  });
+  paradasDoDia().forEach(function(p) {
+    var horaLabel = p.inicio ? new Date(p.inicio).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}) : '—';
+    allParadas.push({
+      horaSort: p.inicio || '', horaLabel: horaLabel, linha: p.linha,
+      motivo: p.motivo || '—', duracao: p.duracao || 0,
+      sub: [p.produto, p.lote ? 'OP ' + p.lote : ''].filter(Boolean).join(' · ')
+    });
+  });
+  allParadas.sort(function(a, b) { return String(a.horaSort).localeCompare(String(b.horaSort)); });
+
+  document.getElementById('mParadas').textContent = allParadas.length;
+
+  if (!allParadas.length) { c.innerHTML = '<div class="no-data">Nenhuma parada registrada.</div>'; return; }
+  c.innerHTML = allParadas.map(function(p) {
+    var horaTxt = p.horaLabel || fmtHoraRange(p.hora);
+    return '<div class="parada-item">' +
+      '<div class="parada-icon">⏸️</div>' +
+      '<div>' +
+        // escapeHtml: p.sub carrega produto e "OP {lote}", e lote é texto livre
+        // digitado pelo operador -- um "<" quebrava a renderização do painel
+        // inteiro. O resto do arquivo já escapava; só aqui tinha ficado de fora.
+        '<div class="parada-hora">' + horaTxt + (p.linha ? ' · ' + escapeHtml(p.linha) : '') + '</div>' +
+        '<div class="parada-desc">' + escapeHtml(p.motivo) + '</div>' +
+        (p.sub ? '<div class="parada-meta">' + escapeHtml(p.sub) + '</div>' : '') +
+        (p.duracao ? '<div class="parada-meta">' + p.duracao + ' min</div>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderColaboradores(regs, total) {
+  var c = document.getElementById('prodColab');
+  // Mesmo achado/mesma correção de renderProdutos -- numerador precisa vir
+  // do mesmo conjunto filtrado (só envase) que gerou o "total" recebido.
+  regs = regs.filter(function(r) { return isLinhaDeProducao(r.linha); });
+  if (!regs.length) { c.innerHTML = '<div class="no-data">Sem dados.</div>'; return; }
+  var byC = {};
+  regs.forEach(function(r) {
+    var key = r.colaboradores ? r.colaboradores + ' colaboradores' : r.operador || '—';
+    byC[key] = (byC[key]||0) + (r.quantidade||0);
+  });
+  var sorted = Object.entries(byC).sort(function(a,b){ return b[1]-a[1]; });
+  c.innerHTML = sorted.map(function(entry, i) {
+    var nome = entry[0], qtd = entry[1];
+    var pct = total ? Math.round((qtd/total)*100) : 0;
+    var color = BAR_COLORS[i % BAR_COLORS.length];
+    return '<div class="prod-bar">' +
+      '<div class="prod-bar-top"><strong>' + nome + '</strong><span>' + fmtNum(qtd) + ' (' + pct + '%)</span></div>' +
+      '<div class="prod-bar-bg"><div class="prod-bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderLotes(regs) {
+  var c = document.getElementById('prodLote');
+  // Mesma classe de bug dos outros cards deste dashboard: sem filtro, um
+  // lote que passa por Linha e Rotulagem no mesmo dia aparece com
+  // quantidade inflada (soma os 2 setores) -- consistente com o resto da
+  // tela (Total do Dia/Por Produto/Por Colaborador), que já filtra.
+  var byL = {};
+  regs.filter(function(r) { return isLinhaDeProducao(r.linha); }).forEach(function(r) {
+    if (!r.lote) return;
+    if (!byL[r.lote]) {
+      byL[r.lote] = { total: 0, produtos: {} };
+    }
+    byL[r.lote].total += (r.quantidade||0);
+    if (r.produto) byL[r.lote].produtos[r.produto] = true;
+  });
+  var sorted = Object.entries(byL).sort(function(a,b){ return b[1].total-a[1].total; });
+  if (!sorted.length) { c.innerHTML = '<div class="no-data">Nenhum lote registrado.</div>'; return; }
+  c.innerHTML = sorted.map(function(entry, i) {
+    var lote = entry[0], d = entry[1];
+    var prodsList = Object.keys(d.produtos).join(', ');
+    var color = BAR_COLORS[i % BAR_COLORS.length];
+    return '<div class="prod-bar">' +
+      '<div class="prod-bar-top"><strong>' + lote + ' <span style="font-weight:normal; font-size:11px; color:var(--muted)">(' + (prodsList || 'Produto não identificado') + ')</span></strong><span>' + fmtNum(d.total) + '</span></div>' +
+      '<div class="prod-bar-bg"><div class="prod-bar-fill" style="width:100%;background:'+color+';opacity:.6"></div></div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderMetaDiaria(regs) {
+  var card = document.getElementById('metaDiariaCard');
+  
+  var plan = cfg.planejamento || {};
+  var metasPadrao = cfg.metasPorLinha || {};
+  
+  var linesList = cfg.linhas || ['Linha 01', 'Linha 02', 'Linha 03', 'Linha 04'];
+  var postosList = cfg.postosTrabalho || ['Rotuladora 01', 'Rotuladora 02'];
+  
+  var todayDateObj = new Date(currentDate + 'T12:00:00');
+  var todayIsWorking = isWorking(todayDateObj);
+  
+  var somaLinhas = 0;
+  linesList.forEach(function(l) {
+    somaLinhas += Number(metasPadrao[l] || 0);
+  });
+  if (somaLinhas === 0) somaLinhas = 20600;
+  
+  var metaHoje = todayIsWorking ? somaLinhas : 0;
+  
+  card.style.display = 'block';
+  // isLinhaDeProducao agora é a função de escopo global logo acima de
+  // renderAll -- usa cfg.linhas/postosTrabalho direto, mesmo resultado de
+  // antes (linesList/postosList aqui só continuam servindo pro cálculo de
+  // metaHoje logo acima).
+
+  var byLinha = {}, byPosto = {};
+  var totalEnvase = 0;
+  
+  regs.forEach(function(r) {
+    var l = r.linha || '—';
+    var q = r.quantidade || 0;
+    if (isLinhaDeProducao(l)) {
+      byLinha[l] = (byLinha[l]||0) + q;
+      totalEnvase += q;
+    } else {
+      byPosto[l] = (byPosto[l]||0) + q;
+    }
+  });
+  
+  var pctTotal = metaHoje ? Math.min(100, Math.round(totalEnvase / metaHoje * 100)) : 0;
+  var fillCls = pctTotal >= 80 ? 'high' : pctTotal >= 50 ? 'mid' : 'low';
+  
+  var html = '';
+  
+  if (todayIsWorking) {
+    html += '<div class="meta-linha-row">' +
+      '<div class="meta-linha-nome">Progresso do Envase (Meta Diária)</div>' +
+      '<div class="meta-linha-nums">' + fmtNum(totalEnvase) + ' / ' + fmtNum(metaHoje) + '</div>' +
+      '<div class="meta-linha-pct" style="color:' + (pctTotal>=80?'#059669':pctTotal>=50?'#d97706':'#e02424') + '">' + pctTotal + '%</div>' +
+      '<div class="meta-linha-bar"><div class="progress-bg" style="height:8px"><div class="progress-fill '+fillCls+'" style="width:'+pctTotal+'%"></div></div></div>' +
+      '</div>';
+  } else {
+    html += '<div class="meta-linha-row">' +
+      '<div class="meta-linha-nome" style="font-weight:bold; color:var(--muted)">Progresso do Envase (Dia de Folga)</div>' +
+      '<div class="meta-linha-nums" style="color:var(--muted)">' + fmtNum(totalEnvase) + ' peças produzidas</div>' +
+      '<div class="meta-linha-pct"><span class="badge badge-orange" style="font-size:11px; font-weight:700">Folga / Sem Meta</span></div>' +
+      '</div>';
+  }
+  
+  html += '<div style="margin-top: 14px; font-weight: 700; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border); padding-bottom: 4px; letter-spacing: 0.5px">LINHAS DE ENVASE</div>';
+  
+  linesList.forEach(function(linha) {
+    var qtd = byLinha[linha] || 0;
+    var metaLinha = todayIsWorking ? Number(metasPadrao[linha] || 0) : 0;
+    
+    html += '<div class="meta-linha-row">';
+    if (metaLinha === 0) {
+      html += '<div class="meta-linha-nome" style="opacity:.65">' + linha + '</div>' +
+              '<div class="meta-linha-nums" style="opacity:.65">' + fmtNum(qtd) + '</div>' +
+              '<div class="meta-linha-pct"><span class="badge badge-orange" style="font-size:10px; font-weight:700; background:#f3f4f6; color:#4b5563; border:none">' + (todayIsWorking ? 'Não Planejada' : 'Folga') + '</span></div>';
+    } else {
+      var pct = Math.min(100, Math.round(qtd / metaLinha * 100));
+      html += '<div class="meta-linha-nome">' + linha + '</div>' +
+              '<div class="meta-linha-nums">' + fmtNum(qtd) + ' / ' + fmtNum(metaLinha) + '</div>' +
+              '<div class="meta-linha-pct">' + pct + '%</div>';
+    }
+    html += '</div>';
+  });
+  
+  html += '<div style="margin-top: 14px; font-weight: 700; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border); padding-bottom: 4px; letter-spacing: 0.5px">ROTULAGEM & OUTROS POSTOS</div>';
+  
+  postosList.forEach(function(posto) {
+    var qtd = byPosto[posto] || 0;
+    var metaPosto = todayIsWorking ? Number(metasPadrao[posto] || 0) : 0;
+    
+    html += '<div class="meta-linha-row">';
+    if (metaPosto === 0) {
+      html += '<div class="meta-linha-nome" style="opacity:.65">' + posto + '</div>' +
+              '<div class="meta-linha-nums" style="opacity:.65">' + fmtNum(qtd) + '</div>' +
+              '<div class="meta-linha-pct"><span class="badge badge-orange" style="font-size:10px; font-weight:700; background:#f3f4f6; color:#4b5563; border:none">Sem Meta</span></div>';
+    } else {
+      var pct = Math.min(100, Math.round(qtd / metaPosto * 100));
+      html += '<div class="meta-linha-nome">' + posto + '</div>' +
+              '<div class="meta-linha-nums">' + fmtNum(qtd) + ' / ' + fmtNum(metaPosto) + '</div>' +
+              '<div class="meta-linha-pct">' + pct + '%</div>';
+    }
+    html += '</div>';
+  });
+  
+  document.getElementById('metaDiariaContent').innerHTML = html;
+}
+
+// Fase 9 do plano (PLANO_PLANEJAMENTO_PCP.md, seção 5): "não deveria ser
+// um formulário novo de digitação -- deveria ser um painel de
+// conferência que já vem pré-preenchido" pelos pontos de controle que já
+// existem (apontamento, paradas via Andon, encerramento de OP). Por
+// linha: produção vs meta, paradas do dia, e o achado que só existe
+// desde a Fase 7 -- OPs que foram fechadas na linha mas ainda esperam o
+// PCP confirmar (opsCache já é lido ao vivo em outro lugar deste
+// arquivo, sem leitura nova do Firebase aqui).
+function renderFechamentoDoDia(regs) {
+  var card = document.getElementById('fechamentoDoDiaCard');
+  if (!card) return;
+  var linesList = cfg.linhas || [];
+  if (!linesList.length) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+
+  var metasPadrao = cfg.metasPorLinha || {};
+  var todayDateObj = new Date(currentDate + 'T12:00:00');
+  var todayIsWorking = isWorking(todayDateObj);
+
+  var paradasPorLinha = {};
+  paradasDoDia().forEach(function(p) {
+    var l = (p && p.linha) || '—';
+    if (!paradasPorLinha[l]) paradasPorLinha[l] = { count: 0, minutos: 0 };
+    paradasPorLinha[l].count++;
+    paradasPorLinha[l].minutos += (p && p.duracao) || 0;
+  });
+
+  // Não filtra por data -- uma OP "Aguardando Confirmação" é pendência
+  // até alguém agir, não importa há quantos dias ficou parada nesse
+  // estado (se ficou, é ainda MAIS motivo pra aparecer aqui).
+  var opsAguardandoPorLinha = {};
+  Object.keys(opsCache).forEach(function(k) {
+    var op = opsCache[k];
+    if (!op || op.status !== 'Aguardando Confirmação') return;
+    var l = op.abertaLinha || op.linha || '—';
+    if (!opsAguardandoPorLinha[l]) opsAguardandoPorLinha[l] = [];
+    opsAguardandoPorLinha[l].push(op);
+  });
+
+  var html = linesList.map(function(linha) {
+    var qtd = regs.filter(function(r) { return isLinhaDeProducao(r.linha) && r.linha === linha; })
+      .reduce(function(s, r) { return s + (r.quantidade || 0); }, 0);
+    var meta = todayIsWorking ? Number(metasPadrao[linha] || 0) : 0;
+    var pct = meta ? Math.round(qtd / meta * 100) : null;
+    var paradas = paradasPorLinha[linha] || { count: 0, minutos: 0 };
+    var opsAguardando = opsAguardandoPorLinha[linha] || [];
+
+    var problemas = [];
+    if (opsAguardando.length) problemas.push(opsAguardando.length + ' OP(s) aguardando confirmação');
+    if (meta && pct < 80) problemas.push('meta não atingida (' + pct + '%)');
+
+    var statusBadge = problemas.length
+      ? '<span class="badge badge-orange" title="' + escapeAttr(problemas.join(' · ')) + '">⚠️ ' + problemas.join(' · ') + '</span>'
+      : '<span class="badge badge-green">✓ Tudo certo</span>';
+
+    var opsListHtml = opsAguardando.length
+      ? '<div style="font-size:11px;color:var(--muted);margin-top:5px">' +
+          opsAguardando.map(function(op) { return '🏷️ ' + escapeHtml(op.lote || '') + ' (' + escapeHtml(op.produto || '—') + ')'; }).join(' · ') +
+        '</div>'
+      : '';
+
+    return '<div style="padding:12px 0;border-bottom:1px solid var(--border)">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">' +
+        '<div style="font-weight:700;font-size:13.5px">' + escapeHtml(linha) + '</div>' +
+        statusBadge +
+      '</div>' +
+      '<div style="font-size:12px;color:var(--muted);margin-top:4px">' +
+        fmtNum(qtd) + (meta ? ' / ' + fmtNum(meta) + ' un (' + pct + '%)' : ' un') +
+        ' · ' + paradas.count + ' parada(s)' + (paradas.minutos ? ', ' + paradas.minutos + 'min' : '') +
+      '</div>' +
+      opsListHtml +
+    '</div>';
+  }).join('');
+
+  document.getElementById('fechamentoDoDiaBody').innerHTML = html || '<div class="no-data">Nenhuma linha configurada.</div>';
+}
+
+function renderProgramacao(progData, regs) {
+  var card = document.getElementById('progCard');
+  if (!progData) { card.style.display = 'none'; return; }
+  var slots = Object.values(progData);
+  if (!slots.length) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+
+  var byProd = {};
+  slots.forEach(function(s) {
+    var k = s.produto || '—';
+    if (!byProd[k]) byProd[k] = { meta: 0, realizado: 0, linha: s.linha||'', pedidoId: s.pedidoId||'' };
+    byProd[k].meta += (s.quantidade||0);
+  });
+  regs.forEach(function(r) {
+    var k = r.produto || '—';
+    if (byProd[k]) byProd[k].realizado += (r.quantidade||0);
+  });
+
+  var html = Object.entries(byProd).map(function(entry) {
+    var prod = entry[0], d = entry[1];
+    var pct = d.meta ? Math.min(100, Math.round(d.realizado/d.meta*100)) : 0;
+    var fillCls = pct >= 95 ? 'high' : pct >= 60 ? 'mid' : 'low';
+    var pctColor = pct >= 95 ? '#059669' : pct >= 60 ? '#d97706' : '#e02424';
+    return '<div class="prog-block">' +
+      '<div class="prog-header">' +
+        '<div>' +
+          '<div class="prog-nome">' + (d.linha||'') + (d.pedidoId?' <span class="badge badge-purple">#'+d.pedidoId+'</span>':'') + '</div>' +
+          '<div class="prog-produto">' + prod + '</div>' +
+        '</div>' +
+        '<div class="prog-pct" style="color:'+pctColor+'">' + pct + '%</div>' +
+      '</div>' +
+      '<div class="prog-stats">' +
+        '<span>Meta: <strong>' + fmtNum(d.meta) + '</strong></span>' +
+        '<span>Realizado: <strong>' + fmtNum(d.realizado) + '</strong></span>' +
+        '<span>Saldo: <strong>' + fmtNum(Math.max(0,d.meta-d.realizado)) + '</strong></span>' +
+      '</div>' +
+      '<div class="progress-bg" style="height:10px"><div class="progress-fill '+fillCls+'" style="width:'+pct+'%"></div></div>' +
+    '</div>';
+  }).join('');
+  document.getElementById('progContent').innerHTML = html;
+}
+
+function renderFeed(regs) {
+  var c = document.getElementById('feedLive');
+  if (!regs.length) { c.innerHTML = '<div class="no-data">Nenhum registro hoje.</div>'; return; }
+  c.innerHTML = regs.map(function(r) {
+    var paradas = getParadasFromReg(r);
+    var totalParada = paradas.reduce(function(s,p){ return s+(p.duracao||0); }, 0);
+    var subParts = [r.linha];
+    if (r.lote) subParts.push('Lote: ' + r.lote);
+    if (r.pedidoId) subParts.push('OP: #' + r.pedidoId);
+    if (totalParada) subParts.push(totalParada + 'min parada');
+    return '<div class="feed-item">' +
+      '<div class="feed-hora">' + fmtRegistroRange(r) + '</div>' +
+      '<div class="feed-info">' +
+        '<div class="feed-prod">' + (r.produto||'—') + '</div>' +
+        '<div class="feed-sub">' + subParts.filter(Boolean).join(' · ') + '</div>' +
+      '</div>' +
+      '<div class="feed-qtd">' + fmtNum(r.quantidade||0) + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// Substitui o antigo gráfico "Produção por Hora": com a captura agora sendo
+// por alocação de OP (Painel de Turno), cada linha desse card é um
+// checkpoint/fechamento real (tipo apontamento_total/fechamento_op/registro),
+// não mais um apontamento hora a hora -- por isso mostra o período trabalhado
+// em vez de tentar encaixar isso numa hora só.
+function renderOpsEncerradasHoje(regs) {
+  var c = document.getElementById('opsEncerradasList');
+  var itens = regs.filter(function(r) {
+    // fonte==='retroativo' entra também: o Turno Retroativo é um fechamento
+    // real de período (tem periodoInicio/periodoFim), só não grava `tipo` --
+    // sem isso, todo lançamento retroativo sumia deste card.
+    return r.tipo === 'apontamento_total' || r.tipo === 'fechamento_op' || r.tipo === 'registro'
+      || r.fonte === 'retroativo' || (r.periodoInicio && r.periodoFim);
+  });
+  if (!itens.length) { c.innerHTML = '<div class="no-data">Nenhum lançamento de OP/posto hoje ainda.</div>'; return; }
+
+  itens = itens.slice().sort(function(a, b) { return String(b.timestamp||'').localeCompare(String(a.timestamp||'')); });
+
+  c.innerHTML = itens.map(function(r) {
+    // Fase 7 do plano: fechamento_op (Fechar Lote) não conclui mais
+    // sozinho, fica 'Aguardando Confirmação' até o PCP confirmar --
+    // "OP concluída" agora reflete o status real, não presume mais que
+    // todo fechamento_op é uma conclusão de verdade.
+    var opReal = r.lote && opsCache[sanitizeKey(r.lote)];
+    var opConcluida = opReal && opReal.status === 'Concluído';
+    var opAguardando = r.tipo === 'fechamento_op' || (opReal && opReal.status === 'Aguardando Confirmação');
+    var tagTxt = r.tipo === 'registro' ? 'Posto' : (opConcluida ? 'OP concluída' : (opAguardando ? 'OP fechada' : 'Checkpoint'));
+    var tagCls = r.tipo === 'registro' ? 'badge-purple' : (opConcluida ? 'badge-green' : (opAguardando ? 'badge-orange' : 'badge-orange'));
+    var subParts = [r.linha];
+    if (r.lote) subParts.push('OP ' + r.lote);
+    if (r.horasTrabalhadas) subParts.push(r.horasTrabalhadas + 'h trabalhadas');
+    var horaTxt = r.timestamp ? new Date(r.timestamp).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}) : (r.hora || '—');
+    return '<div class="opfim-item">' +
+      '<div class="opfim-hora">' + horaTxt + '</div>' +
+      '<div class="opfim-info">' +
+        '<div class="opfim-prod"><span class="badge ' + tagCls + '" style="margin-right:6px">' + tagTxt + '</span>' + (r.produto||'—') + '</div>' +
+        '<div class="opfim-sub">' + subParts.filter(Boolean).join(' · ') + '</div>' +
+      '</div>' +
+      '<div class="opfim-qtd">+' + fmtNum(r.quantidade||0) + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// Substitui o antigo gráfico "Produção por Turno" (que atribuía todo o
+// volume de uma alocação ao turno do momento de fechamento, distorcendo
+// alocações que atravessam turno) -- mostra em vez disso se cada turno
+// configurado já foi encerrado hoje (mesmo marcador turnosEncerrados que
+// alimenta o alerta por e-mail de turno não encerrado).
+function renderTurnosStatus() {
+  var c = document.getElementById('turnosStatusList');
+  if (!c) return;
+  var turnoHorarios = cfg.turnoHorarios || {};
+  var entries = Object.entries(turnoHorarios);
+  if (cfg.modoOperacaoTurno === 'fixo' && cfg.turnoFixoNome) {
+    entries = turnoHorarios[cfg.turnoFixoNome] ? [[cfg.turnoFixoNome, turnoHorarios[cfg.turnoFixoNome]]] : [];
+  }
+  if (!entries.length) { c.innerHTML = '<div class="no-data">Nenhum turno configurado em Ajustes.</div>'; return; }
+  entries.sort(function(a, b) { return String(a[1]).localeCompare(String(b[1])); });
+
+  var isToday = currentDate === today();
+  var nowHm = new Date().toTimeString().slice(0,5);
+  var isSextaCfg = new Date(currentDate + 'T12:00:00').getDay() === 5;
+
+  c.innerHTML = entries.map(function(entry) {
+    var nome = entry[0], horaIni = entry[1];
+    // Mostra a faixa completa (início–fim), não só o início -- "Início às
+    // 07:00" sozinho não diz até quando o turno vai, então parecia que o
+    // turno era só aquele horário pontual em vez de um intervalo. Respeita
+    // o fim de turno específico de sexta (Ajustes) quando configurado.
+    var horaFim = (cfg.turnoHorariosFim && cfg.turnoHorariosFim[nome]) || '';
+    if (isSextaCfg && cfg.turnoHorariosFimSexta && cfg.turnoHorariosFimSexta[nome]) horaFim = cfg.turnoHorariosFimSexta[nome];
+    var faixa = horaIni + (horaFim ? ' às ' + horaFim : '');
+    var status = turnosEncerradosHoje[sanitizeKey(nome)];
+    // Achado do agente de UX: antes daqui, "Ainda não começou"/"Em
+    // andamento" eram só inferidos pelo relógio -- agora, se alguém já
+    // confirmou o início de verdade (botão "▶️ Iniciar turno",
+    // form.html), usa esse dado real em vez de adivinhar.
+    var inicio = turnosIniciadosHoje[sanitizeKey(nome)];
+    var badgeCls, badgeTxt, subTxt;
+    if (status) {
+      badgeCls = 'ok'; badgeTxt = '✓ Encerrado';
+      var horaFechou = status.encerradoEm ? new Date(status.encerradoEm).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}) : '';
+      subTxt = 'às ' + horaFechou + (status.itens ? ' · ' + status.itens + ' item(ns)' : '');
+    } else if (inicio) {
+      badgeCls = 'pending'; badgeTxt = '▶️ Iniciado';
+      var horaAbriu = inicio.iniciadoEm ? new Date(inicio.iniciadoEm).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}) : '';
+      subTxt = 'às ' + horaAbriu + (inicio.iniciadoPor ? ' · ' + inicio.iniciadoPor : '');
+    } else if (isToday && nowHm < horaIni) {
+      badgeCls = 'pending'; badgeTxt = 'Ainda não começou';
+      subTxt = faixa;
+    } else if (isToday) {
+      badgeCls = 'pending'; badgeTxt = 'Em andamento (sem confirmação)';
+      subTxt = faixa;
+    } else {
+      badgeCls = 'late'; badgeTxt = 'Não encerrado';
+      subTxt = faixa;
+    }
+    return '<div class="turno-status-row">' +
+      '<div>' +
+        '<div class="turno-status-nome">' + nome + '</div>' +
+        '<div class="turno-status-sub">' + subTxt + '</div>' +
+      '</div>' +
+      '<span class="turno-status-badge ' + badgeCls + '">' + badgeTxt + '</span>' +
+    '</div>';
+  }).join('');
+}
+
+// isConcluido vem de shared/utils.js (recebe o pedido inteiro, não só o status)
+
+function renderPedidos(regs) {
+  var card = document.getElementById('pedidosCard');
+  if (!pedidosCache || !Object.keys(pedidosCache).length) { card.style.display = 'none'; return; }
+  // Only show active (andamento) pedidos
+  var ativos = Object.values(pedidosCache).filter(function(p) {
+    var pct = p.qtdTotal ? Math.round((p.produzido||0)/p.qtdTotal*100) : 0;
+    return !isConcluido(p) && pct < 95;
+  });
+  if (!ativos.length) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  ativos.sort(function(a,b) {
+    var pa = a.qtdTotal ? Math.round((a.produzido||0)/a.qtdTotal*100) : 0;
+    var pb = b.qtdTotal ? Math.round((b.produzido||0)/b.qtdTotal*100) : 0;
+    return pb - pa;
+  });
+  
+  var now = new Date();
+  now.setHours(0,0,0,0);
+  
+  var html = ativos.slice(0,5).map(function(p) {
+    var pct = p.qtdTotal ? Math.min(100, Math.round((p.produzido||0)/p.qtdTotal*100)) : 0;
+    var fillCls = pct >= 95 ? 'high' : pct >= 60 ? 'mid' : 'low';
+    var pctColor = pct >= 95 ? '#059669' : pct >= 60 ? '#d97706' : '#e02424';
+    
+    // Inactivity check
+    var lastApont = p.ultimoApontamento;
+    var warn = false;
+    var dateText = "Nunca produzido";
+    if (lastApont) {
+      var lastDate = new Date(lastApont);
+      if (!isNaN(lastDate.getTime())) {
+        dateText = lastDate.toLocaleDateString('pt-BR');
+        var checkDate = new Date(lastDate);
+        checkDate.setHours(0,0,0,0);
+        var diffDays = Math.round((now - checkDate) / (1000 * 60 * 60 * 24));
+        if (diffDays > 2) {
+          warn = true;
+        }
+      }
+    } else {
+      warn = true;
+    }
+    
+    var linhas = linhasDoPedido(p._key);
+    var linhaTexto = linhas.length > 1 ? linhas.join(' + ') : (linhas[0] || p.linha || '');
+
+    return '<div class="prog-block">' +
+      '<div class="prog-header">' +
+        '<div>' +
+          '<div class="prog-nome"><span class="badge badge-purple">#' + (p.id||'—') + '</span> ' + linhaTexto + '</div>' +
+          '<div class="prog-produto">' + (p.produto||'—') + '</div>' +
+        '</div>' +
+        '<div class="prog-pct" style="color:'+pctColor+'">' + pct + '%</div>' +
+      '</div>' +
+      '<div class="prog-stats">' +
+        '<span>Meta: <strong>' + fmtNum(p.qtdTotal) + '</strong></span>' +
+        '<span>Produzido: <strong>' + fmtNum(p.produzido||0) + '</strong></span>' +
+        '<span>Saldo: <strong>' + fmtNum(Math.max(0,(p.qtdTotal||0)-(p.produzido||0))) + '</strong></span>' +
+      '</div>' +
+      '<div class="prog-stats" style="margin-top: 4px; display:flex; align-items:center; gap:8px">' +
+        '<span>Última Produção: <strong style="color: ' + (warn ? 'var(--danger)' : 'var(--text)') + '">' + dateText + '</strong></span>' +
+        (warn ? ' <span class="badge badge-red" style="font-size:10px; font-weight:700">⚠️ Parado há mais de 2 dias (PCP deve justificar)</span>' : '') +
+      '</div>' +
+      '<div class="progress-bg" style="height:10px; margin-top:8px"><div class="progress-fill '+fillCls+'" style="width:'+pct+'%"></div></div>' +
+    '</div>';
+  }).join('');
+  document.getElementById('pedidosContent').innerHTML = html;
+}
+
+// ── Firebase init + startup ───────────────────────────────────────
+var pedidosCache = {};
+var opsCache = {};
+
+firebase.initializeApp(firebaseConfig);
+  kuryosConnectEmulatorsIfLocal();
+db = firebase.database();
+
+// sanitizeKey vem de shared/utils.js
+
+var latestAndonStates = {};
+
+function rebuildAndonDashboardGrid() {
+  var grid = document.querySelector('.andon-dashboard-grid');
+  if (!grid) return;
+  
+  var linesList = cfg.linhas || ["Linha 1", "Linha 2", "Linha 3"];
+  grid.innerHTML = '';
+  
+  linesList.forEach(function(linha) {
+    var lineKey = sanitizeKey(linha);
+    var card = document.createElement('div');
+    card.className = 'andon-db-card active';
+    card.id = 'andon_' + lineKey;
+    
+    card.innerHTML = 
+      '<div class="andon-db-title">' + linha + '</div>' +
+      '<div class="andon-db-status">🟢 OPERANDO</div>' +
+      '<div class="andon-db-info">Linha operando normalmente.</div>';
+      
+    grid.appendChild(card);
+  });
+  updateAndonUI();
+}
+
+// OP alocada agora nessa linha (mesma fonte que o Painel de Turno usa em
+// form.html: ops/{lote}.abertaLinha) -- é o sinal ao vivo real desde que a
+// captura virou por alocação de OP, não mais por apontamento horário.
+function opAlocadoEmLinha(nome) {
+  var found = null;
+  Object.keys(opsCache).forEach(function(k) {
+    var op = opsCache[k];
+    // opEstaAtiva como defesa em profundidade -- mitigado hoje porque
+    // cancelOp (ops.html) já limpa abertaDesde ao cancelar, mas sem essa
+    // checagem uma corrida (cache desatualizado por um instante) deixaria
+    // uma OP cancelada aparecer "ao vivo" no Andon.
+    if (op && op.abertaDesde && op.abertaLinha === nome && opEstaAtiva(op)) found = op;
+  });
+  return found;
+}
+
+function opProgressoHtml(op) {
+  // opAlocadoEmLinha (chamador) só olha abertaDesde/abertaLinha -- Linha por
+  // design, nunca Rotulagem/Posto (ver getProduzido/campoProduzido, shared/utils.js).
+  var produzidoLinha = getProduzido(op, 'linha');
+  var pct = op.qtdPlanejada ? Math.min(100, Math.round(produzidoLinha / op.qtdPlanejada * 100)) : 0;
+  var cor = pct >= 80 ? 'var(--success)' : pct >= 40 ? 'var(--warning)' : 'var(--primary)';
+  var emSetup = op.setupInicio && !op.setupFim;
+  return (emSetup ? '<span class="andon-db-setup-badge">🔧 Em setup</span>' : '') +
+    '<div class="andon-db-op-produto">OP ' + (op.lote||'') + ' — ' + (op.produto||'') + '</div>' +
+    '<div class="andon-db-op-bar-bg"><div class="andon-db-op-bar-fill" style="width:' + pct + '%;background:' + cor + '"></div></div>' +
+    '<div class="andon-db-op-nums"><span>' + fmtNum(produzidoLinha) + ' / ' + fmtNum(op.qtdPlanejada||0) + ' un.</span><span>' + pct + '%</span></div>';
+}
+
+function updateAndonUI() {
+  var linesList = cfg.linhas || ["Linha 1", "Linha 2", "Linha 3"];
+  linesList.forEach(function(linha) {
+    var lineKey = sanitizeKey(linha);
+    var card = document.getElementById('andon_' + lineKey);
+    if (!card) return;
+
+    var state = latestAndonStates[lineKey] || { status: 'ativa' };
+    var op = opAlocadoEmLinha(linha);
+
+    if (state.status === 'parada') {
+      card.className = 'andon-db-card stopped';
+      card.querySelector('.andon-db-status').textContent = '🔴 PARADA: ' + (state.motivoParada || 'Parada');
+
+      var inicio = new Date(state.inicioParada);
+      var timeStr = isNaN(inicio) ? '—' : inicio.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+
+      card.querySelector('.andon-db-info').innerHTML =
+        '<div style="width:100%">' +
+        '<div style="color:#b91c1c;font-weight:700;font-size:12px;margin-bottom:4px">Parada desde ' + timeStr + '</div>' +
+        (op ? opProgressoHtml(op) : '<div class="andon-db-empty">' + (state.lote ? 'OP ' + state.lote : 'Sem OP alocada') + '</div>') +
+        '</div>';
+    } else {
+      card.className = 'andon-db-card active';
+      card.querySelector('.andon-db-status').textContent = '🟢 OPERANDO';
+      card.querySelector('.andon-db-info').innerHTML = op
+        ? '<div style="width:100%">' + opProgressoHtml(op) + '</div>'
+        : '<div class="andon-db-empty">Sem OP alocada</div>';
+    }
+  });
+}
+
+// ── ANDON Realtime status listener ──
+dbOnValue(db.ref('estado_linhas'), function(snap) {
+  latestAndonStates = snap.val() || {};
+  updateAndonUI();
+  agendarAndonExtra();
+});
+
+db.ref('.info/connected').on('value', function(snap) {
+  setLive(snap.val(), snap.val() ? 'Ao vivo' : 'Offline');
+});
+
+dbOnValue(db.ref('config'), function(snap) {
+  cfg = snap.val() || {};
+  rebuildAndonDashboardGrid();
+  agendarAndonExtra();
+  renderMetaDiaria(regsData);
+  renderFechamentoDoDia(regsData);
+  updateStackedMetas();
+  renderTurnosStatus();
+});
+
+dbOnValue(db.ref('paradas_historico'), function(snap) {
+  paradasHistoricoCache = Object.values(snap.val() || {});
+  renderParadas(regsData);
+  renderFechamentoDoDia(regsData);
+});
+
+dbOnValue(db.ref('pedidos'), function(snap) {
+  pedidosCache = {};
+  if (snap.val()) {
+    Object.entries(snap.val()).forEach(function(entry) {
+      var k = entry[0], v = entry[1];
+      v._key = k;
+      pedidosCache[k] = v;
+    });
+  }
+  renderPedidos(regsData);
+});
+
+// Linha real de produção vive na OP/lote (ops.linha), não no pedido --
+// um pedido pode ter lotes em mais de uma linha. pedido.linha só entra
+// como fallback quando ainda não existe nenhuma OP emitida pra ele.
+dbOnValue(db.ref('ops'), function(snap) {
+  opsCache = snap.val() || {};
+  renderPedidos(regsData);
+  updateAndonUI();
+  agendarAndonExtra();
+  renderFechamentoDoDia(regsData);
+});
+
+// ── Andon da rotulagem, postos e cadeia do lote ─────────────────────
+// Regra inteira em shared/andon-cadeia.js (funções puras, testadas em
+// run_andon_cadeia_test.js). Aqui só carrega as fontes e desenha. Por padrão
+// só números e o que está esperando além do normal; o detalhe abre por clique.
+var lotesAndonCache = null, confPaAndonCache = null, rncsAndonCache = null, postosAndonCache = {};
+var cadeiaAbertaK = null;
+var _andonExtraT = null;
+function agendarAndonExtra() {
+  clearTimeout(_andonExtraT);
+  _andonExtraT = setTimeout(renderAndonExtra, 150);
+}
+function renderAndonExtra() {
+  try { renderRotulagemAndon(); } catch (e) { console.error('Andon da rotulagem:', e); }
+  try { renderCadeia(); } catch (e) { console.error('Cadeia do lote:', e); }
+}
+
+function renderRotulagemAndon() {
+  var card = document.getElementById('rotulagemAndonCard');
+  var nomes = (cfg && cfg.rotulagem) || [];
+  var postos = AndonCadeia.postos(postosAndonCache, Date.now());
+  card.style.display = (nomes.length || postos.length) ? '' : 'none';
+  var lista = AndonCadeia.rotuladoras(nomes, opsCache, latestAndonStates, Date.now(), sanitizeKey);
+  document.getElementById('rotulagemGrid').innerHTML = lista.map(function(r) {
+    var classe = r.estado === 'parada' ? 'stopped' : r.estado === 'livre' ? 'livre' : 'active';
+    var status = r.estado === 'parada' ? '🔴 PARADA: ' + escapeHtml(r.parada.motivo) : r.estado === 'livre' ? '⚪ LIVRE' : '🟢 OPERANDO';
+    var corpo = '';
+    if (r.parada && r.parada.desdeMin != null) corpo += '<div style="color:#b91c1c;font-weight:700;font-size:12px;margin-bottom:4px">Parada há ' + AndonCadeia.rotuloTempo(r.parada.desdeMin / 60) + '</div>';
+    if (r.op) {
+      var cor = r.op.pct >= 80 ? 'var(--success)' : r.op.pct >= 40 ? 'var(--warning)' : 'var(--primary)';
+      corpo += (r.op.emSetup ? '<span class="andon-db-setup-badge">🔧 Em setup</span>' : '') +
+        '<div class="andon-db-op-produto">OP ' + escapeHtml(r.op.lote || '') + ' — ' + escapeHtml(r.op.produto) + '</div>' +
+        '<div class="andon-db-op-bar-bg"><div class="andon-db-op-bar-fill" style="width:' + r.op.pct + '%;background:' + cor + '"></div></div>' +
+        '<div class="andon-db-op-nums"><span>' + fmtNum(r.op.produzido) + ' / ' + fmtNum(r.op.planejado) + ' un.</span><span>' + r.op.pct + '%</span></div>';
+    } else if (!r.parada) {
+      corpo += '<div class="andon-db-empty">Sem OP alocada</div>';
+    } else if (r.parada.lote) {
+      corpo += '<div class="andon-db-empty">OP ' + escapeHtml(r.parada.lote) + '</div>';
+    }
+    return '<div class="andon-db-card ' + classe + '"><div class="andon-db-title">' + escapeHtml(r.nome) + '</div>' +
+      '<div class="andon-db-status">' + status + '</div><div class="andon-db-info"><div style="width:100%">' + corpo + '</div></div></div>';
+  }).join('');
+  document.getElementById('postosAndon').innerHTML = postos.length
+    ? '<span>Postos abertos agora:</span>' + postos.map(function(p) {
+        return '<span class="p" title="' + escapeAttr((p.operador ? p.operador + ' · ' : '') + 'há ' + AndonCadeia.rotuloTempo((p.desdeMin || 0) / 60)) + '">' + escapeHtml(p.nome) + '</span>';
+      }).join('')
+    : '<span>Nenhum posto de trabalho aberto agora.</span>';
+}
+
+function linhaDetalheCadeia(i, extra) {
+  return '<tr><td><b>' + escapeHtml(i.lote || i.codigo || '—') + '</b></td><td>' + escapeHtml(i.produto || i.nome || '') + '</td><td>' +
+    escapeHtml(i.etapa || i.motivo || extra || '') + '</td><td>' + AndonCadeia.rotuloTempo(i.horas) + '</td></tr>';
+}
+
+function renderCadeia() {
+  var resumo = document.getElementById('cadeiaResumo');
+  if (lotesAndonCache === null || confPaAndonCache === null || rncsAndonCache === null) { resumo.textContent = 'carregando…'; return; }
+  var c = AndonCadeia.cadeia({ops: opsCache, estoqueLotes: lotesAndonCache, conferenciasPa: confPaAndonCache, rncs: rncsAndonCache}, Date.now());
+  var nAt = c.etapas.filter(function(e) { return e.atencao; }).length + ['mp', 'embalagem', 'pa'].filter(function(k) { return c.fila[k].atencao; }).length;
+  resumo.textContent = nAt ? '⚠ ' + nAt + (nAt === 1 ? ' ponto' : ' pontos') + ' esperando além do normal' : '✅ Nada esperando além do normal';
+  resumo.style.color = nAt ? 'var(--warning, #b45309)' : 'var(--success)';
+
+  document.getElementById('cadeiaFaixa').innerHTML = c.etapas.map(function(e, i) {
+    var maisAntigo = e.itens.reduce(function(m, x) { return Math.max(m, x.horas || 0); }, 0);
+    return (i ? '<span class="cadeia-seta">›</span>' : '') +
+      '<button type="button" class="cadeia-chip' + (e.total ? '' : ' zero') + (e.atencao ? ' atencao' : '') + (cadeiaAbertaK === e.k ? ' on' : '') + '" data-cadeia="' + e.k + '">' +
+      '<span class="rot">' + escapeHtml(e.rot) + '</span><span class="n">' + e.total + '</span>' +
+      '<small>' + (e.total ? (e.atencao ? '⚠ ' : 'mais antiga ') + AndonCadeia.rotuloTempo(maisAntigo) : 'nada esperando') + '</small></button>';
+  }).join('');
+
+  var f = c.fila;
+  document.getElementById('cadeiaFila').innerHTML = '<span>Fila da Qualidade:</span>' +
+    [['mp', f.mp], ['embalagem', f.embalagem], ['pa', f.pa]].map(function(par) {
+      var x = par[1];
+      return '<button type="button" class="q' + (x.atencao ? ' atencao' : '') + (cadeiaAbertaK === 'fila:' + par[0] ? ' on' : '') + '" data-cadeia="fila:' + par[0] + '">' +
+        escapeHtml(x.rot) + ' ' + x.total + (x.total ? ' · ' + AndonCadeia.rotuloTempo(x.maisAntigoH) : '') + '</button>';
+    }).join('') +
+    '<a href="qualidade.html" style="margin-left:auto;color:var(--primary);text-decoration:none;font-weight:600">' + f.rncAbertas + ' RNC' + (f.rncAbertas === 1 ? '' : 's') + ' aberta' + (f.rncAbertas === 1 ? '' : 's') + ' · abrir Qualidade ↗</a>';
+
+  document.querySelectorAll('#cadeiaFaixa [data-cadeia], #cadeiaFila [data-cadeia]').forEach(function(b) {
+    b.onclick = function() {
+      var k = b.getAttribute('data-cadeia');
+      cadeiaAbertaK = cadeiaAbertaK === k ? null : k;
+      renderCadeia();
+    };
+  });
+
+  var det = document.getElementById('cadeiaDetalhe');
+  if (!cadeiaAbertaK) { det.innerHTML = ''; return; }
+  var titulo = '', itens = [], cab = ['OP / Item', 'Produto', 'Situação', 'Espera'];
+  if (cadeiaAbertaK.indexOf('fila:') === 0) {
+    var kf = cadeiaAbertaK.slice(5);
+    titulo = 'Fila da Qualidade — ' + f[kf].rot;
+    itens = f[kf].itens.map(function(i) { return {lote: i.codigo, produto: i.nome, motivo: i.saldo ? fmtNum(i.saldo) + ' un/kg' : '', horas: i.horas}; });
+  } else {
+    var e = c.etapas.filter(function(x) { return x.k === cadeiaAbertaK; })[0];
+    titulo = e ? e.rot : '';
+    itens = e ? e.itens : [];
+  }
+  det.innerHTML = '<div style="font-weight:700;margin-bottom:6px">' + escapeHtml(titulo) + ' (' + itens.length + ')</div>' +
+    (itens.length ? '<table><thead><tr>' + cab.map(function(h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      itens.map(function(i) { return linhaDetalheCadeia(i); }).join('') + '</tbody></table>' : '<div style="color:var(--muted)">Nada esperando aqui.</div>');
+}
+
+dbOnValue(db.ref('estoque_lotes'), function(snap) { lotesAndonCache = snap.val() || {}; agendarAndonExtra(); });
+dbOnValue(db.ref('conferencias_pa'), function(snap) { confPaAndonCache = snap.val() || {}; agendarAndonExtra(); });
+dbOnValue(db.ref('nao_conformidades'), function(snap) { rncsAndonCache = snap.val() || {}; agendarAndonExtra(); });
+dbOnValue(db.ref('atividadesPosto'), function(snap) { postosAndonCache = snap.val() || {}; agendarAndonExtra(); });
+// As esperas crescem com o relógio: redesenha a cada minuto mesmo sem dado novo.
+setInterval(agendarAndonExtra, 60000);
+
+function linhasDoPedido(pedidoKey) {
+  var linhas = [];
+  Object.values(opsCache).forEach(function(op) {
+    if (op && op.skuPedidoKey === pedidoKey && opEstaAtiva(op) && op.linha && linhas.indexOf(op.linha) === -1) {
+      linhas.push(op.linha);
+    }
+  });
+  return linhas;
+}
+
+// ── Date navigation ───────────────────────────────────────────────
+function changeDate(delta) {
+  var d = new Date(currentDate + 'T12:00:00');
+  d.setDate(d.getDate() + delta);
+  currentDate = d.toISOString().split('T')[0];
+  document.getElementById('dateInput').value = currentDate;
+  listenToDate(currentDate);
+}
+
+document.getElementById('btnPrev').addEventListener('click', function() { changeDate(-1); });
+document.getElementById('btnNext').addEventListener('click', function() { changeDate(1); });
+document.getElementById('btnToday').addEventListener('click', function() {
+  currentDate = today();
+  document.getElementById('dateInput').value = currentDate;
+  listenToDate(currentDate);
+});
+document.getElementById('dateInput').addEventListener('change', function() {
+  if (!this.value) return;
+  currentDate = this.value;
+  listenToDate(currentDate);
+});
+
+// ── Clock ─────────────────────────────────────────────────────────
+updateClock();
+setInterval(updateClock, 1000);
+
+// ── Start ─────────────────────────────────────────────────────────
+document.getElementById('dateInput').value = currentDate;
+listenToDate(currentDate);
+
+</script>
+</body>
+</html>

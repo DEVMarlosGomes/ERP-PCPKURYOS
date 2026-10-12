@@ -1,0 +1,73 @@
+{
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      { "source": "/static/js/9752.048286cd.chunk.js", "destination": "/static/js/9752.masterintegration20261008.chunk.js" },
+      { "source": "/crm1.html", "destination": "/crm-app.html" },
+      { "source": "/crm2.html", "destination": "/crm-app.html" },
+      { "source": "/crm3.html", "destination": "/crm-app.html" },
+      { "source": "/pd.html", "destination": "/crm-app.html" },
+      { "source": "/crm/**", "destination": "/crm-app.html" },
+      { "source": "/pd", "destination": "/crm-app.html" },
+      { "source": "/pd/**", "destination": "/crm-app.html" }
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(svg|png|jpg|jpeg|ico)",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=86400" }
+        ]
+      },
+      {
+        "source": "shared/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=300, must-revalidate" }
+        ]
+      },
+      {
+        "source": "auth_check.js",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=300, must-revalidate" }
+        ]
+      },
+      {
+        "source": "**/*.@(html|json)",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+        ]
+      }
+    ]
+  },
+  "database": {
+    "rules": "database.rules.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "seed-emulator.js"
+      ]
+    }
+  ],
+  "emulators": {
+    "auth": { "port": 9099 },
+    "database": { "port": 9000 },
+    "functions": { "port": 5001 },
+    "hosting": { "port": 5000 },
+    "ui": { "enabled": true, "port": 4000 },
+    "singleProjectMode": true
+  }
+}

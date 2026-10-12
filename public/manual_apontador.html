@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manual do Apontador — Kuryos</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --primary: #0a1c69;
+      --secondary: #1e3a8a;
+      --success: #059669;
+      --warning: #d97706;
+      --text: #1f2937;
+      --muted: #4b5563;
+      --bg: #f9fafb;
+      --card: #ffffff;
+      --border: #e5e7eb;
+    }
+    /* Achado da auditoria de modo escuro: página nunca teve modo escuro
+       (não carrega auth_check.js/shared/theme.css -- é um documento
+       autônomo, impresso via @media print), então em telas com o sistema
+       no escuro ficava clara demais ou com contraste quebrado. Os
+       "selos"/caixas de aviso (badge/.note-card/.intro-box) agora usam
+       color-mix() sobre a cor semântica -- acompanham o tema sozinhos, sem
+       precisar de um par claro/escuro cadastrado pra cada um. */
+    @media (prefers-color-scheme: dark) {
+      :root { color-scheme: dark; --primary:#5e83ea; --secondary:#93b4f5; --success:#34c98f; --warning:#fbbf5c; --text:#f5f5f7; --muted:#98989d; --bg:#000000; --card:#1c1c1e; --border:#38383a; }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: var(--card);
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+      border: 1px solid var(--border);
+    }
+    .header {
+      text-align: center;
+      border-bottom: 3px solid var(--primary);
+      padding-bottom: 20px;
+      margin-bottom: 30px;
+      position: relative;
+    }
+    .header img {
+      height: 45px;
+      margin-bottom: 10px;
+    }
+    .header h1 {
+      font-size: 26px;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .header p {
+      font-size: 14px;
+      color: var(--muted);
+      margin-top: 5px;
+      font-weight: 600;
+    }
+    .intro-box {
+      background: color-mix(in srgb, #3b82f6 16%, var(--card));
+      border-left: 5px solid #3b82f6;
+      padding: 15px 20px;
+      border-radius: 0 8px 8px 0;
+      font-size: 14px;
+      color: color-mix(in srgb, #3b82f6 55%, var(--text));
+      margin-bottom: 30px;
+      font-weight: 500;
+    }
+    .section-title {
+      font-size: 18px;
+      color: var(--primary);
+      margin-top: 30px;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 8px;
+    }
+    .section-title span.icon {
+      font-size: 22px;
+    }
+    .step-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    .step-item {
+      display: flex;
+      gap: 15px;
+      align-items: flex-start;
+    }
+    .step-number {
+      background: var(--primary);
+      color: white;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .step-content strong {
+      color: var(--primary);
+      font-size: 15px;
+    }
+    .step-content p {
+      font-size: 13.5px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .field-guide {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      font-size: 13px;
+    }
+    .field-guide th, .field-guide td {
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      text-align: left;
+    }
+    .field-guide th {
+      background: color-mix(in srgb, var(--text) 6%, var(--card));
+      color: var(--primary);
+      font-weight: 700;
+    }
+    .field-guide td strong {
+      color: var(--text);
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .badge-green { background: color-mix(in srgb, var(--success) 22%, var(--card)); color: var(--success); }
+    .badge-gray { background: color-mix(in srgb, var(--text) 10%, var(--card)); color: var(--muted); }
+    .badge-blue { background: color-mix(in srgb, #3b82f6 20%, var(--card)); color: color-mix(in srgb, #3b82f6 55%, var(--text)); }
+    .badge-red { background: color-mix(in srgb, #dc2626 18%, var(--card)); color: color-mix(in srgb, #dc2626 50%, var(--text)); }
+
+    .note-card {
+      background: color-mix(in srgb, var(--warning) 14%, var(--card));
+      border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--card));
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 20px;
+      font-size: 13px;
+      color: color-mix(in srgb, var(--warning) 65%, var(--text));
+    }
+    .note-card strong {
+      color: var(--warning);
+    }
+    .intro-box.warn {
+      background: color-mix(in srgb, var(--warning) 16%, var(--card));
+      border-left-color: var(--warning);
+      color: color-mix(in srgb, var(--warning) 60%, var(--text));
+    }
+    
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      font-size: 11px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      padding-top: 15px;
+    }
+    
+    @media print {
+      body { background: white; padding: 0; }
+      .container { box-shadow: none; border: none; padding: 0; max-width: 100%; }
+      .step-number { background: #0a1c69 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .badge-green { background: #d1fae5 !important; -webkit-print-color-adjust: exact; }
+      .badge-gray { background: #f3f4f6 !important; -webkit-print-color-adjust: exact; }
+      .badge-blue { background: #dbeafe !important; -webkit-print-color-adjust: exact; }
+      .note-card { background: #fffbeb !important; border: 1px solid #fde68a !important; -webkit-print-color-adjust: exact; }
+      .intro-box { background: #eff6ff !important; border-left: 5px solid #3b82f6 !important; -webkit-print-color-adjust: exact; }
+      .field-guide th { background: #f3f4f6 !important; -webkit-print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+<div style="max-width:860px;margin:0 auto 18px;padding:13px 18px;border-radius:10px;border:1px solid #fbbf24;background:#fffbeb;color:#92400e;font-size:13.5px;font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5"><b>Este manual foi substituído.</b> A versão mantida agora é <a href="manual_apontamento.html" style="color:#0a1c69;font-weight:700">Manual de Apontamento de Produção</a> — veja todos em <a href="manuais.html" style="color:#0a1c69;font-weight:700">Manuais de Operação</a>. Este texto fica no ar apenas para quem guardou o link antigo.</div>
+
+
+<div class="container">
+  <!-- CABEÇALHO -->
+  <div class="header">
+    <img src="kuryos-logo.svg" alt="Kuryos Logo">
+    <h1>Manual do Apontador de Produção</h1>
+    <p>Instrução de Trabalho Simplificada — Chão de Fábrica Kuryos</p>
+  </div>
+
+  <!-- INTRODUÇÃO -->
+  <div class="intro-box">
+    <strong>Quem é o Apontador?</strong> É a pessoa responsável por registrar no sistema o que cada linha e posto de trabalho produziu. Você é a voz e os olhos do PCP na fábrica!
+  </div>
+
+  <!-- STATUS DA CONEXÃO -->
+  <div class="section-title">
+    <span class="icon">🟢</span> Status do Aparelho (Como saber se está funcionando?)
+  </div>
+  <ul class="step-list" style="margin-bottom: 25px;">
+    <li class="step-item">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Olhe o canto direito do cabeçalho da tela:</strong>
+        <p>Deve aparecer uma bolinha verde escrito <span class="badge badge-green">Conectado</span>. Se estiver verde, tudo o que você digitar vai direto para o sistema na hora.</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-content" style="margin-left: 43px;">
+        <strong>E se a bolinha estiver vermelha <span class="badge badge-red">Offline</span>?</strong>
+        <p>Não pare de trabalhar! O Wi-Fi caiu, mas o sistema guarda tudo na memória do aparelho. Um aviso escrito (ex: <em>"3 pendentes"</em>) aparecerá no topo. Assim que você passar perto do roteador, ele envia tudo sozinho!</p>
+      </div>
+    </li>
+  </ul>
+
+  <!-- APONTAMENTO POR ABERTURA E FECHAMENTO DE OP -->
+  <div class="intro-box warn">
+    <strong>Como a Kuryos aponta:</strong> por <strong>abertura e fechamento de OP</strong>, na aba
+    <strong>📦 Apontamento por Total</strong>. Você abre a OP quando a linha começa a trabalhar nela
+    e encerra quando ela para, informando o total produzido. <strong>Não se aponta de hora em
+    hora.</strong> O sistema calcula sozinho o período e o ritmo real (un./h).
+    <br><br>
+    A aba <em>⏱️ Apontamento Horário</em> existe e funciona, mas não é o nosso jeito de trabalhar —
+    e é ela que vem selecionada quando a tela abre. <strong>Confira a aba antes de lançar.</strong>
+  </div>
+
+  <div class="section-title">
+    <span class="icon">▶️</span> 1. Abrindo e fechando a OP
+  </div>
+  <p style="font-size: 13.5px; margin-bottom: 15px; color: var(--muted);"><em>Na aba <strong>📦 Apontamento por Total</strong>, com o turno já iniciado:</em></p>
+
+  <ul class="step-list">
+    <li class="step-item">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Selecione o Turno:</strong>
+        <p>Clique no campo <em>"Turno"</em> e selecione sempre <span class="badge badge-blue">Padrão</span> (ou o turno ativo).</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Selecione o local de trabalho:</strong>
+        <p>Clique no campo <em>"Linha / Posto de Trabalho"</em> e escolha a máquina ou posto que está coletando agora.</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Preencha os dados do produto e contagem:</strong>
+        <p>Use a tabela prática abaixo para saber exatamente o que preencher em cada campo:</p>
+      </div>
+    </li>
+  </ul>
+
+  <!-- TABELA PRÁTICA -->
+  <table class="field-guide">
+    <thead>
+      <tr>
+        <th style="width: 25%;">Nome do Campo</th>
+        <th style="width: 35%;">O que fazer?</th>
+        <th style="width: 40%;">Exemplo / Como fazer?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Lote</strong><br><span class="badge badge-gray">Só para Linhas</span></td>
+        <td>Olhe a folha física da OP que está na máquina. Digite o lote igualzinho está lá.</td>
+        <td>Digite: <code>L-123A</code> ou <code>L26B</code></td>
+      </tr>
+      <tr>
+        <td><strong>Produto</strong></td>
+        <td>Selecione o produto fabricado. <br><strong>Atalho:</strong> Se for muito comum, ele estará no topo em <span style="font-weight: 700;">⭐ Mais Produzidos</span>.</td>
+        <td>Clique em: <code>⭐ Mais Produzidos (Curva A)</code> → Escolha o item.</td>
+      </tr>
+      <tr>
+        <td><strong>Quantidade</strong></td>
+        <td>Digite apenas a quantidade produzida na <strong>última hora</strong>. Use apenas números.</td>
+        <td>Escreva: <code>500</code><br><em>(Nunca coloque ponto ou vírgula!)</em></td>
+      </tr>
+      <tr>
+        <td><strong>Colaboradores</strong></td>
+        <td>Conte quantas pessoas estão trabalhando naquela linha agora e digite.</td>
+        <td>Escreva: <code>2</code> ou <code>3</code></td>
+      </tr>
+      <tr>
+        <td><strong>Operador</strong></td>
+        <td>Digite a primeira letra do seu nome (Apontador) e selecione-o na lista.</td>
+        <td>Digite: <code>G</code> → Clique em <code>Geral</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <ul class="step-list" style="margin-top: 15px;">
+    <li class="step-item">
+      <div class="step-number">4</div>
+      <div class="step-content">
+        <strong>Clique em 💾 SALVAR REGISTRO:</strong>
+        <p>Um aviso verde de Sucesso piscará no meio da tela. O formulário se limpa na hora e está pronto para você digitar a próxima linha!</p>
+      </div>
+    </li>
+  </ul>
+
+  <!-- ENTRADA RETROATIVA -->
+  <div class="section-title">
+    <span class="icon">⚡</span> 2. Esqueceu ou acumulou horas? (Entrada Retroativa)
+  </div>
+  <div class="intro-box warn">
+    <strong>Quando usar?</strong> Use se você ficou preso resolvendo um problema e não conseguiu fazer a ronda por 2 horas ou mais. A entrada retroativa lança as horas passadas automaticamente para você!
+  </div>
+  
+  <ul class="step-list">
+    <li class="step-item">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Abra a caixa cinza "Entrada retroativa por turno":</strong>
+        <p>Clique na setinha para abrir o formulário.</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Preencha os campos normais:</strong>
+        <p>Coloque a Linha, Lote, Produto, Turno e seu nome.</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Informe o horário do atraso:</strong>
+        <p>No campo <em>"Hora Início"</em> coloque quando começou o atraso (ex: <code>08:00</code>) e no <em>"Hora Fim"</em> coloque o horário atual (ex: <code>11:00</code>).</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-number">4</div>
+      <div class="step-content">
+        <strong>Quantidade Acumulada:</strong>
+        <p>Digite a <strong>soma de tudo</strong> o que foi feito nesse tempo (ex: <code>1500</code> unidades totais).</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-number">5</div>
+      <div class="step-content">
+        <strong>Clique em 🚀 REGISTRAR TURNO RETROATIVO:</strong>
+        <p>Pronto! O sistema vai pegar as 1500 peças, dividir pelas 3 horas e lançar <strong>500 peças em cada hora no banco de dados</strong> sozinho. Histórico corrigido!</p>
+      </div>
+    </li>
+  </ul>
+
+  <!-- FINALIZAR OP -->
+  <div class="section-title">
+    <span class="icon">🏁</span> 3. O Lote terminou? (Finalizar OP)
+  </div>
+  <p style="font-size: 13.5px; margin-bottom: 15px; color: var(--muted);"><em>Faça isso toda vez que um lote/OP acabar em uma linha, para dar baixa final e liberar a máquina para o próximo produto:</em></p>
+  
+  <ul class="step-list">
+    <li class="step-item">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Abra a caixa verde "Finalizar OP":</strong>
+        <p>Clique na setinha para abrir as sugestões.</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Selecione a Linha e clique em <em>"Fechar esta OP →"</em>:</strong>
+        <p>O formulário de fechamento abrirá preenchido lá embaixo. Ele vai mostrar o total já apontado naquela OP (ex: <em>"Já apontado: 2.000 un."</em>).</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Digite o Total Geral produzido na OP:</strong>
+        <p>Informe a contagem total física da OP (ex: <code>2250</code> unidades). O sistema calcula as 250 peças finais que restavam na esteira e lança de forma limpa.</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-number">4</div>
+      <div class="step-content">
+        <strong>Informe as perdas item a item:</strong>
+        <p>A tela já lista cada insumo da OP (frasco, válvula, rótulo, caixa…). Pergunte ao operador e digite a quantidade descartada de cada um; no envase, informe também as unidades envasadas descartadas e o bulk perdido (kg). O que não estiver na lista vai em <code>+ Outra perda</code>. Se não houve perda, marque <em>Não houve perda nesta OP</em> — sem essa resposta a OP não fecha.</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-number">5</div>
+      <div class="step-content">
+        <strong>Clique em 🏁 FINALIZAR OP:</strong>
+        <p>A OP será arquivada no PCP, as perdas gravadas para controle e a linha fica liberada imediatamente para o próximo produto!</p>
+      </div>
+    </li>
+  </ul>
+
+  <!-- MATERIAL EM PROCESSO -->
+  <div class="section-title">
+    <span class="icon">📦</span> Sobras, OP parada e Bulk em Bombona
+  </div>
+  <div class="note-card">
+    <strong>📦 Ao encerrar a OP, conte as sobras (é obrigatório).</strong><br>
+    No <strong>Encerrar OP</strong> aparece a lista do que a OP usa: frascos, válvulas, rótulos, caixas,
+    <strong>frascos já rotulados</strong> e o <strong>bulk que sobrou (kg)</strong>. Preencha <strong>todos</strong>
+    os campos: escreva <strong>0</strong> no que não sobrou — campo em branco não deixa encerrar. Em cada linha
+    escolha de quem é o material (<strong>o cliente</strong> ou a <strong>Kuryos</strong>). Se sobrou bulk, informe os <strong>kg</strong>;
+    identificar a <strong>bombona ou tanque</strong> é <strong>opcional</strong> (quando quiserem etiqueta, cadastre em
+    <strong>Material em Processo</strong>).
+    <br><br>
+    <strong>⏸ A OP precisa sair da linha, mas não terminou? Use "Devolver OP à fila".</strong><br>
+    Está no card da linha (ou rotuladora) que tem OP. Exemplo: parou por falta de válvula do cliente e a máquina
+    vai rodar outro produto. Escolha o motivo, <strong>declare o que ficou retido</strong> (frascos rotulados, bulk,
+    componentes) e confirme. A OP <strong>não é encerrada</strong>: tudo que ela produziu continua, a linha fica livre e a
+    pausa é fechada. Quando o material chegar, é só <strong>+ Alocar OP</strong> de novo, em qualquer linha, e
+    continuar de onde parou.
+    <br><br>
+    <strong>🛢️ Bulk em bombona (opcional).</strong> Em <strong>Material em Processo</strong> você pode cadastrar as bombonas e tanques
+    (BB-0001, TQ-0001...), registrar o bulk com lote, validade e dono, e imprimir a <strong>etiqueta</strong> para colar no
+    recipiente. Nada disso é exigido para encerrar ou devolver uma OP.
+  </div>
+
+  <!-- DÚVIDAS RÁPIDAS -->
+  <div class="section-title">
+    <span class="icon">❓</span> Dúvidas Rápidas do Dia a Dia
+  </div>
+  <div class="note-card">
+    <strong>🔄 E se a linha trocar de OP no meio do turno?</strong><br>
+    Encerre a OP atual informando o total produzido nela e abra a OP nova. Se preferir, use o botão
+    <strong>Trocar OP desta linha</strong>, que faz as duas coisas de uma vez. Cada OP fica com o
+    próprio período e o próprio ritmo.
+    <br><br>
+    <strong>⏱️ E se a OP for muito curta?</strong><br>
+    Não muda nada. Abra ao começar e encerre ao terminar, mesmo que passem poucos minutos — o
+    sistema calcula o ritmo pelo tempo real. Em seguida vá na aba <strong>🏁 Fechar Lote (OP)</strong>
+    para encerrar o lote e declarar as perdas. A linha é desocupada na hora.
+    <br><br>
+    <strong>📅 E se eu esqueci de apontar ontem?</strong><br>
+    Use o link <strong>Lançar registro atrasado (turno retroativo)</strong>, logo abaixo das abas.
+  </div>
+
+  <!-- RODAPÉ -->
+  <div class="footer">
+    Kuryos — Sistema Contagem Prod &copy; 2026. Todos os direitos reservados.
+  </div>
+</div>
+
+</body>
+</html>

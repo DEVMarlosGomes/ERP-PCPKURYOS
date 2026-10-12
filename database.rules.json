@@ -1,0 +1,399 @@
+{
+  "rules": {
+    "contadores_lote_interno": {
+      ".read": false,
+      ".write": false
+    },
+    "lotes_internos": {
+      ".read": false,
+      ".write": false
+    },
+    "recebimentos_locks": {
+      ".read": false,
+      ".write": false
+    },
+    "recebimentos_operacoes": {
+      ".read": false,
+      ".write": false
+    },
+    "devolucoes_operacoes": {
+      ".read": false,
+      ".write": false
+    },
+    "config": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('config').val() == true))",
+      // Numeracao de Compras (24/09): SC, cotacao e PC reservam o numero aqui.
+      // Sem isto, quem tem so o modulo Compras tomava PERMISSION_DENIED ao criar
+      // qualquer documento. So sobe -- ninguem volta a numeracao.
+      "contadores": {
+        "solicitacaoCompra": {
+          ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('compras').val() == true)",
+          ".validate": "newData.isNumber() && (!data.exists() || newData.val() > data.val())"
+        },
+        "processoCotacao": {
+          ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('compras').val() == true)",
+          ".validate": "newData.isNumber() && (!data.exists() || newData.val() > data.val())"
+        },
+        "pedidoCompra": {
+          ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('compras').val() == true)",
+          ".validate": "newData.isNumber() && (!data.exists() || newData.val() > data.val())"
+        }
+      }
+    },
+    "usuarios": {
+      ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'rh')",
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((auth.uid == $uid && !data.exists()) || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')"
+      }
+    },
+    "produtos": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))"
+    },
+    "sku_historico": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))"
+    },
+    "insumos": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('pedidos').val() == true))"
+    },
+    "custos_precos": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('compras').val() == true)) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('pedidos').val() == true))"
+    },
+    "clientes": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))"
+    },
+    "materiais": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))"
+    },
+    "historico_materiais": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))"
+    },
+    "formulas": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))"
+    },
+    "bom": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))"
+    },
+    "specs_mp_propostas": {
+      // Sugestoes de especificacao de MP lidas dos laudos antigos do laboratorio (F0070). Nao sao especificacao: viram uma quando a Qualidade confere e salva na aba Especificacoes.
+      ".read": "auth != null",
+      ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'qualidade')"
+    },
+    "especificacoes": {
+      // A Qualidade escreve aqui desde 23/09: a especificacao de materia-prima nasce na analise do lote (aba Especificacoes de qualidade.html). Sem o papel 'qualidade' nesta regra, a analista levava PERMISSION_DENIED ao salvar.
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'qualidade')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('qualidade').val() == true))"
+    },
+    "fornecedores": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('compras').val() == true))"
+    },
+    "solicitacoes_compra": {
+      ".read": "auth != null",
+      "$key": {
+        ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || (root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' && newData.exists()))) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('compras').val() == true)) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('pedidos').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true) && newData.exists())"
+      }
+    },
+    "pedidos_compra": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'logistica')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('compras').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('logistica').val() == true))",
+      "$pedidoKey": {
+        "status": {
+          ".validate": "newData.val() == data.val() || (newData.val() != 'CANCELADO' && data.val() != 'CANCELADO') || root.child('usuarios').child(auth.uid).child('role').val() == 'admin'"
+        }
+      }
+    },
+    "estoque": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'logistica') || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('logistica').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('apontamento').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('manipulacao').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('rotulagem').val() == true))"
+    },
+    "movimentos_estoque": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'logistica') || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem' || root.child('usuarios').child(auth.uid).child('role').val() == 'qualidade')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('logistica').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('qualidade').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('apontamento').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('manipulacao').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('rotulagem').val() == true))"
+    },
+    "estoque_lotes": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'logistica') || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem' || root.child('usuarios').child(auth.uid).child('role').val() == 'qualidade')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('logistica').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('qualidade').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('apontamento').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('manipulacao').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('rotulagem').val() == true))"
+    },
+    "parametros_pa": {".read": "auth != null", ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'qualidade')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('qualidade').val() == true))"},
+    "nao_conformidades": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'qualidade')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('qualidade').val() == true))"
+    },
+    "solicitacoes_descarte": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'logistica')) || (auth != null && root.child('usuarios').child(auth.uid).child('modulos').child('logistica').val() == true)"
+    },
+    "enderecos_estoque": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'logistica')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('logistica').val() == true))"
+    },
+    "estrutura_ruas": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'logistica')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('logistica').val() == true))"
+    },
+    "contagens_inventario": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'logistica')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('logistica').val() == true))"
+    },
+    "cotacoes": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('compras').val() == true))"
+    },
+    "processos_cotacao": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('compras').val() == true))"
+    },
+    "pedidos": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp') || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('pedidos').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true))"
+    },
+    "programacao": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp') || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('planejamento').val() == true))"
+    },
+    "registros": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp') || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('apontamento').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('manipulacao').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('rotulagem').val() == true))"
+    },
+    "estado_linhas": {
+      ".read": "auth != null",
+      "$linha": {
+        ".write": "((auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp') || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('planejamento').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('apontamento').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('manipulacao').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('rotulagem').val() == true))) && !data.child('retrabalhoId').exists() && !newData.child('retrabalhoId').exists()"
+      }
+    },
+    // Material em processo (01/10): bulk em bombona/tanque, sobras e itens retidos
+    // quando a OP sai da linha. Quem opera a fábrica grava; todo logado lê.
+    "bombonas_bulk": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem' || root.child('usuarios').child(auth.uid).child('role').val() == 'logistica')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('apontamento').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('manipulacao').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('rotulagem').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('logistica').val() == true))"
+    },
+    "contador_bombonas": {
+      ".read": "auth != null",
+      "$prefixo": {
+        ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem' || root.child('usuarios').child(auth.uid).child('role').val() == 'logistica')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('apontamento').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('manipulacao').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('rotulagem').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('logistica').val() == true))",
+        ".validate": "newData.isNumber() && (!data.exists() || newData.val() > data.val())"
+      }
+    },
+    "material_processo": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem' || root.child('usuarios').child(auth.uid).child('role').val() == 'logistica')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('apontamento').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('manipulacao').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('rotulagem').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('logistica').val() == true))"
+    },
+    // Validação da Qualidade dos frascos rotulados (intermediário) por OP (05/10): o PCP só conta
+    // o estoque intermediário como utilizável depois do LIBERADO. Todo autenticado lê.
+    "qualidade_intermediarios": {
+      ".read": "auth != null",
+      "$opKey": {
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'qualidade' || root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('qualidade').val() == true)",
+        ".validate": "!newData.exists() || (newData.hasChildren(['status', 'por', 'em']) && (newData.child('status').val() == 'LIBERADO' || newData.child('status').val() == 'REPROVADO' || newData.child('status').val() == 'PENDENTE'))"
+      }
+    },
+    "perdas": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp') || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('apontamento').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('manipulacao').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('rotulagem').val() == true))"
+    },
+    // Sequencia por setor (29/09): so a decisao do PCP -- ordem e recurso de
+    // cada OP por setor e o ritmo de cada recurso. O estado da etapa vem da
+    // propria OP. Todo autenticado le (cada setor consulta a sua fila).
+    "sequenciamento": {
+      ".read": "auth != null",
+      ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('modulos').child('emitir_op').val() == true)",
+      "ordem": {
+        "$setor": {
+          ".validate": "$setor == 'separacao' || $setor == 'manipulacao' || $setor == 'envase' || $setor == 'rotulagem'",
+          "$opKey": {
+            "posicao": {".validate": "newData.isNumber() && newData.val() >= 1"},
+            "recurso": {".validate": "newData.isString() && newData.val().length <= 80"},
+            "$outro": {".validate": false}
+          }
+        }
+      },
+      "ritmos": {
+        "$setor": {
+          "$recurso": {
+            "unPorHora": {".validate": "newData.isNumber() && newData.val() > 0"},
+            "horasPorLote": {".validate": "newData.isNumber() && newData.val() > 0"},
+            "horasPorOp": {".validate": "newData.isNumber() && newData.val() > 0"},
+            "$outro": {".validate": false}
+          }
+        }
+      },
+      "atualizadoEm": {".validate": "newData.isString()"},
+      "atualizadoPor": {".validate": "newData.isString()"},
+      "$outro": {".validate": false}
+    },
+    "ops": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp') || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('planejamento').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('emitir_op').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('apontamento').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('manipulacao').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('rotulagem').val() == true))",
+      "$opKey": {
+        "separacaoParcial": {
+          ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'logistica' || root.child('usuarios').child(auth.uid).child('modulos').child('logistica').val() == true)"
+        },
+        "separacaoConcluida": {
+          ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'logistica' || root.child('usuarios').child(auth.uid).child('modulos').child('logistica').val() == true)"
+        },
+        "manipulacao": {
+          ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'qualidade' || root.child('usuarios').child(auth.uid).child('modulos').child('conferencia_pesagem').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('qualidade').val() == true)"
+        },
+        ".validate": "(!data.child('abertaLinha').exists() || !newData.child('abertaLinha').exists() || data.child('abertaLinha').val() == newData.child('abertaLinha').val() || (auth != null && root.child('usuarios').child(auth.uid).child('role').val() == 'admin')) && (newData.child('status').val() == 'Concluído' || newData.child('status').val() == 'Cancelado' || newData.child('status').val() == 'Aguardando Confirmação' || !newData.child('abertaDesde').exists() || !newData.child('abertaLinha').exists() || !root.child('retrabalhos_linhas').child(newData.child('abertaLinha').val()).exists())"
+      }
+    },
+    "pedidos_comerciais": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('pedidos').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true))"
+    },
+    "devolucoes_cliente": {
+      ".read": "auth != null",
+      "$dev": {
+        ".write": "auth != null && ((root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp') || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true) && (!data.exists() ? newData.child('status').val() == 'AUTORIZADA' : (data.child('status').val() == 'AUTORIZADA' && newData.child('status').val() == 'CANCELADA'))"
+      }
+    },
+    "contadores_devolucao": {
+      ".read": "auth != null",
+      "$ano": {
+        ".write": "auth != null && ((root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp') || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true)",
+        ".validate": "newData.isNumber() && (!data.exists() || newData.val() == data.val() + 1)"
+      }
+    },
+    "pendencias_pcp": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('pedidos').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('planejamento').val() == true))"
+    },
+    "orcamentos": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true))"
+    },
+    "precos_venda": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true))"
+    },
+    "solicitacoes_cadastro_produto": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))"
+    },
+    "notificacoes_comercial": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true)"
+    },
+    "comercial_eventos": {
+      ".read": "auth != null",
+      "$documento": {
+        "$evento": {
+          ".write": "auth != null && !data.exists() && newData.exists() && ((root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp') || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true)"
+        }
+      }
+    },
+    "documentos_comerciais": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true)"
+    },
+    "expedicoes_comerciais": {
+      ".read": "auth != null",
+      ".write": false
+    },
+    "agendamentos_expedicao": {
+      ".read": "auth != null",
+      ".write": false
+    },
+    "conferencias_pa": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'logistica')) || (auth != null && root.child('usuarios').child(auth.uid).child('modulos').child('logistica').val() == true)"
+    },
+    "ajustes_planejamento": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp') || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('planejamento').val() == true))"
+    },
+    "alertas_pendentes": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp') || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('planejamento').val() == true))"
+    },
+    "alocacoes_planejamento": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp') || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('planejamento').val() == true))"
+    },
+    "atividadesPosto": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp') || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('apontamento').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('manipulacao').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('rotulagem').val() == true))"
+    },
+    "turnosEncerrados": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp') || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('apontamento').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('manipulacao').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('rotulagem').val() == true))"
+    },
+    "turnosIniciados": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp') || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('apontamento').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('manipulacao').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('rotulagem').val() == true))"
+    },
+    "intervalosApontados": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp') || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('apontamento').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('manipulacao').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('rotulagem').val() == true))"
+    },
+    "paradas_historico": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp') || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('apontamento').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('manipulacao').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('rotulagem').val() == true))"
+    },
+    "rh_cargos": {
+      ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'rh' || root.child('usuarios').child(auth.uid).child('role').val() == 'gestor' || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')",
+      ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'rh' || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')"
+    },
+    "rh_colaboradores": {
+      ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'rh' || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')",
+      ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'rh' || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')"
+    },
+    "rh_colaboradores_publico": {
+      ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'rh' || root.child('usuarios').child(auth.uid).child('role').val() == 'gestor' || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')",
+      ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'rh' || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')"
+    },
+    "rh_modelo_avaliacao": {
+      ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'rh' || root.child('usuarios').child(auth.uid).child('role').val() == 'gestor' || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')",
+      ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'rh' || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')"
+    },
+    "rh_avaliacoes": {
+      ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'rh' || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')",
+      "$avKey": {
+        ".read": "auth != null && root.child('usuarios').child(auth.uid).child('role').val() == 'gestor' && data.child('avaliadorUid').val() == auth.uid",
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'rh' || root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || (root.child('usuarios').child(auth.uid).child('role').val() == 'gestor' && (!data.exists() || data.child('avaliadorUid').val() == auth.uid) && newData.child('avaliadorUid').val() == auth.uid && root.child('rh_colaboradores_publico').child(root.child('rh_colaboradores_publico').child(newData.child('colaboradorId').val()).child('gestorKey').val()).child('uidLogin').val() == auth.uid))"
+      }
+    },
+    "rh_avaliacoes_por_avaliador": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid == $uid || root.child('usuarios').child(auth.uid).child('role').val() == 'rh' || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+    "rh_ferias": {
+      ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'rh' || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')",
+      "$key": {
+        ".read": "auth != null && root.child('usuarios').child(auth.uid).child('role').val() == 'gestor' && root.child('rh_colaboradores_publico').child(root.child('rh_colaboradores_publico').child(data.child('colaboradorId').val()).child('gestorKey').val()).child('uidLogin').val() == auth.uid",
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'rh' || root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || (root.child('usuarios').child(auth.uid).child('role').val() == 'gestor' && root.child('rh_colaboradores_publico').child(root.child('rh_colaboradores_publico').child(newData.child('colaboradorId').val()).child('gestorKey').val()).child('uidLogin').val() == auth.uid && ((!data.exists() && newData.child('status').val() == 'Solicitada') || (data.exists() && data.child('status').val() == 'Solicitada' && (newData.child('status').val() == 'Aprovada pelo gestor' || newData.child('status').val() == 'Recusada')))))"
+      }
+    },
+    "rh_ferias_por_gestor": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid == $uid || root.child('usuarios').child(auth.uid).child('role').val() == 'rh' || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')",
+        ".write": "auth != null && (auth.uid == $uid || root.child('usuarios').child(auth.uid).child('role').val() == 'rh' || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')"
+      }
+    },
+    "rearranjos_linhas": {
+      ".read": "auth != null && root.child('usuarios').child(auth.uid).child('role').val() == 'admin'",
+      ".write": false
+    },
+    "retrabalhos": {
+      ".read": "auth != null",
+      ".write": false
+    },
+    "retrabalhos_linhas": {
+      ".read": "auth != null",
+      ".write": false
+    }
+  }
+}

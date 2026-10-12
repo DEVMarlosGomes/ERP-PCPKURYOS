@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Emissão de OP</title>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://erpkuryos-default-rtdb.firebaseio.com">
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+  <script src="shared/utils.js"></script>
+  <script src="shared/itens-cadastro.js"></script>
+  <script src="shared/qrcode-lib.js"></script>
+  <script src="shared/etiqueta-caixa.js"></script>
+  <script src="auth_check.js"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="shared/theme.css">
+  <link rel="stylesheet" href="shared/fichas-op.css">
+  <style>
+    :root{--primary:#0a1c69;--primary-light:#2456d6;--success:#0ca30c;--danger:#d03b3b;--warning:#c9910a;--bg:#f5f5f7;--card:#fff;--border:#d2d2d7;--text:#1d1d1f;--muted:#6e6e73;--surface-2:#f9fafb;--tint-green-bg:#d1fae5;--tint-green-fg:#065f46;--tint-red-bg:#fee2e2;--tint-red-fg:#991b1b;--tint-gray-bg:#f3f4f6;--tint-orange-bg:#fff7ed;--tint-orange-fg:#c2410c}
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --primary:#5e83ea; --bg:#000000; --card:#1c1c1e; --border:#38383a; --text:#f5f5f7; --muted:#98989d; --surface-2:#242426; --tint-green-bg:rgba(16,185,129,.18); --tint-green-fg:#6ee7b7; --tint-red-bg:rgba(239,68,68,.18); --tint-red-fg:#fca5a5; --tint-gray-bg:rgba(255,255,255,.08); --tint-orange-bg:rgba(251,146,60,.18); --tint-orange-fg:#fdba74; } }
+    :root[data-theme="dark"] { color-scheme: dark; --primary:#5e83ea; --bg:#000000; --card:#1c1c1e; --border:#38383a; --text:#f5f5f7; --muted:#98989d; --surface-2:#242426; --tint-green-bg:rgba(16,185,129,.18); --tint-green-fg:#6ee7b7; --tint-red-bg:rgba(239,68,68,.18); --tint-red-fg:#fca5a5; --tint-gray-bg:rgba(255,255,255,.08); --tint-orange-bg:rgba(251,146,60,.18); --tint-orange-fg:#fdba74; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:var(--font-ui);background:var(--bg);color:var(--text);min-height:100vh}
+    .header{padding:26px 0 6px;display:flex;align-items:flex-start;justify-content:space-between;max-width:96%;margin:0 auto}
+    .header h1{font-size:28px;font-weight:700;letter-spacing:-.02em}
+    .header-sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+    .status-pill{display:flex;align-items:center;gap:6px;background:color-mix(in srgb, var(--text) 6%, transparent);border-radius:20px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--muted)}
+    .dot{width:8px;height:8px;border-radius:50%;background:#94a3b8}
+    .dot.on{background:var(--success);animation:p 2s infinite}
+    @keyframes p{0%,100%{opacity:1}50%{opacity:.4}}
+    @media(prefers-reduced-motion:reduce){.dot.on{animation:none}}
+    .main{padding:16px 0 60px;max-width:820px;margin:0 auto}
+    .card{background:var(--card);border-radius:18px;box-shadow:var(--shadow);margin-bottom:14px;padding:20px;border-left:4px solid var(--primary)}
+    .card-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}
+    .alert{padding:12px 16px;border-radius:8px;font-size:13px;font-weight:500;margin-bottom:12px;display:none}
+    .alert.show{display:block}
+    .alert-success{background:var(--tint-green-bg);color:var(--tint-green-fg);border:1px solid color-mix(in srgb, var(--tint-green-fg) 40%, transparent)}
+    .alert-danger{background:var(--tint-red-bg);color:var(--tint-red-fg);border:1px solid color-mix(in srgb, var(--tint-red-fg) 40%, transparent)}
+    .alert-warning{background:var(--tint-orange-bg);color:var(--tint-orange-fg);border:1px solid color-mix(in srgb, var(--tint-orange-fg) 40%, transparent);display:block}
+    .btn{padding:9px 18px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s}
+    .btn-green{background:var(--success);color:white}.btn-green:hover{filter:brightness(.9)}
+    .btn-primary{background:var(--primary);color:white}.btn-primary:hover{filter:brightness(.9)}
+    .btn-ghost{background:var(--card);border:1.5px solid var(--border);color:var(--text)}.btn-ghost:hover{background:var(--surface-2)}
+    .btn-sm{padding:5px 10px;font-size:12px}
+    .btn:disabled{opacity:.45;cursor:not-allowed}
+    label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px}
+    input[type=text],input[type=number],select{width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;color:var(--text);background:var(--card)}
+    input:focus,select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent)}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .form-group{margin-bottom:0}
+    .field-hint{font-size:11px;color:var(--muted);margin-top:3px}
+    .radio-row{display:flex;gap:16px;margin-bottom:12px}
+    .radio-opt{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+    .radio-opt input{width:auto}
+    table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+    thead th{background:var(--surface-2);padding:7px 10px;text-align:left;font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+    td{padding:7px 10px;border-bottom:1px solid var(--tint-gray-bg)}
+    .num{text-align:right;font-variant-numeric:tabular-nums}
+    .badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700}
+    .badge-green{background:var(--tint-green-bg);color:var(--tint-green-fg)}
+    .badge-orange{background:var(--tint-orange-bg);color:var(--tint-orange-fg)}
+    .resumo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
+    .resumo-item{background:var(--surface-2);border-radius:8px;padding:10px;text-align:center}
+    .resumo-val{font-size:18px;font-weight:700;color:var(--primary)}
+    .resumo-lbl{font-size:10.5px;color:var(--muted);text-transform:uppercase;margin-top:2px}
+    .produto-opt{padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--tint-gray-bg)}
+    .produto-opt:hover{background:var(--surface-2)}
+    .empty-state{text-align:center;padding:40px 20px;color:var(--muted)}
+    .aloc-opt{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;margin-bottom:8px}
+    .aloc-opt:hover{border-color:var(--primary)}
+    .aloc-opt.sel{border-color:var(--primary);background:var(--tint-green-bg)}
+    .aloc-opt-info{flex:1;font-size:12.5px}
+    .aloc-opt-info b{font-size:13px}
+    .aloc-opt-meta{color:var(--muted);font-size:11px;margin-top:2px}
+
+    /* Modal de substituição de material -- pedido do usuário: "campo de
+       pesquisa que traga maiores detalhes sobre o item, pra conseguir
+       substituir dentro da mesma tela, sem precisar sair pra pesquisar"
+       (antes era um prompt() com lista numerada em texto puro, sem
+       nenhum detalhe técnico pra decidir com segurança). Mesmo padrão
+       visual de modal já usado em materiais.html/cadastros.html. */
+    .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+    .modal-bg.open{display:flex}
+    .modal{background:var(--card);border-radius:14px;width:100%;max-width:560px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden}
+    .modal-header{background:linear-gradient(135deg,#1e3a8a,var(--primary));color:white;padding:16px 20px;display:flex;align-items:center;justify-content:space-between}
+    .modal-header h2{font-size:15px;font-weight:700}
+    .modal-close{background:none;border:none;color:white;font-size:22px;cursor:pointer;line-height:1;opacity:.8}
+    .modal-body{padding:16px 20px;max-height:70vh;overflow-y:auto}
+    .modal-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;background:var(--surface-2)}
+    .subst-lista{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+    .subst-opt{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;text-align:left;width:100%;background:var(--card);font-family:inherit}
+    .subst-opt:hover{border-color:var(--primary);background:var(--surface-2)}
+    .subst-opt.subst-atual{border-color:var(--success);background:var(--tint-green-bg)}
+    .subst-opt-info{font-size:12.5px}
+    .subst-opt-info b{font-size:13px}
+    .subst-opt-det{color:var(--muted);font-size:11px;margin-top:2px}
+    .subst-opt-un{font-size:11px;color:var(--muted);white-space:nowrap}
+
+    /* Impressão das fichas de OP: shared/fichas-op.css (etiquetas de caixa:
+       shared/etiqueta-caixa.js, janela própria)
+       (bloco único, compartilhado com ops.html -- ver o comentário lá). */
+    @media(max-width:600px){.form-grid{grid-template-columns:1fr}.resumo-grid{grid-template-columns:1fr 1fr}}
+  </style>
+</head>
+<body class="kuryos-theme has-sidebar">
+<div class="header">
+  <div>
+    <h1>Emissão de OP</h1>
+    <div class="header-sub">Calcula o lote a partir da fórmula aprovada e gera o registro de produção</div>
+  </div>
+  <div class="status-pill"><div class="dot" id="sDot"></div><span id="sTxt">Conectando...</span></div>
+</div>
+
+<div class="main">
+  <div id="alertBox" class="alert alert-success"></div>
+
+  <!-- 1. Produto -->
+  <div class="card">
+    <div class="card-title">1. Produto</div>
+    <div style="position:relative">
+      <input type="text" id="fProdutoBusca" placeholder="Buscar por SKU ou descrição..." autocomplete="off">
+      <div id="produtoResultados" style="display:none;position:absolute;z-index:20;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);max-height:260px;overflow-y:auto;width:100%;margin-top:4px"></div>
+    </div>
+    <div id="produtoInfo" style="display:none;margin-top:12px">
+      <div style="font-weight:700;font-size:15px" id="produtoNomeLabel"></div>
+      <div class="field-hint" id="produtoDetalheLabel"></div>
+      <div id="formulaWarning" class="alert alert-warning" style="display:none;margin-top:10px"></div>
+    </div>
+  </div>
+
+  <!-- 2. Vincular a um pedido -->
+  <div id="cardAlocacao" class="card" style="display:none">
+    <div class="card-title">2. Vincular a um pedido</div>
+    <div class="field-hint" style="margin-bottom:10px">Toda OP deve sair vinculada a um pedido -- é assim que ele conta como atendido e a OP fica rastreável. "Emitir sem vincular" é só pra exceção de verdade (amostra, teste, retrabalho sem pedido).</div>
+    <div id="alocacaoLista"></div>
+  </div>
+
+  <!-- 3. Dimensionamento -->
+  <div id="cardDimensionamento" class="card" style="display:none">
+    <div class="card-title">3. Dimensionamento do Lote</div>
+    <div id="dimensionamentoErro" class="alert alert-danger" style="display:none;margin-bottom:10px"></div>
+    <div id="bomWarning" class="alert alert-warning" style="display:none;margin-bottom:10px"></div>
+    <div class="radio-row">
+      <label class="radio-opt"><input type="radio" name="modoQtd" value="massa" checked> Informar massa total (kg)</label>
+      <label class="radio-opt"><input type="radio" name="modoQtd" value="pecas"> Informar peças desejadas</label>
+    </div>
+    <div class="form-grid">
+      <div class="form-group" id="grpMassa">
+        <label>Massa total de fabricação (kg)</label>
+        <input type="number" id="fMassaTotal" min="0" step="any" placeholder="Ex: 800">
+      </div>
+      <div class="form-group" id="grpPecas" style="display:none">
+        <label>Peças desejadas</label>
+        <input type="number" id="fPecasDesejadas" min="0" step="1" placeholder="Ex: 8000">
+      </div>
+      <div class="form-group">
+        <label>Densidade do granel (g/ml)</label>
+        <input type="number" id="fDensidade" min="0" step="any">
+        <div class="field-hint">Obrigatório pra todo produto (mesmo os cadastrados por peso) -- vem do cadastro quando existe, senão estime aqui. Ajuste se tiver valor medido mais recente pra esse lote.</div>
+      </div>
+      <div class="form-group">
+        <label>Overfill (%)</label>
+        <input type="number" id="fOverfill" min="0" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Perda de processo (%)</label>
+        <input type="number" id="fPerdaProcesso" min="0" step="0.01">
+      </div>
+    </div>
+    <div class="resumo-grid" id="resumoCalc">
+      <div class="resumo-item"><div class="resumo-val" id="rPecas">—</div><div class="resumo-lbl">Peças previstas</div></div>
+      <div class="resumo-item"><div class="resumo-val" id="rPesoUn">—</div><div class="resumo-lbl">Peso teórico da unidade (g)</div></div>
+      <div class="resumo-item"><div class="resumo-val" id="rVolumeUn">—</div><div class="resumo-lbl">Volume teórico da unidade (mL)</div></div>
+      <div class="resumo-item"><div class="resumo-val" id="rMassa">—</div><div class="resumo-lbl">Massa do lote (kg)</div></div>
+      <div class="resumo-item"><div class="resumo-val" id="rVolume">—</div><div class="resumo-lbl">Volume total do batch (L)</div></div>
+      <div class="resumo-item"><div class="resumo-val" id="rValidade">—</div><div class="resumo-lbl">Validade</div></div>
+    </div>
+  </div>
+
+  <!-- 3. Materiais -->
+  <div id="cardMateriais" class="card" style="display:none">
+    <div class="card-title">4. Consumo de Materiais (fórmula + embalagem)</div>
+    <table>
+      <thead><tr><th>Material</th><th>Origem</th><th class="num">%</th><th class="num">Quantidade</th><th class="num">Estoque atual</th><th></th></tr></thead>
+      <tbody id="materiaisBody"></tbody>
+    </table>
+    <div class="field-hint" style="margin-top:8px">"Substituir" troca só o consumo dessa OP -- não altera a fórmula/BOM cadastrada. O estoque é uma referência visual e não bloqueia a emissão.</div>
+  </div>
+
+  <!-- 4. Emissão -->
+  <div id="cardEmissao" class="card" style="display:none">
+    <div class="card-title">5. Confirmar Emissão</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Cliente</label>
+        <input type="text" id="fCliente" readonly>
+      </div>
+      <div class="form-group">
+        <label>Emitido por</label>
+        <input type="text" id="fEmitidoPor" readonly>
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:10px">
+      <button class="btn btn-green" id="btnEmitir">Emitir OP</button>
+    </div>
+  </div>
+
+  <!-- 5. Pós-emissão -->
+  <div id="cardSucesso" class="card" style="display:none;text-align:center">
+    <div style="font-size:32px">✅</div>
+    <div style="font-size:18px;font-weight:700;margin:8px 0">OP <span id="loteEmitido"></span> emitida com sucesso</div>
+    <!-- Pedido do usuário: "preciso poder selecionar quais fichas serão
+         emitidas, temos itens que não são rotulados por exemplo" -- todas
+         marcadas por padrão (comportamento de sempre, preservado), some
+         só a que a pessoa desmarcar pra ESTA impressão. -->
+    <div style="text-align:left;max-width:420px;margin:14px auto 0">
+      <div class="field-hint" style="font-weight:700;margin-bottom:6px">Fichas a imprimir</div>
+      <div style="display:flex;flex-direction:column;gap:5px;font-size:13px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" class="ficha-check" value="op1" checked> OP 1 (Separação)</label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" class="ficha-check" value="of" checked> OF (Ordem de Fabricação)</label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" class="ficha-check" value="envase" checked> Ordem de Envase</label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" class="ficha-check" value="rotulagem" checked> Rotulagem</label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" class="ficha-check" value="relatorioPA" checked> Relatório de Produto Acabado</label>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap">
+      <button class="btn btn-primary" id="btnImprimir">🖨 Abrir documento pra impressão</button>
+      <button class="btn btn-primary" id="btnImprimirEtiquetas">🏷️ Imprimir etiquetas de caixa</button>
+      <button class="btn btn-ghost" id="btnNovaOp">Emitir outra OP</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de substituição de material -->
+<div class="modal-bg" id="substModalBg">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="substModalTitle">Substituir material</h2>
+      <button class="modal-close" id="substModalClose" title="Fechar" aria-label="Fechar">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Buscar</label>
+        <input type="text" id="substBusca" placeholder="Código, nome, cor, gargalo/rosca, resina, INCI...">
+        <div class="field-hint" id="substContagem"></div>
+      </div>
+      <div class="subst-lista" id="substLista"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="substModalCancelBtn">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Documento de impressão -->
+<div id="printArea"></div>
+
+<script>
+var firebaseConfig = {
+  apiKey: "AIzaSyBvASzcbKyv3uW7NBzDFDyLsKls3An3UUs",
+  authDomain: "erpkuryos.firebaseapp.com",
+  databaseURL: kuryosDatabaseURL("https://erpkuryos-default-rtdb.firebaseio.com"),
+  projectId: "erpkuryos",
+  storageBucket: "erpkuryos.firebasestorage.app",
+  messagingSenderId: "272752392739",
+  appId: "1:272752392739:web:047a6c4aa60145d77f4f96"
+};
+firebase.initializeApp(firebaseConfig);
+kuryosConnectEmulatorsIfLocal();
+var db = firebase.database();
+
+var allProdutos = {}, allMateriais = {}, allFormulas = {}, allBom = {}, allEspecificacoes = {}, allEstoque = {}, configData = {};
+var allAlocacoes = {}, allOps = {}, allPedidos = {}, configPlanejamento = {diasSemana:[1,2,3,4,5], feriados:{}};
+var produtoSelecionado = null; // {key, ...campos}
+var formulaEscolhida = null;   // registro de formulas/ escolhido (APROVADA de preferência)
+var bomEscolhido = null;
+var pedidoVinculado = null; // {pedidoKey, pedido, aloc} -- aloc é opcional (só se houver bloco congelado casando). null = OP avulsa.
+var vinculoJaEscolhido = false; // true assim que alguma seleção (automática ou manual) acontece pro produto atual -- ver renderAlocacoesDoProduto
+var calc = null;               // resultado do dimensionamento
+var materiaisConsumo = {};     // itemKey local -> {mpCodigo, mpNome, quantidade, unidade, origem, substituiMpCodigo}
+var opJaEmitida = null;        // dados da OP recém-emitida, pra imprimir
+
+// norm() vem de shared/utils.js -- normalização única do sistema (minúscula,
+// sem acento). Havia uma cópia local aqui, e as 12 cópias divergiam entre si.
+function showAlert(msg, type) {
+  var box = document.getElementById('alertBox');
+  box.className = 'alert alert-' + (type || 'success') + ' show';
+  box.textContent = msg;
+  setTimeout(function() { box.classList.remove('show'); }, 6000);
+}
+function setStatus(on, txt) {
+  document.getElementById('sDot').className = 'dot' + (on ? ' on' : '');
+  document.getElementById('sTxt').textContent = txt;
+}
+function parseVersaoNum(v) { return parseInt(String(v || 'v0').replace(/[^\d]/g, ''), 10) || 0; }
+function chaveVersao(codProduto, versao) { return codProduto + '__' + versao; }
+
+/* ── Busca de produto ── */
+function renderProdutoResultados(termo) {
+  var el = document.getElementById('produtoResultados');
+  var t = norm(termo);
+  if (!t) { el.style.display = 'none'; return; }
+  var matches = Object.entries(allProdutos).filter(function(entry) {
+    var p = entry[1];
+    return norm(p.sku).indexOf(t) !== -1 || norm(p.descricao).indexOf(t) !== -1;
+  }).slice(0, 30);
+  el.innerHTML = matches.length
+    ? matches.map(function(entry) {
+        var key = entry[0], p = entry[1];
+        return '<div class="produto-opt" data-key="' + escapeAttr(key) + '"><b>' + escapeHtml(p.sku || key) + '</b> — ' + escapeHtml(p.descricao || '') + '</div>';
+      }).join('')
+    : '<div style="padding:10px;color:var(--muted);font-size:13px">Nenhum produto encontrado.</div>';
+  el.style.display = 'block';
+  el.querySelectorAll('.produto-opt').forEach(function(div) {
+    div.addEventListener('click', function() { selecionarProduto(div.getAttribute('data-key')); });
+  });
+}
+
+/* ── Vínculo com Programação (Fase 1 do plano "Emissão de OP nativa") ──
+   Achado do usuário, corrigindo a primeira versão desta tela: ela só
+   oferecia vínculo via alocacoes_planejamento (bloco "congelado" em
+   horizonte.html) -- só que esse nó está VAZIO em produção (ninguém usa
+   o botão de congelar ainda), então TODA emissão caía em "sem vincular"
+   por padrão, mesmo com pedido ativo esperando. O pedido do usuário foi
+   claro: "sempre temos que emitir OPs com pedido vinculado, só em
+   extremas exceções" -- então o vínculo primário agora é direto no
+   `pedidos/{key}`, sem depender de ninguém ter congelado nada antes.
+   A key do próprio nó pedidos/{key} já É o skuPedidoKey que o resto do
+   sistema usa (mesmo formato de functions/index.js: sanitizeKey(id) +
+   "__" + sanitizeKey(sku)) -- não precisa reconstruir nada.
+   alocacoes_planejamento continua consultado como ENRIQUECIMENTO
+   opcional: se existir um bloco congelado pra esse pedido específico,
+   ele empresta linha/semana pra auto-programação e é consumido
+   (qtdConsumida) como antes; se não existir (caso comum hoje), o
+   vínculo com o pedido acontece do mesmo jeito, só sem auto-programação
+   automática (a OP cai na fila "OPs aguardando programação", igual
+   qualquer emissão sem alocação já caía). */
+function fmtDataBRCurta(ymd) {
+  if (!ymd) return '—';
+  var p = ymd.split('-');
+  return p.length === 3 ? (p[2] + '/' + p[1]) : ymd;
+}
+
+function pedidosDoProduto(sku) {
+  return Object.keys(allPedidos).filter(function(key) {
+    var p = allPedidos[key];
+    if (!p || p.sku !== sku || isConcluido(p)) return false;
+    return ((p.qtdTotal || 0) - (p.produzido || 0)) > 0;
+  }).sort(function(x, y) {
+    var pa = allPedidos[x].priority, pb = allPedidos[y].priority;
+    if (pa == null && pb == null) return 0;
+    if (pa == null) return 1;
+    if (pb == null) return -1;
+    return pa - pb;
+  });
+}
+// Alocação congelada específica pra este pedido, se houver -- só usada
+// como bônus de programação (linha/semana), nunca como pré-requisito
+// pra vincular.
+function alocacaoCongeladaDoPedido(pedidoKey) {
+  var id = Object.keys(allAlocacoes).find(function(k) {
+    var a = allAlocacoes[k];
+    return a && a.pedidoKey === pedidoKey && a.status === 'congelado' && ((a.qtd || 0) - (a.qtdConsumida || 0)) > 0;
+  });
+  return id ? Object.assign({ id: id }, allAlocacoes[id]) : null;
+}
+
+function renderAlocacoesDoProduto() {
+  if (!produtoSelecionado) return;
+  var keys = pedidosDoProduto(produtoSelecionado.sku);
+  // Auto-seleciona o pedido de maior prioridade assim que a lista carrega
+  // (ou muda de produto) -- "avulsa" nunca é o padrão quando existe pedido
+  // pra vincular. Achado ao testar: checar só "!pedidoVinculado" aqui
+  // criava um loop -- se o usuário clicasse em "Emitir sem vincular" de
+  // propósito, pedidoVinculado virava null, e a PRÓPRIA re-renderização
+  // que o clique dispara auto-selecionava de novo, sem deixar escolher
+  // avulsa nunca. vinculoJaEscolhido existe só pra isso: marca que já
+  // houve UMA escolha (automática ou manual) pra este produto -- só
+  // reseta quando troca de produto (selecionarProduto).
+  if (keys.length && !vinculoJaEscolhido) selecionarVinculo(keys[0]);
+  var el = document.getElementById('alocacaoLista');
+  var htmlOpcoes = keys.map(function(key) {
+    var p = allPedidos[key];
+    var saldo = (p.qtdTotal || 0) - (p.produzido || 0);
+    var aloc = alocacaoCongeladaDoPedido(key);
+    var sel = pedidoVinculado && pedidoVinculado.pedidoKey === key;
+    return '<div class="aloc-opt' + (sel ? ' sel' : '') + '" data-key="' + escapeAttr(key) + '">' +
+      '<div class="aloc-opt-info"><b>Pedido ' + escapeHtml(p.id || key) + ' · ' + escapeHtml(p.cliente || '—') + '</b>' +
+      '<div class="aloc-opt-meta">Saldo: ' + fmtNum(saldo) + ' de ' + fmtNum(p.qtdTotal || 0) + ' un.' +
+        (p.priority != null ? ' · prioridade ' + p.priority : '') +
+        (aloc ? ' · 📅 já tem bloco programado (' + escapeHtml(aloc.linha || '?') + ')' : '') +
+      '</div></div>' +
+      (sel ? '<span class="badge badge-green">Selecionado</span>' : '') +
+    '</div>';
+  }).join('');
+  var semVinculoSel = !pedidoVinculado;
+  var htmlSemVinculo = '<div class="aloc-opt' + (semVinculoSel ? ' sel' : '') + '" data-key="">' +
+    '<div class="aloc-opt-info"><b>⚠️ Emitir sem vincular (OP avulsa)</b>' +
+    '<div class="aloc-opt-meta">Só use pra exceção de verdade -- amostra, teste, retrabalho sem pedido. Não conta pra atendimento de nenhum pedido.</div></div>' +
+    (semVinculoSel ? '<span class="badge badge-orange">Selecionado</span>' : '') +
+  '</div>';
+  el.innerHTML = htmlOpcoes + htmlSemVinculo +
+    (keys.length ? '' : '<div class="field-hint" style="margin-top:2px">Nenhum pedido ativo com saldo pendente pra este produto -- confira em Pedidos se o pedido certo está cadastrado e não concluído.</div>');
+  el.querySelectorAll('.aloc-opt').forEach(function(div) {
+    div.addEventListener('click', function() { selecionarVinculo(div.getAttribute('data-key')); });
+  });
+}
+
+function selecionarVinculo(pedidoKey) {
+  pedidoVinculado = pedidoKey ? { pedidoKey: pedidoKey, pedido: allPedidos[pedidoKey], aloc: alocacaoCongeladaDoPedido(pedidoKey) } : null;
+  vinculoJaEscolhido = true; // ANTES de renderizar de novo, senão o auto-select da própria renderização desfaz esta escolha
+  renderAlocacoesDoProduto();
+}
+
+// melhorFormulaDoProduto vem de shared/utils.js -- era uma cópia local
+// duplicada aqui (só olhava allFormulas.status), removida a favor da
+// versão compartilhada, que agora sabe exigir Fórmula+BOM+Especificação
+// TODAS aprovadas quando os 3 coletores são passados (é o caso aqui:
+// emissão de OP é o único fluxo que realmente precisa da versão
+// "completa" -- pedido do usuário, "3 aprovações... as 3 aprovadas"
+// liberam a versão).
+
+function selecionarProduto(key) {
+  var p = allProdutos[key];
+  if (!p) return;
+  produtoSelecionado = Object.assign({ key: key }, p);
+  document.getElementById('fProdutoBusca').value = '';
+  document.getElementById('produtoResultados').style.display = 'none';
+  document.getElementById('produtoInfo').style.display = 'block';
+  document.getElementById('produtoNomeLabel').textContent = p.sku + ' — ' + p.descricao;
+  document.getElementById('produtoDetalheLabel').textContent =
+    'Cliente: ' + (p.cliente || '—') + ' · Volume nominal: ' + (p.volume || '—') + ' ' + (p.unidadeVolume || '') +
+    ' · Validade cadastrada: ' + (p.prazoValidadeMeses || '—') + ' meses';
+
+  pedidoVinculado = null; vinculoJaEscolhido = false; // renderAlocacoesDoProduto() abaixo auto-seleciona o pedido de maior prioridade, se houver
+  document.getElementById('cardAlocacao').style.display = 'block';
+  renderAlocacoesDoProduto();
+
+  var achado = melhorFormulaDoProduto(key, allFormulas, allBom, allEspecificacoes);
+  var warnBox = document.getElementById('formulaWarning');
+  if (!achado) {
+    warnBox.style.display = 'block';
+    warnBox.textContent = '⚠️ Este produto não tem nenhuma fórmula cadastrada em Fórmulas/BOM/Especificações. Cadastre a fórmula antes de emitir a OP.';
+    formulaEscolhida = null;
+    document.getElementById('cardDimensionamento').style.display = 'none';
+    document.getElementById('cardMateriais').style.display = 'none';
+    document.getElementById('cardEmissao').style.display = 'none';
+    return;
+  }
+  formulaEscolhida = achado.registro;
+  bomEscolhido = bomDaVersao(allBom, key, formulaEscolhida.versao) || { itens: {} };
+  if (!achado.temAprovada) {
+    // Fórmula, BOM e Especificação têm aprovação própria agora (pedido do
+    // usuário: "3 aprovações... as 3 aprovadas" definem a versão como
+    // pronta) -- lista qual delas ainda falta, em vez de só dizer "não
+    // aprovada" sem dizer o quê. Deliberadamente um AVISO, não um bloqueio
+    // duro: travar a emissão agora deixaria toda OP parada até alguém
+    // reaprovar em 3 etapas cada fórmula já cadastrada (nenhuma tem BOM/
+    // Especificação aprovados ainda, são campos novos) -- mesma lógica que
+    // já existia pra fórmula sozinha antes desta mudança.
+    var especEscolhida = allEspecificacoes[chaveVersao(key, formulaEscolhida.versao)] || {};
+    var faltando = [];
+    if (formulaEscolhida.status !== 'APROVADA') faltando.push('Fórmula');
+    if ((bomEscolhido.status || 'RASCUNHO') !== 'APROVADA') faltando.push('BOM');
+    if ((especEscolhida.status || 'RASCUNHO') !== 'APROVADA') faltando.push('Especificação');
+    warnBox.style.display = 'block';
+    warnBox.textContent = '⚠️ Nenhuma versão com Fórmula + BOM + Especificação todas aprovadas pra este produto -- usando a versão mais recente (' + formulaEscolhida.versao + '), ainda falta aprovar: ' + faltando.join(', ') + '. Emitir mesmo assim é permitido, mas confira com os responsáveis antes de liberar o lote.';
+  } else {
+    warnBox.style.display = 'none';
+  }
+
+  document.getElementById('fDensidade').value = p.densidadeGranel != null ? p.densidadeGranel : '';
+  document.getElementById('fOverfill').value = p.overfillPct != null ? p.overfillPct : 0;
+  document.getElementById('fPerdaProcesso').value = p.perdaProcessoPct != null ? p.perdaProcessoPct : 0;
+  document.getElementById('fCliente').value = p.cliente || '';
+  document.getElementById('fEmitidoPor').value = currentUserNome();
+  document.getElementById('fMassaTotal').value = '';
+  document.getElementById('fPecasDesejadas').value = '';
+
+  document.getElementById('cardDimensionamento').style.display = 'block';
+  document.getElementById('cardMateriais').style.display = 'none';
+  document.getElementById('cardEmissao').style.display = 'none';
+  calc = null;
+  materiaisConsumo = {};
+}
+function currentUserNome() {
+  return (window.currentUser && window.currentUser.nome) || (firebase.auth().currentUser && firebase.auth().currentUser.email) || 'Desconhecido';
+}
+
+/* ── Cálculo de dimensionamento (ver GERADOR_OP_SPEC.md + fórmulas reais extraídas do Gerador de OPs.xlsm) ── */
+// Modelo corrigido a pedido do usuário, depois de uma primeira tentativa
+// que tratava densidade como opcional pra produto cadastrado em massa
+// (g/kg) -- errado: "massa é a unidade canônica" (GERADOR_OP_SPEC.md
+// §2), mas densidade continua SEMPRE obrigatória, porque volume teórico
+// da unidade e volume total do batch são resultados padrão esperados de
+// TODA emissão (o reator tem uma capacidade em litros que precisa ser
+// checada, não importa se o produto é rotulado em ml ou em g). A ideia
+// (do próprio usuário) é começar preenchendo densidade manualmente a
+// cada emissão -- o campo já é editável, só pré-preenchido do cadastro
+// -- até uma fase futura de ML usando o histórico de análises de
+// qualidade pra sugerir sozinho. 'un' continua sem fórmula própria --
+// nenhum produto real usa hoje.
+function dimensaoNominalDoProduto(produto) {
+  var val = parseFloat(produto.volume) || 0;
+  var un = (produto.unidadeVolume || 'ml').toLowerCase();
+  if (un === 'ml') return {tipo: 'volume', valor: val / 1000, ok: true};
+  if (un === 'l') return {tipo: 'volume', valor: val, ok: true};
+  if (un === 'g') return {tipo: 'massa', valor: val, ok: true};
+  if (un === 'kg') return {tipo: 'massa', valor: val * 1000, ok: true};
+  return {tipo: null, valor: 0, ok: false, unidade: produto.unidadeVolume};
+}
+function limparResumoCalc() {
+  document.getElementById('rPecas').textContent = '—';
+  document.getElementById('rMassa').textContent = '—';
+  document.getElementById('rVolume').textContent = '—';
+  document.getElementById('rPesoUn').textContent = '—';
+  document.getElementById('rVolumeUn').textContent = '—';
+  document.getElementById('rValidade').textContent = '—';
+  calc = null;
+}
+function recalcular() {
+  if (!produtoSelecionado) return;
+  var modoQtd = document.querySelector('input[name=modoQtd]:checked').value;
+  var dimInfo = dimensaoNominalDoProduto(produtoSelecionado);
+  var densidade = parseFloat(document.getElementById('fDensidade').value) || 0;
+  var overfillPct = parseFloat(document.getElementById('fOverfill').value) || 0;
+  var perdaProcessoPct = parseFloat(document.getElementById('fPerdaProcesso').value) || 0;
+  var erroBox = document.getElementById('dimensionamentoErro');
+
+  if (!dimInfo.ok) {
+    erroBox.style.display = 'block';
+    erroBox.textContent = '⚠️ Este produto está cadastrado com unidade "' + escapeHtml(dimInfo.unidade || '—') + '", que o dimensionamento do lote ainda não sabe calcular (só ml, L, g ou kg). Corrija a unidade em Cadastro de Produtos antes de emitir, ou peça pra ajustar o cálculo pra esse tipo de produto.';
+    limparResumoCalc();
+    return;
+  }
+  erroBox.style.display = 'none';
+  // Densidade sempre obrigatória -- mesmo pra produto cadastrado em
+  // massa, onde ela não é necessária pra achar o peso por unidade (esse
+  // já vem direto do cadastro), mas É necessária pra derivar o volume
+  // teórico da unidade e o volume total do batch, que são resultado
+  // padrão esperado de toda emissão.
+  if (!dimInfo.valor || !densidade) {
+    limparResumoCalc();
+    return;
+  }
+
+  // Peso/volume NOMINAL da unidade -- SEM overfill, é o que está no
+  // rótulo. Usado só pra decidir quantas peças cabem numa massa
+  // informada (a contagem de peças é em unidades "de rótulo": o
+  // overfill é folga extra de enchimento, não conta como peça a mais).
+  // Densidade sempre conecta os dois lados, não importa o tipo do
+  // cadastro -- peso(g) = volume(mL) × densidade(g/mL), sempre.
+  var pesoNominalUnG, volumeNominalUnMl;
+  if (dimInfo.tipo === 'volume') {
+    volumeNominalUnMl = dimInfo.valor * 1000;
+    pesoNominalUnG = volumeNominalUnMl * densidade;
+  } else {
+    pesoNominalUnG = dimInfo.valor;
+    volumeNominalUnMl = pesoNominalUnG / densidade;
+  }
+
+  // Math.max(0, ...) nos dois ramos: o campo tem min="0" no HTML, mas
+  // isso não impede ler um valor negativo via .value em JS (achado do
+  // Auditor) -- sem essa guarda, a OP era emitida com consumo de
+  // material e qtdPlanejada negativos, sem nenhum erro visível.
+  var pecas;
+  if (modoQtd === 'massa') {
+    var massaInformadaKg = Math.max(0, parseFloat(document.getElementById('fMassaTotal').value) || 0);
+    pecas = massaInformadaKg > 0 ? (massaInformadaKg * 1000) / pesoNominalUnG : 0;
+  } else {
+    pecas = Math.max(0, parseFloat(document.getElementById('fPecasDesejadas').value) || 0);
+  }
+  pecas = Math.round(pecas);
+
+  // Peso/volume TEÓRICO da unidade -- COM overfill, é o que efetivamente
+  // vai dentro de cada unidade na linha (a folga de segurança já
+  // contada). É a partir daqui que o batch inteiro é dimensionado.
+  var pesoTeoricoUnG = pesoNominalUnG * (1 + overfillPct / 100);
+  var volumeTeoricoUnMl = volumeNominalUnMl * (1 + overfillPct / 100);
+  var volumeGranelL = pecas * volumeTeoricoUnMl * (1 + perdaProcessoPct / 100) / 1000;
+  var massaLoteKg = volumeGranelL * densidade;
+
+  var prazoMeses = parseInt(produtoSelecionado.prazoValidadeMeses) || 0;
+  var dataValidade = null;
+  if (prazoMeses > 0) {
+    var d = new Date();
+    d.setMonth(d.getMonth() + prazoMeses);
+    dataValidade = d;
+  }
+
+  calc = {
+    pecasPrevistas: pecas,
+    massaLoteKg: Math.round(massaLoteKg * 1000) / 1000,
+    volumeGranelL: Math.round(volumeGranelL * 1000) / 1000,
+    pesoTeoricoUnG: Math.round(pesoTeoricoUnG * 1000) / 1000,
+    volumeTeoricoUnMl: Math.round(volumeTeoricoUnMl * 1000) / 1000,
+    densidadeGranelUsada: densidade,
+    overfillPctUsado: overfillPct,
+    perdaProcessoPctUsado: perdaProcessoPct,
+    validade: dataValidade ? dataValidade.toISOString() : null
+  };
+
+  document.getElementById('rPecas').textContent = pecas ? fmtNum(pecas) : '—';
+  document.getElementById('rMassa').textContent = calc.massaLoteKg ? fmtNum(calc.massaLoteKg) : '—';
+  document.getElementById('rVolume').textContent = calc.volumeGranelL ? fmtNum(calc.volumeGranelL) : '—';
+  document.getElementById('rPesoUn').textContent = calc.pesoTeoricoUnG ? fmtNum(calc.pesoTeoricoUnG) : '—';
+  document.getElementById('rVolumeUn').textContent = calc.volumeTeoricoUnMl ? fmtNum(calc.volumeTeoricoUnMl) : '—';
+  // Pedido do usuário: "não pode ser possível emitir uma OP sem data de
+  // validade" -- sinal visual cedo (vermelho) além do bloqueio de verdade
+  // em emitirOP(). Validade vem SÓ do cadastro do produto (Parâmetros de
+  // Lote > Prazo de Validade) -- sem entrada manual aqui de propósito,
+  // pra continuar auditável (não pode inventar validade na hora da OP).
+  var rValidadeEl = document.getElementById('rValidade');
+  rValidadeEl.textContent = dataValidade ? dataValidade.toLocaleDateString('pt-BR') : 'Sem validade!';
+  rValidadeEl.style.color = dataValidade ? '' : 'var(--danger)';
+
+  montarMateriaisConsumo();
+}
+
+function montarMateriaisConsumo() {
+  // Achado do Auditor: qualquer mudança nos campos do card 2 (densidade,
+  // overfill, perda, massa/peças) chama recalcular() -> montarMateriaisConsumo(),
+  // que reconstruía materiaisConsumo do ZERO sempre com o material ORIGINAL
+  // da fórmula/BOM -- apagando silenciosamente qualquer substituição já
+  // feita na tabela (card 3). Guardamos o estado anterior e, pra cada item,
+  // preservamos mpCodigo/mpNome/substituiMpCodigo se ele já tinha sido
+  // trocado -- só a quantidade é recalculada (a proporção continua sendo a
+  // do item ORIGINAL da fórmula/BOM, só o material físico muda).
+  var anterior = materiaisConsumo;
+  materiaisConsumo = {};
+  if (!calc || calc.pecasPrevistas <= 0) {
+    document.getElementById('cardMateriais').style.display = 'none';
+    document.getElementById('cardEmissao').style.display = 'none';
+    return;
+  }
+  var itensFormula = (formulaEscolhida && formulaEscolhida.itens) || {};
+  Object.keys(itensFormula).forEach(function(itemKey) {
+    var it = itensFormula[itemKey];
+    var key = 'f_' + itemKey;
+    var prev = anterior[key];
+    // Pedido do usuário: ao substituir, dá pra ajustar o percentual também
+    // (ex: substituto com concentração diferente) -- prev.editado preserva
+    // esse percentual mesmo quando o dimensionamento muda depois (senão a
+    // edição some no próximo recalcular()). A quantidade em kg SEMPRE é
+    // recalculada a partir do percentual (editado ou não) contra a massa
+    // do lote atual -- é o percentual que é "fixo", não o kg.
+    var percentualUsado = (prev && prev.editado) ? prev.percentual : (it.percentualMM || 0);
+    materiaisConsumo[key] = {
+      mpCodigo: prev ? prev.mpCodigo : it.mpCodigo,
+      mpNome: prev ? prev.mpNome : nomeMaterialAtual(it.mpCodigo, it.mpNome),
+      quantidade: Math.round((calc.massaLoteKg * percentualUsado / 100) * 1000) / 1000,
+      unidade: 'kg', origem: 'formula', percentual: percentualUsado,
+      substituiMpCodigo: prev ? prev.substituiMpCodigo : null,
+      editado: prev ? !!prev.editado : false
+    };
+  });
+  // Embalagem sempre arredonda PRA CIMA -- faltar caixa no fim da linha é
+  // pior que sobrar. Unidade discreta sai inteira; kg/L ficam com 3 casas
+  // (qtdBomParaPecas, shared/utils.js).
+  var itensBom = (bomEscolhido && bomEscolhido.itens) || {};
+  Object.keys(itensBom).forEach(function(itemKey) {
+    var it = itensBom[itemKey];
+    var key = 'b_' + itemKey;
+    var prev = anterior[key];
+    // Achado do Auditor: unidade 'un' fixa ignorava que um material de
+    // embalagem também pode estar cadastrado em 'kg' (ex: filme vendido a
+    // peso) -- usa a unidade real do cadastro, com 'un' só como fallback.
+    var matCadastrado = findMaterialByCodigo(it.materialCodigo);
+    var unidadeBom = (matCadastrado && matCadastrado.unidade) || 'un';
+    // Mesma regra do consumo no apontamento (qtdBomParaPecas, shared/utils.js):
+    // "unidades por caixa" quando cadastrado, inteiro para cima em unidade discreta.
+    var qtdCalculadaBom = qtdBomParaPecas(it, calc.pecasPrevistas, unidadeBom);
+    // BOM não tem conceito de "percentual da fórmula" -- ao editar na
+    // substituição, o valor absoluto digitado fica fixo (não é recalculado
+    // a partir de qtdPorPeca de novo) até uma nova substituição.
+    materiaisConsumo[key] = {
+      mpCodigo: prev ? prev.mpCodigo : it.materialCodigo,
+      mpNome: prev ? prev.mpNome : nomeMaterialAtual(it.materialCodigo, it.materialNome),
+      quantidade: (prev && prev.editado) ? prev.quantidade : qtdCalculadaBom,
+      unidade: unidadeBom, origem: 'bom', qtdPorPeca: it.qtdPorPeca || 0, pecasPorUnidade: pecasPorUnidadeBom(it) || null,
+      substituiMpCodigo: prev ? prev.substituiMpCodigo : null,
+      editado: prev ? !!prev.editado : false
+    };
+  });
+
+  // Achado do Auditor: uma fórmula pode chegar a APROVADA sem nunca ter
+  // itens de BOM cadastrados (versão criada do zero, não clonada de uma
+  // anterior) -- isso passava batido, emitindo a OP sem nenhum material de
+  // embalagem rastreado e sem aviso nenhum.
+  var bomBox = document.getElementById('bomWarning');
+  if (Object.keys(itensFormula).length && !Object.keys(itensBom).length) {
+    bomBox.style.display = 'block';
+    bomBox.textContent = '⚠️ Esta versão da fórmula não tem nenhum item de embalagem (BOM) cadastrado. A OP será emitida sem material de embalagem no consumo -- confira se isso está correto antes de emitir.';
+  } else {
+    bomBox.style.display = 'none';
+  }
+
+  recomputarItemAjuste();
+  renderMateriaisTable();
+  document.getElementById('cardMateriais').style.display = 'block';
+  document.getElementById('cardEmissao').style.display = 'block';
+}
+
+// Pedido do usuário: "quando substituo algum item e modifico a % de
+// concentração, ela fica diferente de 100%, sem conseguir ajustar as
+// demais em nenhum local" -- decisão do usuário: em vez de rebalancear
+// TODOS os itens proporcionalmente (mexeria em itens que ninguém pediu
+// pra tocar), a fórmula pode marcar UM item como "Ajuste (QSP)" em
+// cadastros.html (normalmente água ou álcool -- achado real: é o maior
+// item em 89% das 163 fórmulas de produção). Esse item nunca é editado
+// manualmente aqui: seu percentual é sempre recalculado como o
+// complemento pra fechar 100% contra a soma dos OUTROS itens da fórmula.
+// Fórmulas sem item de ajuste marcado continuam exatamente como antes
+// (usuário corrige manualmente item a item) -- é um comportamento por
+// opt-in, não muda nada em fórmula nenhuma até alguém marcar em Cadastros.
+function recomputarItemAjuste() {
+  if (!formulaEscolhida || !formulaEscolhida.itemAjusteKey) return;
+  var ajusteKey = 'f_' + formulaEscolhida.itemAjusteKey;
+  var itemAjuste = materiaisConsumo[ajusteKey];
+  // Item marcado pode não existir mais nesta versão específica (removido
+  // do cadastro depois de marcado, ou versão trocada) -- se sumiu, não há
+  // o que ajustar, cai de volta no comportamento manual de sempre.
+  if (!itemAjuste || itemAjuste.origem !== 'formula') return;
+  var somaOutros = 0;
+  Object.keys(materiaisConsumo).forEach(function(k) {
+    if (k === ajusteKey) return;
+    var it = materiaisConsumo[k];
+    if (it.origem === 'formula') somaOutros += (it.percentual || 0);
+  });
+  var novoPct = Math.round((100 - somaOutros) * 1000) / 1000;
+  itemAjuste.percentual = novoPct;
+  itemAjuste.quantidade = calc ? Math.round((calc.massaLoteKg * novoPct / 100) * 1000) / 1000 : 0;
+  // Nunca "congela" via editado:true -- é sempre recalculado a partir dos
+  // outros itens, nunca preservado entre recálculos como os demais.
+  itemAjuste.editado = false;
+  itemAjuste.ajusteAutomatico = true;
+}
+/* Nome do material vem do CADASTRO na emissão, não da fórmula/BOM (usuário,
+   30/09: "no cadastro está ESSENCIA LILAH ECO HS - GF49767, pq não leva o GF
+   para a OP?"). A fórmula guarda o nome de quando foi aprovada; o cadastro
+   ganhou depois o código do fornecedor, que é o que se confere no tambor na
+   pesagem. Item fora do cadastro nem chega a emitir (problemasCadastroOp);
+   o nome da fórmula aqui é só para a tabela mostrar o que a linha era. */
+function nomeMaterialAtual(codigo, nomeDaFormula) {
+  var m = codigo ? findMaterialByCodigo(codigo) : null;
+  return (m && String(m.mpNome || '').trim()) || nomeDaFormula || '';
+}
+
+function findMaterialByCodigo(codigo) {
+  return allMateriais[sanitizeKey(codigo)] || Object.values(allMateriais).find(function(m) { return m.mpCodigo === codigo; });
+}
+
+// Achado do usuário: pra item de embalagem consumido em fração de peça
+// (ex: 1 caixa a cada 48 peças -> qtdPorPeca=0,02083333), a quantidade
+// bruta ("0,02083333 cx") não diz nada útil de cabeça -- vira "48un/cx",
+// que é como a operação realmente pensa nisso.
+function fmtBomHint(it) {
+  var n = it.origem === 'bom' ? pecasPorUnidadeBom(it) : null;
+  var semControle = materialSemControleEstoque(it.mpCodigo, allMateriais) ? ' <span class="badge badge-gray" title="Não dá baixa nem é reservado">sem controle de estoque</span>' : '';
+  if (!n) return semControle;
+  return ' <span class="field-hint">(1 a cada ' + fmtNum(n) + ' peças)</span>' + semControle;
+}
+
+// A OP não decide nem trava pelo saldo (o inventário de abertura ainda está
+// em consolidação), mas mostrá-lo ao lado do consumo calculado evita que o
+// PCP precise sair da tela para comparar opções ao substituir um material.
+function saldoEstoqueDoMaterial(codigo) {
+  var chave = sanitizeKey(codigo || '');
+  return allEstoque[chave] || Object.values(allEstoque).find(function(e) {
+    return e && (e.materialCodigo === codigo || e.mpCodigo === codigo);
+  }) || null;
+}
+
+function estoqueAtualHtml(it) {
+  var estoque = saldoEstoqueDoMaterial(it.mpCodigo);
+  var saldo = estoque && Number(estoque.saldoAtual);
+  if (!estoque || !isFinite(saldo)) return '<span class="field-hint">Sem saldo registrado</span>';
+  var insuficiente = saldo < (Number(it.quantidade) || 0);
+  var unidade = estoque.unidade || it.unidade || '';
+  return '<span' + (insuficiente ? ' style="color:var(--danger);font-weight:700" title="Saldo menor que o consumo desta OP"' : '') + '>' +
+    fmtNum(saldo) + ' ' + escapeHtml(unidade) + '</span>';
+}
+
+function renderMateriaisTable() {
+  var tbody = document.getElementById('materiaisBody');
+  var entries = Object.entries(materiaisConsumo);
+  if (!entries.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted)">Nenhum item -- confira a fórmula/BOM cadastrada.</td></tr>';
+    return;
+  }
+  var somaPct = entries.reduce(function(s, e) { return s + (e[1].origem === 'formula' ? (e[1].percentual || 0) : 0); }, 0);
+  var foraCadastro = {};
+  problemasCadastroOp().forEach(function(p) { foraCadastro[p.chave] = p; });
+  tbody.innerHTML = entries.map(function(entry) {
+    var key = entry[0], it = entry[1];
+    var origemBadge = it.origem === 'formula' ? '<span class="badge badge-green">Fórmula</span>' : '<span class="badge badge-orange">Embalagem</span>';
+    var subLabel = it.substituiMpCodigo ? ' <span class="field-hint">(substitui ' + escapeHtml(it.substituiMpCodigo) + ')</span>' : '';
+    // Item marcado em Cadastros como "Ajuste (QSP)" desta fórmula -- seu %
+    // é sempre calculado (ver recomputarItemAjuste), nunca digitado.
+    var ajusteLabel = it.ajusteAutomatico ? ' <span class="badge badge-blue" title="Percentual recalculado automaticamente pra fechar 100%">🧪 Ajuste (QSP)</span>' : '';
+    var fora = foraCadastro[key];
+    var foraLabel = fora ? '<div style="color:var(--danger);font-weight:700;font-size:12px">⚠ ' + escapeHtml(fora.texto) + ' — substitua para emitir</div>' : '';
+    return '<tr' + (fora ? ' style="background:rgba(220,38,38,.06)"' : '') + '>' +
+      '<td>' + escapeHtml(it.mpCodigo) + ' — ' + escapeHtml(it.mpNome || '') + subLabel + ajusteLabel + foraLabel + '</td>' +
+      '<td>' + origemBadge + '</td>' +
+      '<td class="num">' + (it.origem === 'formula' ? fmtPct3(it.percentual) + '%' : '—') + '</td>' +
+      '<td class="num">' + fmtNum(it.quantidade) + ' ' + escapeHtml(it.unidade) + fmtBomHint(it) + '</td>' +
+      '<td class="num">' + estoqueAtualHtml(it) + '</td>' +
+      '<td><button class="btn btn-ghost btn-sm subst-btn" data-key="' + escapeAttr(key) + '">Substituir</button></td>' +
+    '</tr>';
+  }).join('') +
+    // Vermelho quando a soma foge de 100% -- sinal visual antes mesmo de
+    // tentar emitir (emitirOP() bloqueia de verdade, isto aqui só avisa cedo).
+    '<tr style="font-weight:700"><td colspan="2">TOTAL (fórmula)</td><td class="num"' + (Math.abs(somaPct - 100) >= 0.0005 ? ' style="color:var(--danger)"' : '') + '>' + fmtPct3(somaPct) + '%</td><td colspan="3"></td></tr>';
+  tbody.querySelectorAll('.subst-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() { abrirSubstituicao(btn.getAttribute('data-key')); });
+  });
+}
+
+// Achado real ao investigar o pedido do usuário: essa checagem nunca
+// bateu com nenhum material de verdade -- o cadastro (cadastros.html)
+// usa categorias granulares (MPGR/MPES pra matéria-prima, EP/ES/ET/MU
+// pra embalagem), nunca os literais 'MP'/'EMBALAGEM' que este filtro
+// comparava. Resultado: "Substituir" sempre mostrava uma lista vazia,
+// silenciosamente, desde que essa tela foi construída -- conferido
+// direto nos 904 materiais reais de produção, nenhum tem esses tipos.
+var TIPOS_MP = { MPGR: 1, MPES: 1 };
+var TIPOS_EMBALAGEM = { EP: 1, ES: 1, ET: 1, MU: 1 };
+
+// Pedido do usuário: "campo de pesquisa que de alguma forma traga maiores
+// detalhes sobre o item, pra conseguir substituir dentro da mesma tela,
+// sem precisar sair pra pesquisar" -- antes disto, "Substituir" era um
+// prompt() com uma lista numerada em texto puro (só código + nome), sem
+// nenhum dado técnico (cor, gargalo/rosca, resina, INCI...) pra decidir
+// com segurança se o substituto realmente encaixa. Campos abaixo cobrem
+// tanto embalagem (EP/ES/ET) quanto MP/fragrância (MPGR/MPES) -- só
+// aparece o que o material realmente tem preenchido.
+var SUBST_DETALHE_CAMPOS = [
+  ['cor', 'Cor'], ['formato', 'Formato'], ['gargaloRosca', 'Gargalo/rosca'],
+  ['materialResina', 'Resina'], ['textura', 'Textura'], ['fixacao', 'Fixação'],
+  ['inci', 'INCI'], ['funcaoFormula', 'Função'], ['marcaModelo', 'Marca/modelo'],
+  ['especificacoesTecnicas', 'Espec.']
+];
+function detalhesSubstMaterial(m) {
+  return SUBST_DETALHE_CAMPOS
+    .map(function(f) { return m[f[0]] ? (f[1] + ': ' + m[f[0]]) : null; })
+    .filter(Boolean)
+    .slice(0, 4)
+    .join(' · ');
+}
+function haystackSubstMaterial(m) {
+  return normalizeSearch([m.mpCodigo, m.mpNome, m.cor, m.formato, m.gargaloRosca,
+    m.materialResina, m.textura, m.fixacao, m.inci, m.funcaoFormula, m.marcaModelo,
+    m.especificacoesTecnicas].filter(Boolean).join(' '));
+}
+
+var substKeyAtual = null; // chave dentro de materiaisConsumo sendo substituída agora
+var substOpcoes = [];     // candidatos válidos pra essa substituição (mesmo "tipo" e ativos)
+
+function abrirSubstituicao(key) {
+  var it = materiaisConsumo[key];
+  if (!it) return;
+  var tiposValidos = it.origem === 'formula' ? TIPOS_MP : TIPOS_EMBALAGEM;
+  substKeyAtual = key;
+  // Nunca oferece material inativo/descontinuado como substituto (44 dos
+  // 904 materiais reais estão ativo:false no cadastro).
+  substOpcoes = Object.values(allMateriais).filter(function(m) { return tiposValidos[m.tipo] && m.ativo !== false; });
+  document.getElementById('substModalTitle').textContent = 'Substituir "' + it.mpCodigo + (it.mpNome ? ' — ' + it.mpNome : '') + '"';
+  document.getElementById('substBusca').value = '';
+  renderSubstResultados('');
+  document.getElementById('substModalBg').classList.add('open');
+  document.getElementById('substBusca').focus();
+}
+
+function fecharModalSubst() {
+  document.getElementById('substModalBg').classList.remove('open');
+  substKeyAtual = null;
+  substOpcoes = [];
+  substMaterialEscolhido = null;
+}
+
+function renderSubstResultados(query) {
+  var box = document.getElementById('substLista');
+  var it = materiaisConsumo[substKeyAtual];
+  var q = normalizeSearch(query);
+  var filtrados = !q ? substOpcoes : substOpcoes.filter(function(m) { return haystackSubstMaterial(m).indexOf(q) !== -1; });
+  document.getElementById('substContagem').textContent =
+    filtrados.length + ' de ' + substOpcoes.length + ' materiais compatíveis' + (q ? ' (filtrado pela busca)' : '');
+  if (!filtrados.length) {
+    box.innerHTML = '<div class="empty-state">Nenhum material encontrado com esse termo -- confira o cadastro em Cadastros.</div>';
+    return;
+  }
+  // Lista sem paginação de verdade, mas corta em 60 resultados -- a busca
+  // já filtra rápido o suficiente na prática (materiais tem ~900 registros,
+  // cada substituição já reduz pelo tipo antes de mostrar).
+  box.innerHTML = filtrados.slice(0, 60).map(function(m) {
+    var ehAtual = it && norm(m.mpCodigo) === norm(it.mpCodigo);
+    var det = detalhesSubstMaterial(m);
+    return '<button type="button" class="subst-opt' + (ehAtual ? ' subst-atual' : '') + '" data-codigo="' + escapeAttr(m.mpCodigo) + '">' +
+      '<span class="subst-opt-info"><b>' + escapeHtml(m.mpCodigo) + '</b> — ' + escapeHtml(m.mpNome || '') +
+        (ehAtual ? ' <span class="badge badge-green">atual</span>' : '') +
+        (det ? '<div class="subst-opt-det">' + escapeHtml(det) + '</div>' : '') +
+      '</span>' +
+      '<span class="subst-opt-un">' + escapeHtml(m.unidade || '') + '</span>' +
+    '</button>';
+  }).join('');
+  box.querySelectorAll('.subst-opt').forEach(function(btn) {
+    btn.addEventListener('click', function() { mostrarConfirmacaoSubstituicao(btn.getAttribute('data-codigo')); });
+  });
+}
+
+// Pedido do usuário: "quando substituir um item, poder também ajustar a
+// quantidade (ou %)" -- clicar num material da lista não substitui na
+// hora mais: abre uma 2ª etapa (mesmo modal) pra confirmar/ajustar a
+// quantidade/percentual antes de comitar. Pré-preenchido com o valor
+// calculado do item original -- na maioria dos casos o usuário só clica
+// "Confirmar" sem mexer, mas quando o substituto tem proporção diferente
+// (concentração, tamanho de embalagem), dá pra ajustar aqui mesmo.
+var substMaterialEscolhido = null;
+
+function mostrarConfirmacaoSubstituicao(codigo) {
+  var it = materiaisConsumo[substKeyAtual];
+  var novoMat = substOpcoes.find(function(m) { return norm(m.mpCodigo) === norm(codigo); });
+  if (!it || !novoMat) return;
+  substMaterialEscolhido = novoMat;
+
+  var box = document.getElementById('substLista');
+
+  // Item marcado em Cadastros como "Ajuste (QSP)" desta fórmula -- seu %
+  // nunca é digitado aqui, só o material pode ser trocado (a proporção é
+  // sempre o complemento pra fechar 100%, recalculada por
+  // recomputarItemAjuste() em confirmarSubstituicao()).
+  if (it.ajusteAutomatico) {
+    box.innerHTML =
+      '<div class="subst-confirma">' +
+        '<div class="subst-opt-info" style="margin-bottom:12px"><b>' + escapeHtml(novoMat.mpCodigo) + '</b> — ' + escapeHtml(novoMat.mpNome || '') + '</div>' +
+        '<div class="field-hint">🧪 Este item é o <b>Ajuste (QSP)</b> desta fórmula -- o percentual não é digitado aqui, é sempre recalculado automaticamente pra fechar 100% contra os demais itens.</div>' +
+        '<div style="display:flex;gap:8px;margin-top:14px">' +
+          '<button type="button" class="btn btn-ghost btn-sm" id="substVoltarBtn">← Voltar à lista</button>' +
+          '<button type="button" class="btn btn-green btn-sm" id="substConfirmarBtn">Confirmar troca de material</button>' +
+        '</div>' +
+      '</div>';
+    document.getElementById('substVoltarBtn').addEventListener('click', function() { renderSubstResultados(document.getElementById('substBusca').value); });
+    document.getElementById('substConfirmarBtn').addEventListener('click', confirmarSubstituicao);
+    return;
+  }
+
+  var ehFormula = it.origem === 'formula';
+  var valorAtual = ehFormula ? it.percentual : it.quantidade;
+  var rotulo = ehFormula ? 'Percentual (% m/m)' : ('Quantidade (' + escapeHtml(novoMat.unidade || it.unidade || '') + ')');
+
+  box.innerHTML =
+    '<div class="subst-confirma">' +
+      '<div class="subst-opt-info" style="margin-bottom:12px"><b>' + escapeHtml(novoMat.mpCodigo) + '</b> — ' + escapeHtml(novoMat.mpNome || '') + '</div>' +
+      '<div class="form-group">' +
+        '<label>' + rotulo + '</label>' +
+        '<input type="number" id="substQtdInput" min="0" step="any" value="' + escapeAttr(valorAtual) + '">' +
+        '<div class="field-hint">Pré-preenchido com o valor calculado pra "' + escapeHtml(it.mpCodigo) + '" -- ajuste se o substituto precisar de proporção ou quantidade diferente.' +
+          (ehFormula ? ' A soma da fórmula (100%) é conferida antes de emitir a OP.' : '') + '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:14px">' +
+        '<button type="button" class="btn btn-ghost btn-sm" id="substVoltarBtn">← Voltar à lista</button>' +
+        '<button type="button" class="btn btn-green btn-sm" id="substConfirmarBtn">Confirmar substituição</button>' +
+      '</div>' +
+    '</div>';
+  document.getElementById('substVoltarBtn').addEventListener('click', function() { renderSubstResultados(document.getElementById('substBusca').value); });
+  document.getElementById('substConfirmarBtn').addEventListener('click', confirmarSubstituicao);
+  document.getElementById('substQtdInput').focus();
+}
+
+function confirmarSubstituicao() {
+  var it = materiaisConsumo[substKeyAtual];
+  var novoMat = substMaterialEscolhido;
+  if (!it || !novoMat) { fecharModalSubst(); return; }
+  // mpCodigoOriginal é o material que estava na fórmula/BOM antes de qualquer substituição nesta OP
+  // (se já houve uma troca, it.substituiMpCodigo guarda o original; senão, o próprio it.mpCodigo já é o original).
+  var mpCodigoOriginal = it.substituiMpCodigo || it.mpCodigo;
+  var ehFormula = it.origem === 'formula';
+
+  if (it.ajusteAutomatico) {
+    // Só troca o material -- o percentual continua sendo calculado,
+    // nunca digitado (ver recomputarItemAjuste()).
+    materiaisConsumo[substKeyAtual] = Object.assign({}, it, {
+      mpCodigo: novoMat.mpCodigo, mpNome: novoMat.mpNome,
+      substituiMpCodigo: novoMat.mpCodigo === mpCodigoOriginal ? null : mpCodigoOriginal,
+      editado: false
+    });
+    recomputarItemAjuste();
+    renderMateriaisTable();
+    fecharModalSubst();
+    return;
+  }
+
+  var valor = parseFloat(document.getElementById('substQtdInput').value);
+  // Pedido do usuário: "não pode existir item negativo" -- bloqueia aqui,
+  // não deixa nem chegar a gravar em materiaisConsumo.
+  if (isNaN(valor) || valor < 0) {
+    showAlert('Informe um valor válido (não pode ser negativo).', 'danger');
+    return;
+  }
+  var atualizado = Object.assign({}, it, {
+    mpCodigo: novoMat.mpCodigo, mpNome: novoMat.mpNome,
+    // Escolher de volta o material original desfaz a substituição (limpa o rótulo em vez de
+    // mostrar "MPGR001 (substitui MPGR001)").
+    substituiMpCodigo: novoMat.mpCodigo === mpCodigoOriginal ? null : mpCodigoOriginal,
+    // editado:true faz montarMateriaisConsumo() preservar esse valor em
+    // vez de recalcular do zero a partir da fórmula/BOM cadastrada, se o
+    // dimensionamento mudar depois (mesmo princípio já usado pra
+    // mpCodigo/substituiMpCodigo).
+    editado: true
+  });
+  if (ehFormula) {
+    atualizado.percentual = valor;
+    atualizado.quantidade = calc ? Math.round((calc.massaLoteKg * valor / 100) * 1000) / 1000 : valor;
+  } else {
+    atualizado.quantidade = valor;
+  }
+  materiaisConsumo[substKeyAtual] = atualizado;
+  // Se o item editado é da fórmula, a diferença precisa ser refletida no
+  // item de ajuste (se a fórmula tiver um marcado) imediatamente, sem
+  // esperar o próximo recálculo completo de dimensionamento.
+  if (ehFormula) recomputarItemAjuste();
+  renderMateriaisTable();
+  fecharModalSubst();
+}
+
+// Pedido do usuário: substituir permite ajustar quantidade/%, mas isso
+// não pode furar as regras de sempre -- soma da fórmula fechar em 100% e
+// nenhum item negativo -- senão a OP sairia com consumo de MP incoerente,
+// e o empenho de estoque (que lê materiaisConsumo direto) usaria esse
+// número errado. Chamado só na hora de emitir -- a tabela já mostra o
+// TOTAL em vermelho antes disso, como aviso cedo.
+/* Item fora do cadastro (sem material vinculado, código inexistente ou
+   material inativo) não sai numa OP -- usuário, 30/09. Resolve-se aqui mesmo
+   com "Substituir", ou corrigindo a fórmula/BOM em Cadastros. O texto original
+   da importação vem da fórmula/BOM, para a pessoa saber o que era a linha. */
+function problemasCadastroOp() {
+  var itens = {};
+  Object.keys(materiaisConsumo).forEach(function(key) {
+    var it = materiaisConsumo[key];
+    var orig = key.indexOf('f_') === 0 ? ((formulaEscolhida && formulaEscolhida.itens) || {})[key.slice(2)]
+      : ((bomEscolhido && bomEscolhido.itens) || {})[key.slice(2)];
+    itens[key] = {mpCodigo: it.mpCodigo, textoOriginalGeradorOPs: it.mpCodigo ? '' : (orig && orig.textoOriginalGeradorOPs) || ''};
+  });
+  return ItensCadastro.problemas(itens, allMateriais, 'mpCodigo');
+}
+
+function validarMateriaisConsumo() {
+  var entries = Object.values(materiaisConsumo);
+  if (!entries.length) return '';
+  var foraCadastro = problemasCadastroOp();
+  if (foraCadastro.length) {
+    return ItensCadastro.mensagem(foraCadastro, 'A OP não pode ser emitida: há') +
+      ' Use "Substituir" na tabela de materiais ou corrija a fórmula/BOM em Cadastros.';
+  }
+  var negativo = entries.find(function(it) {
+    return (it.quantidade || 0) < 0 || (it.origem === 'formula' && (it.percentual || 0) < 0);
+  });
+  if (negativo) return 'O item "' + negativo.mpCodigo + '" está com quantidade/percentual negativo -- corrija a substituição antes de emitir.';
+  var itensFormula = entries.filter(function(it) { return it.origem === 'formula'; });
+  if (itensFormula.length) {
+    var somaPct = itensFormula.reduce(function(s, it) { return s + (it.percentual || 0); }, 0);
+    if (Math.abs(somaPct - 100) >= 0.0005) {
+      return 'A soma da fórmula está em ' + fmtNum(somaPct) + '% (precisa fechar em 100%) -- ajuste as quantidades/percentuais substituídos antes de emitir.';
+    }
+  }
+  return '';
+}
+
+/* ── Numeração de lote (AADDD/NN) -- mesmo formato já em produção nos milhares de OPs existentes ── */
+function proximoLote() {
+  var hoje = new Date();
+  var ano2 = String(hoje.getFullYear() % 100).padStart(2, '0');
+  var inicioAno = new Date(hoje.getFullYear(), 0, 1);
+  var diaDoAno = Math.floor((hoje - inicioAno) / 86400000) + 1;
+  var prefixo = ano2 + String(diaDoAno).padStart(3, '0');
+  var counterPath = 'config/contadores/lotesPorDia/' + prefixo;
+  // Reusa o mesmo helper de contador seguro contra corrida de shared/utils.js
+  // (já usado pra numeração de SKU) em vez de reimplementar a .transaction()
+  // aqui -- só o formato final (prefixo/NN, com barra) é específico deste caso.
+  return nextSequential(db, counterPath, null, 2).then(function(seq) {
+    return prefixo + '/' + seq.formatado;
+  });
+}
+
+/* ── Auto-programação (Fase 1 do plano) ── Simplificação deliberada: NÃO
+   replica o grid completo de turnos/pausas de planejamento.html
+   (turnosParaCapacidade/configTurnoHorarios/kuryosHorasExtrasDoDia) -- só
+   garante um horário de início plausível (HORA_INICIO_PADRAO) sem bater de
+   frente com outra OP já na mesma linha/dia. Ajuste fino de horário sempre
+   disponível depois, arrastando na Grade de OPs (já deployado). */
+var HORA_INICIO_PADRAO = 7;
+
+function duracaoEstimadaHoras() {
+  var rate = (produtoSelecionado && produtoSelecionado.prodHoraRef) || 0;
+  if (!rate || !calc || !calc.pecasPrevistas) return 8;
+  return Math.max(1, Math.ceil(calc.pecasPrevistas / rate));
+}
+function toYMDLocal(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function isDiaUtilLocal(dateObj) {
+  var dow = dateObj.getDay();
+  var dowConfig = dow === 0 ? 7 : dow; // 1=segunda..7=domingo, mesmo padrão de planejamento.html/horizonte.html
+  if (configPlanejamento.diasSemana.indexOf(dowConfig) === -1) return false;
+  return !(configPlanejamento.feriados && configPlanejamento.feriados[toYMDLocal(dateObj)]);
+}
+function janelaLivre(linhaNome, dataYMD, duracaoHoras) {
+  var inicio = new Date(dataYMD + 'T' + String(HORA_INICIO_PADRAO).padStart(2, '0') + ':00:00');
+  var fim = new Date(inicio.getTime());
+  fim.setHours(fim.getHours() + duracaoHoras);
+  var conflita = Object.values(allOps).some(function(op) {
+    if (!op || op.status === 'Cancelado') return false;
+    if ((op.abertaLinha || op.linha) !== linhaNome) return false;
+    var opIni = op.dataInicioReal || op.abertaDesde || op.dataInicioPlanejada;
+    if (!opIni) return false;
+    var opFim = op.dataFimReal || op.dataFimPlanejada || (op.abertaDesde ? new Date().toISOString() : null) || opIni;
+    var oi = new Date(opIni).getTime(), of = new Date(opFim).getTime();
+    return oi < fim.getTime() && of > inicio.getTime();
+  });
+  return conflita ? null : { dataYMD: dataYMD, dataInicioPlanejada: inicio.toISOString(), dataFimPlanejada: fim.toISOString(), linhaUsada: linhaNome };
+}
+function acharProximaJanela(linhaNome, semanaISOInicial, duracaoHoras) {
+  if (!linhaNome || !semanaISOInicial) return null;
+  var d = new Date(semanaISOInicial + 'T12:00:00'); // meio-dia evita drift de DST/timezone ao somar dias
+  for (var i = 0; i < 30; i++) {
+    if (isDiaUtilLocal(d)) {
+      var janela = janelaLivre(linhaNome, toYMDLocal(d), duracaoHoras);
+      if (janela) return janela;
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return null; // sem espaço livre em 30 dias -- best-effort, não bloqueia a emissão
+}
+
+/* ── Vincula a OP na alocação escolhida (mesma semântica de
+   linkAlocacaoToOP em functions/index.js, mas sem a etapa de "achar qual
+   alocação" -- aqui a PCP já escolheu explicitamente pelo card 2, então
+   pula direto pra atualizar opsVinculadas/qtdConsumida/status. Usa
+   .transaction() (não .update()) pra não perder incremento concorrente se
+   duas emissões contra a MESMA alocação acontecerem quase juntas. ── */
+function vincularAlocacaoClientSide(alocId, lote, qtdPlanejada) {
+  var loteKeySafe = sanitizeKey(lote);
+  return db.ref('alocacoes_planejamento/' + alocId).transaction(function(aloc) {
+    if (!aloc) return aloc; // sumiu (ex: cancelada por outra sessão) -- devolve null, ver checagem abaixo
+    var qtdConsumida = (aloc.qtdConsumida || 0) + qtdPlanejada;
+    aloc.opsVinculadas = aloc.opsVinculadas || {};
+    aloc.opsVinculadas[loteKeySafe] = { lote: lote, qtd: qtdPlanejada, vinculadoEm: new Date().toISOString() };
+    aloc.qtdConsumida = qtdConsumida;
+    aloc.status = qtdConsumida >= (aloc.qtd || 0) ? 'vinculado' : 'congelado';
+    return aloc;
+  }).then(function(result) {
+    // Achado do harness de teste: retornar `null` de dentro de uma
+    // .transaction() (o `return aloc` acima, quando aloc já veio null) NÃO
+    // aborta pro Firebase -- ele trata como "commitar o valor null", com
+    // `result.committed === true`. Sem essa checagem explícita, o
+    // .catch() de quem chama esta função nunca disparava pra esse caso
+    // (a Promise resolvia normal), e a OP ficava silenciosamente sem
+    // vínculo nenhum, sem avisar ninguém.
+    if (!result.committed || !result.snapshot.val()) {
+      throw new Error('Alocação ' + alocId + ' não existe mais (talvez já tenha sido consumida ou cancelada por outra ação).');
+    }
+    return result;
+  });
+}
+
+function montarDadosOP(lote, janela) {
+  return {
+    lote: lote, sku: produtoSelecionado.sku, produto: produtoSelecionado.descricao, cliente: produtoSelecionado.cliente || '',
+    qtdPlanejada: calc.pecasPrevistas,
+    skuPedidoKey: pedidoVinculado ? pedidoVinculado.pedidoKey : '',
+    linha: pedidoVinculado ? ((pedidoVinculado.aloc && pedidoVinculado.aloc.linha) || pedidoVinculado.pedido.linha || '') : '', produzidoLinha: 0, produzidoRotulagem: 0, produzidoPosto: 0, produzido: 0,
+    status: 'Não Iniciado',
+    dataInicioReal: null, dataFimReal: null,
+    dataInicioPlanejada: janela ? janela.dataInicioPlanejada : null,
+    dataFimPlanejada: janela ? janela.dataFimPlanejada : null,
+    mediaPorHora: 0, paradas: [], perdas: {},
+    abertaDesde: null, abertaLinha: null, abertaDesdeRot: null, abertaRotulagem: null,
+    setupInicio: null, setupFim: null, setupInicioRot: null, setupFimRot: null,
+    canceladoEm: null, canceladoPor: null, motivoCancelamento: null,
+    dataEmissao: new Date().toISOString(), emitidoPor: currentUserNome(),
+    arquivoPdf: '', arquivoXlsx: '',
+    // Campos novos do ERP unificado (Fase 3)
+    formulaVersao: formulaEscolhida ? formulaEscolhida.versao : null,
+    bomVersao: formulaEscolhida ? formulaEscolhida.versao : null,
+    massaLoteKg: calc.massaLoteKg, volumeGranelL: calc.volumeGranelL,
+    pesoTeoricoUnG: calc.pesoTeoricoUnG, volumeTeoricoUnMl: calc.volumeTeoricoUnMl,
+    pecasPorCaixa: produtoSelecionado.unCx || 0, // pra gerar as etiquetas de caixa de embarque (shared/etiqueta-caixa.js)
+    // Fotografia dos demais campos obrigatórios da etiqueta de caixa (01/10).
+    codCliente: produtoSelecionado.codCliente || '', kgCaixa: parseFloat(produtoSelecionado.kgCaixa) || 0,
+    dum14: produtoSelecionado.dum14 || '', clienteKey: produtoSelecionado.clienteKey || '',
+    // Snapshot do EAN13 do produto na hora da emissão -- mesmo raciocínio
+    // do pecasPorCaixa acima: reimpressão (ops.html) não depende de
+    // buscar o cadastro do produto de novo. Pedido do usuário: "a
+    // etiqueta tem que ser com codigo de barras do produto".
+    ean13: produtoSelecionado.ean13 || '',
+    densidadeGranelUsada: calc.densidadeGranelUsada, overfillPctUsado: calc.overfillPctUsado,
+    perdaProcessoPctUsado: calc.perdaProcessoPctUsado, validade: calc.validade,
+    materiaisConsumo: materiaisConsumo
+  };
+}
+// Achado do Auditor: enquanto o Gerador de OPs (VBA/planilha) continuar
+// rodando em paralelo (fase de transição), ele numera lotes pelo próprio
+// contador interno, sem nenhuma ligação com config/contadores/lotesPorDia/*
+// usado aqui. Os dois podem perfeitamente gerar o mesmo "26230/01" no mesmo
+// dia. O antigo `db.ref('ops/'+loteKey).set(data)` sobrescrevia esse nó sem
+// checar se já existia -- se o lote já tivesse produção real apontada
+// (produzidoLinha, paradas, etc.), isso apagava tudo em silêncio. Agora a
+// gravação usa `.transaction()`: só commita se o nó ainda estiver vazio: se
+// já existir (colisão com o VBA ou com outra emissão concorrente), a
+// transaction aborta sem tocar no dado existente e tentamos o PRÓXIMO
+// número automaticamente, até um limite de tentativas.
+function reservarLoteEEmitir(tentativasRestantes, janela) {
+  return proximoLote().then(function(lote) {
+    var loteKey = sanitizeKey(lote);
+    var data = montarDadosOP(lote, janela);
+    return db.ref('ops/' + loteKey).transaction(function(atual) {
+      if (atual !== null) return; // já existe (provavelmente emitido por outra via) -- aborta sem sobrescrever
+      return data;
+    }).then(function(result) {
+      if (!result.committed) {
+        if (tentativasRestantes <= 0) {
+          throw new Error('Não foi possível reservar um número de lote livre (colisão repetida com OPs já existentes). Tente novamente em instantes.');
+        }
+        return reservarLoteEEmitir(tentativasRestantes - 1, janela);
+      }
+      return {lote: lote, data: data};
+    });
+  });
+}
+
+/* ── Emissão ── */
+function emitirOP() {
+  if (!produtoSelecionado || !calc || calc.pecasPrevistas <= 0) {
+    showAlert('Preencha o dimensionamento do lote antes de emitir.', 'danger');
+    return;
+  }
+  // Pedido do usuário: "não pode ser possível emitir uma OP sem data de
+  // validade". calc.validade só existe quando o produto tem
+  // prazoValidadeMeses cadastrado (Cadastros > Produtos > Parâmetros de
+  // Lote) -- sem isso, bloqueia e explica onde corrigir, em vez de deixar
+  // uma OP sem validade sair (o Relatório de Produto Acabado mostra
+  // "___/___/___" em branco pra quem preencher à mão hoje).
+  if (!calc.validade) {
+    showAlert('Este produto não tem "Prazo de Validade" cadastrado -- a OP não pode ser emitida sem data de validade. Corrija em Cadastros > Produtos > Parâmetros de Lote antes de emitir.', 'danger');
+    return;
+  }
+  // Unidades por caixa e peso por caixa: obrigatórios pra emitir (decisão do
+  // usuário). Não é burocracia -- são os dois números que a expedição usa
+  // pra calcular a quantidade e a carga que vão pra NOTA FISCAL.
+  // Motivo concreto: no histórico de expedição, 32 SKUs tinham o múltiplo de
+  // caixa da planilha divergindo do cadastro (WKBM0001: 48 na planilha x 72
+  // no cadastro, em 438 expedições), e o peso por caixa não existia no
+  // cadastro -- variando até 7 valores diferentes pro mesmo SKU na planilha.
+  // Travar aqui é o que impede a OP nascer sem os dados que a expedição vai
+  // precisar depois, quando já for tarde pra perguntar.
+  // AVISO, ainda não trava -- de propósito, e é temporário.
+  // Hoje 375 de 375 produtos ficariam bloqueados (o campo de peso acabou de
+  // ser criado e 138 produtos também não têm Un./Caixa), então travar agora
+  // pararia a emissão de OP da fábrica inteira. A trava entra quando o
+  // cadastro estiver preenchido -- é só transformar este confirm num return.
+  var faltando = [];
+  if (!(parseInt(produtoSelecionado.unCx) > 0)) faltando.push('Unidades por Caixa');
+  if (!(parseFloat(produtoSelecionado.kgCaixa) > 0)) faltando.push('Peso por Caixa (kg)');
+  if (faltando.length) {
+    if (!confirm('⚠ Este produto está sem ' + faltando.join(' e ') + ' no cadastro.\n\n' +
+        'Esses números geram a quantidade e a carga da nota fiscal na expedição. ' +
+        'Em breve eles passam a ser obrigatórios pra emitir OP.\n\n' +
+        'Corrija em Cadastros › Produtos › Embalagem.\n\nEmitir mesmo assim?')) return;
+  }
+  var erroMateriais = validarMateriaisConsumo();
+  if (erroMateriais) { showAlert(erroMateriais, 'danger'); return; }
+  // Achado do usuário: emitir sem vincular tem que ser exceção de
+  // verdade, não o padrão silencioso -- se existe pedido ativo com saldo
+  // pra esse produto e mesmo assim ninguém foi selecionado (ou o próprio
+  // "Emitir sem vincular" foi escolhido de propósito), confirma
+  // explicitamente antes de seguir.
+  if (!pedidoVinculado && pedidosDoProduto(produtoSelecionado.sku).length > 0) {
+    if (!confirm('Existe pedido ativo com saldo pra este produto e a OP vai sair sem vincular a nenhum. Confirma que é mesmo uma exceção (amostra, teste, retrabalho)?')) return;
+  }
+  document.getElementById('btnEmitir').disabled = true;
+
+  // Auto-programação (Fase 1 do plano) -- usa o bloco congelado (linha+
+  // semana) quando existir; sem ele, tenta a linha já cadastrada no
+  // próprio pedido a partir de hoje; sem nenhum dos dois, a OP fica sem
+  // data (cai na fila "OPs aguardando programação", igual emissão avulsa).
+  var janela = null;
+  if (pedidoVinculado) {
+    if (pedidoVinculado.aloc) {
+      janela = acharProximaJanela(pedidoVinculado.aloc.linha, pedidoVinculado.aloc.semanaISO, duracaoEstimadaHoras());
+    } else if (pedidoVinculado.pedido.linha) {
+      janela = acharProximaJanela(pedidoVinculado.pedido.linha, toYMDLocal(new Date()), duracaoEstimadaHoras());
+    }
+  }
+
+  reservarLoteEEmitir(5, janela).then(function(res) {
+    opJaEmitida = res.data;
+    document.getElementById('loteEmitido').textContent = res.lote;
+    document.getElementById('cardAlocacao').style.display = 'none';
+    document.getElementById('cardDimensionamento').style.display = 'none';
+    document.getElementById('cardMateriais').style.display = 'none';
+    document.getElementById('cardEmissao').style.display = 'none';
+    document.getElementById('cardSucesso').style.display = 'block';
+
+    var msg = 'OP ' + res.lote + ' emitida com sucesso.';
+    if (pedidoVinculado) {
+      msg += janela
+        ? (' Vinculada ao pedido ' + (pedidoVinculado.pedido.id || pedidoVinculado.pedidoKey) + ' e já programada em ' + janela.linhaUsada + ', ' + fmtDataBRCurta(janela.dataYMD) + ' -- ajuste fino disponível arrastando na Grade de OPs.')
+        : (' Vinculada ao pedido ' + (pedidoVinculado.pedido.id || pedidoVinculado.pedidoKey) + ', mas ainda sem programação automática -- programe manualmente na Grade de OPs.');
+    } else {
+      msg += ' Emitida SEM vínculo com pedido (exceção confirmada).';
+    }
+    showAlert(msg, 'success');
+
+    // Reserva (empenha) no estoque cada material do consumo calculado --
+    // best-effort, fora da transaction de emissão: a OP já existe e é o que
+    // importa; o empenho é um reflexo dela, não pré-requisito pra emitir.
+    // Material sem controle de estoque (ex.: água) não é reservado (01/10).
+    empenharMateriais(db, res.lote, res.data.sku, Object.values(res.data.materiaisConsumo || {}).filter(function(it) {
+      return !materialSemControleEstoque(it.mpCodigo, allMateriais);
+    })).catch(function(err) {
+      console.error('Falha ao empenhar materiais da OP ' + res.lote + ':', err);
+    });
+
+    // Aviso por e-mail de "OP emitida" -- quem manda de fato é a Cloud
+    // Function checkOpsEmitidas (functions/index.js), que só varre
+    // alertas_pendentes a cada 2min e envia via Microsoft Graph. Até aqui
+    // só o VBA (via criarOP) gravava essa fila -- OP emitida por esta tela
+    // nunca disparava e-mail nenhum. Mesmo formato exato que criarOP já usa,
+    // pra não precisar mexer no consumidor.
+    db.ref('alertas_pendentes').push({
+      tipo: 'op_emitida', timestamp: new Date().toISOString(),
+      lote: res.lote, sku: res.data.sku, produto: res.data.produto, cliente: res.data.cliente,
+      qtdPlanejada: res.data.qtdPlanejada, pedidoComercialId: res.data.skuPedidoKey || '',
+      emitidoPor: res.data.emitidoPor,
+    }).catch(function(err) {
+      console.error('Falha ao enfileirar aviso por e-mail da OP ' + res.lote + ':', err);
+    });
+
+    // Consumo da alocação congelada -- só existe se pedidoVinculado.aloc
+    // veio preenchido (bônus de programação, ver comentário no topo do
+    // bloco de vínculo). O vínculo com o PEDIDO em si já está gravado
+    // (skuPedidoKey, dentro da própria transaction de emissão) --
+    // independe disto dar certo. Também best-effort: se falhar (ex:
+    // alocação sumiu por corrida com outra emissão), avisa mas não desfaz
+    // a OP.
+    if (pedidoVinculado && pedidoVinculado.aloc) {
+      vincularAlocacaoClientSide(pedidoVinculado.aloc.id, res.lote, res.data.qtdPlanejada).catch(function(err) {
+        console.error('Falha ao consumir a alocação da OP ' + res.lote + ':', err);
+        showAlert('OP ' + res.lote + ' emitida e vinculada ao pedido, mas houve um erro ao consumir o bloco programado -- confira manualmente em Planejamento → Horizonte.', 'danger');
+      });
+    }
+  }).catch(function(err) {
+    showAlert('Erro ao emitir OP: ' + err.message, 'danger');
+  }).finally(function() {
+    document.getElementById('btnEmitir').disabled = false;
+  });
+}
+
+/* ── Documento de impressão -- 5 fichas ── movido pra shared/utils.js
+   (montarFichasOP/formulaItensParaFichas/etc.) pra dar pra reusar em
+   ops.html também, reimprimindo uma OP já emitida antes sem precisar de
+   nenhum estado em memória -- só o que já está gravado em ops/{lote}. */
+// Lê as caixas "Fichas a imprimir" -- pedido do usuário. Todas marcadas =
+// comportamento de sempre (as 5 fichas); desmarcar uma tira ela SÓ desta
+// impressão (não grava nada na OP, não afeta reimpressão feita depois em
+// ops.html).
+function fichasSelecionadasAtuais() {
+  var sel = {};
+  document.querySelectorAll('.ficha-check').forEach(function(cb) { sel[cb.value] = cb.checked; });
+  return sel;
+}
+function montarDocumentoImpressao() {
+  if (!opJaEmitida) return '';
+  var formulaItens = formulaItensParaFichas(opJaEmitida, formulaEscolhida);
+  var especs = (allEspecificacoes[chaveVersao(produtoSelecionado.key, opJaEmitida.formulaVersao)] || {}).itens || {};
+  return montarFichasOP(opJaEmitida, formulaItens, especs, produtoSelecionado.msAnvisa, fichasSelecionadasAtuais());
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('fProdutoBusca').addEventListener('input', function() { renderProdutoResultados(this.value); });
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('#fProdutoBusca') && !e.target.closest('#produtoResultados')) {
+      document.getElementById('produtoResultados').style.display = 'none';
+    }
+  });
+
+  document.querySelectorAll('input[name=modoQtd]').forEach(function(r) {
+    r.addEventListener('change', function() {
+      document.getElementById('grpMassa').style.display = this.value === 'massa' ? 'block' : 'none';
+      document.getElementById('grpPecas').style.display = this.value === 'pecas' ? 'block' : 'none';
+      recalcular();
+    });
+  });
+  ['fMassaTotal', 'fPecasDesejadas', 'fDensidade', 'fOverfill', 'fPerdaProcesso'].forEach(function(id) {
+    document.getElementById(id).addEventListener('input', recalcular);
+  });
+
+  document.getElementById('btnEmitir').addEventListener('click', emitirOP);
+  document.getElementById('btnImprimir').addEventListener('click', function() {
+    var sel = fichasSelecionadasAtuais();
+    if (!Object.values(sel).some(Boolean)) { showAlert('Marque pelo menos uma ficha pra imprimir.', 'danger'); return; }
+    document.getElementById('printArea').innerHTML = montarDocumentoImpressao();
+    // Nome do PDF = lote - cliente produto - sku (ver nomeArquivoFichasOP
+    // em shared/utils.js). Sem isso todo lote era salvo como "Emissão de OP".
+    imprimirComNome(nomeArquivoFichasOP(opJaEmitida));
+  });
+  document.getElementById('btnImprimirEtiquetas').addEventListener('click', function() {
+    if (!opJaEmitida) return;
+    EtiquetaCaixa.abrirDialogo({op: opJaEmitida, opKey: sanitizeKey(opJaEmitida.lote), produto: produtoSelecionado, db: db});
+  });
+  document.getElementById('btnNovaOp').addEventListener('click', function() { location.reload(); });
+
+  document.getElementById('substModalClose').addEventListener('click', fecharModalSubst);
+  document.getElementById('substModalCancelBtn').addEventListener('click', fecharModalSubst);
+  document.getElementById('substModalBg').addEventListener('click', function(e) { if (e.target === this) fecharModalSubst(); });
+  document.getElementById('substBusca').addEventListener('input', function() { renderSubstResultados(this.value); });
+
+  try {
+    db.ref('.info/connected').on('value', function(snap) {
+      setStatus(snap.val(), snap.val() ? 'Conectado' : 'Reconectando...');
+    });
+    dbOnValue(db.ref('produtos'), function(snap) { allProdutos = snap.val() || {}; });
+    dbOnValue(db.ref('materiais'), function(snap) { allMateriais = snap.val() || {}; });
+    dbOnValue(db.ref('estoque'), function(snap) {
+      allEstoque = snap.val() || {};
+      if (Object.keys(materiaisConsumo).length) renderMateriaisTable();
+    });
+    dbOnValue(db.ref('formulas'), function(snap) { allFormulas = snap.val() || {}; });
+    dbOnValue(db.ref('bom'), function(snap) { allBom = snap.val() || {}; });
+    dbOnValue(db.ref('especificacoes'), function(snap) { allEspecificacoes = snap.val() || {}; });
+    // Vínculo com Programação (Fase 1 do plano "Emissão de OP nativa"):
+    // precisa das alocações (pra listar o que já foi planejado esperando OP)
+    // e das OPs já existentes (pra auto-programar sem bater de frente com
+    // uma OP que já ocupa aquele horário/linha).
+    dbOnValue(db.ref('alocacoes_planejamento'), function(snap) { allAlocacoes = snap.val() || {}; if (produtoSelecionado) renderAlocacoesDoProduto(); });
+    dbOnValue(db.ref('pedidos'), function(snap) { allPedidos = snap.val() || {}; if (produtoSelecionado) renderAlocacoesDoProduto(); });
+    dbOnValue(db.ref('ops'), function(snap) { allOps = snap.val() || {}; });
+    db.ref('config/planejamento').once('value', function(snap) {
+      var s = snap.val() || {};
+      if (s.diasSemana && s.diasSemana.length) configPlanejamento.diasSemana = s.diasSemana;
+      configPlanejamento.feriados = s.feriados || {};
+    });
+  } catch (err) {
+    setStatus(false, 'Erro');
+    console.error(err);
+  }
+});
+</script>
+</body>
+</html>

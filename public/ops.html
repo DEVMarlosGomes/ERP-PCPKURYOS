@@ -1,0 +1,2519 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Controle de OPs · Kuryos PCP</title>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://erpkuryos-default-rtdb.firebaseio.com">
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+  <script src="shared/utils.js"></script>
+  <script src="shared/qrcode-lib.js"></script>
+  <script src="shared/etiqueta-caixa.js"></script>
+  <script src="shared/transferencia-op.js"></script>
+  <script src="shared/retrabalho-op.js"></script>
+  <script src="shared/impacto-pedido-ops.js"></script>
+  <script src="shared/manipulacao.js"></script>
+  <script src="shared/expedicao.js"></script>
+  <script src="shared/conciliacao-pedidos.js"></script>
+  <script src="shared/progresso-op.js"></script>
+  <script src="shared/situacao-op.js"></script>
+  <script src="shared/confirmacao-etapas.js"></script>
+  <script src="shared/entrega-pcp.js"></script>
+  <script src="shared/material-processo.js"></script>
+  <script src="shared/conciliacao-rotulagem.js"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="shared/theme.css">
+  <link rel="stylesheet" href="shared/fichas-op.css">
+  <style>
+    :root {
+      --primary: #0a1c69;
+      --primary-light: #2456d6;
+      --bg: #f5f5f7;
+      --card: #ffffff;
+      --border: #d2d2d7;
+      --text: #1d1d1f;
+      --muted: #6e6e73;
+      --success: #0ca30c;
+      --danger: #d03b3b;
+      --warning: #c9910a;
+      --info: #0a1c69;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --primary: #5e83ea;
+        --bg: #000000;
+        --card: #1c1c1e;
+        --border: #38383a;
+        --text: #f5f5f7;
+        --muted: #98989d;
+        --info: #5e83ea;
+      }
+    }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --primary: #5e83ea;
+      --bg: #000000;
+      --card: #1c1c1e;
+      --border: #38383a;
+      --text: #f5f5f7;
+      --muted: #98989d;
+      --info: #5e83ea;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-ui);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 96%;
+      margin: 0 auto;
+      padding: 30px 20px 40px;
+    }
+
+    .head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -.02em;
+    }
+    
+    .subtitle {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    
+    .btn-sync {
+      padding: 8px 16px;
+      background: var(--info);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+    
+    .btn-sync:hover {
+      background: #2563eb;
+    }
+    
+    /* GAP-05: pedidos cancelados/reduzidos pelo Comercial com OP aberta. */
+    .pend-pcp { border:1.5px solid var(--warning); border-radius:12px; padding:14px 16px; margin-bottom:14px; background:color-mix(in srgb, var(--warning) 7%, var(--card)); }
+    .pend-pcp h2 { font-size:15px; margin:0 0 4px; }
+    .pend-pcp .pend-sub { font-size:12px; color:var(--muted); margin-bottom:10px; }
+    .pend-item { border-top:1px solid var(--border); padding:10px 0 4px; }
+    .pend-item:first-of-type { border-top:0; }
+    .pend-item .pend-tit { font-weight:700; font-size:13px; }
+    .pend-item .pend-info { font-size:12px; color:var(--muted); margin:2px 0 6px; }
+    .pend-ops { width:100%; border-collapse:collapse; font-size:12.5px; }
+    .pend-ops td { padding:5px 6px; border-top:1px dashed var(--border); vertical-align:middle; }
+    .pend-ops .num { text-align:right; font-variant-numeric:tabular-nums; }
+    .pend-est { font-size:11px; font-weight:700; padding:2px 7px; border-radius:999px; white-space:nowrap; }
+    .pend-est.PENDENTE { color:var(--warning); background:color-mix(in srgb, var(--warning) 14%, transparent); }
+    .pend-est.CANCELADA, .pend-est.FECHADA, .pend-est.MANTIDA, .pend-est.SUMIU { color:var(--muted); background:color-mix(in srgb, var(--muted) 12%, transparent); }
+    .pend-acao { font-size:12px; padding:4px 10px; border-radius:7px; border:1.5px solid var(--border); background:var(--card); color:var(--text); cursor:pointer; margin-left:4px; }
+    .pend-acao.perigo { border-color:var(--danger); color:var(--danger); }
+    .card {
+      background: var(--card);
+      border: none;
+      border-radius: 20px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+    
+    .table-container {
+      overflow-x: auto;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13.5px;
+    }
+    
+    th, td {
+      padding: 12px 14px;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: middle;
+    }
+    
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    th.th-sortable { cursor: pointer; user-select: none; }
+    th.th-sortable:hover { color: var(--primary); }
+    th.th-sort-active { color: var(--primary); }
+
+    tr:hover {
+      background: #f8fafc;
+    }
+
+    .group-header td {
+      background: color-mix(in srgb, var(--text) 4%, var(--card));
+      font-weight: 700;
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+      color: var(--muted);
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .group-header.pending td { color: var(--warning); }
+    .badge-sem-op {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11.5px;
+      font-weight: 700;
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .pedido-cell {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge-pedido {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11.5px;
+      font-weight: 700;
+      background: #eef2ff;
+      color: #3730a3;
+      white-space: nowrap;
+    }
+    .badge-pedido.is-vazio {
+      background: transparent;
+      color: var(--muted);
+      font-weight: 500;
+      padding: 3px 0;
+    }
+    .cl-status-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 7px 14px;
+      border-radius: 20px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      border: 1.5px solid var(--border);
+      background: var(--card);
+      color: var(--muted);
+      transition: all .12s;
+    }
+    .cl-status-chip:hover { border-color: var(--muted); }
+    .cl-status-chip.active[data-status="pending"] { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+    .cl-status-chip.active[data-status="partial"] { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    .cl-status-chip.active[data-status="done"] { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
+
+    #checklistThead th[data-col] {
+      cursor: pointer;
+      user-select: none;
+    }
+    #checklistThead th[data-col]:hover { color: var(--primary); }
+    #checklistThead th.sorted-asc::after { content: ' ↑'; }
+    #checklistThead th.sorted-desc::after { content: ' ↓'; }
+
+    .cl-check {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      border: 1.5px solid var(--border);
+      background: var(--card);
+      color: white;
+      font-weight: 800;
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+      transition: all .1s;
+    }
+    .cl-check:hover { border-color: var(--success); }
+    .cl-check.cl-check-recebido { background: var(--success); border-color: var(--success); }
+    .cl-check.cl-check-na { background: transparent; border-style: dashed; color: #cbd5e1; }
+    .cl-check.is-readonly { cursor: default; }
+    .cl-check.is-readonly:hover { border-color: var(--border); }
+    .cl-check.cl-check-na.is-readonly:hover { border-color: #cbd5e1; }
+
+    .btn-edit-inline {
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 12px;
+      opacity: .5;
+      padding: 2px 4px;
+      line-height: 1;
+      transition: opacity .15s;
+    }
+    .btn-edit-inline:hover { opacity: 1; }
+    
+    .progress-bar-container {
+      width: 100%;
+      background: #e2e8f0;
+      border-radius: 6px;
+      height: 8px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--success);
+      border-radius: 6px;
+      transition: width 0.3s ease;
+    }
+    
+    .progress-text {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 600;
+      display: block;
+      margin-top: 2px;
+    }
+    
+    select, input[type="text"] {
+      padding: 6px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      background:var(--card);
+      color: var(--text);
+      font-family: inherit;
+      width: 100%;
+    }
+    
+    select:focus, input[type="text"]:focus {
+      outline: none;
+      border-color: var(--info);
+    }
+    
+    .badge-status {
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 700;
+      text-align: center;
+      display: inline-block;
+    }
+    
+    .badge-status.nao-iniciado { background: #fee2e2; color: #991b1b; }
+    .badge-status.programado { background: #dbeafe; color: #1e40af; }
+    .badge-status.em-producao { background: #fef3c7; color: #92400e; }
+    .badge-status.producao-parcial { background: #f3e8ff; color: #7c3aed; }
+    .badge-status.cancelado { background: #e5e7eb; color: #4b5563; text-decoration: line-through; }
+    .badge-status.aguardando-confirmacao { background: #ffe4c4; color: #9a5b00; }
+    .btn-cancel-op { background: none; border: 1px solid #e5e7eb; border-radius: 6px; color: #4b5563; cursor: pointer; padding: 4px 7px; font-size: 12px; margin-right: 4px; }
+    .btn-cancel-op:hover { background: #f3f4f6; }
+    .btn-confirm-op { background: #0ca30c; border: none; border-radius: 6px; color: #fff; cursor: pointer; padding: 6px 12px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .btn-confirm-op:hover { filter: brightness(1.08); }
+    .badge-status.cl-done { background: #d1fae5; color: #065f46; }
+    .badge-status.cl-partial { background: #fef3c7; color: #92400e; }
+    .badge-status.cl-pending { background: #fee2e2; color: #991b1b; }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #1e293b;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      display: none;
+      z-index: 11000;
+    }
+
+
+  /* Modal de abrir retrabalho. ops.html monta os outros modais por
+     style inline; este veio como markup, então traz as classes que usa. */
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:16px}
+  .modal-bg.open{display:flex}
+  .modal-bg .modal{background:var(--card);border-radius:16px;width:100%;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+  .modal-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .modal-header h2{font-size:17px;margin:0}
+  .modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1}
+  .modal-body{padding:18px 20px;overflow-y:auto}
+  .modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;background:var(--surface-2)}
+  .modal-bg label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px}
+  .modal-bg input,.modal-bg select,.modal-bg textarea{width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;color:var(--text);background:var(--card);font-family:inherit}
+  .modal-bg .form-group{margin-bottom:12px}
+  .modal-bg .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+  .modal-bg .field-hint{font-size:12.5px;color:var(--muted);line-height:1.5}
+  .modal-bg .section-note{font-size:12px;color:var(--muted);background:var(--surface-2);border-radius:8px;padding:9px 11px;line-height:1.5}
+  .modal-bg .alert{display:none;border-radius:8px;padding:9px 11px;font-size:12.5px}
+  .modal-bg .alert.show{display:block}
+  .modal-bg .alert-danger{background:var(--tint-red-bg,#fee2e2);color:var(--tint-red-fg,#991b1b)}
+  .modal-bg .btn{padding:8px 16px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+  .modal-bg .btn:disabled{opacity:.5;cursor:not-allowed}
+  .modal-bg .btn-primary{background:var(--primary);color:#fff}
+  .modal-bg .btn-ghost{background:var(--card);border:1.5px solid var(--border);color:var(--text)}
+  @media(max-width:600px){.modal-bg .form-grid{grid-template-columns:1fr}}
+
+  /* Impressão das fichas de OP: shared/fichas-op.css (etiquetas de caixa:
+       shared/etiqueta-caixa.js, janela própria)
+     (bloco único, compartilhado com emitir_op.html). */
+
+</style>
+</head>
+<body class="kuryos-theme has-sidebar">
+
+<!-- Unified Navbar will be dynamically injected here by auth_check.js -->
+
+<div class="container">
+  <div class="head">
+    <div>
+      <h1>⚙️ Controle de OPs Ativas</h1>
+      <div class="subtitle">Acompanhe o progresso físico e gerencie as OPs ativas em produção</div>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button class="btn-sync" onclick="forceSyncAllStatus()">
+        🔄 Recalcular Status de Todas as OPs / Lotes
+      </button>
+    </div>
+  </div>
+
+  <!-- GAP-05 (FLUXOS_DO_SISTEMA.md): o Comercial cancelou ou reduziu um
+       pedido que ainda tem OP aberta. Cancelar é daqui (cancelOp, com a
+       cascata de empenho/alocação/grade); manter exige motivo. -->
+  <div id="pendenciasPcpBox" class="pend-pcp" hidden></div>
+
+  <!-- OPs ativas x checklist de recebimento das ordens físicas são duas
+       visões diferentes do mesmo dado -- mesmo padrão de abas já usado em
+       Pedidos (SKUs para Produção x Pedidos Comerciais). -->
+  <div style="display:flex;gap:6px;background:#f3f4f6;padding:4px;border-radius:8px;border:1px solid var(--border);margin-bottom:14px;max-width:640px">
+    <button type="button" class="btn-sync" id="tabBtnAtivas" onclick="switchOpsTab('ativas')" style="flex:1;background:var(--card);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.1)">⚙️ OPs Ativas</button>
+    <button type="button" class="btn-sync" id="tabBtnChecklist" onclick="switchOpsTab('checklist')" style="flex:1;background:none;box-shadow:none;color:var(--muted)">✅ Checklist de Ordens</button>
+    <button type="button" class="btn-sync" id="tabBtnEncerradas" onclick="switchOpsTab('encerradas')" style="flex:1;background:none;box-shadow:none;color:var(--muted)">🗄️ Encerradas</button>
+  </div>
+
+  <div id="tabPanelAtivas">
+    <!-- Achado do usuário (OP 26244/01, cancelada por engano e invisível em
+         qualquer lugar da tela): o modo padrão (opEstaAtiva) SEMPRE escondeu
+         Cancelado/Concluído de propósito -- correto pro dia a dia, mas sem
+         nenhuma forma de enxergar essas OPs quando precisa investigar um
+         caso assim. Filtro de status + busca abrem essa porta sem mudar o
+         comportamento padrão (ativas continua sendo o que abre a tela). -->
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+      <input type="text" id="opsBusca" placeholder="🔎 Buscar por OP, lote, produto, SKU ou cliente..." style="flex:1;min-width:240px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);color:var(--text)">
+      <select id="opsFiltroStatus" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);color:var(--text)">
+        <option value="ativas">Ativas (padrão)</option>
+        <option value="todos">Todos os status</option>
+        <option value="Não Iniciado">Não Iniciado</option>
+        <option value="Programado">Programado</option>
+        <option value="Em Produção">Em Produção</option>
+        <option value="Produção Parcial">Produção Parcial</option>
+        <option value="Aguardando Confirmação">Aguardando Confirmação</option>
+        <option value="Concluído">Concluído</option>
+        <option value="Cancelado">Cancelado</option>
+      </select>
+    </div>
+    <div class="card">
+      <div class="table-container">
+        <table>
+          <thead id="opsThead">
+            <tr>
+              <th style="width: 110px;" data-sort="lote">OP / Lote</th>
+              <th data-sort="cliente">Cliente</th>
+              <th data-sort="produto">Produto / Descrição</th>
+              <th style="width: 120px;" data-sort="linha">Linha</th>
+              <th style="width: 170px;">Programação</th>
+              <th style="width: 150px;">Pedido Comercial</th>
+              <th style="width: 44px; text-align:center;" title="Prioridade do pedido (1 = primeiro). Definida em Pedidos.">Prio.</th>
+              <th style="width: 120px;" title="Data de entrega definida pelo PCP para o item deste pedido (editável em Pedidos).">Entrega (PCP)</th>
+              <th style="width: 180px;" title="Produto acabado conferido pela Logística (estoque + expedido). Passe o mouse na barra para ver cada etapa.">Produto Acabado</th>
+              <th style="width: 160px;" data-sort="status">Status da OP</th>
+              <th style="width: 60px; text-align: center;">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="ops-tbody">
+            <tr>
+              <td colspan="11" style="text-align: center; color: var(--muted); padding: 30px;">Carregando controle de OPs...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Encerradas: OP concluída pelo PCP e com todo o PA liberado pela
+       Qualidade (shared/situacao-op.js). Consulta -- nada aqui pede ação. -->
+  <div id="tabPanelEncerradas" style="display:none">
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+      <input type="text" id="encBusca" placeholder="🔎 Buscar por OP, lote, produto, SKU ou cliente..." style="flex:1;min-width:240px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px">
+      <span id="encResumo" style="font-size:12px;color:var(--muted)"></span>
+    </div>
+    <div class="card"><div class="table-container"><table>
+      <thead><tr>
+        <th style="width:110px">OP / Lote</th><th>Cliente</th><th>Produto</th>
+        <th style="width:190px">Produto acabado</th><th style="width:120px">Confirmada em</th><th style="width:90px;text-align:center">Dossiê</th>
+      </tr></thead>
+      <tbody id="enc-tbody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">Carregando…</td></tr></tbody>
+    </table></div></div>
+  </div>
+
+  <div id="tabPanelChecklist" style="display:none">
+    <div class="stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+      <div class="stat" style="background:var(--card);border-radius:16px;padding:16px;text-align:center;box-shadow:var(--shadow)">
+        <div class="stat-val" id="clTotal" style="font-size:24px;font-weight:700">—</div>
+        <div class="stat-lbl" style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-top:2px">Total de OPs</div>
+      </div>
+      <div class="stat" style="background:var(--card);border-radius:16px;padding:16px;text-align:center;box-shadow:var(--shadow)">
+        <div class="stat-val" id="clConcluidas" style="font-size:24px;font-weight:700;color:var(--success)">—</div>
+        <div class="stat-lbl" style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-top:2px">Concluídas</div>
+      </div>
+      <div class="stat" style="background:var(--card);border-radius:16px;padding:16px;text-align:center;box-shadow:var(--shadow)">
+        <div class="stat-val" id="clAndamento" style="font-size:24px;font-weight:700;color:var(--warning)">—</div>
+        <div class="stat-lbl" style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-top:2px">Em Andamento</div>
+      </div>
+      <div class="stat" style="background:var(--card);border-radius:16px;padding:16px;text-align:center;box-shadow:var(--shadow)">
+        <div class="stat-val" id="clNaoIniciadas" style="font-size:24px;font-weight:700;color:var(--danger)">—</div>
+        <div class="stat-lbl" style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-top:2px">Não Iniciadas</div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:14px 16px;margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <input type="text" id="clBusca" placeholder="🔍 Buscar por OP ou produto..." style="flex:1;min-width:200px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px">
+      <div id="clFiltroStatus" style="display:flex;gap:6px">
+        <span class="cl-status-chip" data-status="pending" title="Não iniciada">Não iniciada</span>
+        <span class="cl-status-chip" data-status="partial" title="Em andamento">Em andamento</span>
+        <span class="cl-status-chip" data-status="done" title="Concluída (100%)">Concluída</span>
+      </div>
+      <select id="clFiltroEtapa" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px">
+        <option value="">Etapa pendente: Todas</option>
+        <option value="sep">Separação</option>
+        <option value="fab">Fabricação</option>
+        <option value="env">Envase</option>
+        <option value="rot">Rotulagem</option>
+        <option value="qua">Qualidade</option>
+      </select>
+      <button class="btn-sync" onclick="exportChecklistCSV()" style="background:var(--card);color:var(--text);border:1.5px solid var(--border)">⬇️ Exportar CSV</button>
+    </div>
+
+    <div class="card">
+      <div class="table-container">
+        <table>
+          <thead id="checklistThead">
+            <tr>
+              <th style="width: 110px;" data-col="lote">Nº OP</th>
+              <th data-col="produto">Produto</th>
+              <th style="width: 60px; text-align:center">Sep.</th>
+              <th style="width: 60px; text-align:center">Fab.</th>
+              <th style="width: 60px; text-align:center">Env.</th>
+              <th style="width: 60px; text-align:center">Rot.</th>
+              <th style="width: 60px; text-align:center">Qual.</th>
+              <th style="width: 140px;" data-col="pct">Progresso</th>
+              <th style="width: 120px;" data-col="status">Status</th>
+              <th style="width: 110px; text-align:center" data-col="apontamento" title="Se já existe alguma produção lançada pra essa OP no sistema (form.html/historico.html)">Apontamento</th>
+            </tr>
+          </thead>
+          <tbody id="checklist-tbody">
+            <tr><td colspan="10" style="text-align: center; color: var(--muted); padding: 30px;">Carregando checklist...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="clPagination" style="display:flex;gap:6px;justify-content:center;align-items:center;padding:14px;flex-wrap:wrap"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- ══════════ MODAL: abrir OP de retrabalho ══════════
+     Correção de rumo do usuário (22/09): retrabalho é uma OP, não um
+     registro à parte. Ver shared/retrabalho-op.js para o porquê de ela
+     nascer SEM vínculo de pedido e SEM BOM. -->
+<div class="modal-bg" id="rtNovoBg">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header"><h2 id="rtNovoTitulo">Abrir retrabalho</h2><button class="modal-close" id="rtNovoClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body">
+      <div id="rtNovoInfo" class="field-hint" style="margin-bottom:14px"></div>
+      <div class="form-group">
+        <label>Motivo do retrabalho</label>
+        <textarea id="rtNovoMotivo" rows="2" placeholder="O que foi constatado e por que o lote volta para a linha"></textarea>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Escopo</label>
+          <input type="text" id="rtNovoEscopo" value="Lote inteiro" placeholder="Lote inteiro / parte identificada">
+        </div>
+        <div class="form-group">
+          <label>Unidades a retrabalhar</label>
+          <input type="number" id="rtNovoQtd" min="1" step="1">
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Onde vai ser executado</label>
+          <select id="rtNovoDestinoTipo">
+            <option value="linha">Linha de produção</option>
+            <option value="rotulagem">Estação de rotulagem</option>
+            <option value="posto">Posto de trabalho</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Recurso</label>
+          <select id="rtNovoDestinoNome"></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Observação (opcional)</label>
+        <input type="text" id="rtNovoObs">
+      </div>
+      <div class="section-note" style="margin:0">
+        A OP de retrabalho <b>não credita pedido</b> e <b>não baixa BOM</b> — as unidades já foram
+        contadas na OP original. O que for consumido de verdade no retrabalho é lançado à parte.
+      </div>
+      <div id="rtNovoErro" class="alert alert-danger" style="margin-top:10px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="rtNovoCancelar">Cancelar</button>
+      <button class="btn btn-primary" id="rtNovoConfirmar">Abrir OP de retrabalho</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reimpressão das 5 fichas de uma OP já emitida (ver reimprimirFichas) -->
+<div id="printArea"></div>
+
+<!-- Firebase Config -->
+<script>
+  var firebaseConfig = {
+    apiKey: "AIzaSyBvASzcbKyv3uW7NBzDFDyLsKls3An3UUs",
+    authDomain: "erpkuryos.firebaseapp.com",
+    databaseURL: kuryosDatabaseURL("https://erpkuryos-default-rtdb.firebaseio.com"),
+    projectId: "erpkuryos",
+    storageBucket: "erpkuryos.firebasestorage.app",
+    messagingSenderId: "272752392739",
+    appId: "1:272752392739:web:047a6c4aa60145d77f4f96"
+  };
+  firebase.initializeApp(firebaseConfig);
+  kuryosConnectEmulatorsIfLocal();
+</script>
+
+<!-- Security Check -->
+<script src="auth_check.js"></script>
+
+<!-- Main Business Logic -->
+<script>
+  const database = firebase.database();
+  let currentRole = 'production';
+  let pedidosGlobal = {};
+  let opsGlobal = {};
+  let produtosGlobal = {};
+  let pedidosComerciaisGlobal = {};
+  let enderecosEstoqueGlobal = {}; // WMS Fase 1 -- popula o select de endereço no putaway de produto acabado
+  
+  // Wait for user authentication to determine role permissions
+  firebase.auth().onAuthStateChanged(user => {
+    if (user) {
+      // readUsuarioProfileWithRetry (auth_check.js) em vez de once() cru:
+      // listenToActiveOps() é o ÚNICO ponto que anexa todos os listeners desta
+      // página. Na corrida entre onAuthStateChanged e a propagação do token na
+      // conexão nova do RTDB, o once() podia voltar null/permission_denied --
+      // e a tela ficava em branco pra sempre, sem erro e sem spinner, só F5
+      // resolvia. É exatamente a corrida que esse helper existe pra cobrir.
+      readUsuarioProfileWithRetry(database, user.uid, snap => {
+        const profile = snap.val();
+        if (profile) {
+          currentRole = profile.role || 'production';
+          listenToActiveOps();
+        }
+      });
+    }
+  });
+  
+  let configGlobal = {
+    linhas: ['Linha 1', 'Linha 2', 'Linha 3', 'Linha 4']
+  };
+  let globalPedidos = {};
+
+  function listenToActiveOps() {
+    // Escuta produtos
+    dbOnValue(database.ref('produtos'), snap => {
+      produtosGlobal = snap.val() || {};
+    });
+
+    dbOnValue(database.ref('pedidos_comerciais'), snap => {
+      pedidosComerciaisGlobal = snap.val() || {};
+      recalculateAndRenderOps();
+    });
+
+    dbOnValue(database.ref('enderecos_estoque'), snap => {
+      enderecosEstoqueGlobal = snap.val() || {};
+    });
+
+    dbOnValue(database.ref('config'), snap => {
+      const val = snap.val();
+      if (val && val.linhas) {
+        configGlobal.linhas = val.linhas;
+      }
+      // Rotulagem e Postos: usados pra classificar o apontamento ao conferir
+      // divergencia (linha/rotulagem/posto sao somatorias distintas na OP).
+      if (val) {
+        configGlobal.rotulagem = val.rotulagem || [];
+        configGlobal.postos = val.postosTrabalho || val.postos || [];
+      }
+      recalculateAndRenderOps();
+    });
+
+    dbOnValue(database.ref('pedidos'), pedSnap => {
+      pedidosGlobal = pedSnap.val() || {};
+      globalPedidos = pedSnap.val() || {};
+      agendarConciliacaoOps();
+      recalculateAndRenderOps();
+    });
+
+    // OPs de verdade (1 OP = 1 lote = 1 envase corrido). "pedidos" é o nível
+    // acima (SKU alocado dentro do pedido comercial) — controlar OP aqui
+    // significa ler desta coleção, não mais de "pedidos".
+    dbOnValue(database.ref('ops'), opsSnap => {
+      opsGlobal = opsSnap.val() || {};
+      // Confere o total da OP contra os apontamentos vivos. Roda uma vez só
+      // (o nó de registros é grande) e redesenha quando termina, pra o aviso
+      // de divergência aparecer sem travar o carregamento da tela.
+      conferirDivergencias().then(function() { recalculateAndRenderOps(); });
+      agendarConciliacaoOps();
+      recalculateAndRenderOps();
+      renderPendenciasPcp();
+    });
+
+    dbOnValue(database.ref('pendencias_pcp'), pSnap => {
+      pendenciasPcpGlobal = pSnap.val() || {};
+      renderPendenciasPcp();
+    });
+
+    // Fase 5 do plano (PLANO_PLANEJAMENTO_PCP.md): paradas são bem
+    // rastreadas (paradas_historico, duração exata) mas nenhum cálculo do
+    // sistema as lia -- "gap de dado já existente, nunca usado". Usado
+    // abaixo em previsaoTerminoHtml() pra descontar tempo parado do ritmo
+    // produtivo real de cada OP aberta, em vez de tratar todo o tempo
+    // decorrido desde a abertura como se fosse produção.
+    dbOnValue(database.ref('paradas_historico'), pSnap => {
+      paradasHistoricoGlobal = pSnap.val() || {};
+      recalculateAndRenderOps();
+    });
+
+    // Produto acabado da barra de progresso: a mesma conta da Conciliação de
+    // pedidos (Produzido = Expedido + Em estoque), por OP. Enquanto alguma
+    // fonte não chegou a barra mostra "carregando" em vez de um zero falso.
+    dbOnValue(database.ref('material_processo'), snap => {
+      materialProcessoGlobal = snap.val() || {};
+      recalculateAndRenderOps();
+    });
+    // Conciliação da rotulagem (05/10): perdas por lote, só leitura, sem trava.
+    dbOnValue(database.ref('perdas'), snap => {
+      perdasGlobal = snap.val() || {};
+      recalculateAndRenderOps();
+    });
+    Object.keys(conciliacaoFontes).forEach(no => {
+      dbOnValue(database.ref(no), snap => {
+        conciliacaoFontes[no] = snap.val() || {};
+        agendarConciliacaoOps();
+      });
+    });
+  }
+  // Material retido por OP (sobras e itens declarados ao devolver a OP à fila): chips na linha.
+  let materialProcessoGlobal = {};
+  let perdasGlobal = {};
+  const conciliacaoFontes = {expedicoes_comerciais: null, estoque_lotes: null, conferencias_pa: null, solicitacoes_descarte: null, devolucoes_cliente: null};
+  let qualidadePorOp = {};       // opKey -> {liberado, pendente, reprovado} do estoque de PA
+  let conciliacaoPorOp = null;   // opKey -> bucket `porOp` da conciliação
+  let _conciliacaoOpsT = null;
+  function agendarConciliacaoOps() {
+    clearTimeout(_conciliacaoOpsT);
+    _conciliacaoOpsT = setTimeout(() => {
+      if (Object.keys(conciliacaoFontes).some(k => conciliacaoFontes[k] === null)) return;
+      try {
+        const r = ConciliacaoPedidos.calcular(Object.assign({pedidos: pedidosGlobal, ops: opsGlobal}, conciliacaoFontes));
+        const idx = {};
+        Object.keys(r.porPedido).forEach(pk => {
+          const porOp = r.porPedido[pk].porOp || {};
+          Object.keys(porOp).forEach(ok => { if (porOp[ok].opKey) idx[porOp[ok].opKey] = porOp[ok]; });
+        });
+        conciliacaoPorOp = idx;
+        qualidadePorOp = ProgressoOp.paletesPorOp(conciliacaoFontes.estoque_lotes);
+      } catch (e) {
+        console.error('Falha ao calcular o produto acabado das OPs:', e);
+        conciliacaoPorOp = null;
+      }
+      recalculateAndRenderOps();
+    }, 200);
+  }
+  let paradasHistoricoGlobal = {};
+  let pendenciasPcpGlobal = {};
+
+  function podeDecidirPendencia() {
+    return !!window.currentUser && (window.currentUser.role === 'admin' || window.currentUser.role === 'pcp');
+  }
+
+  const PEND_ESTADO = {PENDENTE: 'a decidir', CANCELADA: 'cancelada', FECHADA: 'fechada', MANTIDA: 'mantida', SUMIU: 'não encontrada'};
+
+  function renderPendenciasPcp() {
+    const box = document.getElementById('pendenciasPcpBox');
+    if (!box || typeof ImpactoPedidoOps === 'undefined') return;
+    const abertas = Object.keys(pendenciasPcpGlobal)
+      .map(k => ({k, p: pendenciasPcpGlobal[k]}))
+      .filter(x => x.p && x.p.status === 'ABERTA')
+      .map(x => Object.assign(x, {sit: ImpactoPedidoOps.situacao(x.p, opsGlobal)}))
+      .sort((a, b) => String(a.p.criadoEm || '').localeCompare(String(b.p.criadoEm || '')));
+    // Tudo decidido (OP cancelada, fechada ou mantida): fecha a pendência.
+    // Só PCP/admin -- quem pode decidir é quem encerra.
+    if (podeDecidirPendencia()) {
+      abertas.filter(x => x.sit.resolvida).forEach(x => {
+        database.ref('pendencias_pcp/' + x.k).update({
+          status: 'RESOLVIDA', resolvidoEm: new Date().toISOString(),
+          resolvidoPor: window.currentUser.nome || window.currentUser.email || 'desconhecido'
+        }).catch(err => console.error('pendência PCP', err));
+      });
+    }
+    const visiveis = abertas.filter(x => !x.sit.resolvida);
+    if (!visiveis.length) { box.hidden = true; box.innerHTML = ''; return; }
+    const pode = podeDecidirPendencia();
+    const totalOps = visiveis.reduce((s, x) => s + x.sit.pendentes, 0);
+    const plural = visiveis.length === 1 ? '' : 's';
+    box.innerHTML = '<h2>⚠️ ' + totalOps + ' OP' + (totalOps === 1 ? '' : 's') + ' de pedido' + plural + ' alterado' + plural + ' pelo Comercial</h2>' +
+      '<div class="pend-sub">O pedido foi cancelado ou reduzido depois da OP emitida. Cancele a OP (libera empenho, alocação e grade) ou mantenha informando o motivo — por exemplo, vai virar estoque.' +
+      (pode ? '' : ' Só PCP ou administrador decidem.') + '</div>' +
+      visiveis.map(x => {
+        const p = x.p;
+        const itens = (p.itens || []).map(i => escapeHtml(i.sku) + (i.qtdNova == null
+          ? ' cancelado'
+          : ': ' + fmtNum(i.qtdAntes) + ' → ' + fmtNum(i.qtdNova) + ', sobram ' + fmtNum(i.excesso))).join(' · ');
+        const linhas = x.sit.linhas.map(l => {
+          const acoes = l.estado === 'PENDENTE' && pode
+            ? '<button type="button" class="pend-acao perigo" onclick="cancelOp(\'' + escapeAttr(l.opKey) + '\')">🚫 Cancelar OP</button>' +
+              '<button type="button" class="pend-acao" onclick="manterOpPendencia(\'' + escapeAttr(x.k) + '\',\'' + escapeAttr(l.key) + '\')">Manter</button>'
+            : '';
+          return '<tr><td><b>' + escapeHtml(l.lote) + '</b></td><td>' + escapeHtml(l.sku) + '</td>' +
+            '<td class="num">' + fmtNum(l.qtdPlanejada) + ' plan.</td><td class="num">' + fmtNum(l.produzidoAgora) + ' prod.</td>' +
+            '<td><span class="pend-est ' + l.estado + '">' + PEND_ESTADO[l.estado] + '</span>' +
+            (l.estado === 'MANTIDA' && l.motivoMantida ? ' <span style="font-size:11px;color:var(--muted)">' + escapeHtml(l.motivoMantida) + '</span>' : '') + '</td>' +
+            '<td style="text-align:right;white-space:nowrap">' + acoes + '</td></tr>';
+        }).join('');
+        return '<div class="pend-item">' +
+          '<div class="pend-tit">' + escapeHtml(ImpactoPedidoOps.descreverTipo(p.tipo)) + ' · Pedido ' + escapeHtml(p.pedidoComercialId) +
+            (p.numeroPedidoCliente ? ' / cliente ' + escapeHtml(p.numeroPedidoCliente) : '') + ' · ' + escapeHtml(p.cliente || '') + '</div>' +
+          '<div class="pend-info">' + itens + (p.motivo ? ' — “' + escapeHtml(p.motivo) + '”' : '') + ' · ' + escapeHtml(p.criadoPor || '') +
+            (p.criadoEm ? ', ' + escapeHtml(new Date(p.criadoEm).toLocaleString('pt-BR')) : '') + '</div>' +
+          '<div class="table-container"><table class="pend-ops"><tbody>' + linhas + '</tbody></table></div></div>';
+      }).join('');
+    box.hidden = false;
+  }
+
+  // Os botões dependem do papel, e o perfil chega depois dos dados: sem isto o
+  // PCP podia ver o painel sem "Cancelar OP"/"Manter" até alguma OP mudar.
+  window.addEventListener('kuryos-auth-pronto', function() { renderPendenciasPcp(); });
+
+  function manterOpPendencia(pendKey, opItemKey) {
+    if (!podeDecidirPendencia()) return;
+    const motivo = prompt('Por que manter esta OP mesmo com o pedido cancelado/reduzido? (ex.: vira estoque, vai para outro pedido)');
+    if (motivo === null) return;
+    if (!motivo.trim()) { alert('Informe o motivo para manter a OP.'); return; }
+    database.ref('pendencias_pcp/' + pendKey + '/ops/' + opItemKey).update({
+      decisao: 'MANTIDA', motivoMantida: motivo.trim(), mantidaEm: new Date().toISOString(),
+      mantidaPor: window.currentUser.nome || window.currentUser.email || 'desconhecido'
+    }).then(() => showToast('OP mantida. O motivo ficou registrado na pendência.'))
+      .catch(err => { console.error(err); showToast('Erro ao registrar a decisão.'); });
+  }
+
+  // Minutos parados de um lote desde um instante ISO -- soma a duração
+  // (gravada em minutos, form.html/resumeLine) de toda parada registrada
+  // pra esse lote com início dentro da janela [desdeISO, agora]. Paradas de
+  // uma abertura ANTERIOR da mesma OP (fechou e reabriu) ficam fora porque
+  // o filtro é por inicio >= desdeISO, não pelo lote sozinho.
+  function minutosParadasDoLote(lote, desdeISO) {
+    if (!lote || !desdeISO) return 0;
+    var desdeMs = new Date(desdeISO).getTime();
+    if (isNaN(desdeMs)) return 0;
+    var total = 0;
+    Object.values(paradasHistoricoGlobal).forEach(function(p) {
+      if (!p || p.lote !== lote || !p.inicio) return;
+      // Rotuladora parada (29/09) não desconta o ritmo do ENVASE da OP.
+      if (p.setor === 'rotulagem') return;
+      var inicioMs = new Date(p.inicio).getTime();
+      if (isNaN(inicioMs) || inicioMs < desdeMs) return;
+      total += p.duracao || 0;
+    });
+    return total;
+  }
+
+  // Previsão de término = agora + (quantidade restante ÷ ritmo PRODUTIVO
+  // real, ou seja, descontando as paradas registradas do tempo decorrido
+  // desde a abertura -- sem isso, uma OP com paradas longas mostraria um
+  // ritmo pior do que o real (tempo parado contando como se fosse produção
+  // lenta) e uma previsão de término mais pessimista/errada.
+  function previsaoTerminoHtml(op) {
+    if (!op.abertaDesde || !op.qtdPlanejada) return '';
+    var produzido = getProduzido(op, 'linha');
+    var qtdRestante = Math.max(op.qtdPlanejada - produzido, 0);
+    if (qtdRestante <= 0) return '';
+    var horasDecorridas = horasDesde(op.abertaDesde);
+    var minutosParados = minutosParadasDoLote(op.lote, op.abertaDesde);
+    var horasProdutivas = Math.max(horasDecorridas - (minutosParados / 60), 0);
+    // Menos de ~6min produtivos ainda não é amostra confiável de ritmo --
+    // evita projetar uma previsão maluca (ex: 1 unidade em 2min -> "30 un/h").
+    if (horasProdutivas < 0.1 || produzido <= 0) return '';
+    var ritmoProdutivo = produzido / horasProdutivas;
+    if (ritmoProdutivo <= 0) return '';
+    var horasRestantes = qtdRestante / ritmoProdutivo;
+    var previsao = new Date(Date.now() + horasRestantes * 3600000);
+    var pad = function(n) { return String(n).padStart(2, '0'); };
+    var previsaoTxt = pad(previsao.getDate()) + '/' + pad(previsao.getMonth() + 1) + ' ' + pad(previsao.getHours()) + ':' + pad(previsao.getMinutes());
+    var descontoTxt = minutosParados > 0 ? (' · ' + minutosParados + 'min de parada descontados') : '';
+    return '<div style="font-size:10.5px;color:var(--muted);margin-top:3px" title="Ritmo produtivo real: ' +
+      Math.round(ritmoProdutivo) + ' un/h (exclui tempo parado)">📅 Previsão: ' + previsaoTxt + descontoTxt + '</div>';
+  }
+
+  function recalculateAndRenderOps() {
+    renderOpsPanel();
+    renderChecklist(); // no-op se a aba Checklist não estiver visível no momento
+    renderEncerradas(); // idem, para a aba Encerradas
+  }
+  
+  // Normaliza a parte numérica do id do pedido (antes do "__sku") removendo
+  // zeros à esquerda -- corrige casos onde a OP foi emitida com o id do
+  // pedido sem o padding original (ex: "12__SKU" vs "0012__SKU").
+  function normalizePedidoKey(key) {
+    if (!key) return key;
+    var parts = String(key).split('__');
+    if (parts.length < 2) return key;
+    var idPart = parts[0];
+    if (/^\d+$/.test(idPart)) idPart = String(parseInt(idPart, 10));
+    return idPart + '__' + parts.slice(1).join('__');
+  }
+
+  // O pedido (nível SKU) que a OP referencia via skuPedidoKey -- já carrega
+  // o parentPedidoId (o pedido comercial de verdade), então não precisa que
+  // alguém selecione isso manualmente pra toda OP emitida normalmente; o
+  // vínculo manual (parentPedidoId direto na OP) continua existindo como
+  // override, pra OPs avulsas importadas sem skuPedidoKey.
+  function pedidoBySkuKey(skuPedidoKey) {
+    if (!skuPedidoKey) return null;
+    if (pedidosGlobal[skuPedidoKey]) return pedidosGlobal[skuPedidoKey];
+    var alvo = normalizePedidoKey(skuPedidoKey);
+    var foundKey = Object.keys(pedidosGlobal).find(function(k) { return normalizePedidoKey(k) === alvo; });
+    return foundKey ? pedidosGlobal[foundKey] : null;
+  }
+
+  // Filtro de status + busca (achado do usuário: OP cancelada por engano
+  // ficava invisível em TODA a tela, sem forma de investigar). "Ativas"
+  // sem busca é o modo padrão -- comportamento 100% igual ao de sempre,
+  // grupos por status. Qualquer outra combinação (status específico,
+  // "Todos", ou texto digitado) cai numa lista única, ordenável, que
+  // enxerga inclusive Cancelado/Concluído.
+  const opsFiltroState = { busca: '', status: 'ativas' };
+  const opsSortable = makeSortableTable(document.getElementById('opsThead'), 'lote', 'asc');
+  opsSortable.wireHeaders(renderOpsPanel);
+
+  function opsFiltroEstaNoModoPadrao() {
+    return opsFiltroState.status === 'ativas' && !opsFiltroState.busca.trim();
+  }
+
+  function renderOpsListaFiltrada() {
+    const tbody = document.getElementById('ops-tbody');
+    const buscaNorm = opsFiltroState.busca.trim().toLowerCase();
+    let todasOps = Object.keys(opsGlobal).map(k => ({ key: k, ...opsGlobal[k] }));
+
+    if (opsFiltroState.status === 'ativas') {
+      todasOps = todasOps.filter(o => opEstaAtiva(o));
+    } else if (opsFiltroState.status === 'Aguardando Confirmação') {
+      // Inclui a OP ativa com setor encerrado esperando o PCP (01/10).
+      todasOps = todasOps.filter(o => o.status === 'Aguardando Confirmação' ||
+        (o.status !== 'Cancelado' && ConfirmacaoEtapas.etapasPendentes(o).length));
+    } else if (opsFiltroState.status !== 'todos') {
+      todasOps = todasOps.filter(o => o.status === opsFiltroState.status);
+    }
+    if (buscaNorm) {
+      todasOps = todasOps.filter(o => {
+        const alvo = [o.lote, o.key, o.produto, o.sku, o.cliente].filter(Boolean).join(' ').toLowerCase();
+        return alvo.indexOf(buscaNorm) !== -1;
+      });
+    }
+
+    todasOps = opsSortable.applySort(todasOps, function(o, field) { return o[field]; });
+
+    if (!todasOps.length) {
+      tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; color: var(--muted); padding: 30px;">Nenhuma OP encontrada com esse filtro.</td></tr>';
+      return;
+    }
+    const plural = todasOps.length === 1 ? '' : 's';
+    /* OP em 'Aguardando Confirmação' precisa da MESMA linha especial aqui.
+       Antes, o ramo filtrado desenhava tudo com renderOpRow -- e o botão
+       "Confirmar conclusão" só existia na visão padrão. Quem filtrava por
+       "Aguardando Confirmação" (o caminho natural de quem está procurando
+       exatamente essas OPs) ou por "Todos" via a OP e NENHUMA forma de
+       confirmá-la. A cadeia inteira trava atrás disso: sem confirmação a
+       Conferência de PA fica bloqueada, o palete não entra no estoque e a
+       Expedição não enxerga. Achado pelo teste de fluxo ponta a ponta
+       (run_fluxo_ponta_a_ponta_test.js). */
+    tbody.innerHTML =
+      '<tr class="group-header"><td colspan="10">🔎 ' + todasOps.length + ' OP' + plural + ' encontrada' + plural + '</td></tr>' +
+      todasOps.map(function(o) {
+        // Etapas (envase/rotulagem) esperando o PCP têm linha própria; OP
+        // pronta sem etapa pendente mantém o botão de conclusão.
+        const etapas = o.status === 'Cancelado' ? [] : ConfirmacaoEtapas.pendentes({[o.key]: o});
+        if (o.status === 'Aguardando Confirmação') {
+          return etapas.length ? etapas.map(renderEtapaAConfirmarRow).join('') : renderOpAguardandoConfirmacaoRow(o);
+        }
+        return renderOpRow(o) + etapas.map(renderEtapaAConfirmarRow).join('');
+      }).join('');
+  }
+
+  let semOpAberto = false;
+  function alternarSemOp() { semOpAberto = !semOpAberto; renderOpsPanel(); }
+
+  function renderOpsPanel() {
+    if (!opsFiltroEstaNoModoPadrao()) { renderOpsListaFiltrada(); return; }
+    const tbody = document.getElementById('ops-tbody');
+
+    const activeOps = Object.keys(opsGlobal)
+      .map(k => ({ key: k, ...opsGlobal[k] }))
+      .filter(o => opEstaAtiva(o));
+
+    // Fase 7 do plano (PLANO_PLANEJAMENTO_PCP.md): conclusão de OP é 100%
+    // manual pelo PCP -- quem fecha na linha (Painel de Turno/Fechar Lote)
+    // libera a linha e grava o resultado, mas o status fica 'Aguardando
+    // Confirmação' até essa ação aqui. opEstaAtiva trata esse status como
+    // "não ativa" (correto pra Alocar OP/Andon/etc, já que a linha já foi
+    // liberada), então essas OPs NÃO aparecem em activeOps -- precisam da
+    // própria seção, senão ficam invisíveis e ninguém nunca confirma nada.
+    // Cada encerramento de setor (envase, rotulagem) é confirmado à parte
+    // pelo PCP (01/10, shared/confirmacao-etapas.js). A OP inteira só aparece
+    // sozinha aqui quando está pronta e não tem etapa pendente (fechada antes
+    // desta mudança): aí vale o botão de conclusão de sempre.
+    const etapasAConfirmar = ConfirmacaoEtapas.pendentes(opsGlobal);
+    const opsAguardandoConfirmacao = Object.keys(opsGlobal)
+      .map(k => ({ key: k, ...opsGlobal[k] }))
+      .filter(o => ConfirmacaoEtapas.precisaConclusaoAvulsa(o))
+      .sort((a, b) => String(a.lote || a.key).localeCompare(String(b.lote || b.key)));
+
+    // Pedidos (SKU alocado no pedido comercial) que ainda precisam de OP. Só
+    // conta OP ATIVA (opEstaAtiva) -- uma OP cancelada não deve "esconder" o
+    // pedido, senão ninguém percebe que precisa reemitir. E pedido já atendido
+    // (produzido ≥ 95%) não é "aguardando emissão", mesmo sem marcação de
+    // concluído: era ruído -- ver SituacaoOp.pedidoPrecisaOp.
+    const linkedSkuKeys = new Set(
+      activeOps.map(o => o.skuPedidoKey).filter(Boolean)
+    );
+    const pedidosSemOp = Object.keys(pedidosGlobal)
+      .map(k => ({ key: k, ...pedidosGlobal[k] }))
+      .filter(p => !isConcluido(p) && SituacaoOp.pedidoPrecisaOp(p, linkedSkuKeys.has(p.key)));
+
+    // Opção A: concluída pelo PCP mas ainda com PA na Qualidade/Logística
+    // continua aqui, com linha enxuta. Só dá para decidir com a conciliação
+    // carregada (situacaoDaOp devolve ENCERRADA-neutra antes disso e a lista
+    // fica vazia -- o painel redesenha quando ela chega).
+    const opsConcluidasPendentes = Object.keys(opsGlobal)
+      .map(k => ({ key: k, ...opsGlobal[k] }))
+      .filter(o => o.status === 'Concluído' && ['NA_QUALIDADE', 'AGUARDA_LOGISTICA'].includes(situacaoDaOp(o).estado))
+      .sort((a, b) => String(a.lote || a.key).localeCompare(String(b.lote || b.key)));
+
+    if (activeOps.length === 0 && pedidosSemOp.length === 0 && opsAguardandoConfirmacao.length === 0 && etapasAConfirmar.length === 0 && opsConcluidasPendentes.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; color: var(--muted); padding: 30px;">🎉 Nada pendente no momento. As OPs concluídas estão na aba Encerradas.</td></tr>';
+      return;
+    }
+
+    activeOps.sort((a, b) => {
+      const statusOrder = { 'Em Produção': 1, 'Produção Parcial': 2, 'Programado': 3, 'Não Iniciado': 4 };
+      const aVal = statusOrder[a.status] || 9;
+      const bVal = statusOrder[b.status] || 9;
+      if (aVal !== bVal) return aVal - bVal;
+      return a.key.localeCompare(b.key);
+    });
+    pedidosSemOp.sort((a, b) => String(a.cliente || '').localeCompare(String(b.cliente || '')));
+
+    let html = '';
+    if (opsAguardandoConfirmacao.length || etapasAConfirmar.length) {
+      html += '<tr class="group-header pending"><td colspan="10">⏳ Aguardando Confirmação do PCP (' + (etapasAConfirmar.length + opsAguardandoConfirmacao.length) + ')</td></tr>';
+      html += etapasAConfirmar.map(renderEtapaAConfirmarRow).join('');
+      html += opsAguardandoConfirmacao.map(renderOpAguardandoConfirmacaoRow).join('');
+    }
+    if (activeOps.length) {
+      html += '<tr class="group-header"><td colspan="10">⚙️ OPs Emitidas em Aberto (' + activeOps.length + ')</td></tr>';
+      html += activeOps.map(renderOpRow).join('');
+    }
+    if (opsConcluidasPendentes.length) {
+      html += '<tr class="group-header pending"><td colspan="10">🧪 Concluídas, com produto acabado pendente (' + opsConcluidasPendentes.length + ')</td></tr>';
+      html += opsConcluidasPendentes.map(renderOpConcluidaPendenteRow).join('');
+    }
+    if (pedidosSemOp.length) {
+      // É backlog de demanda (60 itens na base real), não trabalho do dia:
+      // recolhido por padrão, um clique abre. A emissão em si é na tela Emitir OP.
+      html += '<tr class="group-header pending" id="hdrSemOp" style="cursor:pointer" onclick="alternarSemOp()" title="Clique para ' + (semOpAberto ? 'recolher' : 'ver a lista') + '"><td colspan="10">' +
+        (semOpAberto ? '▾' : '▸') + ' ⚠️ Aguardando Emissão de OP (' + pedidosSemOp.length + ')' + (semOpAberto ? '' : ' — clique para ver') + '</td></tr>';
+      if (semOpAberto) html += pedidosSemOp.map(renderPendingRow).join('');
+    }
+    tbody.innerHTML = html;
+  }
+
+  // canConfirmOp (distinto de isAdmin, usado no resto do arquivo pra
+  // linha/vínculo/cancelamento): a decisão da Fase 7 foi especificamente
+  // "PCP confirma conclusão", não "só admin" -- admin continua podendo
+  // (superset natural), mas pcp ganha essa ação sem precisar de acesso
+  // admin completo.
+  function canConfirmOp() {
+    return currentRole === 'admin' || currentRole === 'pcp';
+  }
+
+  function fmtDataHoraCurta(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const p = n => String(n).padStart(2, '0');
+    return p(d.getDate()) + '/' + p(d.getMonth() + 1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  // Uma linha por encerramento de setor (envase ou rotulagem) esperando o PCP.
+  function renderEtapaAConfirmarRow(p) {
+    const op = p.op;
+    const escapedKeyAttr = escapeAttr(p.opKey);
+    const planned = op.qtdPlanejada || 0;
+    const pct = planned > 0 ? Math.round(p.quantidade / planned * 100) : 0;
+    const detalhe = [p.local, p.fechadoEm ? 'encerrado ' + fmtDataHoraCurta(p.fechadoEm) : '', p.operador ? 'por ' + p.operador : '']
+      .filter(Boolean).join(' · ');
+    const rotBotao = p.concluiOp ? '✅ Confirmar ' + p.rotulo.toLowerCase() + ' e concluir OP' : '✅ Confirmar ' + p.rotulo.toLowerCase();
+    return `
+      <tr data-etapa="${escapeAttr(p.etapa)}" data-op="${escapedKeyAttr}">
+        <td><strong>${escapeHtml(op.lote || p.opKey)}</strong></td>
+        <td>${escapeHtml(op.cliente || '-')}</td>
+        <td colspan="3">
+          <div style="font-weight: 600;">${escapeHtml(op.produto || '-')}</div>
+          <div style="font-size: 11.5px; color: var(--muted); margin-top: 1px;"><b>${escapeHtml(p.rotulo)}:</b> ${p.quantidade.toLocaleString('pt-BR')} / ${planned.toLocaleString('pt-BR')} un. (${pct}%)${detalhe ? ' · ' + escapeHtml(detalhe) : ''}</div>
+        </td>
+        <td><span class="badge-status aguardando-confirmacao">⏳ ${escapeHtml(p.rotulo)} a confirmar</span></td>
+        <td colspan="4" style="text-align:center; white-space:nowrap">
+          ${canConfirmOp()
+            ? `<button class="btn-confirm-op" onclick="confirmarEtapaOp('${escapedKeyAttr}', '${escapeAttr(p.etapa)}')" title="Confirmar a quantidade encerrada neste setor">${rotBotao}</button>`
+            : `<span style="font-size:11.5px;color:var(--muted)">Aguardando PCP</span>`}
+          <button class="btn-edit-inline" onclick="abrirApontamentoParaEdicao('${escapedKeyAttr}')" title="Abrir esta OP no Histórico de Apontamentos pra corrigir algum lançamento antes de confirmar">📝</button>
+        </td>
+      </tr>
+    `;
+  }
+
+  function confirmarEtapaOp(opKey, etapa) {
+    if (!canConfirmOp()) return;
+    const op = opsGlobal[opKey];
+    if (!op) return;
+    const conclui = ConfirmacaoEtapas.concluiAoConfirmar(op, etapa);
+    const quem = (window.currentUser && (window.currentUser.nome || window.currentUser.email)) || 'desconhecido';
+    database.ref().update(ConfirmacaoEtapas.updatesConfirmacao(opKey, etapa, quem, new Date().toISOString())).then(() => {
+      showToast((ConfirmacaoEtapas.ROTULOS[etapa] || etapa) + ' da OP ' + (op.lote || opKey) + ' confirmado.');
+      if (conclui) confirmarConclusaoOp(opKey);
+    }).catch(err => showToast('Erro ao confirmar: ' + err.message));
+  }
+
+  function renderOpAguardandoConfirmacaoRow(op) {
+    const escapedKeyAttr = escapeAttr(op.key);
+    const escapedLote = escapeHtml(op.lote || op.key || '-');
+    const escapedProduto = escapeHtml(op.produto || '-');
+    const escapedCliente = escapeHtml(op.cliente || '-');
+    const produzido = getProduzido(op, 'linha');
+    const planned = op.qtdPlanejada || 0;
+    const pct = planned > 0 ? Math.round(produzido / planned * 100) : 0;
+    return `
+      <tr>
+        <td><strong>${escapedLote}</strong></td>
+        <td>${escapedCliente}</td>
+        <td colspan="3">
+          <div style="font-weight: 600;">${escapedProduto}</div>
+          <div style="font-size: 11.5px; color: var(--muted); margin-top: 1px;">${produzido.toLocaleString('pt-BR')} / ${planned.toLocaleString('pt-BR')} un. (${pct}%)</div>
+        </td>
+        <td><span class="badge-status aguardando-confirmacao">⏳ Aguardando confirmação</span></td>
+        <td colspan="4" style="text-align:center; white-space:nowrap">
+          ${canConfirmOp()
+            ? `<button class="btn-confirm-op" onclick="confirmarConclusaoOp('${escapedKeyAttr}')" title="Confirmar que essa OP está de fato concluída">✅ Confirmar conclusão</button>`
+            : `<span style="font-size:11.5px;color:var(--muted)">Aguardando PCP</span>`}
+          <button class="btn-edit-inline" onclick="abrirApontamentoParaEdicao('${escapedKeyAttr}')" title="Abrir esta OP no Histórico de Apontamentos pra corrigir algum lançamento antes de confirmar">📝</button>
+        </td>
+      </tr>
+    `;
+  }
+
+  // Pedido do usuário: na confirmação de conclusão (PCP), poder ir direto
+  // corrigir um apontamento incorreto sem precisar procurar a OP de novo
+  // em historico.html -- hoje é onde a edição de registro já existe (aba
+  // "Por Registro", botão "Editar"). Passa lote + uma data de início um
+  // pouco anterior à emissão (historico.html não carrega nada sozinho, o
+  // período padrão é só os últimos 30 dias -- sem isso, uma OP mais antiga
+  // que esse recorte chegaria lá e pareceria "sem apontamento nenhum").
+  function abrirApontamentoParaEdicao(opKey) {
+    const op = opsGlobal[opKey];
+    if (!op) return;
+    const params = new URLSearchParams();
+    if (op.lote) params.set('lote', op.lote);
+    const emissao = new Date(op.dataEmissao);
+    if (!isNaN(emissao.getTime())) {
+      emissao.setDate(emissao.getDate() - 2);
+      params.set('desde', toLocalISODate(emissao));
+    }
+    window.open('historico.html?' + params.toString(), '_blank');
+  }
+
+  // Ação central da Fase 7: só isso grava status:'Concluído' de verdade no
+  // sistema inteiro (nenhum fluxo de apontamento força mais esse valor
+  // diretamente -- ver fecharAlocacaoOP/syncNextItem em form.html). Registra
+  // quem confirmou e quando, mesmo padrão de auditoria de canceladoPor/
+  // canceladoEm já usado em cancelOp logo abaixo.
+  function confirmarConclusaoOp(opKey) {
+    if (!canConfirmOp()) return;
+    const op = opsGlobal[opKey];
+    if (!op) return;
+    const quem = (window.currentUser && (window.currentUser.nome || window.currentUser.email)) || 'desconhecido';
+    database.ref('ops/' + opKey).update({
+      status: 'Concluído',
+      confirmadoPor: quem,
+      confirmadoEm: new Date().toISOString()
+    }).then(() => {
+      showToast('OP ' + (op.lote || opKey) + ' confirmada como concluída.');
+      // Achado do Auditor: liberarEmpenhoLote só era chamado no cancelamento
+      // (executarCancelamentoOp) -- toda OP concluída pelo fluxo normal
+      // (este aqui) nunca liberava a sobra reservada na emissão, deixando
+      // saldoEmpenhado "fantasma" acumulando pra sempre. Idempotente por
+      // design (sem sobra, não faz nada) -- seguro mesmo se o dropdown
+      // manual (updateOpField) também disparar pra essa mesma OP.
+      if (op.lote && op.materiaisConsumo && typeof liberarEmpenhoLote === 'function') {
+        var codigosEmpenho = Object.values(op.materiaisConsumo).map(function(i) { return i.mpCodigo; });
+        liberarEmpenhoLote(database, op.lote, codigosEmpenho).catch(function(err) {
+          console.error('Falha ao liberar empenho da OP ' + op.lote + ':', err);
+        });
+      }
+      // A produção não cria paletes no sistema. Eles já chegam fisicamente
+      // montados à Logística, que os declara, confere e endereça na tela de
+      // Conferência de Produto Acabado.
+      showToast('OP concluída. A Logística deve registrar os paletes na Conferência de Produto Acabado.');
+    }).catch(err => {
+      showToast('Erro ao confirmar conclusão: ' + err.message);
+    });
+  }
+
+  // ── Aba: Checklist de Ordens ────────────────────────────────────────
+  // Réplica do checklist externo (quiet-sunflower-2b4fbf.netlify.app) que já
+  // era usado pra esse controle -- mesmas 5 etapas, mesma lógica de
+  // progresso/status, mesmos filtros. Cada etapa é um checkbox simples de 2
+  // estados (recebido ou não) gravado em ops/{lote}.recebidaPapel.{tipo}.
+  const CL_TIPOS = [
+    { key: 'sep', label: 'Sep.', nome: 'Separação' },
+    { key: 'fab', label: 'Fab.', nome: 'Fabricação' },
+    { key: 'env', label: 'Env.', nome: 'Envase' },
+    { key: 'rot', label: 'Rot.', nome: 'Rotulagem' },
+    { key: 'qua', label: 'Qual.', nome: 'Qualidade' }
+  ];
+  const CL_PAGE_SIZE = 40;
+  let clPage = 1;
+  let clSortCol = null, clSortDir = 1; // null = ordena por mais recente (padrão); definido = usuário clicou num cabeçalho
+  // Filtro de status multi-seleção -- concluída começa desmarcada (oculta
+  // por padrão), as outras duas começam marcadas.
+  let clStatusFilter = { pending: true, partial: true, done: false };
+
+  function renderClStatusChips() {
+    document.querySelectorAll('#clFiltroStatus .cl-status-chip').forEach(chip => {
+      chip.classList.toggle('active', !!clStatusFilter[chip.dataset.status]);
+    });
+  }
+
+  // 3 estados por etapa: 'recebido' (valor true), 'na' (valor 'na' -- não se
+  // aplica a esta OP, ex: uma OP que não passa por Rotulagem), ou 'pendente'
+  // (qualquer outra coisa, inclusive nunca marcado). Ciclo de clique:
+  // pendente -> recebido -> na -> pendente.
+  function clEstado(op, tipoKey) {
+    const v = op.recebidaPapel && op.recebidaPapel[tipoKey];
+    if (v === true) return 'recebido';
+    if (v === 'na') return 'na';
+    return 'pendente';
+  }
+  const CL_CICLO = { pendente: 'recebido', recebido: 'na', na: 'pendente' };
+
+  // Progresso conta só as etapas que se aplicam (exclui as marcadas 'na') --
+  // uma OP sem Rotulagem pode chegar a 100% com as outras 4. Se todas as 5
+  // forem 'na' (nada se aplica), não sobra nada pendente -- conta como 100%.
+  function clProgresso(op) {
+    const aplicaveis = CL_TIPOS.filter(t => clEstado(op, t.key) !== 'na');
+    const checked = aplicaveis.filter(t => clEstado(op, t.key) === 'recebido').length;
+    const total = aplicaveis.length;
+    const pct = total ? Math.round(checked / total * 100) : 100;
+    return { checked, total, pct };
+  }
+  function clStatus(pct) {
+    if (pct >= 100) return 'done';
+    if (pct <= 0) return 'pending';
+    return 'partial';
+  }
+  const CL_STATUS_LABEL = { done: 'Concluída', partial: 'Em andamento', pending: 'Não iniciada' };
+  const CL_STATUS_CLASS = { done: 'cl-done', partial: 'cl-partial', pending: 'cl-pending' };
+
+  // Uma OP entra no checklist se JÁ TEM histórico de recebimento (as 423
+  // importadas/marcadas) OU se ainda está ativa na produção (não concluída)
+  // -- essa segunda condição é o que faltava: só olhar "tem histórico"
+  // escondia as OPs novas que ainda nem chegaram a ser marcadas, que são
+  // justamente as que mais importa ver aqui. Só fica de fora o histórico
+  // antigo já concluído e sem dado nenhum -- ruído de antes desse controle existir.
+  function clEmEscopo(op) {
+    const temHistorico = op.recebidaPapel && Object.keys(op.recebidaPapel).length > 0;
+    const estaAtiva = opEstaAtiva(op);
+    return temHistorico || estaAtiva;
+  }
+
+  function switchOpsTab(tab) {
+    const abas = {ativas: ['tabBtnAtivas', 'tabPanelAtivas'], encerradas: ['tabBtnEncerradas', 'tabPanelEncerradas'], checklist: ['tabBtnChecklist', 'tabPanelChecklist']};
+    Object.keys(abas).forEach(k => {
+      const btn = document.getElementById(abas[k][0]), painel = document.getElementById(abas[k][1]);
+      const ativa = k === tab;
+      painel.style.display = ativa ? 'block' : 'none';
+      btn.style.background = ativa ? 'var(--card)' : 'none';
+      btn.style.boxShadow = ativa ? '0 1px 3px rgba(0,0,0,.1)' : 'none';
+      btn.style.color = ativa ? 'var(--text)' : 'var(--muted)';
+    });
+    if (tab === 'checklist') renderChecklist();
+    if (tab === 'encerradas') renderEncerradas();
+  }
+
+  function renderChecklist() {
+    const tbody = document.getElementById('checklist-tbody');
+    if (!tbody || document.getElementById('tabPanelChecklist').style.display === 'none') return;
+
+    const busca = (document.getElementById('clBusca').value || '').toLowerCase().trim();
+    const filtroEtapa = document.getElementById('clFiltroEtapa').value;
+
+    // Só entram aqui as OPs que já têm algum histórico de recebimento (as
+    // 421 importadas do checklist externo, mais qualquer uma nova marcada
+    // daqui pra frente) -- o restante das ~1142 OPs do sistema é histórico
+    // antigo de antes desse controle existir, sem dado nenhum pra mostrar,
+    // e só teria virado ruído "Não iniciada" pra sempre.
+    let all = Object.keys(opsGlobal)
+      .map(k => ({ key: k, ...opsGlobal[k] }))
+      .filter(clEmEscopo);
+
+    let nTotal = all.length, nDone = 0, nPartial = 0, nPending = 0;
+    all.forEach(op => {
+      const st = clStatus(clProgresso(op).pct);
+      if (st === 'done') nDone++; else if (st === 'partial') nPartial++; else nPending++;
+    });
+    document.getElementById('clTotal').textContent = nTotal.toLocaleString('pt-BR');
+    document.getElementById('clConcluidas').textContent = nDone.toLocaleString('pt-BR');
+    document.getElementById('clAndamento').textContent = nPartial.toLocaleString('pt-BR');
+    document.getElementById('clNaoIniciadas').textContent = nPending.toLocaleString('pt-BR');
+
+    // A busca alcança TODAS as OPs do sistema, não só as do escopo padrão --
+    // senão uma OP antiga concluída e sem histórico nenhum (ex: já finalizada
+    // antes de existir esse controle) ficaria impossível de achar mesmo
+    // digitando o número certinho, sem nenhum jeito de começar a marcar o
+    // checklist dela. Os cartões de estatística continuam sempre baseados no
+    // escopo padrão (all), a busca só amplia o que aparece NA TABELA.
+    const searchBase = busca
+      ? Object.keys(opsGlobal).map(k => ({ key: k, ...opsGlobal[k] }))
+      : all;
+
+    let filtered = searchBase.filter(op => {
+      if (busca) {
+        const alvo = (String(op.lote || op.key || '') + ' ' + String(op.produto || '')).toLowerCase();
+        if (alvo.indexOf(busca) === -1) return false;
+      }
+      if (!clStatusFilter[clStatus(clProgresso(op).pct)]) return false;
+      if (filtroEtapa && clEstado(op, filtroEtapa) !== 'pendente') return false; // já recebida ou marcada N/A -- não é mais "pendente" nessa etapa
+      return true;
+    });
+
+    if (clSortCol) {
+      filtered.sort((a, b) => {
+        if (clSortCol === 'pct') return (clProgresso(a).pct - clProgresso(b).pct) * clSortDir;
+        if (clSortCol === 'status') return clStatus(clProgresso(a).pct).localeCompare(clStatus(clProgresso(b).pct)) * clSortDir;
+        if (clSortCol === 'lote') return String(a.lote || a.key || '').localeCompare(String(b.lote || b.key || ''), undefined, { numeric: true }) * clSortDir;
+        return String(a[clSortCol] || '').localeCompare(String(b[clSortCol] || ''), undefined, { numeric: true }) * clSortDir;
+      });
+    } else {
+      // Sem coluna escolhida: mais recente primeiro -- é o que mais importa
+      // no dia a dia (backlog de digitação), diferente do checklist original
+      // que ordenava por nº de OP.
+      filtered.sort((a, b) => String(b.dataEmissao || '').localeCompare(String(a.dataEmissao || '')));
+    }
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / CL_PAGE_SIZE));
+    if (clPage > totalPages) clPage = totalPages;
+    const pageItems = filtered.slice((clPage - 1) * CL_PAGE_SIZE, clPage * CL_PAGE_SIZE);
+
+    if (!pageItems.length) {
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: var(--muted); padding: 30px;">Nenhuma OP encontrada com esses filtros.</td></tr>';
+    } else {
+      const isAdmin = currentRole === 'admin' || currentRole === 'pcp';
+      tbody.innerHTML = pageItems.map(op => renderChecklistRow(op, isAdmin)).join('');
+    }
+
+    renderClPagination(totalPages, filtered.length);
+  }
+
+  function renderChecklistRow(op, isAdmin) {
+    const escapedKeyAttr = escapeAttr(op.key);
+    const { checked, total, pct } = clProgresso(op);
+    const st = clStatus(pct);
+    const chips = CL_TIPOS.map(t => {
+      const estado = clEstado(op, t.key);
+      const meta = op.recebidaPapel || {};
+      let tooltip = t.nome + ': ' + (estado === 'recebido' ? 'Recebido' : estado === 'na' ? 'Não necessária pra esta OP' : 'Pendente');
+      if (estado === 'recebido' && meta[t.key + 'Em']) tooltip += ' em ' + new Date(meta[t.key + 'Em']).toLocaleString('pt-BR');
+      if (estado === 'recebido' && meta[t.key + 'Por']) tooltip += ' por ' + meta[t.key + 'Por'];
+      const cls = 'cl-check cl-check-' + estado + (isAdmin ? '' : ' is-readonly');
+      const onclick = isAdmin ? ` onclick="cycleClChecklist('${escapedKeyAttr}', '${t.key}')"` : '';
+      const symbol = estado === 'recebido' ? '✓' : estado === 'na' ? '–' : '';
+      return `<td style="text-align:center"><span class="${cls}" title="${escapeAttr(tooltip)}"${onclick}>${symbol}</span></td>`;
+    }).join('');
+    return `
+      <tr>
+        <td><strong>${escapeHtml(op.lote || op.key || '-')}</strong></td>
+        <td>${escapeHtml(op.produto || '-')}</td>
+        ${chips}
+        <td>
+          <div class="progress-bar-container">
+            <div class="progress-bar-fill" style="width:${pct}%"></div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${checked}/${total} · ${pct}%</div>
+        </td>
+        <td><span class="badge-status ${CL_STATUS_CLASS[st]}">${CL_STATUS_LABEL[st]}</span></td>
+        <td style="text-align:center">${clApontamentoBadge(op)}</td>
+      </tr>`;
+  }
+
+  // getProduzido (shared/utils.js) é incrementado por TODO fluxo de
+  // apontamento do app (tempo real, retroativo, apontamento por total,
+  // painel de turno) -- checar esses campos é equivalente a vasculhar
+  // registros/*, só que sem precisar varrer o histórico inteiro dia a dia
+  // pra cada OP da lista. Linha/Rotulagem/Posto nunca somados -- "existe
+  // apontamento" é OU um OU outro OU outro, nunca a soma dos três.
+  function temApontamento(op) {
+    return getProduzido(op, 'linha') > 0 || getProduzido(op, 'rotulagem') > 0 || getProduzido(op, 'posto') > 0;
+  }
+  function clApontamentoBadge(op) {
+    if (!temApontamento(op)) return '<span style="color:var(--muted);font-size:12px">— Não</span>';
+    var partes = [];
+    if (getProduzido(op, 'linha') > 0) partes.push('Linha: ' + fmtNum(getProduzido(op, 'linha')));
+    if (getProduzido(op, 'rotulagem') > 0) partes.push('Rotulagem: ' + fmtNum(getProduzido(op, 'rotulagem')));
+    if (getProduzido(op, 'posto') > 0) partes.push('Posto: ' + fmtNum(getProduzido(op, 'posto')));
+    return '<span class="badge-status cl-done" title="' + escapeAttr(partes.join(' · ') + ' un. já apontadas') + '">✓ Sim</span>';
+  }
+
+  function cycleClChecklist(opKey, tipoKey) {
+    if (!window.currentUser || (window.currentUser.role !== 'admin' && window.currentUser.role !== 'pcp')) {
+      alert('Acesso Negado: Apenas administradores ou PCP podem confirmar o recebimento das ordens.');
+      listenToActiveOps();
+      return;
+    }
+    const op = opsGlobal[opKey];
+    if (!op) return;
+    const atual = clEstado(op, tipoKey);
+    const novo = CL_CICLO[atual];
+    const updates = {};
+    updates['recebidaPapel/' + tipoKey] = novo === 'recebido' ? true : (novo === 'na' ? 'na' : false);
+    updates['recebidaPapel/' + tipoKey + 'Em'] = novo === 'recebido' ? new Date().toISOString() : null;
+    updates['recebidaPapel/' + tipoKey + 'Por'] = novo === 'recebido' ? (window.currentUser.nome || window.currentUser.email || '') : null;
+    database.ref('ops/' + opKey).update(updates).catch(err => {
+      console.error(err);
+      showToast('Erro ao atualizar: ' + err.message);
+    });
+  }
+
+  function renderClPagination(totalPages, totalItems) {
+    const el = document.getElementById('clPagination');
+    if (!el) return;
+    if (totalPages <= 1) { el.innerHTML = '<span style="font-size:12px;color:var(--muted)">' + totalItems.toLocaleString('pt-BR') + ' OP(s)</span>'; return; }
+    let html = '<span style="font-size:12px;color:var(--muted);margin-right:8px">' + totalItems.toLocaleString('pt-BR') + ' OP(s)</span>';
+    html += `<button class="btn-sync" style="padding:4px 10px" ${clPage <= 1 ? 'disabled' : ''} onclick="clGoToPage(${clPage - 1})">‹</button>`;
+    const windowSize = 5;
+    let start = Math.max(1, clPage - Math.floor(windowSize / 2));
+    let end = Math.min(totalPages, start + windowSize - 1);
+    start = Math.max(1, end - windowSize + 1);
+    if (start > 1) html += `<button class="btn-sync" style="padding:4px 10px" onclick="clGoToPage(1)">1</button>` + (start > 2 ? '<span>…</span>' : '');
+    for (let p = start; p <= end; p++) {
+      html += `<button class="btn-sync" style="padding:4px 10px;${p === clPage ? 'background:var(--primary);color:white' : ''}" onclick="clGoToPage(${p})">${p}</button>`;
+    }
+    if (end < totalPages) html += (end < totalPages - 1 ? '<span>…</span>' : '') + `<button class="btn-sync" style="padding:4px 10px" onclick="clGoToPage(${totalPages})">${totalPages}</button>`;
+    html += `<button class="btn-sync" style="padding:4px 10px" ${clPage >= totalPages ? 'disabled' : ''} onclick="clGoToPage(${clPage + 1})">›</button>`;
+    el.innerHTML = html;
+  }
+  function clGoToPage(p) { clPage = p; renderChecklist(); }
+
+  function exportChecklistCSV() {
+    const rows = [['Nº OP', 'Produto', 'Separação', 'Fabricação', 'Envase', 'Rotulagem', 'Qualidade', 'Progresso', 'Status', 'Apontamento']];
+    Object.values(opsGlobal).filter(clEmEscopo).forEach(op => {
+      const { pct } = clProgresso(op);
+      const st = CL_STATUS_LABEL[clStatus(pct)];
+      rows.push([
+        op.lote || '', op.produto || '',
+        ...CL_TIPOS.map(t => { const e = clEstado(op, t.key); return e === 'recebido' ? 'Sim' : (e === 'na' ? 'N/A' : 'Não'); }),
+        pct + '%', st, temApontamento(op) ? 'Sim' : 'Não'
+      ]);
+    });
+    const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(';')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'checklist_ops_' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  document.getElementById('opsBusca').addEventListener('input', (e) => {
+    opsFiltroState.busca = e.target.value;
+    renderOpsPanel();
+  });
+  document.getElementById('opsFiltroStatus').addEventListener('change', (e) => {
+    opsFiltroState.status = e.target.value;
+    renderOpsPanel();
+  });
+
+  ['clBusca', 'clFiltroEtapa'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => { clPage = 1; renderChecklist(); });
+  });
+
+  document.getElementById('clFiltroStatus').addEventListener('click', (e) => {
+    const chip = e.target.closest('.cl-status-chip');
+    if (!chip) return;
+    const status = chip.dataset.status;
+    clStatusFilter[status] = !clStatusFilter[status];
+    renderClStatusChips();
+    clPage = 1;
+    renderChecklist();
+  });
+  renderClStatusChips(); // aplica o estado inicial (concluída desmarcada) nos chips já na primeira renderização
+
+  document.getElementById('checklistThead').addEventListener('click', (e) => {
+    const th = e.target.closest('th[data-col]');
+    if (!th) return;
+    const col = th.dataset.col;
+    if (col === clSortCol) { clSortDir *= -1; }
+    else { clSortCol = col; clSortDir = 1; }
+    document.querySelectorAll('#checklistThead th').forEach(t => t.classList.remove('sorted-asc', 'sorted-desc'));
+    th.classList.add(clSortDir === 1 ? 'sorted-asc' : 'sorted-desc');
+    clPage = 1;
+    renderChecklist();
+  });
+
+  // Linha/Rotulagem/Posto são somatórias sempre distintas (getProduzido,
+  // shared/utils.js) -- nunca um único progresso somado. Uma OP comum (só
+  // Linha, o caso histórico) mostra 1 barra igual sempre mostrou; só uma OP
+  // com mais de um setor tocado (ex: aberta em Linha E Rotulagem ao mesmo
+  // tempo) mostra as barras lado a lado, rotuladas.
+  /* ── Divergência entre o total da OP e os apontamentos ──
+     O total na OP é DERIVADO dos apontamentos, mas gravado à parte. Até
+     2026-09-09 excluir ou editar um apontamento no Histórico não mexia nele
+     (bug relatado com a OP 26247/02): o registro sumia da lista e o número
+     ficava. Isso foi corrigido na origem, mas as OPs que já dessincronizaram
+     não se consertam sozinhas -- eram 16 na base, ~14.350 unidades fantasma,
+     todas já concluídas e entrando em relatório.
+
+     Aqui a tela CONFERE e mostra. Não corrige sozinha: reescrever produção
+     de OP concluída é decisão de gente, e o botão diz exatamente para qual
+     número vai antes de alguém clicar. */
+  var registrosPorDataOps = null;   // carregado sob demanda, é nó grande
+  var divergenciaCache = {};
+
+  function setoresCfgOps() {
+    return { rotulagem: configGlobal.rotulagem || [], postos: configGlobal.postos || [] };
+  }
+
+  function divergenciaProduzidoHtml(op, keyAttr, isAdmin) {
+    if (!op || !op.lote) return '';
+    var d = divergenciaCache[op.lote];
+    if (!d || Math.abs(d.dif) < 0.5) return '';
+    var sinal = d.dif > 0 ? 'a mais' : 'a menos';
+    return '<div style="margin-top:5px;font-size:10.5px;color:var(--warning);line-height:1.35">' +
+      '⚠️ <b>' + fmtNum(Math.abs(d.dif)) + ' un ' + sinal + '</b> que os apontamentos ' +
+      '(' + fmtNum(d.somaRegistros) + ' un em ' + d.n + ' apontamento' + (d.n === 1 ? '' : 's') + ')' +
+      (isAdmin
+        ? ' <button class="btn-edit-inline" title="Regravar o total da OP igual à soma dos apontamentos existentes" ' +
+          'onclick="recalcularProduzido(\'' + keyAttr + '\')">🔄 recalcular</button>'
+        : '') +
+      '</div>';
+  }
+
+  // Carrega os registros UMA vez e calcula a divergência de todas as OPs
+  // visíveis. Fora do render pra não varrer o nó inteiro a cada redesenho.
+  function conferirDivergencias() {
+    if (registrosPorDataOps) return Promise.resolve();
+    return database.ref('registros').once('value').then(function(snap) {
+      registrosPorDataOps = snap.val() || {};
+      var cfg = setoresCfgOps();
+      Object.values(opsGlobal || {}).forEach(function(op) {
+        if (!op || !op.lote) return;
+        var s = somarRegistrosDoLote(registrosPorDataOps, op.lote, cfg);
+        if (!s.n) return; // OP sem apontamento nenhum: nada a comparar
+        divergenciaCache[op.lote] = {
+          somaRegistros: s.linha, n: s.n,
+          dif: Math.round((getProduzido(op, 'linha') - s.linha) * 1000) / 1000
+        };
+      });
+    }).catch(function(err) {
+      console.error('Não foi possível conferir divergências de produção:', err);
+    });
+  }
+
+  window.recalcularProduzido = function(opKey) {
+    var op = opsGlobal[opKey];
+    if (!op || !op.lote) return;
+    var d = divergenciaCache[op.lote];
+    if (!d) return;
+    var atual = getProduzido(op, 'linha');
+    if (!confirm('OP ' + op.lote + '\n\n' +
+        'Total gravado na OP: ' + fmtNum(atual) + ' un\n' +
+        'Soma dos apontamentos: ' + fmtNum(d.somaRegistros) + ' un (' + d.n + ')\n\n' +
+        'Regravar o total como ' + fmtNum(d.somaRegistros) + ' un?\n\n' +
+        'Os apontamentos NÃO são alterados — só o total da OP passa a refletir o que existe.')) return;
+    ajustarProduzidoOp(database, op.lote, 'linha', d.somaRegistros - atual).then(function(r) {
+      if (!r.ok) { showToast('Não foi possível recalcular: ' + (r.erro || '')); return; }
+      divergenciaCache[op.lote] = { somaRegistros: d.somaRegistros, n: d.n, dif: 0 };
+      showToast('OP ' + op.lote + ': total ajustado para ' + fmtNum(d.somaRegistros) + ' un.');
+    }).catch(function(err) { showToast('Erro ao recalcular: ' + err.message); });
+  };
+
+  // Barra principal = PRODUTO ACABADO (conferido pela Logística: em estoque +
+  // expedido), não o que a rotulagem apontou. O detalhe de cada etapa está no
+  // hover (shared/progresso-op.js). Linha/Rotulagem/Posto continuam sendo
+  // somatórias distintas, nunca somadas -- só que agora ficam no tooltip.
+  function produzidoBreakdownHtml(op) {
+    const prog = ProgressoOp.calcular(op, conciliacaoPorOp ? (conciliacaoPorOp[op.key] || null) : null, conciliacaoPorOp === null, qualidadePorOp[op.key]);
+    const planned = prog.planejado;
+    const dica = escapeAttr(ProgressoOp.tooltip(prog));
+    if (prog.carregando) {
+      return '<div title="' + dica + '" style="cursor:help"><div style="font-size:11.5px;color:var(--muted)">Produto acabado: carregando…</div>' +
+        '<div class="progress-bar-container"><div class="progress-bar-fill" style="width:0%"></div></div></div>';
+    }
+    // Três faixas na mesma barra: liberado pela Qualidade (verde, inclui o já
+    // expedido), aguardando a Qualidade (âmbar) e reprovado (vermelho).
+    const larg = v => planned > 0 ? Math.min(100, v / planned * 100) : 0;
+    const wLib = larg(prog.liberado), wPen = Math.min(100 - wLib, larg(prog.pendente)), wRep = Math.min(100 - wLib - wPen, larg(prog.reprovado));
+    const seg = (w, cor) => w > 0 ? '<div style="width:' + w + '%;background:' + cor + '"></div>' : '';
+    const nota = (prog.pendente > 0 ? '<span style="color:#b45309">⏳ ' + prog.pendente.toLocaleString('pt-BR') + ' na Qualidade</span>' : '') +
+      (prog.reprovado > 0 ? '<span style="color:var(--danger,#dc2626)">⛔ ' + prog.reprovado.toLocaleString('pt-BR') + ' reprov.</span>' : '');
+    return '<div title="' + dica + '" style="cursor:help">' +
+      '<div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase">Produto acabado</div>' +
+      '<div style="display:flex;justify-content:space-between;font-weight:600;font-size:11.5px">' +
+      '<span>' + prog.pa.toLocaleString('pt-BR') + ' / ' + planned.toLocaleString('pt-BR') + ' un</span><span>' + prog.pct + '%</span></div>' +
+      '<div class="progress-bar-container" style="display:flex">' + seg(wLib, 'var(--success)') + seg(wPen, '#f59e0b') + seg(wRep, '#dc2626') + '</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:10.5px;margin-top:2px"><span style="color:var(--success)">✔ ' + prog.liberado.toLocaleString('pt-BR') + ' liberado</span>' + nota + '</div>' +
+      '</div>';
+  }
+
+  // Fase 2 do plano de Planejamento/PCP (PLANO_PLANEJAMENTO_PCP.md): os
+  // campos dataInicioPlanejada/dataFimPlanejada existiam no schema da OP
+  // desde sempre mas nunca eram preenchidos em lugar nenhum -- sem eles,
+  // nenhum alerta de atraso é possível. Enquanto as duas telas novas de
+  // Planejamento (Fase 6) não existem, este é o ponto de entrada manual:
+  // o PCP programa aqui, a produção marca o início real ao abrir a OP
+  // (já existente, form.html).
+  function isoToDatetimeLocal(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    var pad = function(n) { return String(n).padStart(2, '0'); };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  function fmtProgramacaoCurta(iso) {
+    if (!iso) return null;
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    var pad = function(n) { return String(n).padStart(2, '0'); };
+    return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  function programacaoCellHtml(op, escapedKeyAttr, isAdmin) {
+    var ini = fmtProgramacaoCurta(op.dataInicioPlanejada);
+    var fim = fmtProgramacaoCurta(op.dataFimPlanejada);
+    var resumo = ini ? (fim ? (escapeHtml(ini) + ' → ' + escapeHtml(fim)) : ('a partir de ' + escapeHtml(ini))) : null;
+    return `<div class="pedido-cell">
+      ${resumo ? `<span style="font-size:12px">${resumo}</span>` : `<span class="badge-pedido is-vazio">Não programada</span>`}
+      ${isAdmin ? `<button type="button" class="btn-edit-inline" title="Programar início/fim planejados" onclick="showProgramacaoEdit('${escapedKeyAttr}')">✏️</button>` : ``}
+    </div>`;
+  }
+  // Clique no lápis pra editar -- grava direto via updateOpField (já valida admin e trata
+  // erro), o listener de listenToActiveOps re-renderiza a linha sozinho
+  // depois da escrita confirmar, sem precisar de um botão de "fechar".
+  function showProgramacaoEdit(opKey) {
+    const op = opsGlobal[opKey];
+    if (!op) return;
+    const cell = document.getElementById('programacaoCell-' + escapeAttr(opKey));
+    if (!cell) return;
+    const keyAttr = escapeAttr(opKey);
+    cell.innerHTML = `<div style="display:flex;flex-direction:column;gap:3px">
+      <label style="font-size:10px;color:var(--muted)">Início planejado</label>
+      <input type="datetime-local" style="font-size:12px;padding:2px 4px" value="${isoToDatetimeLocal(op.dataInicioPlanejada)}" onchange="updateOpField('${keyAttr}', 'dataInicioPlanejada', this.value ? new Date(this.value).toISOString() : null)">
+      <label style="font-size:10px;color:var(--muted)">Fim planejado</label>
+      <input type="datetime-local" style="font-size:12px;padding:2px 4px" value="${isoToDatetimeLocal(op.dataFimPlanejada)}" onchange="updateOpField('${keyAttr}', 'dataFimPlanejada', this.value ? new Date(this.value).toISOString() : null)">
+    </div>`;
+    const firstInput = cell.querySelector('input');
+    if (firstInput) firstInput.focus();
+  }
+
+  // Situação de encerramento (opção A, shared/situacao-op.js). Enquanto a
+  // conciliação não chegou não dá para afirmar nada: fica ATIVA-neutra e a
+  // OP concluída simplesmente não aparece nas listas -- nunca "encerrada" por
+  // falta de dado.
+  function situacaoDaOp(op) {
+    if (conciliacaoPorOp === null) return {estado: 'ATIVA', motivo: null};
+    return SituacaoOp.situacao(op, qualidadePorOp[op.key], (conciliacaoFontes.conferencias_pa || {})[op.key] || null);
+  }
+
+  // Um selo por pendência, no lugar dos avisos espalhados pela linha.
+  function selosOpHtml(op, temPedido) {
+    const q = qualidadePorOp[op.key] || {};
+    const d = divergenciaCache[op.lote];
+    const selos = SituacaoOp.selos(op, {
+      temPedido: temPedido,
+      divergencia: !!(d && Math.abs(d.dif) >= 0.5),
+      transferenciaPendente: TransferenciaOP.transferenciaPendente(op),
+      pendenteQualidade: q.pendente, reprovado: q.reprovado
+    });
+    const extras = [];
+    if (op.emFila) {
+      const f = op.emFila;
+      extras.push('<a href="proximas_ordens.html" style="text-decoration:none"><span title="' + escapeAttr('Saiu de ' + (f.linhaAnterior || 'linha') + ' em ' + (f.desde ? new Date(f.desde).toLocaleString('pt-BR') : '—') + (f.por ? ' · por ' + f.por : '') + (f.motivo ? ' — ' + f.motivo : '')) + '" style="font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:999px;color:#1d4ed8;background:#dbeafe">⏸ Em fila' + (f.motivo ? ': ' + escapeHtml(String(f.motivo).slice(0, 38)) : '') + '</span></a>');
+    }
+    const retidos = MaterialProcesso.resumoRetidos(Object.keys(materialProcessoGlobal).map(k => materialProcessoGlobal[k]).filter(r => r && r.opKey === op.key));
+    if (retidos.length) {
+      extras.push('<a href="material_processo.html?aba=sobras" style="text-decoration:none"><span title="Material retido desta OP. Clique para ver e dar baixa." style="font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:999px;color:#b45309;background:#fef3c7">📦 ' + escapeHtml(retidos.map(MaterialProcesso.rotuloResumo).join(' · ')) + '</span></a>');
+    }
+    // Conciliação da rotulagem: rotulado = envasado + perdas + sobra. Só informa (sem trava).
+    const retidosOp = Object.keys(materialProcessoGlobal).map(k => materialProcessoGlobal[k]).filter(r => r && r.opKey === op.key);
+    const perdasOp = Object.values(perdasGlobal[op.key] || {});
+    const conc = ConciliacaoRotulagem.conciliar(op, perdasOp, retidosOp);
+    if (conc.estado !== 'sem_dados') {
+      const rs = ConciliacaoRotulagem.resumo(conc);
+      const corC = {ok: '#047857;background:#d1fae5', info: '#1d4ed8;background:#dbeafe', aviso: '#b45309;background:#fef3c7', mute: '#475467;background:#f2f4f7'}[rs.tom];
+      extras.push('<span title="' + escapeAttr(rs.detalhe) + '" style="font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:999px;color:' + corC + '">🏷 ' + escapeHtml(rs.texto) + '</span>');
+    }
+    if (!selos.length && !extras.length) return '';
+    const cor = {aviso: '#b45309;background:#fef3c7', espera: '#1d4ed8;background:#dbeafe', erro: '#b91c1c;background:#fee2e2'};
+    return '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">' + extras.join('') + selos.map(x =>
+      '<span style="font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:999px;color:' + cor[x.tom] + '">' + escapeHtml(x.texto) + '</span>').join('') + '</div>';
+  }
+
+  // O que é secundário (quem emitiu, previsão de término) fica recolhido.
+  function detalhesOpHtml(op) {
+    const emitida = op.emitidoPor
+      ? '<div style="font-size:11px;color:var(--muted)" title="' + escapeAttr(op.dataEmissao ? new Date(op.dataEmissao).toLocaleString('pt-BR') : '') + '">Emitida por ' + escapeHtml(op.emitidoPor) + '</div>'
+      : '';
+    const previsao = previsaoTerminoHtml(op);
+    if (!emitida && !previsao) return '';
+    return '<details style="margin-top:3px"><summary style="font-size:10.5px;color:var(--muted);cursor:pointer">detalhes</summary>' + emitida + previsao + '</details>';
+  }
+
+  // OP já confirmada pelo PCP que ainda espera Qualidade/Logística: linha
+  // enxuta, sem os controles de produção (linha, programação, status).
+  function renderOpConcluidaPendenteRow(op) {
+    const sit = situacaoDaOp(op);
+    const selo = sit.estado === 'NA_QUALIDADE'
+      ? '<span class="badge-status aguardando-confirmacao">🧪 Na Qualidade</span>'
+      : '<span class="badge-status aguardando-confirmacao">📦 Aguardando Logística</span>';
+    return `
+      <tr>
+        <td><strong>${escapeHtml(op.lote || op.key || '-')}</strong></td>
+        <td>${escapeHtml(op.cliente || '-')}</td>
+        <td colspan="3">
+          <div style="font-weight:600">${escapeHtml(op.produto || '-')}</div>
+          <div style="font-size:11.5px;color:var(--muted);margin-top:1px">${escapeHtml(sit.motivo || '')}</div>
+        </td>
+        <td>${produzidoBreakdownHtml(op)}</td>
+        <td>${selo}</td>
+        <td colspan="3" style="text-align:center"><a class="btn-edit-inline" style="text-decoration:none;opacity:1" title="Abrir o dossiê do lote" href="dossie_lote.html?op=${encodeURIComponent(op.key)}" target="_blank" rel="noopener">📂</a></td>
+      </tr>`;
+  }
+
+  // Aba Encerradas: consulta. Mais recentes primeiro, limitada para não
+  // desenhar mil linhas; a busca alcança todas.
+  const ENC_LIMITE = 100;
+  function renderEncerradas() {
+    const tbody = document.getElementById('enc-tbody');
+    const painel = document.getElementById('tabPanelEncerradas');
+    if (!tbody || !painel || painel.style.display === 'none') return;
+    if (conciliacaoPorOp === null) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">Carregando…</td></tr>';
+      return;
+    }
+    const busca = (document.getElementById('encBusca').value || '').toLowerCase().trim();
+    let todas = Object.keys(opsGlobal).map(k => ({ key: k, ...opsGlobal[k] }))
+      .filter(o => o.status === 'Concluído' && situacaoDaOp(o).estado === 'ENCERRADA');
+    const total = todas.length;
+    if (busca) todas = todas.filter(o => [o.lote, o.key, o.produto, o.sku, o.cliente].filter(Boolean).join(' ').toLowerCase().indexOf(busca) !== -1);
+    todas.sort((a, b) => String(b.confirmadoEm || b.dataEmissao || '').localeCompare(String(a.confirmadoEm || a.dataEmissao || '')) || String(b.lote || b.key).localeCompare(String(a.lote || a.key)));
+    const mostradas = todas.slice(0, ENC_LIMITE);
+    document.getElementById('encResumo').textContent = todas.length > ENC_LIMITE
+      ? 'Mostrando ' + ENC_LIMITE + ' de ' + todas.length + ' — refine a busca'
+      : todas.length + ' de ' + total + ' encerrada' + (total === 1 ? '' : 's');
+    if (!mostradas.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">Nenhuma OP encerrada encontrada.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = mostradas.map(o => {
+      const prog = ProgressoOp.calcular(o, conciliacaoPorOp[o.key] || null, false, qualidadePorOp[o.key]);
+      const conf = o.confirmadoEm ? new Date(o.confirmadoEm).toLocaleDateString('pt-BR') : '—';
+      return '<tr><td><strong>' + escapeHtml(o.lote || o.key) + '</strong></td><td>' + escapeHtml(o.cliente || '-') + '</td>' +
+        '<td><div style="font-weight:600">' + escapeHtml(o.produto || '-') + '</div><div style="font-size:11.5px;color:var(--muted)">SKU: ' + escapeHtml(o.sku || '-') + '</div></td>' +
+        '<td title="' + escapeAttr(ProgressoOp.tooltip(prog)) + '" style="cursor:help">' + prog.pa.toLocaleString('pt-BR') + ' / ' + prog.planejado.toLocaleString('pt-BR') + ' un <span style="color:var(--muted)">(' + prog.pct + '%)</span></td>' +
+        '<td>' + conf + '</td>' +
+        '<td style="text-align:center"><a class="btn-edit-inline" style="text-decoration:none;opacity:1" title="Abrir o dossiê do lote" href="dossie_lote.html?op=' + encodeURIComponent(o.key) + '" target="_blank" rel="noopener">📂</a></td></tr>';
+    }).join('');
+  }
+  document.getElementById('encBusca').addEventListener('input', renderEncerradas);
+
+  // Prioridade e entrega vêm do item do pedido (pedidos/{skuPedidoKey}) --
+  // aqui é só leitura; quem edita é a tela Pedidos.
+  function prioridadeOpHtml(ped) {
+    const n = ped && Number(ped.priority);
+    if (!n || n >= 999) return '<span style="color:var(--muted)">—</span>';
+    return '<span title="Prioridade do pedido" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--primary);color:white;font-size:11px;font-weight:800">' + n + '</span>';
+  }
+  function entregaOpHtml(ped, op) {
+    const d = ped && EntregaPcp.ehData(ped.dataEntregaPcp) ? ped.dataEntregaPcp : '';
+    if (!d) return '<span style="color:var(--muted)" title="Sem data de entrega do PCP. Defina em Pedidos.">—</span>';
+    const prazo = EntregaPcp.estadoPrazo(d, toLocalISODate(new Date()), op.status === 'Concluído' || op.status === 'Cancelado');
+    const cor = {ATRASADO: '#b91c1c', HOJE: '#b45309', PROXIMO: '#b45309'}[prazo.estado] || 'inherit';
+    const nota = prazo.estado === 'ATRASADO' ? '<div style="font-size:10.5px;font-weight:700;color:#b91c1c">' + prazo.dias + (prazo.dias === 1 ? ' dia' : ' dias') + ' em atraso</div>'
+      : prazo.estado === 'HOJE' ? '<div style="font-size:10.5px;font-weight:700;color:#b45309">vence hoje</div>' : '';
+    return '<div style="color:' + cor + ';font-weight:600">' + escapeHtml(d.split('-').reverse().join('/')) + '</div>' + nota;
+  }
+
+  function renderOpRow(op) {
+    const isAdmin = currentRole === 'admin' || currentRole === 'pcp';
+    let optionsHtml = `<option value="" ${!op.linha ? 'selected' : ''}>Sem linha</option>`;
+    configGlobal.linhas.forEach(lName => {
+      optionsHtml += `<option value="${escapeAttr(lName)}" ${op.linha === lName ? 'selected' : ''}>${escapeHtml(lName)}</option>`;
+    });
+
+    const statusMap = {
+      'Não Iniciado': 'nao-iniciado',
+      'Programado': 'programado',
+      'Em Produção': 'em-producao',
+      'Produção Parcial': 'producao-parcial',
+      'Cancelado': 'cancelado',
+      // Não deveria aparecer aqui na prática (opsAguardandoConfirmacao tem
+      // sua própria seção, opEstaAtiva já tira essas OPs de activeOps) --
+      // mapeado mesmo assim por completude defensiva, pra nunca cair no
+      // fallback errado ("Não Iniciado") se algo mudar.
+      'Aguardando Confirmação': 'aguardando-confirmacao'
+    };
+    const statusClass = statusMap[op.status] || 'nao-iniciado';
+    const isCancelada = op.status === 'Cancelado';
+
+    // Pedido comercial: se não foi vinculado manualmente na própria OP,
+    // deriva do skuPedidoKey (que toda OP emitida pelo Gerador de OPs já
+    // carrega) -- não precisa mais selecionar isso à mão pro caso comum.
+    const linkedPedido = pedidoBySkuKey(op.skuPedidoKey);
+    const derivedParentId = op.parentPedidoId || (linkedPedido && linkedPedido.parentPedidoId) || '';
+
+    const escapedKeyAttr = escapeAttr(op.key);
+    const escapedCliente = escapeHtml(op.cliente || '-');
+    const escapedProduto = escapeHtml(op.produto || '-');
+    const escapedSku = escapeHtml(op.sku || '-');
+    const escapedLote = escapeHtml(op.lote || op.key || '-');
+    const escapedLinha = escapeHtml(op.linha || 'Não definida');
+    const escapedStatus = escapeHtml(op.status || '');
+
+    return `
+      <tr>
+        <td><strong>${escapedLote}</strong></td>
+        <td>${escapedCliente}</td>
+        <td>
+          <div style="font-weight: 600;">${escapedProduto}</div>
+          <div style="font-size: 11.5px; color: var(--muted); margin-top: 1px;">SKU: ${escapedSku}</div>
+          ${selosOpHtml(op, !!derivedParentId)}
+          ${detalhesOpHtml(op)}
+        </td>
+        <td>
+          ${isAdmin
+            ? `<select onchange="updateOpField('${escapedKeyAttr}', 'linha', this.value)">${optionsHtml}</select>`
+            : `<span>${escapedLinha}</span>`}
+        </td>
+        <td id="programacaoCell-${escapedKeyAttr}">${programacaoCellHtml(op, escapedKeyAttr, isAdmin)}</td>
+        <td id="pedidoCell-${escapedKeyAttr}">
+          <div class="pedido-cell">
+            ${derivedParentId
+              ? `<span class="badge-pedido" title="${escapeAttr(historicoTransferenciaTexto(op))}">#${escapeHtml(String(derivedParentId))}${TransferenciaOP.transferenciaPendente(op) ? ' ⚠️' : ''}</span>`
+              : `<span class="badge-pedido is-vazio">Sem vínculo</span>`}
+            ${isAdmin && !isCancelada
+              ? `<button type="button" class="btn-edit-inline" title="Transferir OP para outro pedido" onclick="abrirTransferenciaOp('${escapedKeyAttr}')">✏️</button>`
+              : ``}
+          </div>
+        </td>
+        <td style="text-align:center">${prioridadeOpHtml(linkedPedido)}</td>
+        <td>${entregaOpHtml(linkedPedido, op)}</td>
+        <td>${produzidoBreakdownHtml(op)}${divergenciaProduzidoHtml(op, escapedKeyAttr, isAdmin)}</td>
+        <td>
+          ${isCancelada
+            ? `<span class="badge-status cancelado" title="${escapeAttr('Cancelada' + (op.motivoCancelamento ? ': ' + op.motivoCancelamento : ''))}">Cancelada</span>`
+            : (isAdmin
+              ? `<select onchange="updateOpField('${escapedKeyAttr}', 'status', this.value)">
+                   <option value="Não Iniciado" ${op.status === 'Não Iniciado' ? 'selected' : ''}>Não Iniciado</option>
+                   <option value="Programado" ${op.status === 'Programado' ? 'selected' : ''}>Programado</option>
+                   <option value="Em Produção" ${op.status === 'Em Produção' ? 'selected' : ''}>Em Produção</option>
+                   <option value="Produção Parcial" ${op.status === 'Produção Parcial' ? 'selected' : ''}>Produção Parcial</option>
+                   <option value="Aguardando Confirmação" ${op.status === 'Aguardando Confirmação' ? 'selected' : ''}>Aguardando Confirmação</option>
+                   <option value="Concluído" ${op.status === 'Concluído' ? 'selected' : ''}>Concluído (Arquivar)</option>
+                 </select>` +
+                (op.statusManualOverride
+                  ? `<div style="font-size:10.5px;color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:4px">🔒 manual
+                       <button type="button" class="btn-edit-inline" title="Devolver esse status pro cálculo automático" onclick="clearStatusOverride('${escapedKeyAttr}')">🔓</button>
+                     </div>`
+                  : ``)
+              : `<span class="badge-status ${statusClass}">${escapedStatus}</span>`)}
+        </td>
+        <td style="text-align: center; white-space: nowrap;">
+          ${op.materiaisConsumo
+            ? `<button class="btn-edit-inline" onclick="reimprimirFichas('${escapedKeyAttr}')" title="Reimprimir as 5 fichas desta OP (só disponível pras emitidas por Emitir OP -- OP vinda do Excel não tem esse dado gravado)">🖨️</button>`
+            : ``}
+          ${op.materiaisConsumo
+            ? `<button class="btn-edit-inline" onclick="reimprimirEtiquetas('${escapedKeyAttr}')" title="Reimprimir etiquetas de caixa de embarque desta OP">🏷️</button>`
+            : ``}
+          ${!isCancelada && !RetrabalhoOp.ehRetrabalho(op)
+            ? `<button class="btn-edit-inline" onclick="abrirRetrabalhoModal('${escapedKeyAttr}')" title="Abrir uma OP de retrabalho deste lote — não cria produção nova">♻️</button>`
+            : ``}
+          ${isAdmin
+            ? (!isCancelada
+                ? `<button class="btn-cancel-op" onclick="cancelOp('${escapedKeyAttr}')" title="Cancelar OP (mantém o registro, some das listas ativas)">🚫</button>`
+                : ``)
+            : ``}
+          ${!op.materiaisConsumo && (!isAdmin || isCancelada) ? `-` : ``}
+        </td>
+      </tr>
+    `;
+  }
+
+  /* ── Abrir OP de retrabalho ──
+     O lote é o do produto + sufixo RT (decisão do usuário): retrabalho não
+     gera lote novo, é o mesmo lote voltando. Ver shared/retrabalho-op.js. */
+  let rtNovoOpKey = null;
+
+  function recursosDoDestino(tipo) {
+    if (tipo === 'rotulagem') return configGlobal.rotulagem || [];
+    if (tipo === 'posto') return configGlobal.postos || [];
+    return configGlobal.linhas || [];
+  }
+  function preencherRecursos() {
+    const tipo = document.getElementById('rtNovoDestinoTipo').value;
+    const lista = recursosDoDestino(tipo);
+    const sel = document.getElementById('rtNovoDestinoNome');
+    sel.innerHTML = lista.length
+      ? lista.map((r) => `<option value="${escapeAttr(r)}">${escapeHtml(r)}</option>`).join('')
+      : '<option value="">— nenhum cadastrado em Ajustes —</option>';
+  }
+
+  function abrirRetrabalhoModal(opKey) {
+    const op = opsGlobal[opKey];
+    if (!op) return;
+    rtNovoOpKey = opKey;
+    const jaFeitos = RetrabalhoOp.doLote(opsGlobal, op.lote);
+    const produzido = getProduzido(op, 'linha') || op.produzido || 0;
+    document.getElementById('rtNovoTitulo').textContent = 'Abrir retrabalho — OP ' + op.lote;
+    document.getElementById('rtNovoInfo').innerHTML =
+      `<b>${escapeHtml(op.produto || op.sku || '')}</b><br>` +
+      `${escapeHtml(op.cliente || '—')} · ${fmtNum(produzido)} un. produzidas · status ${escapeHtml(op.status || '')}` +
+      (jaFeitos.length
+        ? `<br><span style="color:var(--warning)">Este lote já tem ${jaFeitos.length} retrabalho(s): ` +
+          jaFeitos.map((r) => escapeHtml(r.lote)).join(', ') + '</span>'
+        : '') +
+      `<br>A nova OP será <b>${escapeHtml(RetrabalhoOp.proximoNumero(op.lote, opsGlobal))}</b>.`;
+    document.getElementById('rtNovoMotivo').value = '';
+    document.getElementById('rtNovoEscopo').value = 'Lote inteiro';
+    document.getElementById('rtNovoQtd').value = produzido || '';
+    document.getElementById('rtNovoObs').value = '';
+    document.getElementById('rtNovoErro').className = 'alert alert-danger';
+    document.getElementById('rtNovoDestinoTipo').value = 'linha';
+    preencherRecursos();
+    document.getElementById('rtNovoBg').classList.add('open');
+  }
+  window.abrirRetrabalhoModal = abrirRetrabalhoModal;
+
+  function fecharRetrabalhoModal() {
+    document.getElementById('rtNovoBg').classList.remove('open');
+    rtNovoOpKey = null;
+  }
+  document.getElementById('rtNovoDestinoTipo').addEventListener('change', preencherRecursos);
+  document.getElementById('rtNovoClose').addEventListener('click', fecharRetrabalhoModal);
+  document.getElementById('rtNovoCancelar').addEventListener('click', fecharRetrabalhoModal);
+  document.getElementById('rtNovoBg').addEventListener('click', function(e) { if (e.target === this) fecharRetrabalhoModal(); });
+
+  document.getElementById('rtNovoConfirmar').addEventListener('click', function() {
+    if (!rtNovoOpKey) return;
+    const original = opsGlobal[rtNovoOpKey];
+    const erroBox = document.getElementById('rtNovoErro');
+    const dados = {
+      opOriginal: original, opOriginalKey: rtNovoOpKey, ops: opsGlobal,
+      motivo: document.getElementById('rtNovoMotivo').value,
+      escopo: document.getElementById('rtNovoEscopo').value,
+      qtdPlanejada: document.getElementById('rtNovoQtd').value,
+      observacao: document.getElementById('rtNovoObs').value,
+      destino: {tipo: document.getElementById('rtNovoDestinoTipo').value,
+        nome: document.getElementById('rtNovoDestinoNome').value},
+      autor: (window.currentUser && (window.currentUser.nome || window.currentUser.email)) || 'desconhecido',
+    };
+    const v = RetrabalhoOp.validar(dados);
+    if (!v.ok) { erroBox.className = 'alert alert-danger show'; erroBox.textContent = v.erros.join(' '); return; }
+    if (v.avisos.length && !confirm(v.avisos.join('\n\n') + '\n\nAbrir mesmo assim?')) return;
+
+    const nova = RetrabalhoOp.montar(dados);
+    const key = sanitizeKey(nova.lote);
+    const btn = this;
+    btn.disabled = true;
+    /* transaction, não set: o número RT é calculado a partir do que está em
+       memória, e duas pessoas abrindo retrabalho do mesmo lote ao mesmo
+       tempo chegariam ao mesmo -RT1. Se o nó já existe, aborta e avisa em
+       vez de sobrescrever uma OP. */
+    database.ref('ops/' + key).transaction(function(atual) {
+      if (atual !== null) return;
+      return nova;
+    }).then(function(res) {
+      btn.disabled = false;
+      if (!res.committed) {
+        erroBox.className = 'alert alert-danger show';
+        erroBox.textContent = 'A OP ' + nova.lote + ' já existe — alguém pode ter aberto este retrabalho agora há pouco. Feche e tente de novo.';
+        return;
+      }
+      fecharRetrabalhoModal();
+      showToast('Retrabalho aberto: OP ' + nova.lote + ' em ' + nova.linha + '.');
+    }).catch(function(err) {
+      btn.disabled = false;
+      erroBox.className = 'alert alert-danger show';
+      erroBox.textContent = 'Erro ao abrir o retrabalho: ' + err.message;
+    });
+  });
+
+  // "Painel de logs" de emissão -- reimprime as 5 fichas de uma OP JÁ
+  // emitida antes, sem precisar de nenhum estado em memória tipo
+  // opJaEmitida (que só existe em emitir_op.html, logo após emitir): tudo
+  // que as fichas precisam (materiaisConsumo, formulaVersao, os campos de
+  // dimensionamento) já está gravado no próprio ops/{lote}. Só formulas/
+  // especificacoes/produtos precisam ser buscados -- e só quando alguém
+  // clica (não vale a pena manter esses 3 nós carregados o tempo todo só
+  // por causa de um botão usado ocasionalmente).
+  function reimprimirFichas(opKey) {
+    const op = opsGlobal[opKey];
+    if (!op) return;
+    if (!op.materiaisConsumo) {
+      showToast('Esta OP foi emitida pelo Excel -- não tem os dados que as fichas do sistema precisam.');
+      return;
+    }
+    const produtoEntry = Object.values(produtosGlobal).find(p => p && p.sku === op.sku);
+    const produtoKey = Object.keys(produtosGlobal).find(k => produtosGlobal[k] && produtosGlobal[k].sku === op.sku);
+    const msAnvisa = produtoEntry ? produtoEntry.msAnvisa : '';
+
+    Promise.all([
+      database.ref('formulas').once('value'),
+      produtoKey ? database.ref('especificacoes/' + chaveVersao(produtoKey, op.formulaVersao)).once('value') : Promise.resolve(null),
+    ]).then(([formulasSnap, especsSnap]) => {
+      const todasFormulas = formulasSnap.val() || {};
+      const formulaRegistro = Object.values(todasFormulas).find(f => f && f.codProduto === produtoKey && f.versao === op.formulaVersao) || null;
+      const especs = (especsSnap && especsSnap.val() && especsSnap.val().itens) || {};
+      const formulaItens = formulaItensParaFichas(op, formulaRegistro);
+      document.getElementById('printArea').innerHTML = montarFichasOP(op, formulaItens, especs, msAnvisa);
+      // Nome do PDF = lote - cliente produto - sku (ver nomeArquivoFichasOP
+      // em shared/utils.js). Sem isso toda OP reimpressa era salva como
+      // "Controle de OPs · Kuryos PCP".
+      imprimirComNome(nomeArquivoFichasOP(op));
+    }).catch(err => {
+      console.error('Falha ao montar fichas pra reimpressão da OP ' + opKey + ':', err);
+      showToast('Erro ao montar as fichas -- tente de novo.');
+    });
+  }
+
+  // Reimprime as etiquetas de caixa de embarque (padrão de 01/10,
+  // shared/etiqueta-caixa.js): abre o diálogo com pré-visualização,
+  // campos que faltam no cadastro, quantidade e lote do cliente.
+  function reimprimirEtiquetas(opKey) {
+    const op = opsGlobal[opKey];
+    if (!op) return;
+    if (!op.materiaisConsumo) {
+      showToast('Esta OP foi emitida pelo Excel -- não tem os dados que as etiquetas precisam.');
+      return;
+    }
+    // Produto atual completa o que a OP antiga não fotografou (código do
+    // cliente, peso, DUN-14) -- ver shared/etiqueta-caixa.js.
+    const produto = Object.values(produtosGlobal || {}).find(p => p && p.sku === op.sku) || null;
+    EtiquetaCaixa.abrirDialogo({op, opKey, produto, db: database});
+  }
+
+  // Transferência de OP entre pedidos (shared/transferencia-op.js). Antes o
+  // lápis trocava só ops/{lote}.parentPedidoId -- o número mostrado --,
+  // enquanto apontamento, conciliação, expedição e planejamento seguem o
+  // skuPedidoKey, e o produzido continuava no pedido antigo.
+  function historicoTransferenciaTexto(op) {
+    const t = (op && op.transferenciasPedido) || {};
+    const linhas = Object.keys(t).map(k => t[k]).filter(Boolean)
+      .sort((a, b) => String(a.em || '').localeCompare(String(b.em || '')))
+      .map(x => (x.status === 'EM_ANDAMENTO' ? 'NÃO CONCLUÍDA: ' : '') + 'de ' + (x.origem || x.origemAnterior || 'sem pedido') +
+        ' para ' + x.destino + ' em ' + (x.em ? new Date(x.em).toLocaleString('pt-BR') : '?') + ' por ' + (x.por || '?') +
+        (x.motivo ? ' — ' + x.motivo : ''));
+    return linhas.length ? 'Transferências: ' + linhas.join(' | ') : '';
+  }
+
+  function rotuloPedido(key) {
+    const p = pedidosGlobal[key];
+    if (!p) return key || 'sem pedido';
+    const saldo = Math.max((p.qtdTotal || 0) - (p.produzido || 0), 0);
+    return '#' + (p.id || key) + ' — ' + fmtNum(p.produzido || 0) + ' de ' + fmtNum(p.qtdTotal || 0) + ' produzidos (falta ' + fmtNum(saldo) + ')';
+  }
+
+  function abrirTransferenciaOp(opKey) {
+    if (!window.currentUser || (window.currentUser.role !== 'admin' && window.currentUser.role !== 'pcp')) {
+      alert('Acesso Negado: Apenas administradores ou PCP podem transferir OPs.');
+      return;
+    }
+    const op = opsGlobal[opKey];
+    if (!op) return;
+    const pend = TransferenciaOP.transferenciaPendente(op);
+    const origemKey = pend ? pend.origem : TransferenciaOP.resolverChave(pedidosGlobal, op.skuPedidoKey);
+    const candidatos = pend ? [pend.destino] : TransferenciaOP.candidatosDestino({ops: opsGlobal, pedidos: pedidosGlobal}, opKey);
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:var(--card);color:var(--text);border-radius:16px;padding:22px;max-width:520px;width:100%;max-height:92vh;overflow:auto;box-shadow:var(--shadow)';
+    const campo = 'width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)';
+    box.innerHTML = `
+      <div style="font-weight:800;font-size:16px;margin-bottom:4px">${pend ? 'Concluir transferência da OP' : 'Transferir OP para outro pedido'}</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px">Lote ${escapeHtml(op.lote || opKey)} — ${escapeHtml(op.produto || '')} (${escapeHtml(op.sku || 'sem SKU')})</div>
+      <div style="font-size:12px;font-weight:700;margin-bottom:2px">Pedido atual</div>
+      <div style="font-size:13px;margin-bottom:12px">${escapeHtml(origemKey ? rotuloPedido(origemKey) : (op.skuPedidoKey ? op.skuPedidoKey + ' (não existe mais)' : 'Sem pedido'))}</div>
+      ${pend ? `<div style="font-size:13px;background:#fef3c7;color:#92400e;border-radius:8px;padding:8px 10px;margin-bottom:12px">Uma transferência começou em ${escapeHtml(pend.em ? new Date(pend.em).toLocaleString('pt-BR') : '?')} e não terminou. Concluir repete só o que falta, sem somar duas vezes.</div>` : ''}
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">${pend ? 'Destino' : 'Novo pedido'}</label>
+      ${candidatos.length
+        ? `<select id="trOpDestino" style="${campo};margin-bottom:12px" ${pend ? 'disabled' : ''}>${pend ? '' : '<option value="">Selecione...</option>'}${candidatos.map(k => `<option value="${escapeAttr(k)}">${escapeHtml(rotuloPedido(k))}</option>`).join('')}</select>`
+        : `<div style="font-size:13px;color:var(--danger);margin-bottom:12px">Nenhum pedido aberto do SKU ${escapeHtml(op.sku || '')}. Digite o pedido novo antes de transferir.</div>`}
+      <div id="trOpResumo" style="font-size:13px;margin-bottom:12px"></div>
+      ${pend ? '' : `<label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">Motivo</label>
+      <textarea id="trOpMotivo" rows="2" style="${campo};margin-bottom:12px;resize:vertical" placeholder="Ex.: conciliação de pedidos com o cliente em 16/09"></textarea>`}
+      <div id="trOpErro" style="color:var(--danger);font-size:12px;margin-bottom:10px;display:none"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" id="trOpVoltar" class="btn-sync" style="background:var(--card);color:var(--text);border:1.5px solid var(--border)">Voltar</button>
+        <button type="button" id="trOpConfirmar" class="btn-sync" disabled>${pend ? 'Concluir transferência' : 'Transferir'}</button>
+      </div>`;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    const fechar = () => { if (overlay.parentNode) document.body.removeChild(overlay); };
+    document.getElementById('trOpVoltar').onclick = fechar;
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) fechar(); });
+
+    const sel = document.getElementById('trOpDestino');
+    const resumoEl = document.getElementById('trOpResumo');
+    const btn = document.getElementById('trOpConfirmar');
+    let estoqueLotes = null;
+    let planoAtual = null;
+
+    const atualizarResumo = () => {
+      planoAtual = null;
+      btn.disabled = true;
+      const destinoKey = sel ? sel.value : '';
+      if (!destinoKey) { resumoEl.innerHTML = ''; return; }
+      if (estoqueLotes === null) { resumoEl.textContent = 'Carregando paletes...'; return; }
+      const plano = TransferenciaOP.planejar({ops: opsGlobal, pedidos: pedidosGlobal, estoque_lotes: estoqueLotes}, opKey, destinoKey, pend);
+      const itens = [];
+      itens.push('<b>Produção que vai junto:</b> ' + fmtNum(plano.qtd || 0) + ' un' +
+        (plano.qtdSemRegistro ? ' (' + fmtNum(plano.qtdRegistrada) + ' por apontamento registrado + ' + fmtNum(plano.qtdSemRegistro) + ' pelo envase da OP)' : ''));
+      itens.push('<b>Paletes em estoque que mudam de pedido:</b> ' + (plano.paletes ? plano.paletes.length : 0) +
+        (plano.saldoPaletes ? ' (' + fmtNum(plano.saldoPaletes) + ' un)' : ''));
+      const avisos = (plano.avisos || []).map(a => '<li>' + escapeHtml(a) + '</li>').join('');
+      const erros = (plano.erros || []).map(a => '<li>' + escapeHtml(a) + '</li>').join('');
+      resumoEl.innerHTML = itens.map(i => '<div style="margin-bottom:4px">' + i + '</div>').join('') +
+        (avisos ? '<ul style="margin:8px 0 0 18px;padding:0;color:#92400e">' + avisos + '</ul>' : '') +
+        (erros ? '<ul style="margin:8px 0 0 18px;padding:0;color:var(--danger)">' + erros + '</ul>' : '');
+      if (!plano.erros.length) { planoAtual = plano; btn.disabled = false; }
+    };
+    if (sel) sel.onchange = atualizarResumo;
+    database.ref('estoque_lotes').once('value').then(snap => { estoqueLotes = snap.val() || {}; atualizarResumo(); })
+      .catch(() => { resumoEl.textContent = 'Não foi possível ler os paletes. Tente de novo.'; });
+
+    btn.onclick = () => {
+      const erroEl = document.getElementById('trOpErro');
+      erroEl.style.display = 'none';
+      const motivoEl = document.getElementById('trOpMotivo');
+      const motivo = motivoEl ? motivoEl.value.trim() : '';
+      if (!planoAtual) return;
+      if (!pend && !motivo) { erroEl.textContent = 'Informe o motivo.'; erroEl.style.display = 'block'; return; }
+      if (!pend && !confirm('Transferir a OP ' + (op.lote || opKey) + ' para o pedido ' + rotuloPedido(planoAtual.destinoKey) + '?')) return;
+      btn.disabled = true; btn.textContent = 'Transferindo...';
+      executarTransferenciaOp(opKey, planoAtual.destinoKey, motivo, pend)
+        .then(qtd => { fechar(); showToast('OP transferida (' + fmtNum(qtd) + ' un de produção junto).'); })
+        .catch(err => {
+          console.error(err);
+          btn.disabled = false; btn.textContent = pend ? 'Concluir transferência' : 'Transferir';
+          erroEl.textContent = 'Erro: ' + err.message + ' Se a transferência já tinha começado, abra de novo e use "Concluir".';
+          erroEl.style.display = 'block';
+        });
+    };
+  }
+
+  // Ordem pensada pra falha no meio: 1) vínculo da OP + registro EM_ANDAMENTO
+  // (novos apontamentos já vão pro destino); 2) saída e 3) entrada do
+  // produzido, em transactions idempotentes pelo id; 4) paletes, programação
+  // e alocações; 5) CONCLUIDA. Retomar repete com o mesmo id.
+  async function executarTransferenciaOp(opKey, destinoKey, motivo, pend) {
+    const [opSnap, pedSnap, lotesSnap] = await Promise.all([
+      database.ref('ops/' + opKey).once('value'),
+      database.ref('pedidos').once('value'),
+      database.ref('estoque_lotes').once('value')
+    ]);
+    const op = opSnap.val();
+    const base = {ops: {[opKey]: op}, pedidos: pedSnap.val() || {}, estoque_lotes: lotesSnap.val() || {}};
+    const pendente = pend ? TransferenciaOP.transferenciaPendente(op) : null;
+    const plano = TransferenciaOP.planejar(base, opKey, destinoKey, pendente);
+    if (plano.erros.length) throw new Error(plano.erros.join(' '));
+
+    const em = new Date().toISOString();
+    const por = window.currentUser.nome || window.currentUser.email || 'desconhecido';
+    const id = pendente ? pendente.id : database.ref('ops/' + opKey + '/transferenciasPedido').push().key;
+    if (!pendente) {
+      await database.ref('ops/' + opKey).update({
+        skuPedidoKey: plano.destinoKey,
+        parentPedidoId: plano.parentDestino || null,
+        ['transferenciasPedido/' + id]: {
+          status: 'EM_ANDAMENTO', origem: plano.origemKey || null, origemAnterior: op.skuPedidoKey || null,
+          destino: plano.destinoKey, qtdPrevista: plano.qtd, paletes: plano.paletes.length, motivo: motivo, em: em, por: por
+        }
+      });
+    }
+
+    const ctx = {id: id, lote: plano.lote, qtdSemRegistro: plano.qtdSemRegistro, origemKey: plano.origemKey, destinoKey: plano.destinoKey, em: em, por: por};
+    if (plano.origemKey) await database.ref('pedidos/' + plano.origemKey).transaction(p => TransferenciaOP.aplicarSaida(p, ctx));
+    else ctx.movido = {aplicacoes: {}, qtd: 0};
+    await database.ref('pedidos/' + plano.destinoKey).transaction(p => TransferenciaOP.aplicarEntrada(p, ctx));
+
+    const [progSnap, alocSnap] = await Promise.all([
+      database.ref('programacao').orderByKey().startAt(todayLocal()).once('value'),
+      database.ref('alocacoes_planejamento').once('value')
+    ]);
+    plano.em = em;
+    const updates = Object.assign({},
+      TransferenciaOP.atualizacoesPaletes(plano),
+      TransferenciaOP.atualizacoesProgramacao(progSnap.val() || {}, plano, todayLocal(), new Date().getHours()),
+      TransferenciaOP.atualizacoesAlocacoes(alocSnap.val() || {}, plano.lote, sanitizeKey));
+    const reg = 'ops/' + opKey + '/transferenciasPedido/' + id + '/';
+    updates[reg + 'status'] = 'CONCLUIDA';
+    updates[reg + 'qtd'] = ctx.movido ? ctx.movido.qtd : 0;
+    updates[reg + 'concluidaEm'] = new Date().toISOString();
+    await database.ref().update(updates);
+    return ctx.movido ? ctx.movido.qtd : 0;
+  }
+
+  function renderPendingRow(p) {
+    const escapedCliente = escapeHtml(p.cliente || '-');
+    const escapedProduto = escapeHtml(p.produto || '-');
+    const escapedSku = escapeHtml(p.sku || '-');
+    const planned = p.qtdTotal || 0;
+    return `
+      <tr style="opacity:.85">
+        <td colspan="2"><span class="badge-sem-op">Sem OP</span></td>
+        <td>
+          <div style="font-weight: 600;">${escapedProduto}</div>
+          <div style="font-size: 11.5px; color: var(--muted); margin-top: 1px;">SKU: ${escapedSku} · ${escapedCliente}</div>
+        </td>
+        <td>—</td>
+        <td>—</td>
+        <td>${p.parentPedidoId ? '#' + escapeHtml(String(p.parentPedidoId)) : '—'}</td>
+        <td>${planned.toLocaleString('pt-BR')} un planejadas</td>
+        <td colspan="4" style="color: var(--muted); font-size: 12px;">Rodar o Gerador de OPs pra este item</td>
+      </tr>
+    `;
+  }
+  
+  function updateOpField(opKey, field, value) {
+    if (!window.currentUser || (window.currentUser.role !== 'admin' && window.currentUser.role !== 'pcp')) {
+      alert('Acesso Negado: Apenas administradores ou PCP podem atualizar OPs.');
+      listenToActiveOps();
+      return;
+    }
+
+    if (field === 'status' && value === 'Concluído') {
+      const confirmAction = confirm('Tem certeza de que deseja concluir esta OP? Isso a arquivará (vai aparecer no Histórico).');
+      if (!confirmAction) {
+        listenToActiveOps(); // recarrega os dropdowns originais
+        return;
+      }
+      const op = opsGlobal[opKey];
+      database.ref('ops/' + opKey).update({ status: 'Concluído' })
+        .then(() => {
+          showToast('OP concluída com sucesso!');
+          // Mesmo fix de confirmarConclusaoOp -- este é o OUTRO caminho que
+          // marca 'Concluído' (dropdown manual), que também nunca liberava
+          // o empenho. Idempotente: seguro rodar mesmo que já tenha rodado
+          // pelo caminho normal.
+          if (op && op.lote && op.materiaisConsumo && typeof liberarEmpenhoLote === 'function') {
+            var codigosEmpenho = Object.values(op.materiaisConsumo).map(function(i) { return i.mpCodigo; });
+            liberarEmpenhoLote(database, op.lote, codigosEmpenho).catch(function(err) {
+              console.error('Falha ao liberar empenho da OP ' + op.lote + ':', err);
+            });
+          }
+          // Mesmo putaway opcional de confirmarConclusaoOp -- este é o outro caminho de conclusão.
+          if (op && typeof abrirPutawayProdutoModal === 'function') abrirPutawayProdutoModal(op);
+        })
+        .catch(err => {
+          console.error(err);
+          showToast('Erro ao concluir OP: ' + err.message);
+        })
+    } else {
+      // Achado do Auditor: correção manual de status (ex: "Produção
+      // Parcial" pra uma OP travada) era revertida silenciosamente pela
+      // sincronização automática (_syncOpsLoteStatusELinha, auth_check.js)
+      // na próxima carga de página de QUALQUER admin -- ela só protegia
+      // 'Concluído'/'Cancelado'. statusManualOverride avisa a sincronização
+      // pra deixar essa OP em paz até alguém devolver pro automático
+      // (botão 🔓, clearStatusOverride) -- mesmo espírito de
+      // pedidos.statusManual, só que reversível em vez de permanente,
+      // porque aqui é uma correção pontual, não uma decisão de negócio.
+      const updates = { [field]: value };
+      if (field === 'status') {
+        updates.statusManualOverride = true;
+        updates.statusManualOverrideEm = new Date().toISOString();
+        updates.statusManualOverridePor = window.currentUser.nome || window.currentUser.email || 'desconhecido';
+      }
+      database.ref('ops/' + opKey).update(updates)
+        .then(() => {
+          showToast('OP atualizada com sucesso!');
+        })
+        .catch(err => {
+          console.error(err);
+          showToast('Erro ao atualizar campo.');
+        });
+    }
+  }
+
+  function clearStatusOverride(opKey) {
+    if (!window.currentUser || (window.currentUser.role !== 'admin' && window.currentUser.role !== 'pcp')) {
+      alert('Acesso Negado: Apenas administradores ou PCP podem atualizar OPs.');
+      return;
+    }
+    database.ref('ops/' + opKey).update({
+      statusManualOverride: null,
+      statusManualOverrideEm: null,
+      statusManualOverridePor: null
+    }).then(() => {
+      showToast('Status devolvido ao cálculo automático.');
+    }).catch(err => {
+      console.error(err);
+      showToast('Erro ao devolver status ao automático.');
+    });
+  }
+
+  // Cancela sem apagar -- mantém o registro em ops/{lote} com o motivo e
+  // quem cancelou, marcando status:'Cancelado'. opEstaAtiva (shared/utils.js)
+  // garante que uma OP cancelada some das listas de "ativa" em todo o app.
+  //
+  // Crítico: também limpa abertaDesde/abertaLinha (e o par Rotulagem,
+  // abertaDesdeRot/abertaRotulagem -- Linha e Rotulagem são setores
+  // diferentes com estado de abertura independente, form.html). Sem isso,
+  // uma OP que já estava alocada numa linha e/ou rotulagem (via "Alocar OP"
+  // ou "Abrir OP" em form.html) continuava aparecendo como card ativo e
+  // clicável no Painel de Turno mesmo depois de cancelada -- o cancelamento
+  // só mudava o status, nunca tirava a OP do "estado aberto" que todo o
+  // resto do app usa pra decidir o que mostrar como ação disponível.
+  // OP com apontamento real (qualquer setor) nunca pode ser cancelada no
+  // fluxo normal -- isso já aconteceu de verdade e cancelar "escondendo"
+  // esse trabalho seria perder rastro de produção de verdade. Só libera com
+  // uma segunda confirmação de identidade (senha) + justificativa.
+  function cancelOp(opKey) {
+    if (!window.currentUser || (window.currentUser.role !== 'admin' && window.currentUser.role !== 'pcp')) {
+      alert('Acesso Negado: Apenas administradores ou PCP podem cancelar OPs.');
+      return;
+    }
+    const op = opsGlobal[opKey];
+    if (!op) return;
+
+    const temApontamento = getProduzido(op, 'linha') > 0 || getProduzido(op, 'rotulagem') > 0 || getProduzido(op, 'posto') > 0;
+
+    if (temApontamento) {
+      abrirCancelamentoComSenhaModal(opKey, op);
+      return;
+    }
+
+    const motivo = prompt('Motivo do cancelamento da OP ' + (op.lote || opKey) + ':', 'Emitida com quantidade maior que a necessária');
+    if (motivo === null) return; // cancelou o prompt, não a OP
+    if (!motivo.trim()) {
+      alert('Informe um motivo pra cancelar a OP.');
+      return;
+    }
+    executarCancelamentoOp(opKey, op, motivo.trim());
+  }
+
+  // Modal simples (DOM direto, sem markup estático) pro caso raro de
+  // cancelar uma OP que já tem produção real -- pede a senha da própria
+  // conta (reautenticação Firebase, não uma senha nova pra inventar) +
+  // justificativa, os dois obrigatórios.
+  function abrirCancelamentoComSenhaModal(opKey, op) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:var(--card);border-radius:16px;padding:22px;max-width:420px;width:100%;box-shadow:var(--shadow)';
+    const produzidoResumo = ['linha', 'rotulagem', 'posto']
+      .map(t => ({t, v: getProduzido(op, t)}))
+      .filter(x => x.v > 0)
+      .map(x => (x.t === 'linha' ? 'Linha' : x.t === 'rotulagem' ? 'Rotulagem' : 'Posto') + ': ' + fmtNum(x.v))
+      .join(' · ');
+    box.innerHTML = `
+      <div style="font-weight:800;font-size:16px;margin-bottom:6px">⚠️ Essa OP já tem produção registrada</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px">Lote ${escapeHtml(op.lote || opKey)} — ${escapeHtml(produzidoResumo)}. Cancelar mesmo assim exige confirmar sua senha e o motivo.</div>
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">Sua senha</label>
+      <input type="password" id="cancelOpSenha" autocomplete="current-password" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;margin-bottom:12px;background:var(--card);color:var(--text)">
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">Justificativa</label>
+      <textarea id="cancelOpJustificativa" rows="3" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;margin-bottom:14px;background:var(--card);color:var(--text);resize:vertical"></textarea>
+      <div id="cancelOpErro" style="color:var(--danger);font-size:12px;margin-bottom:10px;display:none"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" id="cancelOpCancelarBtn" class="btn-sync" style="background:var(--card);color:var(--text);border:1.5px solid var(--border)">Voltar</button>
+        <button type="button" id="cancelOpConfirmarBtn" class="btn-sync" style="background:var(--danger)">Cancelar OP mesmo assim</button>
+      </div>
+    `;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    const fechar = () => document.body.removeChild(overlay);
+    document.getElementById('cancelOpCancelarBtn').onclick = fechar;
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) fechar(); });
+
+    document.getElementById('cancelOpConfirmarBtn').onclick = () => {
+      const senha = document.getElementById('cancelOpSenha').value;
+      const justificativa = document.getElementById('cancelOpJustificativa').value.trim();
+      const erroEl = document.getElementById('cancelOpErro');
+      erroEl.style.display = 'none';
+      if (!senha) { erroEl.textContent = 'Informe sua senha.'; erroEl.style.display = 'block'; return; }
+      if (!justificativa) { erroEl.textContent = 'Informe a justificativa.'; erroEl.style.display = 'block'; return; }
+
+      const btn = document.getElementById('cancelOpConfirmarBtn');
+      btn.disabled = true; btn.textContent = 'Confirmando...';
+
+      const user = firebase.auth().currentUser;
+      const cred = firebase.auth.EmailAuthProvider.credential(user.email, senha);
+      user.reauthenticateWithCredential(cred)
+        .then(() => {
+          fechar();
+          executarCancelamentoOp(opKey, op, justificativa + ' (cancelada com produção já registrada, confirmado por senha)');
+        })
+        .catch((err) => {
+          btn.disabled = false; btn.textContent = 'Cancelar OP mesmo assim';
+          erroEl.textContent = err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential'
+            ? 'Senha incorreta.' : 'Erro ao confirmar: ' + err.message;
+          erroEl.style.display = 'block';
+        });
+    };
+  }
+
+  // Cascata completa -- uma OP cancelada some de TODO lugar que ainda a
+  // trata como capacidade/compromisso real (alocacoes_planejamento,
+  // programacao, empenho de estoque), ficando só o registro histórico em
+  // ops/{lote} de que foi cancelada.
+  function executarCancelamentoOp(opKey, op, motivo) {
+    const lote = op.lote;
+    database.ref('ops/' + opKey).update({
+      status: 'Cancelado',
+      motivoCancelamento: motivo,
+      canceladoEm: new Date().toISOString(),
+      canceladoPor: (window.currentUser.nome || window.currentUser.email || 'desconhecido'),
+      abertaDesde: null,
+      abertaLinha: null,
+      abertaDesdeRot: null,
+      abertaRotulagem: null
+    })
+      .then(() => {
+        const cascatas = [];
+        if (lote) {
+          // 1. Desvincula qualquer alocacoes_planejamento presa a essa OP --
+          // sem isso, horizonte.html continuaria contando a capacidade como
+          // "já comprometida" pra sempre. Fase 6 do plano: uma alocação
+          // agora pode ter várias OPs vinculadas (opsVinculadas, um pedido
+          // de 10.000 vira N OPs de menor quantidade) -- cancelar UMA OP só
+          // remove a parte dela (não cancela a alocação inteira, que pode
+          // ter outras OPs legitimamente vinculadas) e devolve a
+          // quantidade dela pra capacidade disponível (volta pra
+          // 'congelado', mesmo que já tivesse batido 'vinculado' antes).
+          cascatas.push(database.ref('alocacoes_planejamento').once('value').then((snap) => {
+            const upd = {};
+            const loteKeySafe = sanitizeKey(lote);
+            snap.forEach((child) => {
+              const v = child.val();
+              const vinc = v && v.opsVinculadas && v.opsVinculadas[loteKeySafe];
+              if (vinc) {
+                const qtdRemovida = vinc.qtd || 0;
+                upd[child.key + '/opsVinculadas/' + loteKeySafe] = null;
+                upd[child.key + '/qtdConsumida'] = Math.max((v.qtdConsumida || 0) - qtdRemovida, 0);
+                upd[child.key + '/status'] = 'congelado';
+              }
+            });
+            if (Object.keys(upd).length) return database.ref('alocacoes_planejamento').update(upd);
+          }));
+          // 2. Limpa o lote de qualquer slot futuro em programacao -- o
+          // pedido pode continuar precisando daquela capacidade, só não
+          // mais coberta por essa OP cancelada.
+          if (typeof clearLoteFromFutureSlots === 'function') {
+            cascatas.push(clearLoteFromFutureSlots(lote, database));
+          }
+          // 3. Libera de volta pro disponível qualquer empenho remanescente
+          // dessa OP (reservado na emissão, nunca chegou a ser consumido por
+          // não ter sido apontado antes do cancelamento).
+          if (op.materiaisConsumo && typeof liberarEmpenhoLote === 'function') {
+            var codigosEmpenho = Object.values(op.materiaisConsumo).map(function(i) { return i.mpCodigo; });
+            cascatas.push(liberarEmpenhoLote(database, lote, codigosEmpenho));
+          }
+        }
+        return Promise.all(cascatas);
+      })
+      .then(() => {
+        showToast('OP cancelada. O registro continua salvo, com o motivo.');
+      })
+      .catch(err => {
+        console.error(err);
+        showToast('Erro ao cancelar OP.');
+      });
+  }
+
+  function forceSyncAllStatus() {
+    if (typeof window.syncAllActiveOpsStatus === 'function') {
+      window.syncAllActiveOpsStatus();
+      showToast('Status de todas as OPs recalculado com sucesso!');
+    }
+  }
+  
+  
+
+  function showToast(text) {
+    const toast = document.getElementById('toast');
+    toast.textContent = text;
+    toast.style.display = 'block';
+    setTimeout(() => {
+      toast.style.display = 'none';
+    }, 2500);
+  }
+</script>
+</body>
+</html>

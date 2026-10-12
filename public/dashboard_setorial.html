@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0a1c69">
+  <title>Indicadores Setoriais · Kuryos ERP</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"><link rel="stylesheet" href="shared/theme.css"><link rel="stylesheet" href="shared/sector-dashboard.css?v=20261008-1">
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script><script src="shared/utils.js"></script>
+  <script>firebase.initializeApp({apiKey:'AIzaSyBvASzcbKyv3uW7NBzDFDyLsKls3An3UUs',authDomain:'erpkuryos.firebaseapp.com',databaseURL:kuryosDatabaseURL('https://erpkuryos-default-rtdb.firebaseio.com'),projectId:'erpkuryos',storageBucket:'erpkuryos.firebasestorage.app',messagingSenderId:'272752392739',appId:'1:272752392739:web:047a6c4aa60145d77f4f96'});kuryosConnectEmulatorsIfLocal();</script>
+  <script src="auth_check.js"></script>
+</head>
+<body class="kuryos-theme has-sidebar">
+  <main class="sector-page"><div class="sector-wrap">
+    <div class="sector-head"><div><p class="executive-eyebrow">Business Intelligence por domínio</p><h1>Indicadores setoriais</h1><p>Painéis compactos para decisão diária. Indicadores sem base suficiente permanecem marcados como indisponíveis, sem transformar ausência de dado em zero.</p></div></div>
+    <nav class="sector-tabs" id="sector-tabs" aria-label="Áreas do sistema"></nav>
+    <section aria-live="polite"><div class="sector-summary"><div><h2 id="sector-title">Carregando</h2><p id="sector-description">Consultando fontes autorizadas.</p></div><span class="sector-source-state" id="sector-state">Tempo real</span></div><div class="sector-kpis" id="sector-kpis"></div><div class="sector-panels"><article class="sector-card"><h3 id="sector-chart-title">Distribuição operacional</h3><p id="sector-chart-description"></p><div class="sector-bars" id="sector-bars"></div></article><aside class="sector-card"><h3>Critérios desta área</h3><p>Fórmulas e limites aplicados aos indicadores exibidos</p><div class="sector-methods" id="sector-methods"></div></aside></div></section>
+  </div></main>
+  <script src="shared/sector-dashboard.js?v=20261008-1"></script>
+</body>
+</html>

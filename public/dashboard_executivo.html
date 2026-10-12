@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0a1c69">
+  <title>Dashboard Executivo · Kuryos ERP</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="shared/theme.css">
+  <link rel="stylesheet" href="shared/executive-dashboard.css?v=20261008-1">
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+  <script src="shared/utils.js"></script>
+  <script>
+    firebase.initializeApp({
+      apiKey:'AIzaSyBvASzcbKyv3uW7NBzDFDyLsKls3An3UUs',
+      authDomain:'erpkuryos.firebaseapp.com',
+      databaseURL:kuryosDatabaseURL('https://erpkuryos-default-rtdb.firebaseio.com'),
+      projectId:'erpkuryos', storageBucket:'erpkuryos.firebasestorage.app',
+      messagingSenderId:'272752392739', appId:'1:272752392739:web:047a6c4aa60145d77f4f96'
+    });
+    kuryosConnectEmulatorsIfLocal();
+  </script>
+  <script src="auth_check.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+</head>
+<body class="kuryos-theme has-sidebar">
+  <main class="executive-dashboard" id="executive-dashboard">
+    <div class="executive-wrap">
+      <div class="executive-hero">
+        <div>
+          <p class="executive-eyebrow">Inteligência operacional integrada</p>
+          <h1>Visão executiva 360°</h1>
+          <p class="executive-subtitle">Leitura consolidada da operação, com indicadores provenientes do Firebase em tempo real e sinalização explícita quando a fonte não permite um cálculo confiável.</p>
+        </div>
+        <div class="executive-controls">
+          <div class="executive-control"><label for="executive-period">Período analítico</label><select id="executive-period"><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="365">Últimos 12 meses</option><option value="all">Todo o histórico</option></select></div>
+          <span class="executive-live" id="executive-live">Atualizando fontes</span>
+        </div>
+      </div>
+
+      <section class="executive-section" aria-labelledby="summary-title">
+        <div class="executive-section-head"><div><h2 id="summary-title">Resumo executivo</h2><p>Estado atual e desempenho do período selecionado</p></div><a class="executive-section-link" href="dashboard_analise.html">Análise detalhada</a></div>
+        <div class="executive-kpis" id="executive-kpis" aria-live="polite"></div>
+      </section>
+
+      <section class="executive-section" aria-labelledby="performance-title">
+        <div class="executive-section-head"><div><h2 id="performance-title">Performance operacional</h2><p>Cada visualização responde a uma pergunta operacional e informa sua fonte</p></div></div>
+        <div class="executive-grid">
+          <article class="executive-card wide"><div class="executive-card-head"><div><h3>Planejado versus realizado</h3><p class="executive-card-desc">Quanto das OPs encerradas no período foi efetivamente produzido?</p></div><span class="executive-source">ops/</span></div><div class="executive-chart"><canvas id="executive-production-chart"></canvas></div></article>
+          <article class="executive-card"><div class="executive-card-head"><div><h3>Carteira por etapa</h3><p class="executive-card-desc">Onde se concentra o backlog atual?</p></div><span class="executive-source">pedidos/</span></div><div class="executive-chart"><canvas id="executive-orders-chart"></canvas></div></article>
+          <article class="executive-card"><div class="executive-card-head"><div><h3>Compras por situação</h3><p class="executive-card-desc">Quais pedidos ainda demandam acompanhamento?</p></div><span class="executive-source">pedidos_compra/</span></div><div class="executive-chart"><canvas id="executive-purchases-chart"></canvas></div></article>
+          <article class="executive-card wide"><div class="executive-card-head"><div><h3>Evolução produtiva</h3><p class="executive-card-desc">Unidades concluídas por mês, sem estimar períodos sem apontamento</p></div><span class="executive-source">ops.dataFimReal</span></div><div class="executive-chart"><canvas id="executive-trend-chart"></canvas></div></article>
+        </div>
+      </section>
+
+      <section class="executive-section" aria-labelledby="flow-title">
+        <div class="executive-section-head"><div><h2 id="flow-title">Fluxo industrial</h2><p>Volume em aberto por etapa; clique para investigar na tela operacional autorizada</p></div></div>
+        <div class="executive-card full"><div class="executive-flow" id="executive-flow"></div></div>
+      </section>
+
+      <section class="executive-section" id="atencao" aria-labelledby="attention-title">
+        <div class="executive-section-head"><div><h2 id="attention-title">Central de atenção</h2><p>Pendências ordenadas por impacto operacional, sem classificar prazo quando não há data confiável</p></div></div>
+        <div class="executive-grid">
+          <article class="executive-card wide"><div class="executive-attention-list" id="executive-attention"></div></article>
+          <aside class="executive-card"><div class="executive-card-head"><div><h3>Qualidade do dado</h3><p class="executive-card-desc">Limites considerados nesta leitura</p></div></div><div class="executive-data-notes" id="executive-data-notes"></div></aside>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script src="shared/executive-dashboard.js?v=20261008-1"></script>
+</body>
+</html>

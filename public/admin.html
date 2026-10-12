@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Configuracoes</title>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://erpkuryos-default-rtdb.firebaseio.com">
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+  <script src="shared/utils.js"></script>
+  <script src="auth_check.js"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="shared/theme.css">
+  <style>
+    :root{--primary:#0a1c69;--primary-light:#2456d6;--success:#0ca30c;--danger:#d03b3b;--bg:#f5f5f7;--card:#fff;--border:#d2d2d7;--text:#1d1d1f;--muted:#6e6e73}
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --primary:#5e83ea; --bg:#000000; --card:#1c1c1e; --border:#38383a; --text:#f5f5f7; --muted:#98989d; } }
+    :root[data-theme="dark"] { color-scheme: dark; --primary:#5e83ea; --bg:#000000; --card:#1c1c1e; --border:#38383a; --text:#f5f5f7; --muted:#98989d; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:var(--font-ui);background:var(--bg);color:var(--text);min-height:100vh}
+    .header{background:transparent;color:var(--text);padding:26px 0 6px;display:flex;align-items:flex-start;justify-content:space-between;box-shadow:none;max-width:96%;margin:0 auto}
+    .header h1{font-size:28px;font-weight:700;letter-spacing:-.02em}
+    .status-pill{display:flex;align-items:center;gap:6px;background:color-mix(in srgb, var(--text) 6%, transparent);border-radius:20px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--muted)}
+    .dot{width:8px;height:8px;border-radius:50%;background:#94a3b8}
+    .dot.on{background:var(--success);animation:p 2s infinite}
+    @keyframes p{0%,100%{opacity:1}50%{opacity:.4}}
+    @media(prefers-reduced-motion:reduce){.dot.on{animation:none}}
+    .main{padding:0 0 40px;max-width:96%;margin:0 auto}
+    .card{background:var(--card);border-radius:18px;padding:22px;box-shadow:var(--shadow);margin-bottom:16px;border-left:4px solid var(--primary)}
+    .card-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media(max-width:480px){.form-grid{grid-template-columns:1fr}}
+    .fg{display:flex;flex-direction:column;gap:6px}
+    label{font-size:13px;font-weight:600;color:var(--muted)}
+    input[type=text],input[type=number],input[type=date],select{padding:11px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:15px;color:var(--text);width:100%;background:var(--card);transition:border-color .2s}
+    input:focus,select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(26,86,219,.1)}
+    .btn{padding:10px 20px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+    .btn-primary{background:var(--primary);color:white}.btn-primary:hover{background:#1141a3}
+    .btn-success{background:var(--success);color:white}.btn-success:hover{background:#047857}
+    .btn-sm{padding:6px 12px;font-size:13px}
+    /* Tags */
+    .tag-area{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;min-height:32px}
+    .tag{border-radius:20px;padding:4px 8px 4px 12px;font-size:13px;display:inline-flex;align-items:center;gap:4px;line-height:1.4}
+    .tag.linha{background:#eff6ff;color:var(--primary);border:1px solid #bfdbfe}
+    .tag.posto{background:#fdf4ff;color:#7c3aed;border:1px solid #e9d5ff}
+    .tag-name{cursor:default}
+    .tag-btn{background:none;border:none;cursor:pointer;padding:0 2px;line-height:1;font-size:13px;opacity:.6}
+    .tag-btn:hover{opacity:1}
+    .tag-edit-wrap{display:inline-flex;align-items:center;gap:4px}
+    .tag-edit-wrap input{border:none;outline:none;background:transparent;font-size:13px;color:inherit;min-width:60px;max-width:140px;padding:0}
+    .tag-add{display:flex;gap:8px}
+    .tag-add input{flex:1}
+    /* Alerts */
+    .alert{padding:12px 16px;border-radius:8px;font-size:13px;font-weight:500;margin-bottom:12px;display:none}
+    .alert.show{display:block}
+    .alert-success{background:#d1fae5;color:#065f46;border:1px solid #6ee7b7}
+    .alert-danger{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5}
+    .section-note{font-size:12px;color:var(--muted);margin-bottom:10px;padding:8px 12px;background:color-mix(in srgb, var(--text) 4%, var(--card));border-radius:6px;border-left:3px solid var(--border)}
+    .section-note a{color:var(--primary);font-weight:600;text-decoration:none}
+    .section-note a:hover{text-decoration:underline}
+    /* Metas por linha */
+    .matrix-wrapper { overflow-x: auto; margin-top: 14px; border: 1.5px solid var(--border); border-radius: 8px; background:var(--card) }
+    .matrix-table { width: 100%; border-collapse: collapse; font-size: 13px }
+    .matrix-table th, .matrix-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: right }
+    .matrix-table th:first-child, .matrix-table td:first-child { text-align: left; position: sticky; left: 0; background:var(--card); font-weight: bold }
+    .matrix-table th { background: color-mix(in srgb, var(--text) 4%, var(--card)); font-weight: 700; color: var(--muted); text-transform: uppercase; font-size: 10px }
+    .matrix-table input[type=number] { padding: 5px 8px; border: 1.5px solid var(--border); border-radius: 6px; width: 85px; text-align: right; font-size: 13px; outline: none }
+    .matrix-table input[type=number]:focus { border-color: var(--primary) }
+    .matrix-table tr:hover { background: #f9fafb }
+    .matrix-table td.day-total { font-weight: 700; color: var(--success) }
+    
+    .meta-totals{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;padding:14px;background:#f0fdf4;border-radius:10px;border:1px solid #bbf7d0}
+    .meta-total-item{text-align:center}
+    .meta-total-val{font-size:22px;font-weight:800;color:var(--success)}
+    .meta-total-lbl{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-top:2px}
+    .empty-metas{padding:20px;text-align:center;font-size:13px;color:var(--muted)}
+
+  </style>
+</head>
+<body class="kuryos-theme has-sidebar">
+<div class="header">
+  <div>
+    <h1>Administração</h1>
+    <div style="font-size:12.5px;color:var(--muted);margin-top:2px">Controle de Produção</div>
+  </div>
+  <div class="status-pill"><div class="dot" id="sDot"></div><span id="sTxt">Conectando...</span></div>
+</div>
+
+<div class="main">
+  <div id="alertBox" class="alert alert-success"></div>
+
+  <!-- Achado do Tester: o botão que existia aqui ("Inicializar com Dados
+       Padrão") gravava um objeto fixo de demonstração via db.ref().update({
+       config:..., produtos:..., pedidos:... }) -- e o Firebase RTDB
+       SUBSTITUI o valor inteiro em cada chave de topo passada pro update(),
+       não faz merge profundo. Num banco com dado real (produtos, pedidos,
+       config já cadastrados), um clique apagava tudo isso e trocava por 3
+       produtos e 2 pedidos de exemplo, sem nenhum aviso. Era seguro só
+       enquanto o banco estava genuinamente vazio (fase de testes, antes de
+       ter dado real) -- hoje o app tem ~500 produtos e histórico real, então
+       essa função virou uma mina. Removida por completo: configurar
+       Linhas/Turnos/Postos agora é sempre manual, pelas seções abaixo. -->
+  <div class="card" id="seedCard" style="display:none; background:#fff7ed; border:1.5px solid #f59e0b;">
+    <div class="card-title" style="color:#c2410c; border-bottom:1px solid #fde68a;">Configuração inicial pendente</div>
+    <div class="section-note" style="background:#fffbeb; border-left:3px solid #f59e0b; margin-bottom:0;">
+      Nenhuma Linha de Produção cadastrada ainda. Cadastre manualmente nas seções "Linhas de Produção", "Turnos" e "Postos de Trabalho" logo abaixo.
+    </div>
+  </div>
+
+  <!-- PERIODO -->
+  <div class="card">
+    <div class="card-title">Periodo da Meta</div>
+    <div class="form-grid">
+      <div class="fg" style="grid-column:1/-1"><label>Descricao</label><input type="text" id="mDesc" placeholder="Ex: Meta de Junho 2026"></div>
+      <div class="fg"><label>Data Inicio</label><input type="date" id="mIni"></div>
+      <div class="fg"><label>Data Fim</label><input type="date" id="mFim"></div>
+    </div>
+    <div style="margin-top:14px"><button class="btn btn-success" id="btnSalvarPeriodo">Salvar Periodo</button></div>
+  </div>
+
+  <!-- METAS POR LINHA/POSTO -->
+  <div class="card">
+    <div class="card-title">Metas Diarias por Linha / Posto</div>
+    <div class="section-note">Informe a producao esperada por dia em cada linha e posto. A meta mestre do periodo e calculada automaticamente: <strong>total diario x dias do periodo</strong>.</div>
+    <div id="metasLinhaContainer"><div class="empty-metas">Cadastre linhas e postos primeiro.</div></div>
+    <div class="meta-totals" id="metaTotalsBox" style="display:none">
+      <div class="meta-total-item">
+        <div class="meta-total-val" id="metaTotalDiario">—</div>
+        <div class="meta-total-lbl">Total diario</div>
+      </div>
+      <div class="meta-total-item">
+        <div class="meta-total-val" id="metaTotalPeriodo">—</div>
+        <div class="meta-total-lbl">Meta do periodo</div>
+      </div>
+    </div>
+    <div style="margin-top:16px"><button class="btn btn-success" id="btnSalvarMetas">Salvar Metas</button></div>
+  </div>
+
+  <!-- SETUP PADRAO POR LINHA (Fase 8 do plano de Planejamento/PCP) -->
+  <div class="card">
+    <div class="card-title">Setup Padrao por Linha</div>
+    <div class="section-note">Tempo de changeover (setup + limpeza) usado como estimativa em "Planejamento de OPs" quando a OP nao tem o cronometro de setup medido (form.html, Painel de Turno). Nao substitui o tempo real medido -- so preenche a lacuna quando ele nao existe.</div>
+    <div id="setupPadraoContainer"><div class="empty-metas">Cadastre linhas primeiro.</div></div>
+    <div style="margin-top:16px"><button class="btn btn-success" id="btnSalvarSetupPadrao">Salvar Setup Padrao</button></div>
+  </div>
+
+  <!-- LINHAS -->
+  <div class="card">
+    <div class="card-title">Linhas de Producao</div>
+    <div class="section-note">Linhas onde o campo LOTE sera obrigatorio no registro.</div>
+    <div class="tag-area" id="tLinhas"></div>
+    <div class="tag-add">
+      <input type="text" id="iLinha" placeholder="Ex: Linha 1, Linha A...">
+      <button class="btn btn-primary btn-sm" id="btnAddLinha">+ Adicionar</button>
+    </div>
+  </div>
+
+  <!-- ROTULAGEM -->
+  <div class="card">
+    <div class="card-title">Rotulagem</div>
+    <div class="section-note">Máquinas/estações de rotulagem -- entram como slots fixos no Painel de Turno, igual às linhas.</div>
+    <div class="tag-area" id="tRotulagem"></div>
+    <div class="tag-add">
+      <input type="text" id="iRotulagem" placeholder="Ex: Rotulagem 01, Rotulagem 02...">
+      <button class="btn btn-primary btn-sm" id="btnAddRotulagem">+ Adicionar</button>
+    </div>
+  </div>
+
+  <!-- POSTOS -->
+  <div class="card">
+    <div class="card-title">Postos de Trabalho</div>
+    <div class="section-note">Postos onde o campo LOTE NAO aparece no registro.</div>
+    <div class="tag-area" id="tPostos"></div>
+    <div class="tag-add">
+      <input type="text" id="iPosto" placeholder="Ex: Posto 1, Montagem...">
+      <button class="btn btn-primary btn-sm" id="btnAddPosto">+ Adicionar</button>
+    </div>
+  </div>
+
+  <!-- MOTIVOS DE PARADA -->
+  <div class="card">
+    <div class="card-title">Motivos de Parada</div>
+    <div class="section-note">Lista usada no botão "Parar Linha" (Painel de Turno) e no registro de paradas do apontamento.</div>
+    <div class="tag-area" id="tMotivosParada"></div>
+    <div class="tag-add">
+      <input type="text" id="iMotivoParada" placeholder="Ex: Quebra de Máquina, Falta de Material...">
+      <button class="btn btn-primary btn-sm" id="btnAddMotivoParada">+ Adicionar</button>
+    </div>
+  </div>
+
+  <!-- PRODUTOS -->
+  <div class="card">
+    <div class="card-title">Produtos / Itens</div>
+    <div class="tag-area" id="tProdutos"></div>
+    <div class="tag-add">
+      <input type="text" id="iProduto" placeholder="Ex: Produto A, Ref. 001...">
+      <button class="btn btn-primary btn-sm" id="btnAddProduto">+ Adicionar</button>
+    </div>
+  </div>
+
+  <!-- CATEGORIAS DE PRODUTO: gerenciado em Cadastros desde a Fase 6.4 --
+       este card foi removido daqui, mas configData.categoriasProduto
+       continua sendo lido junto do resto do config (ver loadConfig), só
+       não é mais editado nesta tela, pra não ter duas UIs escrevendo no
+       mesmo dado. -->
+  <div class="card">
+    <div class="card-title">Categorias de Produto</div>
+    <div class="section-note">Esse cadastro foi movido → <a href="cadastros.html?tab=categorias">Cadastros</a>.</div>
+  </div>
+
+  <!-- OPERADORES -->
+  <div class="card">
+    <div class="card-title">Operadores</div>
+    <div class="tag-area" id="tOperadores"></div>
+    <div class="tag-add">
+      <input type="text" id="iOperador" placeholder="Nome do operador...">
+      <button class="btn btn-primary btn-sm" id="btnAddOperador">+ Adicionar</button>
+    </div>
+  </div>
+
+  <!-- TURNOS -->
+  <div class="card">
+    <div class="card-title">Turnos</div>
+    <div class="tag-area" id="tTurnos"></div>
+    <div class="tag-add">
+      <input type="text" id="iTurno" placeholder="Ex: Manha, Tarde, Noite...">
+      <button class="btn btn-primary btn-sm" id="btnAddTurno">+ Adicionar</button>
+    </div>
+  </div>
+
+  <!-- HORARIOS DOS TURNOS + APONTAMENTO -->
+  <div class="card">
+    <div class="card-title">Horários dos Turnos e Apontamento</div>
+    <div class="section-note">Informe o horário de início e a pausa de cada turno cadastrado acima (o início é usado pra deduzir o turno automaticamente ao fechar uma OP; a pausa é usada pra descontar o intervalo em lançamentos retroativos que atravessam mais de um dia).</div>
+
+    <div class="fg" style="max-width:420px;border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:16px">
+      <label style="font-weight:700">Modo de operação</label>
+      <select id="iModoOperacaoTurno">
+        <option value="auto">Detectar automaticamente pelo horário</option>
+        <option value="fixo">Turno único (sempre o mesmo, ignora horário)</option>
+      </select>
+      <div id="turnoFixoWrap" style="display:none;margin-top:8px">
+        <label style="font-size:11px">Qual turno usar sempre</label>
+        <select id="iTurnoFixoNome"></select>
+      </div>
+      <div class="section-note" style="margin-top:6px">Se vocês operam só em turno único (ex: "Padrao"), escolha "Turno único" aqui em vez de deixar os outros turnos cadastrados sem horário — evita o sistema confundir qual turno está ativo.</div>
+    </div>
+
+    <div id="turnoHorariosContainer" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-bottom:16px"></div>
+    <div class="fg" style="max-width:320px">
+      <label>Checkpoints de apontamento por turno</label>
+      <input type="number" id="iCheckpointsPorTurno" min="0" placeholder="0 = usar grade horária completa (padrão)">
+      <div class="section-note" style="margin-top:6px">Deixe em 0 para manter o apontamento hora a hora. Um número menor (ex: 2 ou 3) reduz a quantidade de checkpoints exigidos por turno — útil pra introduzir o hábito aos poucos.</div>
+    </div>
+    <div class="fg" style="max-width:320px">
+      <label>Tolerância pra encerrar o turno no horário (min)</label>
+      <input type="number" id="iToleranciaEncerramento" min="0" placeholder="15">
+      <div class="section-note" style="margin-top:6px">Depois desse tempo além do fim do turno configurado, "Encerrar Turno" passa a exigir um motivo pro atraso (lista "Motivos de Atraso no Encerramento" abaixo).</div>
+    </div>
+    <div style="margin-top:14px"><button class="btn btn-success" id="btnSalvarApontamento">Salvar</button></div>
+  </div>
+
+  <!-- TURNOS EXTRAS (REFORÇO TEMPORÁRIO) -->
+  <div class="card">
+    <div class="card-title">Turnos Extras (Reforço Temporário)</div>
+    <div class="section-note">Pra demanda extraordinária e pontual -- 2º turno por algumas semanas, sábado extra por algumas semanas -- sem mexer no padrão semanal permanente acima. Soma horas por cima do turno normal, só dentro do período informado; fora dele, some sozinho, sem precisar lembrar de descadastrar.</div>
+    <div id="turnosExtrasList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
+    <div class="form-grid" style="margin-bottom:10px">
+      <div class="fg">
+        <label>Nome</label>
+        <input type="text" id="teNome" placeholder="Ex: 2º Turno Reforço">
+      </div>
+      <div class="fg">
+        <label>De</label>
+        <input type="date" id="teDataInicio">
+      </div>
+      <div class="fg">
+        <label>Até</label>
+        <input type="date" id="teDataFim">
+      </div>
+      <div class="fg">
+        <label>Início</label>
+        <input type="time" id="teHorarioInicio">
+      </div>
+      <div class="fg">
+        <label>Fim</label>
+        <input type="time" id="teHorarioFim">
+      </div>
+      <div class="fg">
+        <label>Pausa (opcional)</label>
+        <div style="display:flex;gap:6px">
+          <input type="time" id="tePausaInicio" style="flex:1">
+          <input type="time" id="tePausaFim" style="flex:1">
+        </div>
+      </div>
+    </div>
+    <div class="fg" style="max-width:420px;margin-bottom:10px">
+      <label>Só nestes dias da semana dentro do período (opcional)</label>
+      <div id="teDiasSemana" style="display:flex;gap:6px;flex-wrap:wrap">
+        <label style="font-weight:400;display:flex;align-items:center;gap:3px"><input type="checkbox" value="1"> Seg</label>
+        <label style="font-weight:400;display:flex;align-items:center;gap:3px"><input type="checkbox" value="2"> Ter</label>
+        <label style="font-weight:400;display:flex;align-items:center;gap:3px"><input type="checkbox" value="3"> Qua</label>
+        <label style="font-weight:400;display:flex;align-items:center;gap:3px"><input type="checkbox" value="4"> Qui</label>
+        <label style="font-weight:400;display:flex;align-items:center;gap:3px"><input type="checkbox" value="5"> Sex</label>
+        <label style="font-weight:400;display:flex;align-items:center;gap:3px"><input type="checkbox" value="6"> Sáb</label>
+        <label style="font-weight:400;display:flex;align-items:center;gap:3px"><input type="checkbox" value="7"> Dom</label>
+      </div>
+      <div class="section-note" style="margin-top:4px">Sem marcar nenhum dia, vale todo dia do período (ex: 2º turno de segunda a sexta). Marcando um dia (ex: Sábado), vale só nesse dia dentro do período (ex: 2 sábados seguidos = período cobrindo exatamente essas 2 datas).</div>
+    </div>
+    <button class="btn btn-primary btn-sm" id="btnAddTurnoExtra">+ Adicionar</button>
+  </div>
+
+  <!-- LIGA/DESLIGA DO MOTOR DE REAJUSTE -->
+  <div class="card">
+    <div class="card-title">Auto-ajuste do Planejamento</div>
+    <div class="section-note">
+      O motor compara o ritmo real de produção com o planejado e <b>remaneja sozinho</b> os
+      horários futuros da linha depois de cada apontamento. Desligado, a Grade Semanal só muda
+      quando alguém a edita — nada mais se move sozinho. O restante do planejamento continua
+      funcionando normalmente (programar, agendar, editar). É reversível a qualquer momento.
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-top:6px">
+      <input type="checkbox" id="iAutoAjusteAtivo">
+      <span id="lblAutoAjusteAtivo">Auto-ajuste ligado</span>
+    </label>
+    <div class="section-note" id="autoAjusteStatus" style="margin-top:6px"></div>
+  </div>
+
+  <!-- CONFERÊNCIA DE PESAGEM (23/09) -->
+  <div class="card">
+    <div class="card-title">Conferência de Pesagem</div>
+    <div class="section-note">
+      Ligada, a pesagem da Manipulação só é conferida por quem tem a permissão
+      <b>Conferência de Pesagem</b> em Usuários (Qualidade e P&amp;D), com o próprio login. Quem fica
+      marcado recebe um e-mail sempre que uma pesagem é fechada. Na falta dessas pessoas, um
+      administrador pode liberar a manipulação informando o motivo, e o motivo fica registrado no lote.
+      Desligada, volta a dupla checagem entre operadores: qualquer pessoa confere, menos quem pesou.
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-top:6px">
+      <input type="checkbox" id="iConferenciaPesagem">
+      <span id="lblConferenciaPesagem">Conferência de Pesagem desligada</span>
+    </label>
+    <div class="section-note" id="conferenciaPesagemStatus" style="margin-top:6px"></div>
+  </div>
+
+  <!-- ZONA FIXA (CONGELAMENTO AUTOMÁTICO ROLANTE) -->
+  <div class="card">
+    <div class="card-title">Zona Fixa do Planejamento</div>
+    <div class="section-note">Quantos dias, a partir de hoje, ficam protegidos contra reajuste automático (o motor de auto-ajuste não move mais o que já está agendado nesses dias -- só o que estiver fora dessa janela continua fluido/"previsão"). Não afeta a edição manual na Grade Semanal, só o robô de reajuste; pra romper a proteção num bloco específico, use "🔓 Liberar" nele.</div>
+    <div class="fg" style="max-width:220px">
+      <label>Dias fixos a partir de hoje</label>
+      <input type="number" id="iCongelamentoDiasFixos" min="0" max="60" style="max-width:120px">
+    </div>
+  </div>
+
+  <!-- MOTIVOS DE ATRASO NO ENCERRAMENTO -->
+  <div class="card">
+    <div class="card-title">Motivos de Atraso no Encerramento</div>
+    <div class="section-note">Exigido em "Encerrar Turno" quando o fechamento passa da tolerância configurada acima (ex: hora extra).</div>
+    <div class="tag-area" id="tMotivosAtrasoEncerramento"></div>
+    <div class="tag-add">
+      <input type="text" id="iMotivoAtrasoEncerramento" placeholder="Ex: Hora extra, Atraso no encerramento...">
+      <button class="btn btn-primary btn-sm" id="btnAddMotivoAtrasoEncerramento">+ Adicionar</button>
+    </div>
+  </div>
+
+  <!-- NOTIFICACOES -->
+  <div class="card">
+    <div class="card-title">Notificações por E-mail</div>
+    <div class="section-note">Alertas em tempo real (linha parada, OP atrasada) e o resumo de fim de turno são enviados para os e-mails cadastrados abaixo.</div>
+    <div class="form-grid" style="margin-bottom:12px">
+      <div class="fg">
+        <label>Avisar linha parada após (minutos)</label>
+        <input type="number" id="iAndonParadaMinutos" min="1" placeholder="15">
+      </div>
+      <div class="fg">
+        <label>Avisar OP atrasada após desvio de (horas)</label>
+        <input type="number" id="iOpAtrasoHoras" min="1" placeholder="1">
+      </div>
+    </div>
+    <div class="form-grid" style="margin-bottom:12px">
+      <div class="fg">
+        <label>Operação estendida hoje (libera alertas fora do horário normal)</label>
+        <input type="date" id="iOperacaoEstendidaData">
+        <div class="section-note" style="margin-top:4px">
+          Fora do horário de turno configurado (ou fim de semana/feriado), os alertas de linha
+          parada e OP atrasada ficam em silêncio -- ninguém está operando pra agir em cima deles.
+          Marque uma data aqui só quando a fábrica for operar fora do horário normal naquele dia
+          específico (turno extra, virada por demanda) -- volta a silenciar sozinho no dia seguinte,
+          sem precisar lembrar de desligar.
+        </div>
+      </div>
+    </div>
+    <label style="display:block;margin-bottom:6px">Destinatários</label>
+    <div class="tag-area" id="tEmails"></div>
+    <div class="tag-add">
+      <input type="text" id="iEmail" placeholder="nome@kuryos.com.br">
+      <button class="btn btn-primary btn-sm" id="btnAddEmail">+ Adicionar</button>
+    </div>
+    <div style="margin-top:14px"><button class="btn btn-success" id="btnSalvarNotificacoes">Salvar</button></div>
+  </div>
+
+  <div style="text-align:center;padding:12px;font-size:12px;color:var(--muted)">Clique em ✏ para editar um item. Alteracoes salvas no Firebase.</div>
+</div>
+
+<script>
+var firebaseConfig = {
+  apiKey: "AIzaSyBvASzcbKyv3uW7NBzDFDyLsKls3An3UUs",
+  authDomain: "erpkuryos.firebaseapp.com",
+  databaseURL: kuryosDatabaseURL("https://erpkuryos-default-rtdb.firebaseio.com"),
+  projectId: "erpkuryos",
+  storageBucket: "erpkuryos.firebasestorage.app",
+  messagingSenderId: "272752392739",
+  appId: "1:272752392739:web:047a6c4aa60145d77f4f96",
+  measurementId: "G-PTVWKLRHTG"
+};
+
+var db;
+// Mesma lista que já estava fixa no HTML do modal ANDON (form.html) --
+// usada como valor inicial de config.motivosParada pra quem ainda não
+// salvou nada aqui, então ninguém perde os motivos já em uso.
+var DEFAULT_MOTIVOS_PARADA = ['Quebra de Máquina', 'Setup / Troca de Lote', 'Falta de Material', 'Ajuste Técnico', 'Limpeza', 'Falta de Operador', 'Outros'];
+var DEFAULT_MOTIVOS_ATRASO = ['Hora extra', 'Atraso no encerramento', 'Problema técnico', 'Outros'];
+var configData = {
+  meta: {},
+  metasPorLinha: {},
+  linhas: [],
+  rotulagem: [],
+  postosTrabalho: [],
+  produtos: [],
+  operadores: [],
+  turnos: [],
+  motivosParada: [],
+  turnoHorarios: {},
+  turnoHorariosFim: {},
+  turnoHorariosFimSexta: {},
+  modoOperacaoTurno: 'auto',
+  turnoFixoNome: '',
+  turnoPausas: {},
+  turnosExtras: {},
+  congelamento: { diasFixos: 7 },
+  checkpointsPorTurno: 0,
+  toleranciaEncerramentoMin: 15,
+  motivosAtrasoEncerramento: [],
+  andonParadaMinutos: 15,
+  opAtrasoHoras: 1,
+  emailNotificacoes: [],
+  // Silêncio noturno (pedido do usuário): fora do horário de operação
+  // configurado, alertas de monitoramento (linha parada, OP atrasada) não
+  // são enviados por e-mail -- essa data (AAAA-MM-DD, fuso São Paulo) é o
+  // override manual pra "hoje vamos operar fora do horário normal", válido
+  // só naquele dia. Ver functions/index.js, dentroDoHorarioDeOperacao.
+  operacaoEstendidaData: '',
+  // Fase 8 do plano (PLANO_PLANEJAMENTO_PCP.md): fallback de changeover
+  // usado em "Planejamento de OPs" (planejamento.html) só quando a OP não
+  // tem setupInicio/setupFim medido de verdade.
+  setupPadraoPorLinha: {}
+};
+
+// fmtNum vem de shared/utils.js
+function setStatus(on,txt){ document.getElementById('sDot').className='dot'+(on?' on':''); document.getElementById('sTxt').textContent=txt; }
+function showAlert(msg,type){
+  var box=document.getElementById('alertBox');
+  box.className='alert alert-'+(type||'success')+' show';
+  box.textContent=msg;
+  setTimeout(function(){ box.classList.remove('show'); },4000);
+}
+function calcDias(ini,fim){
+  if(!ini||!fim) return 0;
+  var d=Math.round((new Date(fim+'T12:00:00')-new Date(ini+'T12:00:00'))/(864e5))+1;
+  return d>0?d:0;
+}
+
+var tagMapping = {
+  linhas: { elementId: 'tLinhas', cssClass: 'linha' },
+  rotulagem: { elementId: 'tRotulagem', cssClass: 'linha' },
+  postosTrabalho: { elementId: 'tPostos', cssClass: 'posto' },
+  produtos: { elementId: 'tProdutos', cssClass: 'linha' },
+  operadores: { elementId: 'tOperadores', cssClass: 'linha' },
+  turnos: { elementId: 'tTurnos', cssClass: 'linha' },
+  motivosParada: { elementId: 'tMotivosParada', cssClass: 'linha' },
+  motivosAtrasoEncerramento: { elementId: 'tMotivosAtrasoEncerramento', cssClass: 'linha' }
+};
+
+function renderTags(tipo) {
+  var map = tagMapping[tipo];
+  if (!map) return;
+  var el = document.getElementById(map.elementId);
+  if (!el) return;
+  var arr = configData[tipo] || [];
+  
+  if (arr.length === 0) {
+    el.innerHTML = '<span style="color:var(--muted);font-size:13px">Nenhum cadastrado.</span>';
+    return;
+  }
+  
+  el.innerHTML = '';
+  arr.forEach(function(v, i) {
+    var span = document.createElement('span');
+    span.className = 'tag ' + map.cssClass;
+    span.style.cursor = 'pointer';
+
+    var nm = document.createElement('span');
+    nm.className = 'tag-text';
+    nm.textContent = v;
+    span.appendChild(nm);
+
+    var del = document.createElement('button');
+    del.className = 'tag-btn';
+    del.textContent = '×';
+    del.style.marginLeft = '6px';
+    del.addEventListener('click', function(e) {
+      e.stopPropagation();
+      removeItem(tipo, i);
+    });
+    span.appendChild(del);
+
+    // Edit inline
+    span.addEventListener('click', function() {
+      var nv = prompt('Editar item:', v);
+      if (nv === null) return;
+      nv = nv.trim();
+      if (!nv) return;
+      arr[i] = nv;
+      saveConfig().then(function() {
+        renderTags(tipo);
+        if (tipo === 'linhas' || tipo === 'postosTrabalho') {
+          renderMetasPorLinha();
+        }
+        showAlert('Item atualizado.', 'success');
+      }).catch(function(err) {
+        showAlert('Erro ao salvar: ' + err.message, 'danger');
+      });
+    });
+
+    el.appendChild(span);
+  });
+}
+
+// Categorias de produto ({nome, codigo}) tinha seu próprio render/add/edit
+// aqui -- removido na Fase 6.4, agora é editado só em cadastros.html (que
+// escreve com db.ref('config/categoriasProduto').set(...), escopado).
+// configData.categoriasProduto continua sendo CARREGADO (ver loadConfig).
+// NOTA: saveConfig() usava um SET do node `config` inteiro, o que exigia que
+// TODA chave escrita por outra página estivesse na allowlist do loadConfig --
+// e as chaves novas nunca entravam (auditoria achou 4 sendo apagadas:
+// contadores, tiposEnsaio, areasEndereco, motivosMovimentoEstoque). Agora usa
+// UPDATE escopado, então chave que esta tela não conhece simplesmente não é
+// tocada -- a classe de bug inteira deixa de existir.
+
+function removeItem(tipo, idx) {
+  if (!confirm('Remover este item?')) return;
+  configData[tipo].splice(idx, 1);
+  saveConfig().then(function() {
+    renderTags(tipo);
+    if (tipo === 'linhas' || tipo === 'postosTrabalho') {
+      renderMetasPorLinha();
+    }
+    showAlert('Item removido.', 'success');
+  }).catch(function(err) {
+    showAlert('Erro ao salvar: ' + err.message, 'danger');
+  });
+}
+
+function saveConfig() {
+  if (!db) return Promise.reject(new Error('Sem conexão com banco de dados'));
+  var dataToSave = JSON.parse(JSON.stringify(configData));
+  dataToSave.postos = configData.postosTrabalho; // Mantém compatibilidade com a chave legada
+  // UPDATE (não SET) -- ver nota acima. Cada chave de configData é substituída
+  // por inteiro (é assim que remoção de item de lista continua funcionando),
+  // mas chaves de `config` que esta tela não gerencia ficam intactas.
+  return db.ref('config').update(dataToSave);
+}
+
+// ── Horários dos turnos + checkpoints de apontamento ────────────────
+function renderTurnoHorarios() {
+  var container = document.getElementById('turnoHorariosContainer');
+  if (!container) return;
+  var turnos = configData.turnos || [];
+  if (!turnos.length) {
+    container.innerHTML = '<div class="empty-metas">Cadastre turnos primeiro.</div>';
+  } else {
+    container.innerHTML = turnos.map(function(t) {
+      var val = (configData.turnoHorarios && configData.turnoHorarios[t]) || '';
+      var valFim = (configData.turnoHorariosFim && configData.turnoHorariosFim[t]) || '';
+      var valFimSexta = (configData.turnoHorariosFimSexta && configData.turnoHorariosFimSexta[t]) || '';
+      var pausa = (configData.turnoPausas && configData.turnoPausas[t]) || {};
+      return '<div class="fg" style="border:1px solid var(--border);border-radius:8px;padding:10px">' +
+        '<label style="font-weight:700">' + t + '</label>' +
+        '<label style="font-size:11px;margin-top:6px">Início do turno</label>' +
+        '<input type="time" class="turno-horario-input" data-turno="' + t + '" value="' + val + '">' +
+        '<label style="font-size:11px;margin-top:6px">Fim do turno</label>' +
+        '<input type="time" class="turno-horario-fim-input" data-turno="' + t + '" value="' + valFim + '">' +
+        '<label style="font-size:11px;margin-top:6px">Fim do turno às sextas (deixe em branco se for igual)</label>' +
+        '<input type="time" class="turno-horario-fim-sexta-input" data-turno="' + t + '" value="' + valFimSexta + '">' +
+        '<label style="font-size:11px;margin-top:6px">Pausa (início)</label>' +
+        '<input type="time" class="turno-pausa-inicio-input" data-turno="' + t + '" value="' + (pausa.inicio || '') + '">' +
+        '<label style="font-size:11px;margin-top:6px">Pausa (fim)</label>' +
+        '<input type="time" class="turno-pausa-fim-input" data-turno="' + t + '" value="' + (pausa.fim || '') + '">' +
+      '</div>';
+    }).join('');
+  }
+  var cpEl = document.getElementById('iCheckpointsPorTurno');
+  if (cpEl) cpEl.value = configData.checkpointsPorTurno || '';
+  var tolEl = document.getElementById('iToleranciaEncerramento');
+  if (tolEl) tolEl.value = configData.toleranciaEncerramentoMin != null ? configData.toleranciaEncerramentoMin : '';
+
+  var modoSel = document.getElementById('iModoOperacaoTurno');
+  var fixoWrap = document.getElementById('turnoFixoWrap');
+  var fixoSel = document.getElementById('iTurnoFixoNome');
+  if (modoSel && fixoSel) {
+    modoSel.value = configData.modoOperacaoTurno || 'auto';
+    fixoSel.innerHTML = turnos.map(function(t) { return '<option value="' + t + '">' + t + '</option>'; }).join('');
+    if (configData.turnoFixoNome && turnos.indexOf(configData.turnoFixoNome) >= 0) {
+      fixoSel.value = configData.turnoFixoNome;
+    }
+    fixoWrap.style.display = modoSel.value === 'fixo' ? 'block' : 'none';
+  }
+}
+
+// ── Turnos extras (reforço temporário/pontual) ──────────────────────
+// Sempre passa por configData + saveConfig() (nunca grava direto num nó
+// separado) -- saveConfig() faz db.ref('config').set(...) do objeto
+// inteiro, então qualquer campo gravado fora desse fluxo seria apagado no
+// próximo clique em qualquer outro "Salvar"/"Adicionar"/"Remover" desta
+// página (mesma classe de bug do antigo botão "Inicializar com Dados
+// Padrão", já removido -- ver comentário perto de #seedCard).
+var DIAS_SEMANA_NOMES = {1:'Seg',2:'Ter',3:'Qua',4:'Qui',5:'Sex',6:'Sáb',7:'Dom'};
+function fmtBRSimple(ymd) {
+  if (!ymd) return '?';
+  var p = String(ymd).split('-');
+  return p.length === 3 ? (p[2] + '/' + p[1] + '/' + p[0]) : ymd;
+}
+function renderTurnosExtras() {
+  var list = document.getElementById('turnosExtrasList');
+  if (!list) return;
+  var extras = configData.turnosExtras || {};
+  var keys = Object.keys(extras);
+  if (!keys.length) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:13px">Nenhum turno extra cadastrado.</div>';
+    return;
+  }
+  list.innerHTML = keys.map(function(k) {
+    var t = extras[k] || {};
+    var diasTxt = (t.diasSemana && t.diasSemana.length)
+      ? t.diasSemana.map(function(d) { return DIAS_SEMANA_NOMES[d] || d; }).join(', ')
+      : 'todo dia do período';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg);border-radius:8px;font-size:13px">' +
+      '<div style="flex:1"><strong>' + escapeHtml(t.nome || 'Turno extra') + '</strong> — ' +
+        fmtBRSimple(t.dataInicio) + ' a ' + fmtBRSimple(t.dataFim) + ' · ' + diasTxt + ' · ' +
+        (t.horarioInicio || '?') + '–' + (t.horarioFim || '?') +
+        (t.pausaInicio ? ' · pausa ' + t.pausaInicio + '–' + t.pausaFim : '') +
+      '</div>' +
+      '<span data-rm-te="' + escapeAttr(k) + '" style="color:var(--danger);cursor:pointer;font-weight:700;padding:2px 6px" title="Remover">✕</span>' +
+    '</div>';
+  }).join('');
+  list.querySelectorAll('[data-rm-te]').forEach(function(el) {
+    el.addEventListener('click', function() {
+      if (!confirm('Remover este turno extra?')) return;
+      delete configData.turnosExtras[this.getAttribute('data-rm-te')];
+      saveConfig().then(function() {
+        renderTurnosExtras();
+        showAlert('Turno extra removido.', 'success');
+      }).catch(function(err) { showAlert('Erro ao salvar: ' + err.message, 'danger'); });
+    });
+  });
+}
+
+document.getElementById('btnAddTurnoExtra').addEventListener('click', function() {
+  var nome = document.getElementById('teNome').value.trim();
+  var dataInicio = document.getElementById('teDataInicio').value;
+  var dataFim = document.getElementById('teDataFim').value;
+  var horarioInicio = document.getElementById('teHorarioInicio').value;
+  var horarioFim = document.getElementById('teHorarioFim').value;
+  var pausaInicio = document.getElementById('tePausaInicio').value;
+  var pausaFim = document.getElementById('tePausaFim').value;
+  var diasSel = Array.from(document.querySelectorAll('#teDiasSemana input:checked')).map(function(c) { return parseInt(c.value, 10); });
+
+  if (!nome || !dataInicio || !dataFim || !horarioInicio || !horarioFim) {
+    showAlert('Preencha nome, período (de/até) e horário (início/fim).', 'danger');
+    return;
+  }
+  if (dataFim < dataInicio) {
+    showAlert('A data final não pode ser antes da inicial.', 'danger');
+    return;
+  }
+  var novo = { nome: nome, dataInicio: dataInicio, dataFim: dataFim, horarioInicio: horarioInicio, horarioFim: horarioFim };
+  if (diasSel.length) novo.diasSemana = diasSel;
+  if (pausaInicio && pausaFim) { novo.pausaInicio = pausaInicio; novo.pausaFim = pausaFim; }
+
+  var key = db.ref('config/turnosExtras').push().key;
+  configData.turnosExtras = configData.turnosExtras || {};
+  configData.turnosExtras[key] = novo;
+  saveConfig().then(function() {
+    document.getElementById('teNome').value = '';
+    document.getElementById('teDataInicio').value = '';
+    document.getElementById('teDataFim').value = '';
+    document.getElementById('teHorarioInicio').value = '';
+    document.getElementById('teHorarioFim').value = '';
+    document.getElementById('tePausaInicio').value = '';
+    document.getElementById('tePausaFim').value = '';
+    document.querySelectorAll('#teDiasSemana input:checked').forEach(function(c) { c.checked = false; });
+    renderTurnosExtras();
+    showAlert('Turno extra adicionado.', 'success');
+  }).catch(function(err) {
+    delete configData.turnosExtras[key];
+    showAlert('Erro ao salvar: ' + err.message, 'danger');
+  });
+});
+
+/* Liga/desliga do motor de reajuste automático.
+   Pausar deixa RASTRO (quem, quando): uma automação silenciosamente desligada
+   é a próxima confusão -- alguém vai olhar a grade parada daqui a três meses
+   sem saber que foi decisão de gente. */
+function renderAutoAjuste() {
+  var cfg = configData.autoAjustePlanejamento || {};
+  var ativo = !(cfg.ativo === false);
+  document.getElementById('iAutoAjusteAtivo').checked = ativo;
+  document.getElementById('lblAutoAjusteAtivo').textContent = ativo ? 'Auto-ajuste ligado' : 'Auto-ajuste PAUSADO';
+  var st = document.getElementById('autoAjusteStatus');
+  st.textContent = ativo
+    ? 'Ligado — a grade se remaneja sozinha após os apontamentos.'
+    : '⏸ Pausado' + (cfg.pausadoPor ? ' por ' + cfg.pausadoPor : '') +
+      (cfg.pausadoEm ? ' em ' + new Date(cfg.pausadoEm).toLocaleString('pt-BR') : '') +
+      '. A grade só muda por edição manual.';
+  st.style.color = ativo ? '' : 'var(--warning)';
+}
+
+/* Conferência de Pesagem: nó próprio (config/conferenciaPesagem), gravado
+   direto -- não passa por saveConfig, que regrava as chaves de configData. */
+var confPesagemCfg = {};
+function renderConferenciaPesagem() {
+  var ativa = confPesagemCfg.ativa === true;
+  document.getElementById('iConferenciaPesagem').checked = ativa;
+  document.getElementById('lblConferenciaPesagem').textContent = ativa ? 'Conferência de Pesagem LIGADA' : 'Conferência de Pesagem desligada';
+  var st = document.getElementById('conferenciaPesagemStatus');
+  st.textContent = (ativa ? 'Ligada' : 'Desligada') + (confPesagemCfg.alteradoPor ? ' por ' + confPesagemCfg.alteradoPor : '') +
+    (confPesagemCfg.alteradoEm ? ' em ' + new Date(confPesagemCfg.alteradoEm).toLocaleString('pt-BR') : '') + '.';
+}
+document.getElementById('iConferenciaPesagem').addEventListener('change', function() {
+  var ativa = this.checked;
+  var quem = (window.currentUser && window.currentUser.nome) || 'ADM';
+  db.ref('config/conferenciaPesagem').set({ativa: ativa, alteradoPor: quem, alteradoEm: new Date().toISOString()})
+    .then(function() {
+      showAlert(ativa ? 'Conferência de Pesagem ligada: só Qualidade/P&D conferem a pesagem.'
+        : 'Conferência de Pesagem desligada: a conferência volta a ser entre operadores.', 'success');
+    })
+    .catch(function(err) {
+      renderConferenciaPesagem();
+      showAlert('Não foi possível salvar — a chave continua como estava. ' + err.message, 'danger');
+    });
+});
+
+document.getElementById('iAutoAjusteAtivo').addEventListener('change', function() {
+  var ativo = this.checked;
+  var quem = (window.currentUser && window.currentUser.nome) || 'ADM';
+  // Guarda o estado ANTERIOR pra poder desfazer de verdade. renderAutoAjuste()
+  // lê de configData, então reverter só o checkbox deixaria a tela dizendo
+  // "PAUSADO" depois de uma gravação que falhou -- e a pessoa iria embora
+  // achando que pausou. É o pior desfecho possível pra este botão.
+  var anterior = configData.autoAjustePlanejamento;
+  configData.autoAjustePlanejamento = ativo
+    ? { ativo: true, religadoPor: quem, religadoEm: new Date().toISOString() }
+    : { ativo: false, pausadoPor: quem, pausadoEm: new Date().toISOString() };
+  renderAutoAjuste();
+  saveConfig().then(function() {
+    showAlert(ativo
+      ? 'Auto-ajuste religado — a grade volta a se remanejar após os apontamentos.'
+      : 'Auto-ajuste pausado. A partir de agora a Grade Semanal só muda por edição manual.', 'success');
+  }).catch(function(err) {
+    configData.autoAjustePlanejamento = anterior;
+    renderAutoAjuste();
+    showAlert('Não foi possível salvar — o auto-ajuste continua como estava. ' + err.message, 'danger');
+  });
+});
+
+document.getElementById('iCongelamentoDiasFixos').addEventListener('change', function() {
+  var v = parseInt(this.value, 10);
+  if (isNaN(v) || v < 0) v = 7;
+  this.value = v;
+  configData.congelamento = { diasFixos: v };
+  saveConfig().then(function() {
+    showAlert('Zona fixa atualizada: ' + v + ' dia(s).', 'success');
+  }).catch(function(err) { showAlert('Erro ao salvar: ' + err.message, 'danger'); });
+});
+
+document.getElementById('iModoOperacaoTurno').addEventListener('change', function() {
+  document.getElementById('turnoFixoWrap').style.display = this.value === 'fixo' ? 'block' : 'none';
+});
+
+document.getElementById('btnSalvarApontamento').addEventListener('click', function() {
+  var horarios = {};
+  document.querySelectorAll('.turno-horario-input').forEach(function(inp) {
+    if (inp.value) horarios[inp.getAttribute('data-turno')] = inp.value;
+  });
+  configData.turnoHorarios = horarios;
+
+  var horariosFim = {};
+  document.querySelectorAll('.turno-horario-fim-input').forEach(function(inp) {
+    if (inp.value) horariosFim[inp.getAttribute('data-turno')] = inp.value;
+  });
+  configData.turnoHorariosFim = horariosFim;
+
+  var horariosFimSexta = {};
+  document.querySelectorAll('.turno-horario-fim-sexta-input').forEach(function(inp) {
+    if (inp.value) horariosFimSexta[inp.getAttribute('data-turno')] = inp.value;
+  });
+  configData.turnoHorariosFimSexta = horariosFimSexta;
+
+  var pausas = {};
+  document.querySelectorAll('.turno-pausa-inicio-input').forEach(function(inp) {
+    var turno = inp.getAttribute('data-turno');
+    var fimInp = document.querySelector('.turno-pausa-fim-input[data-turno="' + turno + '"]');
+    if (inp.value && fimInp && fimInp.value) pausas[turno] = { inicio: inp.value, fim: fimInp.value };
+  });
+  configData.turnoPausas = pausas;
+
+  configData.modoOperacaoTurno = document.getElementById('iModoOperacaoTurno').value;
+  configData.turnoFixoNome = configData.modoOperacaoTurno === 'fixo' ? document.getElementById('iTurnoFixoNome').value : '';
+
+  configData.checkpointsPorTurno = parseInt(document.getElementById('iCheckpointsPorTurno').value) || 0;
+  configData.toleranciaEncerramentoMin = parseInt(document.getElementById('iToleranciaEncerramento').value);
+  if (isNaN(configData.toleranciaEncerramentoMin) || configData.toleranciaEncerramentoMin < 0) configData.toleranciaEncerramentoMin = 15;
+  saveConfig().then(function() {
+    showAlert('Configuração de apontamento salva.', 'success');
+  }).catch(function(err) {
+    showAlert('Erro ao salvar: ' + err.message, 'danger');
+  });
+});
+
+// ── Notificações por e-mail ──────────────────────────────────────────
+function renderNotificacoesConfig() {
+  var el = document.getElementById('tEmails');
+  if (!el) return;
+  var emails = configData.emailNotificacoes || [];
+  if (!emails.length) {
+    el.innerHTML = '<span style="color:var(--muted);font-size:13px">Nenhum destinatário cadastrado.</span>';
+  } else {
+    el.innerHTML = '';
+    emails.forEach(function(email, i) {
+      var span = document.createElement('span');
+      span.className = 'tag linha';
+      var nm = document.createElement('span');
+      nm.textContent = email;
+      span.appendChild(nm);
+      var del = document.createElement('button');
+      del.className = 'tag-btn';
+      del.textContent = '×';
+      del.style.marginLeft = '6px';
+      del.addEventListener('click', function() {
+        configData.emailNotificacoes.splice(i, 1);
+        saveConfig().then(renderNotificacoesConfig).catch(function(err) {
+          showAlert('Erro ao salvar: ' + err.message, 'danger');
+        });
+      });
+      span.appendChild(del);
+      el.appendChild(span);
+    });
+  }
+  var pEl = document.getElementById('iAndonParadaMinutos');
+  var oEl = document.getElementById('iOpAtrasoHoras');
+  if (pEl) pEl.value = configData.andonParadaMinutos || 15;
+  if (oEl) oEl.value = configData.opAtrasoHoras || 1;
+  var eEl = document.getElementById('iOperacaoEstendidaData');
+  if (eEl) eEl.value = configData.operacaoEstendidaData || '';
+}
+
+document.getElementById('btnAddEmail').addEventListener('click', function() {
+  var input = document.getElementById('iEmail');
+  var val = input.value.trim();
+  if (!val || val.indexOf('@') === -1) { showAlert('Informe um e-mail válido.', 'danger'); return; }
+  if (!configData.emailNotificacoes) configData.emailNotificacoes = [];
+  if (configData.emailNotificacoes.indexOf(val) === -1) {
+    configData.emailNotificacoes.push(val);
+    saveConfig().then(function() {
+      renderNotificacoesConfig();
+      input.value = '';
+      showAlert('Destinatário adicionado.', 'success');
+    }).catch(function(err) {
+      showAlert('Erro ao salvar: ' + err.message, 'danger');
+    });
+  }
+});
+
+document.getElementById('btnSalvarNotificacoes').addEventListener('click', function() {
+  configData.andonParadaMinutos = parseInt(document.getElementById('iAndonParadaMinutos').value) || 15;
+  configData.opAtrasoHoras = parseFloat(document.getElementById('iOpAtrasoHoras').value) || 1;
+  configData.operacaoEstendidaData = document.getElementById('iOperacaoEstendidaData').value || '';
+  saveConfig().then(function() {
+    showAlert('Configuração de notificações salva.', 'success');
+  }).catch(function(err) {
+    showAlert('Erro ao salvar: ' + err.message, 'danger');
+  });
+});
+
+function addItem(tipo, inputId) {
+  var val = document.getElementById(inputId).value.trim();
+  if (!val) return;
+  if (!configData[tipo]) configData[tipo] = [];
+  if (!configData[tipo].includes(val)) {
+    configData[tipo].push(val);
+    saveConfig().then(function() {
+      renderTags(tipo);
+      if (tipo === 'linhas' || tipo === 'postosTrabalho') {
+        renderMetasPorLinha();
+      }
+      showAlert('"' + val + '" adicionado.', 'success');
+    }).catch(function(err) {
+      showAlert('Erro ao salvar: ' + err.message, 'danger');
+    });
+  }
+  document.getElementById(inputId).value = '';
+}
+
+function renderMetasPorLinha() {
+  var container = document.getElementById('metasLinhaContainer');
+  var totalBox = document.getElementById('metaTotalsBox');
+  if (!container) return;
+
+  var todasAsLinhas = (configData.linhas || []).concat(configData.postosTrabalho || []);
+  if (todasAsLinhas.length === 0) {
+    container.innerHTML = '<div class="empty-metas">Cadastre linhas e postos primeiro.</div>';
+    if (totalBox) totalBox.style.display = 'none';
+    return;
+  }
+
+  var ini = document.getElementById('mIni').value;
+  var fim = document.getElementById('mFim').value;
+
+  var html = '';
+
+  // ── Seção 1: Metas Diárias Padrão ─────────────────────────
+  html += '<div style="margin-bottom: 20px; padding: 14px; background: #f8fafc; border: 1px solid var(--border); border-radius: 10px">';
+  html += '<h3 style="font-size: 13px; font-weight: 700; color: var(--primary); text-transform: uppercase; margin-bottom: 8px">1. Metas Diárias Padrão</h3>';
+  html += '<div class="section-note" style="margin-bottom: 12px">Configure o valor diário padrão de cada linha. Este valor será sugerido no calendário de produção.</div>';
+  html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px">';
+  
+  var metasPadrao = configData.metasPorLinha || {};
+  todasAsLinhas.forEach(function(nome) {
+    var val = metasPadrao[nome] !== undefined ? metasPadrao[nome] : '';
+    html += '<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px">';
+    html += '<label style="font-weight: 600; color: var(--text)">' + nome + ':</label>';
+    html += '<input type="number" class="meta-padrao-input" data-nome="' + nome + '" value="' + val + '" placeholder="0" style="padding: 6px 10px; border: 1.5px solid var(--border); border-radius: 6px; width: 90px; text-align: right; font-size: 13px">';
+    html += '</div>';
+  });
+  html += '</div>';
+  html += '<div style="margin-top: 10px; text-align: right"><button class="btn btn-primary btn-sm" id="btnAplicarPadrao">Recarregar Metas Padrão no Calendário</button></div>';
+  html += '</div>';
+
+  // ── Seção 2: Calendário de Planejamento de Metas ────────
+  html += '<div style="margin-top: 20px">';
+  html += '<h3 style="font-size: 13px; font-weight: 700; color: var(--primary); text-transform: uppercase; margin-bottom: 8px">2. Calendário de Produção por Dia</h3>';
+  html += '<div class="section-note">Insira as metas individuais planejadas para cada dia útil. Finais de semana e feriados do PCP serão automaticamente preenchidos como 0.</div>';
+
+  if (!ini || !fim) {
+    html += '<div class="empty-metas" style="margin-top:14px">Selecione as datas de início e fim do período acima para carregar o calendário de produção.</div>';
+    container.innerHTML = html;
+    if (totalBox) totalBox.style.display = 'none';
+    return;
+  }
+
+  var calendarDays = Math.round((new Date(fim+'T12:00:00') - new Date(ini+'T12:00:00')) / 864e5) + 1;
+  if (calendarDays <= 0 || isNaN(calendarDays)) {
+    html += '<div class="empty-metas" style="color:var(--danger); margin-top:14px">A data final deve ser igual ou posterior à data inicial.</div>';
+    container.innerHTML = html;
+    if (totalBox) totalBox.style.display = 'none';
+    return;
+  }
+
+  if (totalBox) totalBox.style.display = 'grid';
+
+  html += '<div class="matrix-wrapper"><table class="matrix-table"><thead><tr>';
+  html += '<th style="text-align:left; min-width:110px">Data</th>';
+  todasAsLinhas.forEach(function(col) {
+    html += '<th>' + col + '</th>';
+  });
+  html += '<th>Total Dia</th></tr></thead><tbody>';
+
+  var dataCursor = new Date(ini + 'T12:00:00');
+  var dataFimObj = new Date(fim + 'T12:00:00');
+  var matriz = configData.metasMatriz || {};
+
+  var plan = configData.planejamento || {};
+  var diasAtivos = plan.diasSemana || [1, 2, 3, 4, 5];
+  var feriados = plan.feriados || {};
+
+  while (dataCursor <= dataFimObj) {
+    var dKey = dataCursor.toISOString().split('T')[0];
+    
+    // Check working day
+    var dw = dataCursor.getDay();
+    var dwConfig = dw === 0 ? 7 : dw;
+    var isWorking = diasAtivos.indexOf(dwConfig) !== -1;
+    var isHoliday = feriados[dKey] !== undefined;
+    var workingDay = isWorking && !isHoliday;
+
+    var dFmt = dataCursor.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+    var styleRow = !workingDay ? 'style="opacity:.65; background:#f9fafb"' : '';
+    
+    html += '<tr ' + styleRow + ' data-date="' + dKey + '">';
+    html += '<td style="text-align:left; font-weight:600">' + dFmt + (!workingDay ? ' 💤' : '') + '</td>';
+
+    var metasDia = matriz[dKey] || {};
+    todasAsLinhas.forEach(function(col) {
+      var val = '';
+      if (metasDia[col] !== undefined) {
+        val = metasDia[col];
+      } else if (!workingDay) {
+        val = 0;
+      } else {
+        val = metasPadrao[col] !== undefined ? metasPadrao[col] : 0;
+      }
+
+      html += '<td><input type="number" class="matrix-cell-input" data-date="' + dKey + '" data-line="' + col + '" value="' + val + '" placeholder="0"></td>';
+    });
+
+    html += '<td class="day-total" id="totalDia-' + dKey + '" style="font-weight:bold">0</td>';
+    html += '</tr>';
+
+    dataCursor.setDate(dataCursor.getDate() + 1);
+  }
+
+  html += '</tbody></table></div></div>';
+  container.innerHTML = html;
+
+  // Bind input listeners
+  document.querySelectorAll('.matrix-cell-input').forEach(function(input) {
+    input.addEventListener('input', updateMatrixTotals);
+  });
+  
+  // Re-apply standard metas to all working days of the calendar
+  document.getElementById('btnAplicarPadrao').addEventListener('click', function(e) {
+    e.preventDefault();
+    if (!confirm('Deseja sobrescrever as metas de todos os dias úteis com os valores padrão atuais? Suas edições manuais de exceções nos dias úteis serão limpas.')) return;
+    
+    // Read standard values
+    var novosPadroes = {};
+    document.querySelectorAll('.meta-padrao-input').forEach(function(inp) {
+      novosPadroes[inp.getAttribute('data-nome')] = parseInt(inp.value) || 0;
+    });
+
+    document.querySelectorAll('.matrix-cell-input').forEach(function(cellInput) {
+      var dKey = cellInput.getAttribute('data-date');
+      var col = cellInput.getAttribute('data-line');
+      var row = cellInput.closest('tr');
+      var isRowWorking = row.style.opacity === ''; // Style rows for folga have opacity
+      
+      if (isRowWorking) {
+        cellInput.value = novosPadroes[col] !== undefined ? novosPadroes[col] : 0;
+      }
+    });
+    updateMatrixTotals();
+    showAlert('Valores padrão aplicados ao calendário de produção!', 'success');
+  });
+
+  updateMatrixTotals();
+}
+
+function calcDiasUteis(ini, fim) {
+  if (!ini || !fim) return 0;
+  var cursor = new Date(ini + 'T12:00:00');
+  var limite = new Date(fim + 'T12:00:00');
+  var diasUteis = 0;
+  
+  var plan = configData.planejamento || {};
+  var diasAtivos = plan.diasSemana || [1, 2, 3, 4, 5];
+  var feriados = plan.feriados || {};
+  
+  while (cursor <= limite) {
+    var ymd = cursor.toISOString().split('T')[0];
+    var dw = cursor.getDay();
+    var dwConfig = dw === 0 ? 7 : dw; // 1 = Seg, 7 = Dom
+    
+    var isWorkingDay = diasAtivos.indexOf(dwConfig) !== -1;
+    var isHoliday = feriados[ymd] !== undefined;
+    
+    if (isWorkingDay && !isHoliday) {
+      diasUteis++;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return diasUteis;
+}
+
+function updateMatrixTotals() {
+  var inputs = document.querySelectorAll('.matrix-cell-input');
+  var sumPeriodo = 0;
+  var daySums = {};
+
+  inputs.forEach(function(input) {
+    var val = parseInt(input.value) || 0;
+    var dKey = input.getAttribute('data-date');
+    daySums[dKey] = (daySums[dKey] || 0) + val;
+    sumPeriodo += val;
+  });
+
+  Object.keys(daySums).forEach(function(dKey) {
+    var el = document.getElementById('totalDia-' + dKey);
+    if (el) el.textContent = fmtNum(daySums[dKey]);
+  });
+
+  var ini = document.getElementById('mIni').value;
+  var fim = document.getElementById('mFim').value;
+  var diasUteis = calcDiasUteis(ini, fim);
+  
+  var tdEl = document.getElementById('metaTotalDiario');
+  var tpEl = document.getElementById('metaTotalPeriodo');
+  
+  var mediaDiaria = diasUteis > 0 ? Math.round(sumPeriodo / diasUteis) : 0;
+  
+  if (tdEl) tdEl.textContent = fmtNum(mediaDiaria);
+  if (tpEl) {
+    var diasTexto = diasUteis === 1 ? '1 dia útil' : diasUteis + ' dias úteis';
+    tpEl.innerHTML = fmtNum(sumPeriodo) + ' <span style="font-size:11px; font-weight:normal; color:var(--muted)">(' + diasTexto + ')</span>';
+  }
+}
+
+function updateMetaTotals() {
+  updateMatrixTotals();
+}
+
+function salvarMetasESeletor() {
+  var ini = document.getElementById('mIni').value;
+  var fim = document.getElementById('mFim').value;
+  var desc = document.getElementById('mDesc').value.trim();
+
+  if (!ini || !fim) {
+    showAlert('Preencha as datas de início e fim do período.', 'danger');
+    return;
+  }
+  if (ini > fim) {
+    showAlert('Data inicial não pode ser maior que data final.', 'danger');
+    return;
+  }
+
+  // 1. Collect standard daily goals
+  var metasPadrao = {};
+  document.querySelectorAll('.meta-padrao-input').forEach(function(input) {
+    var nome = input.getAttribute('data-nome');
+    metasPadrao[nome] = parseInt(input.value) || 0;
+  });
+
+  // 2. Collect calendar/matrix day-by-day metas
+  var metasMatriz = {};
+  var sumPeriodo = 0;
+  var inputs = document.querySelectorAll('.matrix-cell-input');
+  inputs.forEach(function(input) {
+    var dKey = input.getAttribute('data-date');
+    var col = input.getAttribute('data-line');
+    var val = parseInt(input.value) || 0;
+    if (!metasMatriz[dKey]) metasMatriz[dKey] = {};
+    metasMatriz[dKey][col] = val;
+    sumPeriodo += val;
+  });
+
+  var diasUteis = calcDiasUteis(ini, fim);
+
+  configData.meta = {
+    descricao: desc,
+    inicio: ini,
+    fim: fim,
+    quantidade: sumPeriodo,
+    totalDiario: diasUteis > 0 ? Math.round(sumPeriodo / diasUteis) : 0
+  };
+  configData.metasPorLinha = metasPadrao;
+  configData.metasMatriz = metasMatriz;
+
+  saveConfig().then(function() {
+    showAlert('Calendário de metas e valores padrão salvos com sucesso!', 'success');
+  }).catch(function(err) {
+    showAlert('Erro ao salvar: ' + err.message, 'danger');
+  });
+}
+
+function renderAll() {
+  renderTags('linhas');
+  renderTags('rotulagem');
+  renderTags('postosTrabalho');
+  renderTags('produtos');
+  renderTags('operadores');
+  renderTags('turnos');
+  renderTags('motivosParada');
+  renderTags('motivosAtrasoEncerramento');
+
+  if (configData.meta) {
+    document.getElementById('mDesc').value = configData.meta.descricao || '';
+    document.getElementById('mIni').value = configData.meta.inicio || '';
+    document.getElementById('mFim').value = configData.meta.fim || '';
+  }
+  document.getElementById('iCongelamentoDiasFixos').value = (configData.congelamento && configData.congelamento.diasFixos != null) ? configData.congelamento.diasFixos : 7;
+  renderAutoAjuste();
+
+  renderMetasPorLinha();
+  renderSetupPadrao();
+}
+
+// Fase 8 do plano: 1 input de minutos por linha, mesmo padrão simples da
+// Seção 1 de renderMetasPorLinha ("Metas Diárias Padrão"), sem o
+// calendário dia-a-dia (não faz sentido pra changeover, que é um valor
+// fixo por linha, não algo que varia dia a dia).
+function renderSetupPadrao() {
+  var container = document.getElementById('setupPadraoContainer');
+  if (!container) return;
+  var linhas = configData.linhas || [];
+  if (!linhas.length) {
+    container.innerHTML = '<div class="empty-metas">Cadastre linhas primeiro.</div>';
+    return;
+  }
+  var setupPadrao = configData.setupPadraoPorLinha || {};
+  var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));gap:10px">';
+  linhas.forEach(function(nome) {
+    var val = setupPadrao[nome] != null ? setupPadrao[nome] : '';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px">';
+    html += '<label style="font-weight:600;color:var(--text)">' + nome + ':</label>';
+    html += '<input type="number" class="setup-padrao-input" data-nome="' + nome + '" value="' + val + '" min="0" placeholder="0" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;width:90px;text-align:right;font-size:13px"> <span style="font-size:11px;color:var(--muted)">min</span>';
+    html += '</div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function salvarSetupPadrao() {
+  var setupPadrao = {};
+  document.querySelectorAll('.setup-padrao-input').forEach(function(input) {
+    var v = parseInt(input.value, 10);
+    if (v > 0) setupPadrao[input.dataset.nome] = v;
+  });
+  configData.setupPadraoPorLinha = setupPadrao;
+  db.ref('config/setupPadraoPorLinha').set(setupPadrao).then(function() {
+    showAlert('Setup padrão salvo! ' + Object.keys(setupPadrao).length + ' linha(s) configurada(s).', 'success');
+  }).catch(function(err) {
+    showAlert('Erro ao salvar setup padrão: ' + err.message, 'danger');
+  });
+}
+document.getElementById('btnSalvarSetupPadrao').addEventListener('click', salvarSetupPadrao);
+
+// Bind tag adding buttons
+document.getElementById('btnAddLinha').addEventListener('click', function() { addItem('linhas', 'iLinha'); });
+document.getElementById('btnAddRotulagem').addEventListener('click', function() { addItem('rotulagem', 'iRotulagem'); });
+document.getElementById('btnAddPosto').addEventListener('click', function() { addItem('postosTrabalho', 'iPosto'); });
+document.getElementById('btnAddProduto').addEventListener('click', function() { addItem('produtos', 'iProduto'); });
+document.getElementById('btnAddOperador').addEventListener('click', function() { addItem('operadores', 'iOperador'); });
+document.getElementById('btnAddTurno').addEventListener('click', function() { addItem('turnos', 'iTurno'); });
+document.getElementById('btnAddMotivoParada').addEventListener('click', function() { addItem('motivosParada', 'iMotivoParada'); });
+document.getElementById('btnAddMotivoAtrasoEncerramento').addEventListener('click', function() { addItem('motivosAtrasoEncerramento', 'iMotivoAtrasoEncerramento'); });
+
+// Keypress enter support
+['iLinha','iRotulagem','iPosto','iProduto','iOperador','iTurno','iMotivoParada','iMotivoAtrasoEncerramento'].forEach(function(id) {
+  document.getElementById(id).addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      var mapping = {
+        iLinha: 'linhas',
+        iRotulagem: 'rotulagem',
+        iPosto: 'postosTrabalho',
+        iProduto: 'produtos',
+        iOperador: 'operadores',
+        iTurno: 'turnos',
+        iMotivoParada: 'motivosParada',
+        iMotivoAtrasoEncerramento: 'motivosAtrasoEncerramento'
+      };
+      var tipo = mapping[id];
+      addItem(tipo, id);
+      e.preventDefault();
+    }
+  });
+});
+
+document.getElementById('mIni').addEventListener('change', updateMetaTotals);
+document.getElementById('mFim').addEventListener('change', updateMetaTotals);
+document.getElementById('btnSalvarPeriodo').addEventListener('click', salvarMetasESeletor);
+document.getElementById('btnSalvarMetas').addEventListener('click', salvarMetasESeletor);
+
+// Firebase Init
+try {
+  if (firebase.apps.length === 0) { firebase.initializeApp(firebaseConfig); }
+  kuryosConnectEmulatorsIfLocal();
+  db = firebase.database();
+
+  db.ref('.info/connected').on('value', function(snap) {
+    setStatus(snap.val(), snap.val() ? 'Conectado' : 'Reconectando...');
+  });
+
+  dbOnValue(db.ref('config'), function(snap) {
+    var val = snap.val() || {};
+    confPesagemCfg = val.conferenciaPesagem || {};
+    renderConferenciaPesagem();
+    configData.meta = val.meta || {};
+    configData.metasPorLinha = val.metasPorLinha || {};
+    configData.metasMatriz = val.metasMatriz || {};
+    configData.linhas = val.linhas || [];
+    configData.rotulagem = val.rotulagem || [];
+    configData.postosTrabalho = val.postosTrabalho || val.postos || [];
+    configData.produtos = val.produtos || [];
+    configData.operadores = val.operadores || [];
+    configData.turnos = val.turnos || [];
+    configData.motivosParada = (val.motivosParada && val.motivosParada.length) ? val.motivosParada : DEFAULT_MOTIVOS_PARADA.slice();
+    configData.toleranciaEncerramentoMin = val.toleranciaEncerramentoMin != null ? val.toleranciaEncerramentoMin : 15;
+    configData.motivosAtrasoEncerramento = (val.motivosAtrasoEncerramento && val.motivosAtrasoEncerramento.length) ? val.motivosAtrasoEncerramento : DEFAULT_MOTIVOS_ATRASO.slice();
+    configData.planejamento = val.planejamento || {};
+    configData.turnoHorarios = val.turnoHorarios || {};
+    configData.turnoHorariosFim = val.turnoHorariosFim || {};
+    configData.turnoHorariosFimSexta = val.turnoHorariosFimSexta || {};
+    configData.modoOperacaoTurno = val.modoOperacaoTurno || 'auto';
+    configData.turnoFixoNome = val.turnoFixoNome || '';
+    configData.turnoPausas = val.turnoPausas || {};
+    configData.turnosExtras = val.turnosExtras || {};
+    configData.congelamento = val.congelamento || { diasFixos: 7 };
+    // Ausente = ligado (mesma regra de window.autoAjustePlanejamentoAtivo em
+    // auth_check.js). Só `ativo: false` desliga.
+    configData.autoAjustePlanejamento = val.autoAjustePlanejamento || { ativo: true };
+    configData.checkpointsPorTurno = val.checkpointsPorTurno || 0; // 0 = usa a grade horária completa (comportamento atual)
+    configData.andonParadaMinutos = val.andonParadaMinutos || 15;
+    configData.opAtrasoHoras = val.opAtrasoHoras || 1;
+    configData.operacaoEstendidaData = val.operacaoEstendidaData || '';
+    configData.setupPadraoPorLinha = val.setupPadraoPorLinha || {};
+    configData.emailNotificacoes = val.emailNotificacoes || [];
+    configData.categoriasProduto = val.categoriasProduto || [];
+    renderAll();
+    renderTurnoHorarios();
+    renderTurnosExtras();
+    renderNotificacoesConfig();
+
+    if (!val.linhas || val.linhas.length === 0) {
+      document.getElementById('seedCard').style.display = 'block';
+    } else {
+      document.getElementById('seedCard').style.display = 'none';
+    }
+  });
+
+  // Achado do Tester: o handler de "Inicializar com Dados Padrão" foi
+  // removido daqui -- gravava um objeto fixo de demonstração via
+  // db.ref().update({config:..., produtos:..., pedidos:...}), e o Firebase
+  // RTDB SUBSTITUI o valor inteiro em cada chave de topo do update(), não
+  // faz merge profundo. Com dado real já cadastrado (~500 produtos,
+  // pedidos, config), um clique apagava tudo isso silenciosamente. Ver o
+  // comentário junto de #seedCard no HTML pra mais detalhe.
+} catch (e) {
+  setStatus(false, 'Erro');
+  console.error(e);
+}
+</script>
+</body>
+</html>

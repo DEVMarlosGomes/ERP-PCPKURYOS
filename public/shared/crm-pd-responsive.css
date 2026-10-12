@@ -1,0 +1,337 @@
+/* Integração responsiva CRM/P&D ↔ shell do PCP.
+   O build React permanece canônico; esta camada corrige somente a convivência
+   com a sidebar do PCP e o comportamento dos componentes em telas estreitas. */
+
+html,
+body.has-sidebar {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body.has-sidebar {
+  box-sizing: border-box;
+  overflow-y: hidden;
+}
+
+body.has-sidebar #root,
+body.has-sidebar #root > *,
+body.has-sidebar [data-app-main="true"] {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
+
+body.has-sidebar #root {
+  min-height: 100dvh;
+}
+
+body.has-sidebar [data-app-main="true"] {
+  height: 100dvh;
+  overscroll-behavior: contain;
+}
+
+/* Radix monta dialogs, alerts, sheets, selects e popovers direto no body.
+   A sidebar do PCP usa z-index 9999; o padrão z-50 do app ficava atrás dela. */
+body.has-sidebar > .fixed.z-50,
+body.has-sidebar > [data-radix-popper-content-wrapper],
+body.has-sidebar > [data-sonner-toaster] {
+  z-index: 20000 !important;
+}
+
+/* Drawers/Sheets laterais do React: deixam de usar a altura bruta da janela
+   e passam a respeitar a topbar do shell. Classes de largura específicas das
+   telas (ex.: w-[560px]) não podem empurrar o painel para fora da viewport. */
+body.has-sidebar > [role="dialog"][class*="inset-y-0"] {
+  top: calc(var(--k-shell-topbar-h, 68px) + 16px) !important;
+  bottom: auto !important;
+  right: 16px !important;
+  width: min(560px, calc(100vw - var(--k-shell-sidebar-w, 264px) - 40px)) !important;
+  min-width: 0 !important;
+  max-width: calc(100vw - var(--k-shell-sidebar-w, 264px) - 40px) !important;
+  height: calc(100dvh - var(--k-shell-topbar-h, 68px) - 32px) !important;
+  max-height: calc(100dvh - var(--k-shell-topbar-h, 68px) - 32px) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+  scrollbar-gutter: stable;
+  border-radius: 20px !important;
+  box-shadow: 0 24px 72px rgb(0 0 0 / 28%) !important;
+}
+
+/* O utilitário de animação do bundle pode preservar translateX(100%) quando
+   reduced-motion está ativo. O estado Radix é a fonte confiável: aberto deve
+   estar dentro da viewport. */
+body.has-sidebar > [role="dialog"][class*="inset-y-0"][data-state="open"] {
+  transform: translateX(0) !important;
+}
+
+body.has-sidebar > [role="dialog"][class*="inset-y-0"] > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+body.has-sidebar > [role="dialog"][class*="inset-y-0"] :is(form, section, [role="tabpanel"], .flex-1, .min-h-0) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Drawers de Cliente/Amostra têm mais abas do que cabem no celular. A barra
+   rola localmente; o formulário e o drawer continuam presos à viewport. */
+body.has-sidebar > [role="dialog"][class*="inset-y-0"] [role="tablist"] {
+  display: flex !important;
+  justify-content: flex-start !important;
+  width: calc(100% - 3rem);
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+}
+
+body.has-sidebar > [role="dialog"][class*="inset-y-0"] [role="tab"] {
+  flex: 0 0 auto !important;
+  min-width: max-content;
+  white-space: nowrap;
+}
+
+/* Nenhuma página ou grid pode aumentar a largura do shell. Kanbans e tabelas
+   continuam rolando dentro do próprio componente. */
+body.has-sidebar #root .page-enter,
+body.has-sidebar #root main,
+body.has-sidebar #root section,
+body.has-sidebar #root .kanban-board,
+body.has-sidebar #root [data-testid$="-table-wrap"] {
+  min-width: 0;
+  max-width: 100%;
+}
+
+body.has-sidebar #root .kanban-board {
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: inline proximity;
+  scrollbar-gutter: stable;
+}
+
+body.has-sidebar #root .kanban-column {
+  scroll-snap-align: start;
+}
+
+body.has-sidebar #root table {
+  min-width: max-content;
+}
+
+/* Evita que textos, chips e ações longas alarguem cards/formulários. */
+body.has-sidebar #root :is(.min-w-0, [class*="truncate"]) {
+  overflow-wrap: anywhere;
+}
+
+body.has-sidebar #root :is(input, textarea, select, button) {
+  max-width: 100%;
+}
+
+/* Tablets: o menu vira gaveta e o app ocupa apenas a altura útil abaixo do
+   hamburger. 100dvh acompanha corretamente as barras móveis do navegador. */
+@media (max-width: 980px) {
+  body.has-sidebar #root {
+    min-height: calc(100dvh - 58px);
+    height: calc(100dvh - 58px);
+  }
+
+  body.has-sidebar [data-app-main="true"] {
+    height: calc(100dvh - 58px) !important;
+  }
+
+  body.has-sidebar #root .page-enter {
+    padding: 20px;
+  }
+
+  /* Navegação Clientes/Projetos/Amostras/Pedidos. */
+  body.has-sidebar #root .page-enter > .flex.items-center.gap-1.mb-5.border-b {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 10px;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body.has-sidebar #root .page-enter > .flex.items-center.gap-1.mb-5.border-b > button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  /* Títulos e respectivos grupos de ação deixam de competir pela largura. */
+  body.has-sidebar #root .page-enter > .flex.items-center.justify-between.mb-4 {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  body.has-sidebar #root .page-enter > .flex.items-center.justify-between.mb-4 > .flex {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  /* Sheets laterais e dialogs largos nunca ultrapassam a área visível. */
+  body.has-sidebar [role="dialog"] {
+    max-width: calc(100vw - 24px) !important;
+  }
+
+  body.has-sidebar > [role="dialog"][class*="inset-y-0"] {
+    right: 12px !important;
+    width: min(560px, calc(100vw - 24px)) !important;
+    max-width: calc(100vw - 24px) !important;
+  }
+}
+
+@media (min-width: 641px) and (max-height: 700px) {
+  body.has-sidebar > [role="dialog"][class*="inset-y-0"] {
+    top: calc(var(--k-shell-topbar-h, 68px) + 8px) !important;
+    right: 8px !important;
+    height: calc(100dvh - var(--k-shell-topbar-h, 68px) - 16px) !important;
+    max-height: calc(100dvh - var(--k-shell-topbar-h, 68px) - 16px) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  body.has-sidebar #root .page-enter {
+    padding: 14px;
+  }
+
+  body.has-sidebar #root .page-enter h1 {
+    font-size: clamp(1.5rem, 8vw, 1.875rem);
+    line-height: 1.15;
+  }
+
+  /* Busca e filtros passam a usar a largura toda; chips continuam quebrando. */
+  body.has-sidebar #root [data-testid$="-bar"] > .flex {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+
+  body.has-sidebar #root [data-testid$="-bar"] > .flex > *,
+  body.has-sidebar #root [data-testid$="-bar"] [role="combobox"],
+  body.has-sidebar #root [data-testid$="-bar"] input,
+  body.has-sidebar #root [data-testid$="-bar"] button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* Ações principais ficam tocáveis sem provocar overflow. */
+  body.has-sidebar #root .page-enter > .flex.items-center.justify-between.mb-4 > .flex {
+    width: 100%;
+  }
+
+  body.has-sidebar #root .page-enter > .flex.items-center.justify-between.mb-4 > .flex > button {
+    flex: 1 1 145px;
+  }
+
+  body.has-sidebar #root .kanban-board {
+    gap: 12px;
+    min-height: calc(100dvh - 260px);
+  }
+
+  body.has-sidebar #root .kanban-column {
+    min-width: min(300px, calc(100vw - 40px));
+    max-width: min(300px, calc(100vw - 40px));
+  }
+
+  /* Modais viram folhas móveis: margens seguras, cabeçalho/miolo mais compactos
+     e rodapé sempre utilizável mesmo com teclado virtual aberto. */
+  body.has-sidebar > .fixed.inset-0.z-50.flex {
+    padding: 8px;
+    align-items: flex-end;
+  }
+
+  body.has-sidebar [role="dialog"] {
+    width: 100% !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+    border-radius: 14px !important;
+  }
+
+  body.has-sidebar > [role="dialog"][class*="inset-y-0"] {
+    inset: 0 0 0 auto !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.has-sidebar > [role="dialog"][class*="inset-y-0"] [role="tablist"] {
+    border-radius: 0 !important;
+    width: calc(100% - 2rem);
+    margin-left: 1rem !important;
+    margin-right: 1rem !important;
+  }
+
+  body.has-sidebar > [role="dialog"][class*="inset-y-0"] [role="tabpanel"] {
+    overflow-x: hidden;
+  }
+
+  body.has-sidebar > [role="dialog"][class*="inset-y-0"] [class*="grid-cols-"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body.has-sidebar > [role="dialog"][class*="inset-y-0"] :is(input, textarea, select, button, [role="combobox"]) {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  body.has-sidebar [role="dialog"] :is(.p-6, .sm\:p-6) {
+    padding: 16px;
+  }
+
+  body.has-sidebar [role="dialog"] :is(.px-6, .sm\:px-6) {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  body.has-sidebar [role="dialog"] :is(.p-4, .sm\:p-4) {
+    padding: 12px;
+  }
+
+  body.has-sidebar [role="dialog"] [class*="grid-cols-"] {
+    min-width: 0;
+  }
+
+  body.has-sidebar [role="dialog"] input,
+  body.has-sidebar [role="dialog"] textarea,
+  body.has-sidebar [role="dialog"] [role="combobox"] {
+    width: 100%;
+    min-width: 0;
+  }
+
+  body.has-sidebar [role="dialog"] :is(.flex.items-center.justify-between, .flex.items-center.gap-2) {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  body.has-sidebar [role="dialog"] > button.absolute {
+    top: 10px;
+    right: 10px;
+  }
+
+  /* Menus de seleção/popover respeitam a margem da tela. */
+  body.has-sidebar > [data-radix-popper-content-wrapper] {
+    max-width: calc(100vw - 16px) !important;
+  }
+
+  body.has-sidebar > [data-radix-popper-content-wrapper] > * {
+    max-width: 100% !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.has-sidebar #root *,
+  body.has-sidebar > .fixed.z-50 {
+    scroll-behavior: auto !important;
+  }
+}

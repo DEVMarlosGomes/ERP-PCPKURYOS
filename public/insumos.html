@@ -1,0 +1,2886 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Insumos · Kuryos</title>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://erpkuryos-default-rtdb.firebaseio.com">
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+  <script src="shared/utils.js"></script>
+  <script src="shared/propriedade-estoque.js"></script>
+  <script src="auth_check.js"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="shared/theme.css">
+  <style>
+    :root {
+      --primary: #0a1c69;
+      --primary-light: #2456d6;
+      --success: #0ca30c;
+      --success-light: #d1fae5;
+      --danger: #d03b3b;
+      --danger-light: #fee2e2;
+      --warning: #c9910a;
+      --warning-light: #fef3c7;
+      --bg: #f5f5f7;
+      --card: #ffffff;
+      --border: #d2d2d7;
+      --text: #1d1d1f;
+      --muted: #6e6e73;
+      --purple: #7c3aed;
+      --purple-light: #f3e8ff;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --primary: #5e83ea;
+        --bg: #000000;
+        --card: #1c1c1e;
+        --border: #38383a;
+        --text: #f5f5f7;
+        --muted: #98989d;
+      }
+    }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --primary: #5e83ea;
+      --bg: #000000;
+      --card: #1c1c1e;
+      --border: #38383a;
+      --text: #f5f5f7;
+      --muted: #98989d;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .header {
+      background: transparent;
+      color: var(--text);
+      padding: 26px 0 6px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      box-shadow: none;
+      position: static;
+      max-width: 96%;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -.02em;
+    }
+
+    .header-sub {
+      font-size: 12.5px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: color-mix(in srgb, var(--text) 6%, transparent);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #94a3b8;
+    }
+    
+    .dot.on {
+      background: var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    @media (prefers-reduced-motion: reduce) { .dot.on { animation: none; } }
+
+    .toolbar {
+      background: transparent;
+      border-bottom: none;
+      padding: 10px 0 16px;
+      max-width: 96%;
+      margin: 0 auto;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .main {
+      padding: 0 0 40px;
+      max-width: 96%;
+      margin: 0 auto;
+      width: 100%;
+      flex: 1;
+    }
+    
+    /* Top tabs styling matching planeamento.html */
+    .top-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+      background: var(--card);
+      border-radius: 12px;
+      padding: 4px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+      width: fit-content;
+    }
+    
+    .top-tab {
+      padding: 8px 20px;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      transition: all 0.15s;
+    }
+    
+    .top-tab.active {
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 2px 8px rgba(10, 28, 105, 0.25);
+    }
+    
+    .top-tab:hover:not(.active) {
+      background: var(--bg);
+      color: var(--text);
+    }
+    
+    /* ── MRP ── */
+    .mrp-kpis { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+    .mrp-kpi { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px 18px; min-width:132px; }
+    .mrp-kpi b { display:block; font-size:26px; line-height:1.1; color:var(--primary); font-variant-numeric:tabular-nums; }
+    .mrp-kpi span { font-size:11.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+    .mrp-kpi.critico { border-color:var(--danger); }
+    .mrp-kpi.critico b { color:var(--danger); }
+    .mrp-aviso { background:color-mix(in srgb, var(--warning) 12%, var(--card)); border:1px solid color-mix(in srgb, var(--warning) 40%, var(--card)); border-left:4px solid var(--warning); border-radius:10px; padding:10px 14px; font-size:12.5px; margin-bottom:10px; }
+    .mrp-filtro { display:flex; gap:16px; margin:14px 0 10px; font-size:12.5px; }
+    .mrp-filtro label { display:flex; align-items:center; gap:6px; cursor:pointer; }
+    .mrp-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:12px; }
+    .mrp-card.critico { border-left:4px solid var(--danger); }
+    .mrp-card-cab { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; font-size:13.5px; margin-bottom:8px; }
+    .mrp-sub { font-size:11.5px; color:var(--muted); margin-top:3px; font-weight:400; }
+    .mrp-tag { display:inline-block; background:color-mix(in srgb, var(--text) 10%, var(--card)); border-radius:4px; padding:1px 6px; font-size:10px; margin-left:4px; }
+    .mrp-tag.alerta { background:color-mix(in srgb, var(--warning) 24%, var(--card)); color:var(--warning); }
+    .mrp-exc { border-radius:8px; padding:8px 12px; margin-bottom:6px; font-size:12.5px; }
+    .mrp-exc div { font-size:11.5px; opacity:.9; margin-top:2px; }
+    .mrp-exc.critico { background:color-mix(in srgb, var(--danger) 12%, var(--card)); color:var(--danger); }
+    .mrp-exc.acao { background:color-mix(in srgb, var(--warning) 14%, var(--card)); color:var(--warning); }
+    .mrp-exc.info { background:color-mix(in srgb, var(--text) 5%, var(--card)); color:var(--muted); }
+    .mrp-grade-wrap { overflow-x:auto; margin:8px 0; }
+    .mrp-grade { border-collapse:collapse; font-size:12px; min-width:420px; font-variant-numeric:tabular-nums; }
+    .mrp-grade th, .mrp-grade td { border:1px solid var(--border); padding:5px 10px; text-align:right; white-space:nowrap; }
+    .mrp-grade th { background:color-mix(in srgb, var(--text) 5%, var(--card)); text-align:center; font-size:11px; }
+    .mrp-grade th.atras { background:color-mix(in srgb, var(--danger) 12%, var(--card)); color:var(--danger); }
+    .mrp-th-sub { font-size:9px; font-weight:400; text-transform:uppercase; }
+    .mrp-grade .mrp-rot { text-align:left; color:var(--muted); font-size:11.5px; cursor:help; }
+    .mrp-grade tr.liq td, .mrp-grade tr.ordem td { font-weight:700; }
+    .mrp-grade tr.ordem td { color:var(--primary); }
+    .mrp-grade tr.proj td { color:var(--muted); }
+    .mrp-backlog { background:color-mix(in srgb, var(--text) 5%, var(--card)); border-radius:8px; padding:8px 12px; font-size:12px; color:var(--muted); margin-top:6px; }
+    .mrp-params { margin-top:10px; }
+    .mrp-params summary { cursor:pointer; font-size:12px; color:var(--muted); }
+    .mrp-params-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:8px; }
+    @media (max-width:640px) { .mrp-card-cab { flex-direction:column; } }
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .btn {
+      padding: 9px 18px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: var(--primary-light);
+    }
+    
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+    
+    .btn-success:hover {
+      filter: brightness(0.9);
+    }
+    
+    .btn-ghost {
+      background: var(--card);
+      color: var(--text);
+      border: 1.5px solid var(--border);
+    }
+    
+    .btn-ghost:hover {
+      background: #f8fafc;
+    }
+    
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+    
+    .btn-danger:hover {
+      filter: brightness(0.9);
+    }
+    
+    .btn-sm {
+      padding: 6px 14px;
+      font-size: 12px;
+    }
+    
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    /* Pedido selector & info styles */
+    .pedido-selector {
+      background:var(--card);
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+      padding: 16px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    
+    .pedido-selector label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    
+    .pedido-selector select {
+      flex: 1;
+      min-width: 240px;
+      padding: 9px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text);
+      background:var(--card);
+      cursor: pointer;
+      outline: none;
+    }
+
+    .pedido-selector select:focus {
+      border-color: var(--primary);
+    }
+    /* Campo de busca (attachAutocomplete) que substituiu o <select> acima --
+       o wrapper (span) recebe o flex/min-width que antes era do próprio
+       campo, o input só preenche 100% dele. Cursor de digitação, não de
+       seleção. */
+    .pedido-selector-wrap { flex: 1; min-width: 240px; }
+    .pedido-selector-busca {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 9px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--card);
+      cursor: text;
+      outline: none;
+    }
+    .pedido-selector-busca:focus { border-color: var(--primary); }
+    
+    .ped-info {
+      background:var(--card);
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+      padding: 14px 16px;
+      margin-bottom: 14px;
+      display: none;
+    }
+    
+    .ped-info.show {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    
+    .pi-id {
+      font-family: monospace;
+      font-weight: 700;
+      font-size: 13px;
+      background: var(--purple-light);
+      color: var(--purple);
+      padding: 3px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+    
+    .pi-produto {
+      font-weight: 700;
+      font-size: 14px;
+      flex: 1;
+    }
+    
+    .pi-meta {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    
+    .pi-prog {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .pi-bar {
+      width: 90px;
+      height: 6px;
+      border-radius: 3px;
+      background: #e2e8f0;
+      overflow: hidden;
+    }
+    
+    .pi-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: var(--success);
+    }
+    
+    .pi-pct {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--success);
+    }
+    
+    .ins-status-badge {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    
+    .ins-ok { background: var(--success-light); color: #065f46; }
+    .ins-parcial { background: var(--warning-light); color: #c2410c; }
+    .ins-pendente { background: var(--danger-light); color: #991b1b; }
+    
+    /* Stats grid */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    
+    .stat {
+      background:var(--card);
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    }
+    
+    .stat-val {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--primary);
+    }
+    
+    .stat-lbl {
+      font-size: 10px;
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+    
+    /* Matrix Table specific classes */
+    .chk-badge {
+      font-size: 16px;
+      display: inline-block;
+      transition: transform 0.12s ease;
+      cursor: pointer;
+      user-select: none;
+    }
+    
+    .chk-badge:hover {
+      transform: scale(1.25);
+    }
+    
+    .matrix-table-wrap th {
+      padding: 12px 6px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: 0.3px;
+    }
+    
+    .matrix-table-wrap td {
+      padding: 10px 6px;
+      vertical-align: middle;
+    }
+    
+    /* Cards */
+    .card {
+      background:var(--card);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      margin-bottom: 14px;
+      overflow: hidden;
+      border: none;
+    }
+    
+    .card-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    /* Insumo list items */
+    .insumo-item {
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .insumo-item:last-child {
+      border-bottom: none;
+    }
+    
+    .insumo-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      flex-wrap: wrap;
+      transition: background 0.15s;
+    }
+    
+    .insumo-row:hover {
+      background: #f8fafc;
+    }
+    
+    .ins-nome {
+      font-weight: 700;
+      font-size: 13px;
+      flex: 1;
+      min-width: 180px;
+      color: var(--text);
+    }
+    
+    .ins-qtd-block {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    
+    .ins-qtd-rec {
+      font-weight: 700;
+      color: var(--text);
+    }
+    
+    .ins-qtd-sep {
+      color: var(--muted);
+    }
+    
+    .ins-qtd-nec {
+      color: var(--muted);
+      font-weight: 600;
+    }
+    
+    .ins-bar-wrap {
+      width: 70px;
+      margin: 0 4px;
+    }
+    
+    .ins-bar {
+      height: 6px;
+      border-radius: 3px;
+      background: #e2e8f0;
+      overflow: hidden;
+    }
+    
+    .ins-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    
+    .badge-green { background: var(--success-light); color: #065f46; }
+    .badge-orange { background: var(--warning-light); color: #c2410c; }
+    .badge-red { background: var(--danger-light); color: #991b1b; }
+    .badge-gray { background: #e2e8f0; color: var(--muted); }
+    
+    .ins-actions {
+      display: flex;
+      gap: 4px;
+    }
+    
+    .act-btn {
+      border: 1px solid var(--border);
+      background: color-mix(in srgb, var(--text) 4%, var(--card));
+      cursor: pointer;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      transition: all 0.1s;
+    }
+
+    .act-btn:hover {
+      background: color-mix(in srgb, var(--text) 9%, var(--card));
+      border-color: var(--muted);
+    }
+    
+    .act-btn.del:hover {
+      color: var(--danger);
+      background: var(--danger-light);
+      border-color: #fca5a5;
+    }
+    
+    /* Obs feed styling */
+    .obs-feed {
+      display: none;
+      padding: 10px 16px 14px 48px;
+      border-top: 1px solid #f1f5f9;
+      background: #f8fafc;
+    }
+    
+    .obs-feed.open {
+      display: block;
+    }
+    
+    .obs-feed-empty {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 8px 0;
+      font-style: italic;
+    }
+    
+    .obs-entry {
+      margin-bottom: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed #e2e8f0;
+    }
+    
+    .obs-entry:first-child {
+      border-top: none;
+      padding-top: 0;
+    }
+    
+    .obs-header-line {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2px;
+    }
+    
+    .obs-ts {
+      font-size: 9px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    
+    .obs-text {
+      font-size: 12px;
+      color: #334155;
+      line-content: 1.5;
+    }
+    
+    .obs-add {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    
+    .obs-add textarea {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 12px;
+      resize: none;
+      height: 48px;
+      font-family: inherit;
+      outline: none;
+    }
+    
+    .obs-add textarea:focus {
+      border-color: var(--primary);
+    }
+    
+    .no-sel {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    
+    /* Alerts */
+    .alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 14px;
+      display: none;
+    }
+    
+    .alert.show {
+      display: block;
+    }
+    
+    .alert-success {
+      background: var(--success-light);
+      color: #065f46;
+      border: 1px solid #6ee7b7;
+    }
+    
+    .alert-danger {
+      background: var(--danger-light);
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+    
+    /* Modals styling */
+    .modal-bg {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      z-index: 500;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    
+    .modal-bg.open {
+      display: flex;
+    }
+    
+    .modal {
+      background:var(--card);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 500px;
+      margin: auto;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.3);
+      overflow: hidden;
+      animation: modalSlide 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    
+    @keyframes modalSlide {
+      from { transform: translateY(-20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    
+    .modal-header {
+      background: var(--primary);
+      color: white;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .modal-header h2 {
+      font-size: 15px;
+      font-weight: 800;
+    }
+    
+    .modal-close {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 22px;
+      cursor: pointer;
+      opacity: 0.8;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: all 0.1s;
+    }
+    
+    .modal-close:hover {
+      opacity: 1;
+      background: rgba(255, 255, 255, 0.15);
+    }
+    
+    .modal-body {
+      padding: 20px;
+    }
+    
+    .modal-footer {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f8fafc;
+    }
+    
+    .form-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      letter-spacing: 0.4px;
+    }
+    
+    .form-ctrl {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text);
+      background:var(--card);
+      margin-bottom: 14px;
+      outline: none;
+    }
+    
+    .form-ctrl:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(10, 28, 105, 0.1);
+    }
+    
+    .form-hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: -10px;
+      margin-bottom: 12px;
+      font-weight: 500;
+    }
+    
+    .recv-current {
+      background: var(--success-light);
+      border: 1px solid #6ee7b7;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      font-size: 13px;
+      color: #065f46;
+    }
+    
+    .recv-current strong {
+      font-weight: 700;
+    }
+    
+    @media (max-width: 768px) {
+      .stats { grid-template-columns: 1fr 1fr; }
+      .ped-info.show { flex-direction: column; align-items: flex-start; }
+      .top-tabs { width: 100%; display: flex; }
+      .top-tab { flex: 1; text-align: center; padding: 10px 5px; }
+    }
+    /* attachAutocomplete (shared/utils.js) -- campo Pedido virou busca por
+       ID ou produto em vez de <select>. Mesmo CSS já usado em
+       cadastros.html/estoque.html/compras.html/pedidos.html pro mesmo
+       componente -- sem isto a lista de sugestões aparece sem estilo nenhum. */
+    .kt-ac-list{display:none;position:fixed;z-index:10000;background:var(--card);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);max-height:260px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .kt-ac-list.open{display:block}
+    .kt-ac-item{padding:12px 14px;font-size:14px;color:var(--text);cursor:pointer;min-height:44px;box-sizing:border-box;display:flex;align-items:center;border-bottom:1px solid color-mix(in srgb, var(--border) 60%, transparent)}
+    .kt-ac-item:last-child{border-bottom:none}
+    .kt-ac-item:hover,.kt-ac-item.active{background:color-mix(in srgb, var(--primary) 12%, transparent)}
+  </style>
+</head>
+<body class="kuryos-theme has-sidebar">
+
+<div class="header">
+  <div>
+    <h1>Insumos por Pedido</h1>
+    <div class="header-sub">Matriz de checklist e alocação física de insumos do PCP</div>
+  </div>
+  <div class="status-pill"><div class="dot" id="sDot"></div><span id="sTxt">Conectando...</span></div>
+</div>
+
+<div class="main">
+  <div id="alertBox" class="alert alert-success"></div>
+
+  <!-- Tab navigation -->
+  <div class="top-tabs">
+    <button class="top-tab" id="tabBtnMrp" onclick="switchTab('mrp')">🧮 MRP — Necessidade de Materiais</button>
+    <button class="top-tab active" id="tabBtnMatriz" onclick="switchTab('matriz')">📋 Visão Geral (Matriz)</button>
+    <button class="top-tab" id="tabBtnDetalhes" onclick="switchTab('detalhes')">🔍 Detalhes do Pedido</button>
+  </div>
+
+  <!-- TAB: MRP -->
+  <div class="tab-content" id="panelMrp">
+    <div id="mrpConteudo"><div class="no-sel" style="padding:40px">Calculando o plano...</div></div>
+  </div>
+
+  <!-- TAB: MATRIZ DE INSUMOS -->
+  <div class="tab-content active" id="panelMatriz">
+    <!-- Toolbar for Matrix Filter and Batch Allocation -->
+    <div class="kt-toolbar" style="background:var(--card); border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,0.06); padding:14px 16px; border:1px solid var(--border);">
+      <div class="kt-search" style="flex:0 0 280px; min-width:200px">
+        <span class="icon">🔍</span>
+        <input type="text" id="searchMatriz" placeholder="Filtrar por ID ou Produto..." oninput="clearTimeout(window._searchMatrizT); window._searchMatrizT = setTimeout(renderMatriz, 200)">
+      </div>
+      <label style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--muted); cursor:pointer; user-select:none;">
+        <input type="checkbox" id="chkShowHistorico" onchange="showHistorico = this.checked; renderMatriz();" style="cursor:pointer;">
+        Mostrar concluídos/encerrados
+      </label>
+      <button class="btn btn-primary" style="margin-left:auto" onclick="openBatchRecvModal()">📥 Recebimento em Lote</button>
+    </div>
+
+    <!-- Interactive Checklist Matrix Container -->
+    <div id="matrixContainer">
+      <div class="no-sel" style="background:var(--card); border-radius:12px;">Carregando dados da matriz...</div>
+    </div>
+  </div>
+
+  <!-- TAB: DETALHES DO PEDIDO -->
+  <div class="tab-content" id="panelDetalhes">
+    <!-- Pedido selector -->
+    <div class="pedido-selector">
+      <label>Pedido</label>
+      <span class="pedido-selector-wrap" style="position:relative">
+        <input type="text" class="pedido-selector-busca" id="selPedidoBusca" placeholder="Buscar por ID ou produto..." autocomplete="off">
+        <input type="hidden" id="selPedido">
+      </span>
+      <button class="btn btn-primary btn-sm" id="btnGerarDoBom" disabled title="Selecione um pedido primeiro.">⚙ Gerar do BOM</button>
+      <!-- Fecha o elo MRP → Compras. Até a auditoria de 2026-09-08 a Matriz
+           calculava a falta, mostrava na tela e parava ali: compras.html
+           nunca lia o nó `insumos` e insumos.html nunca referenciava
+           `solicitacoes_compra`. Não havia caminho de ida nem de volta, e a
+           falta descoberta aqui só chegava ao comprador por conversa. -->
+      <button class="btn btn-warning btn-sm" id="btnGerarSolicitacao" disabled title="Selecione um pedido primeiro.">🛒 Solicitar Compra</button>
+      <button class="btn btn-success btn-sm" id="btnNovoInsumo" disabled>+ Novo Insumo</button>
+    </div>
+
+    <!-- Pedido info strip -->
+    <div class="ped-info" id="pedidoInfo"></div>
+
+    <!-- Stats (hidden until pedido selected) -->
+    <div class="stats" id="statsBlock" style="display:none">
+      <div class="stat"><div class="stat-val" id="statTotal">—</div><div class="stat-lbl">Insumos</div></div>
+      <div class="stat"><div class="stat-val" id="statRecebidos" style="color:var(--success)">—</div><div class="stat-lbl">Recebidos</div></div>
+      <div class="stat"><div class="stat-val" id="statParciais" style="color:var(--warning)">—</div><div class="stat-lbl">Parciais</div></div>
+      <div class="stat"><div class="stat-val" id="statPendentes" style="color:var(--danger)">—</div><div class="stat-lbl">Pendentes</div></div>
+    </div>
+
+    <!-- Insumos list -->
+    <div class="card" id="insumosCard">
+      <div class="card-title">
+        <span id="insumosCardTitle">Selecione um pedido</span>
+      </div>
+      <div id="insumosBody">
+        <div class="no-sel">Selecione um pedido acima para ver ou adicionar insumos</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Novo / Editar Insumo -->
+<div class="modal-bg" id="insumoModalBg">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="insumoModalTitle">Novo Insumo</h2>
+      <button class="modal-close" id="insumoModalClose">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="insumoAlertBox" class="alert alert-danger" style="margin-bottom:10px"></div>
+      <label class="form-label">Nome do Insumo *</label>
+      <input type="text" id="iNome" class="form-ctrl" placeholder="Ex: Frascos 200ml, Rótulos frente, Válvulas...">
+      <label class="form-label">Qtd. Necessária *</label>
+      <input type="number" id="iQtdNec" class="form-ctrl" min="0" step="1" placeholder="0">
+      <label class="form-label">Qtd. Recebida (inicial)</label>
+      <input type="number" id="iQtdRec" class="form-ctrl" min="0" step="1" placeholder="0">
+      <div class="form-hint">Pode atualizar depois com o botão ✓ Receber</div>
+      <label class="form-label">Observação inicial (opcional)</label>
+      <textarea id="iObsInicial" class="form-ctrl" style="height:60px;resize:none" placeholder="Ex: Previsto chegar dia 15/06"></textarea>
+    </div>
+    <div class="modal-footer">
+      <div><button class="btn btn-danger btn-sm" id="btnDeleteInsumo" style="display:none">🗑 Excluir</button></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" id="insumoModalCancel">Cancelar</button>
+        <button class="btn btn-success btn-sm" id="insumoModalSave">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Receber -->
+<div class="modal-bg" id="recvModalBg">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="recvModalTitle">Registrar Recebimento</h2>
+      <button class="modal-close" id="recvModalClose">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="recv-current" id="recvCurrentInfo"></div>
+      <label class="form-label">Qtd. Total Recebida até agora *</label>
+      <input type="number" id="rQtdRec" class="form-ctrl" min="0" step="1">
+      <div class="form-hint">Informe o total acumulado recebido (não apenas o incremento).</div>
+      <label class="form-label">Observação (opcional)</label>
+      <textarea id="rObs" class="form-ctrl" style="height:60px;resize:none" placeholder="Ex: Recebido parcialmente em 15/06, falta 2000 un."></textarea>
+    </div>
+    <div class="modal-footer">
+      <div></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" id="recvModalCancel">Cancelar</button>
+        <button class="btn btn-success btn-sm" id="recvModalSave">✓ Salvar Recebimento</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Solicitar Compra a partir da falta calculada pela Matriz.
+     A quantidade vem preenchida com a MESMA falta que a tela mostra ao lado
+     de cada insumo, e continua editável: quem envia confere antes. -->
+<div class="modal-bg" id="solCompraModalBg">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header" style="background:linear-gradient(135deg,#0a1c69,#1e3a8a)">
+      <h2>🛒 Solicitar Compra</h2>
+      <button class="modal-close" id="solCompraClose">×</button>
+    </div>
+    <div class="modal-body" style="max-height:520px;overflow-y:auto">
+      <div id="solCompraResumo"></div>
+      <div id="solCompraItens"></div>
+      <label class="form-label">Justificativa</label>
+      <textarea id="solCompraJustificativa" class="form-ctrl" style="height:60px;resize:none"></textarea>
+      <div class="form-hint">Vai junto na solicitação, para quem aprova entender a urgência.</div>
+    </div>
+    <div class="modal-footer">
+      <div style="font-size:12px;opacity:.8" id="solCompraContagem"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" id="solCompraCancel">Cancelar</button>
+        <button class="btn btn-success btn-sm" id="solCompraSave">✓ Enviar Solicitação</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Recebimento em Lote -->
+<div class="modal-bg" id="batchRecvModalBg">
+  <div class="modal" style="max-width: 580px;">
+    <div class="modal-header" style="background: linear-gradient(135deg, #0a1c69, #1e3a8a);">
+      <h2>📥 Recebimento de Insumos em Lote</h2>
+      <button class="modal-close" onclick="closeBatchRecvModal()">×</button>
+    </div>
+    <div class="modal-body" style="max-height: 480px; overflow-y: auto;">
+      <label class="form-label">Pedido ID *</label>
+      <select id="brPedidoId" class="form-ctrl" onchange="onBatchRecvPedidoChange()"></select>
+      
+      <label class="form-label">Material Comum *</label>
+      <select id="brMaterial" class="form-ctrl" onchange="onBatchRecvMaterialChange()">
+        <option value="">— Selecione um pedido primeiro —</option>
+      </select>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div>
+          <label class="form-label">Qtd Recebida no Lote *</label>
+          <input type="number" id="brQtd" class="form-ctrl" min="0" step="1" placeholder="Ex: 40000" oninput="updateBatchRecvPreview()">
+        </div>
+        <div>
+          <label class="form-label">Coluna do Checklist correspondente *</label>
+          <select id="brColuna" class="form-ctrl" onchange="updateBatchRecvPreview()">
+            <option value="">— Selecione a coluna —</option>
+            <option value="rotulos">Rótulos</option>
+            <option value="frascos">Frascos</option>
+            <option value="tampas">Tampas</option>
+            <option value="cartucho">Cartucho</option>
+            <option value="valvulas">Válvulas</option>
+            <option value="celofane">Celofane</option>
+            <option value="display">Display</option>
+            <option value="caixas">Caixas de Embarque</option>
+            <option value="essencia">Essência</option>
+            <option value="mp">Matéria-Prima</option>
+            <option value="artes">Artes (Arte Verificada)</option>
+            <option value="anvisa">Anvisa (Registro Anvisa)</option>
+            <option value="ok">OK (Tudo Pronto)</option>
+          </select>
+        </div>
+      </div>
+      
+      <label class="form-label">Simulação de Alocação Inteligente (PCP):</label>
+      <div id="brPreviewList" style="border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: #f8fafc; min-height: 60px; overflow-x: auto;">
+        <div style="color: var(--muted); font-size: 12px; text-align: center; padding: 10px;">Selecione o pedido e o material para ver a simulação de alocação.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeBatchRecvModal()">Cancelar</button>
+      <button class="btn btn-primary btn-sm" id="brConfirmBtn" onclick="executeBatchAllocation()">✓ Confirmar Alocação</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+  var firebaseConfig = {
+    apiKey: "AIzaSyBvASzcbKyv3uW7NBzDFDyLsKls3An3UUs",
+    authDomain: "erpkuryos.firebaseapp.com",
+    databaseURL: kuryosDatabaseURL("https://erpkuryos-default-rtdb.firebaseio.com"),
+    projectId: "erpkuryos",
+    storageBucket: "erpkuryos.firebasestorage.app",
+    messagingSenderId: "272752392739",
+    appId: "1:272752392739:web:047a6c4aa60145d77f4f96"
+  };
+  firebase.initializeApp(firebaseConfig);
+  kuryosConnectEmulatorsIfLocal();
+  var db = firebase.database();
+
+  // ── State ────────────────────────────────────────────────────────
+  var pedidosCache  = {};   // all pedidos from Firebase
+  var programacaoCache = {}; // schedules from Firebase
+  var currentPedKey = null; // selected pedido key in Details
+  var insumosData   = {};   // insumos for current selected pedido
+  var insumosRef    = null; // active listener for details
+  var editingInsumoKey = null;
+  var recvInsumoKey    = null;
+  var currentTab       = 'matriz';
+  var showHistorico    = false; // Matriz: por padrão só pedidos ativos (não concluído/encerrado)
+
+  // Batch Receipt State
+  var brCurrentPedidoInsumos = [];
+
+  // ── Connection ───────────────────────────────────────────────────
+  db.ref('.info/connected').on('value', function(snap) {
+    var on = snap.val();
+    document.getElementById('sDot').className = 'dot' + (on ? ' on' : '');
+    document.getElementById('sTxt').textContent = on ? 'Conectado' : 'Offline';
+  });
+
+  // ── Listeners for real-time Sync ─────────────────────────────────
+  // Listen to programacao
+  dbOnValue(db.ref('programacao'), function(snap) {
+    programacaoCache = snap.val() || {};
+  });
+
+  // Pedido do usuário: "onde aparecer lista suspensa, usar busca" -- este
+  // <select> listava TODOS os pedidos (sem limite por "em andamento" só),
+  // podendo crescer bastante com o tempo. Vira busca por ID ou produto,
+  // mesmo padrão attachAutocomplete (shared/utils.js) já usado noutras
+  // telas. `selPedido` (hidden) segue guardando a key real -- onPedidoChange
+  // e o resto do arquivo continuam lendo/escrevendo esse mesmo campo sem
+  // mudança de contrato; só o campo visível (selPedidoBusca) é novo.
+  var selPedidoItems = [];
+  // Renomeada (era isConcluido, mesmo nome do helper global de
+  // shared/utils.js que espera o pedido inteiro, não só a string de
+  // status) -- essa aqui só olha o texto do status em si, statusManual já
+  // é checado à parte no `st` abaixo.
+  function statusTextEhConcluido(status) {
+    if (!status) return false;
+    var s = String(status).toLowerCase().trim();
+    return s.indexOf('conclu') === 0;
+  }
+  function selPedidoLabel(item) {
+    var icon = item.st==='andamento'?'⚙':item.st==='concluido'?'✓':'⬛';
+    return icon + ' #' + (item.p.id||'?') + ' · ' + (item.p.produto||'—') + ' (' + item.pc + '%)';
+  }
+  // Resolve o texto de exibição a partir da key já salva em `selPedido` --
+  // usado tanto pra reverter o campo de busca (saiu sem escolher da lista)
+  // quanto pra manter coerente com uma seleção programática (openSkuDetails,
+  // hash da URL).
+  function labelDoPedidoSelecionado(key) {
+    var item = selPedidoItems.find(function(it) { return it.key === key; });
+    return item ? item.label : '';
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Dados de Fórmula/BOM -- achado da auditoria geral (2026-09-05): esta
+  // página, chamada "Matriz de Insumos", era a ÚNICA do sistema que não
+  // lia o BOM. Ela só abria programacao/pedidos/insumos, e pedia o nome do
+  // insumo digitado à mão ("Ex: Frascos 200ml, Rótulos frente...") junto
+  // com a quantidade -- enquanto o sistema JÁ sabe exatamente quais
+  // materiais cada SKU consome e em que quantidade, via
+  // explodirMateriaisNecessarios (shared/utils.js), que compras.html e
+  // form.html já usavam. Era redigitação pura de dado que já existia, e
+  // todo erro de digitação virava falta ou sobra de material.
+  // ═══════════════════════════════════════════════════════════════════
+  var allProdutosIns = {}, allFormulasIns = {}, allBomIns = {}, allMateriaisIns = {}, allEstoqueIns = {};
+  dbOnValue(db.ref('produtos'), function(snap) { allProdutosIns = snap.val() || {}; atualizarBotaoGerarBom(); });
+  dbOnValue(db.ref('formulas'), function(snap) { allFormulasIns = snap.val() || {}; atualizarBotaoGerarBom(); });
+  dbOnValue(db.ref('bom'), function(snap) { allBomIns = snap.val() || {}; atualizarBotaoGerarBom(); });
+  dbOnValue(db.ref('materiais'), function(snap) { allMateriaisIns = snap.val() || {}; });
+  // Estoque entra só como REFERÊNCIA visual (quanto já existe do material),
+  // sem nenhuma escrita -- é o primeiro passo pra necessidade líquida
+  // (bruta menos disponível), que é o que separa isto de um MRP de verdade.
+  dbOnValue(db.ref('estoque'), function(snap) { allEstoqueIns = snap.val() || {}; });
+  // Recebimentos programados: PC ja colocado e ainda nao recebido. Sem isto
+  // o MRP manda comprar de novo o que ja esta a caminho.
+  dbOnValue(db.ref('pedidos_compra'), function(snap) {
+    allPedidosCompraIns = snap.val() || {};
+    if (currentTab === 'mrp') renderMrp();
+  });
+
+  // Listen to pedidos
+  dbOnValue(db.ref('pedidos'), function(snap) {
+    pedidosCache = snap.val() || {};
+
+    var cur = document.getElementById('selPedido').value;
+
+    var list = Object.entries(pedidosCache).map(function(e) {
+      var k = e[0], p = e[1];
+      var pc = p.qtdTotal ? Math.round((p.produzido||0)/p.qtdTotal*100) : 0;
+      var st = p.statusManual==='encerrado' ? 'encerrado' : (statusTextEhConcluido(p.status) || pc>=95) ? 'concluido' : 'andamento';
+      return { key:k, p:p, st:st, pc:pc };
+    }).sort(function(a,b){
+      var order = {andamento:0, concluido:1, encerrado:2};
+      return order[a.st]-order[b.st] || b.pc-a.pc;
+    });
+
+    selPedidoItems = list.map(function(item) {
+      var label = selPedidoLabel(item);
+      return { key: item.key, value: label, label: label };
+    });
+
+    if (cur) { document.getElementById('selPedidoBusca').value = labelDoPedidoSelecionado(cur); }
+
+    // If there's a hash in URL, auto-select and switch tab
+    var hash = location.hash.replace('#','');
+    if (hash && !cur) {
+      switchTab('detalhes');
+      document.getElementById('selPedido').value = hash;
+      document.getElementById('selPedidoBusca').value = labelDoPedidoSelecionado(hash);
+      onPedidoChange();
+    }
+
+    // Refresh info card if pedido already selected in details tab
+    if (currentPedKey && pedidosCache[currentPedKey]) renderPedidoInfo();
+
+    // Render Checklist Matrix
+    renderMatriz();
+  });
+
+  // ── Tab Management ────────────────────────────────────────────────
+  var ABAS_INSUMOS = {
+    mrp:      { btn: 'tabBtnMrp',      panel: 'panelMrp',      aoAbrir: function() { renderMrp(); } },
+    matriz:   { btn: 'tabBtnMatriz',   panel: 'panelMatriz',   aoAbrir: function() { renderMatriz(); } },
+    detalhes: { btn: 'tabBtnDetalhes', panel: 'panelDetalhes', aoAbrir: null }
+  };
+  function switchTab(tabName) {
+    if (!ABAS_INSUMOS[tabName]) tabName = 'matriz';
+    currentTab = tabName;
+    Object.keys(ABAS_INSUMOS).forEach(function(k) {
+      var a = ABAS_INSUMOS[k], ativo = (k === tabName);
+      var b = document.getElementById(a.btn), p = document.getElementById(a.panel);
+      if (b) b.classList.toggle("active", ativo);
+      if (p) p.classList.toggle("active", ativo);
+    });
+    if (ABAS_INSUMOS[tabName].aoAbrir) ABAS_INSUMOS[tabName].aoAbrir();
+    return;
+  }
+  function switchTabAntigo(tabName) {
+    currentTab = tabName;
+    if (tabName === 'matriz') {
+      document.getElementById('tabBtnMatriz').classList.add('active');
+      document.getElementById('tabBtnDetalhes').classList.remove('active');
+      document.getElementById('panelMatriz').classList.add('active');
+      document.getElementById('panelDetalhes').classList.remove('active');
+      renderMatriz();
+    } else {
+      document.getElementById('tabBtnMatriz').classList.remove('active');
+      document.getElementById('tabBtnDetalhes').classList.add('active');
+      document.getElementById('panelMatriz').classList.remove('active');
+      document.getElementById('panelDetalhes').classList.add('active');
+    }
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────
+  function fmtDate(s) {
+    if (!s) return '—';
+    var p = s.split('-');
+    return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : s;
+  }
+  // fmtNum vem de shared/utils.js
+  function fmtTs(ts) {
+    if (!ts) return '';
+    var d = new Date(ts);
+    return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+  }
+  function showAlert(msg, type) {
+    var el = document.getElementById('alertBox');
+    el.textContent = msg;
+    el.className = 'alert alert-' + (type||'success') + ' show';
+    setTimeout(function(){ el.classList.remove('show'); }, 5000);
+  }
+  function insumoStatus(item) {
+    var nec = item.qtdNecessaria || 0, rec = item.qtdRecebida || 0;
+    if (nec === 0) return 'recebido';
+    if (rec <= 0)  return 'pendente';
+    if (rec >= nec) return 'recebido';
+    return 'parcial';
+  }
+  function statusBadge(st) {
+    if (st === 'recebido') return '<span class="badge badge-green">✓ Recebido</span>';
+    if (st === 'parcial')  return '<span class="badge badge-orange">⚡ Parcial</span>';
+    return '<span class="badge badge-red">⏳ Pendente</span>';
+  }
+  function pct(rec, nec) { return nec > 0 ? Math.min(Math.round(rec/nec*100), 100) : (rec>0?100:0); }
+  function fillColor(p) { return p>=100?'#059669':p>=50?'#d97706':'#e02424'; }
+  function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  
+  // Única fonte das 12 categorias de insumo — antes hardcoded em 3 lugares
+  // deste arquivo (cabeçalho da matriz, checkIfAllInsumosOk, dropdown do
+  // modal de recebimento em lote).
+  var INSUMO_CATEGORIES = [
+    { key: 'artes',    short: 'Art', title: 'Verificação de Arte' },
+    { key: 'anvisa',   short: 'Anv', title: 'Registro Anvisa' },
+    { key: 'rotulos',  short: 'Rót', title: 'Rótulos' },
+    { key: 'frascos',  short: 'Fra', title: 'Frascos / Potes / Bisnagas' },
+    { key: 'tampas',   short: 'Tam', title: 'Tampas / Batoques' },
+    { key: 'cartucho', short: 'Car', title: 'Cartuchos' },
+    { key: 'valvulas', short: 'Vál', title: 'Válvulas / Spray / Pump' },
+    { key: 'celofane', short: 'Cel', title: 'Celofane' },
+    { key: 'display',  short: 'Dis', title: 'Displays' },
+    { key: 'caixas',   short: 'Cai', title: 'Caixas de Embarque' },
+    { key: 'essencia', short: 'Ess', title: 'Essência' },
+    { key: 'mp',       short: 'MP',  title: 'Matéria-Prima' }
+  ];
+
+  function checkIfAllInsumosOk(checklist) {
+    return INSUMO_CATEGORIES.every(function(cat) {
+      var val = checklist[cat.key];
+      return val === 'True' || val === '-';
+    });
+  }
+
+  // ── Render Checklist Matrix ──────────────────────────────────────
+  function renderMatriz() {
+    var q = document.getElementById('searchMatriz').value.trim().toLowerCase();
+    var groups = {};
+    
+    Object.entries(pedidosCache).forEach(function(entry) {
+      var key = entry[0], p = entry[1];
+      var matchesSearch = !q || 
+                          (p.id && String(p.id).toLowerCase().indexOf(q) !== -1) || 
+                          (p.produto && String(p.produto).toLowerCase().indexOf(q) !== -1) ||
+                          (p.cliente && String(p.cliente).toLowerCase().indexOf(q) !== -1);
+      if (!matchesSearch) return;
+      
+      var parentId = p.parentPedidoId || (p.id ? String(p.id).split('-')[0].trim() : 'Manual');
+      groups[parentId] = groups[parentId] || [];
+      groups[parentId].push({ key: key, p: p });
+    });
+
+    // Por padrão só mostra grupos com pelo menos um item ativo — resolve o
+    // "pedidos demais" (todo pedido já criado ficava listado pra sempre).
+    if (!showHistorico) {
+      Object.keys(groups).forEach(function(gid) {
+        var hasActive = groups[gid].some(function(item) { return !isConcluido(item.p); });
+        if (!hasActive) delete groups[gid];
+      });
+    }
+
+    var sortedGroupIds = Object.keys(groups).sort(function(a, b) {
+      var aActive = groups[a].some(function(item) { return !isConcluido(item.p); });
+      var bActive = groups[b].some(function(item) { return !isConcluido(item.p); });
+      if (aActive && !bActive) return -1;
+      if (!aActive && bActive) return 1;
+      return b.localeCompare(a, undefined, {numeric: true, sensitivity: 'base'});
+    });
+    
+    var html = "";
+    if (sortedGroupIds.length === 0) {
+      html = '<div class="no-sel" style="background:var(--card); border-radius:12px; border:1.5px solid var(--border);">Nenhum pedido encontrado.</div>';
+      document.getElementById('matrixContainer').innerHTML = html;
+      return;
+    }
+    
+    html += '<div class="matrix-table-wrap" style="overflow-x:auto; background:var(--card); border-radius:12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 1px solid var(--border);">';
+    html += '<table style="width:100%; border-collapse:collapse; min-width:960px; font-size:12px;">';
+    html += '<thead><tr style="background:#f8fafc; border-bottom:2px solid var(--border); text-align:center;">';
+    html += '<th style="padding:12px 10px; text-align:left; font-weight:700; color:var(--muted); text-transform:uppercase; font-size:10px;">Produto / SKU</th>';
+    INSUMO_CATEGORIES.forEach(function(cat, i) {
+      var borderStyle = i === 0 ? ' border-left:1px solid #e2e8f0;' : '';
+      html += '<th style="padding:12px 10px; font-weight:700; color:var(--muted); text-transform:uppercase; font-size:10px;' + borderStyle + '" title="' + cat.title + '">' + cat.short + '</th>';
+    });
+    html += '<th style="padding:12px 10px; font-weight:700; color:var(--muted); text-transform:uppercase; font-size:10px; background:#f0fdf4;" title="Insumos Completados (OK)">OK</th>';
+    html += '</tr></thead><tbody>';
+
+    var fields = INSUMO_CATEGORIES.map(function(cat) { return cat.key; }).concat(['ok']);
+    
+    sortedGroupIds.forEach(function(groupId) {
+      var items = groups[groupId];
+      
+      // Group Header Row
+      var firstItem = items[0].p;
+      var clientLabel = firstItem.cliente ? ' · ' + firstItem.cliente : '';
+      html += '<tr style="background:#f1f5f9; border-top:2px solid var(--border); border-bottom:1px solid var(--border);">';
+      html += '<td colspan="14" style="padding:8px 12px; font-weight:800; color:var(--primary); font-size:12px;">';
+      html += '📦 Pedido #' + groupId + clientLabel;
+      html += ' <span style="font-size:10px; font-weight:600; color:var(--muted); margin-left:6px;">(' + items.length + ' item' + (items.length!==1?'ns':'') + ')</span>';
+      html += '</td></tr>';
+      
+      items.forEach(function(item) {
+        var key = item.key, p = item.p;
+        var isConcl = isConcluido(p);
+        var trStyle = isConcl ? 'color:#64748b; background:#f8fafc; border-bottom:1px solid #edf2f7; cursor:pointer;' : 'border-bottom:1px solid #edf2f7; cursor:pointer;';
+        
+        html += '<tr style="' + trStyle + '" onclick="handleMatrixRowClick(event, \'' + key + '\')">';
+        
+        // SKU & Product info
+        html += '<td style="padding:10px; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" title="Clique para ver detalhes">';
+        html += '<div style="font-weight:700; font-size:12px; color:var(--text);">' + escHtml(p.produto) + '</div>';
+        html += '<div style="font-size:10px; color:var(--muted); font-family:monospace; margin-top:2px;">SKU: ' + (p.sku||'—') + ' · ' + fmtNum(p.qtdTotal) + ' un.</div>';
+        html += '</td>';
+        
+        // Render the 13 checklist columns
+        var checklist = p.insumosChecklist || {};
+        fields.forEach(function(field) {
+          var val = checklist[field];
+          var cellHtml = "";
+          var tdBg = (field === 'ok') ? 'background:#f0fdf4;' : '';
+          
+          if (val === 'True') {
+            cellHtml = '<span class="chk-badge chk-ok" data-field="' + field + '" data-key="' + key + '" title="OK! Clique para Não se Aplica">✔</span>';
+          } else if (val === '-') {
+            cellHtml = '<span class="chk-badge chk-na" data-field="' + field + '" data-key="' + key + '" title="Não se aplica. Clique para Pendente" style="color:var(--muted); font-weight:700; font-size:16px; cursor:pointer;">-</span>';
+          } else {
+            cellHtml = '<span class="chk-badge chk-pending" data-field="' + field + '" data-key="' + key + '" title="Pendente. Clique para OK">❓</span>';
+          }
+          
+          html += '<td style="padding:10px; text-align:center; border-left:1px solid #e2e8f0; ' + tdBg + '">';
+          html += cellHtml;
+          html += '</td>';
+        });
+        
+        html += '</tr>';
+      });
+    });
+    
+    html += '</tbody></table></div>';
+    document.getElementById('matrixContainer').innerHTML = html;
+  }
+
+  function handleMatrixRowClick(event, key) {
+    var badge = event.target.closest('.chk-badge');
+    if (badge) {
+      event.stopPropagation();
+      var field = badge.dataset.field;
+      var currentVal = pedidosCache[key] && pedidosCache[key].insumosChecklist && pedidosCache[key].insumosChecklist[field];
+      toggleMatrizCell(key, field, currentVal);
+      return;
+    }
+    var cell = event.target.closest('td');
+    if (cell && cell.cellIndex === 0) {
+      openSkuDetails(key);
+    }
+  }
+
+  function toggleMatrizCell(key, field, currentVal) {
+    var newVal = '';
+    if (!currentVal) {
+      newVal = 'True';
+    } else if (currentVal === 'True') {
+      newVal = '-';
+    } else if (currentVal === '-') {
+      newVal = '';
+    }
+    var updates = {};
+    
+    updates['pedidos/' + key + '/insumosChecklist/' + field] = newVal;
+    
+    var p = pedidosCache[key];
+    if (p) {
+      var checklist = Object.assign({}, p.insumosChecklist || {});
+      checklist[field] = newVal;
+      
+      if (field !== 'ok') {
+        var allOk = checkIfAllInsumosOk(checklist);
+        var currentOk = checklist['ok'];
+        var newOk = allOk ? 'True' : '';
+        if (currentOk !== newOk) {
+          updates['pedidos/' + key + '/insumosChecklist/ok'] = newOk;
+        }
+      }
+    }
+    
+    db.ref().update(updates).catch(function(err) {
+      alert("Erro ao atualizar checklist: " + err.message);
+    });
+  }
+
+  function openSkuDetails(key) {
+    switchTab('detalhes');
+    document.getElementById('selPedido').value = key;
+    document.getElementById('selPedidoBusca').value = labelDoPedidoSelecionado(key);
+    onPedidoChange();
+  }
+
+  // ── Detalhes do Pedido Page Logic ─────────────────────────────────
+  // Busca de pedido (attachAutocomplete, shared/utils.js) -- selecionar da
+  // lista grava a key real no campo escondido e dispara onPedidoChange;
+  // sair sem selecionar reverte o texto pro pedido que já estava
+  // confirmado (mesmo cuidado já usado em Cadastros/BOM e Pedidos).
+  attachAutocomplete(document.getElementById('selPedidoBusca'), function() { return selPedidoItems; }, {
+    onSelect: function(it) {
+      document.getElementById('selPedido').value = it.key;
+      onPedidoChange();
+    }
+  });
+  document.getElementById('selPedidoBusca').addEventListener('blur', function() {
+    this.value = labelDoPedidoSelecionado(document.getElementById('selPedido').value);
+  });
+  document.getElementById('selPedidoBusca').addEventListener('input', function() {
+    // Campo apagado à mão (sem selecionar da lista) = volta a "nenhum
+    // pedido selecionado", igual a escolher a opção vazia no <select> antigo.
+    if (!this.value.trim() && document.getElementById('selPedido').value) {
+      document.getElementById('selPedido').value = '';
+      onPedidoChange();
+    }
+  });
+
+  function onPedidoChange() {
+    var key = document.getElementById('selPedido').value;
+    currentPedKey = key || null;
+    // Zera o cache do pedido ANTERIOR logo de cara, ANTES de qualquer
+    // return antecipado (há um logo abaixo, no caminho "nenhum pedido
+    // selecionado"). Sem isso, entre trocar de pedido e o snapshot novo
+    // chegar, insumosData ainda tem as chaves do pedido velho -- e uma
+    // geração nessa janela gravaria insumos/pedidoNOVO/<chaveDoANTIGO>,
+    // criando registro órfão sem nome e sem qtdRecebida.
+    insumosData = {};
+    document.getElementById('btnNovoInsumo').disabled = !key;
+    // Solicitar Compra segue a mesma condição: sem pedido selecionado não há
+    // matriz de onde tirar a falta.
+    var btnSol = document.getElementById('btnGerarSolicitacao');
+    btnSol.disabled = !key;
+    btnSol.title = key ? 'Gerar solicitação de compra com o que falta neste pedido' : 'Selecione um pedido primeiro.';
+    atualizarBotaoGerarBom(); // reavalia se dá pra gerar do BOM pro pedido escolhido
+
+    if (!key) {
+      document.getElementById('pedidoInfo').className = 'ped-info';
+      document.getElementById('statsBlock').style.display = 'none';
+      document.getElementById('insumosBody').innerHTML = '<div class="no-sel">Selecione um pedido acima para ver ou adicionar insumos</div>';
+      document.getElementById('insumosCardTitle').textContent = 'Selecione um pedido';
+      if (insumosRef) { insumosRef.off(); insumosRef = null; }
+      return;
+    }
+
+    location.hash = key;
+    renderPedidoInfo();
+    document.getElementById('statsBlock').style.display = 'grid';
+    document.getElementById('insumosBody').innerHTML = '<div class="no-sel">Carregando insumos...</div>';
+
+    // Detach old listener
+    if (insumosRef) insumosRef.off();
+
+    // Attach realtime listener for this pedido's insumos
+    insumosRef = db.ref('insumos/' + key);
+    dbOnValue(insumosRef, function(snap) {
+      insumosData = snap.val() || {};
+      renderInsumos();
+      updatePedidoInsumoStatus();
+    });
+  }
+
+  function renderPedidoInfo() {
+    var p = pedidosCache[currentPedKey];
+    if (!p) return;
+    var pc = p.qtdTotal ? Math.round((p.produzido||0)/p.qtdTotal*100) : 0;
+    var fillW = Math.min(pc,100);
+    var fillC = pc>=95?'var(--success)':pc>=70?'var(--warning)':'var(--danger)';
+    var insSt = computeInsumoStatusLabel();
+    document.getElementById('pedidoInfo').className = 'ped-info show';
+    document.getElementById('pedidoInfo').innerHTML =
+      '<span class="pi-id">#' + (p.id||'—') + '</span>' +
+      '<div class="pi-produto">' + (p.produto||'—') + '</div>' +
+      '<div class="pi-meta">' + (p.linha||'—') + (p.dataProd?' · '+fmtDate(p.dataProd):'') + '</div>' +
+      '<div class="pi-prog">' +
+        '<div class="pi-bar"><div class="pi-fill" style="width:'+fillW+'%;background:'+fillC+'"></div></div>' +
+        '<span class="pi-pct" style="color:'+fillC+'">'+pc+'%</span>' +
+        '<span style="font-size:11px;color:var(--muted)">' + fmtNum(p.produzido) + '/' + fmtNum(p.qtdTotal) + ' un.</span>' +
+      '</div>' +
+      '<span class="ins-status-badge ' + insSt.cls + '">' + insSt.label + '</span>' +
+      '<a href="pedidos.html" class="btn btn-ghost btn-sm" style="font-weight:700;">Ver pedido →</a>';
+  }
+
+  function computeInsumoStatusLabel() {
+    var items = Object.values(insumosData);
+    if (!items.length) return { cls:'ins-pendente', label:'Sem insumos' };
+    var sts = items.map(insumoStatus);
+    if (sts.every(function(s){ return s==='recebido'; })) return { cls:'ins-ok', label:'✓ Insumos OK' };
+    if (sts.some(function(s){ return s==='recebido'||s==='parcial'; })) return { cls:'ins-parcial', label:'⚡ Parcial' };
+    return { cls:'ins-pendente', label:'⏳ Pendente' };
+  }
+
+  // Calcula o que o BOM/Fórmula do pedido selecionado exige, sem gravar
+  // nada. Devolve {ok, erro, itens[]} no mesmo formato de
+  // explodirMateriaisNecessarios. Usa o SALDO (total - produzido), não o
+  // total: insumo já consumido pelo que foi produzido não precisa ser
+  // comprado/separado de novo -- mesmo critério que compras.html usa.
+  // Resolve o produto pelo SKU atual OU por um SKU antigo (sku_historico),
+  // mesmo padrão que planejamento.html/horizonte.html já usam -- um produto
+  // renomeado não pode fazer a Matriz de Insumos parar de achar a Fórmula.
+  // Cada página tem a sua cópia dessa função hoje (não existe em
+  // shared/utils.js); aqui vai a versão mínima, sem duplicar mais lógica
+  // do que o necessário.
+  var skuHistoricoIns = {};
+  dbOnValue(db.ref('sku_historico'), function(snap) { skuHistoricoIns = snap.val() || {}; });
+  function produtoPorSkuIns(sku) {
+    if (!sku) return null;
+    if (allProdutosIns[sku]) return allProdutosIns[sku];
+    var atual = skuHistoricoIns[sku];
+    return atual && allProdutosIns[atual] ? allProdutosIns[atual] : null;
+  }
+
+  function calcularInsumosDoBom() {
+    var p = pedidosCache[currentPedKey];
+    if (!p) return { ok: false, erro: 'Selecione um pedido.' };
+    if (!p.sku) return { ok: false, erro: 'Este pedido não tem SKU definido -- sem SKU não dá pra achar a Fórmula/BOM.' };
+    var produto = produtoPorSkuIns(p.sku);
+    if (!produto) return { ok: false, erro: 'Produto "' + p.sku + '" não encontrado no cadastro de Produtos.' };
+    var achado = melhorFormulaDoProduto(p.sku, allFormulasIns);
+    if (!achado) return { ok: false, erro: 'Esse produto não tem Fórmula/BOM cadastrada -- cadastre em Cadastros › Fórmulas/BOM antes de gerar.' };
+    var formula = achado.registro;
+    var bom = bomDaVersao(allBomIns, p.sku, formula.versao) || { itens: {} };
+    var saldo = Math.max((p.qtdTotal || 0) - (p.produzido || 0), 0);
+    if (!saldo) return { ok: false, erro: 'Este pedido não tem saldo em aberto (tudo já produzido).' };
+    var calc = explodirMateriaisNecessarios(produto, saldo, formula, bom, allMateriaisIns);
+    if (!calc.ok) return calc;
+    calc.itens = calc.itens.filter(function(it) { return !materialSemControleEstoque(it.mpCodigo, allMateriaisIns); });
+    if (!calc.itens.length) return { ok: false, erro: 'A Fórmula/BOM deste produto não tem nenhum item cadastrado.' };
+    // temAprovada vem de melhorFormulaDoProduto: quando nenhuma versão está
+    // APROVADA ele cai na mais recente de qualquer status. compras.html já
+    // carimba um aviso nesse caso; sem propagar aqui, esta tela geraria
+    // necessidade de matéria-prima a partir de fórmula não aprovada em
+    // silêncio -- exatamente o que o fluxo de 3 aprovações existe pra evitar.
+    return { ok: true, itens: calc.itens, saldo: saldo, versao: formula.versao, temAprovada: achado.temAprovada };
+  }
+
+  // Habilita/desabilita o botão conforme dá ou não pra gerar, e explica no
+  // title por que não dá -- botão desabilitado sem explicação é pior que
+  // botão que erra.
+  function atualizarBotaoGerarBom() {
+    var btn = document.getElementById('btnGerarDoBom');
+    if (!btn) return;
+    if (!currentPedKey) { btn.disabled = true; btn.title = 'Selecione um pedido primeiro.'; return; }
+    var r = calcularInsumosDoBom();
+    btn.disabled = !r.ok;
+    btn.title = r.ok
+      ? ('Gera ' + r.itens.length + ' insumo(s) a partir da Fórmula/BOM versão ' + r.versao + ' para o saldo de ' + fmtNum(r.saldo) + ' un.')
+      : r.erro;
+  }
+
+  // Gera/atualiza os insumos a partir do BOM.
+  // NUNCA apaga nem sobrescreve trabalho manual:
+  //  - casa com o que já existe por mpCodigo (ou, pra linhas antigas sem
+  //    código, pelo nome) e só ATUALIZA a quantidade necessária;
+  //  - qtdRecebida NUNCA é tocada -- é dado operacional de recebimento;
+  //  - insumo manual que não está no BOM continua na lista, intacto.
+  function gerarInsumosDoBom() {
+    var r = calcularInsumosDoBom();
+    if (!r.ok) { showAlert(r.erro, 'danger'); return; }
+
+    var existentesPorCodigo = {}, existentesPorNome = {};
+    Object.entries(insumosData).forEach(function(e) {
+      if (e[1].mpCodigo) existentesPorCodigo[e[1].mpCodigo] = e[0];
+      // O casamento por NOME só vale pra linha LEGADA (sem mpCodigo). Antes
+      // valia pra todas, e aí um material B com nome igual ao de um material
+      // A já vinculado "roubava" a linha do A: o A sumia da lista de
+      // separação (almoxarifado não separa, linha para) e a quantidade já
+      // recebida do A passava a constar como sendo do B. O dado não era
+      // sobrescrito, era REALOCADO pro material errado -- pior.
+      if (!e[1].mpCodigo && e[1].nome) existentesPorNome[normalizeSearch(e[1].nome)] = e[0];
+    });
+
+    // Consolida por mpCodigo ANTES de gravar. explodirMateriaisNecessarios
+    // devolve um item por LINHA de fórmula/BOM, e nada impede o mesmo
+    // material em duas linhas (rótulo frente + verso do mesmo código, ou um
+    // item que está na Fórmula E no BOM). Sem consolidar: a 1ª geração criava
+    // duas linhas pro mesmo material, e a regeração colapsava as duas no
+    // mesmo caminho de update (a última vencia), deixando a outra linha
+    // congelada e nunca mais atualizada por BOM nenhum.
+    var consolidados = [];
+    var porCodigo = {};
+    r.itens.forEach(function(it) {
+      // Item de fórmula/BOM ainda pendente de revisão (sem código de material
+      // resolvido) não vira insumo: sem mpCodigo ele nunca seria reencontrado
+      // na regeração e viraria uma linha-lixo nova a cada clique.
+      if (!it.mpCodigo) return;
+      if (porCodigo[it.mpCodigo]) {
+        porCodigo[it.mpCodigo].quantidade = Math.round((porCodigo[it.mpCodigo].quantidade + it.quantidade) * 1000) / 1000;
+        return;
+      }
+      porCodigo[it.mpCodigo] = { mpCodigo: it.mpCodigo, mpNome: it.mpNome, quantidade: it.quantidade, unidade: it.unidade, origem: it.origem };
+      consolidados.push(porCodigo[it.mpCodigo]);
+    });
+    var ignorados = r.itens.length - r.itens.filter(function(it) { return it.mpCodigo; }).length;
+
+    var updates = {};
+    var criados = 0, atualizados = 0;
+    consolidados.forEach(function(it) {
+      var keyExistente = existentesPorCodigo[it.mpCodigo] || existentesPorNome[normalizeSearch(it.mpNome || '')];
+      var base = 'insumos/' + currentPedKey + '/';
+      if (keyExistente) {
+        // só a necessidade e a identificação -- qtdRecebida fica como está
+        updates[base + keyExistente + '/qtdNecessaria'] = it.quantidade;
+        updates[base + keyExistente + '/mpCodigo'] = it.mpCodigo;
+        updates[base + keyExistente + '/unidade'] = it.unidade || null;
+        updates[base + keyExistente + '/origemBom'] = it.origem || null;
+        atualizados++;
+      } else {
+        var novaKey = db.ref('insumos/' + currentPedKey).push().key;
+        updates[base + novaKey] = {
+          nome: it.mpNome || it.mpCodigo,
+          mpCodigo: it.mpCodigo,
+          qtdNecessaria: it.quantidade,
+          qtdRecebida: 0,
+          unidade: it.unidade || null,
+          origemBom: it.origem || null,
+          geradoEm: new Date().toISOString()
+        };
+        criados++;
+      }
+    });
+
+    if (!Object.keys(updates).length) {
+      showAlert(ignorados
+        ? ('Nada a gerar: ' + ignorados + ' item(ns) da Fórmula/BOM estão sem código de material resolvido. Resolva em Cadastros › Fórmulas/BOM antes de gerar.')
+        : 'Nada a gerar.', 'danger');
+      return;
+    }
+    var btn = document.getElementById('btnGerarDoBom');
+    btn.disabled = true; btn.textContent = 'Gerando...';
+    db.ref().update(updates).then(function() {
+      btn.textContent = '⚙ Gerar do BOM';
+      atualizarBotaoGerarBom();
+      showAlert('Fórmula/BOM v' + r.versao + (r.temAprovada ? '' : ' (⚠ SEM versão APROVADA -- confira com P&D/Qualidade)') +
+        ' aplicada: ' + criados + ' insumo(s) criado(s), ' + atualizados + ' atualizado(s).' +
+        (ignorados ? ' ' + ignorados + ' item(ns) da fórmula sem código de material ficaram de fora -- resolva em Cadastros › Fórmulas/BOM.' : '') +
+        ' Quantidades recebidas não foram alteradas.', r.temAprovada ? 'success' : 'danger');
+    }).catch(function(e) {
+      btn.disabled = false; btn.textContent = '⚙ Gerar do BOM';
+      showAlert('Erro ao gerar insumos: ' + e.message, 'danger');
+    });
+  }
+
+  function renderInsumos() {
+    var items = Object.entries(insumosData);
+    var total=0, recebidos=0, parciais=0, pendentes=0;
+    items.forEach(function(e) {
+      var st = insumoStatus(e[1]); total++;
+      if (st==='recebido') recebidos++;
+      else if (st==='parcial') parciais++;
+      else pendentes++;
+    });
+    
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statRecebidos').textContent = recebidos;
+    document.getElementById('statParciais').textContent = parciais;
+    document.getElementById('statPendentes').textContent = pendentes;
+    document.getElementById('insumosCardTitle').textContent = total + ' insumo' + (total!==1?'s':'') + ' cadastrados';
+
+    if (!items.length) {
+      document.getElementById('insumosBody').innerHTML = '<div class="no-sel" style="padding:30px">Nenhum insumo físico cadastrado para este pedido.<br><br><button class="btn btn-success btn-sm" id="btnFirstInsumo">+ Adicionar primeiro insumo</button></div>';
+      var fi = document.getElementById('btnFirstInsumo');
+      if (fi) fi.addEventListener('click', openNewInsumoModal);
+      return;
+    }
+
+    // Sort: pendente first, then parcial, then recebido
+    items.sort(function(a,b){
+      var order = {pendente:0, parcial:1, recebido:2};
+      return order[insumoStatus(a[1])] - order[insumoStatus(b[1])];
+    });
+
+    document.getElementById('insumosBody').innerHTML = items.map(function(entry) {
+      var key = entry[0], item = entry[1];
+      var st  = insumoStatus(item);
+      var pc  = pct(item.qtdRecebida||0, item.qtdNecessaria||0);
+      var fc  = fillColor(pc);
+      var obsObj = item.obs || {};
+      var obsEntries = Object.entries(obsObj).sort(function(a,b){ return a[1].ts < b[1].ts ? -1 : 1; });
+      var obsCount = obsEntries.length;
+
+      var obsHtml = obsEntries.map(function(oe) {
+        return '<div class="obs-entry">' +
+          '<div class="obs-header-line">' +
+            '<div class="obs-ts">' + fmtTs(oe[1].ts) + '</div>' +
+          '</div>' +
+          '<div class="obs-text">' + escHtml(oe[1].texto) + '</div>' +
+        '</div>';
+      }).join('');
+
+      var iconChar = st==='recebido' ? '🟢' : st==='parcial' ? '⚡' : '🔴';
+
+      // Selo do material vinculado + saldo em estoque. Só aparece pra insumo
+      // vindo do BOM (tem mpCodigo) -- insumo digitado à mão continua exibido
+      // exatamente como antes, sem selo nenhum.
+      var selo = '';
+      if (item.mpCodigo) {
+        var estItem = allEstoqueIns[sanitizeKey(item.mpCodigo)];
+        var empenhado = estItem ? (estItem.saldoEmpenhado || 0) : 0;
+        // Geral da Kuryos + a parte do cliente deste pedido; material de outro
+        // cliente não conta (shared/propriedade-estoque.js).
+        var disponivel = estItem ? disponivelParaCliente(estItem, clienteKeyDoPedidoAtual()) : null;
+        var falta = (item.qtdNecessaria || 0) - (disponivel || 0);
+        var corEstoque = disponivel == null ? 'var(--muted)' : (falta > 0 ? 'var(--danger)' : 'var(--success)');
+        var txtEstoque = disponivel == null
+          ? 'sem registro de estoque'
+          : ('disp. ' + fmtNum(disponivel) + (empenhado ? ' (empenhado ' + fmtNum(empenhado) + ')' : '') + (falta > 0 ? ' · faltam ' + fmtNum(falta) : ''));
+        selo = '<span title="Material ' + escHtml(item.mpCodigo) + ' vinculado pelo BOM" ' +
+          // texto BRANCO sobre --primary-light: esse token aqui é um azul
+          // saturado (hover de botão), não um tint claro -- azul sobre azul
+          // dava 2,4:1 no tema claro e 1,7:1 no escuro, ilegível a 10px num
+          // tablet de chão de fábrica.
+          'style="font-size:10px;font-weight:700;color:#fff;background:var(--primary-light);padding:1px 5px;border-radius:3px;margin-left:6px">' +
+          escHtml(item.mpCodigo) + '</span>' +
+          '<span style="font-size:10px;color:' + corEstoque + ';margin-left:6px">' + escHtml(txtEstoque) + '</span>';
+      }
+
+      return '<div class="insumo-item" id="ins-' + key + '">' +
+        '<div class="insumo-row">' +
+          '<span style="font-size:16px">' + iconChar + '</span>' +
+          '<span class="ins-nome">' + escHtml(item.nome||'—') + selo + '</span>' +
+          '<div class="ins-qtd-block">' +
+            '<span class="ins-qtd-rec">' + fmtNum(item.qtdRecebida||0) + '</span>' +
+            '<span class="ins-qtd-sep">/</span>' +
+            '<span class="ins-qtd-nec">' + fmtNum(item.qtdNecessaria||0) + '</span>' +
+            '<span style="font-size:10px;color:var(--muted);margin-left:2px">un.</span>' +
+          '</div>' +
+          '<div class="ins-bar-wrap"><div class="ins-bar"><div class="ins-bar-fill" style="width:'+pc+'%;background:'+fc+'"></div></div></div>' +
+          statusBadge(st) +
+          '<div class="ins-actions">' +
+            '<button class="act-btn" data-ins-action="recv" data-key="'+key+'">✓ Receber</button>' +
+            '<button class="act-btn" data-ins-action="obs-toggle" data-key="'+key+'">💬 ' + (obsCount?obsCount:'') + '</button>' +
+            '<button class="act-btn" data-ins-action="edit" data-key="'+key+'">✏️</button>' +
+            '<button class="act-btn del" data-ins-action="del" data-key="'+key+'">🗑</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="obs-feed" id="obs-' + key + '">' +
+          (obsHtml || '<div class="obs-feed-empty">Nenhuma observação cadastrada.</div>') +
+          '<div class="obs-add">' +
+            '<textarea id="obs-input-'+key+'" placeholder="Adicionar observação..."></textarea>' +
+            '<button class="btn btn-ghost btn-sm" data-ins-action="obs-save" data-key="'+key+'" style="font-weight:700;">Adicionar</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  // ── Insumos body event delegation ────────────────────────────────
+  document.getElementById('insumosBody').addEventListener('click', function(e) {
+    var btn = e.target.closest('[data-ins-action]');
+    if (!btn) return;
+    var action = btn.dataset.insAction, key = btn.dataset.key;
+    if (action === 'edit')       openEditInsumoModal(key);
+    if (action === 'del')        deleteInsumo(key);
+    if (action === 'recv')       openRecvModal(key);
+    if (action === 'obs-toggle') toggleObs(key);
+    if (action === 'obs-save')   saveObs(key);
+  });
+
+  function toggleObs(key) {
+    var feed = document.getElementById('obs-' + key);
+    if (feed) feed.classList.toggle('open');
+  }
+
+  function saveObs(key) {
+    var ta = document.getElementById('obs-input-' + key);
+    var txt = ta ? ta.value.trim() : '';
+    if (!txt || !currentPedKey) return;
+    db.ref('insumos/' + currentPedKey + '/' + key + '/obs').push({
+      texto: txt,
+      ts: new Date().toISOString()
+    }).then(function() { ta.value = ''; }).catch(function(e) {
+      showAlert('Erro ao salvar observação: ' + e.message, 'danger');
+    });
+  }
+
+  function updatePedidoInsumoStatus() {
+    if (!currentPedKey) return;
+    var items = Object.values(insumosData);
+    var st;
+    if (!items.length) { st = null; }
+    else {
+      var sts = items.map(insumoStatus);
+      if (sts.every(function(s){ return s==='recebido'; })) st = 'ok';
+      else if (sts.some(function(s){ return s==='recebido'||s==='parcial'; })) st = 'parcial';
+      else st = 'pendente';
+    }
+    if (st) db.ref('pedidos/' + currentPedKey + '/insumoStatus').set(st);
+    if (currentPedKey && pedidosCache[currentPedKey]) renderPedidoInfo();
+  }
+
+  /* ── Solicitar Compra a partir da falta ───────────────────────────
+     Fecha o elo MRP → Compras (auditoria de integração, 2026-09-08). A conta
+     é a MESMA já exibida ao lado de cada insumo -- `faltasParaSolicitacao`
+     em shared/utils.js, testada isolada. Aqui fica só a tela. */
+  var solCompraFaltas = null;
+
+  function abrirModalSolicitarCompra() {
+    if (!currentPedKey) { showAlert('Selecione um pedido primeiro.', 'danger'); return; }
+    var r = faltasParaSolicitacao(insumosData, allEstoqueIns, clienteKeyDoPedidoAtual());
+    solCompraFaltas = r;
+
+    var avisos = [];
+    if (r.semCodigo.length) {
+      avisos.push('<div class="form-hint" style="color:var(--warning)"><b>' + r.semCodigo.length +
+        ' insumo(s) sem material vinculado</b> ficaram de fora — solicitação de compra precisa de código de material. ' +
+        'Resolva em Cadastros ou use "⚙ Gerar do BOM". (' + r.semCodigo.slice(0, 4).map(escHtml).join(', ') +
+        (r.semCodigo.length > 4 ? '…' : '') + ')</div>');
+    }
+    if (r.semEstoque) {
+      avisos.push('<div class="form-hint" style="color:var(--warning)"><b>' + r.semEstoque +
+        ' item(ns) sem registro de estoque</b> — a falta foi calculada como se o saldo fosse zero. ' +
+        'Confira no galpão antes de enviar.</div>');
+    }
+    document.getElementById('solCompraResumo').innerHTML = avisos.join('');
+
+    var box = document.getElementById('solCompraItens');
+    if (!r.itens.length) {
+      box.innerHTML = '<div class="no-sel" style="padding:24px">Nenhuma falta a comprar: o estoque disponível cobre todos os insumos deste pedido.</div>';
+      document.getElementById('solCompraSave').disabled = true;
+    } else {
+      document.getElementById('solCompraSave').disabled = false;
+      box.innerHTML = '<label class="form-label">Itens a solicitar</label>' +
+        r.itens.map(function(it, i) {
+          // O disponível já mostra o número; o alerta explica o que ele
+          // significa, sem repetir o valor.
+          var dispTxt, alerta = '';
+          if (it.semRegistroEstoque) {
+            dispTxt = 'sem registro';
+            alerta = '<span style="color:var(--warning);font-size:10px"> · calculado como saldo zero</span>';
+          } else {
+            dispTxt = fmtNum(it.disponivel);
+            if (it.saldoNegativo) alerta = '<span style="color:var(--danger);font-size:10px"> · saldo negativo, base de estoque furada</span>';
+          }
+          return '<div style="display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">' +
+            '<input type="checkbox" class="solc-usar" data-i="' + i + '" checked>' +
+            '<div style="flex:1;min-width:0">' +
+              '<div style="font-size:13px;font-weight:600">' + escHtml(it.nome) + '</div>' +
+              '<div style="font-size:10.5px;color:var(--muted)">' + escHtml(it.mpCodigo) +
+                ' · precisa ' + fmtNum(it.qtdNecessaria) +
+                ' · disp. ' + dispTxt + alerta + '</div>' +
+            '</div>' +
+            '<input type="number" class="solc-qtd form-ctrl" data-i="' + i + '" min="0" step="any" ' +
+              'style="width:104px;margin:0" value="' + it.falta + '">' +
+            '<span style="font-size:11px;color:var(--muted);width:38px">' + escHtml(it.unidade || '') + '</span>' +
+          '</div>';
+        }).join('');
+    }
+    document.getElementById('solCompraContagem').textContent =
+      r.itens.length + ' item(ns) com falta';
+    document.getElementById('solCompraJustificativa').value =
+      'Falta apurada na Matriz de Insumos do pedido ' + (currentPedKey || '') + '.';
+    document.getElementById('solCompraModalBg').classList.add('open');
+  }
+
+  function salvarSolicitacaoCompra() {
+    if (!solCompraFaltas || !currentPedKey) return;
+    var escolhidos = [];
+    document.querySelectorAll('#solCompraItens .solc-usar').forEach(function(chk) {
+      if (!chk.checked) return;
+      var i = parseInt(chk.getAttribute('data-i'), 10);
+      var qtdEl = document.querySelector('#solCompraItens .solc-qtd[data-i="' + i + '"]');
+      var qtd = parseFloat(qtdEl && qtdEl.value);
+      if (!(qtd > 0)) return;
+      escolhidos.push({ it: solCompraFaltas.itens[i], qtd: qtd });
+    });
+    if (!escolhidos.length) { showAlert('Selecione ao menos um item com quantidade maior que zero.', 'danger'); return; }
+
+    var btn = document.getElementById('solCompraSave');
+    btn.disabled = true;
+    var autor = (window.currentUser && window.currentUser.nome) || 'Sistema';
+    var itensObj = {};
+    escolhidos.forEach(function(e) {
+      var itemKey = db.ref('solicitacoes_compra').push().key;
+      itensObj[itemKey] = {
+        materialCodigo: e.it.mpCodigo,
+        materialNome: e.it.nome,
+        qtd: e.qtd,
+        unidade: e.it.unidade || '',
+        // Rastro de ONDE o número saiu: sem isso, quem aprova não consegue
+        // conferir a conta nem entender por que essa quantidade e não outra.
+        obs: 'Matriz de Insumos: necessário ' + fmtNum(e.it.qtdNecessaria) +
+             ', disponível ' + (e.it.disponivel == null ? 'sem registro' : fmtNum(e.it.disponivel))
+      };
+    });
+
+    nextSequential(db, 'config/contadores/solicitacaoCompra', 'SC', 4).then(function(seq) {
+      var key = db.ref('solicitacoes_compra').push().key;
+      var updates = {};
+      updates['solicitacoes_compra/' + key] = {
+        numero: seq.numero, numeroFormatado: seq.formatado,
+        itens: itensObj,
+        justificativa: document.getElementById('solCompraJustificativa').value.trim(),
+        solicitante: autor, status: 'PENDENTE',
+        aprovacao: null, rejeicao: null,
+        criadoPor: autor, criadoEm: new Date().toISOString(),
+        // Marca a procedência. É o que permite responder depois "quanto da
+        // nossa compra nasceu do MRP e quanto nasceu de pedido avulso?" --
+        // mesmo princípio da marca origemDireta no Pedido de Compra Direto.
+        origemMatriz: true,
+        pedidoOrigemKey: currentPedKey
+      };
+      // Sinaliza no pedido que a falta já virou solicitação. Não impede gerar
+      // de novo (pode faltar mais depois), só evita a duplicata por esquecimento.
+      updates['pedidos/' + currentPedKey + '/solicitacaoInsumosEm'] = new Date().toISOString();
+      updates['pedidos/' + currentPedKey + '/solicitacaoInsumosNumero'] = seq.formatado;
+      return db.ref().update(updates).then(function() { return seq; });
+    }).then(function(seq) {
+      btn.disabled = false;
+      document.getElementById('solCompraModalBg').classList.remove('open');
+      showAlert('Solicitação ' + seq.formatado + ' enviada a Compras com ' + escolhidos.length + ' item(ns).', 'success');
+    }).catch(function(err) {
+      btn.disabled = false;
+      showAlert('Erro ao enviar solicitação: ' + err.message, 'danger');
+    });
+  }
+
+  document.getElementById('btnGerarSolicitacao').addEventListener('click', abrirModalSolicitarCompra);
+  document.getElementById('solCompraClose').addEventListener('click', function() { document.getElementById('solCompraModalBg').classList.remove('open'); });
+  document.getElementById('solCompraCancel').addEventListener('click', function() { document.getElementById('solCompraModalBg').classList.remove('open'); });
+  document.getElementById('solCompraSave').addEventListener('click', salvarSolicitacaoCompra);
+
+  // ── Modal: Novo / Editar Insumo ──────────────────────────────────
+  document.getElementById('btnNovoInsumo').addEventListener('click', openNewInsumoModal);
+  document.getElementById('btnGerarDoBom').addEventListener('click', gerarInsumosDoBom);
+  function openNewInsumoModal() { openEditInsumoModal(null); }
+
+  function openEditInsumoModal(key) {
+    editingInsumoKey = key;
+    var item = key ? insumosData[key] : null;
+    document.getElementById('insumoModalTitle').textContent = key ? 'Editar Insumo' : 'Novo Insumo';
+    document.getElementById('iNome').value = item ? (item.nome||'') : '';
+    document.getElementById('iQtdNec').value = item ? (item.qtdNecessaria||0) : '';
+    document.getElementById('iQtdRec').value = item ? (item.qtdRecebida||0) : '';
+    document.getElementById('iObsInicial').value = '';
+    document.getElementById('btnDeleteInsumo').style.display = key ? 'inline-flex' : 'none';
+    document.getElementById('insumoAlertBox').classList.remove('show');
+    document.getElementById('insumoModalBg').classList.add('open');
+    document.getElementById('iNome').focus();
+  }
+
+  document.getElementById('insumoModalClose').addEventListener('click', closeInsumoModal);
+  document.getElementById('insumoModalCancel').addEventListener('click', closeInsumoModal);
+  document.getElementById('insumoModalBg').addEventListener('click', function(e){ if(e.target===this) closeInsumoModal(); });
+  function closeInsumoModal() {
+    document.getElementById('insumoModalBg').classList.remove('open');
+    editingInsumoKey = null;
+  }
+
+  document.getElementById('insumoModalSave').addEventListener('click', function() {
+    if (!currentPedKey) return;
+    var nome = document.getElementById('iNome').value.trim();
+    var qtdNec = parseFloat(document.getElementById('iQtdNec').value) || 0;
+    var qtdRec = parseFloat(document.getElementById('iQtdRec').value) || 0;
+    var obsText = document.getElementById('iObsInicial').value.trim();
+    if (!nome) { showInsumoAlert('Informe o nome do insumo.'); return; }
+
+    var btn = this; btn.disabled = true; btn.textContent = 'Salvando...';
+    var ref = editingInsumoKey
+      ? db.ref('insumos/' + currentPedKey + '/' + editingInsumoKey)
+      : db.ref('insumos/' + currentPedKey).push();
+
+    var data = { nome: nome, qtdNecessaria: qtdNec, qtdRecebida: qtdRec };
+
+    ref.update(data).then(function() {
+      if (obsText) {
+        return db.ref('insumos/' + currentPedKey + '/' + ref.key + '/obs').push({
+          texto: obsText, ts: new Date().toISOString()
+        });
+      }
+    }).then(function() {
+      btn.disabled = false; btn.textContent = 'Salvar';
+      closeInsumoModal();
+      showAlert(editingInsumoKey ? 'Insumo atualizado.' : 'Insumo adicionado.', 'success');
+    }).catch(function(e){ btn.disabled = false; btn.textContent = 'Salvar'; showInsumoAlert(e.message); });
+  });
+
+  function showInsumoAlert(msg) {
+    var el = document.getElementById('insumoAlertBox');
+    el.textContent = msg; el.className = 'alert alert-danger show';
+  }
+
+  document.getElementById('btnDeleteInsumo').addEventListener('click', function() {
+    if (!editingInsumoKey || !currentPedKey) return;
+    var item = insumosData[editingInsumoKey];
+    if (!confirm('Excluir o insumo "' + (item?item.nome:editingInsumoKey) + '"?')) return;
+    db.ref('insumos/' + currentPedKey + '/' + editingInsumoKey).remove().then(function() {
+      closeInsumoModal(); showAlert('Insumo excluído.', 'success');
+    }).catch(function(e) {
+      showInsumoAlert('Erro ao excluir: ' + e.message);
+    });
+  });
+
+  function deleteInsumo(key) {
+    var item = insumosData[key];
+    if (!confirm('Excluir o insumo "' + (item?item.nome:key) + '"?')) return;
+    db.ref('insumos/' + currentPedKey + '/' + key).remove().then(function() {
+      showAlert('Insumo excluído.', 'success');
+    });
+  }
+
+  // ── Modal: Registrar Recebimento Físico ──────────────────────────
+  function openRecvModal(key) {
+    recvInsumoKey = key;
+    var item = insumosData[key];
+    if (!item) return;
+    document.getElementById('recvModalTitle').textContent = '✓ Receber: ' + (item.nome||'');
+    document.getElementById('recvCurrentInfo').innerHTML =
+      '<strong>' + fmtNum(item.qtdRecebida||0) + '</strong> de <strong>' + fmtNum(item.qtdNecessaria||0) + '</strong> unidades já recebidas (' + pct(item.qtdRecebida||0, item.qtdNecessaria||0) + '%)';
+    document.getElementById('rQtdRec').value = item.qtdRecebida || 0;
+    document.getElementById('rObs').value = '';
+    document.getElementById('recvModalBg').classList.add('open');
+    document.getElementById('rQtdRec').focus();
+    document.getElementById('rQtdRec').select();
+  }
+
+  document.getElementById('recvModalClose').addEventListener('click', closeRecvModal);
+  document.getElementById('recvModalCancel').addEventListener('click', closeRecvModal);
+  document.getElementById('recvModalBg').addEventListener('click', function(e){ if(e.target===this) closeRecvModal(); });
+  function closeRecvModal() {
+    document.getElementById('recvModalBg').classList.remove('open');
+    recvInsumoKey = null;
+  }
+
+  document.getElementById('recvModalSave').addEventListener('click', function() {
+    if (!recvInsumoKey || !currentPedKey) return;
+    var qtdRec = parseFloat(document.getElementById('rQtdRec').value) || 0;
+    if (qtdRec < 0) { alert('Quantidade recebida não pode ser negativa.'); return; }
+    var obsText = document.getElementById('rObs').value.trim();
+    var item = insumosData[recvInsumoKey];
+    
+    var progressPct = pct(qtdRec, item.qtdNecessaria||0);
+    var newStatus = progressPct >= 100 ? 'recebido' : qtdRec > 0 ? 'parcial' : 'pendente';
+
+    var btn = this; btn.disabled = true; btn.textContent = 'Salvando...';
+    var updates = {};
+    updates['insumos/' + currentPedKey + '/' + recvInsumoKey + '/qtdRecebida'] = qtdRec;
+
+    var obsRef = db.ref('insumos/' + currentPedKey + '/' + recvInsumoKey + '/obs').push();
+    if (obsText) {
+      updates['insumos/' + currentPedKey + '/' + recvInsumoKey + '/obs/' + obsRef.key] = {
+        texto: obsText, ts: new Date().toISOString()
+      };
+    } else {
+      updates['insumos/' + currentPedKey + '/' + recvInsumoKey + '/obs/' + obsRef.key] = {
+        texto: 'Recebimento atualizado fisicamente: ' + fmtNum(qtdRec) + ' un. (Atingiu: ' + progressPct + '%)',
+        ts: new Date().toISOString()
+      };
+    }
+
+    // Guess corresponding checklist column to autocheck to True on 100%
+    var guessedCol = guessChecklistColumn(item.nome || "", item.origemBom);
+    if (guessedCol) {
+      var is100 = progressPct >= 100;
+      // If we hit 100%, check it! Otherwise if it was checked, should we uncheck?
+      // Typically, we only auto-check to True. We don't uncheck unless they manually do it, or if it falls below 100%, we set to empty string.
+      // Let's set it dynamically:
+      var isCurrentTrue = pedidosCache[currentPedKey] && pedidosCache[currentPedKey].insumosChecklist && pedidosCache[currentPedKey].insumosChecklist[guessedCol] === 'True';
+      
+      if (is100 && !isCurrentTrue) {
+        updates['pedidos/' + currentPedKey + '/insumosChecklist/' + guessedCol] = 'True';
+        
+        // Check if OK should trigger too
+        var tempChecklist = Object.assign({}, (pedidosCache[currentPedKey] && pedidosCache[currentPedKey].insumosChecklist) || {});
+        tempChecklist[guessedCol] = 'True';
+        if (checkIfAllInsumosOk(tempChecklist)) {
+          updates['pedidos/' + currentPedKey + '/insumosChecklist/ok'] = 'True';
+        }
+      } else if (!is100 && isCurrentTrue) {
+        // If they drop below 100% and it was True, mark it pending (empty string)
+        updates['pedidos/' + currentPedKey + '/insumosChecklist/' + guessedCol] = '';
+        updates['pedidos/' + currentPedKey + '/insumosChecklist/ok'] = '';
+      }
+    }
+
+    db.ref().update(updates).then(function() {
+      btn.disabled = false; btn.textContent = '✓ Salvar Recebimento';
+      closeRecvModal();
+      showAlert('Recebimento registrado fisicamente com sucesso.', 'success');
+    }).catch(function(e){ btn.disabled = false; btn.textContent = '✓ Salvar Recebimento'; showAlert(e.message,'danger'); });
+  });
+
+  // ── Batch Allocation Tool Modal Logic ─────────────────────────────
+  function openBatchRecvModal() {
+    var sel = document.getElementById('brPedidoId');
+    sel.innerHTML = '<option value="">— Selecione o Pedido ID —</option>';
+    
+    var uniqueIds = new Set();
+    Object.values(pedidosCache).forEach(function(p) {
+      if (p.id && p.status !== 'Concluído' && p.statusManual !== 'encerrado') {
+        uniqueIds.add(String(p.id).trim());
+      }
+    });
+    
+    var sortedIds = Array.from(uniqueIds).sort(function(a, b) {
+      return b.localeCompare(a, undefined, {numeric: true, sensitivity: 'base'});
+    });
+    
+    sortedIds.forEach(function(id) {
+      var opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = "Pedido #" + id;
+      sel.appendChild(opt);
+    });
+    
+    document.getElementById('brMaterial').innerHTML = '<option value="">— Selecione um pedido primeiro —</option>';
+    document.getElementById('brQtd').value = "";
+    document.getElementById('brColuna').value = "";
+    document.getElementById('brPreviewList').innerHTML = '<div style="color:var(--muted); font-size:12px; text-align:center; padding:10px;">Selecione o pedido e o material para ver a simulação de alocação.</div>';
+    brCurrentPedidoInsumos = [];
+    
+    document.getElementById('batchRecvModalBg').classList.add('open');
+  }
+
+  function closeBatchRecvModal() {
+    document.getElementById('batchRecvModalBg').classList.remove('open');
+  }
+
+  function onBatchRecvPedidoChange() {
+    var pedId = document.getElementById('brPedidoId').value;
+    var matSelect = document.getElementById('brMaterial');
+    matSelect.innerHTML = '<option value="">— Carregando materiais... —</option>';
+    
+    if (!pedId) {
+      matSelect.innerHTML = '<option value="">— Selecione um pedido primeiro —</option>';
+      document.getElementById('brPreviewList').innerHTML = '<div style="color:var(--muted); font-size:12px; text-align:center; padding:10px;">Selecione o pedido e o material para ver a simulação de alocação.</div>';
+      return;
+    }
+    
+    // Find all target SKUs in this order
+    var skuKeys = Object.keys(pedidosCache).filter(function(k) {
+      return pedidosCache[k].id === pedId;
+    });
+    
+    // Fetch insumos for all target SKUs
+    var promises = skuKeys.map(function(k) {
+      return db.ref('insumos/' + k).once('value').then(function(snap) {
+        return { key: k, val: snap.val() || {} };
+      });
+    });
+    
+    Promise.all(promises).then(function(results) {
+      var uniqueNames = new Set();
+      results.forEach(function(res) {
+        Object.values(res.val).forEach(function(ins) {
+          if (ins.nome) uniqueNames.add(ins.nome.trim());
+        });
+      });
+      
+      matSelect.innerHTML = '<option value="">— Selecione o material comum —</option>';
+      uniqueNames.forEach(function(name) {
+        var opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        matSelect.appendChild(opt);
+      });
+      
+      brCurrentPedidoInsumos = results;
+      updateBatchRecvPreview();
+    });
+  }
+
+  function onBatchRecvMaterialChange() {
+    var matName = document.getElementById('brMaterial').value;
+    var colSelect = document.getElementById('brColuna');
+    
+    if (matName) {
+      var guessed = guessChecklistColumn(matName);
+      colSelect.value = guessed || "";
+    } else {
+      colSelect.value = "";
+    }
+    
+    updateBatchRecvPreview();
+  }
+
+  // Casa "word" como palavra inteira (delimitada por não-letras), evitando
+  // falsos positivos tipo "mp" dentro de "compra" ou "ativo" dentro de "decorativo".
+  function hasWord(text, word) {
+    return new RegExp('(^|[^a-zà-ÿ])' + word + '([^a-zà-ÿ]|$)', 'i').test(text);
+  }
+
+  // `origemBom` (2º parâmetro, opcional) é MUITO mais confiável que adivinhar
+  // pelo nome, e só existe nos insumos gerados a partir da Fórmula/BOM:
+  // origem 'formula' é matéria-prima por construção. Sem isso, nome químico
+  // real (AGUA DEIONIZADA, GLICERINA BIDESTILADA, COCAMIDOPROPIL BETAINA)
+  // nunca casaria com "matéria"/"mp"/"químico"/"ativo", a coluna `mp` do
+  // checklist deixaria de marcar sozinha, e como checkIfAllInsumosOk exige
+  // TODAS as colunas, o semáforo de insumos que planejamento.html e
+  // horizonte.html leem ficaria vermelho pra sempre.
+  // Para embalagem (origem 'bom') o nome continua sendo o melhor sinal --
+  // FRASCO/TAMPA/RÓTULO aparecem no nome do material cadastrado.
+  function guessChecklistColumn(name, origemBom) {
+    if (origemBom === 'formula') return 'mp';
+    var n = (name || '').toLowerCase();
+    if (hasWord(n, 'rótulo') || hasWord(n, 'rotulo')) return 'rotulos';
+    if (hasWord(n, 'frasco') || hasWord(n, 'pote') || hasWord(n, 'bisnaga')) return 'frascos';
+    if (hasWord(n, 'tampa') || hasWord(n, 'batoque')) return 'tampas';
+    if (hasWord(n, 'cartucho')) return 'cartucho';
+    if (hasWord(n, 'válvula') || hasWord(n, 'valvula') || hasWord(n, 'pump') || hasWord(n, 'spray')) return 'valvulas';
+    if (hasWord(n, 'celofane')) return 'celofane';
+    if (hasWord(n, 'display')) return 'display';
+    if (hasWord(n, 'caixa') || hasWord(n, 'papelão')) return 'caixas';
+    if (hasWord(n, 'essência') || hasWord(n, 'essencia') || hasWord(n, 'fragrância') || hasWord(n, 'fragrancia')) return 'essencia';
+    if (hasWord(n, 'matéria') || hasWord(n, 'materia') || hasWord(n, 'mp') || hasWord(n, 'químico') || hasWord(n, 'quimico') || n.indexOf('base ') === 0 || hasWord(n, 'ativo')) return 'mp';
+    if (hasWord(n, 'anvisa') || hasWord(n, 'notificação')) return 'anvisa';
+    if (hasWord(n, 'arte')) return 'artes';
+    return '';
+  }
+
+  function updateBatchRecvPreview() {
+    var brQtd = parseFloat(document.getElementById('brQtd').value) || 0;
+    var matName = document.getElementById('brMaterial').value;
+    var pedId = document.getElementById('brPedidoId').value;
+    var previewDiv = document.getElementById('brPreviewList');
+    
+    if (!pedId || !matName || brCurrentPedidoInsumos.length === 0) {
+      previewDiv.innerHTML = '<div style="color:var(--muted); font-size:12px; text-align:center; padding:10px;">Selecione o pedido e o material para ver a simulação de alocação.</div>';
+      return;
+    }
+    
+    var sortedResults = brCurrentPedidoInsumos.map(function(item) {
+      var p = pedidosCache[item.key];
+      var earliestSlot = null;
+      
+      Object.entries(programacaoCache).forEach(function(dateEntry) {
+        var date = dateEntry[0];
+        Object.entries(dateEntry[1]).forEach(function(hourEntry) {
+          var hour = hourEntry[0];
+          var slot = hourEntry[1];
+          if ((slot.pedidoId1 === p.id && slot.env1 === p.produto) ||
+              (slot.pedidoId2 === p.id && slot.env2 === p.produto) ||
+              (slot.pedidoId3 === p.id && slot.env3 === p.produto)) {
+            var dtStr = date + " " + hour;
+            if (!earliestSlot || dtStr < earliestSlot) {
+              earliestSlot = dtStr;
+            }
+          }
+        });
+      });
+      
+      var insumo = null;
+      Object.values(item.val).forEach(function(ins) {
+        if (ins.nome && ins.nome.trim().toLowerCase() === matName.trim().toLowerCase()) {
+          insumo = ins;
+        }
+      });
+      
+      return {
+        key: item.key,
+        pedido: p,
+        insumo: insumo,
+        earliestSlot: earliestSlot || "9999-12-31 23:59",
+        pcpPriority: p.priority || 999
+      };
+    }).sort(function(a, b) {
+      if (a.earliestSlot !== b.earliestSlot) {
+        return a.earliestSlot < b.earliestSlot ? -1 : 1;
+      }
+      return a.pcpPriority - b.pcpPriority;
+    });
+    
+    var remaining = brQtd;
+    var html = '<table style="width:100%; border-collapse:collapse; font-size:12px; margin-top:8px; min-width:440px;">';
+    html += '<thead><tr style="background:#f3f4f6; font-weight:700;"><th style="padding:6px; text-align:left;">Ordem / SKU</th><th style="padding:6px; text-align:left;">Agendamento PCP</th><th style="padding:6px; text-align:right;">Atualmente</th><th style="padding:6px; text-align:right;">Alocado</th><th style="padding:6px; text-align:right;">Final</th></tr></thead><tbody>';
+    
+    sortedResults.forEach(function(item, index) {
+      var p = item.pedido;
+      var ins = item.insumo;
+      var progStr = item.earliestSlot === "9999-12-31 23:59" ? '<span style="color:var(--muted);font-style:italic;">Não agendado</span>' : '📅 ' + fmtDate(item.earliestSlot.split(' ')[0]) + ' ' + item.earliestSlot.split(' ')[1];
+      
+      var curRec = ins ? (ins.qtdRecebida || 0) : 0;
+      var nec = ins ? (ins.qtdNecessaria || 0) : 0;
+      var need = Math.max(0, nec - curRec);
+      
+      var allocated = 0;
+      if (ins && remaining > 0 && need > 0) {
+        allocated = Math.min(remaining, need);
+        remaining -= allocated;
+      }
+      
+      var finalRec = curRec + allocated;
+      var finalPct = nec > 0 ? Math.min(100, Math.round(finalRec / nec * 100)) : 100;
+      var pctColor = finalPct >= 100 ? 'var(--success)' : finalPct > 0 ? 'var(--warning)' : 'var(--danger)';
+      
+      var allocatedText = allocated > 0 ? '<strong style="color:var(--success);">+' + fmtNum(allocated) + '</strong>' : '<span style="color:var(--muted);">0</span>';
+      var badgeHtml = ins ? fmtNum(curRec) + ' / ' + fmtNum(nec) : '<span style="color:var(--danger);font-style:italic;">Não cadastrado</span>';
+      
+      html += '<tr style="border-bottom:1px solid #e2e8f0;">';
+      html += '<td style="padding:8px 6px; text-align:left;">';
+      html += '<div style="font-weight:700;">' + (index+1) + '. ' + escHtml(p.produto) + '</div>';
+      html += '<div style="font-size:10px; color:var(--muted);">Fila: ' + (p.priority||'—') + '</div>';
+      html += '</td>';
+      html += '<td style="padding:8px 6px; text-align:left;">' + progStr + '</td>';
+      html += '<td style="padding:8px 6px; text-align:right; font-family:monospace;">' + badgeHtml + '</td>';
+      html += '<td style="padding:8px 6px; text-align:right; font-family:monospace;">' + allocatedText + '</td>';
+      html += '<td style="padding:8px 6px; text-align:right; font-family:monospace;"><span style="color:' + pctColor + '; font-weight:700;">' + fmtNum(finalRec) + ' (' + finalPct + '%)</span></td>';
+      html += '</tr>';
+    });
+    
+    html += '</tbody></table>';
+    
+    if (remaining > 0) {
+      html += '<div style="background:var(--danger-light); color:#991b1b; padding:8px 12px; border-radius:8px; font-size:11px; margin-top:10px; font-weight:700;">⚠️ Sobra de lote não alocada: ' + fmtNum(remaining) + ' unidades (excede as necessidades físicas deste pedido).</div>';
+    }
+    
+    previewDiv.innerHTML = html;
+  }
+
+  function executeBatchAllocation() {
+    var pedId = document.getElementById('brPedidoId').value;
+    var matName = document.getElementById('brMaterial').value;
+    var targetCol = document.getElementById('brColuna').value;
+    var qtd = parseFloat(document.getElementById('brQtd').value) || 0;
+    
+    if (!pedId) { alert("Selecione o Pedido ID."); return; }
+    if (!matName) { alert("Selecione o material comum."); return; }
+    if (qtd <= 0) { alert("Informe uma quantidade de lote válida."); return; }
+    if (!targetCol) { alert("Selecione a coluna correspondente no checklist."); return; }
+    
+    var confirmBtn = document.getElementById('brConfirmBtn');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "Alocando...";
+    
+    // Allocate logic
+    var targetSkuKeys = Object.keys(pedidosCache).filter(function(key) {
+      return pedidosCache[key].id === pedId;
+    });
+
+    var sortedSkus = targetSkuKeys.map(function(key) {
+      var p = pedidosCache[key];
+      var earliestSlot = null;
+      
+      Object.entries(programacaoCache).forEach(function(dateEntry) {
+        var date = dateEntry[0];
+        Object.entries(dateEntry[1]).forEach(function(hourEntry) {
+          var hour = hourEntry[0];
+          var slot = hourEntry[1];
+          if ((slot.pedidoId1 === p.id && slot.env1 === p.produto) ||
+              (slot.pedidoId2 === p.id && slot.env2 === p.produto) ||
+              (slot.pedidoId3 === p.id && slot.env3 === p.produto)) {
+            var dtStr = date + " " + hour;
+            if (!earliestSlot || dtStr < earliestSlot) {
+              earliestSlot = dtStr;
+            }
+          }
+        });
+      });
+      
+      return {
+        key: key,
+        pedido: p,
+        earliestSlot: earliestSlot || "9999-12-31 23:59",
+        pcpPriority: p.priority || 999
+      };
+    }).sort(function(a, b) {
+      if (a.earliestSlot !== b.earliestSlot) {
+        return a.earliestSlot < b.earliestSlot ? -1 : 1;
+      }
+      return a.pcpPriority - b.pcpPriority;
+    });
+
+    var promises = sortedSkus.map(function(item) {
+      return db.ref('insumos/' + item.key).once('value').then(function(snap) {
+        return {
+          skuItem: item,
+          insumos: snap.val() || {}
+        };
+      });
+    });
+
+    Promise.all(promises).then(function(results) {
+      var remainingBatch = qtd;
+      var updates = {};
+      var logs = [];
+
+      results.forEach(function(res) {
+        if (remainingBatch <= 0) return;
+        var skuKey = res.skuItem.key;
+        var skuProdName = res.skuItem.pedido.produto;
+        var insumos = res.insumos;
+        
+        var matchedInsumoKey = null;
+        var matchedInsumo = null;
+        Object.entries(insumos).forEach(function(e) {
+          var k = e[0], ins = e[1];
+          if (ins.nome && ins.nome.trim().toLowerCase() === matName.trim().toLowerCase()) {
+            matchedInsumoKey = k;
+            matchedInsumo = ins;
+          }
+        });
+
+        if (matchedInsumoKey && matchedInsumo) {
+          var nec = matchedInsumo.qtdNecessaria || 0;
+          var curRec = matchedInsumo.qtdRecebida || 0;
+          var remNeed = Math.max(0, nec - curRec);
+          
+          if (remNeed > 0) {
+            var allocated = Math.min(remainingBatch, remNeed);
+            var newRec = curRec + allocated;
+            remainingBatch -= allocated;
+            
+            updates['insumos/' + skuKey + '/' + matchedInsumoKey + '/qtdRecebida'] = newRec;
+            
+            var logRefKey = db.ref('insumos/' + skuKey + '/' + matchedInsumoKey + '/obs').push().key;
+            updates['insumos/' + skuKey + '/' + matchedInsumoKey + '/obs/' + logRefKey] = {
+              texto: 'Alocado via recebimento em lote por cronograma PCP: +' + allocated.toLocaleString('pt-BR') + ' un. (Total: ' + newRec.toLocaleString('pt-BR') + ' un.)',
+              ts: new Date().toISOString()
+            };
+
+            var is100 = newRec >= nec && nec > 0;
+            if (is100 && targetCol) {
+              updates['pedidos/' + skuKey + '/insumosChecklist/' + targetCol] = "True";
+              
+              var currentChecklist = res.skuItem.pedido.insumosChecklist || {};
+              var tempChecklist = Object.assign({}, currentChecklist);
+              tempChecklist[targetCol] = "True";
+              
+              if (checkIfAllInsumosOk(tempChecklist)) {
+                updates['pedidos/' + skuKey + '/insumosChecklist/ok'] = "True";
+              }
+            }
+
+            logs.push("✓ " + skuProdName + ": +" + allocated.toLocaleString('pt-BR') + " un. (Total: " + newRec.toLocaleString('pt-BR') + "/" + nec.toLocaleString('pt-BR') + ")");
+          }
+        }
+      });
+
+      if (Object.keys(updates).length === 0) {
+        alert("Não foi possível alocar nenhuma quantidade. Certifique-se de que os materiais '" + matName + "' estão registrados nas OPs de destino.");
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = "✓ Confirmar Alocação";
+        return;
+      }
+
+      db.ref().update(updates).then(function() {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = "✓ Confirmar Alocação";
+        var leftoverMsg = remainingBatch > 0 ? "\n\n⚠️ Sobra de lote não alocada: " + remainingBatch.toLocaleString('pt-BR') + " un." : "";
+        alert("Alocação por cronograma PCP realizada com sucesso!\n\n" + logs.join("\n") + leftoverMsg);
+        closeBatchRecvModal();
+        showAlert("Alocação inteligente em lote executada.", "success");
+      }).catch(function(err) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = "✓ Confirmar Alocação";
+        alert("Erro no Firebase ao salvar alocação: " + err.message);
+      });
+    });
+  }
+
+  // Default switch to matrix
+  switchTab('matriz');
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   MRP — Necessidade de Materiais (aba)
+
+   A tela antiga ("Insumos por Pedido") continua na outra aba e segue útil: é
+   o checklist de UM pedido. Esta aqui é o outro problema, o de planejamento:
+   olhar TODOS os pedidos abertos ao mesmo tempo, no tempo, contra o que já
+   existe e o que já foi comprado.
+
+   De onde vem cada número (nada é inventado):
+     demanda      = saldo em aberto de cada linha de pedido × explosão de
+                    fórmula/BOM da versão vigente
+     data         = primeira data em que aquele pedido aparece na grade de
+                    `programacao`. Material precisa estar lá quando a OP
+                    COMEÇA, não diluído ao longo da corrida.
+     sem data     = pedido aberto que ninguém programou -> balde de backlog
+     disponível   = estoque.saldoAtual − saldoEmpenhado
+     em trânsito  = itens de `pedidos_compra` ENVIADO/RECEBIDO_PARCIAL que
+                    ainda têm saldo a receber, na dataPrevistaEntrega
+   ══════════════════════════════════════════════════════════════════════ */
+var allPedidosCompraIns = {};
+var mrpCache = null;
+var mrpFiltro = 'acao';   // 'acao' | 'todos'
+
+// Primeira data programada de cada linha de pedido. `programacao` é
+// {data: {hora: {envN: {pedidoKey, ...}}}} -- varrida uma vez só.
+function mrpPrimeiraDataProgramada() {
+  var mapa = {};
+  Object.keys(programacaoCache || {}).forEach(function(data) {
+    var dia = programacaoCache[data] || {};
+    Object.keys(dia).forEach(function(hora) {
+      var slot = dia[hora] || {};
+      Object.keys(slot).forEach(function(env) {
+        var s = slot[env];
+        if (!s || !s.pedidoKey) return;
+        if (!mapa[s.pedidoKey] || data < mapa[s.pedidoKey]) mapa[s.pedidoKey] = data;
+      });
+    });
+  });
+  return mapa;
+}
+
+// Itens de pedido de compra ainda a receber, por material.
+function mrpRecebimentosPorMaterial() {
+  var out = {};
+  Object.entries(allPedidosCompraIns || {}).forEach(function(e) {
+    var pc = e[1];
+    if (!pc || !pc.itens) return;
+    // Só PC que a Logística ainda vai receber. ABERTO ainda não foi ao
+    // fornecedor; RECEBIDO já entrou no estoque e contá-lo seria contar duas
+    // vezes o mesmo material.
+    if (pc.status !== 'ENVIADO' && pc.status !== 'RECEBIDO_PARCIAL') return;
+    Object.values(pc.itens).forEach(function(it) {
+      if (!it || !it.materialCodigo) return;
+      var pedida = parseFloat(it.qtdEmUnidadeEstoque);
+      if (!(pedida > 0)) pedida = parseFloat(it.qtdCotada);
+      if (!(pedida > 0)) pedida = parseFloat(it.qtd) || 0;
+      var recebida = parseFloat(it.qtdRecebida) || 0;
+      var falta = pedida - recebida;
+      if (!(falta > 0)) return;
+      (out[it.materialCodigo] = out[it.materialCodigo] || []).push({
+        data: pc.dataPrevistaEntrega || pc.agendamento && pc.agendamento.dataAgendada || null,
+        qtd: falta, pedido: e[0], refNome: pc.numeroFormatado || e[0],
+        // Remessa de material do cliente a caminho: só abate a demanda dele.
+        proprietarioClienteKey: (typeof PropriedadeEstoque !== 'undefined' &&
+          PropriedadeEstoque.propriedadeDoPC(pc) === PropriedadeEstoque.CLIENTE && it.vinculo && it.vinculo.clienteKey) || null
+      });
+    });
+  });
+  return out;
+}
+
+// Cliente do pedido aberto na aba Insumos por Pedido, pelo produto.
+function clienteKeyDoPedidoAtual() {
+  var p = currentPedKey && pedidosCache[currentPedKey];
+  if (!p || typeof PropriedadeEstoque === 'undefined') return null;
+  return PropriedadeEstoque.clienteKeyDoSku(p.sku, allProdutosIns, null, p.cliente) || null;
+}
+
+/* Monta a demanda de material a partir dos pedidos em aberto.
+   Reusa `explodirMateriaisNecessarios` -- a MESMA função que a emissão de OP
+   e o botão "Solicitar Compra" usam. Um segundo cálculo de necessidade aqui
+   divergiria do primeiro ajuste que alguém fizesse no outro. */
+function mrpDemandaPorMaterial() {
+  var datas = mrpPrimeiraDataProgramada();
+  var out = {}, semFormula = [];
+  Object.entries(pedidosCache || {}).forEach(function(e) {
+    var key = e[0], p = e[1];
+    if (!p || !p.sku) return;
+    if (typeof isConcluido === 'function' && isConcluido(p)) return;
+    var saldo = (parseFloat(p.qtdTotal) || 0) - (parseFloat(p.produzido) || 0);
+    if (!(saldo > 0)) return;
+
+    var produto = allProdutosIns[p.sku];
+    var achado = (typeof melhorFormulaDoProduto === 'function')
+      ? melhorFormulaDoProduto(p.sku, allFormulasIns) : null;
+    if (!produto || !achado) { semFormula.push(p.sku); return; }
+    var formula = achado.registro;
+    var bom = bomDaVersao(allBomIns, p.sku, formula.versao) || { itens: {} };
+    var calc = explodirMateriaisNecessarios(produto, saldo, formula, bom, allMateriaisIns);
+    if (!calc.ok) { semFormula.push(p.sku + ' (' + calc.erro + ')'); return; }
+    var clienteKeyPedido = (typeof PropriedadeEstoque !== 'undefined')
+      ? PropriedadeEstoque.clienteKeyDoSku(p.sku, allProdutosIns, null, p.cliente) : null;
+
+    calc.itens.forEach(function(it) {
+      // Sem controle de estoque (ex.: água) não gera necessidade de compra (01/10).
+      if (materialSemControleEstoque(it.mpCodigo, allMateriaisIns)) return;
+      (out[it.mpCodigo] = out[it.mpCodigo] || []).push({
+        data: datas[key] || null,
+        qtd: it.quantidade,
+        origem: 'pedido',
+        refNome: (p.id || key) + ' · ' + p.sku,
+        // Material do cliente só cobre a demanda dele (repartirMrpPorDono).
+        clienteKey: clienteKeyPedido
+      });
+    });
+  });
+  return { demanda: out, semFormula: semFormula };
+}
+
+// Roda o MRP inteiro. Chamado quando a aba abre e quando um parâmetro muda.
+function calcularMrpCompleto() {
+  var d = mrpDemandaPorMaterial();
+  var recebs = mrpRecebimentosPorMaterial();
+  var hoje = new Date().toISOString().slice(0, 10);
+  var codigos = {};
+  Object.keys(d.demanda).forEach(function(c) { codigos[c] = true; });
+  Object.keys(recebs).forEach(function(c) { codigos[c] = true; });
+
+  var linhas = Object.keys(codigos).map(function(cod) {
+    var mat = allMateriaisIns[sanitizeKey(cod)] ||
+      Object.values(allMateriaisIns).filter(function(m) { return m && m.mpCodigo === cod; })[0] || { mpCodigo: cod };
+    var est = allEstoqueIns[sanitizeKey(cod)];
+    // Disponível = o que existe menos o que já está comprometido com OP
+    // emitida. Usar o saldo bruto faria o MRP achar que tem material que já
+    // tem dono.
+    // Propriedade do estoque: material de cliente (em estoque ou a caminho)
+    // cobre só a demanda dele; o resto vai para o plano geral, contra o
+    // estoque da Kuryos. Sem material de cliente, é a conta de sempre.
+    var rep = PropriedadeEstoque.repartirMrpPorDono(est || {}, est ? est.saldoEmpenhado : 0, d.demanda[cod] || [], recebs[cod] || []);
+    var r = calcularMrpMaterial(mat, rep.disponivelGeral, rep.demandasGerais, rep.recebimentosGerais, hoje);
+    r.coberturaCliente = rep.cobertura.filter(function(c) { return c.demanda > 0 || c.estoque > 0 || c.transito > 0; });
+    r.semRegistroEstoque = !est;
+    return r;
+  });
+  linhas.sort(function(a, b) {
+    if (b.prioridade !== a.prioridade) return b.prioridade - a.prioridade;
+    return String(a.mpCodigo).localeCompare(String(b.mpCodigo));
+  });
+  mrpCache = { linhas: linhas, semFormula: d.semFormula, hoje: hoje };
+  return mrpCache;
+}
+
+function fmtSemanaMrp(iso) {
+  if (!iso) return "—";
+  if (iso === "0000-00-00") return "Em atraso";   // sentinela do balde vencido
+  var p = String(iso).split("-");
+  return p[2] + "/" + p[1];
+}
+
+function renderMrp() {
+  var box = document.getElementById('mrpConteudo');
+  if (!box) return;
+  var r = calcularMrpCompleto();
+
+  var comAcao = r.linhas.filter(function(l) { return l.prioridade >= 0; });
+  var criticos = r.linhas.filter(function(l) { return l.prioridade === 3; }).length;
+  var naoConfig = r.linhas.filter(function(l) { return !l.params.configurado; }).length;
+
+  // Painel de cabeçalho: o que exige decisão HOJE, antes de qualquer tabela.
+  var resumo = '<div class="mrp-kpis">' +
+    '<div class="mrp-kpi' + (criticos ? ' critico' : '') + '"><b>' + criticos + '</b><span>compras atrasadas</span></div>' +
+    '<div class="mrp-kpi"><b>' + comAcao.length + '</b><span>materiais com ação</span></div>' +
+    '<div class="mrp-kpi"><b>' + r.linhas.length + '</b><span>materiais no plano</span></div>' +
+    '</div>';
+
+  // Avisos de qualidade do plano. Um MRP que não diz o quanto confiar nele é
+  // pior que nenhum: o número tem cara de verdade.
+  var avisos = [];
+  if (naoConfig) {
+    avisos.push('<div class="mrp-aviso">⚙️ <b>' + naoConfig + ' de ' + r.linhas.length +
+      ' materiais sem parâmetro de planejamento.</b> Sem lead time, o plano assume prazo zero e manda comprar tudo para ontem. ' +
+      'Preencha na coluna <b>Parâmetros</b> — leva segundos por material e é o que torna a data de compra confiável.</div>');
+  }
+  if (r.semFormula.length) {
+    avisos.push('<div class="mrp-aviso">📐 <b>' + r.semFormula.length + ' SKU(s) ficaram de fora</b> por não ter Fórmula/BOM utilizável: ' +
+      escHtml(r.semFormula.slice(0, 5).join(', ')) + (r.semFormula.length > 5 ? '…' : '') +
+      '. A necessidade deles não está neste plano.</div>');
+  }
+  avisos.push('<div class="mrp-aviso">📦 <b>O saldo de estoque ainda não tem base.</b> ' +
+    'A saída desconta a cada apontamento, mas a maioria dos materiais nunca teve entrada registrada — ' +
+    'até o inventário geral, trate a necessidade líquida como referência e confira o físico antes de comprar.</div>');
+
+  if (!r.linhas.length) {
+    box.innerHTML = resumo + avisos.join('') +
+      '<div class="no-sel" style="padding:40px">Nenhum material com demanda ou pedido de compra em aberto.</div>';
+    return;
+  }
+
+  var lista = mrpFiltro === 'acao' ? comAcao : r.linhas;
+  if (!lista.length) {
+    box.innerHTML = resumo + avisos.join('') +
+      '<div class="no-sel" style="padding:40px">Nenhuma ação pendente — todo material com demanda está coberto por estoque ou por pedido já colocado.</div>';
+    return;
+  }
+
+  box.innerHTML = resumo + avisos.join('') +
+    '<div class="mrp-filtro">' +
+      '<label><input type="radio" name="mrpF" value="acao"' + (mrpFiltro === 'acao' ? ' checked' : '') + '> Só o que exige ação (' + comAcao.length + ')</label>' +
+      '<label><input type="radio" name="mrpF" value="todos"' + (mrpFiltro === 'todos' ? ' checked' : '') + '> Todos os materiais (' + r.linhas.length + ')</label>' +
+    '</div>' +
+    lista.map(mrpCardMaterial).join('');
+
+  box.querySelectorAll('input[name="mrpF"]').forEach(function(el) {
+    el.addEventListener('change', function() { mrpFiltro = el.value; renderMrp(); });
+  });
+  box.querySelectorAll('.mrp-param').forEach(function(inp) {
+    inp.addEventListener('change', function() { salvarParamMrp(inp); });
+  });
+  box.querySelectorAll('.mrp-solicitar').forEach(function(btn) {
+    btn.addEventListener('click', function() { solicitarDoMrp(btn.getAttribute('data-cod')); });
+  });
+}
+
+function mrpCardMaterial(l) {
+  var p = l.params;
+  var excecoesHtml = l.excecoes.map(function(e) {
+    var rot = rotuloExcecaoMrp(e, fmtNum);
+    return '<div class="mrp-exc ' + rot.nivel + '">' + rot.icone + ' <b>' + escHtml(rot.titulo) + '</b>' +
+      '<div>' + escHtml(rot.texto) + '</div></div>';
+  }).join('');
+
+  var colunas = l.baldes.map(function(b) {
+    return '<th' + (b.atrasado ? ' class="atras"' : '') + '>' + fmtSemanaMrp(b.semana) +
+      (b.atrasado ? '<div class="mrp-th-sub">atrasado</div>' : '') + '</th>';
+  }).join('');
+  function linhaGrade(rot, campo, classe, dica) {
+    return '<tr' + (classe ? ' class="' + classe + '"' : '') + '>' +
+      '<td class="mrp-rot"' + (dica ? ' title="' + escapeAttr(dica) + '"' : '') + '>' + rot + '</td>' +
+      l.baldes.map(function(b) {
+        var v = b[campo];
+        return '<td>' + (v ? fmtNum(v) : '—') + '</td>';
+      }).join('') + '</tr>';
+  }
+
+  var grade = l.baldes.length
+    ? '<div class="mrp-grade-wrap"><table class="mrp-grade">' +
+        '<thead><tr><th></th>' + colunas + '</tr></thead><tbody>' +
+        linhaGrade('Necessidade bruta', 'bruta', '', 'Explosão de fórmula/BOM do saldo em aberto dos pedidos programados para esta semana.') +
+        linhaGrade('Recebimentos programados', 'recebimentos', '', 'Pedidos de compra já colocados, na data prevista de entrega.') +
+        linhaGrade('Saldo projetado', 'saldoProjetado', 'proj', 'Saldo ao fim da semana, já considerando a ordem planejada.') +
+        linhaGrade('Necessidade líquida', 'liquida', 'liq', 'Bruta − disponível − em trânsito + estoque de segurança.') +
+        linhaGrade('Ordem planejada', 'ordemPlanejada', 'ordem', 'Necessidade líquida ajustada ao lote mínimo e ao múltiplo.') +
+      '</tbody></table></div>'
+    : '<div class="field-hint" style="padding:6px 0">Sem demanda programada — só backlog e/ou pedidos a receber.</div>';
+
+  var backlogHtml = l.backlog.bruta > 0
+    ? '<div class="mrp-backlog">📋 Backlog sem data: <b>' + fmtNum(l.backlog.bruta) + ' ' + escHtml(l.unidade) + '</b>' +
+      ' em ' + l.backlog.itens + ' pedido(s) que ninguém programou' +
+      (l.backlog.liquida > 0 ? ' — faltariam <b>' + fmtNum(l.backlog.liquida) + '</b>' : ' — coberto pelo saldo') + '.</div>'
+    : '';
+
+  return '<div class="mrp-card' + (l.prioridade === 3 ? ' critico' : '') + '">' +
+    '<div class="mrp-card-cab">' +
+      '<div><b>' + escHtml(l.mpCodigo) + '</b> — ' + escHtml(l.mpNome) +
+        '<div class="mrp-sub">Disponível: <b>' + fmtNum(l.disponivelInicial) + ' ' + escHtml(l.unidade) + '</b>' +
+        (l.semRegistroEstoque ? ' <span class="mrp-tag">sem registro de estoque</span>' : '') +
+        ((l.coberturaCliente || []).length ? '<div style="margin-top:3px">' + l.coberturaCliente.map(function(c) {
+          var nome = (((allEstoqueIns[sanitizeKey(l.mpCodigo)] || {}).porCliente || {})[c.clienteKey] || {}).clienteNome || c.clienteKey;
+          return '📦 Material do cliente <b>' + escHtml(nome) + '</b>: ' + fmtNum(c.estoque) + (c.transito ? ' + ' + fmtNum(c.transito) + ' a caminho' : '') +
+            ' · cobre ' + fmtNum(c.coberto) + ' de ' + fmtNum(c.demanda) + ' da demanda dele' + (c.sobra ? ' · sobra ' + fmtNum(c.sobra) + ' (não serve a outros)' : '');
+        }).join('<br>') + ' <span class="mrp-tag">disponível acima é só o geral da Kuryos</span></div>' : '') +
+        (l.disponivelInicial < 0 ? ' <span class="mrp-tag alerta">saldo negativo</span>' : '') +
+        (!p.configurado ? ' <span class="mrp-tag alerta">sem parâmetros</span>' : '') +
+        '</div>' +
+      '</div>' +
+      '<button class="btn btn-warning btn-sm mrp-solicitar" data-cod="' + escapeAttr(l.mpCodigo) + '">🛒 Solicitar</button>' +
+    '</div>' +
+    excecoesHtml + grade + backlogHtml +
+    '<details class="mrp-params"><summary>Parâmetros de planejamento</summary>' +
+      '<div class="mrp-params-grid">' +
+        mrpCampoParam(l.mpCodigo, 'leadTimeDias', 'Lead time (dias)', p.leadTimeDias, 'Prazo entre colocar o pedido e o material estar disponível. É ele que transforma "falta" em "compre até tal dia".') +
+        mrpCampoParam(l.mpCodigo, 'estoqueSeguranca', 'Estoque de segurança', p.estoqueSeguranca, 'Piso do saldo. O plano compra para nunca ficar abaixo disto.') +
+        mrpCampoParam(l.mpCodigo, 'loteMinimo', 'Lote mínimo', p.loteMinimo, 'Menor quantidade que o fornecedor aceita vender.') +
+        mrpCampoParam(l.mpCodigo, 'multiplo', 'Múltiplo de compra', p.multiplo, 'Embalagem de venda: caixa de 500, fardo de 12. A ordem sempre arredonda para cima nele.') +
+      '</div></details>' +
+  '</div>';
+}
+
+function mrpCampoParam(cod, campo, rotulo, valor, dica) {
+  return '<div class="fg"><label title="' + escapeAttr(dica) + '">' + rotulo + '</label>' +
+    '<input type="number" min="0" step="any" class="form-ctrl mrp-param" data-cod="' + escapeAttr(cod) + '" ' +
+    'data-campo="' + campo + '" value="' + (valor || '') + '" placeholder="0"></div>';
+}
+
+// Grava direto em materiais/{key}. Caminho PLANO de propósito: update com
+// objeto aninhado no RTDB substitui o nó inteiro -- foi assim que 375
+// produtos foram sobrescritos uma vez neste sistema.
+function salvarParamMrp(inp) {
+  var cod = inp.getAttribute('data-cod'), campo = inp.getAttribute('data-campo');
+  var v = inp.value === '' ? null : parseFloat(inp.value);
+  if (v != null && (isNaN(v) || v < 0)) { showAlert('Valor inválido para ' + campo + '.', 'danger'); inp.value = ''; return; }
+  var mat = allMateriaisIns[sanitizeKey(cod)] ||
+    Object.entries(allMateriaisIns).filter(function(e) { return e[1] && e[1].mpCodigo === cod; }).map(function(e) { return e[1]; })[0];
+  var key = null;
+  Object.keys(allMateriaisIns).forEach(function(k) { if (allMateriaisIns[k] === mat) key = k; });
+  if (!key) { showAlert('Material ' + cod + ' não encontrado no cadastro.', 'danger'); return; }
+  var upd = {};
+  upd['materiais/' + key + '/' + campo] = v;
+  db.ref().update(upd).then(function() {
+    showAlert('Parâmetro salvo para ' + cod + '.', 'success');
+    renderMrp();
+  }).catch(function(err) { showAlert('Erro ao salvar: ' + err.message, 'danger'); });
+}
+
+// Leva a necessidade do MRP para a solicitação de compra, reusando o modal
+// que já existe na outra aba.
+function solicitarDoMrp(cod) {
+  var l = (mrpCache && mrpCache.linhas || []).filter(function(x) { return x.mpCodigo === cod; })[0];
+  if (!l) return;
+  var total = l.excecoes.filter(function(e) { return e.tipo.indexOf('COMPRAR') === 0 || e.tipo === 'BACKLOG'; })
+    .reduce(function(s, e) { return s + (parseFloat(e.qtd) || 0); }, 0);
+  if (!(total > 0)) { showAlert('Este material não tem necessidade de compra no plano atual.', 'danger'); return; }
+  solCompraFaltas = { itens: [{
+    insumoKey: null, mpCodigo: l.mpCodigo, nome: l.mpNome, unidade: l.unidade,
+    qtdNecessaria: l.baldes.reduce(function(s, b) { return s + b.bruta; }, 0) + l.backlog.bruta,
+    qtdRecebida: 0, disponivel: l.disponivelInicial,
+    saldoNegativo: l.disponivelInicial < 0, semRegistroEstoque: l.semRegistroEstoque,
+    falta: Math.round(total * 1000) / 1000
+  }], semCodigo: [], semEstoque: l.semRegistroEstoque ? 1 : 0 };
+  document.getElementById('solCompraResumo').innerHTML =
+    '<div class="form-hint">Necessidade calculada pelo MRP para <b>' + escHtml(l.mpCodigo) + '</b>.</div>';
+  document.getElementById('solCompraItens').innerHTML =
+    '<label class="form-label">Item</label>' +
+    '<div style="display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">' +
+      '<input type="checkbox" class="solc-usar" data-i="0" checked>' +
+      '<div style="flex:1"><div style="font-size:13px;font-weight:600">' + escHtml(l.mpNome) + '</div>' +
+      '<div style="font-size:10.5px;color:var(--muted)">' + escHtml(l.mpCodigo) + ' · disp. ' + fmtNum(l.disponivelInicial) + '</div></div>' +
+      '<input type="number" class="solc-qtd form-ctrl" data-i="0" min="0" step="any" style="width:104px;margin:0" value="' + (Math.round(total * 1000) / 1000) + '">' +
+      '<span style="font-size:11px;color:var(--muted);width:38px">' + escHtml(l.unidade) + '</span>' +
+    '</div>';
+  document.getElementById('solCompraContagem').textContent = '1 item do MRP';
+  document.getElementById('solCompraJustificativa').value =
+    'Necessidade apurada pelo MRP para ' + l.mpCodigo + ' — ' + l.mpNome + '.';
+  document.getElementById('solCompraSave').disabled = false;
+  document.getElementById('solCompraModalBg').classList.add('open');
+}
+
+</script>
+</body>
+</html>

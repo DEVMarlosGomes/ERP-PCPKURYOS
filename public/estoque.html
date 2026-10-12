@@ -1,0 +1,2806 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Estoque / WMS</title>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://erpkuryos-default-rtdb.firebaseio.com">
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-functions-compat.js"></script>
+  <script src="shared/utils.js"></script>
+  <script src="shared/propriedade-estoque.js"></script>
+  <script src="shared/onde-usado.js"></script>
+  <script src="shared/seletor-endereco.js"></script>
+  <script src="shared/expedicao-grade.js"></script>
+  <script src="shared/conteudo-posicao.js"></script>
+  <script src="auth_check.js"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="shared/theme.css">
+  <style>
+    :root{--primary:#0a1c69;--primary-light:#2456d6;--success:#0ca30c;--danger:#d03b3b;--warning:#c9910a;--bg:#f5f5f7;--card:#fff;--border:#d2d2d7;--text:#1d1d1f;--muted:#6e6e73;--purple:#7c3aed;--surface-2:#f9fafb;--tint-green-bg:#d1fae5;--tint-green-fg:#065f46;--tint-red-bg:#fee2e2;--tint-red-fg:#991b1b;--tint-gray-bg:#f3f4f6;--tint-blue-bg:#eff6ff;--tint-orange-bg:#fff7ed;--tint-orange-fg:#c2410c;--tint-purple-bg:#f3e8ff}
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --primary:#5e83ea; --bg:#000000; --card:#1c1c1e; --border:#38383a; --text:#f5f5f7; --muted:#98989d; --purple:#a78bfa; --surface-2:#242426; --tint-green-bg:rgba(16,185,129,.18); --tint-green-fg:#6ee7b7; --tint-red-bg:rgba(239,68,68,.18); --tint-red-fg:#fca5a5; --tint-gray-bg:rgba(255,255,255,.08); --tint-blue-bg:rgba(94,131,234,.18); --tint-orange-bg:rgba(251,146,60,.18); --tint-orange-fg:#fdba74; --tint-purple-bg:rgba(167,139,250,.18); } }
+    :root[data-theme="dark"] { color-scheme: dark; --primary:#5e83ea; --bg:#000000; --card:#1c1c1e; --border:#38383a; --text:#f5f5f7; --muted:#98989d; --purple:#a78bfa; --surface-2:#242426; --tint-green-bg:rgba(16,185,129,.18); --tint-green-fg:#6ee7b7; --tint-red-bg:rgba(239,68,68,.18); --tint-red-fg:#fca5a5; --tint-gray-bg:rgba(255,255,255,.08); --tint-blue-bg:rgba(94,131,234,.18); --tint-orange-bg:rgba(251,146,60,.18); --tint-orange-fg:#fdba74; --tint-purple-bg:rgba(167,139,250,.18); }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:var(--font-ui);background:var(--bg);color:var(--text);min-height:100vh}
+    .header{padding:26px 0 6px;display:flex;align-items:flex-start;justify-content:space-between;max-width:96%;margin:0 auto}
+    .header h1{font-size:28px;font-weight:700;letter-spacing:-.02em}
+    .header-sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+    .status-pill{display:flex;align-items:center;gap:6px;background:color-mix(in srgb, var(--text) 6%, transparent);border-radius:20px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--muted)}
+    .dot{width:8px;height:8px;border-radius:50%;background:#94a3b8}
+    .dot.on{background:var(--success);animation:p 2s infinite}
+    @keyframes p{0%,100%{opacity:1}50%{opacity:.4}}
+    @media(prefers-reduced-motion:reduce){.dot.on{animation:none}}
+    .kt-toolbar{max-width:96%;margin:0 auto 12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .kt-search{display:flex;align-items:center;gap:6px;background:var(--card);border:1.5px solid var(--border);border-radius:8px;padding:7px 12px;flex:1;min-width:220px}
+    .kt-search input{border:none;outline:none;flex:1;font-size:13px;background:transparent;color:var(--text)}
+    .kt-select{padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);color:var(--text)}
+    .main{padding:0 0 40px;max-width:96%;margin:0 auto}
+    .alert{padding:12px 16px;border-radius:8px;font-size:13px;font-weight:500;margin-bottom:12px;display:none}
+    .alert.show{display:block}
+    .alert-success{background:var(--tint-green-bg);color:var(--tint-green-fg);border:1px solid color-mix(in srgb, var(--tint-green-fg) 40%, transparent)}
+    .alert-danger{background:var(--tint-red-bg);color:var(--tint-red-fg);border:1px solid color-mix(in srgb, var(--tint-red-fg) 40%, transparent)}
+    .btn{padding:8px 16px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap}
+    .btn-green{background:var(--success);color:white}.btn-green:hover{filter:brightness(.9)}
+    .btn-primary{background:var(--primary);color:white}.btn-primary:hover{filter:brightness(.9)}
+    .btn-ghost{background:var(--card);border:1.5px solid var(--border);color:var(--text)}.btn-ghost:hover{background:var(--surface-2)}
+    .btn-danger-ghost{background:var(--card);border:1.5px solid var(--tint-red-fg);color:var(--tint-red-fg)}
+    .btn-sm{padding:5px 10px;font-size:12px}
+    .btn:disabled{opacity:.45;cursor:not-allowed}
+    .tabs{display:flex;gap:2px;max-width:96%;margin:0 auto 14px;border-bottom:2px solid var(--border)}
+    .tab{padding:10px 18px;font-size:13.5px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;background:none;border-top:none;border-left:none;border-right:none}
+    .tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+    .tab-panel{display:none}
+    .tab-panel.active{display:block}
+    .card{background:var(--card);border-radius:18px;box-shadow:var(--shadow);margin-bottom:14px;border-left:4px solid var(--primary)}
+    .card-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:14px 16px;border-bottom:1px solid var(--border)}
+    .section-note{font-size:12px;color:var(--muted);max-width:96%;margin:0 auto 12px;line-height:1.5}
+    .badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+    .badge-gray{background:var(--tint-gray-bg);color:var(--muted)}
+    .badge-blue{background:var(--tint-blue-bg);color:var(--primary)}
+    .badge-orange{background:var(--tint-orange-bg);color:var(--tint-orange-fg)}
+    .badge-green{background:var(--tint-green-bg);color:var(--tint-green-fg)}
+    .badge-purple{background:var(--tint-purple-bg);color:var(--purple)}
+    .badge-red{background:var(--tint-red-bg);color:var(--tint-red-fg)}
+    .stats{display:flex;gap:10px;max-width:96%;margin:0 auto 14px;flex-wrap:wrap}
+    .stat{background:var(--card);border-radius:12px;padding:10px 16px;box-shadow:var(--shadow);min-width:120px}
+    .stat-val{font-size:20px;font-weight:700}
+    .stat-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin-top:2px}
+    table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+    thead th{background:var(--surface-2);padding:7px 10px;text-align:left;font-weight:700;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none}
+    td{padding:6px 10px;border-bottom:1px solid var(--tint-gray-bg);vertical-align:middle}
+    .table-wrap{overflow-x:auto;padding:0 16px 14px}
+    .no-data{text-align:center;padding:40px;color:var(--muted);font-size:14px}
+    .row-lotes{background:var(--surface-2)}
+    .row-lotes td{padding:0}
+    .row-lotes-inner{padding:8px 20px 12px 40px}
+    /* z-index acima do menu lateral do auth_check (9999): com 500 o menu cobria
+       o lado esquerdo de todo popup no desktop. Abaixo do seletor de endereço
+       (10050), que abre por cima do Transferir. */
+    .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+    .modal-bg.open{display:flex}
+    .modal{background:var(--card);border-radius:14px;width:100%;max-width:560px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden}
+    .modal-header{background:linear-gradient(135deg,#065f46,var(--success));color:white;padding:16px 20px;display:flex;align-items:center;justify-content:space-between}
+    .modal-header.blue{background:linear-gradient(135deg,#1e3a8a,var(--primary))}
+    .modal-header h2{font-size:16px;font-weight:700}
+    .modal-close{background:none;border:none;color:white;font-size:22px;cursor:pointer;line-height:1;opacity:.8}
+    .modal-body{padding:20px;max-height:70vh;overflow-y:auto}
+    .modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;background:var(--surface-2)}
+    .form-group{margin-bottom:14px}
+    .form-group:last-child{margin-bottom:0}
+    label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px}
+    input[type=text],input[type=number],input[type=date],select,textarea{width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;color:var(--text);background:var(--card)}
+    input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent)}
+    .field-hint{font-size:11px;color:var(--muted);margin-top:3px}
+    .empty-hint{color:var(--muted);font-size:12.5px;padding:10px 0}
+    /* WMS Fase 1 -- Mapa Visual do armazém (mapaVisualRuasHtml, shared/utils.js) */
+    .mapa-rua{margin-bottom:22px}
+    .mapa-rua-titulo{font-weight:700;font-size:13px;margin-bottom:8px}
+    .mapa-grid-scroll{overflow-x:auto;padding-bottom:6px}
+    .mapa-grid-rows{display:flex;flex-direction:column;gap:3px;width:max-content}
+    .mapa-nivel-row{display:flex;align-items:center;gap:3px}
+    .mapa-nivel-label{width:26px;font-size:10px;color:var(--muted);text-align:right;padding-right:4px;flex-shrink:0}
+    .mapa-cell{width:28px;height:28px;border-radius:4px;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid var(--border);flex-shrink:0}
+    .mapa-cell-livre{background:var(--tint-green-bg);color:var(--tint-green-fg)}
+    .mapa-cell-ocupada{background:var(--tint-orange-bg);color:var(--tint-orange-fg)}
+    .mapa-cell-naogerada{background:var(--tint-gray-bg);color:var(--muted);opacity:.55;cursor:default}
+    .mapa-cell-selecionada{outline:2px solid var(--primary);outline-offset:1px}
+    /* WMS Fase 1 -- Planta Baixa (plantaBaixaRuasHtml, shared/utils.js) --
+       visão de cima do galpão, blocos arrastáveis por rua. */
+    .planta-baixa-scroll{overflow:auto;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);max-height:65vh}
+    .planta-baixa-canvas{position:relative;min-width:100%;min-height:420px}
+    .planta-bloco{position:absolute;border-radius:6px;border:2px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;user-select:none}
+    .planta-bloco:hover{box-shadow:0 0 0 2px var(--primary)}
+    .planta-bloco-pct{font-size:9px;font-weight:600;opacity:.8}
+    /* Detalhe da posição: resumo do palete (itens, quantidade, volumes, peso) */
+    .posicao-resumo{display:flex;flex-wrap:wrap;gap:8px;padding:0 16px 12px}
+    .posicao-resumo .pr-bloco{border:1px solid var(--border);border-radius:8px;padding:7px 12px;background:var(--surface-2);min-width:110px}
+    .posicao-resumo .pr-bloco b{display:block;font-size:16px;font-variant-numeric:tabular-nums}
+    .posicao-resumo .pr-bloco span{font-size:11px;color:var(--muted)}
+    .pr-falta{font-size:11px;color:var(--warning)}
+    .planta-bloco-vazio{background:var(--tint-gray-bg);color:var(--muted);border-style:dashed}
+    .planta-bloco-livre{background:var(--tint-green-bg);color:var(--tint-green-fg)}
+    .planta-bloco-parcial{background:var(--tint-orange-bg);color:var(--tint-orange-fg)}
+    .planta-bloco-cheio{background:var(--tint-red-bg);color:var(--tint-red-fg)}
+    .planta-bloco-arrastavel{cursor:grab}
+    .planta-bloco-arrastando{cursor:grabbing;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:10}
+    /* Visão por nível -- o bloco da rua se abre nas posições de palete */
+    .planta-bloco-nivel{background:var(--card);color:var(--text);justify-content:flex-start;padding:2px;gap:1px}
+    .planta-bloco-semnivel{background:var(--tint-gray-bg);color:var(--muted);opacity:.35;border-style:dotted}
+    .planta-bloco-label{font-size:8px;line-height:1;color:var(--muted);font-weight:600;align-self:flex-start;padding-left:2px}
+    .planta-bloco-cells{display:flex;flex:1;gap:1px;width:100%;min-height:0}
+    .planta-cell{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;border-radius:2px;font-size:9px;font-weight:600;cursor:pointer;border:1px solid var(--border)}
+    .planta-cell-livre{background:var(--tint-green-bg);color:var(--tint-green-fg)}
+    .planta-cell-ocupada{background:var(--tint-orange-bg);color:var(--tint-orange-fg)}
+    .planta-cell-naogerada{background:var(--tint-gray-bg);color:var(--muted);opacity:.55;cursor:default}
+    .planta-cell-selecionada{outline:2px solid var(--primary);outline-offset:1px}
+    /* attachAutocomplete (shared/utils.js) -- usado no campo Material de
+       "Ajustar Saldo" (aeMaterial) e agora também no item da aba
+       Endereçamento (edItem). Mesmo CSS já usado em cadastros.html/
+       form.html/formulas.html/compras.html pro mesmo componente -- sem
+       isto a lista de sugestões aparece sem estilo nenhum (achado ao
+       revisar esta página pra Fase 2, mesma lacuna já corrigida noutras
+       telas -- o componente só cria a div, quem inclui precisa trazer o
+       visual). */
+    /* Filtro por cliente: propriedade x destino (shared/propriedade-estoque.js) */
+    .prop-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .prop-bar .prop-label{font-size:12.5px;font-weight:700;white-space:nowrap}
+    .prop-bar .field-hint{margin:0;flex-basis:100%}
+    .prop-dono{font-size:12px;line-height:1.4}
+    .prop-dono .field-hint{margin:0}
+    .kt-ac-list{display:none;position:fixed;z-index:10000;background:var(--card);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);max-height:260px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .kt-ac-list.open{display:block}
+    .kt-ac-item{padding:12px 14px;font-size:14px;color:var(--text);cursor:pointer;min-height:44px;box-sizing:border-box;display:flex;align-items:center;border-bottom:1px solid color-mix(in srgb, var(--border) 60%, transparent)}
+    .kt-ac-item:last-child{border-bottom:none}
+    .kt-ac-item:hover,.kt-ac-item.active{background:color-mix(in srgb, var(--primary) 12%, transparent)}
+  </style>
+</head>
+<body class="kuryos-theme has-sidebar">
+<div class="header">
+  <div>
+    <h1>Estoque / WMS</h1>
+    <div class="header-sub">Saldo agregado, rastreio por lote/endereço, lotes vencendo e histórico de movimentações</div>
+  </div>
+  <div class="status-pill"><div class="dot" id="sDot"></div><span id="sTxt">Conectando...</span></div>
+</div>
+
+<div class="main" style="padding-top:6px">
+  <div id="alertBox" class="alert alert-success"></div>
+</div>
+
+<div class="tabs" id="mainTabsEstoque">
+  <button class="tab active" data-tab="agregado">Saldo Agregado</button>
+  <button class="tab" data-tab="lotes">Saldo por Lote/Endereço</button>
+  <button class="tab" data-tab="vencendo">Lotes Vencendo</button>
+  <button class="tab" data-tab="historico">Histórico de Movimentações</button>
+  <button class="tab" data-tab="estrutura">🛣️ Estrutura de Ruas</button>
+  <button class="tab" data-tab="posicoes">🗺️ Posições</button>
+  <button class="tab" data-tab="enderecamento">📍 Endereçamento</button>
+  <button class="tab" data-tab="inventario">📋 Inventário Rotativo</button>
+  <button class="tab" data-tab="conferenciapa">📦 Conferência de PA</button>
+  <button class="tab" data-tab="qualidade">🔬 Liberação de Qualidade</button>
+</div>
+
+<div class="main" id="propBarWrap" style="padding-bottom:0">
+  <div class="kt-toolbar prop-bar">
+    <span class="prop-label">👤 Cliente</span>
+    <select class="kt-select" id="propCliente"><option value="">Todos os clientes (sem filtro)</option></select>
+    <select class="kt-select" id="propVista">
+      <option value="PROPRIEDADE">Estoque de propriedade do cliente</option>
+      <option value="DESTINADO">Destinado ao cliente (posse da Kuryos)</option>
+    </select>
+    <div class="field-hint" id="propHint">Vale para Saldo Agregado, Saldo por Lote/Endereço e Posições.</div>
+  </div>
+</div>
+
+<div class="main" id="mainPanelsEstoque">
+
+  <!-- ═══ Aba: Saldo Agregado (MP/Embalagem) ═══ -->
+  <div class="tab-panel active" id="tab-agregado">
+    <div class="kt-toolbar">
+      <div class="kt-search"><span class="icon">🔍</span><input type="text" id="esSearch" placeholder="Buscar por código ou nome do material..."></div>
+      <button class="btn btn-ghost" id="btnAjustarEstoque">⚖️ Ajustar Saldo</button>
+    </div>
+    <div class="section-note">Saldo Atual sobe a cada recebimento em Logística e desce a cada apontamento real de produção (consumo) ou perda com material específico. Empenhado é quanto desse saldo já está reservado por OPs emitidas ainda não totalmente apontadas; Disponível (= Atual − Empenhado) é o que sobra pra novos compromissos. Use Ajustar Saldo pra corrigir o Atual depois de uma contagem física. Clique numa linha pra ver os lotes/endereços que compõem esse saldo.</div>
+    <div class="card">
+      <div class="card-title" id="esCount">Estoque</div>
+      <div class="table-wrap">
+        <table>
+          <thead id="esThead"><tr>
+            <th data-sort="materialCodigo">Material</th>
+            <th data-sort="saldoAtual" style="text-align:right">Saldo Atual</th>
+            <th data-sort="saldoEmpenhado" style="text-align:right">Empenhado</th>
+            <th data-sort="saldoDisponivel" style="text-align:right">Disponível</th>
+            <th data-sort="usos" title="Produtos cuja fórmula ou BOM vigente usa este material">Onde é usado</th>
+            <th data-sort="ultimaAtualizacao">Última Atualização</th>
+            <th style="min-width:130px">Ações</th>
+          </tr></thead>
+          <tbody id="esBody"><tr><td colspan="7" class="no-data">Carregando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card" id="esCardCliente" style="display:none">
+      <div class="card-title" id="esCountCliente">Estoque do cliente</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Material</th><th style="text-align:right" id="esClienteColSaldo">Saldo</th><th>Pedidos</th><th style="text-align:right">Lotes</th><th style="min-width:110px">Ações</th>
+          </tr></thead>
+          <tbody id="esBodyCliente"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Aba: Saldo por Lote/Endereço ═══ -->
+  <div class="tab-panel" id="tab-lotes">
+    <div class="kt-toolbar">
+      <div class="kt-search"><span class="icon">🔍</span><input type="text" id="slSearch" placeholder="Buscar por código/nome do item ou nº do lote..."></div>
+      <select class="kt-select" id="slFiltroTipo">
+        <option value="">Material e Produto</option>
+        <option value="material">Só Matéria-Prima/Embalagem</option>
+        <option value="produto">Só Produto Acabado</option>
+      </select>
+      <select class="kt-select" id="slFiltroStatus">
+        <option value="">Todos os status</option>
+        <option value="LIBERADO">Liberado</option>
+        <option value="QUARENTENA">Quarentena</option>
+        <option value="REPROVADO">Reprovado</option>
+        <option value="VENCIDO">Vencido</option>
+      </select>
+      <!-- Fila de endereçamento definitivo. Antes, liberar só trocava o
+           status e o lote ficava na posição em que foi descarregado -- não
+           havia onde ver "o que a Qualidade liberou e ainda não foi guardado
+           no lugar certo". -->
+      <label class="kt-check" style="display:flex;align-items:center;gap:6px;font-size:12.5px;white-space:nowrap">
+        <input type="checkbox" id="slSoAguardando"> Só aguardando guardar
+      </label>
+    </div>
+    <div id="slAvisoAguardando"></div>
+    <div class="section-note">Cada linha é um lote específico (de uma entrada de recebimento ou de uma conclusão de OP) numa posição -- uma mesma posição pode ter vários lotes/itens misturados. O saldo aqui é do LOTE, independente do agregado da aba anterior (que não escolhe lote no consumo -- ver limitação no plano).</div>
+    <div class="card">
+      <div class="card-title" id="slCount">Lotes em estoque</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Item</th><th>Lote</th><th>Dono / destino</th><th>Endereço</th><th>Validade</th><th>Status</th>
+            <th style="text-align:right">Saldo</th><th style="min-width:170px">Ações</th>
+          </tr></thead>
+          <tbody id="slBody"><tr><td colspan="8" class="no-data">Carregando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Aba: Lotes Vencendo ═══ -->
+  <div class="tab-panel" id="tab-vencendo">
+    <div class="kt-toolbar">
+      <label style="margin:0;white-space:nowrap">Vencendo em até</label>
+      <select class="kt-select" id="lvDias">
+        <option value="7">7 dias</option>
+        <option value="15">15 dias</option>
+        <option value="30" selected>30 dias</option>
+        <option value="60">60 dias</option>
+        <option value="90">90 dias</option>
+      </select>
+    </div>
+    <div class="section-note">Lotes com saldo maior que zero e validade cadastrada, ordenados do mais urgente pro mais distante. Já vencidos aparecem primeiro, em vermelho.</div>
+    <div class="card">
+      <div class="card-title" id="lvCount">Lotes vencendo</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Item</th><th>Lote</th><th>Endereço</th><th>Validade</th><th>Situação</th><th style="text-align:right">Saldo</th></tr></thead>
+          <tbody id="lvBody"><tr><td colspan="6" class="no-data">Carregando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Aba: Histórico de Movimentações → Kardex (01/10). A lista antiga
+       somava movimento do saldo do item com o do lote (o consumo aparecia duas
+       vezes) e não fechava com o saldo; o Kardex separa as duas coisas. ═══ -->
+  <div class="tab-panel" id="tab-historico">
+    <div class="kt-toolbar">
+      <div class="kt-search"><span class="icon">🔍</span><input type="text" id="hmCodigo" placeholder="Código do material ou SKU do produto..."></div>
+      <button class="btn btn-primary" id="btnBuscarHistorico">Abrir no Kardex</button>
+    </div>
+    <div class="section-note">O histórico de movimentações agora fica no <a href="kardex.html"><b>Kardex</b></a>: cada entrada, saída, consumo e ajuste com saldo corrido, período, exportação e a conciliação de todos os itens. Digite o código e abra.</div>
+  </div>
+
+  <!-- ═══ Aba: Estrutura de Ruas -- pedido do usuário: 3 telas paralelas
+       de WMS (Endereçamento / Posições / Estrutura de Ruas), não mais uma
+       aba "Endereços" com 2 sub-abas dentro. Mesma tabela/lógica de
+       sempre, só sem o wrapper de sub-aba. Também aparece em cadastros.html
+       (mesmo gerarUpdatesPosicoesRua, shared/utils.js -- nunca duas
+       lógicas divergindo), mas de lá agora é só um link pra cá, não uma
+       segunda implementação. ═══ -->
+  <div class="tab-panel" id="tab-estrutura">
+    <div class="section-note">Cada rua gera suas posições automaticamente a partir desta configuração (níveis × prédios). Formato do endereço: <b>Rua.Nível.Prédio</b> (ex: 1.2.5) -- o número do Prédio já indica o lado: <b>ímpar = esquerdo, par = direito</b>. Gerar de novo nunca apaga nem move um endereço que já tem algo guardado -- só cria os que faltam, e só atualiza a área de posições ainda vazias.</div>
+    <div class="kt-toolbar">
+      <button class="btn btn-primary" id="btnNovaRua-end">+ Nova Rua</button>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th style="width:80px">Rua</th><th>Área</th><th style="width:90px">Níveis</th>
+            <th style="width:130px">Prédios (posições)</th><th style="width:130px">Posições geradas</th><th style="width:140px"></th>
+          </tr></thead>
+          <tbody id="ruasBody-end"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Aba: Posições -- visualização (Lista/Mapa por rua/Planta Baixa) ═══ -->
+  <div class="tab-panel" id="tab-posicoes">
+      <div class="kt-toolbar">
+        <div class="kt-search"><span class="icon">🔍</span><input type="text" id="searchInput-end" placeholder="Buscar por código de endereço..."></div>
+        <select class="kt-select" id="filterRua-end"><option value="">Todas as ruas</option></select>
+        <select class="kt-select" id="filterArea-end"><option value="">Todas as áreas</option></select>
+        <select class="kt-select" id="filterOcupacao-end">
+          <option value="">Ocupadas e livres</option>
+          <option value="ocupadas">Só ocupadas</option>
+          <option value="livres">Só livres</option>
+          <option value="bloqueadas">Só bloqueadas</option>
+        </select>
+        <div style="display:flex;gap:4px;margin-left:auto">
+          <button class="btn btn-ghost btn-sm" id="btnVerLista-end">📋 Lista</button>
+          <button class="btn btn-ghost btn-sm" id="btnVerMapa-end">🗺️ Mapa por rua</button>
+          <button class="btn btn-ghost btn-sm" id="btnVerPlanta-end">🏭 Planta baixa</button>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="stat-val" id="statTotalPos-end">—</div><div class="stat-lbl">Total de posições</div></div>
+        <div class="stat"><div class="stat-val" id="statOcupadasPos-end" style="color:var(--primary)">—</div><div class="stat-lbl">Ocupadas</div></div>
+        <div class="stat"><div class="stat-val" id="statLivresPos-end" style="color:var(--tint-green-fg)">—</div><div class="stat-lbl">Livres</div></div>
+        <div class="stat"><div class="stat-val" id="statBloqueadasPos-end" style="color:var(--tint-red-fg)">—</div><div class="stat-lbl">Bloqueadas</div></div>
+      </div>
+      <div class="card" id="cardListaPosicoes-end">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Código</th><th>Área</th><th>Ocupantes</th><th style="width:120px"></th></tr></thead>
+            <tbody id="posicoesBody-end"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="mapaVisualContainer-end" style="display:none">
+        <div class="field-hint" style="margin-bottom:10px">Cada quadrado é uma posição (o número é o prédio) -- cinza = ainda não gerada, verde = livre, laranja = ocupada. Clique numa posição ocupada pra ver o detalhe.</div>
+        <div id="mapaVisualGrid-end"></div>
+      </div>
+      <div id="plantaBaixaContainer-end" style="display:none">
+        <div class="field-hint" style="margin-bottom:10px">Visão de cima do galpão -- cada bloco é uma rua, largura proporcional ao número de módulos. Em "Todos os níveis" a cor é a % de ocupação da rua inteira; escolhendo um nível, o bloco se abre nas posições de palete daquele nível (verde = livre, laranja = ocupada, cinza = não gerada) e dá pra clicar posição a posição. "Editar layout" libera arrastar os blocos pra deixar a planta parecida com o galpão de verdade.</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+          <select class="kt-select" id="plantaNivel-end" style="max-width:230px"><option value="0">Todos os níveis (ocupação da rua)</option></select>
+          <button class="btn btn-ghost btn-sm" id="btnEditarPlanta-end">✏️ Editar layout</button>
+          <button class="btn btn-primary btn-sm" id="btnSalvarPlanta-end" style="display:none">💾 Salvar posições</button>
+          <button class="btn btn-ghost btn-sm" id="btnCancelarPlanta-end" style="display:none">Cancelar</button>
+        </div>
+        <div class="planta-baixa-scroll">
+          <div id="plantaBaixaCanvas-end" class="planta-baixa-canvas"></div>
+        </div>
+      </div>
+      <!-- Detalhe de posição -- COMPARTILHADO pelo Mapa por rua e pela Planta
+           baixa por nível (as duas mostram posição, só que de ângulos
+           diferentes). Um card só, escondido a cada troca de visão pra nunca
+           deixar detalhe velho de outro modo na tela. -->
+      <!-- Popup, não card no fim da tela (pedido do usuário, 2026-09-15): o
+           mapa pode ser comprido e o detalhe ficava fora da vista. -->
+      <div class="modal-bg" id="mapaDetalheModal-end" role="dialog" aria-modal="true" aria-labelledby="mapaDetalheTitulo-end">
+        <div class="modal" style="max-width:1100px">
+          <div class="modal-header blue"><h2 id="mapaDetalheTitulo-end">Detalhe</h2><button type="button" class="modal-close" id="mapaDetalheFechar-end" title="Fechar" aria-label="Fechar">×</button></div>
+          <div class="modal-body" style="padding:16px 0 8px">
+            <div id="mapaDetalheResumo-end" class="posicao-resumo"></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Item</th><th>Lote</th><th>Origem</th><th>Volumes / composição</th><th style="text-align:right">Quantidade</th><th style="text-align:right">Peso (kg)</th><th>Validade</th><th>Status</th></tr></thead>
+                <tbody id="mapaDetalheBody-end"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  <!-- ═══ Aba: Endereçamento -- pedido do usuário: "WMS é complementar ao
+       estoque... acho não produtivo nascer com algo vinculado diretamente,
+       um ao outro, já de largada" -- ferramenta PRÓPRIA, separada de
+       "Ajustar Saldo" (aba Saldo Agregado): NUNCA escreve em
+       estoque/{key}, só distribui espacialmente o que já é conhecido. A
+       quantidade "conhecida" aparece só como referência de apoio, nunca
+       editável aqui. Pensada tanto pra uso incremental (poucos itens,
+       ajuste/teste) quanto pro "Dia D" (inventário físico completo,
+       alguém percorrendo o galpão em sequência, item após item). ═══ -->
+  <div class="tab-panel" id="tab-enderecamento">
+    <div class="card" id="docaCard" style="margin-bottom:14px">
+      <div class="card-title" id="docaTitulo">📦 Na Doca</div>
+      <div class="field-hint" style="padding:0 16px 8px">Tudo que está parado na Doca: recebido aguardando guardar e produto acabado separado para expedir. Guarde a qualquer momento; o que a Qualidade já liberou aparece primeiro.</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Item</th><th>Lote / palete</th><th style="text-align:right">Quantidade</th><th>Situação</th><th>Atualizado</th><th style="width:150px"></th></tr></thead>
+          <tbody id="docaBody"><tr><td colspan="6" class="no-data">Carregando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="section-note">Distribui espacialmente o que já está no estoque -- nunca corrige quantidade (isso continua em "Ajustar Saldo", na aba Saldo Agregado). Busque um item, veja quanto já está endereçado, e registre as posições onde ele está guardado.</div>
+    <div class="form-group" style="max-width:420px">
+      <label>Item (material ou produto) *</label>
+      <input type="text" id="edItem" placeholder="Buscar por código, nome ou fornecedor..." autocomplete="off">
+      <input type="hidden" id="edItemKey">
+      <input type="hidden" id="edItemTipo">
+    </div>
+    <div class="field-hint" id="edResumoHint" style="margin:8px 0 16px"></div>
+
+    <div class="card" id="edCardForm" style="display:none">
+      <div class="card-title">Adicionar posição</div>
+      <div class="form-grid" style="padding:16px">
+        <div class="form-group"><label>Endereço *</label><div id="edEnderecoCampo"></div></div>
+        <div class="form-group"><label>Quantidade *</label><input type="number" id="edQtd" min="0" step="any"></div>
+        <div class="form-group"><label>Lote (opcional)</label><input type="text" id="edLote" placeholder="Lote do fornecedor, se souber..."></div>
+        <div class="form-group"><label>Validade (opcional)</label><input type="date" id="edValidade"></div>
+      </div>
+      <div style="padding:0 16px 16px"><button class="btn btn-green" id="btnEdAddPosicao">+ Endereçar esta posição</button></div>
+    </div>
+
+    <div class="card" id="edCardHistorico" style="display:none;margin-top:14px">
+      <div class="card-title">Posições endereçadas nesta sessão</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Endereço</th><th style="text-align:right">Quantidade</th><th>Lote</th><th>Validade</th></tr></thead>
+          <tbody id="edHistoricoBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ CONFERÊNCIA DE PRODUTO ACABADO ════════ -->
+  <div class="tab-panel" id="tab-conferenciapa">
+    <div class="section-note">
+      A produção entrega os paletes já montados. Aqui a Logística registra cada palete físico,
+      confere caixas fechadas/parciais e unidades, e informa a posição na fábrica. O total é
+      conciliado com a OP apontada. Se houver diferença, o estoque fica bloqueado e o sistema exige
+      tripla conferência. Só depois da conciliação o PA entra no WMS, já endereçado e com status
+      <b>Quarentena</b>, aguardando o CQ. OPs encerradas pela Produção, mas ainda não confirmadas pelo
+      PCP, aparecem destacadas como pendência para cobrança, sem liberar a conferência antecipadamente.
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-val" id="cpaStatPendentePcp" style="color:var(--danger)">—</div><div class="stat-lbl">Aguardando confirmação do PCP</div></div>
+      <div class="stat"><div class="stat-val" id="cpaStatFila" style="color:var(--warning)">—</div><div class="stat-lbl">OPs aguardando conferência</div></div>
+      <div class="stat"><div class="stat-val" id="cpaStatDeclarado">—</div><div class="stat-lbl">Unidades liberadas para conferência</div></div>
+      <div class="stat"><div class="stat-val" id="cpaStatDivergencias" style="color:var(--danger)">—</div><div class="stat-lbl">Com divergência (30 dias)</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>OPs para Conferência de Produto Acabado</h3></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Produto / OP</th>
+            <th style="width:130px;text-align:right">Apontado</th>
+            <th style="width:130px;text-align:right">Paletizado</th>
+            <th style="width:130px;text-align:right">Diferença</th>
+            <th style="width:150px">Situação</th>
+            <th style="width:120px"></th>
+          </tr></thead>
+          <tbody id="cpaFilaBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ LIBERAÇÃO DE QUALIDADE — mudou-se para o módulo próprio ════════
+       A tela de laudo saiu daqui e virou qualidade.html. Motivo: liberar lote
+       é decisão de OUTRO time, com papel de acesso próprio ('qualidade'), e
+       manter as duas implementações vivas em paralelo seria a mesma
+       duplicação já corrigida antes na aba Endereços de cadastros.html.
+       A aba permanece só como ponte -- quem tinha o caminho na memória
+       muscular continua chegando lá. -->
+  <div class="tab-panel" id="tab-qualidade">
+    <div class="card" style="border-left-color:var(--purple)">
+      <div class="card-header"><h3>Liberação de Qualidade</h3></div>
+      <div style="padding:18px 16px 20px">
+        <p style="font-size:13.5px;line-height:1.6;margin-bottom:14px">
+          Esta tela virou um <b>módulo próprio</b>. Além da fila de laudo que ficava aqui, ele
+          traz o plano de inspeção vindo da especificação cadastrada, as não conformidades (RNC)
+          com vínculo automático ao fornecedor, e o painel de desempenho por fornecedor.
+        </p>
+        <p style="font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:16px">
+          O que continua aqui é o que é da <b>Logística</b>: a conferência do palete que a
+          produção declarou (aba <b>📦 Conferência de PA</b>), etapa anterior à Qualidade.
+        </p>
+        <a class="btn btn-primary" href="qualidade.html?tab=fila">🔬 Abrir o módulo de Qualidade</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ INVENTÁRIO ROTATIVO (contagem cíclica) ════════ -->
+  <div class="tab-panel" id="tab-inventario">
+    <div class="section-note">
+      Conferência de estoque em rodízio, sem parar a operação: o sistema indica quais posições
+      estão há mais tempo sem contar e você confere algumas por dia. É o que mantém o WMS
+      confiável depois da carga inicial -- sem isso, a única alternativa é parar tudo e recontar
+      o galpão inteiro de novo. <b>A contagem é cega:</b> o saldo que o sistema espera só aparece
+      DEPOIS que você informa o que contou -- ver antes enviesa a conferência e é o erro clássico
+      de inventário.
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-val" id="invStatFila">—</div><div class="stat-lbl">Posições a conferir</div></div>
+      <div class="stat"><div class="stat-val" id="invStatNunca" style="color:var(--danger)">—</div><div class="stat-lbl">Nunca contadas</div></div>
+      <div class="stat"><div class="stat-val" id="invStatHoje" style="color:var(--tint-green-fg)">—</div><div class="stat-lbl">Conferidas hoje</div></div>
+      <div class="stat"><div class="stat-val" id="invStatAcuracia" style="color:var(--primary)">—</div><div class="stat-lbl">Acurácia (30 dias)</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>Fila de contagem</h3></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th style="width:110px">Posição</th>
+            <th>Área</th>
+            <th style="width:100px;text-align:right">Itens</th>
+            <th style="width:160px">Última contagem</th>
+            <th style="width:130px"></th>
+          </tr></thead>
+          <tbody id="invFilaBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" id="invCardHistorico" style="margin-top:14px">
+      <div class="card-header"><h3>Contagens recentes</h3></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th style="width:110px">Posição</th>
+            <th style="width:150px">Quando</th>
+            <th>Quem</th>
+            <th style="width:110px;text-align:right">Acurácia</th>
+            <th style="width:140px">Resultado</th>
+          </tr></thead>
+          <tbody id="invHistoricoBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL: Contagem de posição (cega -> revela divergência) -->
+<div class="modal-bg" id="modalContagemBg">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header"><h2 id="modalContagemTitle">Contar posição</h2><button class="modal-close" id="modalContagemClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body">
+      <div id="invEtapaContagem">
+        <div class="field-hint" style="margin-bottom:12px">
+          Informe <b>o que você contou fisicamente</b> nesta posição. O saldo esperado pelo
+          sistema aparece só depois de confirmar.
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Material</th><th style="width:150px;text-align:right">Contado</th></tr></thead>
+            <tbody id="invContagemBody"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px">
+          <button class="btn btn-ghost btn-sm" id="invAddItemInesperado">+ Achei outro material aqui</button>
+        </div>
+      </div>
+
+      <div id="invEtapaResultado" style="display:none">
+        <div id="invResumoDivergencia" style="margin-bottom:12px"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Material</th>
+              <th style="width:110px;text-align:right">Esperado</th>
+              <th style="width:110px;text-align:right">Contado</th>
+              <th style="width:110px;text-align:right">Diferença</th>
+            </tr></thead>
+            <tbody id="invResultadoBody"></tbody>
+          </table>
+        </div>
+        <div class="field-hint" style="margin-top:12px">
+          Ajustar aplica a diferença no estoque <b>endereçado</b> (falta sai em ordem de validade,
+          sobra vai pro lote de validade mais distante). O saldo agregado em "Saldo Agregado"
+          <b>não</b> é alterado -- se ele também precisar de correção, faça em "Ajustar Saldo",
+          de forma consciente.
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="modalContagemCancel">Cancelar</button>
+      <button class="btn btn-ghost" id="invBtnRecontar" style="display:none">↩ Recontar</button>
+      <button class="btn btn-primary" id="invBtnConfirmarContagem">Confirmar contagem</button>
+      <button class="btn btn-green" id="invBtnAplicarAjuste" style="display:none">Ajustar estoque</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalRuaBg">
+  <div class="modal">
+    <div class="modal-header"><h2 id="modalRuaTitle">Nova Rua</h2><button class="modal-close" id="modalRuaClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Rua (número)</label>
+        <input type="number" id="rCodigoRua-end" min="1" step="1">
+        <div class="field-hint" id="rCodigoRuaHint-end"></div>
+      </div>
+      <div class="form-group">
+        <label>Área</label>
+        <select id="rArea-end"></select>
+      </div>
+      <div class="form-group">
+        <label>Níveis</label>
+        <input type="number" id="rNiveis-end" min="1" step="1" value="1">
+      </div>
+      <div class="form-group">
+        <label>Prédios (posições por nível -- já contando os 2 lados)</label>
+        <input type="number" id="rPredios-end" min="1" step="1" value="1">
+        <div class="field-hint">Prédio 1 = esquerdo, 2 = direito, 3 = esquerdo, 4 = direito... Se cada nível tem 13 vagas de cada lado, isto é 26.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="btnCancelarRua-end">Cancelar</button>
+      <button class="btn btn-primary" id="btnSalvarRua-end">Salvar e Gerar Posições</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Ajustar Saldo de Estoque -->
+<div class="modal-bg" id="modalAjusteEstoque">
+  <div class="modal">
+    <div class="modal-header"><h2>⚖️ Ajustar Saldo de Estoque</h2><button class="modal-close" id="modalAjusteEstoqueClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Material *</label>
+        <input type="text" id="aeMaterial" placeholder="Buscar por código, nome ou fornecedor..." autocomplete="off">
+        <input type="hidden" id="aeMaterialKey">
+      </div>
+      <div class="form-group">
+        <label>De quem é o saldo contado? *</label>
+        <select id="aeDono"><option value="">Kuryos (estoque geral)</option></select>
+        <div class="field-hint">Material de cliente é contado separado: o total do material soma a parte da Kuryos e a de cada cliente.</div>
+      </div>
+      <div class="field-hint" id="aeSaldoAtualHint" style="margin:8px 0"></div>
+      <div class="form-group">
+        <label>Novo saldo (quantidade real, contada agora) *</label>
+        <input type="number" id="aeNovoSaldo" min="0" step="any">
+      </div>
+      <div class="form-group">
+        <label>Justificativa *</label>
+        <textarea id="aeJustificativa" rows="2" placeholder="Ex: contagem física de 15/09, divergência por avaria..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="modalAjusteEstoqueCancel">Cancelar</button>
+      <button class="btn btn-green" id="modalAjusteEstoqueSave">Salvar Ajuste</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Transferir Lote -->
+<div class="modal-bg" id="modalTransferir">
+  <div class="modal">
+    <div class="modal-header blue"><h2>Transferir Lote</h2><button class="modal-close" id="modalTransferirClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body">
+      <div id="trLoteInfo" class="field-hint" style="margin-bottom:12px"></div>
+      <div class="form-group">
+        <label>Novo endereço *</label>
+        <div id="trNovoEnderecoCampo"></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="trParaDoca" style="margin-top:6px">🚚 Levar para a Doca</button>
+      </div>
+      <div class="form-group">
+        <label>Motivo *</label>
+        <select id="trMotivo"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="modalTransferirCancel">Cancelar</button>
+      <button class="btn btn-primary" id="modalTransferirSave">Confirmar Transferência</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Registrar Saída -->
+<div class="modal-bg" id="modalSaida">
+  <div class="modal">
+    <div class="modal-header"><h2>Registrar Saída</h2><button class="modal-close" id="modalSaidaClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body">
+      <div id="saLoteInfo" class="field-hint" style="margin-bottom:12px"></div>
+      <div class="form-group">
+        <label>Quantidade a dar baixa *</label>
+        <input type="number" id="saQtd" min="0" step="any">
+      </div>
+      <div class="form-group">
+        <label>Motivo *</label>
+        <select id="saMotivo"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="modalSaidaCancel">Cancelar</button>
+      <button class="btn btn-green" id="modalSaidaSave">Confirmar Saída</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var firebaseConfig = {
+  apiKey: "AIzaSyBvASzcbKyv3uW7NBzDFDyLsKls3An3UUs",
+  authDomain: "erpkuryos.firebaseapp.com",
+  databaseURL: kuryosDatabaseURL("https://erpkuryos-default-rtdb.firebaseio.com"),
+  projectId: "erpkuryos",
+  storageBucket: "erpkuryos.firebasestorage.app",
+  messagingSenderId: "272752392739",
+  appId: "1:272752392739:web:047a6c4aa60145d77f4f96"
+};
+firebase.initializeApp(firebaseConfig);
+kuryosConnectEmulatorsIfLocal();
+var db = firebase.database(), functionsInstance = firebase.functions();
+
+// norm() vem de shared/utils.js -- normalização única do sistema (minúscula,
+// sem acento). Havia uma cópia local aqui, e as 12 cópias divergiam entre si.
+function setStatus(on, txt) {
+  document.getElementById('sDot').classList.toggle('on', !!on);
+  document.getElementById('sTxt').textContent = txt;
+}
+function showAlert(msg, type) {
+  var box = document.getElementById('alertBox');
+  box.textContent = msg;
+  box.className = 'alert alert-' + (type || 'success') + ' show';
+  setTimeout(function() { box.classList.remove('show'); }, 5000);
+}
+function currentUserNome() {
+  return (window.currentUser && window.currentUser.nome) || (firebase.auth().currentUser && firebase.auth().currentUser.email) || 'Desconhecido';
+}
+function fmtData(iso) {
+  if (!iso) return '—';
+  // Data pura ('2026-09-14': validade, recebimento) é formatada direto. new
+  // Date() a lê como meia-noite UTC, que em Brasília ainda é o dia anterior --
+  // a validade aparecia um dia ANTES do real em Saldo por Lote e Lotes Vencendo.
+  var soData = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso));
+  if (soData) return soData[3] + '/' + soData[2] + '/' + soData[1];
+  var d = new Date(iso);
+  return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR');
+}
+function fmtDataHora(iso) {
+  if (!iso) return '—';
+  var d = new Date(iso);
+  return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+/* ══════════════ Tabs (nível página) ══════════════ */
+// Escopado a #mainTabsEstoque/#mainPanelsEstoque (não document inteiro) --
+// a aba Endereços tem suas PRÓPRIAS sub-abas internas (Estrutura de Ruas/
+// Posições) usando a mesma classe .tab/.tab-panel; sem escopo, clicar numa
+// sub-aba dispararia este handler também e desativaria todas as abas de
+// nível página (mesmo bug-classe já visto nesta sessão, corrigido antes de
+// virar um problema real -- ver #maintab-formulas/#maintab-enderecos em
+// cadastros.html, mesmo princípio).
+//
+// Roteamento por ?tab= -- pedido do usuário na reorganização do menu:
+// "Estoque" (Geral) e "WMS" (Logística) viraram 2 links de menu pra esta
+// MESMA página, cada um pousando numa aba diferente (agregado vs
+// enderecos) -- mesmo padrão de ?tab= já usado em cadastros.html
+// (MAINTAB_ALIASES/activateMainTab), só que pras abas de nível página
+// aqui em vez das main-tabs de lá.
+var ABAS_ESTOQUE_VALIDAS = { agregado: 1, lotes: 1, vencendo: 1, historico: 1, estrutura: 1, posicoes: 1, enderecamento: 1, inventario: 1, qualidade: 1, conferenciapa: 1 };
+function ativarAbaEstoque(target, pushUrl) {
+  if (!ABAS_ESTOQUE_VALIDAS[target]) return;
+  document.querySelectorAll('#mainTabsEstoque .tab').forEach(function(t) { t.classList.toggle('active', t.getAttribute('data-tab') === target); });
+  document.querySelectorAll('#mainPanelsEstoque > .tab-panel').forEach(function(p) { p.classList.toggle('active', p.id === 'tab-' + target); });
+  document.getElementById('propBarWrap').style.display = ['agregado', 'lotes', 'posicoes'].indexOf(target) >= 0 ? '' : 'none';
+  if (pushUrl) {
+    var url = new URL(location.href);
+    url.searchParams.set('tab', target);
+    history.replaceState(null, '', url);
+  }
+}
+document.querySelectorAll('#mainTabsEstoque .tab').forEach(function(tab) {
+  tab.addEventListener('click', function() { ativarAbaEstoque(tab.getAttribute('data-tab'), true); });
+});
+document.addEventListener('DOMContentLoaded', function() {
+  var params = new URLSearchParams(location.search);
+  var tab = params.get('tab');
+  if (tab && ABAS_ESTOQUE_VALIDAS[tab]) ativarAbaEstoque(tab, false);
+});
+
+var allEstoque = {};
+var allMateriais = {};
+var allProdutos = {}; // WMS Fase 2 -- endereçamento cobre material E produto acabado
+var allFornecedores = {}; // pedido do usuário: buscar material por código, nome OU fornecedor (mesmo padrão de Cadastros/Compras) -- ver materialBuscaLabel
+var allEstoqueLotes = {};   // itemKey -> {loteKey: lote}
+var allEnderecosEstoque = {};
+var motivosMovEstoqueAtivos = [];
+var expandedKeys = {}; // materialKey -> true, drill-down da aba Saldo Agregado
+// Onde é usado (01/10): mpCodigo -> usos nas fórmulas/BOMs vigentes (shared/onde-usado.js).
+var allFormulasEs = null, allBomEs = null, indiceUsos = {};
+function recalcularUsos() {
+  if (allFormulasEs === null || allBomEs === null) return;
+  indiceUsos = OndeUsado.indice({formulas: allFormulasEs, bom: allBomEs, produtos: allProdutos});
+  renderEstoqueAgregado();
+}
+function usosDe(e, key) { return indiceUsos[(e && e.materialCodigo) || key] || []; }
+function ondeUsadoCelula(e, key) {
+  var prods = OndeUsado.produtosDistintos(usosDe(e, key));
+  if (allFormulasEs === null || allBomEs === null) return '<span style="color:var(--muted)">…</span>';
+  if (!prods.length) return '<span style="color:var(--muted)">Nenhum produto</span>';
+  return '<button class="btn btn-ghost btn-sm es-expandir es-usos" data-key="' + escapeAttr(key) + '" title="Ver todos os produtos">' +
+    '<b>' + prods.length + ' produto' + (prods.length > 1 ? 's' : '') + '</b></button>' +
+    '<div style="font-size:11.5px;color:var(--muted);margin-top:2px">' + prods.slice(0, 2).map(function(u) { return escapeHtml(u.sku); }).join(', ') + (prods.length > 2 ? ' e +' + (prods.length - 2) : '') + '</div>';
+}
+function ondeUsadoDrillHtml(e, key) {
+  var usos = usosDe(e, key);
+  if (!usos.length) return '<div class="empty-hint" style="margin-top:10px">Nenhuma fórmula ou BOM vigente usa este material.</div>';
+  return '<div style="font-weight:700;margin:12px 0 4px">Onde é usado (' + OndeUsado.produtosDistintos(usos).length + ' produto(s))</div>' +
+    '<table><thead><tr><th>Produto</th><th>Cliente</th><th>Em</th><th>Versão</th><th style="text-align:right">Quantidade</th></tr></thead><tbody>' +
+    usos.map(function(u) {
+      return '<tr><td><b>' + escapeHtml(u.sku) + '</b> — ' + escapeHtml(u.descricao) + '</td><td>' + escapeHtml(u.cliente || '—') + '</td>' +
+        '<td>' + escapeHtml(u.via) + '</td><td>' + escapeHtml(u.versao) + ' <span class="badge ' + (u.status === 'APROVADA' ? 'badge-green' : 'badge-gray') + '">' + escapeHtml(u.status === 'APROVADA' ? 'aprovada' : 'rascunho') + '</span></td>' +
+        '<td style="text-align:right">' + (u.pecasPorUnidade ? '1 a cada ' + fmtNum(u.pecasPorUnidade) + ' peças' : fmtNum(u.quantidade) + ' ' + escapeHtml(u.unidadeQtd)) + '</td></tr>';
+    }).join('') + '</tbody></table>';
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Aba: Saldo Agregado (MP/Embalagem) -- migrado de compras.html (a aba
+   "📦 Estoque" de lá é retirada nesta mesma rodada) sem mudar a lógica,
+   só o lugar -- mais um drill-down novo por lote/endereço.
+   ═══════════════════════════════════════════════════════════════════ */
+var esSortable = makeSortableTable(document.getElementById('esThead'), 'materialCodigo', 'asc');
+function renderEstoqueAgregado() {
+  var comCliente = !!propClienteAtual();
+  document.getElementById('esCardCliente').style.display = comCliente ? '' : 'none';
+  document.getElementById('esCount').parentNode.style.display = comCliente ? 'none' : '';
+  if (comCliente) { renderEstoqueAgregadoCliente(); return; }
+  var search = norm(document.getElementById('esSearch').value);
+  var rows = Object.entries(allEstoque).filter(function(e) {
+    if (!search) return true;
+    // Também acha pelo produto que usa o material (SKU, descrição, cliente).
+    return (norm(e[1].materialCodigo) + ' ' + norm(e[1].materialNome) + ' ' + norm(OndeUsado.textoBusca(usosDe(e[1], e[0])))).indexOf(search) !== -1;
+  });
+  rows = esSortable.applySort(rows, function(entry, field) {
+    if (field === 'saldoDisponivel') return (entry[1].saldoAtual || 0) - (entry[1].saldoEmpenhado || 0);
+    if (field === 'usos') return OndeUsado.produtosDistintos(usosDe(entry[1], entry[0])).length;
+    return entry[1][field];
+  });
+
+  document.getElementById('esCount').textContent = 'Estoque (' + rows.length + ' material(is) com movimento)';
+  var tbody = document.getElementById('esBody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="no-data">' + (Object.keys(allEstoque).length ? 'Nenhum material encontrado com esse filtro.' : 'Nenhum material com movimento de estoque ainda -- o saldo aparece aqui a partir do primeiro recebimento em Logística.') + '</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(function(entry) {
+    var key = entry[0], e = entry[1];
+    var empenhado = e.saldoEmpenhado || 0;
+    var disponivel = (e.saldoAtual || 0) - empenhado;
+    var linhas = '<tr>' +
+      '<td><button class="btn btn-ghost btn-sm es-expandir" data-key="' + escapeAttr(key) + '" title="Ver lotes/endereços">' + (expandedKeys[key] ? '▾' : '▸') + '</button> ' + escapeHtml(e.materialCodigo || key) + ' — ' + escapeHtml(e.materialNome || '') +
+        (materialSemControleEstoque(e.materialCodigo || key, allMateriais) ? ' <span class="badge badge-gray" title="Cadastro: não controla estoque (não dá baixa nem é reservado)">sem controle de estoque</span>' : '') + '</td>' +
+      '<td style="text-align:right;font-weight:700">' + fmtNum(e.saldoAtual || 0) + ' ' + escapeHtml(e.unidade || '') + partesDonoHtml(e) + '</td>' +
+      '<td style="text-align:right' + (empenhado ? '' : ';color:var(--muted)') + '">' + (empenhado ? fmtNum(empenhado) + ' ' + escapeHtml(e.unidade || '') : '—') + '</td>' +
+      '<td style="text-align:right;font-weight:700' + (disponivel < 0 ? ';color:var(--danger)' : '') + '">' + fmtNum(disponivel) + ' ' + escapeHtml(e.unidade || '') + '</td>' +
+      '<td>' + ondeUsadoCelula(e, key) + '</td>' +
+      '<td style="font-size:12px">' + fmtData(e.ultimaAtualizacao) + '</td>' +
+      '<td><button class="btn btn-ghost btn-sm es-ajustar" data-key="' + escapeAttr(key) + '">⚖️ Ajustar</button></td>' +
+    '</tr>';
+    if (expandedKeys[key]) linhas += '<tr class="row-lotes"><td colspan="7"><div class="row-lotes-inner">' + renderLotesDrillDownHtml(key) + ondeUsadoDrillHtml(e, key) + '</div></td></tr>';
+    return linhas;
+  }).join('');
+  tbody.querySelectorAll('.es-ajustar').forEach(function(btn) {
+    btn.addEventListener('click', function() { abrirModalAjusteEstoque(btn.getAttribute('data-key')); });
+  });
+  tbody.querySelectorAll('.es-expandir').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var key = btn.getAttribute('data-key');
+      expandedKeys[key] = !expandedKeys[key];
+      renderEstoqueAgregado();
+    });
+  });
+}
+// Drill-down: lista os lotes/endereços que compõem o saldo de UM material
+// (estoque_lotes/{materialKey}) -- só leitura aqui, ações reais (transferir/
+// mudar status/dar baixa) ficam centralizadas na aba "Saldo por Lote/Endereço".
+function renderLotesDrillDownHtml(materialKey) {
+  var lotes = Object.entries(allEstoqueLotes[materialKey] || {}).filter(function(e) { return (e[1].saldoLote || 0) > 0; });
+  if (!lotes.length) return '<span class="empty-hint">Nenhum lote rastreado granularmente pra este material ainda (o saldo acima veio de recebimentos sem endereço preenchido).</span>';
+  return '<table><thead><tr><th>Lote</th><th>Endereço</th><th>Validade</th><th>Status</th><th style="text-align:right">Saldo</th></tr></thead><tbody>' +
+    lotes.map(function(entry) {
+      var l = entry[1];
+      return '<tr>' +
+        '<td>' + escapeHtml(l.loteInterno || l.loteOrigem || '—') + '<div class="prop-dono">' + donoDestinoHtml(l) + '</div></td>' +
+        '<td>' + escapeHtml(l.enderecoCodigo || '—') + '</td>' +
+        '<td>' + fmtData(l.dataValidade) + '</td>' +
+        '<td>' + statusBadge(l.status) + '</td>' +
+        '<td style="text-align:right">' + fmtNum(l.saldoLote || 0) + ' ' + escapeHtml(l.unidade || '') + '</td>' +
+      '</tr>';
+    }).join('') + '</tbody></table>';
+}
+function statusBadge(status) {
+  var map = { LIBERADO: 'badge-green', QUARENTENA: 'badge-orange', REPROVADO: 'badge-red', VENCIDO: 'badge-red' };
+  return '<span class="badge ' + (map[status] || 'badge-gray') + '">' + escapeHtml(status || 'LIBERADO') + '</span>';
+}
+
+var aeItems = []; // opções pro autocomplete -- todo material cadastrado, mesmo sem estoque ainda (primeiro ajuste pode ser a entrada inicial)
+function refreshAeItems() {
+  // Pedido do usuário: buscar por código, nome OU fornecedor -- mesmo
+  // materialBuscaLabel (shared/utils.js) já usado em Cadastros/BOM e
+  // Compras. attachAutocomplete filtra por substring dentro do label
+  // inteiro, então basta o fornecedor entrar no label pra busca funcionar.
+  aeItems = Object.values(allMateriais).filter(function(m) { return m.ativo !== false; })
+    .sort(function(a, b) { return norm(a.mpNome).localeCompare(norm(b.mpNome)); })
+    .map(function(m) {
+      var label = materialBuscaLabel(m, m.fornecedorKey ? allFornecedores[m.fornecedorKey] : null);
+      return { key: sanitizeKey(m.mpCodigo), value: label, label: label };
+    });
+}
+function preencherAeDono(estoqueKey) {
+  var sel = document.getElementById('aeDono');
+  var partes = PropriedadeEstoque.saldoPorDono(allEstoque[estoqueKey] || {}).porCliente;
+  sel.innerHTML = '<option value="">Kuryos (estoque geral)</option>' + clientesOrdenadosEstoque().map(function(c) {
+    return '<option value="' + escapeAttr(c.key) + '">' + escapeHtml(c.nome) + (partes[c.key] ? ' — tem ' + fmtNum(partes[c.key]) : '') + '</option>';
+  }).join('');
+  sel.value = '';
+}
+function atualizarAeSaldoHint() {
+  var key = document.getElementById('aeMaterialKey').value;
+  var dono = document.getElementById('aeDono').value;
+  var e = allEstoque[key] || {};
+  if (!key) { document.getElementById('aeSaldoAtualHint').textContent = ''; return; }
+  var s = PropriedadeEstoque.saldoPorDono(e);
+  var atual = dono ? (s.porCliente[dono] || 0) : s.geral;
+  document.getElementById('aeSaldoAtualHint').textContent = 'Saldo atual ' + (dono ? 'do cliente ' + nomeClienteEstoque(dono) : 'da Kuryos (geral)') +
+    ': ' + fmtNum(atual) + ' ' + (e.unidade || '') + ' · total do material: ' + fmtNum(s.total) + ' ' + (e.unidade || '');
+  document.getElementById('aeNovoSaldo').value = e.saldoAtual != null || dono ? atual : '';
+}
+function abrirModalAjusteEstoque(estoqueKey) {
+  refreshAeItems();
+  preencherAeDono(estoqueKey);
+  document.getElementById('aeJustificativa').value = '';
+  if (estoqueKey) {
+    var e = allEstoque[estoqueKey] || {};
+    document.getElementById('aeMaterial').value = (e.materialCodigo || estoqueKey) + ' — ' + (e.materialNome || '');
+    document.getElementById('aeMaterialKey').value = estoqueKey;
+    atualizarAeSaldoHint();
+  } else {
+    document.getElementById('aeMaterial').value = '';
+    document.getElementById('aeMaterialKey').value = '';
+    document.getElementById('aeSaldoAtualHint').textContent = '';
+    document.getElementById('aeNovoSaldo').value = '';
+  }
+  document.getElementById('modalAjusteEstoque').classList.add('open');
+}
+function fecharModalAjusteEstoque() { document.getElementById('modalAjusteEstoque').classList.remove('open'); }
+function salvarAjusteEstoque() {
+  var key = document.getElementById('aeMaterialKey').value;
+  if (!key) { showAlert('Digite e selecione um material da lista.', 'danger'); return; }
+  var novoSaldoStr = document.getElementById('aeNovoSaldo').value;
+  if (novoSaldoStr === '') { showAlert('Informe o novo saldo.', 'danger'); return; }
+  var novoSaldo = parseFloat(novoSaldoStr);
+  if (isNaN(novoSaldo) || novoSaldo < 0) { showAlert('Saldo inválido.', 'danger'); return; }
+  var justificativa = document.getElementById('aeJustificativa').value.trim();
+  if (!justificativa) { showAlert('Justificativa é obrigatória pra ajuste manual de estoque.', 'danger'); return; }
+
+  var mat = allMateriais[key];
+  var donoAjuste = document.getElementById('aeDono').value || null;
+  document.getElementById('modalAjusteEstoqueSave').disabled = true;
+
+  // O saldo informado é o da parte escolhida (Kuryos ou um cliente); o total
+  // do material se recompõe somando as partes. Kuryos: total = novo + clientes.
+  var anteriorParte = 0;
+  db.ref('estoque/' + key).transaction(function(atual) {
+    atual = atual || {};
+    var partes = PropriedadeEstoque.saldoPorDono(atual);
+    anteriorParte = donoAjuste ? (partes.porCliente[donoAjuste] || 0) : partes.geral;
+    var saldoAnterior = partes.total;
+    if (donoAjuste) {
+      atual.porCliente = atual.porCliente || {};
+      atual.porCliente[donoAjuste] = { saldoAtual: novoSaldo, clienteNome: nomeClienteEstoque(donoAjuste) };
+    }
+    atual.saldoAtual = Math.round((saldoAnterior - anteriorParte + novoSaldo) * 1000) / 1000;
+    atual.materialCodigo = mat ? mat.mpCodigo : (atual.materialCodigo || key);
+    atual.materialNome = mat ? mat.mpNome : (atual.materialNome || '');
+    atual.unidade = mat ? mat.unidade : (atual.unidade || '');
+    atual.ultimaAtualizacao = new Date().toISOString();
+    atual.ultimaMovimentacao = { tipo: 'ajuste_manual', qtd: novoSaldo - anteriorParte, ref: justificativa, em: new Date().toISOString() };
+    return atual;
+  }).then(function(result) {
+    if (!result.committed) { showAlert('Não foi possível salvar o ajuste. Tente de novo.', 'danger'); return; }
+    var saldoAnterior = anteriorParte;
+    var propriedadeAjuste = donoAjuste ? { clienteKey: donoAjuste, clienteNome: nomeClienteEstoque(donoAjuste) } : null;
+    return Promise.all([
+      db.ref('estoque/' + key + '/ajustes').push({
+        propriedade: propriedadeAjuste,
+        saldoAnterior: saldoAnterior, saldoNovo: novoSaldo, justificativa: justificativa,
+        ajustadoPor: currentUserNome(), ajustadoEm: new Date().toISOString()
+      }),
+      // WMS Fase 1: log unificado -- salvarAjusteEstoque é a única escrita em
+      // estoque/ que não passa por ajustarEstoque (seta um valor absoluto,
+      // não um delta), então precisa desta linha extra pra também entrar em
+      // movimentos_estoque (o log de ajustes/ acima continua intacto).
+      db.ref('movimentos_estoque/' + key).push({
+        tipo: 'ajuste_manual', motivo: 'AJUSTE DE INVENTÁRIO',
+        qtd: novoSaldo - saldoAnterior, saldoApos: result.snapshot.val().saldoAtual, ref: justificativa, propriedade: propriedadeAjuste,
+        itemTipo: 'material', itemCodigo: mat ? mat.mpCodigo : (result.snapshot.val().materialCodigo || key),
+        itemNome: mat ? mat.mpNome : (result.snapshot.val().materialNome || null), unidade: mat ? mat.unidade : (result.snapshot.val().unidade || null),
+        autor: currentUserNome(), em: new Date().toISOString()
+      })
+    ]).then(function() {
+      showAlert('Ajuste de estoque salvo!', 'success');
+      fecharModalAjusteEstoque();
+    });
+  }).catch(function(err) { showAlert('Erro: ' + err.message, 'danger'); })
+    .finally(function() { document.getElementById('modalAjusteEstoqueSave').disabled = false; });
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Filtro por cliente -- propriedade x destino (pedido do usuário,
+   2026-09-15). Regras em shared/propriedade-estoque.js.
+   - Propriedade do cliente: material que o cliente remeteu (é dele).
+   - Destinado ao cliente: da Kuryos, comprado para pedido dele, e o
+     produto acabado dos pedidos dele.
+   ═══════════════════════════════════════════════════════════════════ */
+var allClientesEstoque = {};
+function clientesOrdenadosEstoque() {
+  return Object.keys(allClientesEstoque).map(function(k) { return { key: k, nome: (allClientesEstoque[k] || {}).nome || k }; })
+    .sort(function(a, b) { return a.nome.localeCompare(b.nome, 'pt-BR'); });
+}
+function nomeClienteEstoque(k) { return (allClientesEstoque[k] || {}).nome || k || ''; }
+function propClienteAtual() { var el = document.getElementById('propCliente'); return el ? el.value : ''; }
+function propVistaAtual() { return document.getElementById('propVista').value || PropriedadeEstoque.VISTA_PROPRIEDADE; }
+function preencherFiltroCliente() {
+  var sel = document.getElementById('propCliente'), atual = sel.value;
+  sel.innerHTML = '<option value="">Todos os clientes (sem filtro)</option>' + clientesOrdenadosEstoque().map(function(c) {
+    return '<option value="' + escapeAttr(c.key) + '">' + escapeHtml(c.nome) + '</option>';
+  }).join('');
+  sel.value = atual;
+}
+function clienteDoPalete(lote) {
+  return PropriedadeEstoque.clienteKeyDoSku(lote.itemCodigo, allProdutos, allClientesEstoque, lote.cliente);
+}
+// Um lote entra no filtro atual? Sem cliente escolhido, sempre.
+function loteNoFiltroCliente(lote) {
+  var c = propClienteAtual();
+  if (!c || !lote) return true;
+  if (lote.itemTipo === 'produto') return propVistaAtual() === PropriedadeEstoque.VISTA_DESTINADO && clienteDoPalete(lote) === c;
+  return PropriedadeEstoque.loteNaVista(lote, c, propVistaAtual());
+}
+function posicaoNoFiltroCliente(enderecoKey) {
+  return Object.keys(allEstoqueLotes).some(function(itemKey) {
+    return Object.values(allEstoqueLotes[itemKey] || {}).some(function(l) {
+      return l && l.enderecoKey === enderecoKey && (l.saldoLote || 0) > 0 && loteNoFiltroCliente(l);
+    });
+  });
+}
+function donoDestinoHtml(l) {
+  if (!l) return '';
+  if (l.itemTipo === 'produto') {
+    return l.cliente ? '<span class="field-hint">→ ' + escapeHtml(l.cliente) + (l.pedidoId ? ' · pedido ' + escapeHtml(l.pedidoId) : '') + '</span>' : '';
+  }
+  var dono = PropriedadeEstoque.donoDoLote(l), d = l.destino || {};
+  return (dono.tipo === PropriedadeEstoque.CLIENTE
+      ? '<span class="badge badge-purple" title="Material de propriedade do cliente: só para os pedidos dele">do cliente</span> ' + escapeHtml(dono.clienteNome || nomeClienteEstoque(dono.clienteKey))
+      : '<span class="badge badge-gray">Kuryos</span>') +
+    (d.geral ? '<div class="field-hint">→ uso e consumo / estoque geral</div>' : '') +
+    (d.clienteKey ? '<div class="field-hint">→ ' + escapeHtml(d.clienteNome || nomeClienteEstoque(d.clienteKey)) +
+      ((d.pedidos || []).length ? ' · pedido' + (d.pedidos.length > 1 ? 's ' : ' ') + escapeHtml(d.pedidos.join(', ')) : '') + '</div>' : '');
+}
+// Partes de clientes dentro do total de um material (Saldo Agregado sem filtro).
+function partesDonoHtml(e) {
+  var s = PropriedadeEstoque.saldoPorDono(e);
+  var clientes = Object.keys(s.porCliente);
+  if (!clientes.length) return '';
+  return '<div class="field-hint" style="margin:0;font-weight:400">Kuryos ' + fmtNum(s.geral) + ' · ' +
+    clientes.map(function(c) { return escapeHtml(nomeClienteEstoque(c)) + ' ' + fmtNum(s.porCliente[c]); }).join(' · ') + '</div>';
+}
+function renderEstoqueAgregadoCliente() {
+  var c = propClienteAtual(), vista = propVistaAtual();
+  var search = norm(document.getElementById('esSearch').value);
+  var destinado = vista === PropriedadeEstoque.VISTA_DESTINADO;
+  var linhas = {};
+  // Lotes que entram na vista: dão pedidos e contagem; no destino, dão o saldo.
+  Object.keys(allEstoqueLotes).forEach(function(itemKey) {
+    Object.values(allEstoqueLotes[itemKey] || {}).forEach(function(l) {
+      if (!l || !((l.saldoLote || 0) > 0) || !loteNoFiltroCliente(l)) return;
+      var ln = linhas[itemKey] = linhas[itemKey] || { key: itemKey, codigo: l.itemCodigo, nome: l.itemNome || '', unidade: l.unidade || '', saldo: 0, lotes: 0, pedidos: {}, pa: l.itemTipo === 'produto' };
+      ln.lotes++;
+      if (destinado) ln.saldo += Number(l.saldoLote) || 0;
+      ((l.destino && l.destino.pedidos) || (l.pedidoId ? [l.pedidoId] : [])).forEach(function(p) { ln.pedidos[p] = 1; });
+    });
+  });
+  if (!destinado) {
+    // Propriedade: o saldo é o agregado da parte do cliente (já com consumo).
+    Object.keys(linhas).forEach(function(k) { linhas[k].saldo = 0; });
+    Object.entries(allEstoque).forEach(function(entry) {
+      var parte = PropriedadeEstoque.saldoPorDono(entry[1]).porCliente[c];
+      if (!parte) return;
+      var e = entry[1];
+      var ln = linhas[entry[0]] = linhas[entry[0]] || { key: entry[0], codigo: e.materialCodigo, nome: e.materialNome || '', unidade: e.unidade || '', saldo: 0, lotes: 0, pedidos: {} };
+      ln.saldo = parte;
+    });
+  }
+  var rows = Object.values(linhas).filter(function(ln) {
+    return !search || (norm(ln.codigo) + ' ' + norm(ln.nome)).indexOf(search) !== -1;
+  }).sort(function(a, b) { return norm(a.codigo).localeCompare(norm(b.codigo)); });
+  document.getElementById('esClienteColSaldo').textContent = destinado ? 'Saldo destinado (lotes)' : 'Saldo do cliente';
+  document.getElementById('esCountCliente').textContent = (destinado ? 'Destinado a ' : 'Propriedade de ') + nomeClienteEstoque(c) +
+    ' (' + rows.length + ' item(ns))';
+  var tbody = document.getElementById('esBodyCliente');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="no-data">' + (destinado
+      ? 'Nada da Kuryos destinado a este cliente em estoque.'
+      : 'Nenhum material de propriedade deste cliente em estoque.') + '</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(function(ln) {
+    return '<tr>' +
+      '<td>' + (ln.pa ? '<span class="badge badge-purple">PA</span> ' : '') + escapeHtml(ln.codigo || ln.key) + ' — ' + escapeHtml(ln.nome) + '</td>' +
+      '<td style="text-align:right;font-weight:700' + (ln.saldo < 0 ? ';color:var(--danger)' : '') + '">' + fmtNum(ln.saldo) + ' ' + escapeHtml(ln.unidade) + '</td>' +
+      '<td style="font-size:12px">' + (Object.keys(ln.pedidos).length ? escapeHtml(Object.keys(ln.pedidos).join(', ')) : '—') + '</td>' +
+      '<td style="text-align:right">' + ln.lotes + '</td>' +
+      '<td><button class="btn btn-ghost btn-sm es-cli-lotes" data-codigo="' + escapeAttr(ln.codigo || '') + '">Ver lotes</button></td>' +
+    '</tr>';
+  }).join('');
+  tbody.querySelectorAll('.es-cli-lotes').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.getElementById('slSearch').value = btn.getAttribute('data-codigo');
+      ativarAbaEstoque('lotes', true);
+      renderSaldoLotes();
+    });
+  });
+}
+['propCliente', 'propVista'].forEach(function(id) {
+  document.getElementById(id).addEventListener('change', function() {
+    document.getElementById('propHint').textContent = !propClienteAtual()
+      ? 'Vale para Saldo Agregado, Saldo por Lote/Endereço e Posições.'
+      : (propVistaAtual() === PropriedadeEstoque.VISTA_DESTINADO
+          ? 'Da Kuryos, comprado para pedidos deste cliente, e o produto acabado dos pedidos dele. É estoque geral: pode ser usado para outros.'
+          : 'Material que este cliente remeteu. Só pode ser usado nos produtos e pedidos dele.');
+    renderEstoqueAgregado();
+    renderSaldoLotes();
+    renderPosicoesTableEnd();
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   Aba: Saldo por Lote/Endereço
+   ═══════════════════════════════════════════════════════════════════ */
+function todosOsLotes() {
+  var lista = [];
+  Object.keys(allEstoqueLotes).forEach(function(itemKey) {
+    Object.entries(allEstoqueLotes[itemKey]).forEach(function(entry) {
+      lista.push({ itemKey: itemKey, loteKey: entry[0], lote: entry[1] });
+    });
+  });
+  return lista;
+}
+function renderSaldoLotes() {
+  var search = norm(document.getElementById('slSearch').value);
+  var filtroTipo = document.getElementById('slFiltroTipo').value;
+  var filtroStatus = document.getElementById('slFiltroStatus').value;
+
+  var soAguardando = document.getElementById('slSoAguardando').checked;
+
+  var todos = todosOsLotes();
+  // Contagem sobre TUDO, não sobre o filtro: o aviso precisa dizer quantos
+  // existem, mesmo quando a busca atual esconde a maioria deles.
+  var nAguardando = todos.filter(function(x) { return loteAguardaGuardar(x.lote); }).length;
+  document.getElementById('slAvisoAguardando').innerHTML = nAguardando
+    ? '<div class="section-note" style="border-left:3px solid var(--warning)">📦 <b>' + nAguardando +
+      ' lote(s) na Doca aguardando guardar.</b> ' +
+      'Guarde em Endereçamento › Na Doca, ou pelo botão “Transferir” de cada linha.</div>'
+    : '';
+
+  var linhas = todos.filter(function(x) {
+    if (soAguardando && !loteAguardaGuardar(x.lote)) return false;
+    if (filtroTipo && x.lote.itemTipo !== filtroTipo) return false;
+    if (filtroStatus && (x.lote.status || 'LIBERADO') !== filtroStatus) return false;
+    if (!loteNoFiltroCliente(x.lote)) return false;
+    if (search) {
+      var hay = norm(x.lote.itemCodigo) + ' ' + norm(x.lote.itemNome) + ' ' + norm(x.lote.loteOrigem) + ' ' + norm(x.lote.loteInterno);
+      if (hay.indexOf(search) === -1) return false;
+    }
+    return true;
+  }).sort(function(a, b) {
+    // Aguardando posição sobe: é trabalho pendente, e trabalho pendente no
+    // fim de uma lista alfabética nunca é feito.
+    var pa = loteAguardaGuardar(a.lote) ? 0 : 1;
+    var pb = loteAguardaGuardar(b.lote) ? 0 : 1;
+    if (pa !== pb) return pa - pb;
+    return norm(a.lote.itemCodigo).localeCompare(norm(b.lote.itemCodigo));
+  });
+
+  document.getElementById('slCount').textContent = 'Lotes em estoque (' + linhas.length + ')';
+  var tbody = document.getElementById('slBody');
+  if (!linhas.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="no-data">Nenhum lote encontrado com esse filtro.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = linhas.map(function(x) {
+    var l = x.lote;
+    var tipoBadge = l.itemTipo === 'produto' ? '<span class="badge badge-purple">PA</span>' : '<span class="badge badge-blue">MP</span>';
+    var pendEndereco = loteAguardaGuardar(l)
+      ? ' <span class="badge badge-orange" title="Na Doca, aguardando guardar numa posição de palete.">📦 guardar</span>'
+      : (loteNaDoca(l) ? ' <span class="badge badge-purple" title="Produto acabado separado na Doca para expedir.">🚚 na Doca</span>' : '');
+    return '<tr>' +
+      '<td>' + tipoBadge + ' ' + escapeHtml(l.itemCodigo) + ' — ' + escapeHtml(l.itemNome || '') + pendEndereco + '</td>' +
+      '<td>' + escapeHtml(l.loteInterno || l.loteOrigem || '—') + (l.loteInterno && l.loteOrigem && l.loteOrigem !== l.loteInterno ? '<div class="field-hint" style="margin:0">fornecedor: ' + escapeHtml(l.loteOrigem) + '</div>' : '') + '</td>' +
+      '<td class="prop-dono">' + donoDestinoHtml(l) + '</td>' +
+      '<td>' + escapeHtml(l.enderecoCodigo || '—') + '</td>' +
+      '<td>' + fmtData(l.dataValidade) + '</td>' +
+      '<td><select class="sl-status" data-item="' + escapeAttr(x.itemKey) + '" data-lote="' + escapeAttr(x.loteKey) + '">' +
+        ['LIBERADO', 'QUARENTENA', 'REPROVADO', 'VENCIDO'].map(function(s) { return '<option value="' + s + '"' + ((l.status || 'LIBERADO') === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') +
+      '</select></td>' +
+      '<td style="text-align:right">' + fmtNum(l.saldoLote || 0) + ' ' + escapeHtml(l.unidade || '') + '</td>' +
+      '<td>' +
+        '<button class="btn btn-ghost btn-sm sl-transferir" data-item="' + escapeAttr(x.itemKey) + '" data-lote="' + escapeAttr(x.loteKey) + '">Transferir</button> ' +
+        '<button class="btn btn-danger-ghost btn-sm sl-saida" data-item="' + escapeAttr(x.itemKey) + '" data-lote="' + escapeAttr(x.loteKey) + '">Saída</button>' +
+      '</td>' +
+    '</tr>';
+  }).join('');
+
+  tbody.querySelectorAll('.sl-status').forEach(function(sel) {
+    sel.addEventListener('change', function() { mudarStatusLote(sel.getAttribute('data-item'), sel.getAttribute('data-lote'), sel.value); });
+  });
+  tbody.querySelectorAll('.sl-transferir').forEach(function(btn) {
+    btn.addEventListener('click', function() { abrirModalTransferir(btn.getAttribute('data-item'), btn.getAttribute('data-lote')); });
+  });
+  tbody.querySelectorAll('.sl-saida').forEach(function(btn) {
+    btn.addEventListener('click', function() { abrirModalSaida(btn.getAttribute('data-item'), btn.getAttribute('data-lote')); });
+  });
+}
+function mudarStatusLote(itemKey, loteKey, novoStatus) {
+  db.ref('estoque_lotes/' + itemKey + '/' + loteKey).update({ status: novoStatus, atualizadoEm: new Date().toISOString() })
+    .then(function() { showAlert('Status atualizado.', 'success'); })
+    .catch(function(err) { showAlert('Erro ao mudar status: ' + err.message, 'danger'); renderSaldoLotes(); });
+}
+
+var trAtual = null; // {itemKey, loteKey, lote}
+/* ── Seletor visual de endereço e Doca ──────────────────────────────────
+   Doca é área de passagem (área DOCA do cadastro de endereços): recebimento
+   entra nela, e o PA pode voltar para ela para agilizar a expedição. "Na
+   Doca" é calculado pela área do endereço -- não por marca gravada no lote.
+   aguardandoEnderecoDefinitivo continua respeitado para lotes antigos. */
+function fonteEnderecos() { return {enderecos: allEnderecosEstoque, lotes: allEstoqueLotes}; }
+function loteNaDoca(lote) { return !!lote && SeletorEndereco.ehDoca(allEnderecosEstoque[lote.enderecoKey]); }
+// Material parado na Doca (ou marcado pela regra antiga) é trabalho de guardar.
+// PA na Doca está separado para expedir: não é pendência de guarda.
+function loteAguardaGuardar(lote) {
+  return !!lote && (!!lote.aguardandoEnderecoDefinitivo || (loteNaDoca(lote) && lote.itemTipo !== 'produto'));
+}
+function ordemDoca(lote) {
+  if (lote.itemTipo === 'produto') return 2;
+  return /LIBERADO|APROVADO/.test(lote.status || '') ? 0 : 1;
+}
+function renderDoca() {
+  var body = document.getElementById('docaBody');
+  if (!body) return;
+  var temDoca = !!SeletorEndereco.docaPadrao(allEnderecosEstoque);
+  var itens = [];
+  Object.keys(allEstoqueLotes || {}).forEach(function(itemKey) {
+    Object.keys(allEstoqueLotes[itemKey] || {}).forEach(function(loteKey) {
+      var l = allEstoqueLotes[itemKey][loteKey];
+      if (l && Number(l.saldoLote) > 0 && loteNaDoca(l)) itens.push({itemKey: itemKey, loteKey: loteKey, lote: l});
+    });
+  });
+  itens.sort(function(a, b) { return ordemDoca(a.lote) - ordemDoca(b.lote) || String(a.lote.atualizadoEm || a.lote.criadoEm || '').localeCompare(String(b.lote.atualizadoEm || b.lote.criadoEm || '')); });
+  var guardar = itens.filter(function(x) { return x.lote.itemTipo !== 'produto'; }).length;
+  document.getElementById('docaTitulo').textContent = '📦 Na Doca (' + itens.length + ')' + (guardar ? ' · ' + guardar + ' para guardar' : '');
+  if (!temDoca) { body.innerHTML = '<tr><td colspan="6" class="no-data">A área DOCA ainda não tem posição. Cadastre em Estrutura de Ruas.</td></tr>'; return; }
+  body.innerHTML = itens.map(function(x) {
+    var l = x.lote, pa = l.itemTipo === 'produto', liberado = /LIBERADO|APROVADO/.test(l.status || '');
+    var situacao = pa ? '<span class="badge badge-purple">PA · separado para expedir</span>'
+      : liberado ? '<span class="badge badge-green">Liberado · guardar</span>'
+      : '<span class="badge badge-orange">' + escapeHtml(typeof rotuloStatusLote === 'function' ? rotuloStatusLote(l.status || 'QUARENTENA') : (l.status || 'QUARENTENA')) + '</span>';
+    return '<tr>' +
+      '<td>' + (pa ? '<span class="badge badge-purple">PA</span> ' : '<span class="badge badge-blue">MP</span> ') + escapeHtml(l.itemCodigo || x.itemKey) + ' — ' + escapeHtml(l.itemNome || '') + '</td>' +
+      '<td>' + escapeHtml(l.identificadorPalete || l.loteInterno || l.loteOrigem || x.loteKey) + '</td>' +
+      '<td style="text-align:right">' + fmtNum(l.saldoLote || 0) + ' ' + escapeHtml(l.unidade || (pa ? 'un' : '')) + '</td>' +
+      '<td>' + situacao + '</td>' +
+      '<td>' + fmtData(l.atualizadoEm || l.criadoEm || l.dataRecebimento) + '</td>' +
+      '<td><button class="btn ' + (pa ? 'btn-ghost' : 'btn-green') + ' btn-sm doca-guardar" data-item="' + escapeAttr(x.itemKey) + '" data-lote="' + escapeAttr(x.loteKey) + '">' + (pa ? 'Devolver a uma posição' : '📍 Guardar') + '</button></td>' +
+    '</tr>';
+  }).join('') || '<tr><td colspan="6" class="no-data">Doca vazia.</td></tr>';
+  body.querySelectorAll('.doca-guardar').forEach(function(btn) {
+    btn.addEventListener('click', function() { guardarDaDoca(btn.getAttribute('data-item'), btn.getAttribute('data-lote')); });
+  });
+}
+function guardarDaDoca(itemKey, loteKey) {
+  var lote = (allEstoqueLotes[itemKey] || {})[loteKey];
+  if (!lote) return;
+  SeletorEndereco.abrir({
+    fonte: fonteEnderecos, valor: lote.enderecoKey, ignorar: {itemKey: itemKey, loteKey: loteKey}, preferirPosicao: true,
+    titulo: lote.itemTipo === 'produto' ? 'Devolver palete a uma posição' : 'Guardar lote',
+    subtitulo: (lote.itemCodigo || itemKey) + ' — ' + (lote.itemNome || '') + ' · ' + fmtNum(lote.saldoLote || 0) + ' ' + (lote.unidade || ''),
+    onEscolher: function(key, sit) {
+      if (key === lote.enderecoKey) return;
+      transferirLoteEndereco(db, lote.itemTipo, lote.itemCodigo || itemKey, loteKey, key,
+        sit.tipo === 'OCUPADA' ? 'GUARDADO DA DOCA (MESMO PALETE)' : 'GUARDADO DA DOCA', currentUserNome())
+        .then(function() { showAlert('Guardado em ' + ((allEnderecosEstoque[key] || {}).codigo || key) + '.', 'success'); })
+        .catch(function(err) { showAlert('Erro ao guardar: ' + err.message, 'danger'); });
+    }
+  });
+}
+function opcoesMotivoSelect() {
+  return motivosMovEstoqueAtivos.map(function(m) { return '<option value="' + escapeAttr(m.nome) + '">' + escapeHtml(m.nome) + '</option>'; }).join('');
+}
+function abrirModalTransferir(itemKey, loteKey) {
+  var lote = (allEstoqueLotes[itemKey] || {})[loteKey];
+  if (!lote) return;
+  trAtual = { itemKey: itemKey, loteKey: loteKey, lote: lote };
+  document.getElementById('trLoteInfo').textContent = escapeHtml(lote.itemCodigo) + ' — ' + escapeHtml(lote.itemNome || '') + ' · lote ' + escapeHtml(lote.loteOrigem || '—') + ' · atualmente em ' + escapeHtml(lote.enderecoCodigo || '—');
+  document.getElementById('trNovoEnderecoCampo').innerHTML = SeletorEndereco.campoHtml('tr-endereco', '', allEnderecosEstoque, {id: 'trNovoEndereco', titulo: 'Transferir lote'});
+  document.getElementById('trMotivo').innerHTML = opcoesMotivoSelect();
+  // Pré-seleciona "Transferência entre Endereços" se existir na lista, sem travar se o nome mudou
+  var selMotivo = document.getElementById('trMotivo');
+  Array.from(selMotivo.options).forEach(function(opt) { if (opt.value === 'TRANSFERÊNCIA ENTRE ENDEREÇOS') selMotivo.value = opt.value; });
+  document.getElementById('modalTransferir').classList.add('open');
+}
+function fecharModalTransferir() { document.getElementById('modalTransferir').classList.remove('open'); trAtual = null; }
+function salvarTransferir() {
+  if (!trAtual) return;
+  var novoEnderecoKey = document.getElementById('trNovoEndereco').value;
+  var motivo = document.getElementById('trMotivo').value;
+  if (!novoEnderecoKey) { showAlert('Selecione o novo endereço.', 'danger'); return; }
+  if (!motivo) { showAlert('Selecione o motivo.', 'danger'); return; }
+  document.getElementById('modalTransferirSave').disabled = true;
+  transferirLoteEndereco(db, trAtual.lote.itemTipo, trAtual.lote.itemCodigo, trAtual.loteKey, novoEnderecoKey, motivo, currentUserNome())
+    .then(function() { showAlert('Lote transferido!', 'success'); fecharModalTransferir(); })
+    .catch(function(err) { showAlert('Erro ao transferir: ' + err.message, 'danger'); })
+    .finally(function() { document.getElementById('modalTransferirSave').disabled = false; });
+}
+
+SeletorEndereco.ligar(document.getElementById('modalTransferir'), {
+  fonte: fonteEnderecos,
+  ignorar: function() { return trAtual ? {itemKey: trAtual.itemKey, loteKey: trAtual.loteKey} : null; },
+  subtitulo: function() { return trAtual ? (trAtual.lote.itemCodigo || '') + ' — ' + (trAtual.lote.itemNome || '') + ' · hoje em ' + (trAtual.lote.enderecoCodigo || '—') : ''; }
+});
+SeletorEndereco.ligar(document.getElementById('edCardForm'), {fonte: fonteEnderecos});
+document.getElementById('trParaDoca').addEventListener('click', function() {
+  var doca = SeletorEndereco.docaPadrao(allEnderecosEstoque), input = document.getElementById('trNovoEndereco');
+  if (!doca) { showAlert('A área DOCA ainda não tem posição cadastrada.', 'danger'); return; }
+  if (input) SeletorEndereco.atualizarCampo(input, doca, allEnderecosEstoque);
+});
+
+var saAtual = null;
+function abrirModalSaida(itemKey, loteKey) {
+  var lote = (allEstoqueLotes[itemKey] || {})[loteKey];
+  if (!lote) return;
+  saAtual = { itemKey: itemKey, loteKey: loteKey, lote: lote };
+  document.getElementById('saLoteInfo').textContent = escapeHtml(lote.itemCodigo) + ' — ' + escapeHtml(lote.itemNome || '') + ' · lote ' + escapeHtml(lote.loteOrigem || '—') + ' · saldo atual ' + fmtNum(lote.saldoLote || 0) + ' ' + escapeHtml(lote.unidade || '');
+  document.getElementById('saQtd').value = '';
+  document.getElementById('saMotivo').innerHTML = opcoesMotivoSelect();
+  document.getElementById('modalSaida').classList.add('open');
+}
+function fecharModalSaida() { document.getElementById('modalSaida').classList.remove('open'); saAtual = null; }
+function salvarSaida() {
+  if (!saAtual) return;
+  var qtd = parseFloat(document.getElementById('saQtd').value);
+  var motivo = document.getElementById('saMotivo').value;
+  if (isNaN(qtd) || qtd <= 0) { showAlert('Informe uma quantidade válida.', 'danger'); return; }
+  if (!motivo) { showAlert('Selecione o motivo.', 'danger'); return; }
+  document.getElementById('modalSaidaSave').disabled = true;
+  darBaixaLoteManual(db, saAtual.lote.itemTipo, saAtual.lote.itemCodigo, saAtual.loteKey, qtd, motivo, currentUserNome())
+    .then(function() { showAlert('Saída registrada!', 'success'); fecharModalSaida(); })
+    .catch(function(err) { showAlert('Erro ao registrar saída: ' + err.message, 'danger'); })
+    .finally(function() { document.getElementById('modalSaidaSave').disabled = false; });
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Aba: Lotes Vencendo -- cálculo client-side (sem Cloud Function nesta
+   fase), sobre os mesmos dados já carregados de estoque_lotes.
+   ═══════════════════════════════════════════════════════════════════ */
+function renderLotesVencendo() {
+  var dias = parseInt(document.getElementById('lvDias').value, 10) || 30;
+  var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  var limite = new Date(hoje.getTime() + dias * 86400000);
+
+  var linhas = todosOsLotes().filter(function(x) {
+    if (!((x.lote.saldoLote || 0) > 0)) return false;
+    if (!x.lote.dataValidade) return false;
+    var validade = new Date(x.lote.dataValidade);
+    if (isNaN(validade)) return false;
+    return validade <= limite;
+  }).sort(function(a, b) { return new Date(a.lote.dataValidade) - new Date(b.lote.dataValidade); });
+
+  document.getElementById('lvCount').textContent = 'Lotes vencendo em até ' + dias + ' dias (' + linhas.length + ')';
+  var tbody = document.getElementById('lvBody');
+  if (!linhas.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="no-data">Nenhum lote vencendo nesse período.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = linhas.map(function(x) {
+    var l = x.lote;
+    var validade = new Date(l.dataValidade);
+    var diasRestantes = Math.round((validade - hoje) / 86400000);
+    var situacao = diasRestantes < 0
+      ? '<span class="badge badge-red">Vencido há ' + fmtNum(Math.abs(diasRestantes)) + ' d</span>'
+      : diasRestantes <= 7 ? '<span class="badge badge-orange">Vence em ' + fmtNum(diasRestantes) + ' d</span>'
+      : '<span class="badge badge-gray">Vence em ' + fmtNum(diasRestantes) + ' d</span>';
+    return '<tr>' +
+      '<td>' + escapeHtml(l.itemCodigo) + ' — ' + escapeHtml(l.itemNome || '') + '</td>' +
+      '<td>' + escapeHtml(l.loteOrigem || '—') + '</td>' +
+      '<td>' + escapeHtml(l.enderecoCodigo || '—') + '</td>' +
+      '<td>' + fmtData(l.dataValidade) + '</td>' +
+      '<td>' + situacao + '</td>' +
+      '<td style="text-align:right">' + fmtNum(l.saldoLote || 0) + ' ' + escapeHtml(l.unidade || '') + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Aba: Histórico de Movimentações -- busca por item, lê só
+   movimentos_estoque/{itemKey} (não a árvore inteira).
+   ═══════════════════════════════════════════════════════════════════ */
+function buscarHistorico() {
+  var codigo = document.getElementById('hmCodigo').value.trim();
+  location.href = 'kardex.html' + (codigo ? '?item=' + encodeURIComponent(codigo) : '');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Aba: Endereçamento -- WMS Fase 2. Pedido do usuário: "WMS é
+   complementar ao estoque... não produtivo nascer com algo vinculado
+   diretamente, um ao outro, já de largada" -- ferramenta PRÓPRIA,
+   separada de "Ajustar Saldo": NUNCA escreve em estoque/{key}, só
+   distribui espacialmente o que já é conhecido (putawayEstoqueLote,
+   shared/utils.js). A quantidade "conhecida" é só referência de apoio.
+   ═══════════════════════════════════════════════════════════════════ */
+var edItemAtual = null; // { key, tipo, codigo, nome, unidade }
+
+function edItemsAutocomplete() {
+  // Mesma busca por código/nome/fornecedor de refreshAeItems() -- só
+  // acrescenta o marcador "(Material)" depois do label já resolvido.
+  var itensMateriais = Object.values(allMateriais).filter(function(m) { return m.ativo !== false; }).map(function(m) {
+    var label = materialBuscaLabel(m, m.fornecedorKey ? allFornecedores[m.fornecedorKey] : null) + ' (Material)';
+    return { key: sanitizeKey(m.mpCodigo), value: label, label: label, tipo: 'material', codigo: m.mpCodigo, nome: m.mpNome, unidade: m.unidade };
+  });
+  var itensProdutos = Object.values(allProdutos).filter(function(p) { return p.ativo !== false; }).map(function(p) {
+    var label = p.sku + ' — ' + p.descricao + ' (Produto)';
+    return { key: sanitizeKey(p.sku), value: label, label: label, tipo: 'produto', codigo: p.sku, nome: p.descricao, unidade: 'un' };
+  });
+  return itensMateriais.concat(itensProdutos).sort(function(a, b) { return norm(a.nome).localeCompare(norm(b.nome)); });
+}
+
+function edSomaEnderecada(itemKey) {
+  return Object.values(allEstoqueLotes[itemKey] || {}).reduce(function(s, l) { return s + (l && l.saldoLote || 0); }, 0);
+}
+
+function renderResumoEnderecamento() {
+  var hint = document.getElementById('edResumoHint');
+  if (!edItemAtual) { hint.textContent = ''; return; }
+  var jaEnderecado = edSomaEnderecada(edItemAtual.key);
+  if (edItemAtual.tipo === 'material') {
+    // Produto acabado não tem hoje um saldo agregado separado (mesma
+    // limitação já registrada na Fase 1) -- só material tem "conhecido".
+    var conhecido = (allEstoque[edItemAtual.key] && allEstoque[edItemAtual.key].saldoAtual) || 0;
+    var semEndereco = Math.max(0, Math.round((conhecido - jaEnderecado) * 1000) / 1000);
+    hint.innerHTML = 'Conhecido: <b>' + fmtNum(conhecido) + '</b> ' + escapeHtml(edItemAtual.unidade || '') +
+      ' · Já endereçado: <b>' + fmtNum(jaEnderecado) + '</b> · Sem endereço ainda: <b' + (semEndereco > 0 ? ' style="color:var(--warning)"' : '') + '>' + fmtNum(semEndereco) + '</b>';
+  } else {
+    hint.innerHTML = 'Já endereçado: <b>' + fmtNum(jaEnderecado) + '</b> ' + escapeHtml(edItemAtual.unidade || '') +
+      ' · Produto acabado não tem saldo agregado separado nesta fase -- só o que já foi endereçado (aqui ou na conclusão de OP) é rastreado.';
+  }
+}
+
+function renderHistoricoSessaoEnderecamento() {
+  var tbody = document.getElementById('edHistoricoBody');
+  var card = document.getElementById('edCardHistorico');
+  if (!edSessaoEnderecamento.length) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  tbody.innerHTML = edSessaoEnderecamento.slice().reverse().map(function(r) {
+    return '<tr>' +
+      '<td>' + escapeHtml(r.enderecoCodigo) + '</td>' +
+      '<td style="text-align:right">' + fmtNum(r.qtd) + ' ' + escapeHtml(edItemAtual ? (edItemAtual.unidade || '') : '') + '</td>' +
+      '<td>' + escapeHtml(r.lote || '—') + '</td>' +
+      '<td>' + fmtData(r.validade || null) + '</td>' +
+    '</tr>';
+  }).join('');
+}
+var edSessaoEnderecamento = []; // só desta sessão de tela, pra feedback visual imediato -- a fonte de verdade é estoque_lotes
+
+function edSelecionarItem(it) {
+  edItemAtual = { key: it.key, tipo: it.tipo, codigo: it.codigo, nome: it.nome, unidade: it.unidade };
+  document.getElementById('edItemKey').value = it.key;
+  document.getElementById('edItemTipo').value = it.tipo;
+  document.getElementById('edCardForm').style.display = 'block';
+  document.getElementById('edEnderecoCampo').innerHTML = SeletorEndereco.campoHtml('ed-endereco', '', allEnderecosEstoque, {id: 'edEndereco', titulo: 'Endereçar ' + (it.codigo || '')});
+  document.getElementById('edQtd').value = '';
+  document.getElementById('edLote').value = '';
+  document.getElementById('edValidade').value = '';
+  edSessaoEnderecamento = [];
+  renderResumoEnderecamento();
+  renderHistoricoSessaoEnderecamento();
+}
+
+function edAdicionarPosicao() {
+  if (!edItemAtual) { showAlert('Busque e selecione um item primeiro.', 'danger'); return; }
+  var enderecoKey = document.getElementById('edEndereco').value;
+  var qtd = parseFloat(document.getElementById('edQtd').value);
+  if (!enderecoKey) { showAlert('Selecione o endereço.', 'danger'); return; } // destino sempre manual, nunca automático
+  if (isNaN(qtd) || qtd <= 0) { showAlert('Informe uma quantidade válida.', 'danger'); return; }
+  var loteTexto = document.getElementById('edLote').value.trim();
+  var validade = document.getElementById('edValidade').value || null;
+  var enderecoInfo = allEnderecosEstoque[enderecoKey];
+
+  document.getElementById('btnEdAddPosicao').disabled = true;
+  putawayEstoqueLote(db, edItemAtual.tipo, edItemAtual.codigo, {
+    itemNome: edItemAtual.nome, unidade: edItemAtual.unidade,
+    loteOrigem: loteTexto || null, dataValidade: validade,
+    dataRecebimento: new Date().toISOString().slice(0, 10),
+    saldoLote: qtd, qtdOriginal: qtd,
+    enderecoKey: enderecoKey, enderecoCodigo: (enderecoInfo && enderecoInfo.codigo) || null,
+    origemTipo: 'endereco_inicial', origemRef: null,
+    criadoPor: currentUserNome()
+  }).then(function() {
+    edSessaoEnderecamento.push({ enderecoCodigo: (enderecoInfo && enderecoInfo.codigo) || enderecoKey, qtd: qtd, lote: loteTexto, validade: validade });
+    showAlert('Posição endereçada!', 'success');
+    document.getElementById('edQtd').value = '';
+    document.getElementById('edLote').value = '';
+    document.getElementById('edValidade').value = '';
+    var btnEnd = document.querySelector('#edEnderecoCampo .se-btn'); if (btnEnd) btnEnd.focus();
+    renderHistoricoSessaoEnderecamento();
+    // renderResumoEnderecamento roda de novo sozinho quando o listener de
+    // estoque_lotes disparar com o novo lote -- não precisa chamar aqui.
+  }).catch(function(err) {
+    showAlert('Erro ao endereçar: ' + err.message, 'danger');
+  }).finally(function() {
+    document.getElementById('btnEdAddPosicao').disabled = false;
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Aba: Endereços -- mesma Estrutura de Ruas/Posições de Cadastros,
+   portada aqui (pedido do usuário: "vale ter na aba cadastro e na
+   aba... onde precisamos executar, fica mais direcionado"). Chama
+   gerarUpdatesPosicoesRua (shared/utils.js) -- a MESMA função usada em
+   cadastros.html, nunca duas lógicas de geração divergindo com o tempo.
+   currentUserNome já existe no topo desta página (boilerplate) -- não
+   duplica.
+   ═══════════════════════════════════════════════════════════════════ */
+var estruturaRuas = {};
+var enderecosEstoque = {};
+var areasEnderecoAtivas = [];
+var ocupantesPorEndereco = {}; // enderecoKey -> quantos itens (estoque_lotes com saldoLote>0) apontam pra lá
+var editandoCodigoRua = null;  // null = nova rua; senão, número da rua sendo editada
+
+function opcoesAreaSelect(valorAtual) {
+  var opts = '<option value="">Selecione...</option>';
+  areasEnderecoAtivas.forEach(function(a) {
+    opts += '<option value="' + escapeAttr(a.nome) + '"' + (a.nome === valorAtual ? ' selected' : '') + '>' + escapeHtml(a.nome) + '</option>';
+  });
+  if (valorAtual && !areasEnderecoAtivas.some(function(a) { return a.nome === valorAtual; })) {
+    opts += '<option value="' + escapeAttr(valorAtual) + '" selected>' + escapeHtml(valorAtual) + ' (fora da lista)</option>';
+  }
+  return opts;
+}
+
+function renderRuasTable() {
+  var tbody = document.getElementById('ruasBody-end');
+  // Agrupa por área e depois por número -- com várias áreas, ordenar só pelo
+  // número misturaria "rua 1 do galpão" com "rua 1 da fábrica" na tabela.
+  var entries = Object.keys(estruturaRuas).map(function(k) {
+    return { chave: k, r: estruturaRuas[k] };
+  }).filter(function(x) { return !!x.r; }).sort(function(a, b) {
+    var aa = a.r.area || '', ba = b.r.area || '';
+    if (aa !== ba) return aa < ba ? -1 : 1;
+    return (a.r.codigoRua || 0) - (b.r.codigoRua || 0);
+  });
+  if (!entries.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="no-data">Nenhuma rua cadastrada ainda.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = entries.map(function(x) {
+    var r = x.r;
+    var totalPosicoes = (r.niveis || 0) * (r.predios || 0);
+    // conta as posições DESTA rua nesta área -- só o número da rua não basta
+    // mais, agora que cada área tem a sua
+    var geradas = Object.values(enderecosEstoque).filter(function(e) {
+      return e.rua === r.codigoRua && (e.sigla || null) === (r.sigla || null);
+    }).length;
+    return '<tr>' +
+      '<td><b>' + escapeHtml(x.chave) + '</b></td>' +
+      '<td>' + escapeHtml(r.area || '') + '</td>' +
+      '<td>' + escapeHtml(String(r.niveis || 0)) + '</td>' +
+      '<td>' + escapeHtml(String(r.predios || 0)) + '</td>' +
+      '<td>' + geradas + ' de ' + totalPosicoes + '</td>' +
+      '<td><button class="btn btn-ghost btn-sm r-editar" data-rua="' + escapeAttr(x.chave) + '">Editar</button></td>' +
+    '</tr>';
+  }).join('');
+  tbody.querySelectorAll('.r-editar').forEach(function(btn) {
+    btn.addEventListener('click', function() { abrirModalRua(btn.getAttribute('data-rua')); });
+  });
+}
+
+// `chave` é a chave composta (ex: 'GAL-1'), ou null pra rua nova.
+function abrirModalRua(chave) {
+  editandoCodigoRua = chave != null ? chave : null;
+  var r = chave != null ? estruturaRuas[chave] : null;
+  document.getElementById('modalRuaTitle').textContent = r ? ('Editar Rua ' + chave) : 'Nova Rua';
+  document.getElementById('rCodigoRua-end').value = r ? r.codigoRua : '';
+  document.getElementById('rCodigoRua-end').disabled = !!r;
+  document.getElementById('rCodigoRuaHint-end').textContent = r
+    ? 'Número e área não podem ser alterados depois de criada -- o código das posições depende dos dois. Crie outra rua se precisar.'
+    : 'O número é único DENTRO da área: cada área pode ter a sua rua 1.';
+  document.getElementById('rArea-end').innerHTML = opcoesAreaSelect(r ? r.area : '');
+  // Área também trava na edição: mudar a área mudaria a sigla e, com ela, o
+  // código de todas as posições já geradas -- na prática seria recriar a rua.
+  document.getElementById('rArea-end').disabled = !!r;
+  document.getElementById('rNiveis-end').value = r ? r.niveis : 1;
+  document.getElementById('rPredios-end').value = r ? r.predios : 1;
+  document.getElementById('modalRuaBg').classList.add('open');
+}
+function fecharModalRua() {
+  document.getElementById('modalRuaBg').classList.remove('open');
+  document.getElementById('rCodigoRua-end').disabled = false;
+  document.getElementById('rArea-end').disabled = false;
+  editandoCodigoRua = null;
+}
+
+// Sigla da área, de config/areasEndereco. É ela que prefixa o código da
+// posição (GAL-1.2.3) e a chave da rua (GAL-1) -- sem sigla cadastrada, a
+// área não pode gerar posições, senão nasceriam endereços ambíguos.
+function siglaDaArea(nomeArea) {
+  var a = (areasEnderecoAtivas || []).filter(function(x) { return x.nome === nomeArea; })[0];
+  return (a && a.sigla) || null;
+}
+
+function salvarRuaEGerar() {
+  var codigoRua = parseInt(document.getElementById('rCodigoRua-end').value, 10);
+  var area = document.getElementById('rArea-end').value;
+  var niveis = parseInt(document.getElementById('rNiveis-end').value, 10);
+  var predios = parseInt(document.getElementById('rPredios-end').value, 10);
+  if (!codigoRua || codigoRua < 1) { showAlert('Informe um número de rua válido.', 'danger'); return; }
+  if (!area) { showAlert('Selecione a área da rua.', 'danger'); return; }
+  if (!niveis || niveis < 1 || !predios || predios < 1) { showAlert('Níveis e prédios precisam ser pelo menos 1.', 'danger'); return; }
+  var sigla = siglaDaArea(area);
+  if (!sigla) {
+    showAlert('A área "' + area + '" não tem sigla cadastrada. Defina a sigla em Cadastros › Áreas de Endereço antes de criar ruas nela -- é ela que prefixa o código da posição.', 'danger');
+    return;
+  }
+  // Unicidade agora é POR ÁREA: cada área tem sua própria "Rua 1". Antes o
+  // número era global e a fábrica não conseguiria ter uma rua 1 porque o
+  // galpão já tinha.
+  var chave = chaveRua(sigla, codigoRua);
+  if (editandoCodigoRua == null && estruturaRuas[chave]) {
+    showAlert('Já existe uma rua ' + codigoRua + ' na área ' + area + '.', 'danger');
+    return;
+  }
+
+  var updates = gerarUpdatesPosicoesRua(codigoRua, area, niveis, predios, enderecosEstoque, ocupantesPorEndereco, currentUserNome(), sigla);
+  updates['estrutura_ruas/' + chave] = {
+    codigoRua: codigoRua, area: area, sigla: sigla, niveis: niveis, predios: predios,
+    atualizadoEm: new Date().toISOString(), atualizadoPor: currentUserNome()
+  };
+
+  db.ref().update(updates).then(function() {
+    fecharModalRua();
+    showAlert('Rua ' + chave + ' salva -- ' + (niveis * predios) + ' posições geradas/atualizadas.', 'success');
+  }).catch(function(err) { showAlert('Erro ao salvar rua: ' + err.message, 'danger'); });
+}
+
+function renderPosicoesTableEnd() {
+  var tbody = document.getElementById('posicoesBody-end');
+  var q = normalizeSearch(document.getElementById('searchInput-end').value);
+  var filtroRua = document.getElementById('filterRua-end').value;
+  var filtroArea = document.getElementById('filterArea-end').value;
+  var filtroOcupacao = document.getElementById('filterOcupacao-end').value;
+
+  var entries = Object.entries(enderecosEstoque).filter(function(entry) {
+    var e = entry[1];
+    if (q && normalizeSearch(e.codigo).indexOf(q) === -1) return false;
+    // filtroRua é a chave composta (GAL-1) -- compara contra a chave da rua
+    // desta posição, não só o número, senão "Rua 1" traria as posições de
+    // todas as áreas que têm uma rua 1.
+    if (filtroRua && chaveRua(e.sigla, e.rua) !== filtroRua) return false;
+    if (filtroArea && e.area !== filtroArea) return false;
+    var ocupantes = ocupantesPorEndereco[entry[0]] || 0;
+    if (filtroOcupacao === 'ocupadas' && ocupantes === 0) return false;
+    if (filtroOcupacao === 'livres' && ocupantes > 0) return false;
+    if (filtroOcupacao === 'bloqueadas' && e.ativo !== false) return false;
+    if (propClienteAtual() && !posicaoNoFiltroCliente(entry[0])) return false;
+    return true;
+  }).sort(function(a, b) {
+    var ea = a[1], eb = b[1];
+    return (ea.rua - eb.rua) || (ea.nivel - eb.nivel) || (ea.predio - eb.predio);
+  });
+
+  if (!entries.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="no-data">Nenhuma posição encontrada -- gere posições em "Estrutura de Ruas".</td></tr>';
+  } else {
+    tbody.innerHTML = entries.map(function(entry) {
+      var key = entry[0], e = entry[1];
+      var ocupantes = ocupantesPorEndereco[key] || 0;
+      var bloqueado = e.ativo === false;
+      var ocupacaoCell = bloqueado
+        ? '<span class="badge badge-red" title="' + escapeAttr(e.motivoBloqueio || 'Bloqueado') + '">🚫 Bloqueado</span>' +
+          (ocupantes > 0 ? ' <span class="badge badge-orange">' + ocupantes + ' item' + (ocupantes > 1 ? 's' : '') + '</span>' : '')
+        : (ocupantes > 0 ? '<span class="badge badge-orange">' + ocupantes + ' item' + (ocupantes > 1 ? 's' : '') + '</span>' : '<span class="badge badge-green">Livre</span>');
+      return '<tr>' +
+        '<td>' + escapeHtml(e.codigo) + '</td>' +
+        '<td>' + escapeHtml(e.area || '') + '</td>' +
+        '<td>' + ocupacaoCell + '</td>' +
+        '<td style="text-align:right">' +
+          '<button class="btn btn-ghost btn-sm" data-toggle-bloqueio="' + escapeAttr(key) + '">' +
+            (bloqueado ? '🔓 Liberar' : '🚫 Bloquear') +
+          '</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+    tbody.querySelectorAll('[data-toggle-bloqueio]').forEach(function(btn) {
+      btn.addEventListener('click', function() { toggleBloqueioEndereco(btn.getAttribute('data-toggle-bloqueio')); });
+    });
+  }
+
+  // Os indicadores acompanham o recorte aplicado na tela (inclusive área).
+  // Antes a tabela filtrava, mas os números continuavam considerando o WMS
+  // inteiro, o que confundia ao consultar apenas um galpão.
+  var total = entries.length;
+  var ocupadasCount = entries.filter(function(entry) { return (ocupantesPorEndereco[entry[0]] || 0) > 0; }).length;
+  var bloqueadasCount = entries.filter(function(entry) { return entry[1].ativo === false; }).length;
+  // "Livres" = vaga REALMENTE utilizável: nem ocupada, nem bloqueada. Antes
+  // era só (total - ocupadas), então uma posição bloqueada e vazia contava
+  // como livre -- os 4 números não fechavam e a capacidade do galpão
+  // aparecia superestimada em exatamente as posições que o bloqueio acabou
+  // de tirar de uso.
+  var livresCount = entries.filter(function(entry) {
+    return (ocupantesPorEndereco[entry[0]] || 0) === 0 && entry[1].ativo !== false;
+  }).length;
+  document.getElementById('statTotalPos-end').textContent = fmtNum(total);
+  document.getElementById('statOcupadasPos-end').textContent = fmtNum(ocupadasCount);
+  document.getElementById('statLivresPos-end').textContent = fmtNum(livresCount);
+  document.getElementById('statBloqueadasPos-end').textContent = fmtNum(bloqueadasCount);
+  if (visaoAtualPosicoes === 'mapa') renderMapaVisual();
+  if (visaoAtualPosicoes === 'planta' && !editandoPlanta) renderPlantaBaixa(); // não re-renderiza em cima de um arrasto em andamento
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// CONFERÊNCIA DE PRODUTO ACABADO (Logística)
+// Uma OP aponta o total produzido; não pressupõe quantidade de paletes. A
+// Logística registra os paletes físicos e faz a conciliação antes da entrada
+// no WMS. Assim uma OP pode resultar em vários paletes sem criar estoque
+// fictício no momento do apontamento.
+// ══════════════════════════════════════════════════════════════════════
+var allOps = {}, allConferenciasPA = {};
+// O banco possui 1.251 OPs históricas sem palete/conferência no WMS. O novo
+// fluxo é prospectivo: não transforma o legado em 1.251 pendências falsas.
+// OP antiga só volta à fila se já tiver uma conferência iniciada/importada.
+var INICIO_FLUXO_CONFERENCIA_PA = '2026-09-10T00:00:00.000Z';
+
+function qtdApontadaPA(op) {
+  return typeof getProduzido === 'function' ? getProduzido(op || {}, 'linha') : ((op || {}).produzidoLinha || (op || {}).produzido || 0);
+}
+function arredondarQtdPA(v) { return Math.round((parseFloat(v) || 0) * 1000) / 1000; }
+function paletesDaConferencia(conf) { return Object.values((conf || {}).paletes || {}); }
+function contagensDaConferenciaPA(conf) {
+  return Object.entries((conf || {}).contagens || {}).map(function(e) {
+    return Object.assign({}, e[1] || {}, { key:e[0] });
+  }).sort(function(a, b) { return String(a.contadoEm || '').localeCompare(String(b.contadoEm || '')) || String(a.key).localeCompare(String(b.key)); });
+}
+function totalPaletizado(conf) {
+  if ((conf || {}).qtdPaletizada != null) return arredondarQtdPA(conf.qtdPaletizada);
+  var cs = contagensDaConferenciaPA(conf);
+  if (cs.length) return arredondarQtdPA(cs[cs.length - 1].total);
+  return paletesDaConferencia(conf).reduce(function(s, p) { return s + (parseFloat(p.qtdUnidades) || 0); }, 0);
+}
+
+// Regra pura da tripla conferência. A primeira contagem que bate com a OP
+// pode seguir direto. Depois de uma divergência, são necessárias no mínimo
+// três contagens e duas das três últimas precisam concordar. Se o consenso
+// físico continuar diferente da OP, exige conciliação formal antes da entrada.
+function analisarTriplaConferenciaPA(qtdApontada, contagens) {
+  var apontada = arredondarQtdPA(qtdApontada);
+  var cs = (contagens || []).map(function(c) {
+    return Object.assign({}, c, { total: arredondarQtdPA(c && c.total) });
+  });
+  if (!cs.length) return { status:'AGUARDANDO_CONTAGEM', etapa:1, total:null, diferenca:null, contagemAceita:null };
+  var ultima = cs[cs.length - 1];
+  if (cs.length === 1 && ultima.total === apontada) {
+    return { status:'PRONTO_CONCILIADO', etapa:1, total:ultima.total, diferenca:0, contagemAceita:ultima };
+  }
+  if (cs.length < 3) {
+    return { status:'DIVERGENCIA_RECONTAGEM', etapa:cs.length + 1, total:ultima.total, diferenca:arredondarQtdPA(ultima.total - apontada), contagemAceita:null };
+  }
+  var janela = cs.slice(-3), grupos = {};
+  janela.forEach(function(c) {
+    var k = String(c.total); if (!grupos[k]) grupos[k] = []; grupos[k].push(c);
+  });
+  var consenso = Object.keys(grupos).map(function(k) { return grupos[k]; })
+    .filter(function(g) { return g.length >= 2; })
+    .sort(function(a,b) { return b.length - a.length; })[0];
+  if (!consenso) {
+    return { status:'SEM_CONVERGENCIA', etapa:cs.length + 1, total:ultima.total, diferenca:arredondarQtdPA(ultima.total - apontada), contagemAceita:null };
+  }
+  var aceita = consenso[consenso.length - 1], dif = arredondarQtdPA(aceita.total - apontada);
+  return { status:dif === 0 ? 'PRONTO_CONCILIADO' : 'AGUARDANDO_CONCILIACAO', etapa:cs.length, total:aceita.total, diferenca:dif, contagemAceita:aceita };
+}
+function statusConferenciaPA(conf, apontada) {
+  if (!conf) return 'Aguardando 1ª contagem';
+  if (conf.status === 'CONFERIDO_COM_DIVERGENCIA') return 'Divergência conciliada';
+  if (conf.status === 'CONFERIDO') return 'Conferido';
+  var estado = analisarTriplaConferenciaPA(apontada, contagensDaConferenciaPA(conf));
+  if (estado.status === 'DIVERGENCIA_RECONTAGEM') return '⚠ Recontagem ' + estado.etapa + ' de 3';
+  if (estado.status === 'SEM_CONVERGENCIA') return '🚨 Sem consenso — contar novamente';
+  if (estado.status === 'AGUARDANDO_CONCILIACAO') return '🚨 Aguardando conciliação';
+  return estado.status === 'PRONTO_CONCILIADO' ? 'Pronto para finalizar' : 'Aguardando 1ª contagem';
+}
+
+function renderConferenciaPA() {
+  var tbody = document.getElementById('cpaFilaBody');
+  if (!tbody) return;
+  var fila = Object.entries(allOps || {}).map(function(e) { return { key:e[0], op:e[1] || {}, conf:allConferenciasPA[e[0]] || null }; })
+    .filter(function(x) { return (x.op.status === 'Concluído' || x.op.status === 'Aguardando Confirmação') && x.op.sku && qtdApontadaPA(x.op) > 0; })
+    .filter(function(x) { return !!x.conf || String(x.op.dataFimReal || '') >= INICIO_FLUXO_CONFERENCIA_PA; })
+    .filter(function(x) { return !x.conf || (x.conf.status !== 'CONFERIDO' && x.conf.status !== 'CONFERIDO_COM_DIVERGENCIA'); })
+    .sort(function(a, b) {
+      var pa = a.op.status === 'Aguardando Confirmação' ? 0 : 1, pb = b.op.status === 'Aguardando Confirmação' ? 0 : 1;
+      return pa - pb || String(a.op.dataFimReal || '').localeCompare(String(b.op.dataFimReal || ''));
+    });
+  var pendentesPcp = fila.filter(function(f) { return f.op.status === 'Aguardando Confirmação'; });
+  var liberadas = fila.filter(function(f) { return f.op.status === 'Concluído'; });
+  var totalApontado = liberadas.reduce(function(s, f) { return s + qtdApontadaPA(f.op); }, 0);
+  var corte = new Date(Date.now() - 30 * 86400000).toISOString();
+  var comDiv = Object.values(allConferenciasPA || {}).filter(function(c) {
+    if (!c) return false;
+    var aberto = c.status === 'DIVERGENCIA_RECONTAGEM' || c.status === 'SEM_CONVERGENCIA' || c.status === 'AGUARDANDO_CONCILIACAO';
+    return aberto || ((c.conferidoEm || '') >= corte && c.divergencia !== 0);
+  }).length;
+  document.getElementById('cpaStatPendentePcp').textContent = fmtNum(pendentesPcp.length);
+  document.getElementById('cpaStatFila').textContent = fmtNum(liberadas.length);
+  document.getElementById('cpaStatDeclarado').textContent = fmtNum(totalApontado);
+  document.getElementById('cpaStatDivergencias').textContent = fmtNum(comDiv);
+  if (!fila.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="no-data">Nenhuma OP aguardando confirmação do PCP ou Conferência de Produto Acabado.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = fila.map(function(f) {
+    var pendentePcp = f.op.status === 'Aguardando Confirmação';
+    var apontada = qtdApontadaPA(f.op), contagens = contagensDaConferenciaPA(f.conf), estado = analisarTriplaConferenciaPA(apontada, contagens);
+    var paletizada = contagens.length ? contagens[contagens.length - 1].total : 0, dif = contagens.length ? arredondarQtdPA(paletizada - apontada) : 0;
+    var alarme = estado.status === 'DIVERGENCIA_RECONTAGEM' || estado.status === 'SEM_CONVERGENCIA' || estado.status === 'AGUARDANDO_CONCILIACAO';
+    var acao = estado.status === 'AGUARDANDO_CONCILIACAO' ? 'Conciliar' : (contagens.length ? 'Continuar' : 'Registrar paletes');
+    return '<tr' + ((alarme || pendentePcp) ? ' style="background:var(--tint-red-bg)"' : '') + '><td><b>' + escapeHtml(f.op.sku) + '</b><br><span class="field-hint">OP ' + escapeHtml(f.op.lote || f.key) + ' · ' + escapeHtml(f.op.produto || f.op.produtoNome || '') + '</span>' + (pendentePcp ? '<br><span class="badge badge-red">PENDENTE PCP</span>' : (alarme ? '<br><span class="badge badge-red">TRIPLA CONFERÊNCIA</span>' : '')) + '</td>' +
+      '<td style="text-align:right">' + fmtNum(apontada) + '</td><td style="text-align:right">' + fmtNum(paletizada) + '</td>' +
+      '<td style="text-align:right;color:' + (!contagens.length || dif === 0 ? 'var(--success)' : 'var(--danger)') + '">' + (!contagens.length ? '—' : (dif > 0 ? '+' : '') + fmtNum(dif)) + '</td>' +
+      '<td>' + (pendentePcp ? '<b style="color:var(--danger)">Aguardando confirmação do PCP</b><br><span class="field-hint">A entrada permanece bloqueada</span>' : escapeHtml(statusConferenciaPA(f.conf, apontada)) + (contagens.length ? '<br><span class="field-hint">' + contagens.length + ' contagem(ns)</span>' : '')) + '</td>' +
+      '<td style="text-align:right">' + (pendentePcp ? '<button class="btn btn-sm" disabled title="O PCP precisa confirmar a conclusão antes da conferência">Aguardando PCP</button>' : '<button class="btn ' + (alarme ? 'btn-danger-ghost' : 'btn-green') + ' btn-sm" data-cpa-op="' + escapeAttr(f.key) + '">' + acao + '</button>') + '</td></tr>';
+  }).join('');
+  tbody.querySelectorAll('[data-cpa-op]').forEach(function(btn) { btn.addEventListener('click', function() { abrirConferenciaPAModal(btn.getAttribute('data-cpa-op')); }); });
+}
+
+// Unidades por caixa do CADASTRO do produto (produtos/{sku}.unCx). Só
+// referência, nunca pré-preenche: o formato da caixa muda sem o cadastro
+// acompanhar, e um valor já digitado passa batido. A 26247/06 foi contada
+// com 48 un/cx num produto de 24 e virou +957 de divergência.
+function unCxCadastroPA(sku) {
+  var p = (allProdutos || {})[sanitizeKey(sku)] || Object.values(allProdutos || {}).find(function(x) { return x && x.sku === sku; }) || {};
+  var n = parseInt(p.unCx, 10);
+  return n > 0 ? n : null;
+}
+function paletesFormatoCaixaDivergentePA(paletes, unCxCad) {
+  if (!unCxCad) return [];
+  return (paletes || []).filter(function(p) { return p.unidadesPorCaixa && p.unidadesPorCaixa !== unCxCad; });
+}
+function linhaPaletePA(numero, unCxCad) {
+  return '<div class="cpa-palete" style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:10px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>Palete ' + numero + '</b><button type="button" class="btn btn-sm cpa-remover" style="color:var(--danger)">Remover</button></div>' +
+    '<div class="form-grid"><div class="form-group"><label>Caixas fechadas</label><input class="cpa-caixas" type="number" min="0" step="1" value="0"></div>' +
+    '<div class="form-group"><label>Unid. por caixa</label><input class="cpa-multiplo" type="number" min="1" step="1" placeholder="se aplicável" data-uncx-cadastro="' + (unCxCad || '') + '">' +
+      '<div class="field-hint cpa-uncx-hint">' + (unCxCad ? 'Cadastro: ' + unCxCad + ' un/cx' : 'Produto sem un/cx no cadastro') + '</div></div>' +
+    '<div class="form-group"><label>Unid. caixa parcial</label><input class="cpa-parcial" type="number" min="0" step="1" value="0"></div>' +
+    '<div class="form-group"><label>Total conferido *</label><input class="cpa-total" type="number" min="0" step="1" placeholder="unidades"></div>' +
+    '<div class="form-group"><label>Endereço físico *</label>' + SeletorEndereco.campoHtml('cpa-endereco', '', allEnderecosEstoque, {titulo: 'Endereço do palete ' + numero}) + '</div></div></div>';
+}
+function recalcularLinhaPaletePA(linha) {
+  var caixas = parseFloat(linha.querySelector('.cpa-caixas').value) || 0, multiplo = parseFloat(linha.querySelector('.cpa-multiplo').value) || 0, parcial = parseFloat(linha.querySelector('.cpa-parcial').value) || 0;
+  var campoMultiplo = linha.querySelector('.cpa-multiplo'), hintUnCx = linha.querySelector('.cpa-uncx-hint'), unCxCad = parseInt(campoMultiplo.getAttribute('data-uncx-cadastro'), 10) || null;
+  if (hintUnCx && unCxCad) {
+    var diverge = multiplo > 0 && multiplo !== unCxCad;
+    hintUnCx.innerHTML = diverge ? '<b style="color:var(--danger)">⚠ Diferente do cadastro (' + unCxCad + ' un/cx). Confira a caixa.</b>' : 'Cadastro: ' + unCxCad + ' un/cx';
+    campoMultiplo.style.borderColor = diverge ? 'var(--danger)' : '';
+  }
+  if (multiplo > 0) linha.querySelector('.cpa-total').value = caixas * multiplo + parcial;
+}
+function abrirConferenciaPAModal(opKey) {
+  var op = allOps[opKey]; if (!op) return;
+  var conf = allConferenciasPA[opKey] || {}, apontada = qtdApontadaPA(op);
+  var contagens = contagensDaConferenciaPA(conf), estado = analisarTriplaConferenciaPA(apontada, contagens);
+  if (estado.status === 'AGUARDANDO_CONCILIACAO') { abrirConciliacaoPAModal(opKey, conf); return; }
+  if (estado.status === 'PRONTO_CONCILIADO' && estado.contagemAceita) {
+    finalizarConferenciaPA(opKey, op, conf, estado.contagemAceita, null, null)
+      .catch(function(err) { showAlert('Erro ao concluir a conferência: ' + err.message, 'danger'); });
+    return;
+  }
+  var overlay = document.createElement('div'); overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px';
+  var box = document.createElement('div'); box.style.cssText = 'background:var(--card);border-radius:16px;padding:20px;max-width:860px;width:100%;max-height:90vh;overflow:auto;box-shadow:var(--shadow)';
+  var alerta = estado.status === 'DIVERGENCIA_RECONTAGEM'
+    ? '<div class="alert alert-danger show" style="margin:14px 0"><b>⚠ Divergência bloqueou a entrada.</b><br>Faça a contagem ' + estado.etapa + ' de 3 de forma independente. Nenhum palete foi criado no estoque.</div>'
+    : estado.status === 'SEM_CONVERGENCIA'
+      ? '<div class="alert alert-danger show" style="margin:14px 0"><b>🚨 As três contagens não chegaram a um consenso.</b><br>O estoque continua bloqueado. Faça uma nova contagem física até que duas das três últimas coincidam.</div>'
+      : '';
+  box.innerHTML = '<div style="display:flex;justify-content:space-between;gap:12px"><div><div style="font-weight:800;font-size:17px">Conferência de Produto Acabado</div><div class="field-hint">OP ' + escapeHtml(op.lote || opKey) + ' · ' + escapeHtml(op.sku) + ' · ' + escapeHtml(op.produto || op.produtoNome || '') + '</div></div><button type="button" class="btn btn-sm" id="cpaFechar">Fechar</button></div>' +
+    alerta + '<div class="section-note" style="margin:14px 0">Apontado na OP: <b>' + fmtNum(apontada) + ' un.</b> · Esta será a <b>' + estado.etapa + 'ª contagem</b>. Registre novamente todos os paletes físicos.</div><div id="cpaPaletes"></div>' +
+    '<div style="display:flex;gap:8px;margin-top:12px"><button type="button" class="btn" id="cpaAdicionar">+ Adicionar palete</button><span id="cpaResumo" class="field-hint" style="align-self:center"></span></div>' +
+    '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><button type="button" class="btn btn-green" id="cpaSalvar">Registrar ' + estado.etapa + 'ª contagem</button></div>';
+  overlay.appendChild(box); document.body.appendChild(overlay);
+  SeletorEndereco.ligar(box, {fonte: fonteEnderecos});
+  var lista = box.querySelector('#cpaPaletes');
+  var unCxCad = unCxCadastroPA(op.sku);
+  function adicionar() { lista.insertAdjacentHTML('beforeend', linhaPaletePA(lista.children.length + 1, unCxCad)); ligarLinhas(); atualizar(); }
+  function ligarLinhas() { lista.querySelectorAll('.cpa-palete').forEach(function(l) { l.querySelectorAll('.cpa-caixas,.cpa-multiplo,.cpa-parcial').forEach(function(i) { i.oninput = function() { recalcularLinhaPaletePA(l); atualizar(); }; }); l.querySelector('.cpa-total').oninput = atualizar; l.querySelector('.cpa-remover').onclick = function() { if (lista.children.length > 1) { l.remove(); atualizar(); } }; }); }
+  function atualizar() { var total = Array.from(lista.querySelectorAll('.cpa-total')).reduce(function(s, i) { return s + (parseFloat(i.value) || 0); }, 0); var dif = arredondarQtdPA(total - apontada); box.querySelector('#cpaResumo').innerHTML = '<b>Total: ' + fmtNum(total) + ' un.</b> · Diferença: <span style="color:' + (dif === 0 ? 'var(--success)' : 'var(--danger)') + '">' + (dif > 0 ? '+' : '') + fmtNum(dif) + '</span>'; }
+  adicionar();
+  box.querySelector('#cpaAdicionar').onclick = adicionar; box.querySelector('#cpaFechar').onclick = function() { document.body.removeChild(overlay); };
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) document.body.removeChild(overlay); });
+  box.querySelector('#cpaSalvar').onclick = function() { salvarContagemConferenciaPA(opKey, op, lista, box, overlay); };
+}
+function lerPaletesFormularioPA(lista) {
+  return Array.from(lista.querySelectorAll('.cpa-palete')).map(function(l, i) {
+    return { numero:i + 1, caixasFechadas:parseFloat(l.querySelector('.cpa-caixas').value) || 0, unidadesPorCaixa:parseFloat(l.querySelector('.cpa-multiplo').value) || null, unidadesCaixaParcial:parseFloat(l.querySelector('.cpa-parcial').value) || 0, qtdUnidades:parseFloat(l.querySelector('.cpa-total').value), enderecoKey:l.querySelector('.cpa-endereco').value };
+  });
+}
+function validarPaletesContagemPA(paletes) {
+  if (!paletes.length) return 'Inclua ao menos um palete.';
+  for (var i = 0; i < paletes.length; i++) {
+    var p = paletes[i];
+    if (!Number.isInteger(p.caixasFechadas) || p.caixasFechadas < 0 || !Number.isInteger(p.unidadesCaixaParcial) || p.unidadesCaixaParcial < 0 || !Number.isInteger(p.qtdUnidades) || p.qtdUnidades <= 0 || !p.enderecoKey) return 'O palete ' + (i + 1) + ' precisa de caixas/unidades inteiras, total positivo e endereço físico.';
+    if (p.caixasFechadas > 0 && (!p.unidadesPorCaixa || !Number.isInteger(p.unidadesPorCaixa))) return 'Informe as unidades por caixa do palete ' + (i + 1) + '.';
+    if (p.unidadesPorCaixa && p.unidadesCaixaParcial >= p.unidadesPorCaixa) return 'A caixa parcial do palete ' + (i + 1) + ' deve ter menos unidades que uma caixa fechada.';
+    if (p.unidadesPorCaixa && p.qtdUnidades !== p.caixasFechadas * p.unidadesPorCaixa + p.unidadesCaixaParcial) return 'O total do palete ' + (i + 1) + ' não confere com caixas × unidades + parcial.';
+  }
+  return null;
+}
+function salvarContagemConferenciaPA(opKey, op, lista, box, overlay) {
+  var paletes = lerPaletesFormularioPA(lista), erro = validarPaletesContagemPA(paletes);
+  if (erro) { showAlert(erro, 'danger'); return; }
+  // Formato de caixa diferente do cadastro: não bloqueia (a caixa pode ter
+  // mudado de verdade), mas exige confirmação explícita e fica registrado na
+  // contagem -- quem lê a conferência depois vê que o formato foi assumido.
+  var unCxCad = unCxCadastroPA(op.sku), divergentes = paletesFormatoCaixaDivergentePA(paletes, unCxCad);
+  if (divergentes.length) {
+    var detalhe = divergentes.map(function(p) { return 'Palete ' + p.numero + ': ' + p.unidadesPorCaixa + ' un/cx'; }).join('\n');
+    if (!confirm('O cadastro de ' + op.sku + ' diz ' + unCxCad + ' unidades por caixa, mas foi informado:\n\n' + detalhe +
+      '\n\nA caixa deste lote é mesmo diferente? Confira fisicamente uma caixa antes de confirmar.' +
+      '\n\nOK = o formato mudou, registrar assim. Depois ajuste o un/cx do produto em Cadastros › Produtos, senão a próxima conferência cai no mesmo aviso.' +
+      '\nCancelar = voltar e corrigir a contagem.')) return;
+  }
+  paletes.forEach(function(p) {
+    if (unCxCad) p.unidadesPorCaixaCadastro = unCxCad;
+    if (divergentes.indexOf(p) !== -1) p.formatoCaixaDivergente = true;
+  });
+  var btn = box.querySelector('#cpaSalvar'); btn.disabled = true;
+  var apontada = qtdApontadaPA(op), total = arredondarQtdPA(paletes.reduce(function(s,p) { return s + p.qtdUnidades; }, 0));
+  var agora = new Date().toISOString(), confRef = db.ref('conferencias_pa/' + opKey), countKey = confRef.child('contagens').push().key;
+  var nova = { paletes:{}, total:total, diferenca:arredondarQtdPA(total - apontada), contadoEm:agora, contadoPor:currentUserNome() };
+  paletes.forEach(function(p,i) { nova.paletes['p' + (i + 1)] = p; });
+  confRef.transaction(function(atual) {
+    atual = atual || { opKey:opKey, opLote:op.lote || null, sku:op.sku, produto:op.produto || op.produtoNome || null, qtdApontada:apontada, criadoEm:agora };
+    if (atual.finalizadoEm) return;
+    atual.contagens = atual.contagens || {};
+    if (!atual.contagens[countKey]) atual.contagens[countKey] = nova;
+    var cs = contagensDaConferenciaPA(atual), estado = analisarTriplaConferenciaPA(apontada, cs);
+    atual.status = estado.status;
+    atual.ultimaContagem = total;
+    atual.ultimaDiferenca = nova.diferenca;
+    atual.ultimaContagemEm = agora;
+    atual.ultimaContagemPor = currentUserNome();
+    if (estado.status !== 'PRONTO_CONCILIADO' && !atual.alarmeAbertoEm) atual.alarmeAbertoEm = agora;
+    return atual;
+  }).then(function(res) {
+    if (!res.committed) throw new Error('Esta OP já foi conferida por outra sessão.');
+    var confSalva = res.snapshot.val() || {}, estado = analisarTriplaConferenciaPA(apontada, contagensDaConferenciaPA(confSalva));
+    if (estado.status === 'PRONTO_CONCILIADO') return finalizarConferenciaPA(opKey, op, confSalva, estado.contagemAceita, null, overlay);
+    document.body.removeChild(overlay);
+    if (estado.status === 'AGUARDANDO_CONCILIACAO') { abrirConciliacaoPAModal(opKey, confSalva); return; }
+    showAlert(estado.status === 'SEM_CONVERGENCIA' ? 'As três últimas contagens não convergiram. Estoque bloqueado; faça nova contagem.' : 'Divergência detectada. Estoque bloqueado; prossiga com a tripla conferência.', 'danger');
+  }).catch(function(err) { btn.disabled = false; showAlert('Erro ao registrar contagem: ' + err.message, 'danger'); });
+}
+function finalizarConferenciaPA(opKey, op, conf, contagem, conciliacao, overlay) {
+  if (!contagem) return Promise.reject(new Error('Não há contagem física aceita.'));
+  return functionsInstance.httpsCallable('finalizarConferenciaPA')({ opKey:opKey, contagemKey:contagem.key || null, conciliacao:conciliacao || null }).then(function(res) {
+    if (overlay && overlay.parentNode) document.body.removeChild(overlay);
+    var r = (res && res.data) || {}, dif = Number(r.diferenca) || 0;
+    showAlert(dif === 0 ? 'Conferência concluída. Paletes endereçados em Quarentena, aguardando o CQ.' : 'Divergência conciliada e registrada na ' + (r.rncNumero || 'RNC automática') + '. Paletes endereçados em Quarentena; o histórico preserva as três contagens.', 'success');
+  });
+}
+function abrirConciliacaoPAModal(opKey, confOverride) {
+  var op = allOps[opKey], conf = confOverride || allConferenciasPA[opKey]; if (!op || !conf) return;
+  var cs = contagensDaConferenciaPA(conf), estado = analisarTriplaConferenciaPA(qtdApontadaPA(op), cs);
+  if (estado.status !== 'AGUARDANDO_CONCILIACAO' || !estado.contagemAceita) { abrirConferenciaPAModal(opKey); return; }
+  var overlay = document.createElement('div'); overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px';
+  var box = document.createElement('div'); box.style.cssText = 'background:var(--card);border-radius:16px;padding:20px;max-width:700px;width:100%;box-shadow:var(--shadow)';
+  var historicoHtml = '<div class="table-wrap" style="padding:0;margin:12px 0"><table><thead><tr><th>Contagem</th><th style="text-align:right">Total físico</th><th>Responsável</th><th>Horário</th></tr></thead><tbody>' + cs.map(function(c, i) {
+    return '<tr><td>' + (i + 1) + 'ª</td><td style="text-align:right"><b>' + fmtNum(c.total) + ' un.</b></td><td>' + escapeHtml(c.contadoPor || '—') + '</td><td>' + fmtDataHora(c.contadoEm) + '</td></tr>';
+  }).join('') + '</tbody></table></div>';
+  box.innerHTML = '<div style="display:flex;justify-content:space-between"><div><b style="font-size:17px">Conciliação da divergência</b><div class="field-hint">OP ' + escapeHtml(op.lote || opKey) + '</div></div><button class="btn btn-sm" id="cpaFechar">Fechar</button></div>' +
+    '<div class="alert alert-danger show" style="margin:14px 0"><b>Tripla conferência concluída.</b><br>Apontado: ' + fmtNum(qtdApontadaPA(op)) + ' un. · Consenso físico: ' + fmtNum(estado.total) + ' un. · Diferença: ' + (estado.diferenca > 0 ? '+' : '') + fmtNum(estado.diferenca) + ' un.</div>' +
+    historicoHtml +
+    '<div class="form-group"><label>Causa da diferença *</label><select id="cpaMotivo"><option value="">Selecione…</option><option value="APONTAMENTO_PRODUCAO_INCORRETO">Apontamento da produção incorreto</option><option value="PERDA_OU_AVARIA">Perda ou avaria</option><option value="SOBRA_FISICA">Sobra física confirmada</option><option value="ERRO_DE_EMBALAGEM_OU_CONTAGEM">Erro de embalagem/contagem</option><option value="OUTRO">Outro</option></select></div>' +
+    '<div class="form-group"><label>Explicação da conciliação *</label><textarea id="cpaObs" rows="3" placeholder="Descreva o que foi verificado e por que o total físico deve prevalecer."></textarea></div>' +
+    '<div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn btn-primary" style="background:var(--danger)" id="cpaResolver">Aceitar consenso físico e enviar à Quarentena</button></div>';
+  overlay.appendChild(box); document.body.appendChild(overlay);
+  box.querySelector('#cpaFechar').onclick = function(){ document.body.removeChild(overlay); };
+  box.querySelector('#cpaResolver').onclick = function(){
+    var motivo = box.querySelector('#cpaMotivo').value, obs = box.querySelector('#cpaObs').value.trim();
+    if (!motivo || obs.length < 10) { showAlert('Selecione a causa e descreva a conciliação com pelo menos 10 caracteres.', 'danger'); return; }
+    var btn = box.querySelector('#cpaResolver'); btn.disabled = true;
+    finalizarConferenciaPA(opKey, op, conf, estado.contagemAceita, { motivo:motivo, observacao:obs, qtdApontada:qtdApontadaPA(op), qtdFisica:estado.total, diferenca:estado.diferenca, conciliadoEm:new Date().toISOString(), conciliadoPor:currentUserNome() }, overlay)
+      .catch(function(err){ btn.disabled = false; showAlert('Erro ao conciliar: ' + err.message, 'danger'); });
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// INVENTÁRIO ROTATIVO
+// A lógica pesada (priorização, snapshot, divergência, ajuste) mora em
+// shared/utils.js e é testada isolada. Aqui fica só a tela.
+// ══════════════════════════════════════════════════════════════════════
+var contagensCache = {};
+var contagemAtual = null; // { enderecoKey, enderecoCodigo, esperado, contado, resultado }
+
+dbOnValue(db.ref('contagens_inventario'), function(snap) {
+  contagensCache = snap.val() || {};
+  renderInventario();
+});
+
+function renderInventario() {
+  var fila = priorizarContagemInventario(enderecosEstoque, ocupantesPorEndereco, new Date().toISOString());
+  var tbody = document.getElementById('invFilaBody');
+  if (!tbody) return;
+
+  var nunca = fila.filter(function(f) { return f.diasSemContar === null; }).length;
+  var hojeStr = new Date().toISOString().slice(0, 10);
+  var contagens = Object.values(contagensCache);
+  var hoje = contagens.filter(function(c) { return c && c.contadoEm && c.contadoEm.slice(0, 10) === hojeStr; }).length;
+
+  // acurácia dos últimos 30 dias: média das acurácias das contagens do período
+  var corte = new Date(Date.now() - 30 * 86400000).toISOString();
+  var recentes = contagens.filter(function(c) { return c && c.contadoEm && c.contadoEm >= corte && typeof c.acuraciaPct === 'number'; });
+  var acuracia = recentes.length
+    ? Math.round(recentes.reduce(function(s, c) { return s + c.acuraciaPct; }, 0) / recentes.length)
+    : null;
+
+  document.getElementById('invStatFila').textContent = fmtNum(fila.length);
+  document.getElementById('invStatNunca').textContent = fmtNum(nunca);
+  document.getElementById('invStatHoje').textContent = fmtNum(hoje);
+  document.getElementById('invStatAcuracia').textContent = acuracia === null ? '—' : (acuracia + '%');
+
+  if (!fila.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="no-data">Nenhuma posição ocupada pra conferir. A fila só inclui posições com material endereçado.</td></tr>';
+  } else {
+    // mostra as 25 mais urgentes -- a fila inteira seria ruído; a pessoa
+    // confere algumas por dia, não o galpão todo
+    tbody.innerHTML = fila.slice(0, 25).map(function(f) {
+      var quando = f.diasSemContar === null
+        ? '<span class="badge badge-red">nunca contada</span>'
+        : (f.diasSemContar === 0 ? '<span class="badge badge-green">hoje</span>'
+           : '<span class="badge ' + (f.diasSemContar > 60 ? 'badge-orange' : 'badge-gray') + '">há ' + f.diasSemContar + ' dia' + (f.diasSemContar > 1 ? 's' : '') + '</span>');
+      return '<tr>' +
+        '<td><b>' + escapeHtml(f.enderecoCodigo) + '</b>' + (f.bloqueada ? ' <span class="badge badge-red" title="posição bloqueada">🚫</span>' : '') + '</td>' +
+        '<td>' + escapeHtml(f.area || '') + '</td>' +
+        '<td style="text-align:right">' + f.ocupantes + '</td>' +
+        '<td>' + quando + '</td>' +
+        '<td style="text-align:right"><button class="btn btn-primary btn-sm" data-contar="' + escapeAttr(f.enderecoKey) + '">📋 Contar</button></td>' +
+      '</tr>';
+    }).join('');
+    tbody.querySelectorAll('[data-contar]').forEach(function(btn) {
+      btn.addEventListener('click', function() { abrirContagem(btn.getAttribute('data-contar')); });
+    });
+  }
+
+  // histórico recente
+  var hb = document.getElementById('invHistoricoBody');
+  var ordenadas = contagens.filter(function(c) { return c && c.contadoEm; })
+    .sort(function(a, b) { return a.contadoEm < b.contadoEm ? 1 : -1; }).slice(0, 15);
+  hb.innerHTML = ordenadas.length
+    ? ordenadas.map(function(c) {
+        var res = c.confere
+          ? '<span class="badge badge-green">conferiu</span>'
+          : (c.ajusteAplicado ? '<span class="badge badge-orange">ajustada</span>' : '<span class="badge badge-red">divergente</span>');
+        return '<tr>' +
+          '<td><b>' + escapeHtml(c.enderecoCodigo || '') + '</b></td>' +
+          '<td>' + fmtDataHora(c.contadoEm) + '</td>' +
+          '<td>' + escapeHtml(c.contadoPor || '—') + '</td>' +
+          '<td style="text-align:right">' + (typeof c.acuraciaPct === 'number' ? c.acuraciaPct + '%' : '—') + '</td>' +
+          '<td>' + res + '</td>' +
+        '</tr>';
+      }).join('')
+    : '<tr><td colspan="5" class="no-data">Nenhuma contagem registrada ainda.</td></tr>';
+}
+
+// Abre a contagem CEGA: monta a lista de materiais que o sistema espera na
+// posição, mas com os campos ZERADOS e o esperado escondido. O snapshot do
+// esperado é congelado AGORA -- é contra ele que a divergência compara, e
+// não contra o saldo do momento em que a pessoa terminar de contar (um
+// consumo durante a contagem apareceria como erro de quem contou).
+function abrirContagem(enderecoKey) {
+  var e = enderecosEstoque[enderecoKey];
+  if (!e) return;
+  var esperado = snapshotEsperadoPosicao(enderecoKey, allEstoqueLotes);
+  contagemAtual = {
+    enderecoKey: enderecoKey,
+    enderecoCodigo: e.codigo || enderecoKey,
+    area: e.area || null,
+    esperado: esperado,
+    iniciadoEm: new Date().toISOString()
+  };
+  document.getElementById('modalContagemTitle').textContent = 'Contar posição ' + (e.codigo || enderecoKey);
+  document.getElementById('invEtapaContagem').style.display = '';
+  document.getElementById('invEtapaResultado').style.display = 'none';
+  document.getElementById('invBtnConfirmarContagem').style.display = '';
+  document.getElementById('invBtnAplicarAjuste').style.display = 'none';
+  document.getElementById('invBtnRecontar').style.display = 'none';
+
+  var codigos = Object.keys(esperado);
+  var body = document.getElementById('invContagemBody');
+  body.innerHTML = codigos.length
+    ? codigos.map(function(cod) {
+        var it = esperado[cod];
+        return '<tr>' +
+          '<td><b>' + escapeHtml(cod) + '</b>' + (it.itemNome ? '<br><span class="field-hint">' + escapeHtml(it.itemNome) + '</span>' : '') + '</td>' +
+          '<td style="text-align:right"><input type="number" class="inv-qtd" data-cod="' + escapeAttr(cod) + '" min="0" step="any" style="width:110px;text-align:right" placeholder="0"></td>' +
+        '</tr>';
+      }).join('')
+    : '<tr><td colspan="2" class="no-data">O sistema não tem nenhum material endereçado aqui. Se achou algo, use "+ Achei outro material aqui".</td></tr>';
+  document.getElementById('modalContagemBg').classList.add('open');
+}
+
+// Permite registrar material achado numa posição onde o sistema não o
+// esperava -- o achado mais comum de inventário (guardado no lugar errado).
+function addLinhaItemInesperado() {
+  var cod = prompt('Código do material encontrado nesta posição:', '');
+  if (cod === null) return;
+  cod = String(cod).trim().toUpperCase();
+  if (!cod) return;
+  var body = document.getElementById('invContagemBody');
+  if (body.querySelector('[data-cod="' + cod.replace(/"/g, '') + '"]')) {
+    showAlert('Esse material já está na lista.', 'danger');
+    return;
+  }
+  if (body.querySelector('.no-data')) body.innerHTML = '';
+  var tr = document.createElement('tr');
+  tr.innerHTML = '<td><b>' + escapeHtml(cod) + '</b> <span class="badge badge-orange">inesperado</span></td>' +
+    '<td style="text-align:right"><input type="number" class="inv-qtd" data-cod="' + escapeAttr(cod) + '" min="0" step="any" style="width:110px;text-align:right" placeholder="0"></td>';
+  body.appendChild(tr);
+}
+
+function confirmarContagem() {
+  if (!contagemAtual) return;
+  var contado = {};
+  var algumPreenchido = false;
+  document.querySelectorAll('#invContagemBody .inv-qtd').forEach(function(inp) {
+    var v = inp.value.trim();
+    if (v !== '') algumPreenchido = true;
+    contado[inp.getAttribute('data-cod')] = parseFloat(v) || 0;
+  });
+  if (!algumPreenchido) {
+    showAlert('Informe pelo menos uma quantidade contada (use 0 se a posição estiver vazia).', 'danger');
+    return;
+  }
+  var resultado = calcularDivergenciaInventario(contagemAtual.esperado, contado);
+  contagemAtual.contado = contado;
+  contagemAtual.resultado = resultado;
+
+  // agora sim revela o esperado
+  document.getElementById('invEtapaContagem').style.display = 'none';
+  document.getElementById('invEtapaResultado').style.display = '';
+  document.getElementById('invBtnConfirmarContagem').style.display = 'none';
+  document.getElementById('invBtnRecontar').style.display = '';
+
+  var resumo = document.getElementById('invResumoDivergencia');
+  if (resultado.confere) {
+    resumo.innerHTML = '<div class="alert alert-success show">✓ Contagem confere com o sistema. Nada a ajustar.</div>';
+    document.getElementById('invBtnAplicarAjuste').style.display = 'none';
+  } else {
+    resumo.innerHTML = '<div class="alert alert-danger show">⚠ ' + resultado.divergentes.length +
+      ' divergência(s) — acurácia desta posição: ' + resultado.acuraciaPct + '%</div>';
+    document.getElementById('invBtnAplicarAjuste').style.display = '';
+  }
+
+  document.getElementById('invResultadoBody').innerHTML = resultado.linhas.map(function(l) {
+    var cor = l.tipo === 'ok' ? 'var(--tint-green-fg)' : (l.tipo === 'falta' ? 'var(--danger)' : 'var(--warning)');
+    var sinal = l.diferenca > 0 ? '+' : '';
+    return '<tr>' +
+      '<td><b>' + escapeHtml(l.itemCodigo) + '</b>' + (l.inesperado ? ' <span class="badge badge-orange">inesperado</span>' : '') +
+        (l.itemNome ? '<br><span class="field-hint">' + escapeHtml(l.itemNome) + '</span>' : '') + '</td>' +
+      '<td style="text-align:right">' + fmtNum(l.saldoEsperado) + '</td>' +
+      '<td style="text-align:right">' + fmtNum(l.qtdContada) + '</td>' +
+      '<td style="text-align:right;color:' + cor + ';font-weight:700">' + (l.diferenca === 0 ? '—' : sinal + fmtNum(l.diferenca)) + '</td>' +
+    '</tr>';
+  }).join('');
+
+  // Grava a contagem já aqui (mesmo sem ajustar): o registro de que a
+  // posição FOI conferida vale por si -- é o que alimenta o rodízio e a
+  // acurácia ao longo do tempo. O ajuste é um passo separado e opcional.
+  salvarContagem(false);
+}
+
+function salvarContagem(ajusteAplicado) {
+  if (!contagemAtual || !contagemAtual.resultado) return Promise.resolve();
+  var agora = new Date().toISOString();
+  var autor = currentUserNome();
+  if (!contagemAtual._key) contagemAtual._key = db.ref('contagens_inventario').push().key;
+  var updates = {};
+  updates['contagens_inventario/' + contagemAtual._key] = {
+    enderecoKey: contagemAtual.enderecoKey,
+    enderecoCodigo: contagemAtual.enderecoCodigo,
+    area: contagemAtual.area || null,
+    iniciadoEm: contagemAtual.iniciadoEm,
+    contadoEm: agora,
+    contadoPor: autor,
+    esperado: contagemAtual.esperado,
+    contado: contagemAtual.contado,
+    linhas: contagemAtual.resultado.linhas,
+    confere: contagemAtual.resultado.confere,
+    acuraciaPct: contagemAtual.resultado.acuraciaPct,
+    ajusteAplicado: !!ajusteAplicado
+  };
+  // marca a posição como conferida -- é isso que tira ela do topo do rodízio
+  updates['enderecos_estoque/' + contagemAtual.enderecoKey + '/ultimaContagemEm'] = agora;
+  return db.ref().update(updates).catch(function(err) {
+    showAlert('Erro ao registrar a contagem: ' + err.message, 'danger');
+  });
+}
+
+function aplicarAjusteDaContagem() {
+  if (!contagemAtual || !contagemAtual.resultado) return;
+  var btn = document.getElementById('invBtnAplicarAjuste');
+  btn.disabled = true; btn.textContent = 'Ajustando...';
+  var payload = {
+    enderecoKey: contagemAtual.enderecoKey,
+    enderecoCodigo: contagemAtual.enderecoCodigo,
+    esperado: contagemAtual.esperado,
+    divergentes: contagemAtual.resultado.divergentes
+  };
+  aplicarAjusteInventario(db, payload, currentUserNome()).then(function(r) {
+    return salvarContagem(true).then(function() { return r; });
+  }).then(function(r) {
+    btn.disabled = false; btn.textContent = 'Ajustar estoque';
+    fecharModalContagem();
+    var msg = r.aplicados + ' ajuste(s) aplicado(s) no estoque endereçado.';
+    if (r.naoAplicados.length) {
+      msg += ' ' + r.naoAplicados.length + ' item(ns) NÃO ajustados: ' +
+        r.naoAplicados.map(function(n) { return n.itemCodigo + ' (' + n.motivo + ')'; }).join('; ');
+    }
+    showAlert(msg, r.naoAplicados.length ? 'danger' : 'success');
+  }).catch(function(err) {
+    btn.disabled = false; btn.textContent = 'Ajustar estoque';
+    showAlert('Erro ao aplicar o ajuste: ' + err.message, 'danger');
+  });
+}
+
+function fecharModalContagem() {
+  document.getElementById('modalContagemBg').classList.remove('open');
+  contagemAtual = null;
+}
+
+// Bloqueio de posição -- achado da auditoria geral: enderecos_estoque.ativo
+// JÁ era respeitado em 3 telas (o <select> de destino aqui, o de Separação
+// e o de Recebimento em Logística todos filtram `ativo !== false`), mas
+// NENHUMA tela do sistema conseguia gravar `false`. O campo nascia true e
+// não tinha como mudar -- metade do mecanismo pronta, sem a ponta que
+// escreve. Bloqueio de posição é função básica de WMS de mercado
+// (posição danificada, interditada, em contagem, reservada).
+// Bloquear NÃO mexe em nada do que já está guardado lá: o saldo continua
+// existindo e aparecendo no Saldo por Lote/Endereço -- só para de ser
+// OFERECIDA como destino e some das sugestões de FEFO. Por isso é seguro
+// bloquear posição ocupada (justamente o caso "essa posição está com
+// problema, não mande mais nada pra cá").
+function toggleBloqueioEndereco(key) {
+  var e = enderecosEstoque[key];
+  if (!e) return;
+  var bloqueandoAgora = e.ativo !== false;
+  var motivo = null;
+  if (bloqueandoAgora) {
+    motivo = prompt('Motivo do bloqueio da posição ' + e.codigo + ' (obrigatório):', '');
+    if (motivo === null) return;              // cancelou
+    motivo = String(motivo).trim();
+    if (!motivo) { showAlert('Informe o motivo do bloqueio.', 'danger'); return; }
+  } else {
+    // Liberar também confirma: um clique errado na coluna de botões
+    // reabriria uma posição interditada E apagaria o motivo no mesmo
+    // movimento, sem desfazer.
+    if (!confirm('Liberar a posição ' + e.codigo + '?' +
+        (e.motivoBloqueio ? '\n\nMotivo do bloqueio atual: ' + e.motivoBloqueio : '') +
+        '\n\nEla volta a ser oferecida como destino e a aparecer nas sugestões de separação.')) return;
+  }
+  var agora = new Date().toISOString();
+  var autor = currentUserNome();
+  var updates = {};
+  updates['enderecos_estoque/' + key + '/ativo'] = bloqueandoAgora ? false : true;
+  updates['enderecos_estoque/' + key + '/motivoBloqueio'] = bloqueandoAgora ? motivo : null;
+  updates['enderecos_estoque/' + key + '/bloqueadoEm'] = bloqueandoAgora ? agora : null;
+  updates['enderecos_estoque/' + key + '/bloqueadoPor'] = bloqueandoAgora ? autor : null;
+  db.ref().update(updates).then(function() {
+    // Movimento auditado: toda outra ação de WMS deste sistema grava em
+    // movimentos_estoque (putaway, transferência, separação, baixa manual).
+    // Bloqueio não gravava -- e como LIBERAR apaga motivoBloqueio/
+    // bloqueadoPor/bloqueadoEm, depois de um desbloqueio não sobrava
+    // vestígio nenhum de que a posição esteve interditada nem por quê. Sem
+    // isso a "rastreabilidade" durava só enquanto o bloqueio existisse.
+    // Vai num nó próprio (_enderecos) porque não é movimento de um ITEM --
+    // não tem itemCodigo, e misturar com o histórico de um material
+    // poluiria a tela de movimentações dele.
+    return db.ref('movimentos_estoque/_enderecos').push({
+      tipo: bloqueandoAgora ? 'bloqueio_posicao' : 'liberacao_posicao',
+      motivo: bloqueandoAgora ? motivo : (e.motivoBloqueio || null),
+      enderecoKey: key,
+      enderecoCodigo: e.codigo || null,
+      area: e.area || null,
+      ocupantesNoMomento: ocupantesPorEndereco[key] || 0,
+      autor: autor || null,
+      em: agora
+    });
+  }).then(function() {
+    showAlert('Posição ' + e.codigo + (bloqueandoAgora ? ' bloqueada.' : ' liberada.'), 'success');
+  }).catch(function(err) {
+    showAlert('Erro ao ' + (bloqueandoAgora ? 'bloquear' : 'liberar') + ' a posição: ' + err.message, 'danger');
+  });
+}
+
+// Pedido do usuário: "conseguimos criar um mapa visual do wms... pra
+// informar no sistema a alocação de itens dentro do galpão?" --
+// mapaVisualRuasHtml (shared/utils.js) monta o grid; aqui liga o clique ao
+// detalhe (esta página já tem estoque_lotes completo carregado, diferente
+// de cadastros.html, que só guarda a contagem).
+var visaoAtualPosicoes = 'lista';
+
+// Mapa por rua e planta baixa trabalham com ruas, não com a tabela de
+// endereços. Centralizar este recorte garante que a área selecionada na
+// barra tenha o mesmo efeito nas três visões da tela.
+function estruturaRuasFiltradaPosicoes() {
+  var filtroArea = document.getElementById('filterArea-end').value;
+  var filtroRua = document.getElementById('filterRua-end').value;
+  var resultado = {};
+  Object.keys(estruturaRuas || {}).forEach(function(chave) {
+    var rua = estruturaRuas[chave];
+    if (!rua) return;
+    if (filtroArea && rua.area !== filtroArea) return;
+    if (filtroRua && chave !== filtroRua) return;
+    resultado[chave] = rua;
+  });
+  return resultado;
+}
+
+function renderMapaVisual() {
+  document.getElementById('mapaVisualGrid-end').innerHTML = mapaVisualRuasHtml(estruturaRuasFiltradaPosicoes(), enderecosEstoque, ocupantesPorEndereco);
+  document.querySelectorAll('#mapaVisualGrid-end .mapa-cell').forEach(function(cell) {
+    cell.addEventListener('click', function() {
+      if (cell.classList.contains('mapa-cell-naogerada')) return; // posição nem existe ainda, nada pra mostrar
+      document.querySelectorAll('#mapaVisualGrid-end .mapa-cell').forEach(function(c) { c.classList.remove('mapa-cell-selecionada'); });
+      cell.classList.add('mapa-cell-selecionada');
+      mostrarDetalheEndereco(cell.getAttribute('data-endereco-key'), cell.getAttribute('data-codigo'));
+    });
+  });
+}
+function trocarVisaoPosicoes(visao) {
+  visaoAtualPosicoes = visao;
+  document.getElementById('cardListaPosicoes-end').style.display = visao === 'lista' ? '' : 'none';
+  document.getElementById('mapaVisualContainer-end').style.display = visao === 'mapa' ? 'block' : 'none';
+  document.getElementById('plantaBaixaContainer-end').style.display = visao === 'planta' ? 'block' : 'none';
+  // O card de detalhe é compartilhado pelos 2 modos visuais -- esconde na
+  // troca, senão fica detalhe de uma posição do mapa pendurado embaixo da
+  // planta (ou da lista), sem nada selecionado explicando de onde veio.
+  fecharDetalheEndereco();
+  if (visao === 'mapa') renderMapaVisual();
+  if (visao === 'planta') renderPlantaBaixa();
+}
+
+// Planta baixa -- visão de CIMA do galpão (diferente do Mapa por rua acima,
+// que é uma ELEVAÇÃO -- de frente pra estante). Pedido do usuário depois de
+// ver o Mapa por rua: "tem como ficar com algo mais visual, como se fosse
+// uma planta baixa?". plantaBaixaRuasHtml (shared/utils.js) monta os
+// blocos; aqui liga: fora do modo edição, clicar numa rua leva direto pro
+// Mapa por rua já filtrado nela (reaproveita o drill-down que já existe,
+// em vez de duplicar detalhe de posição de novo); em modo edição, arrastar
+// o bloco (com "encaixe" de 20px, pra ficar alinhado como um galpão de
+// verdade) grava a posição só quando "Salvar posições" é clicado.
+var editandoPlanta = false;
+var posicoesPlantaPendentes = {}; // codigoRua -> {x,y}, só das ruas movidas nesta edição
+// Pedido do usuário depois de ver a planta agregada: "não da pra colocar
+// algo que de pra visualizar as posições de palete também na planta baixa,
+// talvez visualizando algo em nivel?" -- 0 = agregado (% da rua, responde
+// "qual rua está cheia"), N = abre as posições daquele nível vistas de
+// cima (responde "qual palete está livre, e onde ele fica").
+var nivelPlantaSelecionado = 0;
+
+function renderPlantaBaixa() {
+  var canvas = document.getElementById('plantaBaixaCanvas-end');
+  canvas.innerHTML = plantaBaixaRuasHtml(estruturaRuasFiltradaPosicoes(), enderecosEstoque, ocupantesPorEndereco, nivelPlantaSelecionado);
+  document.querySelectorAll('#plantaBaixaCanvas-end .planta-bloco').forEach(function(bloco) {
+    if (editandoPlanta) {
+      bloco.classList.add('planta-bloco-arrastavel');
+      wireArrastarBlocoPlanta(bloco);
+      return; // em edição o bloco é pra arrastar -- nenhum clique de navegação/detalhe
+    }
+    // Na visão agregada o bloco inteiro é o alvo (leva pra elevação da rua).
+    // Na visão por nível quem manda são as células -- clicar o bloco em volta
+    // não deve pular de tela, senão errar a mira numa célula te tira do lugar.
+    if (nivelPlantaSelecionado > 0) return;
+    bloco.addEventListener('click', function() {
+      var codigoRua = bloco.getAttribute('data-codigo-rua');
+      trocarVisaoPosicoes('mapa');
+      var alvo = document.getElementById('mapa-rua-' + codigoRua);
+      if (alvo) alvo.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+  if (!editandoPlanta && nivelPlantaSelecionado > 0) {
+    document.querySelectorAll('#plantaBaixaCanvas-end .planta-cell').forEach(function(cell) {
+      cell.addEventListener('click', function(ev) {
+        ev.stopPropagation();
+        if (cell.classList.contains('planta-cell-naogerada')) return; // posição nem existe ainda
+        document.querySelectorAll('#plantaBaixaCanvas-end .planta-cell').forEach(function(c) { c.classList.remove('planta-cell-selecionada'); });
+        cell.classList.add('planta-cell-selecionada');
+        mostrarDetalheEndereco(cell.getAttribute('data-endereco-key'), cell.getAttribute('data-codigo'));
+      });
+    });
+  }
+}
+
+// Opções de nível vêm do maior número de níveis entre as ruas cadastradas
+// -- ruas mais baixas (posição de chão, 1 nível) simplesmente aparecem
+// apagadas nos níveis que não têm, tratado dentro de plantaBaixaRuasHtml.
+function refreshPlantaNivelSelect() {
+  var sel = document.getElementById('plantaNivel-end');
+  var maxNiveis = Object.values(estruturaRuasFiltradaPosicoes()).reduce(function(max, r) { return Math.max(max, r.niveis || 0); }, 0);
+  var atual = sel.value;
+  var opcoes = ['<option value="0">Todos os níveis (ocupação da rua)</option>'];
+  for (var n = 1; n <= maxNiveis; n++) opcoes.push('<option value="' + n + '">Nível ' + n + ' (posições de palete)</option>');
+  sel.innerHTML = opcoes.join('');
+  // Preserva a escolha se ela ainda existir (regerar estrutura não deve
+  // jogar a pessoa de volta pro agregado sem aviso). Cai pra '0' também no
+  // primeiro carregamento (atual === ''), senão o select ficaria com
+  // selectedIndex -1 -- em branco, sem nem mostrar "Todos os níveis".
+  var escolhido = (Number(atual) >= 1 && Number(atual) <= maxNiveis) ? String(Number(atual)) : '0';
+  sel.value = escolhido;
+  nivelPlantaSelecionado = Number(escolhido) || 0;
+}
+
+function wireArrastarBlocoPlanta(bloco) {
+  var GRADE = 20; // px de encaixe -- blocos ficam alinhados, não soltos em qualquer pixel
+  bloco.addEventListener('mousedown', function(ev) {
+    ev.preventDefault();
+    var canvas = document.getElementById('plantaBaixaCanvas-end');
+    var canvasRect = canvas.getBoundingClientRect();
+    var offsetX = ev.clientX - bloco.offsetLeft - canvasRect.left + canvas.scrollLeft;
+    var offsetY = ev.clientY - bloco.offsetTop - canvasRect.top + canvas.scrollTop;
+    bloco.classList.add('planta-bloco-arrastando');
+    function onMove(ev2) {
+      var novoX = Math.max(0, Math.round((ev2.clientX - canvasRect.left + canvas.scrollLeft - offsetX) / GRADE) * GRADE);
+      var novoY = Math.max(0, Math.round((ev2.clientY - canvasRect.top + canvas.scrollTop - offsetY) / GRADE) * GRADE);
+      bloco.style.left = novoX + 'px';
+      bloco.style.top = novoY + 'px';
+      posicoesPlantaPendentes[bloco.getAttribute('data-codigo-rua')] = { x: novoX, y: novoY };
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      bloco.classList.remove('planta-bloco-arrastando');
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+function ativarEdicaoPlanta() {
+  editandoPlanta = true;
+  posicoesPlantaPendentes = {};
+  document.getElementById('btnEditarPlanta-end').style.display = 'none';
+  document.getElementById('btnSalvarPlanta-end').style.display = '';
+  document.getElementById('btnCancelarPlanta-end').style.display = '';
+  renderPlantaBaixa();
+}
+function cancelarEdicaoPlanta() {
+  editandoPlanta = false;
+  posicoesPlantaPendentes = {};
+  document.getElementById('btnEditarPlanta-end').style.display = '';
+  document.getElementById('btnSalvarPlanta-end').style.display = 'none';
+  document.getElementById('btnCancelarPlanta-end').style.display = 'none';
+  renderPlantaBaixa();
+}
+function salvarPosicoesPlanta() {
+  var codigos = Object.keys(posicoesPlantaPendentes);
+  if (!codigos.length) { cancelarEdicaoPlanta(); return; }
+  var updates = {};
+  var agora = new Date().toISOString();
+  codigos.forEach(function(codigoRua) {
+    var pos = posicoesPlantaPendentes[codigoRua];
+    updates['estrutura_ruas/' + codigoRua + '/layoutX'] = pos.x;
+    updates['estrutura_ruas/' + codigoRua + '/layoutY'] = pos.y;
+    updates['estrutura_ruas/' + codigoRua + '/atualizadoEm'] = agora;
+    updates['estrutura_ruas/' + codigoRua + '/atualizadoPor'] = currentUserNome();
+  });
+  db.ref().update(updates).then(function() {
+    showAlert('Posições da planta salvas.', 'success');
+    cancelarEdicaoPlanta();
+  }).catch(function(err) {
+    showAlert('Erro ao salvar posições da planta: ' + err.message, 'danger');
+  });
+}
+// Detalhe de uma posição -- varre estoque_lotes procurando quem tem esse
+// enderecoKey (mesma lógica de contagem já usada em ocupantesPorEndereco,
+// só que aqui monta a lista completa em vez de só contar).
+// Detalhe da posição clicada no Mapa por rua / Planta baixa. Pedido do usuário
+// (2026-09-15): enxergar o que está no palete -- itens, volumes, peso e
+// quantidades. Regra de volumes/peso em shared/conteudo-posicao.js.
+function fmtKg(v) { return Number(v || 0).toLocaleString('pt-BR', {maximumFractionDigits: 1}); }
+function mostrarDetalheEndereco(enderecoKey, codigo) {
+  var endereco = allEnderecosEstoque[enderecoKey] || {};
+  var conteudo = ConteudoPosicao.analisar(ConteudoPosicao.lotesDaPosicao(allEstoqueLotes, enderecoKey), {produtos: allProdutos, materiais: allMateriais});
+  var t = conteudo.totais, itens = conteudo.itens;
+  document.getElementById('mapaDetalheTitulo-end').textContent = (codigo || enderecoKey) + (endereco.area ? ' · ' + endereco.area : '') +
+    (itens.length ? ' — ' + itens.length + (itens.length === 1 ? ' item' : ' itens') : ' — posição livre');
+  var resumo = document.getElementById('mapaDetalheResumo-end');
+  if (!itens.length) {
+    resumo.innerHTML = '';
+  } else {
+    var qtd = Object.keys(t.porUnidade).map(function(u) { return fmtNum(t.porUnidade[u]) + ' ' + escapeHtml(u); }).join(' + ');
+    var peso = t.semPeso === t.itens ? '<b>—</b><span class="pr-falta">sem peso no cadastro</span>'
+      : '<b>' + (t.semPeso ? '~' : '') + fmtKg(t.kg) + ' kg</b>' + (t.semPeso ? '<span class="pr-falta">' + t.semPeso + ' item(ns) sem peso</span>' : '<span>peso total</span>');
+    var status = {};
+    itens.forEach(function(i) { var s = typeof rotuloStatusLote === 'function' ? rotuloStatusLote(i.status || 'LIBERADO') : (i.status || 'LIBERADO'); status[s] = (status[s] || 0) + 1; });
+    resumo.innerHTML =
+      '<div class="pr-bloco"><b>' + itens.length + '</b><span>' + (itens.length === 1 ? 'item no palete' : 'itens no palete') + '</span></div>' +
+      '<div class="pr-bloco"><b>' + qtd + '</b><span>quantidade</span></div>' +
+      '<div class="pr-bloco"><b>' + (t.semVolumes === t.itens ? '—' : fmtNum(t.volumes)) + '</b>' + (t.semVolumes && t.semVolumes < t.itens ? '<span class="pr-falta">' + t.semVolumes + ' sem volumes</span>' : '<span>volumes</span>') + '</div>' +
+      '<div class="pr-bloco">' + peso + '</div>' +
+      '<div class="pr-bloco"><b style="font-size:13px">' + Object.keys(status).map(function(s) { return status[s] + ' ' + escapeHtml(s); }).join(' · ') + '</b><span>situação</span></div>';
+  }
+  var tbody = document.getElementById('mapaDetalheBody-end');
+  if (!itens.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="no-data">Posição livre.</td></tr>';
+  } else {
+    tbody.innerHTML = itens.map(function(i) {
+      var vol = i.volumes && i.volumes.texto ? escapeHtml(i.volumes.texto) : '<span class="pr-falta">sem ' + escapeHtml((i.volumes && i.volumes.falta) || 'volumes no recebimento') + '</span>';
+      var pesoCel = i.peso && i.peso.kg != null
+        ? fmtKg(i.peso.kg) + '<div class="field-hint" style="margin:0">' + escapeHtml(ConteudoPosicao.textoFontePeso(i.peso)) + '</div>'
+        : '<span class="pr-falta" title="Cadastre em Cadastros">sem ' + escapeHtml((i.peso && i.peso.falta) || 'peso') + '</span>';
+      return '<tr>' +
+        '<td><span class="badge ' + (i.tipo === 'PA' ? 'badge-purple' : 'badge-blue') + '">' + i.tipo + '</span> <b>' + escapeHtml(i.codigo) + '</b><div class="field-hint" style="margin:0">' + escapeHtml(i.nome) + '</div></td>' +
+        '<td>' + escapeHtml(i.lote) + (i.loteFornecedor ? '<div class="field-hint" style="margin:0">fornecedor: ' + escapeHtml(i.loteFornecedor) + '</div>' : '') + '</td>' +
+        '<td>' + (escapeHtml(i.origem) || '—') + (i.entrada ? '<div class="field-hint" style="margin:0">entrada ' + fmtData(i.entrada) + '</div>' : '') +
+          (i.dono ? '<div class="prop-dono">' + donoDestinoHtml((allEstoqueLotes[i.itemKey] || {})[i.loteKey] || {}) + '</div>' : '') + '</td>' +
+        '<td>' + vol + '</td>' +
+        '<td style="text-align:right"><b>' + fmtNum(i.saldo) + '</b> ' + escapeHtml(i.unidade) + (i.original && i.original !== i.saldo ? '<div class="field-hint" style="margin:0">de ' + fmtNum(i.original) + '</div>' : '') + '</td>' +
+        '<td style="text-align:right">' + pesoCel + '</td>' +
+        '<td>' + fmtData(i.validade) + '</td>' +
+        '<td>' + statusBadge(i.status) + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+  document.getElementById('mapaDetalheModal-end').classList.add('open');
+}
+// Fecha pelo X, clicando fora da janela ou com Esc.
+function fecharDetalheEndereco() { document.getElementById('mapaDetalheModal-end').classList.remove('open'); }
+document.getElementById('mapaDetalheFechar-end').addEventListener('click', fecharDetalheEndereco);
+document.getElementById('mapaDetalheModal-end').addEventListener('click', function(ev) { if (ev.target === this) fecharDetalheEndereco(); });
+document.addEventListener('keydown', function(ev) { if (ev.key === 'Escape' && document.getElementById('mapaDetalheModal-end').classList.contains('open')) fecharDetalheEndereco(); });
+
+function refreshFiltroRuaSelect() {
+  var sel = document.getElementById('filterRua-end');
+  var atual = sel.value;
+  // Lista pela CHAVE COMPOSTA (GAL-1, FAB-1): com o número puro, escolher
+  // "Rua 1" no filtro traria posições de todas as áreas que têm uma rua 1.
+  // O value continua sendo o número porque é por ele que renderPosicoesTableEnd
+  // filtra (e.rua), mas o rótulo mostra a área -- e a opção carrega a sigla
+  // pra o filtro conseguir distinguir.
+  var chaves = Object.keys(estruturaRuas).filter(function(k) { return !!estruturaRuas[k]; })
+    .sort(function(a, b) {
+      var ra = estruturaRuas[a], rb = estruturaRuas[b];
+      var aa = ra.area || '', ba = rb.area || '';
+      if (aa !== ba) return aa < ba ? -1 : 1;
+      return (ra.codigoRua || 0) - (rb.codigoRua || 0);
+    });
+  sel.innerHTML = '<option value="">Todas as ruas</option>' + chaves.map(function(k) {
+    return '<option value="' + escapeAttr(k) + '"' + (k === atual ? ' selected' : '') + '>Rua ' + escapeHtml(k) + '</option>';
+  }).join('');
+}
+function refreshFiltroAreaSelect() {
+  var sel = document.getElementById('filterArea-end');
+  var atual = sel.value;
+  sel.innerHTML = '<option value="">Todas as áreas</option>' + areasEnderecoAtivas.map(function(a) {
+    return '<option value="' + escapeAttr(a.nome) + '"' + (a.nome === atual ? ' selected' : '') + '>' + escapeHtml(a.nome) + '</option>';
+  }).join('');
+}
+
+/* ══════════════ Boot ══════════════ */
+document.addEventListener('DOMContentLoaded', function() {
+  var _tes = null;
+  document.getElementById('esSearch').addEventListener('input', function() { clearTimeout(_tes); _tes = setTimeout(renderEstoqueAgregado, 200); });
+  esSortable.wireHeaders(renderEstoqueAgregado);
+  document.getElementById('btnAjustarEstoque').addEventListener('click', function() { abrirModalAjusteEstoque(null); });
+  document.getElementById('modalAjusteEstoqueClose').addEventListener('click', fecharModalAjusteEstoque);
+  document.getElementById('modalAjusteEstoqueCancel').addEventListener('click', fecharModalAjusteEstoque);
+  document.getElementById('modalAjusteEstoqueSave').addEventListener('click', salvarAjusteEstoque);
+  document.getElementById('modalAjusteEstoque').addEventListener('click', function(e) { if (e.target === this) fecharModalAjusteEstoque(); });
+  attachAutocomplete(document.getElementById('aeMaterial'), function() { return aeItems; }, {
+    onSelect: function(it) {
+      document.getElementById('aeMaterialKey').value = it.key;
+      preencherAeDono(it.key);
+      atualizarAeSaldoHint();
+    }
+  });
+  document.getElementById('aeDono').addEventListener('change', atualizarAeSaldoHint);
+  document.getElementById('aeMaterial').addEventListener('input', function() {
+    document.getElementById('aeMaterialKey').value = '';
+    document.getElementById('aeSaldoAtualHint').textContent = '';
+  });
+
+  var _tsl = null;
+  document.getElementById('slSearch').addEventListener('input', function() { clearTimeout(_tsl); _tsl = setTimeout(renderSaldoLotes, 200); });
+  document.getElementById('slFiltroTipo').addEventListener('change', renderSaldoLotes);
+  document.getElementById('slFiltroStatus').addEventListener('change', renderSaldoLotes);
+  document.getElementById('slSoAguardando').addEventListener('change', renderSaldoLotes);
+  document.getElementById('modalTransferirClose').addEventListener('click', fecharModalTransferir);
+  // Inventário rotativo
+  document.getElementById('modalContagemClose').addEventListener('click', fecharModalContagem);
+  document.getElementById('modalContagemCancel').addEventListener('click', fecharModalContagem);
+  document.getElementById('invBtnConfirmarContagem').addEventListener('click', confirmarContagem);
+  document.getElementById('invBtnAplicarAjuste').addEventListener('click', aplicarAjusteDaContagem);
+  document.getElementById('invAddItemInesperado').addEventListener('click', addLinhaItemInesperado);
+  // Recontar volta pra etapa de digitação SEM mostrar o esperado de novo --
+  // se a pessoa já viu a divergência, recontar "sabendo a resposta" não é
+  // recontagem, é confirmação enviesada. Reabre a posição do zero.
+  document.getElementById('invBtnRecontar').addEventListener('click', function() {
+    var key = contagemAtual && contagemAtual.enderecoKey;
+    fecharModalContagem();
+    if (key) abrirContagem(key);
+  });
+  document.getElementById('modalTransferirCancel').addEventListener('click', fecharModalTransferir);
+  document.getElementById('modalTransferirSave').addEventListener('click', salvarTransferir);
+  document.getElementById('modalTransferir').addEventListener('click', function(e) { if (e.target === this) fecharModalTransferir(); });
+  document.getElementById('modalSaidaClose').addEventListener('click', fecharModalSaida);
+  document.getElementById('modalSaidaCancel').addEventListener('click', fecharModalSaida);
+  document.getElementById('modalSaidaSave').addEventListener('click', salvarSaida);
+  document.getElementById('modalSaida').addEventListener('click', function(e) { if (e.target === this) fecharModalSaida(); });
+
+  document.getElementById('lvDias').addEventListener('change', renderLotesVencendo);
+
+  document.getElementById('btnBuscarHistorico').addEventListener('click', buscarHistorico);
+  document.getElementById('hmCodigo').addEventListener('keydown', function(e) { if (e.key === 'Enter') buscarHistorico(); });
+
+  // Estrutura de Ruas e Posições viraram abas de NÍVEL PÁGINA (irmãs de
+  // Saldo Agregado etc.), não mais sub-abas dentro de uma aba "Endereços"
+  // -- pedido do usuário: 3 telas paralelas de WMS. O antigo wiring de
+  // sub-aba (#tab-enderecos .tab) some, já é coberto pelo handler único
+  // de #mainTabsEstoque acima.
+  document.getElementById('btnNovaRua-end').addEventListener('click', function() { abrirModalRua(null); });
+  document.getElementById('modalRuaClose').addEventListener('click', fecharModalRua);
+  document.getElementById('btnCancelarRua-end').addEventListener('click', fecharModalRua);
+  document.getElementById('btnSalvarRua-end').addEventListener('click', salvarRuaEGerar);
+  document.getElementById('searchInput-end').addEventListener('input', renderPosicoesTableEnd);
+  function aplicarFiltroVisualPosicoes() {
+    // O nível disponível depende das ruas visíveis na área. Atualiza antes
+    // de desenhar para não deixar, por exemplo, "Nível 6" selecionado numa
+    // fábrica que só possui posições até o nível 3.
+    refreshPlantaNivelSelect();
+    renderPosicoesTableEnd();
+  }
+  document.getElementById('filterRua-end').addEventListener('change', aplicarFiltroVisualPosicoes);
+  document.getElementById('filterArea-end').addEventListener('change', aplicarFiltroVisualPosicoes);
+  document.getElementById('filterOcupacao-end').addEventListener('change', renderPosicoesTableEnd);
+  document.getElementById('btnVerLista-end').addEventListener('click', function() { trocarVisaoPosicoes('lista'); });
+  document.getElementById('btnVerMapa-end').addEventListener('click', function() { trocarVisaoPosicoes('mapa'); });
+  document.getElementById('btnVerPlanta-end').addEventListener('click', function() { trocarVisaoPosicoes('planta'); });
+  document.getElementById('plantaNivel-end').addEventListener('change', function() {
+    nivelPlantaSelecionado = Number(this.value) || 0;
+    fecharDetalheEndereco(); // detalhe da posição do nível anterior não vale mais
+    renderPlantaBaixa();
+  });
+  document.getElementById('btnEditarPlanta-end').addEventListener('click', ativarEdicaoPlanta);
+  document.getElementById('btnSalvarPlanta-end').addEventListener('click', salvarPosicoesPlanta);
+  document.getElementById('btnCancelarPlanta-end').addEventListener('click', cancelarEdicaoPlanta);
+
+  // Aba Endereçamento (WMS Fase 2)
+  attachAutocomplete(document.getElementById('edItem'), edItemsAutocomplete, { onSelect: edSelecionarItem });
+  document.getElementById('edItem').addEventListener('input', function() {
+    // Digitar sem escolher da lista invalida a seleção -- evita separar
+    // pro item errado por engano se a pessoa editar o texto e não
+    // reselecionar (mesmo cuidado já usado no aeMaterial de Ajustar Saldo).
+    if (edItemAtual) {
+      edItemAtual = null;
+      document.getElementById('edItemKey').value = '';
+      document.getElementById('edItemTipo').value = '';
+      document.getElementById('edCardForm').style.display = 'none';
+      document.getElementById('edCardHistorico').style.display = 'none';
+      document.getElementById('edResumoHint').textContent = '';
+    }
+  });
+  document.getElementById('btnEdAddPosicao').addEventListener('click', edAdicionarPosicao);
+
+  try {
+    db.ref('.info/connected').on('value', function(snap) {
+      setStatus(snap.val(), snap.val() ? 'Conectado' : 'Reconectando...');
+    });
+    dbOnValue(db.ref('estoque'), function(snap) {
+      allEstoque = snap.val() || {};
+      renderEstoqueAgregado();
+    });
+    dbOnValue(db.ref('materiais'), function(snap) {
+      allMateriais = snap.val() || {};
+      refreshAeItems();
+      renderEstoqueAgregado(); // selo "sem controle de estoque" vem do cadastro
+    });
+    dbOnValue(db.ref('produtos'), function(snap) {
+      allProdutos = snap.val() || {};
+      renderConferenciaPA();
+      recalcularUsos();
+    });
+    dbOnValue(db.ref('formulas'), function(snap) { allFormulasEs = snap.val() || {}; recalcularUsos(); });
+    dbOnValue(db.ref('bom'), function(snap) { allBomEs = snap.val() || {}; recalcularUsos(); });
+    dbOnValue(db.ref('ops'), function(snap) {
+      allOps = snap.val() || {};
+      renderConferenciaPA();
+    });
+    dbOnValue(db.ref('conferencias_pa'), function(snap) {
+      allConferenciasPA = snap.val() || {};
+      renderConferenciaPA();
+    });
+    dbOnValue(db.ref('clientes'), function(snap) {
+      allClientesEstoque = snap.val() || {};
+      preencherFiltroCliente();
+      renderEstoqueAgregado();
+      renderSaldoLotes();
+    });
+    dbOnValue(db.ref('fornecedores'), function(snap) {
+      allFornecedores = snap.val() || {};
+      refreshAeItems(); // reconstrói os labels agora com fornecedor (pode ter chegado depois de materiais)
+    });
+    dbOnValue(db.ref('estoque_lotes'), function(snap) {
+      allEstoqueLotes = snap.val() || {};
+      renderEstoqueAgregado();
+      renderSaldoLotes();
+      renderLotesVencendo();
+      renderResumoEnderecamento();
+      renderDoca();
+      // Aba Endereços: mesmo cálculo de ocupantes-por-endereço já usado em
+      // cadastros.html -- estoque_lotes é keyed por itemKey, cada um com
+      // vários pushKeys de lote; conta POR ENDEREÇO, nunca assume 1 item
+      // por posição (posição pode ter mistura, confirmado pelo usuário).
+      var contagem = {};
+      Object.values(allEstoqueLotes).forEach(function(lotesDoItem) {
+        Object.values(lotesDoItem || {}).forEach(function(lote) {
+          if (!lote || !lote.enderecoKey || !(lote.saldoLote > 0)) return;
+          contagem[lote.enderecoKey] = (contagem[lote.enderecoKey] || 0) + 1;
+        });
+      });
+      ocupantesPorEndereco = contagem;
+      renderPosicoesTableEnd();
+      renderInventario(); // a fila de contagem só inclui posição ocupada
+      renderConferenciaPA(); // paletes declarados pela produção, ainda não conferidos
+    });
+    dbOnValue(db.ref('enderecos_estoque'), function(snap) {
+      allEnderecosEstoque = snap.val() || {};
+      renderSaldoLotes();
+      renderLotesVencendo();
+      renderDoca();
+      // Aba Endereços usa sua própria cópia local (enderecosEstoque) --
+      // mesmo padrão de seções isoladas já usado em cadastros.html.
+      enderecosEstoque = snap.val() || {};
+      renderRuasTable();
+      renderPosicoesTableEnd();
+      renderInventario(); // ultimaContagemEm vive no endereço e define o rodízio
+    });
+    dbOnValue(db.ref('config/motivosMovimentoEstoque'), function(snap) {
+      motivosMovEstoqueAtivos = (snap.val() || []).filter(function(m) { return m.ativo !== false; });
+    });
+    dbOnValue(db.ref('config/areasEndereco'), function(snap) {
+      areasEnderecoAtivas = (snap.val() || []).filter(function(a) { return a.ativo !== false; });
+      refreshFiltroAreaSelect();
+    });
+    dbOnValue(db.ref('estrutura_ruas'), function(snap) {
+      estruturaRuas = snap.val() || {};
+      renderRuasTable();
+      refreshFiltroRuaSelect();
+      refreshPlantaNivelSelect(); // quantidade de níveis pode ter mudado ao editar/gerar uma rua
+      if (visaoAtualPosicoes === 'planta' && !editandoPlanta) renderPlantaBaixa();
+    });
+  } catch (err) {
+    setStatus(false, 'Erro');
+    console.error(err);
+  }
+});
+</script>
+</body>
+</html>
