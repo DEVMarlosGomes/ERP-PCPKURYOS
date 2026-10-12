@@ -395,12 +395,12 @@
 
 </style>
 </head>
-<body class="kuryos-theme has-sidebar">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
 
 <!-- Unified Navbar will be dynamically injected here by auth_check.js -->
 
 <div class="container">
-  <div class="head">
+  <div class="head" data-ui="page-header">
     <div>
       <h1>⚙️ Controle de OPs Ativas</h1>
       <div class="subtitle">Acompanhe o progresso físico e gerencie as OPs ativas em produção</div>
@@ -420,7 +420,7 @@
   <!-- OPs ativas x checklist de recebimento das ordens físicas são duas
        visões diferentes do mesmo dado -- mesmo padrão de abas já usado em
        Pedidos (SKUs para Produção x Pedidos Comerciais). -->
-  <div style="display:flex;gap:6px;background:#f3f4f6;padding:4px;border-radius:8px;border:1px solid var(--border);margin-bottom:14px;max-width:640px">
+  <div style="display:flex;gap:6px;background:#f3f4f6;padding:4px;border-radius:8px;border:1px solid var(--border);margin-bottom:14px;max-width:640px" data-ui="tabs">
     <button type="button" class="btn-sync" id="tabBtnAtivas" onclick="switchOpsTab('ativas')" style="flex:1;background:var(--card);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.1)">⚙️ OPs Ativas</button>
     <button type="button" class="btn-sync" id="tabBtnChecklist" onclick="switchOpsTab('checklist')" style="flex:1;background:none;box-shadow:none;color:var(--muted)">✅ Checklist de Ordens</button>
     <button type="button" class="btn-sync" id="tabBtnEncerradas" onclick="switchOpsTab('encerradas')" style="flex:1;background:none;box-shadow:none;color:var(--muted)">🗄️ Encerradas</button>
@@ -447,8 +447,8 @@
         <option value="Cancelado">Cancelado</option>
       </select>
     </div>
-    <div class="card">
-      <div class="table-container">
+    <div class="card" data-ui="surface">
+      <div class="table-container" data-ui="table-scroll">
         <table>
           <thead id="opsThead">
             <tr>
@@ -482,7 +482,7 @@
       <input type="text" id="encBusca" placeholder="🔎 Buscar por OP, lote, produto, SKU ou cliente..." style="flex:1;min-width:240px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px">
       <span id="encResumo" style="font-size:12px;color:var(--muted)"></span>
     </div>
-    <div class="card"><div class="table-container"><table>
+    <div class="card" data-ui="surface"><div class="table-container" data-ui="table-scroll"><table>
       <thead><tr>
         <th style="width:110px">OP / Lote</th><th>Cliente</th><th>Produto</th>
         <th style="width:190px">Produto acabado</th><th style="width:120px">Confirmada em</th><th style="width:90px;text-align:center">Dossiê</th>
@@ -493,25 +493,25 @@
 
   <div id="tabPanelChecklist" style="display:none">
     <div class="stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
-      <div class="stat" style="background:var(--card);border-radius:16px;padding:16px;text-align:center;box-shadow:var(--shadow)">
+      <div class="stat" style="background:var(--card);border-radius:16px;padding:16px;text-align:center;box-shadow:var(--shadow)" data-ui="kpi">
         <div class="stat-val" id="clTotal" style="font-size:24px;font-weight:700">—</div>
         <div class="stat-lbl" style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-top:2px">Total de OPs</div>
       </div>
-      <div class="stat" style="background:var(--card);border-radius:16px;padding:16px;text-align:center;box-shadow:var(--shadow)">
+      <div class="stat" style="background:var(--card);border-radius:16px;padding:16px;text-align:center;box-shadow:var(--shadow)" data-ui="kpi">
         <div class="stat-val" id="clConcluidas" style="font-size:24px;font-weight:700;color:var(--success)">—</div>
         <div class="stat-lbl" style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-top:2px">Concluídas</div>
       </div>
-      <div class="stat" style="background:var(--card);border-radius:16px;padding:16px;text-align:center;box-shadow:var(--shadow)">
+      <div class="stat" style="background:var(--card);border-radius:16px;padding:16px;text-align:center;box-shadow:var(--shadow)" data-ui="kpi">
         <div class="stat-val" id="clAndamento" style="font-size:24px;font-weight:700;color:var(--warning)">—</div>
         <div class="stat-lbl" style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-top:2px">Em Andamento</div>
       </div>
-      <div class="stat" style="background:var(--card);border-radius:16px;padding:16px;text-align:center;box-shadow:var(--shadow)">
+      <div class="stat" style="background:var(--card);border-radius:16px;padding:16px;text-align:center;box-shadow:var(--shadow)" data-ui="kpi">
         <div class="stat-val" id="clNaoIniciadas" style="font-size:24px;font-weight:700;color:var(--danger)">—</div>
         <div class="stat-lbl" style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-top:2px">Não Iniciadas</div>
       </div>
     </div>
 
-    <div class="card" style="padding:14px 16px;margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <div class="card" style="padding:14px 16px;margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center" data-ui="surface">
       <input type="text" id="clBusca" placeholder="🔍 Buscar por OP ou produto..." style="flex:1;min-width:200px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px">
       <div id="clFiltroStatus" style="display:flex;gap:6px">
         <span class="cl-status-chip" data-status="pending" title="Não iniciada">Não iniciada</span>
@@ -529,8 +529,8 @@
       <button class="btn-sync" onclick="exportChecklistCSV()" style="background:var(--card);color:var(--text);border:1.5px solid var(--border)">⬇️ Exportar CSV</button>
     </div>
 
-    <div class="card">
-      <div class="table-container">
+    <div class="card" data-ui="surface">
+      <div class="table-container" data-ui="table-scroll">
         <table>
           <thead id="checklistThead">
             <tr>
@@ -564,14 +564,14 @@
      nascer SEM vínculo de pedido e SEM BOM. -->
 <div class="modal-bg" id="rtNovoBg">
   <div class="modal" style="max-width:600px">
-    <div class="modal-header"><h2 id="rtNovoTitulo">Abrir retrabalho</h2><button class="modal-close" id="rtNovoClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header" data-ui="dialog-head"><h2 id="rtNovoTitulo">Abrir retrabalho</h2><button class="modal-close" id="rtNovoClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div id="rtNovoInfo" class="field-hint" style="margin-bottom:14px"></div>
       <div class="form-group">
         <label>Motivo do retrabalho</label>
         <textarea id="rtNovoMotivo" rows="2" placeholder="O que foi constatado e por que o lote volta para a linha"></textarea>
       </div>
-      <div class="form-grid">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group">
           <label>Escopo</label>
           <input type="text" id="rtNovoEscopo" value="Lote inteiro" placeholder="Lote inteiro / parte identificada">
@@ -581,7 +581,7 @@
           <input type="number" id="rtNovoQtd" min="1" step="1">
         </div>
       </div>
-      <div class="form-grid">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group">
           <label>Onde vai ser executado</label>
           <select id="rtNovoDestinoTipo">
@@ -605,7 +605,7 @@
       </div>
       <div id="rtNovoErro" class="alert alert-danger" style="margin-top:10px"></div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="rtNovoCancelar">Cancelar</button>
       <button class="btn btn-primary" id="rtNovoConfirmar">Abrir OP de retrabalho</button>
     </div>

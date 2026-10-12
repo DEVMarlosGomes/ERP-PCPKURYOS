@@ -66,16 +66,16 @@
     @media(max-width:700px){.stats,.grid{grid-template-columns:1fr 1fr}.header{padding-top:60px}.header h1{font-size:23px}}
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
   <!-- <div>, não <header>: renderUnifiedNavbar (auth_check.js) remove todo <header> como cabeçalho legado. -->
-  <div class="header">
+  <div class="header" data-ui="page-header">
     <div>
       <h1>Devoluções de Cliente</h1>
       <div class="sub">O Comercial autoriza, a Logística recebe em quarentena e a Qualidade decide o destino no laudo do palete.</div>
     </div>
     <div class="pill" id="conn">Conectando…</div>
   </div>
-  <div class="tabs" role="tablist">
+  <div class="tabs" role="tablist" data-ui="tabs">
     <button type="button" data-tab="lista" class="active">Devoluções</button>
     <button type="button" data-tab="autorizar" id="tabAutorizar" hidden>Autorizar devolução</button>
     <button type="button" data-tab="receber" id="tabReceber" hidden>Receber mercadoria</button>
@@ -87,12 +87,12 @@
     <section id="view-lista">
       <p class="note">Recebida a mercadoria, o expedido do pedido é estornado e o palete entra em <b>quarentena</b> na Fila de Inspeção. A decisão da Qualidade é o destino: <b>Liberar</b> reintegra ao estoque (e permite reenviar ao cliente), <b>Reter</b> leva a retrabalho e <b>Reprovar</b> leva a descarte.</p>
       <div class="stats">
-        <div class="stat"><b id="stAutorizadas">—</b><span>Aguardando chegada</span></div>
-        <div class="stat"><b id="stQualidade">—</b><span>Itens na Qualidade</span></div>
-        <div class="stat"><b id="stAndamento">—</b><span>Itens em retrabalho/descarte</span></div>
-        <div class="stat"><b id="stConcluidas">—</b><span>Concluídas</span></div>
+        <div class="stat" data-ui="kpi"><b id="stAutorizadas">—</b><span>Aguardando chegada</span></div>
+        <div class="stat" data-ui="kpi"><b id="stQualidade">—</b><span>Itens na Qualidade</span></div>
+        <div class="stat" data-ui="kpi"><b id="stAndamento">—</b><span>Itens em retrabalho/descarte</span></div>
+        <div class="stat" data-ui="kpi"><b id="stConcluidas">—</b><span>Concluídas</span></div>
       </div>
-      <div class="card"><h2>Devoluções</h2><div class="wrap"><table>
+      <div class="card" data-ui="surface"><h2>Devoluções</h2><div class="wrap"><table>
         <thead><tr><th>Nº</th><th>Pedido / cliente</th><th>Saída original</th><th>Motivo</th><th class="num">Autorizado</th><th class="num">Recebido</th><th>Situação</th><th></th></tr></thead>
         <tbody id="lista"></tbody>
       </table></div></div>
@@ -100,7 +100,7 @@
 
     <!-- ══ AUTORIZAR (Comercial) ══ -->
     <section id="view-autorizar" hidden>
-      <div class="card"><h2>Autorizar devolução</h2><div class="body">
+      <div class="card" data-ui="surface"><h2>Autorizar devolução</h2><div class="body">
         <div class="grid">
           <div class="field"><label for="aPedido">Pedido *</label><select id="aPedido"></select></div>
           <div class="field"><label for="aCarga">Saída (carga) de onde a mercadoria volta *</label><select id="aCarga"></select></div>
@@ -124,7 +124,7 @@
 
     <!-- ══ RECEBER (Logística) ══ -->
     <section id="view-receber" hidden>
-      <div class="card"><h2>Receber mercadoria devolvida</h2><div class="body">
+      <div class="card" data-ui="surface"><h2>Receber mercadoria devolvida</h2><div class="body">
         <p class="note">Só entra com autorização do Comercial. Conte o que chegou: se for menos que o autorizado, informe o que chegou; se for mais, peça uma nova autorização para a diferença. O palete nasce em quarentena no endereço informado.</p>
         <div class="field"><label for="rDev">Devolução autorizada *</label><select id="rDev"></select></div>
         <div id="rItensBox" hidden>

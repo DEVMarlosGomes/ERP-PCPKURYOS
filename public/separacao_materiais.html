@@ -81,8 +81,8 @@
     input[type=date]{padding:8px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;color:var(--text);background:var(--card)}
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
-<div class="header">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Separação de Materiais</h1>
     <div class="header-sub">OPs → Separação de Materiais · separação guiada de embalagem (Galpão → Fábrica), sugerida por FEFO</div>
@@ -100,29 +100,29 @@
 <div id="modoConsolidado" style="display:none">
   <div class="section-note">Soma o que várias OPs pedem do mesmo material -- mesmo de SKUs diferentes -- e pede o total de uma vez. A ordem vem do Planejamento: OP já na linha primeiro, depois pela data programada; se faltar material, quem fica sem é a OP de menor prioridade. Cada parte separada continua amarrada à sua OP.</div>
   <div class="main" style="padding-bottom:0">
-    <div class="card">
-      <div class="card-title">OPs consideradas (ordem de prioridade)</div>
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">OPs consideradas (ordem de prioridade)</div>
       <div class="cons-controles">
         <div class="form-group"><label>Programadas até</label><input type="date" id="consAte"></div>
         <label class="cons-check"><input type="checkbox" id="consSemData" checked> Incluir OPs sem programação (vão por último, pela emissão)</label>
       </div>
       <div class="section-note" id="consAvisoOrdem" style="display:none;margin:10px 16px 0;max-width:none"></div>
-      <div class="table-wrap">
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr><th style="width:34px"></th><th style="width:34px">#</th><th>Lote</th><th>Produto</th><th>Cliente</th><th>Planejamento</th></tr></thead>
           <tbody id="consOpsBody"><tr><td colspan="6" class="no-data">Carregando...</td></tr></tbody>
         </table>
       </div>
     </div>
-    <div class="card">
-      <div class="card-title">Lista de separação consolidada</div>
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">Lista de separação consolidada</div>
       <div class="cons-kpis" id="consKpis"></div>
       <div class="form-group" style="max-width:320px;padding:12px 16px 0">
         <label>Destino *</label>
         <select id="consDestino"><option value="">Selecione o endereço de destino...</option></select>
         <div class="field-hint">Sempre escolhido manualmente -- o sistema nunca decide sozinho pra onde o material vai.</div>
       </div>
-      <div class="table-wrap">
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr><th>Material / Origem sugerida (FEFO)</th><th>Validade</th><th>Para as OPs</th><th style="width:140px">Qtd a separar</th></tr></thead>
           <tbody id="consMateriaisBody"></tbody>
@@ -136,7 +136,7 @@
 </div>
 
 <div id="modoOp">
-<div class="kt-toolbar">
+<div class="kt-toolbar" data-ui="filters">
   <div class="kt-search"><span class="icon">🔍</span><input type="text" id="opSearch" placeholder="Buscar por lote, SKU ou produto..."></div>
   <select class="kt-select" id="opFiltro">
     <option value="pendentes">Pendentes de separação</option>
@@ -147,9 +147,9 @@
 
 <div class="main">
 
-  <div class="card">
-    <div class="card-title" id="opCount">OPs</div>
-    <div class="table-wrap">
+  <div class="card" data-ui="surface">
+    <div class="card-title" id="opCount" data-ui="surface-head">OPs</div>
+    <div class="table-wrap" data-ui="table-scroll">
       <table>
         <thead><tr><th>Lote</th><th>Produto</th><th>Cliente</th><th>Status separação</th><th style="width:60px"></th></tr></thead>
         <tbody id="opBody"><tr><td colspan="5" class="no-data">Carregando...</td></tr></tbody>
@@ -161,15 +161,15 @@
        usuário: "separação será guiada, e não preenchida" -- a sugestão de
        ORIGEM vem pronta (FEFO, sugerirAlocacaoFefo); o DESTINO é sempre
        uma escolha manual, nunca um palpite automático. -->
-  <div class="card" id="painelSeparacao" style="display:none">
-    <div class="card-title">Separação — OP <span id="sepOpLote"></span></div>
+  <div class="card" id="painelSeparacao" style="display:none" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Separação — OP <span id="sepOpLote"></span></div>
     <div class="section-note" style="padding:0 16px;margin-top:12px" id="sepResumoAnterior"></div>
     <div class="form-group" style="max-width:320px;padding:0 16px">
       <label>Destino *</label>
       <select id="sepDestino"><option value="">Selecione o endereço de destino...</option></select>
       <div class="field-hint">Sempre escolhido manualmente -- o sistema nunca decide sozinho pra onde o material vai.</div>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap" data-ui="table-scroll">
       <table>
         <thead><tr><th>Material / Origem sugerida (FEFO)</th><th>Validade</th><th style="width:140px">Qtd a separar</th></tr></thead>
         <tbody id="sepMateriaisBody"></tbody>

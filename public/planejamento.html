@@ -309,8 +309,8 @@
     @media(max-width:640px){.agd-info-grid{grid-template-columns:1fr}}
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
-<div class="header">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Planejamento de Produção</h1>
     <div class="header-sub" id="headerSub">Carregando...</div>
@@ -320,12 +320,12 @@
 
 <div class="main">
 
-  <div class="top-tabs">
-    <button class="top-tab active" data-tab="grade">📅 Planejamento de Quantidades</button>
-    <button class="top-tab" data-tab="ops">📦 Planejamento de OPs</button>
-    <button class="top-tab" data-tab="agendamento">📋 Agendamento</button>
-    <button class="top-tab" data-tab="sequencia">🧭 Sequência por setor</button>
-    <button class="top-tab" data-tab="config">⚙️ Configurações</button>
+  <div class="top-tabs" data-ui="tabs">
+    <button class="top-tab active" data-tab="grade" data-ui="tab">📅 Planejamento de Quantidades</button>
+    <button class="top-tab" data-tab="ops" data-ui="tab">📦 Planejamento de OPs</button>
+    <button class="top-tab" data-tab="agendamento" data-ui="tab">📋 Agendamento</button>
+    <button class="top-tab" data-tab="sequencia" data-ui="tab">🧭 Sequência por setor</button>
+    <button class="top-tab" data-tab="config" data-ui="tab">⚙️ Configurações</button>
   </div>
 
   <!-- GRADE -->
@@ -339,13 +339,13 @@
       <button class="week-nav-btn" id="btnNextDay" title="Avança pro próximo dia útil -- de sexta pula direto pra segunda da semana seguinte">Próximo Dia →</button>
     </div>
     <div class="summary-grid">
-      <div class="sum-card"><div class="sum-val" id="sumMeta">—</div><div class="sum-lbl">Meta semana</div></div>
-      <div class="sum-card"><div class="sum-val" id="sumSlots">—</div><div class="sum-lbl">Slots planejados</div></div>
-      <div class="sum-card"><div class="sum-val" id="sumDias">—</div><div class="sum-lbl">Dias com prog.</div></div>
-      <div class="sum-card"><div class="sum-val" id="sumPeds">—</div><div class="sum-lbl">Pedidos ativos</div></div>
+      <div class="sum-card" data-ui="kpi"><div class="sum-val" id="sumMeta">—</div><div class="sum-lbl">Meta semana</div></div>
+      <div class="sum-card" data-ui="kpi"><div class="sum-val" id="sumSlots">—</div><div class="sum-lbl">Slots planejados</div></div>
+      <div class="sum-card" data-ui="kpi"><div class="sum-val" id="sumDias">—</div><div class="sum-lbl">Dias com prog.</div></div>
+      <div class="sum-card" data-ui="kpi"><div class="sum-val" id="sumPeds">—</div><div class="sum-lbl">Pedidos ativos</div></div>
     </div>
     <!-- Log de ajustes automáticos de planejamento -->
-    <div class="grid-card" id="ajustesLogCard" style="margin-bottom:12px;display:none">
+    <div class="grid-card" id="ajustesLogCard" style="margin-bottom:12px;display:none" data-ui="surface">
       <div style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer" id="ajustesLogHeader">
         <span style="font-size:13px;font-weight:700;color:var(--text)">🔄 <span id="ajustesLogCount">0</span> ajuste(s) automático(s) hoje</span>
         <span id="ajustesLogChevron" style="font-size:12px;color:var(--muted)">▶</span>
@@ -354,8 +354,8 @@
     </div>
 
     <div class="day-tabs" id="dayTabs"></div>
-    <div class="grid-card">
-      <div class="plan-table-wrap">
+    <div class="grid-card" data-ui="surface">
+      <div class="plan-table-wrap" data-ui="table-scroll">
         <div id="ganttGrid" class="gantt-grid"></div>
       </div>
     </div>
@@ -364,7 +364,7 @@
          dia), logo abaixo da Grade diária. Sáb/Dom sempre aparecem (fábrica
          roda esses dias de vez em quando) -- só ficam vazios quando não há
          nada programado. -->
-    <div class="grid-card" id="weekBoardCard" style="margin-top:14px">
+    <div class="grid-card" id="weekBoardCard" style="margin-top:14px" data-ui="surface">
       <div style="padding:14px 16px;border-bottom:1px solid var(--border);font-size:15px;font-weight:800;color:var(--text)">
         🗓️ Resumo Semanal por Linha
       </div>
@@ -376,7 +376,7 @@
     <!-- Resumo Semanal Consolidado para Produção -- pouco usada no dia a
          dia, por isso fica por último, depois de tudo que é olhado com mais
          frequência (Grade diária e Resumo por Linha). -->
-    <div class="grid-card" id="weeklySummaryCard" style="margin-top: 14px; padding: 16px;">
+    <div class="grid-card" id="weeklySummaryCard" style="margin-top: 14px; padding: 16px;" data-ui="surface">
       <div style="font-size: 15px; font-weight: 800; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
         <span>📋 Programação Semanal Consolidada (Produção)</span>
       </div>
@@ -418,17 +418,17 @@
       <button class="week-nav-btn" id="btnNextDayOps" title="Avança pro próximo dia útil -- de sexta pula direto pra segunda da semana seguinte">Próximo Dia →</button>
     </div>
     <div class="summary-grid">
-      <div class="sum-card"><div class="sum-val" id="sumOpsHoje">—</div><div class="sum-lbl">OPs no dia</div></div>
-      <div class="sum-card"><div class="sum-val" id="sumOpsConcluidas">—</div><div class="sum-lbl">Concluídas</div></div>
-      <div class="sum-card"><div class="sum-val" id="sumOpsAtrasadas">—</div><div class="sum-lbl">Atrasadas</div></div>
-      <div class="sum-card"><div class="sum-val" id="sumOpsSetup">—</div><div class="sum-lbl">Setup acumulado no dia</div></div>
+      <div class="sum-card" data-ui="kpi"><div class="sum-val" id="sumOpsHoje">—</div><div class="sum-lbl">OPs no dia</div></div>
+      <div class="sum-card" data-ui="kpi"><div class="sum-val" id="sumOpsConcluidas">—</div><div class="sum-lbl">Concluídas</div></div>
+      <div class="sum-card" data-ui="kpi"><div class="sum-val" id="sumOpsAtrasadas">—</div><div class="sum-lbl">Atrasadas</div></div>
+      <div class="sum-card" data-ui="kpi"><div class="sum-val" id="sumOpsSetup">—</div><div class="sum-lbl">Setup acumulado no dia</div></div>
     </div>
 
     <!-- OPs emitidas mas nunca programadas (sem dataInicioPlanejada/
          abertaDesde/dataInicioReal nenhum) -- sem isso elas nunca aparecem
          em NENHUM dia da grade abaixo, não tem o que arrastar. Fica aberta
          por padrão -- é justamente a fila de trabalho pra popular a grade. -->
-    <div class="grid-card" id="opsSemProgramacaoCard" style="margin-bottom:12px">
+    <div class="grid-card" id="opsSemProgramacaoCard" style="margin-bottom:12px" data-ui="surface">
       <div style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer" id="opsSemProgramacaoHeader">
         <span style="font-size:13px;font-weight:700;color:var(--text)">📥 <span id="opsSemProgramacaoCount">0</span> OP(s) aguardando programação</span>
         <span id="opsSemProgramacaoChevron" style="font-size:12px;color:var(--muted)">▼</span>
@@ -437,8 +437,8 @@
     </div>
 
     <div class="day-tabs" id="dayTabsOps"></div>
-    <div class="grid-card">
-      <div class="plan-table-wrap">
+    <div class="grid-card" data-ui="surface">
+      <div class="plan-table-wrap" data-ui="table-scroll">
         <div id="ganttGridOps" class="gantt-grid"></div>
       </div>
       <div style="display:flex;gap:16px;padding:0 16px 14px;font-size:11.5px;color:var(--muted);flex-wrap:wrap">
@@ -450,7 +450,7 @@
       </div>
     </div>
 
-    <div class="grid-card" id="weekBoardCardOps" style="margin-top:14px">
+    <div class="grid-card" id="weekBoardCardOps" style="margin-top:14px" data-ui="surface">
       <div style="padding:14px 16px;border-bottom:1px solid var(--border);font-size:15px;font-weight:800;color:var(--text)">
         🗓️ Resumo Semanal por Linha
       </div>
@@ -466,7 +466,7 @@
       <div style="font-size:15px;font-weight:800;color:var(--text)">Pedidos em Aberto</div>
       <div style="font-size:12px;color:var(--muted);margin-top:2px">Ordenados por prioridade da planilha. Clique em "Agendar" para distribuir automaticamente nos slots livres.</div>
     </div>
-    <div class="kt-toolbar" style="margin-bottom:12px">
+    <div class="kt-toolbar" style="margin-bottom:12px" data-ui="filters">
       <div class="kt-search">
         <span class="icon">🔍</span>
         <input type="text" id="agdSearchInput" placeholder="Buscar por produto, SKU, ID...">
@@ -574,7 +574,7 @@
       <div><div class="modal-ttl" id="prodModalTitle">Selecionar produto</div><div class="modal-sub" id="prodModalSub">—</div></div>
       <button class="modal-x" id="prodModalClose">✕</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" data-ui="dialog-body">
       <div class="prod-search"><input type="text" id="prodSearch" placeholder="Buscar produto ou SKU..."></div>
       <div class="prod-list" id="prodList"></div>
     </div>
@@ -593,7 +593,7 @@
       <div><div class="modal-ttl" id="agdTitle">Agendar Produção</div><div class="modal-sub" id="agdSub">—</div></div>
       <button class="modal-x" id="agdClose">✕</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" data-ui="dialog-body">
       <div class="agd-info-grid" id="agdInfoGrid"></div>
       <div class="agd-field">
         <label>Linha de Envase</label>
@@ -634,7 +634,7 @@
       <div><div class="modal-ttl">Ajustar tempo de setup</div><div class="modal-sub" id="setupModalSub">—</div></div>
       <button class="modal-x" id="setupModalClose">✕</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" data-ui="dialog-body">
       <div class="agd-field">
         <label>Duração do setup (minutos)</label>
         <input type="number" id="setupMinInput" min="0" step="5">
@@ -656,7 +656,7 @@
       <div><div class="modal-ttl">Programar OP</div><div class="modal-sub" id="progOpModalSub">—</div></div>
       <button class="modal-x" id="progOpModalClose">✕</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" data-ui="dialog-body">
       <div class="agd-field">
         <label>Linha</label>
         <div class="linha-btns" id="progOpLinhaSelector"></div>

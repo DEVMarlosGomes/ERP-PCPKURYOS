@@ -109,8 +109,8 @@
     }
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
-<div class="header">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Histórico e indicadores da Qualidade</h1>
     <div class="header-sub">Todas as análises decididas — matéria-prima, embalagem, bulk e produto acabado — e os indicadores do período</div>
@@ -120,12 +120,12 @@
 
 <div class="main">
   <div class="alert" id="alertBox"></div>
-  <div class="abas">
-    <button class="aba on" data-aba="sem">Semana</button>
-    <button class="aba" data-aba="dash">Período</button>
-    <button class="aba" data-aba="hist">Histórico de análises</button>
+  <div class="abas" data-ui="tabs">
+    <button class="aba on" data-aba="sem" data-ui="tab">Semana</button>
+    <button class="aba" data-aba="dash" data-ui="tab">Período</button>
+    <button class="aba" data-aba="hist" data-ui="tab">Histórico de análises</button>
   </div>
-  <div class="filtros">
+  <div class="filtros" data-ui="filters">
     <select id="fPeriodo" aria-label="Período" style="display:none">
       <option value="30">Últimos 30 dias</option>
       <option value="90" selected>Últimos 90 dias</option>
@@ -160,20 +160,20 @@
     </div>
     <div class="fluxo" id="semFluxo"></div>
     <div class="grade2">
-      <div class="card">
-        <div class="card-header"><h3>Decisões da semana</h3><span class="sub" id="semAprov"></span></div>
+      <div class="card" data-ui="surface">
+        <div class="card-header" data-ui="surface-head"><h3>Decisões da semana</h3><span class="sub" id="semAprov"></span></div>
         <div class="card-body" id="semDecisoes"></div>
       </div>
-      <div class="card">
-        <div class="card-header"><h3>Por tipo de análise</h3></div>
+      <div class="card" data-ui="surface">
+        <div class="card-header" data-ui="surface-head"><h3>Por tipo de análise</h3></div>
         <div style="overflow-x:auto"><table>
           <thead><tr><th>Tipo</th><th class="num">Aberto no início</th><th class="num">Entraram</th><th class="num">Decididas</th><th class="num">Aprovação</th><th class="num">Aberto no fim</th></tr></thead>
           <tbody id="semTipos"></tbody>
         </table></div>
       </div>
     </div>
-    <div class="card">
-      <div class="card-header"><h3 id="semListaTit">Análises decididas na semana</h3></div>
+    <div class="card" data-ui="surface">
+      <div class="card-header" data-ui="surface-head"><h3 id="semListaTit">Análises decididas na semana</h3></div>
       <div style="overflow-x:auto"><table class="resp">
         <thead><tr><th>Decidido em</th><th>Tipo</th><th>Item</th><th>Lote</th><th>Fornecedor / cliente</th><th>Resultado</th><th>Analista</th><th class="num">Tempo</th><th>RNC</th><th></th></tr></thead>
         <tbody id="semLista"></tbody>
@@ -184,31 +184,31 @@
   <!-- ══════════ PERÍODO ══════════ -->
   <div class="painel" id="p-dash">
     <div class="tiles" id="tiles"><div class="no-data">Carregando…</div></div>
-    <div class="card">
-      <div class="card-header"><h3>Análises por semana</h3><span class="sub"><span id="grafSub"></span> · clique numa semana para abrir o pipeline</span></div>
+    <div class="card" data-ui="surface">
+      <div class="card-header" data-ui="surface-head"><h3>Análises por semana</h3><span class="sub"><span id="grafSub"></span> · clique numa semana para abrir o pipeline</span></div>
       <div class="card-body">
         <div class="legenda" id="legenda"></div>
         <div class="graf" id="graf"></div>
         <div class="graf-eixo" id="grafEixo"></div>
       </div>
     </div>
-    <div class="card">
-      <div class="card-header"><h3>Por tipo de análise</h3><span class="sub">Tempo = da entrada na Qualidade à decisão</span></div>
+    <div class="card" data-ui="surface">
+      <div class="card-header" data-ui="surface-head"><h3>Por tipo de análise</h3><span class="sub">Tempo = da entrada na Qualidade à decisão</span></div>
       <div style="overflow-x:auto"><table class="resp">
         <thead><tr><th>Tipo</th><th class="num">Análises</th><th class="num">Aprovação</th><th class="num">Reprovadas</th><th class="num">Concessões</th><th class="num">Retidas</th><th class="num">Tempo mediano</th><th class="num">90% até</th><th class="num">Na fila agora</th></tr></thead>
         <tbody id="tbTipos"></tbody>
       </table></div>
     </div>
     <div class="grade2">
-      <div class="card">
-        <div class="card-header"><h3>Fornecedores (matéria-prima e embalagem)</h3></div>
+      <div class="card" data-ui="surface">
+        <div class="card-header" data-ui="surface-head"><h3>Fornecedores (matéria-prima e embalagem)</h3></div>
         <div style="overflow-x:auto"><table>
           <thead><tr><th>Fornecedor</th><th class="num">Lotes</th><th class="num">Reprovados</th><th class="num">Concessões</th><th class="num">Reprovação</th></tr></thead>
           <tbody id="tbForn"></tbody>
         </table></div>
       </div>
-      <div class="card">
-        <div class="card-header"><h3>Produto acabado e analistas</h3></div>
+      <div class="card" data-ui="surface">
+        <div class="card-header" data-ui="surface-head"><h3>Produto acabado e analistas</h3></div>
         <div class="card-body" id="boxPa"></div>
       </div>
     </div>
@@ -216,8 +216,8 @@
 
   <!-- ══════════ HISTÓRICO ══════════ -->
   <div class="painel" id="p-hist">
-    <div class="card">
-      <div class="card-header"><h3 id="histTitulo">Análises</h3><span class="sub">Mais recentes primeiro</span></div>
+    <div class="card" data-ui="surface">
+      <div class="card-header" data-ui="surface-head"><h3 id="histTitulo">Análises</h3><span class="sub">Mais recentes primeiro</span></div>
       <div style="overflow-x:auto"><table class="resp">
         <thead><tr><th>Decidido em</th><th>Tipo</th><th>Item</th><th>Lote</th><th>Fornecedor / cliente</th><th>Resultado</th><th>Analista</th><th class="num">Tempo</th><th>RNC</th><th></th></tr></thead>
         <tbody id="tbHist"></tbody>

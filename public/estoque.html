@@ -157,8 +157,8 @@
     .kt-ac-item:hover,.kt-ac-item.active{background:color-mix(in srgb, var(--primary) 12%, transparent)}
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
-<div class="header">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Estoque / WMS</h1>
     <div class="header-sub">Saldo agregado, rastreio por lote/endereço, lotes vencendo e histórico de movimentações</div>
@@ -170,21 +170,21 @@
   <div id="alertBox" class="alert alert-success"></div>
 </div>
 
-<div class="tabs" id="mainTabsEstoque">
-  <button class="tab active" data-tab="agregado">Saldo Agregado</button>
-  <button class="tab" data-tab="lotes">Saldo por Lote/Endereço</button>
-  <button class="tab" data-tab="vencendo">Lotes Vencendo</button>
-  <button class="tab" data-tab="historico">Histórico de Movimentações</button>
-  <button class="tab" data-tab="estrutura">🛣️ Estrutura de Ruas</button>
-  <button class="tab" data-tab="posicoes">🗺️ Posições</button>
-  <button class="tab" data-tab="enderecamento">📍 Endereçamento</button>
-  <button class="tab" data-tab="inventario">📋 Inventário Rotativo</button>
-  <button class="tab" data-tab="conferenciapa">📦 Conferência de PA</button>
-  <button class="tab" data-tab="qualidade">🔬 Liberação de Qualidade</button>
+<div class="tabs" id="mainTabsEstoque" data-ui="tabs">
+  <button class="tab active" data-tab="agregado" data-ui="tab">Saldo Agregado</button>
+  <button class="tab" data-tab="lotes" data-ui="tab">Saldo por Lote/Endereço</button>
+  <button class="tab" data-tab="vencendo" data-ui="tab">Lotes Vencendo</button>
+  <button class="tab" data-tab="historico" data-ui="tab">Histórico de Movimentações</button>
+  <button class="tab" data-tab="estrutura" data-ui="tab">🛣️ Estrutura de Ruas</button>
+  <button class="tab" data-tab="posicoes" data-ui="tab">🗺️ Posições</button>
+  <button class="tab" data-tab="enderecamento" data-ui="tab">📍 Endereçamento</button>
+  <button class="tab" data-tab="inventario" data-ui="tab">📋 Inventário Rotativo</button>
+  <button class="tab" data-tab="conferenciapa" data-ui="tab">📦 Conferência de PA</button>
+  <button class="tab" data-tab="qualidade" data-ui="tab">🔬 Liberação de Qualidade</button>
 </div>
 
 <div class="main" id="propBarWrap" style="padding-bottom:0">
-  <div class="kt-toolbar prop-bar">
+  <div class="kt-toolbar prop-bar" data-ui="filters">
     <span class="prop-label">👤 Cliente</span>
     <select class="kt-select" id="propCliente"><option value="">Todos os clientes (sem filtro)</option></select>
     <select class="kt-select" id="propVista">
@@ -199,14 +199,14 @@
 
   <!-- ═══ Aba: Saldo Agregado (MP/Embalagem) ═══ -->
   <div class="tab-panel active" id="tab-agregado">
-    <div class="kt-toolbar">
+    <div class="kt-toolbar" data-ui="filters">
       <div class="kt-search"><span class="icon">🔍</span><input type="text" id="esSearch" placeholder="Buscar por código ou nome do material..."></div>
       <button class="btn btn-ghost" id="btnAjustarEstoque">⚖️ Ajustar Saldo</button>
     </div>
     <div class="section-note">Saldo Atual sobe a cada recebimento em Logística e desce a cada apontamento real de produção (consumo) ou perda com material específico. Empenhado é quanto desse saldo já está reservado por OPs emitidas ainda não totalmente apontadas; Disponível (= Atual − Empenhado) é o que sobra pra novos compromissos. Use Ajustar Saldo pra corrigir o Atual depois de uma contagem física. Clique numa linha pra ver os lotes/endereços que compõem esse saldo.</div>
-    <div class="card">
-      <div class="card-title" id="esCount">Estoque</div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-title" id="esCount" data-ui="surface-head">Estoque</div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead id="esThead"><tr>
             <th data-sort="materialCodigo">Material</th>
@@ -221,9 +221,9 @@
         </table>
       </div>
     </div>
-    <div class="card" id="esCardCliente" style="display:none">
-      <div class="card-title" id="esCountCliente">Estoque do cliente</div>
-      <div class="table-wrap">
+    <div class="card" id="esCardCliente" style="display:none" data-ui="surface">
+      <div class="card-title" id="esCountCliente" data-ui="surface-head">Estoque do cliente</div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr>
             <th>Material</th><th style="text-align:right" id="esClienteColSaldo">Saldo</th><th>Pedidos</th><th style="text-align:right">Lotes</th><th style="min-width:110px">Ações</th>
@@ -236,7 +236,7 @@
 
   <!-- ═══ Aba: Saldo por Lote/Endereço ═══ -->
   <div class="tab-panel" id="tab-lotes">
-    <div class="kt-toolbar">
+    <div class="kt-toolbar" data-ui="filters">
       <div class="kt-search"><span class="icon">🔍</span><input type="text" id="slSearch" placeholder="Buscar por código/nome do item ou nº do lote..."></div>
       <select class="kt-select" id="slFiltroTipo">
         <option value="">Material e Produto</option>
@@ -260,9 +260,9 @@
     </div>
     <div id="slAvisoAguardando"></div>
     <div class="section-note">Cada linha é um lote específico (de uma entrada de recebimento ou de uma conclusão de OP) numa posição -- uma mesma posição pode ter vários lotes/itens misturados. O saldo aqui é do LOTE, independente do agregado da aba anterior (que não escolhe lote no consumo -- ver limitação no plano).</div>
-    <div class="card">
-      <div class="card-title" id="slCount">Lotes em estoque</div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-title" id="slCount" data-ui="surface-head">Lotes em estoque</div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr>
             <th>Item</th><th>Lote</th><th>Dono / destino</th><th>Endereço</th><th>Validade</th><th>Status</th>
@@ -276,7 +276,7 @@
 
   <!-- ═══ Aba: Lotes Vencendo ═══ -->
   <div class="tab-panel" id="tab-vencendo">
-    <div class="kt-toolbar">
+    <div class="kt-toolbar" data-ui="filters">
       <label style="margin:0;white-space:nowrap">Vencendo em até</label>
       <select class="kt-select" id="lvDias">
         <option value="7">7 dias</option>
@@ -287,9 +287,9 @@
       </select>
     </div>
     <div class="section-note">Lotes com saldo maior que zero e validade cadastrada, ordenados do mais urgente pro mais distante. Já vencidos aparecem primeiro, em vermelho.</div>
-    <div class="card">
-      <div class="card-title" id="lvCount">Lotes vencendo</div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-title" id="lvCount" data-ui="surface-head">Lotes vencendo</div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr><th>Item</th><th>Lote</th><th>Endereço</th><th>Validade</th><th>Situação</th><th style="text-align:right">Saldo</th></tr></thead>
           <tbody id="lvBody"><tr><td colspan="6" class="no-data">Carregando...</td></tr></tbody>
@@ -302,7 +302,7 @@
        somava movimento do saldo do item com o do lote (o consumo aparecia duas
        vezes) e não fechava com o saldo; o Kardex separa as duas coisas. ═══ -->
   <div class="tab-panel" id="tab-historico">
-    <div class="kt-toolbar">
+    <div class="kt-toolbar" data-ui="filters">
       <div class="kt-search"><span class="icon">🔍</span><input type="text" id="hmCodigo" placeholder="Código do material ou SKU do produto..."></div>
       <button class="btn btn-primary" id="btnBuscarHistorico">Abrir no Kardex</button>
     </div>
@@ -318,11 +318,11 @@
        segunda implementação. ═══ -->
   <div class="tab-panel" id="tab-estrutura">
     <div class="section-note">Cada rua gera suas posições automaticamente a partir desta configuração (níveis × prédios). Formato do endereço: <b>Rua.Nível.Prédio</b> (ex: 1.2.5) -- o número do Prédio já indica o lado: <b>ímpar = esquerdo, par = direito</b>. Gerar de novo nunca apaga nem move um endereço que já tem algo guardado -- só cria os que faltam, e só atualiza a área de posições ainda vazias.</div>
-    <div class="kt-toolbar">
+    <div class="kt-toolbar" data-ui="filters">
       <button class="btn btn-primary" id="btnNovaRua-end">+ Nova Rua</button>
     </div>
-    <div class="card">
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr>
             <th style="width:80px">Rua</th><th>Área</th><th style="width:90px">Níveis</th>
@@ -336,7 +336,7 @@
 
   <!-- ═══ Aba: Posições -- visualização (Lista/Mapa por rua/Planta Baixa) ═══ -->
   <div class="tab-panel" id="tab-posicoes">
-      <div class="kt-toolbar">
+      <div class="kt-toolbar" data-ui="filters">
         <div class="kt-search"><span class="icon">🔍</span><input type="text" id="searchInput-end" placeholder="Buscar por código de endereço..."></div>
         <select class="kt-select" id="filterRua-end"><option value="">Todas as ruas</option></select>
         <select class="kt-select" id="filterArea-end"><option value="">Todas as áreas</option></select>
@@ -353,13 +353,13 @@
         </div>
       </div>
       <div class="stats">
-        <div class="stat"><div class="stat-val" id="statTotalPos-end">—</div><div class="stat-lbl">Total de posições</div></div>
-        <div class="stat"><div class="stat-val" id="statOcupadasPos-end" style="color:var(--primary)">—</div><div class="stat-lbl">Ocupadas</div></div>
-        <div class="stat"><div class="stat-val" id="statLivresPos-end" style="color:var(--tint-green-fg)">—</div><div class="stat-lbl">Livres</div></div>
-        <div class="stat"><div class="stat-val" id="statBloqueadasPos-end" style="color:var(--tint-red-fg)">—</div><div class="stat-lbl">Bloqueadas</div></div>
+        <div class="stat" data-ui="kpi"><div class="stat-val" id="statTotalPos-end">—</div><div class="stat-lbl">Total de posições</div></div>
+        <div class="stat" data-ui="kpi"><div class="stat-val" id="statOcupadasPos-end" style="color:var(--primary)">—</div><div class="stat-lbl">Ocupadas</div></div>
+        <div class="stat" data-ui="kpi"><div class="stat-val" id="statLivresPos-end" style="color:var(--tint-green-fg)">—</div><div class="stat-lbl">Livres</div></div>
+        <div class="stat" data-ui="kpi"><div class="stat-val" id="statBloqueadasPos-end" style="color:var(--tint-red-fg)">—</div><div class="stat-lbl">Bloqueadas</div></div>
       </div>
-      <div class="card" id="cardListaPosicoes-end">
-        <div class="table-wrap">
+      <div class="card" id="cardListaPosicoes-end" data-ui="surface">
+        <div class="table-wrap" data-ui="table-scroll">
           <table>
             <thead><tr><th>Código</th><th>Área</th><th>Ocupantes</th><th style="width:120px"></th></tr></thead>
             <tbody id="posicoesBody-end"></tbody>
@@ -390,10 +390,10 @@
            mapa pode ser comprido e o detalhe ficava fora da vista. -->
       <div class="modal-bg" id="mapaDetalheModal-end" role="dialog" aria-modal="true" aria-labelledby="mapaDetalheTitulo-end">
         <div class="modal" style="max-width:1100px">
-          <div class="modal-header blue"><h2 id="mapaDetalheTitulo-end">Detalhe</h2><button type="button" class="modal-close" id="mapaDetalheFechar-end" title="Fechar" aria-label="Fechar">×</button></div>
-          <div class="modal-body" style="padding:16px 0 8px">
+          <div class="modal-header blue" data-ui="dialog-head"><h2 id="mapaDetalheTitulo-end">Detalhe</h2><button type="button" class="modal-close" id="mapaDetalheFechar-end" title="Fechar" aria-label="Fechar">×</button></div>
+          <div class="modal-body" style="padding:16px 0 8px" data-ui="dialog-body">
             <div id="mapaDetalheResumo-end" class="posicao-resumo"></div>
-            <div class="table-wrap">
+            <div class="table-wrap" data-ui="table-scroll">
               <table>
                 <thead><tr><th>Item</th><th>Lote</th><th>Origem</th><th>Volumes / composição</th><th style="text-align:right">Quantidade</th><th style="text-align:right">Peso (kg)</th><th>Validade</th><th>Status</th></tr></thead>
                 <tbody id="mapaDetalheBody-end"></tbody>
@@ -414,10 +414,10 @@
        ajuste/teste) quanto pro "Dia D" (inventário físico completo,
        alguém percorrendo o galpão em sequência, item após item). ═══ -->
   <div class="tab-panel" id="tab-enderecamento">
-    <div class="card" id="docaCard" style="margin-bottom:14px">
-      <div class="card-title" id="docaTitulo">📦 Na Doca</div>
+    <div class="card" id="docaCard" style="margin-bottom:14px" data-ui="surface">
+      <div class="card-title" id="docaTitulo" data-ui="surface-head">📦 Na Doca</div>
       <div class="field-hint" style="padding:0 16px 8px">Tudo que está parado na Doca: recebido aguardando guardar e produto acabado separado para expedir. Guarde a qualquer momento; o que a Qualidade já liberou aparece primeiro.</div>
-      <div class="table-wrap">
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr><th>Item</th><th>Lote / palete</th><th style="text-align:right">Quantidade</th><th>Situação</th><th>Atualizado</th><th style="width:150px"></th></tr></thead>
           <tbody id="docaBody"><tr><td colspan="6" class="no-data">Carregando...</td></tr></tbody>
@@ -433,9 +433,9 @@
     </div>
     <div class="field-hint" id="edResumoHint" style="margin:8px 0 16px"></div>
 
-    <div class="card" id="edCardForm" style="display:none">
-      <div class="card-title">Adicionar posição</div>
-      <div class="form-grid" style="padding:16px">
+    <div class="card" id="edCardForm" style="display:none" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">Adicionar posição</div>
+      <div class="form-grid" style="padding:16px" data-ui="form-grid">
         <div class="form-group"><label>Endereço *</label><div id="edEnderecoCampo"></div></div>
         <div class="form-group"><label>Quantidade *</label><input type="number" id="edQtd" min="0" step="any"></div>
         <div class="form-group"><label>Lote (opcional)</label><input type="text" id="edLote" placeholder="Lote do fornecedor, se souber..."></div>
@@ -444,9 +444,9 @@
       <div style="padding:0 16px 16px"><button class="btn btn-green" id="btnEdAddPosicao">+ Endereçar esta posição</button></div>
     </div>
 
-    <div class="card" id="edCardHistorico" style="display:none;margin-top:14px">
-      <div class="card-title">Posições endereçadas nesta sessão</div>
-      <div class="table-wrap">
+    <div class="card" id="edCardHistorico" style="display:none;margin-top:14px" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">Posições endereçadas nesta sessão</div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr><th>Endereço</th><th style="text-align:right">Quantidade</th><th>Lote</th><th>Validade</th></tr></thead>
           <tbody id="edHistoricoBody"></tbody>
@@ -467,15 +467,15 @@
     </div>
 
     <div class="stats">
-      <div class="stat"><div class="stat-val" id="cpaStatPendentePcp" style="color:var(--danger)">—</div><div class="stat-lbl">Aguardando confirmação do PCP</div></div>
-      <div class="stat"><div class="stat-val" id="cpaStatFila" style="color:var(--warning)">—</div><div class="stat-lbl">OPs aguardando conferência</div></div>
-      <div class="stat"><div class="stat-val" id="cpaStatDeclarado">—</div><div class="stat-lbl">Unidades liberadas para conferência</div></div>
-      <div class="stat"><div class="stat-val" id="cpaStatDivergencias" style="color:var(--danger)">—</div><div class="stat-lbl">Com divergência (30 dias)</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="cpaStatPendentePcp" style="color:var(--danger)">—</div><div class="stat-lbl">Aguardando confirmação do PCP</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="cpaStatFila" style="color:var(--warning)">—</div><div class="stat-lbl">OPs aguardando conferência</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="cpaStatDeclarado">—</div><div class="stat-lbl">Unidades liberadas para conferência</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="cpaStatDivergencias" style="color:var(--danger)">—</div><div class="stat-lbl">Com divergência (30 dias)</div></div>
     </div>
 
-    <div class="card">
-      <div class="card-header"><h3>OPs para Conferência de Produto Acabado</h3></div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-header" data-ui="surface-head"><h3>OPs para Conferência de Produto Acabado</h3></div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr>
             <th>Produto / OP</th>
@@ -499,8 +499,8 @@
        A aba permanece só como ponte -- quem tinha o caminho na memória
        muscular continua chegando lá. -->
   <div class="tab-panel" id="tab-qualidade">
-    <div class="card" style="border-left-color:var(--purple)">
-      <div class="card-header"><h3>Liberação de Qualidade</h3></div>
+    <div class="card" style="border-left-color:var(--purple)" data-ui="surface">
+      <div class="card-header" data-ui="surface-head"><h3>Liberação de Qualidade</h3></div>
       <div style="padding:18px 16px 20px">
         <p style="font-size:13.5px;line-height:1.6;margin-bottom:14px">
           Esta tela virou um <b>módulo próprio</b>. Além da fila de laudo que ficava aqui, ele
@@ -528,15 +528,15 @@
     </div>
 
     <div class="stats">
-      <div class="stat"><div class="stat-val" id="invStatFila">—</div><div class="stat-lbl">Posições a conferir</div></div>
-      <div class="stat"><div class="stat-val" id="invStatNunca" style="color:var(--danger)">—</div><div class="stat-lbl">Nunca contadas</div></div>
-      <div class="stat"><div class="stat-val" id="invStatHoje" style="color:var(--tint-green-fg)">—</div><div class="stat-lbl">Conferidas hoje</div></div>
-      <div class="stat"><div class="stat-val" id="invStatAcuracia" style="color:var(--primary)">—</div><div class="stat-lbl">Acurácia (30 dias)</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="invStatFila">—</div><div class="stat-lbl">Posições a conferir</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="invStatNunca" style="color:var(--danger)">—</div><div class="stat-lbl">Nunca contadas</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="invStatHoje" style="color:var(--tint-green-fg)">—</div><div class="stat-lbl">Conferidas hoje</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="invStatAcuracia" style="color:var(--primary)">—</div><div class="stat-lbl">Acurácia (30 dias)</div></div>
     </div>
 
-    <div class="card">
-      <div class="card-header"><h3>Fila de contagem</h3></div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-header" data-ui="surface-head"><h3>Fila de contagem</h3></div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr>
             <th style="width:110px">Posição</th>
@@ -550,9 +550,9 @@
       </div>
     </div>
 
-    <div class="card" id="invCardHistorico" style="margin-top:14px">
-      <div class="card-header"><h3>Contagens recentes</h3></div>
-      <div class="table-wrap">
+    <div class="card" id="invCardHistorico" style="margin-top:14px" data-ui="surface">
+      <div class="card-header" data-ui="surface-head"><h3>Contagens recentes</h3></div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr>
             <th style="width:110px">Posição</th>
@@ -572,14 +572,14 @@
 <!-- MODAL: Contagem de posição (cega -> revela divergência) -->
 <div class="modal-bg" id="modalContagemBg">
   <div class="modal" style="max-width:640px">
-    <div class="modal-header"><h2 id="modalContagemTitle">Contar posição</h2><button class="modal-close" id="modalContagemClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header" data-ui="dialog-head"><h2 id="modalContagemTitle">Contar posição</h2><button class="modal-close" id="modalContagemClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div id="invEtapaContagem">
         <div class="field-hint" style="margin-bottom:12px">
           Informe <b>o que você contou fisicamente</b> nesta posição. O saldo esperado pelo
           sistema aparece só depois de confirmar.
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap" data-ui="table-scroll">
           <table>
             <thead><tr><th>Material</th><th style="width:150px;text-align:right">Contado</th></tr></thead>
             <tbody id="invContagemBody"></tbody>
@@ -592,7 +592,7 @@
 
       <div id="invEtapaResultado" style="display:none">
         <div id="invResumoDivergencia" style="margin-bottom:12px"></div>
-        <div class="table-wrap">
+        <div class="table-wrap" data-ui="table-scroll">
           <table>
             <thead><tr>
               <th>Material</th>
@@ -611,7 +611,7 @@
         </div>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="modalContagemCancel">Cancelar</button>
       <button class="btn btn-ghost" id="invBtnRecontar" style="display:none">↩ Recontar</button>
       <button class="btn btn-primary" id="invBtnConfirmarContagem">Confirmar contagem</button>
@@ -622,8 +622,8 @@
 
 <div class="modal-bg" id="modalRuaBg">
   <div class="modal">
-    <div class="modal-header"><h2 id="modalRuaTitle">Nova Rua</h2><button class="modal-close" id="modalRuaClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header" data-ui="dialog-head"><h2 id="modalRuaTitle">Nova Rua</h2><button class="modal-close" id="modalRuaClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div class="form-group">
         <label>Rua (número)</label>
         <input type="number" id="rCodigoRua-end" min="1" step="1">
@@ -643,7 +643,7 @@
         <div class="field-hint">Prédio 1 = esquerdo, 2 = direito, 3 = esquerdo, 4 = direito... Se cada nível tem 13 vagas de cada lado, isto é 26.</div>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="btnCancelarRua-end">Cancelar</button>
       <button class="btn btn-primary" id="btnSalvarRua-end">Salvar e Gerar Posições</button>
     </div>
@@ -653,8 +653,8 @@
 <!-- MODAL: Ajustar Saldo de Estoque -->
 <div class="modal-bg" id="modalAjusteEstoque">
   <div class="modal">
-    <div class="modal-header"><h2>⚖️ Ajustar Saldo de Estoque</h2><button class="modal-close" id="modalAjusteEstoqueClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header" data-ui="dialog-head"><h2>⚖️ Ajustar Saldo de Estoque</h2><button class="modal-close" id="modalAjusteEstoqueClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div class="form-group">
         <label>Material *</label>
         <input type="text" id="aeMaterial" placeholder="Buscar por código, nome ou fornecedor..." autocomplete="off">
@@ -675,7 +675,7 @@
         <textarea id="aeJustificativa" rows="2" placeholder="Ex: contagem física de 15/09, divergência por avaria..."></textarea>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="modalAjusteEstoqueCancel">Cancelar</button>
       <button class="btn btn-green" id="modalAjusteEstoqueSave">Salvar Ajuste</button>
     </div>
@@ -685,8 +685,8 @@
 <!-- MODAL: Transferir Lote -->
 <div class="modal-bg" id="modalTransferir">
   <div class="modal">
-    <div class="modal-header blue"><h2>Transferir Lote</h2><button class="modal-close" id="modalTransferirClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header blue" data-ui="dialog-head"><h2>Transferir Lote</h2><button class="modal-close" id="modalTransferirClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div id="trLoteInfo" class="field-hint" style="margin-bottom:12px"></div>
       <div class="form-group">
         <label>Novo endereço *</label>
@@ -698,7 +698,7 @@
         <select id="trMotivo"></select>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="modalTransferirCancel">Cancelar</button>
       <button class="btn btn-primary" id="modalTransferirSave">Confirmar Transferência</button>
     </div>
@@ -708,8 +708,8 @@
 <!-- MODAL: Registrar Saída -->
 <div class="modal-bg" id="modalSaida">
   <div class="modal">
-    <div class="modal-header"><h2>Registrar Saída</h2><button class="modal-close" id="modalSaidaClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header" data-ui="dialog-head"><h2>Registrar Saída</h2><button class="modal-close" id="modalSaidaClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div id="saLoteInfo" class="field-hint" style="margin-bottom:12px"></div>
       <div class="form-group">
         <label>Quantidade a dar baixa *</label>
@@ -720,7 +720,7 @@
         <select id="saMotivo"></select>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="modalSaidaCancel">Cancelar</button>
       <button class="btn btn-green" id="modalSaidaSave">Confirmar Saída</button>
     </div>

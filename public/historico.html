@@ -198,9 +198,9 @@
     body.hist-somente-leitura .btn-edit, body.hist-somente-leitura .btn-delete { display: none !important; }
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
 
-<div class="header">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Histórico de Produção</h1>
     <div class="header-sub">Todos os apontamentos · por data e pedido</div>
@@ -208,7 +208,7 @@
   <div class="status-pill"><div class="dot" id="sDot"></div><span id="sTxt">Conectando...</span></div>
 </div>
 
-<div class="toolbar">
+<div class="toolbar" data-ui="filters">
   <button class="btn btn-ghost btn-sm" id="btnExportCSV">⬇ Exportar CSV</button>
   <button class="btn btn-warning btn-sm" id="btnReconcile" title="Recalcular produzido de cada pedido a partir dos apontamentos">⚙ Reconciliar Pedidos</button>
 </div>
@@ -216,7 +216,7 @@
 
 
 <!-- Filters -->
-<div class="kt-toolbar">
+<div class="kt-toolbar" data-ui="filters">
   <div class="filter-group">
     De <input type="date" id="fDataIni" style="width:130px">
     até <input type="date" id="fDataFim" style="width:130px">
@@ -247,14 +247,14 @@
   </div>
 
   <div class="stats">
-    <div class="stat"><div class="stat-val" id="statRegistros">—</div><div class="stat-lbl">Registros</div></div>
-    <div class="stat"><div class="stat-val" id="statProduzido" style="color:var(--success)">—</div><div class="stat-lbl">Total produzido</div></div>
-    <div class="stat"><div class="stat-val" id="statComPedido" style="color:var(--purple)">—</div><div class="stat-lbl">Com pedido</div></div>
-    <div class="stat"><div class="stat-val" id="statDias" style="color:var(--primary)">—</div><div class="stat-lbl">Dias</div></div>
-    <div class="stat"><div class="stat-val" id="statPedidos" style="color:var(--warning)">—</div><div class="stat-lbl">Pedidos únicos</div></div>
+    <div class="stat" data-ui="kpi"><div class="stat-val" id="statRegistros">—</div><div class="stat-lbl">Registros</div></div>
+    <div class="stat" data-ui="kpi"><div class="stat-val" id="statProduzido" style="color:var(--success)">—</div><div class="stat-lbl">Total produzido</div></div>
+    <div class="stat" data-ui="kpi"><div class="stat-val" id="statComPedido" style="color:var(--purple)">—</div><div class="stat-lbl">Com pedido</div></div>
+    <div class="stat" data-ui="kpi"><div class="stat-val" id="statDias" style="color:var(--primary)">—</div><div class="stat-lbl">Dias</div></div>
+    <div class="stat" data-ui="kpi"><div class="stat-val" id="statPedidos" style="color:var(--warning)">—</div><div class="stat-lbl">Pedidos únicos</div></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-ui="surface">
     <div class="view-tabs">
       <button class="view-tab active" id="tabRegistros">📋 Por Registro</button>
       <button class="view-tab" id="tabPedido">📦 Por Pedido</button>
@@ -264,14 +264,14 @@
 
     <!-- ── Tab: Por Registro ── -->
     <div class="tab-panel active" id="panelRegistros">
-      <div class="card-title" style="flex-wrap:wrap;gap:8px">
+      <div class="card-title" style="flex-wrap:wrap;gap:8px" data-ui="surface-head">
         <span id="tableCount">—</span>
         <label class="cond-toggle" title="Junta os apontamentos de cada OP (por setor) numa linha e confere as quantidades e os horários">
           <input type="checkbox" id="fCondensar"> Condensar por OP
         </label>
         <span id="tableNota" style="font-size:11px;font-weight:400;color:var(--muted);text-transform:none">Checkpoint mostra o acumulado; fechamento mostra o total da OP. Os totais do sistema usam somente o incremento de cada período. Término “?” = registro antigo, sem término gravado.</span>
       </div>
-      <div class="table-wrap" id="wrapCondensado" style="display:none">
+      <div class="table-wrap" id="wrapCondensado" style="display:none" data-ui="table-scroll">
         <table>
           <thead>
             <tr>
@@ -289,7 +289,7 @@
           <tbody id="tbodyCondensado"></tbody>
         </table>
       </div>
-      <div class="table-wrap" id="wrapRegistros">
+      <div class="table-wrap" id="wrapRegistros" data-ui="table-scroll">
         <table>
           <thead>
             <tr>
@@ -313,7 +313,7 @@
 
     <!-- ── Tab: Por Pedido ── -->
     <div class="tab-panel" id="panelPedido">
-      <div class="card-title">
+      <div class="card-title" data-ui="surface-head">
         <span id="pedidoCount">—</span>
         <span style="font-size:11px;color:var(--muted);font-weight:400;text-transform:none">Baseado nos registros do período selecionado</span>
       </div>
@@ -338,7 +338,7 @@
         </select>
         <span style="font-size:11px;color:var(--muted)">Apontamentos individuais de cada OP vêm do período selecionado acima (De/até) — amplie se uma OP não mostrar os registros dela.</span>
       </div>
-      <div class="card-title">
+      <div class="card-title" data-ui="surface-head">
         <span id="opCount">—</span>
         <span style="font-size:11px;color:var(--muted);font-weight:400;text-transform:none">Agrupado por Pedido → SKU → OP, direto da coleção de OPs</span>
       </div>
@@ -349,7 +349,7 @@
 
     <!-- ── Tab: Motivos Recorrentes (Camada 3) ── -->
     <div class="tab-panel" id="panelMotivos">
-      <div class="card-title">
+      <div class="card-title" data-ui="surface-head">
         <span id="motivosCount">—</span>
         <span style="font-size:11px;color:var(--muted);font-weight:400;text-transform:none">Paradas e perdas das OPs concluídas com conclusão dentro do período selecionado acima (De/até)</span>
       </div>
@@ -363,14 +363,14 @@
 <!-- Edit / New Registro Modal -->
 <div class="modal-bg" id="editModalBg">
   <div class="modal">
-    <div class="modal-header">
+    <div class="modal-header" data-ui="dialog-head">
       <h2 id="editModalTitle">Editar Registro</h2>
       <button class="modal-close" id="editModalClose">×</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" data-ui="dialog-body">
       <div id="editAlertBox" class="alert alert-danger" style="margin-bottom:10px"></div>
       <div class="section-sep">Identificação</div>
-      <div class="form-grid">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group">
           <label class="form-label">Início *</label>
           <input type="datetime-local" id="eInicio" class="form-ctrl">
@@ -404,7 +404,7 @@
         </div>
       </div>
       <div class="section-sep">Produção</div>
-      <div class="form-grid">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group">
           <label class="form-label">Quantidade (un.) *</label>
           <input type="number" id="eQtd" class="form-ctrl" min="0" step="1">
@@ -427,7 +427,7 @@
         </div>
       </div>
       <div class="section-sep">Setup (opcional — só se o lançamento retroativo informou)</div>
-      <div class="form-grid">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group">
           <label class="form-label">Operador</label>
           <input type="text" id="eOperador" class="form-ctrl" placeholder="Nome do operador">
@@ -442,7 +442,7 @@
         </div>
       </div>
       <div class="section-sep" id="eOpSecaoTitulo">OP vinculada (Início/Término real da OP — este registro é só um período dela)</div>
-      <div class="form-grid" id="eOpSecao">
+      <div class="form-grid" id="eOpSecao" data-ui="form-grid">
         <div class="form-group">
           <label class="form-label">Início real da OP</label>
           <input type="datetime-local" id="eOpInicioReal" class="form-ctrl">
@@ -459,7 +459,7 @@
         ⚠ Se alterar a quantidade de um registro vinculado a um pedido, use <strong>⚙ Reconciliar Pedidos</strong> após salvar para atualizar o contador corretamente.
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <div>
         <button class="btn btn-danger btn-sm" id="btnDeleteRegistro" style="display:none">🗑 Excluir</button>
       </div>

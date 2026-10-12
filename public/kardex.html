@@ -87,8 +87,8 @@
     }
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
-<div class="header">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Kardex de estoque</h1>
     <div class="header-sub">Cada entrada, saída, consumo e ajuste de um item, com saldo corrido e conciliação com o saldo do sistema</div>
@@ -97,14 +97,14 @@
 </div>
 
 <div class="main">
-  <div class="abas">
-    <button class="aba on" data-aba="item">Kardex do item</button>
-    <button class="aba" data-aba="conc">Conciliação (auditoria)</button>
+  <div class="abas" data-ui="tabs">
+    <button class="aba on" data-aba="item" data-ui="tab">Kardex do item</button>
+    <button class="aba" data-aba="conc" data-ui="tab">Conciliação (auditoria)</button>
   </div>
 
   <!-- ── Kardex do item ── -->
   <div class="painel on" id="pItem">
-    <div class="filtros">
+    <div class="filtros" data-ui="filters">
       <div class="busca">
         <input type="search" id="fItem" placeholder="Buscar item: código ou nome (material, produto, intermediário)" autocomplete="off" aria-label="Buscar item">
         <div class="sugestoes" id="sugestoes" role="listbox"></div>
@@ -135,7 +135,7 @@
 
   <!-- ── Conciliação ── -->
   <div class="painel" id="pConc">
-    <div class="filtros">
+    <div class="filtros" data-ui="filters">
       <input type="search" id="cBusca" placeholder="Filtrar por código ou nome" aria-label="Filtrar" style="flex:1;min-width:min(260px,100%)">
       <select id="cTipo" aria-label="Tipo de item">
         <option value="">Todos os tipos</option>
@@ -152,8 +152,8 @@
       </select>
     </div>
     <div class="tiles" id="cTiles"></div>
-    <div class="card">
-      <div class="card-header"><h3 id="cTitulo">Itens</h3><button class="btn" id="cCsv">Exportar CSV</button></div>
+    <div class="card" data-ui="surface">
+      <div class="card-header" data-ui="surface-head"><h3 id="cTitulo">Itens</h3><button class="btn" id="cCsv">Exportar CSV</button></div>
       <div class="rolagem"><table>
         <thead><tr><th>Item</th><th>Tipo</th><th class="num">Saldo no sistema</th><th class="num">Soma do log</th><th class="num">Sem movimento registrado</th><th class="num">Movimentos</th><th>Último</th><th>Última contagem</th><th></th></tr></thead>
         <tbody id="cBody"><tr><td colspan="9" class="no-data">Carregando…</td></tr></tbody>

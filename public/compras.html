@@ -204,8 +204,8 @@
     .kt-ac-item:hover,.kt-ac-item.active{background:color-mix(in srgb, var(--primary) 12%, transparent)}
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
-<div class="header">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Compras</h1>
     <div class="header-sub">Solicitações, consolidação por fornecedor e cotação — alimentado pelo cadastro de Materiais</div>
@@ -220,20 +220,20 @@
   <div id="alertBox" class="alert alert-success"></div>
 </div>
 
-<div class="tabs">
-  <button class="tab active" data-tab="solicitacoes">Solicitações</button>
-  <button class="tab" data-tab="cotacoes">🤝 Cotações</button>
-  <button class="tab" data-tab="pedidos">Pedidos de Compra</button>
-  <button class="tab" data-tab="precos">📊 Histórico de Preços</button>
-  <button class="tab" data-tab="fornecedores-analise">📈 Análise de Fornecedores</button>
-  <button class="tab" data-tab="busca-fornecedor">🔎 Busca Avançada: Fornecedores × Material</button>
+<div class="tabs" data-ui="tabs">
+  <button class="tab active" data-tab="solicitacoes" data-ui="tab">Solicitações</button>
+  <button class="tab" data-tab="cotacoes" data-ui="tab">🤝 Cotações</button>
+  <button class="tab" data-tab="pedidos" data-ui="tab">Pedidos de Compra</button>
+  <button class="tab" data-tab="precos" data-ui="tab">📊 Histórico de Preços</button>
+  <button class="tab" data-tab="fornecedores-analise" data-ui="tab">📈 Análise de Fornecedores</button>
+  <button class="tab" data-tab="busca-fornecedor" data-ui="tab">🔎 Busca Avançada: Fornecedores × Material</button>
 </div>
 
 <div class="main">
 
   <!-- ═══════════ SOLICITAÇÕES ═══════════ -->
   <div class="tab-panel active" id="tab-solicitacoes">
-    <div class="kt-toolbar">
+    <div class="kt-toolbar" data-ui="filters">
       <div class="kt-search"><span class="icon">🔍</span><input type="text" id="scSearch" placeholder="Buscar por número, material ou solicitante..."></div>
       <select class="kt-select" id="scFilterStatus">
         <option value="">Todos os status</option>
@@ -247,9 +247,9 @@
       <button class="btn btn-ghost" id="btnGerarDePedido">📦 Gerar de Pedido</button>
       <button class="btn btn-primary" id="btnNovaSolicitacao">+ Nova Solicitação</button>
     </div>
-    <div class="card">
-      <div class="card-title" id="scCount">Solicitações</div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-title" id="scCount" data-ui="surface-head">Solicitações</div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr>
             <th style="width:30px"></th>
@@ -271,15 +271,15 @@
   <div class="tab-panel" id="tab-cotacoes">
     <div class="section-note">Marque as solicitações aprovadas na aba Solicitações e clique em "🤝 Iniciar Cotação" pra abrir esse fluxo: escolhe quem convidar (homologados do material e de variantes equivalentes, ou um fornecedor avulso ainda não cadastrado), cria os rascunhos de e-mail e, conforme cada um responde, você registra preço/prazo aqui embaixo -- a célula mais barata de cada item fica destacada. Quando decidir o vencedor, "Gerar Pedido de Compra" cria o pedido de verdade com o preço já vindo da cotação.</div>
     <div id="cotAndamentoList"></div>
-    <div class="card" style="margin-top:18px">
-      <div class="card-title">Cotações Finalizadas</div>
+    <div class="card" style="margin-top:18px" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">Cotações Finalizadas</div>
       <div id="cotHistoricoList"></div>
     </div>
   </div>
 
   <!-- ═══════════ PEDIDOS DE COMPRA ═══════════ -->
   <div class="tab-panel" id="tab-pedidos">
-    <div class="kt-toolbar">
+    <div class="kt-toolbar" data-ui="filters">
       <span style="position:relative">
         <input type="text" class="kt-select" id="pcFilterFornecedorBusca" placeholder="Todos os fornecedores" autocomplete="off" style="min-width:220px;cursor:text">
         <input type="hidden" id="pcFilterFornecedor">
@@ -297,9 +297,9 @@
       <button class="btn btn-primary" id="btnPcDireto" style="margin-left:auto">⚡ PC Direto</button>
     </div>
     <div class="section-note">O caminho normal de um Pedido de Compra é nascer de uma cotação decidida → aba 🤝 Cotações. Para material que <b>já chegou</b> sem PC lançado, use <b>⚡ PC Direto</b>: ele cria o pedido já liberado pro recebimento e fica marcado como direto, pra dar pra medir depois quanto está entrando fora do processo. Gerenciar fornecedores → <a href="cadastros.html?tab=fornecedores">Cadastros</a>.</div>
-    <div class="card">
-      <div class="card-title" id="pcCount">Pedidos de Compra</div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-title" id="pcCount" data-ui="surface-head">Pedidos de Compra</div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr>
             <th>Número</th>
@@ -317,13 +317,13 @@
 
   <!-- ═══════════ HISTÓRICO DE PREÇOS ═══════════ -->
   <div class="tab-panel" id="tab-precos">
-    <div class="kt-toolbar">
+    <div class="kt-toolbar" data-ui="filters">
       <div class="kt-search"><span class="icon">🔍</span><input type="text" id="phSearch" placeholder="Buscar por código ou nome do material..."></div>
     </div>
     <div class="section-note">Todo item que já teve preço negociado num Pedido de Compra, mais recente primeiro -- use como referência antes de fechar a próxima negociação. <span style="color:var(--success);font-weight:700">✓ menor preço</span> marca o menor valor já pago por aquele material entre os itens exibidos.</div>
-    <div class="card">
-      <div class="card-title" id="phCount">Histórico de Preços</div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-title" id="phCount" data-ui="surface-head">Histórico de Preços</div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead id="phThead"><tr>
             <th data-sort="data">Data</th>
@@ -342,9 +342,9 @@
   <!-- ═══════════ ANÁLISE DE FORNECEDORES ═══════════ -->
   <div class="tab-panel" id="tab-fornecedores-analise">
     <div class="section-note">Agregado de todos os Pedidos de Compra por fornecedor. % No Prazo compara a data do último recebimento com a data agendada (só conta pedidos com os dois preenchidos). % Etiqueta Completa é sobre os pedidos que já tiveram checklist de etiqueta conferido em Logística.</div>
-    <div class="card">
-      <div class="card-title" id="faCount">Análise de Fornecedores</div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-title" id="faCount" data-ui="surface-head">Análise de Fornecedores</div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead id="faThead"><tr>
             <th data-sort="nome">Fornecedor</th>
@@ -361,7 +361,7 @@
 
   <!-- ═══════════ BUSCA AVANÇADA: FORNECEDORES × MATERIAL ═══════════ -->
   <div class="tab-panel" id="tab-busca-fornecedor">
-    <div class="kt-toolbar">
+    <div class="kt-toolbar" data-ui="filters">
       <select class="kt-select" id="bfTipo">
         <option value="">Escolha um tipo pra ver os filtros dele...</option>
         <option value="MPGR">MP Geral</option>
@@ -373,11 +373,11 @@
       <div class="kt-search"><span class="icon">🔍</span><input type="text" id="bfSearch" placeholder="Buscar por código/nome do material..."></div>
     </div>
     <div class="section-note">Filtra material igual um e-commerce filtra produto -- escolhe o tipo e os campos daquele tipo aparecem (resina, textura, fixação, dimensão, cor...), igual em Cadastros. Combina com o preço da última compra real e mostra o fornecedor de cada material que bater no filtro (homologado no cadastro e/ou já comprado no histórico, mesmo que hoje não seja mais homologado).</div>
-    <div class="card" id="bfFacetasCard" style="margin-bottom:14px">
-      <div class="card-title">Filtros</div>
-      <div class="form-grid" id="bfFacetas"></div>
+    <div class="card" id="bfFacetasCard" style="margin-bottom:14px" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">Filtros</div>
+      <div class="form-grid" id="bfFacetas" data-ui="form-grid"></div>
     </div>
-    <div id="bfResultados"><div class="card"><div class="no-data">Escolha um tipo, ou busque um material específico.</div></div></div>
+    <div id="bfResultados"><div class="card" data-ui="surface"><div class="no-data">Escolha um tipo, ou busque um material específico.</div></div></div>
   </div>
 
   <!-- Aba "📦 Estoque" retirada nesta rodada (WMS Fase 1) -- migrada pra
@@ -390,8 +390,8 @@
 <!-- MODAL: Nova Solicitação -->
 <div class="modal-bg" id="modalSc">
   <div class="modal">
-    <div class="modal-header"><h2>Nova Solicitação de Compra</h2><button class="modal-close" id="modalScClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header" data-ui="dialog-head"><h2>Nova Solicitação de Compra</h2><button class="modal-close" id="modalScClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div class="section-label">Itens solicitados</div>
       <div class="item-row-head"><div>Material</div><div>Fornecedores homologados</div><div>Quantidade</div><div>Un.</div><div>Observação</div><div></div></div>
       <div id="scItensBuilder"></div>
@@ -402,7 +402,7 @@
         <textarea id="scJustificativa" rows="3" placeholder="Por que essa compra é necessária (ex: reposição de estoque mínimo, novo pedido do cliente X, etc.)"></textarea>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="modalScCancel">Cancelar</button>
       <button class="btn btn-green" id="modalScSave">Enviar Solicitação</button>
     </div>
@@ -417,12 +417,12 @@
      entrega que já está na doca. -->
 <div class="modal-bg" id="modalPcDireto">
   <div class="modal">
-    <div class="modal-header"><h2 id="pcdTitulo">Entrada Direta de Material</h2><button class="modal-close" id="modalPcdClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header" data-ui="dialog-head"><h2 id="pcdTitulo">Entrada Direta de Material</h2><button class="modal-close" id="modalPcdClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div class="section-note" id="pcdInfo"></div>
 
       <div class="section-label">Origem e transporte</div>
-      <div class="form-grid">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group">
           <label>Natureza da entrada *</label>
           <select id="pcdNatureza">
@@ -483,7 +483,7 @@
         <textarea id="pcdObs" rows="2" placeholder="Detalhe (nº da nota fiscal, quem autorizou, etc.) — opcional, mas ajuda a reconstruir depois"></textarea>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="modalPcdCancel">Cancelar</button>
       <button class="btn btn-green" id="modalPcdSave">Criar e liberar pra recebimento</button>
     </div>
@@ -493,10 +493,10 @@
 <!-- MODAL: Cliente e pedidos do PC (propriedade do estoque) -->
 <div class="modal-bg" id="modalVinculoPC">
   <div class="modal" style="max-width:820px">
-    <div class="modal-header"><h2 id="vpcTitulo">Cliente e pedidos</h2><button class="modal-close" id="vpcClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header" data-ui="dialog-head"><h2 id="vpcTitulo">Cliente e pedidos</h2><button class="modal-close" id="vpcClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div class="section-note">Aqui se define <b>de quem é o material</b> e <b>para qual cliente e pedido</b> ele vem. A Logística só vê e confirma — sem isso o pedido não pode ser recebido.</div>
-      <div class="form-grid">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group">
           <label>De quem é o material? *</label>
           <select id="vpcPropriedade">
@@ -510,7 +510,7 @@
       <div class="section-label">Itens</div>
       <div id="vpcItens"></div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="vpcCancel">Cancelar</button>
       <button class="btn btn-green" id="vpcSalvar">Salvar</button>
     </div>
@@ -520,12 +520,12 @@
 <!-- MODAL: Padrão de Etiqueta -->
 <div class="modal-bg" id="modalPadraoEtiqueta">
   <div class="modal" style="max-width:560px">
-    <div class="modal-header"><h2>🏷️ Padrão de Etiqueta de Identificação</h2><button class="modal-close" id="modalPadraoEtiquetaClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header" data-ui="dialog-head"><h2>🏷️ Padrão de Etiqueta de Identificação</h2><button class="modal-close" id="modalPadraoEtiquetaClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div class="section-note">O que todo fornecedor deve imprimir e colar em cada caixa/fardo entregue à Kuryos. Isso entra automaticamente no e-mail de cotação (📨 Solicitar Cotação) e é conferido no recebimento (Logística).</div>
       <ol id="peList" style="margin:0;padding-left:20px;font-size:13px;line-height:1.9"></ol>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="modalPadraoEtiquetaClose2">Fechar</button>
     </div>
   </div>
@@ -534,13 +534,13 @@
 <!-- MODAL: Gerar Solicitação a partir de Pedido -->
 <div class="modal-bg" id="modalGerarPedido">
   <div class="modal" style="max-width:800px">
-    <div class="modal-header"><h2>Gerar Solicitação a partir de um Pedido</h2><button class="modal-close" id="modalGerarPedidoClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header" data-ui="dialog-head"><h2>Gerar Solicitação a partir de um Pedido</h2><button class="modal-close" id="modalGerarPedidoClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div class="section-note">Abra o pedido, marque os itens que entram na solicitação e gere <b>uma solicitação só</b> — calculamos os materiais direto da Fórmula/BOM × saldo em aberto de cada item, e <b>somamos o que se repete</b> entre eles. Você confere e ajusta antes de enviar.</div>
       <div class="kt-search" style="margin-bottom:10px"><span class="icon">🔍</span><input type="text" id="gpSearch" placeholder="Buscar por nº do pedido, cliente, SKU ou produto..."></div>
       <div id="gpPedidosList" style="max-height:420px;overflow-y:auto"></div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <div style="font-size:12.5px;color:var(--muted)" id="gpResumoSelecao">Nenhum item selecionado.</div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost" id="modalGerarPedidoCancel">Cancelar</button>
@@ -553,8 +553,8 @@
 <!-- MODAL: Iniciar Processo de Cotação -->
 <div class="modal-bg" id="modalIniciarCotacao">
   <div class="modal" style="max-width:820px">
-    <div class="modal-header purple"><h2>🤝 Iniciar Processo de Cotação</h2><button class="modal-close" id="modalIniciarCotacaoClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header purple" data-ui="dialog-head"><h2>🤝 Iniciar Processo de Cotação</h2><button class="modal-close" id="modalIniciarCotacaoClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div class="section-note" id="cotSolicitacoesResumo"></div>
 
       <div class="section-label">Itens consolidados e candidatos a convidar</div>
@@ -562,7 +562,7 @@
 
       <div class="field-hint" style="margin-top:12px">Ao confirmar, cria o processo de cotação e um <b>rascunho</b> de e-mail (via Outlook) pra cada convidado com e-mail conhecido — nada é enviado automaticamente, você revisa e envia da caixa da Kuryos.</div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="modalIniciarCotacaoCancel">Cancelar</button>
       <button class="btn btn-purple" id="modalIniciarCotacaoSave">Iniciar Cotação e Criar Rascunhos</button>
     </div>
@@ -575,8 +575,8 @@
      só depois criar pelo CNPJ. -->
 <div class="modal-bg" id="modalOutroForn">
   <div class="modal" style="max-width:600px">
-    <div class="modal-header"><h2>Outro fornecedor para este item</h2><button class="modal-close" id="modalOutroFornClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header" data-ui="dialog-head"><h2>Outro fornecedor para este item</h2><button class="modal-close" id="modalOutroFornClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div class="section-note" id="ofContexto"></div>
 
       <div class="section-label">1. Já cadastrado</div>
@@ -585,7 +585,7 @@
 
       <div class="section-label" style="margin-top:16px">2. Não está no cadastro — pelo CNPJ</div>
       <div class="section-note">O CNPJ é a âncora: nome comercial varia e vira cadastro duplicado. Preenchemos a razão social pra você a partir da base pública — se não vier, digite à mão.</div>
-      <div class="form-grid">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group">
           <label>CNPJ</label>
           <input type="text" id="ofCnpj" placeholder="00.000.000/0000-00" inputmode="numeric">
@@ -602,7 +602,7 @@
       </div>
       <button type="button" class="btn btn-ghost btn-sm" id="ofAddNovo">+ Adicionar este fornecedor ao item</button>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="modalOutroFornCancel">Fechar</button>
     </div>
   </div>
@@ -611,12 +611,12 @@
 <!-- MODAL: Etiquetas dos Itens de um Pedido de Compra -->
 <div class="modal-bg" id="modalEtiquetaPC">
   <div class="modal" style="max-width:640px">
-    <div class="modal-header"><h2>🏷️ Etiquetas dos Itens</h2><button class="modal-close" id="modalEtiquetaPCClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header" data-ui="dialog-head"><h2>🏷️ Etiquetas dos Itens</h2><button class="modal-close" id="modalEtiquetaPCClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div class="section-note">Checklist que o fornecedor deve seguir em cada caixa/fardo entregue pra este pedido. Campos com valor já conhecido aparecem preenchidos; o resto (lote, peso, validade, volumes, código de barras) é responsabilidade do fornecedor no momento do envio.</div>
       <div id="peItensPC"></div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="modalEtiquetaPCClose2">Fechar</button>
     </div>
   </div>
@@ -625,18 +625,18 @@
 <!-- MODAL: editar Pedido de Compra (só ADM, só enquanto ABERTO) -->
 <div class="modal-bg" id="modalEditarPC">
   <div class="modal" style="max-width:720px">
-    <div class="modal-header purple">
+    <div class="modal-header purple" data-ui="dialog-head">
       <div><h2 id="pcEditTitulo">Editar pedido</h2><div style="font-size:11.5px;opacity:.85" id="pcEditSub"></div></div>
       <button class="modal-close" id="modalEditarPCClose" title="Fechar" aria-label="Fechar">×</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" data-ui="dialog-body">
       <div class="section-note" style="margin-bottom:14px">
         Correção antes de enviar ao fornecedor. Depois de <b>Marcar Enviado</b> o pedido não pode
         mais ser editado — o fornecedor já teria o documento em mãos, e mudar aqui sem ele saber
         cria exatamente a divergência que a página impressa evita.
       </div>
 
-      <div class="table-wrap" style="padding:0;margin-bottom:16px;overflow-x:auto">
+      <div class="table-wrap" style="padding:0;margin-bottom:16px;overflow-x:auto" data-ui="table-scroll">
         <table style="min-width:600px">
           <thead><tr><th>Item</th><th style="width:180px">Quantidade e unidade</th><th style="width:120px">Preço unit.</th><th style="width:120px;text-align:right">Total</th></tr></thead>
           <tbody id="pcEditItens"></tbody>
@@ -647,7 +647,7 @@
         <div class="field-hint">Sem impostos e sem frete — o documento abre os dois em linhas próprias.</div>
       </div>
 
-      <div class="form-grid">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group">
           <label>Condição de pagamento</label>
           <input type="text" id="pcEditPagamento" placeholder="ex: 14/21/28 DDL">
@@ -658,7 +658,7 @@
           <div class="field-hint">A data prevista é recalculada a partir de hoje.</div>
         </div>
       </div>
-      <div class="form-grid">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group">
           <label>Frete</label>
           <select id="pcEditFreteTipo">
@@ -683,7 +683,7 @@
       <div class="section-label">Rota do pedido</div>
       <div id="pcEditRotaEditor"></div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="pcEditCancelar">Cancelar</button>
       <button class="btn btn-green" id="pcEditSalvar">Salvar alterações</button>
     </div>
@@ -695,18 +695,18 @@
      marcar enviado. Este modal mexe só na rota + envio, nada mais do pedido. -->
 <div class="modal-bg" id="modalRotaEnvio">
   <div class="modal" style="max-width:720px">
-    <div class="modal-header purple">
+    <div class="modal-header purple" data-ui="dialog-head">
       <div><h2 id="pcEnvTitulo">Confirmar rota e enviar</h2><div style="font-size:11.5px;opacity:.85" id="pcEnvSub"></div></div>
       <button class="modal-close" id="modalRotaEnvioClose" title="Fechar" aria-label="Fechar">×</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" data-ui="dialog-body">
       <div class="section-note" style="margin-bottom:12px">
         Confira de onde o material sai e para onde vai. Itens, preços e condições não mudam aqui —
         para corrigir o pedido, peça ao administrador.
       </div>
       <div id="pcEnvRotaEditor"></div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="pcEnvCancelar">Cancelar</button>
       <button class="btn btn-green" id="pcEnvSalvar">Confirmar rota e marcar como enviado</button>
     </div>
@@ -716,11 +716,11 @@
 <!-- MODAL: cancelar Pedido de Compra (só ADM) — ver shared/cancelamento-pc.js -->
 <div class="modal-bg" id="modalCancelarPC">
   <div class="modal" style="max-width:600px">
-    <div class="modal-header" style="background:linear-gradient(135deg,#7f1d1d,var(--danger))">
+    <div class="modal-header" style="background:linear-gradient(135deg,#7f1d1d,var(--danger))" data-ui="dialog-head">
       <div><h2 id="pcCancTitulo">Cancelar pedido</h2><div style="font-size:11.5px;opacity:.85" id="pcCancSub"></div></div>
       <button class="modal-close" id="modalCancelarPCClose" title="Fechar" aria-label="Fechar">×</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" data-ui="dialog-body">
       <div class="section-note" id="pcCancAviso" style="margin-bottom:14px"></div>
       <div id="pcCancSaldo" style="margin-bottom:14px"></div>
       <label class="form-label" for="pcCancMotivo" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:4px">Motivo do cancelamento *</label>
@@ -730,7 +730,7 @@
         <span id="pcCancReabrirTexto"></span>
       </label>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="pcCancVoltar">Voltar</button>
       <button class="btn btn-danger-ghost" id="pcCancConfirmar" style="background:var(--danger);color:#fff;border-color:var(--danger)">Cancelar pedido</button>
     </div>
@@ -746,8 +746,8 @@
      legibilidade da grade de comparação, que é a razão de ela existir. -->
 <div class="modal-bg" id="modalFiscalCot">
   <div class="modal" style="max-width:640px">
-    <div class="modal-header purple"><h2>🧾 Impostos do item</h2><button class="modal-close" id="modalFiscalClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header purple" data-ui="dialog-head"><h2>🧾 Impostos do item</h2><button class="modal-close" id="modalFiscalClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div id="fiscalContexto" class="section-note" style="margin-bottom:14px"></div>
 
       <!-- Preço e quantidade também AQUI, não só na grade. Eles estavam só
@@ -755,7 +755,7 @@
            grade e reabrir pra ajustar os dois campos mais importantes do
            orçamento (achado do usuário). Os dois lugares gravam no mesmo
            registro e ficam em sincronia. -->
-      <div class="form-grid">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group">
           <label>Preço unitário *</label>
           <input type="number" id="fiscalPreco" min="0" step="any" placeholder="R$ por unidade">
@@ -770,7 +770,7 @@
       <!-- Unidade cotada e conversão. O fornecedor pode orçar numa unidade
            diferente da do cadastro (material em ROLO, orçado em KG) -- sem
            converter, a comparação entre fornecedores é sem sentido. -->
-      <div class="form-grid">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group">
           <label>Unidade cotada</label>
           <input type="text" id="fiscalUnidadeCotada" placeholder="kg, rolo, un, L...">
@@ -785,7 +785,7 @@
 
       <div style="border-top:1px solid var(--border);margin:4px 0 14px"></div>
 
-      <div class="form-grid">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group">
           <label>% faturado em NF</label>
           <input type="number" id="fiscalPctNf" min="0" max="100" step="any" placeholder="100">
@@ -797,7 +797,7 @@
         </div>
       </div>
 
-      <div class="form-grid">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group">
           <label>% IPI</label>
           <input type="number" id="fiscalIpi" min="0" max="100" step="any" placeholder="0">
@@ -810,7 +810,7 @@
         </div>
       </div>
 
-      <div class="form-grid">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group">
           <label>% ICMS</label>
           <input type="number" id="fiscalIcms" min="0" max="100" step="any" placeholder="0">
@@ -828,7 +828,7 @@
         <div id="fiscalMemoriaCorpo" style="padding:10px 12px;font-size:12.5px"></div>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="modalFiscalCancel">Cancelar</button>
       <button class="btn btn-green" id="modalFiscalSave">Salvar</button>
     </div>

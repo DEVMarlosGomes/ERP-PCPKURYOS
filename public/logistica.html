@@ -107,8 +107,8 @@
     @media(max-width:600px){.rc-form-grid{grid-template-columns:1fr}.rc-form-grid .span-2{grid-column:span 1}.rc-item-head{display:block}.rc-item-progress{text-align:left;margin-top:4px}}
   </style>
 <script src="shared/contatos-cliente.js"></script><script src="shared/contatos-cliente-ui.js"></script><link rel="stylesheet" href="shared/contatos-cliente.css"></head>
-<body class="kuryos-theme has-sidebar">
-<div class="header">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Logística</h1>
     <div class="header-sub">Recebimento de materiais e agendamento de saídas de produto acabado</div>
@@ -120,11 +120,11 @@
   <div id="alertBox" class="alert alert-success"></div>
 </div>
 
-<div class="tabs">
-  <button class="tab active" data-tab="receber">A Receber</button>
-  <button class="tab" data-tab="historico">Histórico</button>
-  <button class="tab" data-tab="agenda-pa">Saídas de PA</button>
-  <button class="tab" data-tab="calendario">Calendário</button>
+<div class="tabs" data-ui="tabs">
+  <button class="tab active" data-tab="receber" data-ui="tab">A Receber</button>
+  <button class="tab" data-tab="historico" data-ui="tab">Histórico</button>
+  <button class="tab" data-tab="agenda-pa" data-ui="tab">Saídas de PA</button>
+  <button class="tab" data-tab="calendario" data-ui="tab">Calendário</button>
 </div>
 
 <div class="main">
@@ -135,7 +135,7 @@
     <div id="historicoList"></div>
   </div>
   <div class="tab-panel" id="tab-calendario">
-    <div class="card cal-card">
+    <div class="card cal-card" data-ui="surface">
       <div class="cal-toolbar">
         <div class="cal-nav">
           <button type="button" class="btn btn-ghost btn-sm" id="calAnterior" aria-label="Período anterior">‹</button>
@@ -157,18 +157,18 @@
     </div>
     <dialog class="cal-modal" id="calDetalhe"><div class="cal-corpo"></div><div class="cal-acoes"></div></dialog>
   </div>
-  <div class="tab-panel" id="tab-agenda-pa"><div class="card"><h2>Agenda de saídas de PA</h2><p class="field-hint">Transportadora, motorista e placa são compartilhados com a Expedição. Para montar uma carga, use Expedição — Montar carga; faturamento e saída ficam em Expedição — Faturamento e Acompanhamento.</p><div id="agendaPA"></div></div></div>
+  <div class="tab-panel" id="tab-agenda-pa"><div class="card" data-ui="surface"><h2>Agenda de saídas de PA</h2><p class="field-hint">Transportadora, motorista e placa são compartilhados com a Expedição. Para montar uma carga, use Expedição — Montar carga; faturamento e saída ficam em Expedição — Faturamento e Acompanhamento.</p><div id="agendaPA"></div></div></div>
 </div>
 
 <!-- MODAL: Agendar Entrega -->
 <div class="modal-bg" id="modalAgendar">
   <div class="modal">
-    <div class="modal-header blue"><h2 id="modalAgendarTitulo">Agendar Entrega</h2><button class="modal-close" id="modalAgendarClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header blue" data-ui="dialog-head"><h2 id="modalAgendarTitulo">Agendar Entrega</h2><button class="modal-close" id="modalAgendarClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div id="agendarPcInfo" class="field-hint" style="margin-bottom:12px"></div>
       <div id="agFreteInfo" class="agendamento-box" style="margin-bottom:12px"></div>
       <div id="agRotaBox" style="margin-bottom:12px"></div>
-      <div class="form-grid">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group">
           <label id="agDataLabel">Data agendada *</label>
           <input type="date" id="agData">
@@ -198,7 +198,7 @@
         </div>
         <div id="agColetaFields" class="full" style="display:none">
           <div class="agendamento-box" style="margin:4px 0 12px"><b>Dados da coleta / viagem</b><br><span class="field-hint">Registre como a Kuryos fará a retirada e o valor que foi acordado.</span></div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group">
               <label>Modalidade</label>
               <select id="agModalidade">
@@ -235,7 +235,7 @@
         </div>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="modalAgendarCancel">Cancelar</button>
       <button class="btn btn-primary" id="modalAgendarSave">Salvar Agendamento</button>
     </div>
@@ -245,12 +245,12 @@
 <!-- MODAL: Registrar Recebimento -->
 <div class="modal-bg" id="modalReceber">
   <div class="modal" style="max-width:980px">
-    <div class="modal-header"><h2>Registrar Recebimento</h2><button class="modal-close" id="modalReceberClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header" data-ui="dialog-head"><h2>Registrar Recebimento</h2><button class="modal-close" id="modalReceberClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div id="receberPcInfo" class="field-hint" style="margin-bottom:12px"></div>
       <div id="rcPropriedadeBox"></div>
       <div class="rc-intro"><b>Entrada de materiais e envio ao Controle de Qualidade</b><br>Os dados abaixo substituem o formulário externo. Cada item recebido será endereçado no WMS com status <b>Quarentena</b> e aparecerá automaticamente na fila da Qualidade.</div>
-      <div class="form-grid" style="margin-bottom:14px">
+      <div class="form-grid" style="margin-bottom:14px" data-ui="form-grid">
         <div class="form-group">
           <label>Fornecedor</label>
           <input type="text" id="rcFornecedor" class="rc-readonly" readonly>
@@ -281,7 +281,7 @@
         <textarea id="rcObservacoes" rows="2" placeholder="Ex: divergência de quantidade, avaria, etc."></textarea>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="modalReceberCancel">Cancelar</button>
       <button class="btn btn-green" id="modalReceberSave">Confirmar Recebimento</button>
     </div>
@@ -291,8 +291,8 @@
 <!-- MODAL: Checklist de Etiqueta (padrão de identificação do fornecedor) -->
 <div class="modal-bg" id="modalChecklist">
   <div class="modal" style="max-width:620px">
-    <div class="modal-header"><h2>Checklist de Etiqueta</h2><button class="modal-close" id="modalChecklistClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header" data-ui="dialog-head"><h2>Checklist de Etiqueta</h2><button class="modal-close" id="modalChecklistClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div id="clPcInfo" class="field-hint" style="margin-bottom:6px"></div>
       <div class="field-hint" style="margin-bottom:14px">Confira, na etiqueta que veio na caixa/fardo, se cada campo abaixo está presente e correto -- não trava o recebimento, só registra o que foi conferido.</div>
       <div id="clItensList"></div>
@@ -301,7 +301,7 @@
         <textarea id="clObservacoes" rows="2" placeholder="Ex: etiqueta sem lote, código de material trocado, etc."></textarea>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="modalChecklistCancel">Cancelar</button>
       <button class="btn btn-green" id="modalChecklistSave">Salvar Checklist</button>
     </div>

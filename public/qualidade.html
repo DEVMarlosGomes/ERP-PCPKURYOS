@@ -157,8 +157,8 @@
     .barra-fill{height:100%;border-radius:4px}
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
-<div class="header">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Qualidade</h1>
     <div class="header-sub">Liberação de lotes, não conformidades e desempenho de fornecedor</div>
@@ -166,11 +166,11 @@
   <div class="status-pill"><span class="dot" id="sDot"></span><span id="sTxt">Conectando...</span></div>
 </div>
 
-<div class="tabs" id="mainTabsQualidade">
-  <button class="tab active" data-tab="fila">🔬 Fila de Inspeção</button>
-  <button class="tab" data-tab="rnc">⚠️ Não Conformidades</button>
-  <button class="tab" data-tab="fornecedores">🏭 Desempenho de Fornecedor</button>
-  <button class="tab" data-tab="especificacoes">📋 Especificações</button>
+<div class="tabs" id="mainTabsQualidade" data-ui="tabs">
+  <button class="tab active" data-tab="fila" data-ui="tab">🔬 Fila de Inspeção</button>
+  <button class="tab" data-tab="rnc" data-ui="tab">⚠️ Não Conformidades</button>
+  <button class="tab" data-tab="fornecedores" data-ui="tab">🏭 Desempenho de Fornecedor</button>
+  <button class="tab" data-tab="especificacoes" data-ui="tab">📋 Especificações</button>
 </div>
 
 <div class="main">
@@ -190,11 +190,11 @@
     </div>
 
     <div class="stats">
-      <div class="stat"><div class="stat-val" id="qStatFila" style="color:var(--warning)">—</div><div class="stat-lbl">Aguardando laudo</div></div>
-      <div class="stat"><div class="stat-val" id="qStatMaisAntigo">—</div><div class="stat-lbl">Espera mais longa (dias)</div></div>
-      <div class="stat"><div class="stat-val" id="qStatLiberados" style="color:var(--tint-green-fg)">—</div><div class="stat-lbl">Liberados (30 dias)</div></div>
-      <div class="stat"><div class="stat-val" id="qStatReprovados" style="color:var(--danger)">—</div><div class="stat-lbl">Reprovados (30 dias)</div></div>
-      <div class="stat"><div class="stat-val" id="qStatRncAbertas" style="color:var(--danger)">—</div><div class="stat-lbl">RNCs abertas</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="qStatFila" style="color:var(--warning)">—</div><div class="stat-lbl">Aguardando laudo</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="qStatMaisAntigo">—</div><div class="stat-lbl">Espera mais longa (dias)</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="qStatLiberados" style="color:var(--tint-green-fg)">—</div><div class="stat-lbl">Liberados (30 dias)</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="qStatReprovados" style="color:var(--danger)">—</div><div class="stat-lbl">Reprovados (30 dias)</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="qStatRncAbertas" style="color:var(--danger)">—</div><div class="stat-lbl">RNCs abertas</div></div>
     </div>
 
     <!-- Uma fila por tipo de análise (29/09): pedido do usuário, "para não
@@ -205,12 +205,12 @@
 
     <!-- Granel: a análise que antes aparecia (errada) no palete. Ela pertence
          à fase de manipulação do lote, antes do envase. -->
-    <div class="card" id="qCardGranel" style="display:none;border-left-color:var(--purple)">
-      <div class="card-header">
+    <div class="card" id="qCardGranel" style="display:none;border-left-color:var(--purple)" data-ui="surface">
+      <div class="card-header" data-ui="surface-head">
         <h3>Granel aguardando análise</h3>
         <span class="field-hint" id="qGranelResumo"></span>
       </div>
-      <div class="table-wrap"><table>
+      <div class="table-wrap" data-ui="table-scroll"><table>
         <thead><tr><th>Lote</th><th>Produto</th><th>Manipulado por</th><th style="text-align:right">Rendimento</th><th>Fechado em</th><th></th></tr></thead>
         <tbody id="qGranelBody"></tbody>
       </table></div>
@@ -218,22 +218,22 @@
 
     <!-- Bulk reprovado: a Qualidade decide se dá para corrigir (25/09).
          A correção é um novo ciclo do mesmo lote, com RNC obrigatória. -->
-    <div class="card" id="qCardCorrecao" style="display:none;border-left-color:var(--danger)">
-      <div class="card-header">
+    <div class="card" id="qCardCorrecao" style="display:none;border-left-color:var(--danger)" data-ui="surface">
+      <div class="card-header" data-ui="surface-head">
         <h3>Bulk reprovado — aguardando decisão de correção</h3>
         <span class="field-hint" id="qCorrecaoResumo"></span>
       </div>
-      <div class="table-wrap"><table>
+      <div class="table-wrap" data-ui="table-scroll"><table>
         <thead><tr><th>Lote</th><th>Produto</th><th>Reprovado por</th><th style="text-align:right">Massa</th><th>Motivo</th><th></th></tr></thead>
         <tbody id="qCorrecaoBody"></tbody>
       </table></div>
     </div>
 
-    <div class="card" id="qCardFila">
-      <div class="card-header">
+    <div class="card" id="qCardFila" data-ui="surface">
+      <div class="card-header" data-ui="surface-head">
         <h3 id="qFilaTitulo">Aguardando liberação</h3>
       </div>
-      <div class="table-wrap">
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr>
             <th>Item</th>
@@ -250,9 +250,9 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-header"><h3>Laudos recentes</h3></div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-header" data-ui="surface-head"><h3>Laudos recentes</h3></div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr>
             <th>Item</th>
@@ -278,7 +278,7 @@
       uma RNC sem elas é só o registro de que algo deu errado, que é o que a planilha já fazia.
     </div>
 
-    <div class="kt-toolbar">
+    <div class="kt-toolbar" data-ui="filters">
       <div class="kt-search"><span>🔎</span><input type="text" id="rncSearch" placeholder="Buscar por número, item, fornecedor ou descrição..."></div>
       <select class="kt-select" id="rncFiltroStatus">
         <option value="ABERTAS">Abertas e em análise</option>
@@ -297,16 +297,16 @@
     </div>
 
     <div class="stats">
-      <div class="stat"><div class="stat-val" id="rncStatAbertas" style="color:var(--danger)">—</div><div class="stat-lbl">Abertas</div></div>
-      <div class="stat"><div class="stat-val" id="rncStatAnalise" style="color:var(--warning)">—</div><div class="stat-lbl">Em análise</div></div>
-      <div class="stat"><div class="stat-val" id="rncStatCriticas" style="color:var(--danger)">—</div><div class="stat-lbl">Críticas em aberto</div></div>
-      <div class="stat"><div class="stat-val" id="rncStatAno">—</div><div class="stat-lbl">Abertas no ano</div></div>
-      <div class="stat"><div class="stat-val" id="rncStatIdade">—</div><div class="stat-lbl">Mais antiga em aberto (dias)</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="rncStatAbertas" style="color:var(--danger)">—</div><div class="stat-lbl">Abertas</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="rncStatAnalise" style="color:var(--warning)">—</div><div class="stat-lbl">Em análise</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="rncStatCriticas" style="color:var(--danger)">—</div><div class="stat-lbl">Críticas em aberto</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="rncStatAno">—</div><div class="stat-lbl">Abertas no ano</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="rncStatIdade">—</div><div class="stat-lbl">Mais antiga em aberto (dias)</div></div>
     </div>
 
-    <div class="card">
-      <div class="card-header"><h3 id="rncCount">Não conformidades</h3></div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-header" data-ui="surface-head"><h3 id="rncCount">Não conformidades</h3></div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr>
             <th style="width:130px">Número</th>
@@ -334,9 +334,9 @@
       dá mais trabalho. Pior primeiro.
     </div>
 
-    <div class="card">
-      <div class="card-header"><h3 id="fornCount">Fornecedores com lote inspecionado</h3></div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-header" data-ui="surface-head"><h3 id="fornCount">Fornecedores com lote inspecionado</h3></div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr>
             <th>Fornecedor</th>
@@ -362,12 +362,12 @@
       esta tela mostra, para não existir a mesma especificação em dois lugares.
     </div>
 
-    <div class="card" id="espMpCard">
-      <div class="card-header">
+    <div class="card" id="espMpCard" data-ui="surface">
+      <div class="card-header" data-ui="surface-head">
         <h3 id="espMpCount">Matérias-primas</h3>
         <span class="field-hint" id="espMpResumo"></span>
       </div>
-      <div class="kt-toolbar" style="padding:10px 14px 0">
+      <div class="kt-toolbar" style="padding:10px 14px 0" data-ui="filters">
         <div class="kt-search"><span>🔎</span><input type="text" id="espMpSearch" placeholder="Buscar matéria-prima..."></div>
         <select class="kt-select" id="espMpFiltro">
           <option value="pendentes">Sem especificação</option>
@@ -376,7 +376,7 @@
           <option value="">Todas</option>
         </select>
       </div>
-      <div class="table-wrap">
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr>
             <th style="width:150px">Código</th>
@@ -399,7 +399,7 @@
       continua sendo julgamento do analista, marcado como C/NC.
     </div>
 
-    <div class="kt-toolbar">
+    <div class="kt-toolbar" data-ui="filters">
       <div class="kt-search"><span>🔎</span><input type="text" id="espSearch" placeholder="Buscar por código ou ensaio..."></div>
       <select class="kt-select" id="espFiltro">
         <option value="">Todas</option>
@@ -410,15 +410,15 @@
     </div>
 
     <div class="stats">
-      <div class="stat"><div class="stat-val" id="espStatTotal">—</div><div class="stat-lbl">Especificações</div></div>
-      <div class="stat"><div class="stat-val" id="espStatEnsaios">—</div><div class="stat-lbl">Ensaios cadastrados</div></div>
-      <div class="stat"><div class="stat-val" id="espStatMensuravel" style="color:var(--tint-green-fg)">—</div><div class="stat-lbl">Ensaios com faixa numérica</div></div>
-      <div class="stat"><div class="stat-val" id="espStatCriticos" style="color:var(--danger)">—</div><div class="stat-lbl">Ensaios críticos</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="espStatTotal">—</div><div class="stat-lbl">Especificações</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="espStatEnsaios">—</div><div class="stat-lbl">Ensaios cadastrados</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="espStatMensuravel" style="color:var(--tint-green-fg)">—</div><div class="stat-lbl">Ensaios com faixa numérica</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="espStatCriticos" style="color:var(--danger)">—</div><div class="stat-lbl">Ensaios críticos</div></div>
     </div>
 
-    <div class="card">
-      <div class="card-header"><h3 id="espCount">Planos de inspeção</h3></div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-header" data-ui="surface-head"><h3 id="espCount">Planos de inspeção</h3></div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr>
             <th style="width:180px">Código</th>
@@ -444,16 +444,16 @@
 <!-- z-index acima do laudo: este modal abre POR CIMA da análise. -->
 <div class="modal-bg" id="modalSpecMpBg" style="z-index:1200">
   <div class="modal" style="max-width:880px">
-    <div class="modal-header">
+    <div class="modal-header" data-ui="dialog-head">
       <div>
         <h2 id="specMpTitulo">Especificação da matéria-prima</h2>
         <div class="field-hint" id="specMpSub"></div>
       </div>
       <button class="modal-close" id="specMpFechar">×</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" data-ui="dialog-body">
       <div id="specMpAviso" class="alert alert-info" style="display:none"></div>
-      <div class="table-wrap">
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr>
             <th style="width:150px">Ensaio</th>
@@ -472,7 +472,7 @@
       </div>
       <div id="specMpErros" class="alert alert-danger" style="display:none;margin-top:10px"></div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <span class="field-hint" id="specMpVersao"></span>
       <div class="modal-footer-right">
         <button class="btn btn-ghost" id="specMpCancelar">Cancelar</button>
@@ -485,8 +485,8 @@
 <!-- ══════════ MODAL: Laudo do granel ══════════ -->
 <div class="modal-bg" id="modalGranelBg">
   <div class="modal" style="max-width:640px">
-    <div class="modal-header"><h2 id="modalGranelTitle">Análise do granel</h2><button class="modal-close" id="modalGranelClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header" data-ui="dialog-head"><h2 id="modalGranelTitle">Análise do granel</h2><button class="modal-close" id="modalGranelClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div id="qGranelInfo" class="field-hint" style="margin-bottom:14px"></div>
       <div class="plano-wrap">
         <div class="plano-head"><span id="qGranelPlanoTitulo">Ensaios do granel</span><span id="qGranelPlanoResumo"></span></div>
@@ -505,7 +505,7 @@
         <div id="qFotosGranel"></div>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="qGranelCancelar">Cancelar</button>
       <button class="btn btn-danger" id="qGranelReprovar">Reprovar granel</button>
       <button class="btn btn-green" id="qGranelLiberar">Liberar para envase</button>
@@ -516,8 +516,8 @@
 <!-- ══════════ MODAL: Correção do bulk reprovado ══════════ -->
 <div class="modal-bg" id="modalCorrecaoBg">
   <div class="modal" style="max-width:680px">
-    <div class="modal-header red"><h2 id="modalCorrecaoTitle">Correção do bulk</h2><button class="modal-close" id="modalCorrecaoClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header red" data-ui="dialog-head"><h2 id="modalCorrecaoTitle">Correção do bulk</h2><button class="modal-close" id="modalCorrecaoClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div id="qCorrInfo" class="field-hint" style="margin-bottom:14px"></div>
       <div class="form-group">
         <label>RNC da reprovação <span style="color:var(--danger)">*</span></label>
@@ -551,7 +551,7 @@
       </div>
       <div id="qCorrErros" class="alert alert-danger"></div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="qCorrCancelar">Cancelar</button>
       <button class="btn btn-danger" id="qCorrConfirmar">Abrir correção</button>
     </div>
@@ -565,8 +565,8 @@
      ficha da OP e nunca usada pra decidir nada. -->
 <div class="modal-bg" id="modalLaudoBg">
   <div class="modal" style="max-width:720px">
-    <div class="modal-header"><h2 id="modalLaudoTitle">Laudo de Qualidade</h2><button class="modal-close" id="modalLaudoClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header" data-ui="dialog-head"><h2 id="modalLaudoTitle">Laudo de Qualidade</h2><button class="modal-close" id="modalLaudoClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div id="qLoteInfo" class="field-hint" style="margin-bottom:14px"></div>
       <div id="qRecebimentoInfo" class="section-note" style="display:none;margin-bottom:14px"></div>
 
@@ -592,7 +592,7 @@
           <div class="plano-head"><span>Inspeção de produto acabado (CK-7)</span><span id="qCk7Resumo"></span></div>
           <div style="padding:12px">
             <div class="field-hint" style="margin-bottom:6px">Parâmetros do produto — usados no julgamento e guardados para as próximas inspeções.</div>
-            <div class="form-grid" id="qCk7Param">
+            <div class="form-grid" id="qCk7Param" data-ui="form-grid">
               <div class="form-group">
                 <label>Conteúdo nominal</label>
                 <div style="display:flex;gap:6px">
@@ -614,7 +614,7 @@
             <div id="qCk7Amostra" class="section-note" style="margin:8px 0"></div>
             <div class="plano-scroll"><table class="plano-tabela"><tbody id="qCk7Itens"></tbody></table></div>
             <div id="qCk7Pesos" style="margin-top:12px"></div>
-            <div class="form-grid" style="margin-top:10px">
+            <div class="form-grid" style="margin-top:10px" data-ui="form-grid">
               <div class="form-group"><label>Retenção — unidades coletadas</label><input type="number" id="qCk7RetUn" min="0" step="1" placeholder="3"></div>
               <div class="form-group"><label>Retenção — local</label><input type="text" id="qCk7RetLocal" placeholder="Ex.: prateleira RET-01"></div>
             </div>
@@ -642,7 +642,7 @@
                     <thead><tr><th style="width:38%">Análise</th><th style="width:26%">Especificação</th><th style="width:28%">Resultado obtido</th><th>Método</th></tr></thead>
                     <tbody id="qResMicroBody"></tbody>
                   </table></div>
-                  <div class="form-grid" style="margin-top:8px">
+                  <div class="form-grid" style="margin-top:8px" data-ui="form-grid">
                     <div class="form-group"><label>Laboratório</label>
                       <input type="text" id="qCk7Lab" placeholder="Ex.: laboratório terceirizado"></div>
                     <div class="form-group"><label>Nº do laudo externo</label>
@@ -680,7 +680,7 @@
         </div>
       </div>
 
-      <div class="form-grid">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group">
           <label>Data da inspeção</label>
           <input type="date" id="qDataInspecao">
@@ -695,7 +695,7 @@
            de fora. Palete de PA é nosso, veio da linha, não de um caminhão. -->
       <div id="qChecklistRecebimento">
         <div class="field-hint" id="qChecklistOrigem" style="margin-bottom:8px"></div>
-        <div class="form-grid">
+        <div class="form-grid" data-ui="form-grid">
           <div class="form-group">
             <label>Condições do veículo</label>
             <select id="qCondVeiculo">
@@ -721,7 +721,7 @@
           </div>
         </div>
 
-        <div class="form-grid">
+        <div class="form-grid" data-ui="form-grid">
           <div class="form-group">
             <label>Integridade da embalagem</label>
             <select id="qIntegridade">
@@ -748,7 +748,7 @@
         <!-- Campos de identificação que os formulários F0070/F009 pedem e que
              a entrada da Logística ainda não captura. Sem eles o laudo
              impresso sai com lacuna justamente onde o auditor olha. -->
-        <div class="form-grid">
+        <div class="form-grid" data-ui="form-grid">
           <div class="form-group">
             <label>Qtd por embalagem</label>
             <input type="text" id="qQtdPorEmb" placeholder="Ex.: 1000 L / 240 un">
@@ -758,7 +758,7 @@
             <input type="text" id="qDescEmb" placeholder="Ex.: Container / Caixa de papelão">
           </div>
         </div>
-        <div class="form-grid">
+        <div class="form-grid" data-ui="form-grid">
           <div class="form-group">
             <label>Lacre</label>
             <select id="qLacre">
@@ -795,7 +795,7 @@
         <div id="qFotosLaudo"></div>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="modalLaudoCancel">Cancelar</button>
       <button class="btn btn-ghost" id="qBtnEmitirLaudo" title="Emitir o Relatório de Análise deste lote em PDF">🖨 Emitir laudo</button>
       <button class="btn btn-ghost" id="qBtnReter" title="Segura o lote sem decidir ainda">⏸ Reter</button>
@@ -813,14 +813,14 @@
      -- quem assina uma vez como "Outro" entra na lista. -->
 <div class="modal-bg" id="modalEmitirBg">
   <div class="modal" style="max-width:560px">
-    <div class="modal-header"><h2 id="modalEmitirTitle">Emitir laudo</h2><button class="modal-close" id="modalEmitirClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header" data-ui="dialog-head"><h2 id="modalEmitirTitle">Emitir laudo</h2><button class="modal-close" id="modalEmitirClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div id="qEmitResumo" class="field-hint" style="margin-bottom:14px"></div>
       <div class="form-group">
         <label>Responsável que assina</label>
         <select id="qEmitResponsavel"></select>
       </div>
-      <div class="form-grid" id="qEmitOutro" style="display:none">
+      <div class="form-grid" id="qEmitOutro" style="display:none" data-ui="form-grid">
         <div class="form-group"><label>Nome</label><input type="text" id="qEmitNome" placeholder="Nome completo"></div>
         <div class="form-group"><label>Registro</label><input type="text" id="qEmitRegistro" placeholder="CRQ 04413184"></div>
       </div>
@@ -837,7 +837,7 @@
         <input type="text" id="qEmitLab" placeholder="Opcional — aparece abaixo da tabela microbiológica">
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="qEmitCancelar">Cancelar</button>
       <button class="btn btn-primary" id="qEmitImprimir">🖨 Gerar PDF / imprimir</button>
     </div>
@@ -847,13 +847,13 @@
 <!-- ══════════ MODAL: Nova RNC / tratar RNC ══════════ -->
 <div class="modal-bg" id="modalRncBg">
   <div class="modal" style="max-width:640px">
-    <div class="modal-header red"><h2 id="modalRncTitle">Nova não conformidade</h2><button class="modal-close" id="modalRncClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
+    <div class="modal-header red" data-ui="dialog-head"><h2 id="modalRncTitle">Nova não conformidade</h2><button class="modal-close" id="modalRncClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
       <div id="rncContexto" class="field-hint" style="margin-bottom:14px;display:none"></div>
 
       <!-- Abertura -->
       <div id="rncCamposAbertura">
-        <div class="form-grid">
+        <div class="form-grid" data-ui="form-grid">
           <div class="form-group">
             <label>Classificação *</label>
             <select id="rncClassificacao">
@@ -873,7 +873,7 @@
             </select>
           </div>
         </div>
-        <div class="form-grid">
+        <div class="form-grid" data-ui="form-grid">
           <div class="form-group">
             <label>Item (código)</label>
             <input type="text" id="rncItemCodigo" placeholder="Ex: EP-00053 ou WKBS0001">
@@ -884,7 +884,7 @@
             <select id="rncFornecedor"><option value="">— não se aplica —</option></select>
           </div>
         </div>
-        <div class="form-grid">
+        <div class="form-grid" data-ui="form-grid">
           <div class="form-group">
             <label>Quantidade envolvida</label>
             <input type="number" id="rncQtd" min="0" step="any" placeholder="0">
@@ -918,7 +918,7 @@
           <label>Ação corretiva *</label>
           <textarea id="rncAcaoCorretiva" rows="2" placeholder="O que muda para não repetir"></textarea>
         </div>
-        <div class="form-grid">
+        <div class="form-grid" data-ui="form-grid">
           <div class="form-group">
             <label>Responsável pela ação</label>
             <input type="text" id="rncResponsavel" placeholder="Quem executa">
@@ -950,7 +950,7 @@
         </div>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="modalRncCancel">Cancelar</button>
       <button class="btn btn-danger" id="rncBtnSalvar">Abrir RNC</button>
     </div>
@@ -960,16 +960,16 @@
 <!-- ══════════ MODAL: ver especificação ══════════ -->
 <div class="modal-bg" id="modalEspBg">
   <div class="modal" style="max-width:720px">
-    <div class="modal-header"><h2 id="modalEspTitle">Especificação</h2><button class="modal-close" id="modalEspClose" title="Fechar" aria-label="Fechar">×</button></div>
-    <div class="modal-body">
-      <div class="table-wrap" style="padding:0">
+    <div class="modal-header" data-ui="dialog-head"><h2 id="modalEspTitle">Especificação</h2><button class="modal-close" id="modalEspClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
+      <div class="table-wrap" style="padding:0" data-ui="table-scroll">
         <table>
           <thead><tr><th>Ensaio</th><th style="width:190px">Especificação</th><th style="width:120px">Faixa</th><th style="width:100px">Método</th><th style="width:70px">Crítico</th></tr></thead>
           <tbody id="espDetBody"></tbody>
         </table>
       </div>
     </div>
-    <div class="modal-footer"><button class="btn btn-ghost" id="modalEspCancel">Fechar</button></div>
+    <div class="modal-footer" data-ui="dialog-foot"><button class="btn btn-ghost" id="modalEspCancel">Fechar</button></div>
   </div>
 </div>
 

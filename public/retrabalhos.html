@@ -106,8 +106,8 @@
     @media(max-width:700px){.rt-lista{grid-template-columns:1fr}}
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
-<div class="header">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Retrabalhos</h1>
     <div class="header-sub">Retrabalho é uma OP como qualquer outra — só que sem vínculo de pedido e sem BOM, para não contar a mesma produção duas vezes. Abre-se pelo ♻️ no Controle de OPs e executa-se na linha, na rotulagem ou no posto.</div>
@@ -117,8 +117,8 @@
 <div class="main">
   <div class="kpis" id="rtKpis"></div>
 
-  <div class="card">
-    <div class="card-header">
+  <div class="card" data-ui="surface">
+    <div class="card-header" data-ui="surface-head">
       <h3>OPs de retrabalho</h3>
       <span class="hint" id="rtOpsContagem"></span>
     </div>
@@ -132,13 +132,13 @@
   </div>
 
   <!-- Formato antigo: some sozinho quando o último caso for migrado. -->
-  <div class="card" id="rtLegadoCard" style="display:none">
-    <div class="card-header">
+  <div class="card" id="rtLegadoCard" style="display:none" data-ui="surface">
+    <div class="card-header" data-ui="surface-head">
       <h3>Casos no formato antigo</h3>
       <span class="hint" id="rtContagem"></span>
     </div>
     <div class="card-body">
-      <div class="filtros" style="margin-bottom:12px">
+      <div class="filtros" style="margin-bottom:12px" data-ui="filters">
         <button class="pill ativo" data-filtro="abertos">Em aberto</button>
         <button class="pill" data-filtro="aguardando_qualidade">Aguardando Qualidade</button>
         <button class="pill" data-filtro="encerrados">Encerrados</button>
@@ -154,12 +154,12 @@
 <!-- ══════════ MODAL: o caso inteiro ══════════ -->
 <div class="modal-bg" id="rtModalBg">
   <div class="modal">
-    <div class="modal-header">
+    <div class="modal-header" data-ui="dialog-head">
       <h2 id="rtModalTitulo">Retrabalho</h2>
       <button class="modal-close" id="rtModalClose" title="Fechar" aria-label="Fechar">×</button>
     </div>
-    <div class="modal-body" id="rtModalBody"></div>
-    <div class="modal-footer">
+    <div class="modal-body" id="rtModalBody" data-ui="dialog-body"></div>
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="rtModalFechar">Fechar</button>
     </div>
   </div>

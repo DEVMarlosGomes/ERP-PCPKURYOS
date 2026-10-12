@@ -136,12 +136,12 @@
     @media(max-width:900px){.hz-nec-row{grid-template-columns:1fr 1fr;row-gap:4px}.hz-nec-qtd{text-align:left}}
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
 <div style="background:var(--tint-orange-bg);color:var(--tint-orange-fg);border-bottom:1px solid var(--tint-orange-fg);padding:10px 20px;font-size:13px;font-weight:600">
   ⚠️ Esta tela foi desativada a pedido do PCP -- o "congelar" nunca virou parte do fluxo real e não faz mais parte do processo ativo.
   Os dados históricos continuam aqui, mas nada daqui é mais necessário pro dia a dia. Use Planejamento e Emitir OP normalmente.
 </div>
-<div class="header">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Horizonte de Produção</h1>
     <div class="header-sub" id="headerSub">Fila de pedidos ainda não programados, por prioridade — congele um bloco pra virar compromisso real de agenda.</div>
@@ -165,14 +165,14 @@
     </div>
   </div>
 
-  <div class="grid-card hz-capsum-card">
+  <div class="grid-card hz-capsum-card" data-ui="surface">
     <div class="hz-capsum-header">
       <div class="hz-capsum-title">📊 Capacidade por linha</div>
     </div>
     <div id="hzCapSumBody"></div>
   </div>
 
-  <div class="grid-card hz-sim-card">
+  <div class="grid-card hz-sim-card" data-ui="surface">
     <div class="hz-sim-header" id="hzSimToggle">
       <div class="hz-sim-title">🧪 Simulador de Capacidade</div>
       <div class="hz-sim-chevron" id="hzSimChevron">▸</div>
@@ -206,7 +206,7 @@
     </div>
   </div>
 
-  <div class="grid-card hz-backlog-card">
+  <div class="grid-card hz-backlog-card" data-ui="surface">
     <div class="hz-backlog-header">
       <div class="hz-backlog-title">📋 Fila de Backlog (Prioridade)</div>
       <div class="hz-backlog-card-sub">Arraste pela alça pra reordenar, ou use "Classificar Prioridade" pra saltos grandes. Congele quando estiver pronto pra virar compromisso real.</div>
@@ -215,7 +215,7 @@
     <div class="hz-backlog-list" id="hzBacklogList"></div>
   </div>
 
-  <div class="grid-card hz-nec-card" id="hzNecessidadesCard" style="display:none">
+  <div class="grid-card hz-nec-card" id="hzNecessidadesCard" style="display:none" data-ui="surface">
     <div class="hz-nec-header">
       <div class="hz-nec-title">🎯 Necessidades de Emissão</div>
       <div class="hz-nec-sub">Blocos já congelados, esperando a OP real ser emitida no Gerador de OPs. Copie o código e cole no campo de referência na hora de emitir — o vínculo fica exato, sem depender de adivinhar por quantidade.</div>
@@ -223,7 +223,7 @@
     <div id="hzNecessidadesBody"></div>
   </div>
 
-  <div class="grid-card hz-unassigned-card" id="hzUnassignedCard" style="display:none">
+  <div class="grid-card hz-unassigned-card" id="hzUnassignedCard" style="display:none" data-ui="surface">
     <div id="hzUnassignedBody"></div>
   </div>
 </div>

@@ -108,8 +108,8 @@
     @media(max-width:640px){.header{flex-direction:column}.kpi-val{font-size:21px}.aging-row{grid-template-columns:64px 1fr 110px}}
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
-<div class="header">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Gestão Comercial</h1>
     <div class="header-sub">Carteira, clientes, prazos, faturamento e tabela de preços</div>
@@ -117,13 +117,13 @@
   <div class="status-pill"><span class="dot" id="sDot"></span><span id="sTxt">Carregando dados...</span></div>
 </div>
 
-<div class="tabs" id="abas">
-  <button class="tab active" data-tab="geral">Visão geral</button>
-  <button class="tab" data-tab="carteira">Carteira</button>
-  <button class="tab" data-tab="clientes">Clientes</button>
-  <button class="tab" data-tab="prazos">Prazos</button>
-  <button class="tab" data-tab="faturamento">Faturamento</button>
-  <button class="tab" data-tab="precos">Tabela de preços</button>
+<div class="tabs" id="abas" data-ui="tabs">
+  <button class="tab active" data-tab="geral" data-ui="tab">Visão geral</button>
+  <button class="tab" data-tab="carteira" data-ui="tab">Carteira</button>
+  <button class="tab" data-tab="clientes" data-ui="tab">Clientes</button>
+  <button class="tab" data-tab="prazos" data-ui="tab">Prazos</button>
+  <button class="tab" data-tab="faturamento" data-ui="tab">Faturamento</button>
+  <button class="tab" data-tab="precos" data-ui="tab">Tabela de preços</button>
 </div>
 
 <div class="main">
@@ -131,17 +131,17 @@
   <div class="tab-panel active" id="tab-geral">
     <div class="grid-kpi" id="kpis"></div>
     <div class="grid-2">
-      <div class="card">
+      <div class="card" data-ui="surface">
         <h3>Pedidos × expedição — últimos 12 meses <small>unidades</small></h3>
         <div class="chart-wrap"><canvas id="chartMensal" aria-label="Unidades pedidas e expedidas por mês"></canvas></div>
         <div class="legenda"><span><i style="background:var(--serie-a)"></i>Pedido</span><span><i style="background:var(--serie-b)"></i>Expedido</span></div>
       </div>
-      <div class="card">
+      <div class="card" data-ui="surface">
         <h3>O que pede atenção <small id="nAlertas"></small></h3>
         <div id="alertas"></div>
       </div>
     </div>
-    <div class="card">
+    <div class="card" data-ui="surface">
       <h3>Idade da carteira <small>saldo a entregar pela data do pedido</small></h3>
       <div id="aging"></div>
     </div>
@@ -150,7 +150,7 @@
 
   <!-- ═════════ CARTEIRA ═════════ -->
   <div class="tab-panel" id="tab-carteira">
-    <div class="toolbar">
+    <div class="toolbar" data-ui="filters">
       <input type="text" class="search" id="cartBusca" placeholder="Buscar pedido, nº do cliente, cliente ou produto...">
       <select id="cartEstado">
         <option value="ABERTO">Abertos</option>
@@ -165,14 +165,14 @@
       <button class="btn btn-ghost" id="btnDiretoria" title="Quem recebe o PDF de cada pedido novo e de cada alteração">E-mail da diretoria</button>
     </div>
     <div class="nota" id="notaDiretoria" style="margin:-4px 0 10px"></div>
-    <div class="card" style="padding:0">
-      <div class="table-wrap"><table id="tabCarteira"></table></div>
+    <div class="card" style="padding:0" data-ui="surface">
+      <div class="table-wrap" data-ui="table-scroll"><table id="tabCarteira"></table></div>
     </div>
   </div>
 
   <!-- ═════════ CLIENTES ═════════ -->
   <div class="tab-panel" id="tab-clientes">
-    <div class="toolbar">
+    <div class="toolbar" data-ui="filters">
       <input type="text" class="search" id="cliBusca" placeholder="Buscar cliente...">
       <select id="cliRecompra">
         <option value="">Toda a base</option>
@@ -182,8 +182,8 @@
       </select>
     </div>
     <p class="nota" style="margin-bottom:10px">Classe ABC por volume pedido em 12 meses (A = clientes que somam os primeiros 80%). Recompra compara os dias desde o último pedido com o intervalo mediano entre pedidos do cliente (precisa de 3 pedidos ou mais). Tendência: volume dos últimos 180 dias contra os 180 anteriores. Clique no cliente para detalhar.</p>
-    <div class="card" style="padding:0">
-      <div class="table-wrap"><table id="tabClientes"></table></div>
+    <div class="card" style="padding:0" data-ui="surface">
+      <div class="table-wrap" data-ui="table-scroll"><table id="tabClientes"></table></div>
     </div>
     <div id="cliDetalhe"></div>
   </div>
@@ -192,12 +192,12 @@
   <div class="tab-panel" id="tab-prazos">
     <div class="grid-kpi" id="kpisPrazo"></div>
     <p class="nota" style="margin-bottom:10px">Prazos contados da data do pedido. Pedido com data posterior à primeira OP ou saída (cadastrado depois de já produzido) fica fora das medianas e aparece marcado. "No prazo" só existe para pedido com previsão de entrega.</p>
-    <div class="toolbar">
+    <div class="toolbar" data-ui="filters">
       <input type="text" class="search" id="przBusca" placeholder="Buscar pedido ou cliente...">
       <select id="przCliente"><option value="">Todos os clientes</option></select>
     </div>
-    <div class="card" style="padding:0">
-      <div class="table-wrap"><table id="tabPrazos"></table></div>
+    <div class="card" style="padding:0" data-ui="surface">
+      <div class="table-wrap" data-ui="table-scroll"><table id="tabPrazos"></table></div>
     </div>
   </div>
 
@@ -206,24 +206,24 @@
     <div id="fatCobertura"></div>
     <div class="grid-kpi" id="kpisFat"></div>
     <div class="grid-2">
-      <div class="card">
+      <div class="card" data-ui="surface">
         <h3>Valor pedido por mês <small>só pedidos com preço</small></h3>
         <div class="chart-wrap"><canvas id="chartValor" aria-label="Valor pedido por mês"></canvas></div>
       </div>
-      <div class="card">
+      <div class="card" data-ui="surface">
         <h3>Preço praticado × tabela <small>itens de pedidos com as duas referências</small></h3>
-        <div class="table-wrap"><table id="tabDesvio"></table></div>
+        <div class="table-wrap" data-ui="table-scroll"><table id="tabDesvio"></table></div>
       </div>
     </div>
-    <div class="card" style="padding:0">
-      <div class="table-wrap"><table id="tabFatCliente"></table></div>
+    <div class="card" style="padding:0" data-ui="surface">
+      <div class="table-wrap" data-ui="table-scroll"><table id="tabFatCliente"></table></div>
     </div>
   </div>
 
   <!-- ═════════ PREÇOS ═════════ -->
   <div class="tab-panel" id="tab-precos">
     <p class="nota" style="margin-bottom:10px">Preço por SKU com vigência: um reajuste cria um preço novo a partir de uma data e o anterior fica no histórico. O pedido guarda o preço negociado; a tabela preenche o item sem preço e serve de régua para o desvio.</p>
-    <div class="toolbar">
+    <div class="toolbar" data-ui="filters">
       <input type="text" class="search" id="prcBusca" placeholder="Buscar SKU, produto ou cliente...">
       <select id="prcCliente"><option value="">Todos os clientes</option></select>
       <select id="prcFiltro">
@@ -232,8 +232,8 @@
         <option value="COM">Com preço</option>
       </select>
     </div>
-    <div class="card" style="padding:0">
-      <div class="table-wrap"><table id="tabPrecos"></table></div>
+    <div class="card" style="padding:0" data-ui="surface">
+      <div class="table-wrap" data-ui="table-scroll"><table id="tabPrecos"></table></div>
     </div>
   </div>
 </div>
@@ -260,7 +260,7 @@
     <div class="nota" id="edSub" style="margin-bottom:14px"></div>
     <div class="ed-grid" id="edCampos"></div>
     <b style="font-size:12px">Itens</b>
-    <div class="table-wrap"><table class="ed-itens" id="edItens"></table></div>
+    <div class="table-wrap" data-ui="table-scroll"><table class="ed-itens" id="edItens"></table></div>
     <button class="btn btn-ghost btn-sm" id="edAddItem" style="margin-top:8px">+ Adicionar item</button>
     <div class="form-row" style="margin-top:14px"><label for="edMotivo">Motivo da alteração</label><textarea id="edMotivo" rows="2" placeholder="Ex.: conciliação com o cliente em 16/09; cliente aumentou o pedido"></textarea></div>
     <div id="edPreview"></div>

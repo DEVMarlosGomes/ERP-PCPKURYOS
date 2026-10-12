@@ -78,8 +78,8 @@
 
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
-<div class="header">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Administração</h1>
     <div style="font-size:12.5px;color:var(--muted);margin-top:2px">Controle de Produção</div>
@@ -101,17 +101,17 @@
        ter dado real) -- hoje o app tem ~500 produtos e histórico real, então
        essa função virou uma mina. Removida por completo: configurar
        Linhas/Turnos/Postos agora é sempre manual, pelas seções abaixo. -->
-  <div class="card" id="seedCard" style="display:none; background:#fff7ed; border:1.5px solid #f59e0b;">
-    <div class="card-title" style="color:#c2410c; border-bottom:1px solid #fde68a;">Configuração inicial pendente</div>
+  <div class="card" id="seedCard" style="display:none; background:#fff7ed; border:1.5px solid #f59e0b;" data-ui="surface">
+    <div class="card-title" style="color:#c2410c; border-bottom:1px solid #fde68a;" data-ui="surface-head">Configuração inicial pendente</div>
     <div class="section-note" style="background:#fffbeb; border-left:3px solid #f59e0b; margin-bottom:0;">
       Nenhuma Linha de Produção cadastrada ainda. Cadastre manualmente nas seções "Linhas de Produção", "Turnos" e "Postos de Trabalho" logo abaixo.
     </div>
   </div>
 
   <!-- PERIODO -->
-  <div class="card">
-    <div class="card-title">Periodo da Meta</div>
-    <div class="form-grid">
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Periodo da Meta</div>
+    <div class="form-grid" data-ui="form-grid">
       <div class="fg" style="grid-column:1/-1"><label>Descricao</label><input type="text" id="mDesc" placeholder="Ex: Meta de Junho 2026"></div>
       <div class="fg"><label>Data Inicio</label><input type="date" id="mIni"></div>
       <div class="fg"><label>Data Fim</label><input type="date" id="mFim"></div>
@@ -120,8 +120,8 @@
   </div>
 
   <!-- METAS POR LINHA/POSTO -->
-  <div class="card">
-    <div class="card-title">Metas Diarias por Linha / Posto</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Metas Diarias por Linha / Posto</div>
     <div class="section-note">Informe a producao esperada por dia em cada linha e posto. A meta mestre do periodo e calculada automaticamente: <strong>total diario x dias do periodo</strong>.</div>
     <div id="metasLinhaContainer"><div class="empty-metas">Cadastre linhas e postos primeiro.</div></div>
     <div class="meta-totals" id="metaTotalsBox" style="display:none">
@@ -138,16 +138,16 @@
   </div>
 
   <!-- SETUP PADRAO POR LINHA (Fase 8 do plano de Planejamento/PCP) -->
-  <div class="card">
-    <div class="card-title">Setup Padrao por Linha</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Setup Padrao por Linha</div>
     <div class="section-note">Tempo de changeover (setup + limpeza) usado como estimativa em "Planejamento de OPs" quando a OP nao tem o cronometro de setup medido (form.html, Painel de Turno). Nao substitui o tempo real medido -- so preenche a lacuna quando ele nao existe.</div>
     <div id="setupPadraoContainer"><div class="empty-metas">Cadastre linhas primeiro.</div></div>
     <div style="margin-top:16px"><button class="btn btn-success" id="btnSalvarSetupPadrao">Salvar Setup Padrao</button></div>
   </div>
 
   <!-- LINHAS -->
-  <div class="card">
-    <div class="card-title">Linhas de Producao</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Linhas de Producao</div>
     <div class="section-note">Linhas onde o campo LOTE sera obrigatorio no registro.</div>
     <div class="tag-area" id="tLinhas"></div>
     <div class="tag-add">
@@ -157,8 +157,8 @@
   </div>
 
   <!-- ROTULAGEM -->
-  <div class="card">
-    <div class="card-title">Rotulagem</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Rotulagem</div>
     <div class="section-note">Máquinas/estações de rotulagem -- entram como slots fixos no Painel de Turno, igual às linhas.</div>
     <div class="tag-area" id="tRotulagem"></div>
     <div class="tag-add">
@@ -168,8 +168,8 @@
   </div>
 
   <!-- POSTOS -->
-  <div class="card">
-    <div class="card-title">Postos de Trabalho</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Postos de Trabalho</div>
     <div class="section-note">Postos onde o campo LOTE NAO aparece no registro.</div>
     <div class="tag-area" id="tPostos"></div>
     <div class="tag-add">
@@ -179,8 +179,8 @@
   </div>
 
   <!-- MOTIVOS DE PARADA -->
-  <div class="card">
-    <div class="card-title">Motivos de Parada</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Motivos de Parada</div>
     <div class="section-note">Lista usada no botão "Parar Linha" (Painel de Turno) e no registro de paradas do apontamento.</div>
     <div class="tag-area" id="tMotivosParada"></div>
     <div class="tag-add">
@@ -190,8 +190,8 @@
   </div>
 
   <!-- PRODUTOS -->
-  <div class="card">
-    <div class="card-title">Produtos / Itens</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Produtos / Itens</div>
     <div class="tag-area" id="tProdutos"></div>
     <div class="tag-add">
       <input type="text" id="iProduto" placeholder="Ex: Produto A, Ref. 001...">
@@ -204,14 +204,14 @@
        continua sendo lido junto do resto do config (ver loadConfig), só
        não é mais editado nesta tela, pra não ter duas UIs escrevendo no
        mesmo dado. -->
-  <div class="card">
-    <div class="card-title">Categorias de Produto</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Categorias de Produto</div>
     <div class="section-note">Esse cadastro foi movido → <a href="cadastros.html?tab=categorias">Cadastros</a>.</div>
   </div>
 
   <!-- OPERADORES -->
-  <div class="card">
-    <div class="card-title">Operadores</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Operadores</div>
     <div class="tag-area" id="tOperadores"></div>
     <div class="tag-add">
       <input type="text" id="iOperador" placeholder="Nome do operador...">
@@ -220,8 +220,8 @@
   </div>
 
   <!-- TURNOS -->
-  <div class="card">
-    <div class="card-title">Turnos</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Turnos</div>
     <div class="tag-area" id="tTurnos"></div>
     <div class="tag-add">
       <input type="text" id="iTurno" placeholder="Ex: Manha, Tarde, Noite...">
@@ -230,8 +230,8 @@
   </div>
 
   <!-- HORARIOS DOS TURNOS + APONTAMENTO -->
-  <div class="card">
-    <div class="card-title">Horários dos Turnos e Apontamento</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Horários dos Turnos e Apontamento</div>
     <div class="section-note">Informe o horário de início e a pausa de cada turno cadastrado acima (o início é usado pra deduzir o turno automaticamente ao fechar uma OP; a pausa é usada pra descontar o intervalo em lançamentos retroativos que atravessam mais de um dia).</div>
 
     <div class="fg" style="max-width:420px;border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:16px">
@@ -262,11 +262,11 @@
   </div>
 
   <!-- TURNOS EXTRAS (REFORÇO TEMPORÁRIO) -->
-  <div class="card">
-    <div class="card-title">Turnos Extras (Reforço Temporário)</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Turnos Extras (Reforço Temporário)</div>
     <div class="section-note">Pra demanda extraordinária e pontual -- 2º turno por algumas semanas, sábado extra por algumas semanas -- sem mexer no padrão semanal permanente acima. Soma horas por cima do turno normal, só dentro do período informado; fora dele, some sozinho, sem precisar lembrar de descadastrar.</div>
     <div id="turnosExtrasList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
-    <div class="form-grid" style="margin-bottom:10px">
+    <div class="form-grid" style="margin-bottom:10px" data-ui="form-grid">
       <div class="fg">
         <label>Nome</label>
         <input type="text" id="teNome" placeholder="Ex: 2º Turno Reforço">
@@ -312,8 +312,8 @@
   </div>
 
   <!-- LIGA/DESLIGA DO MOTOR DE REAJUSTE -->
-  <div class="card">
-    <div class="card-title">Auto-ajuste do Planejamento</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Auto-ajuste do Planejamento</div>
     <div class="section-note">
       O motor compara o ritmo real de produção com o planejado e <b>remaneja sozinho</b> os
       horários futuros da linha depois de cada apontamento. Desligado, a Grade Semanal só muda
@@ -328,8 +328,8 @@
   </div>
 
   <!-- CONFERÊNCIA DE PESAGEM (23/09) -->
-  <div class="card">
-    <div class="card-title">Conferência de Pesagem</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Conferência de Pesagem</div>
     <div class="section-note">
       Ligada, a pesagem da Manipulação só é conferida por quem tem a permissão
       <b>Conferência de Pesagem</b> em Usuários (Qualidade e P&amp;D), com o próprio login. Quem fica
@@ -345,8 +345,8 @@
   </div>
 
   <!-- ZONA FIXA (CONGELAMENTO AUTOMÁTICO ROLANTE) -->
-  <div class="card">
-    <div class="card-title">Zona Fixa do Planejamento</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Zona Fixa do Planejamento</div>
     <div class="section-note">Quantos dias, a partir de hoje, ficam protegidos contra reajuste automático (o motor de auto-ajuste não move mais o que já está agendado nesses dias -- só o que estiver fora dessa janela continua fluido/"previsão"). Não afeta a edição manual na Grade Semanal, só o robô de reajuste; pra romper a proteção num bloco específico, use "🔓 Liberar" nele.</div>
     <div class="fg" style="max-width:220px">
       <label>Dias fixos a partir de hoje</label>
@@ -355,8 +355,8 @@
   </div>
 
   <!-- MOTIVOS DE ATRASO NO ENCERRAMENTO -->
-  <div class="card">
-    <div class="card-title">Motivos de Atraso no Encerramento</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Motivos de Atraso no Encerramento</div>
     <div class="section-note">Exigido em "Encerrar Turno" quando o fechamento passa da tolerância configurada acima (ex: hora extra).</div>
     <div class="tag-area" id="tMotivosAtrasoEncerramento"></div>
     <div class="tag-add">
@@ -366,10 +366,10 @@
   </div>
 
   <!-- NOTIFICACOES -->
-  <div class="card">
-    <div class="card-title">Notificações por E-mail</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Notificações por E-mail</div>
     <div class="section-note">Alertas em tempo real (linha parada, OP atrasada) e o resumo de fim de turno são enviados para os e-mails cadastrados abaixo.</div>
-    <div class="form-grid" style="margin-bottom:12px">
+    <div class="form-grid" style="margin-bottom:12px" data-ui="form-grid">
       <div class="fg">
         <label>Avisar linha parada após (minutos)</label>
         <input type="number" id="iAndonParadaMinutos" min="1" placeholder="15">
@@ -379,7 +379,7 @@
         <input type="number" id="iOpAtrasoHoras" min="1" placeholder="1">
       </div>
     </div>
-    <div class="form-grid" style="margin-bottom:12px">
+    <div class="form-grid" style="margin-bottom:12px" data-ui="form-grid">
       <div class="fg">
         <label>Operação estendida hoje (libera alertas fora do horário normal)</label>
         <input type="date" id="iOperacaoEstendidaData">

@@ -207,9 +207,9 @@
   </style>
 <script src="shared/contatos-cliente.js"></script><script src="shared/espelho-cadastro.js"></script><script src="shared/contatos-cliente-ui.js"></script><link rel="stylesheet" href="shared/contatos-cliente.css"><script src="shared/cliente-comercial.js"></script><script src="shared/etiqueta-caixa.js"></script>
 </head>
-<body class="kuryos-theme has-sidebar">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
 
-<div class="header">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Cadastros</h1>
     <div class="header-sub">Materiais, Produtos, Fórmulas/BOM/Especificações, Categorias, Clientes e Fornecedores -- num lugar só.</div>
@@ -221,19 +221,19 @@
   <div id="alertBox" class="alert alert-success"></div>
 </div>
 
-<div class="main-tabs" id="mainTabs">
-  <button class="main-tab active" data-maintab="materiais">Materiais</button>
-  <button class="main-tab" data-maintab="produtos">Produtos</button>
-  <button class="main-tab" data-maintab="formulas">Fórmulas / BOM / Especificações</button>
-  <button class="main-tab" data-maintab="categorias">Categorias</button>
-  <a class="main-tab" href="estoque.html?tab=estrutura" data-maintab="enderecos" title="Estrutura de ruas e posições agora vivem no WMS (Estoque)">🏬 Estoque / WMS</a>
-  <button class="main-tab" data-maintab="clientes">Clientes</button>
-  <button class="main-tab" data-maintab="fornecedores">Fornecedores</button>
+<div class="main-tabs" id="mainTabs" data-ui="tabs">
+  <button class="main-tab active" data-maintab="materiais" data-ui="tab">Materiais</button>
+  <button class="main-tab" data-maintab="produtos" data-ui="tab">Produtos</button>
+  <button class="main-tab" data-maintab="formulas" data-ui="tab">Fórmulas / BOM / Especificações</button>
+  <button class="main-tab" data-maintab="categorias" data-ui="tab">Categorias</button>
+  <a class="main-tab" href="estoque.html?tab=estrutura" data-maintab="enderecos" title="Estrutura de ruas e posições agora vivem no WMS (Estoque)" data-ui="tab">🏬 Estoque / WMS</a>
+  <button class="main-tab" data-maintab="clientes" data-ui="tab">Clientes</button>
+  <button class="main-tab" data-maintab="fornecedores" data-ui="tab">Fornecedores</button>
 </div>
 
 <div class="main">
   <div class="main-tab-panel active" id="maintab-materiais">
-    <div class="kt-toolbar">
+    <div class="kt-toolbar" data-ui="filters">
       <div class="kt-search">
         <span class="icon">🔍</span>
         <input type="text" id="searchInput-mat" placeholder="Buscar por código, nome ou INCI...">
@@ -287,7 +287,7 @@
           <div id="advSearchFacets-mat"></div>
         </div>
         <div style="flex:1;min-width:0;padding:20px">
-          <div class="table-wrap">
+          <div class="table-wrap" data-ui="table-scroll">
             <table>
               <thead><tr><th>Código</th><th>Nome</th><th>Tipo</th><th>Unidade</th></tr></thead>
               <tbody id="advSearchResults-mat"></tbody>
@@ -298,15 +298,15 @@
     </div>
 
     <div class="stats">
-      <div class="stat"><div class="stat-val" id="statTotal-mat">—</div><div class="stat-lbl">Total</div></div>
-      <div class="stat"><div class="stat-val" id="statMP" style="color:var(--primary)">—</div><div class="stat-lbl">Matéria-Prima</div></div>
-      <div class="stat"><div class="stat-val" id="statEmbalagem" style="color:var(--purple)">—</div><div class="stat-lbl">Embalagem</div></div>
-      <div class="stat"><div class="stat-val" id="statControlado" style="color:var(--danger)">—</div><div class="stat-lbl">Controlados</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="statTotal-mat">—</div><div class="stat-lbl">Total</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="statMP" style="color:var(--primary)">—</div><div class="stat-lbl">Matéria-Prima</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="statEmbalagem" style="color:var(--purple)">—</div><div class="stat-lbl">Embalagem</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="statControlado" style="color:var(--danger)">—</div><div class="stat-lbl">Controlados</div></div>
     </div>
 
-    <div class="card">
-      <div class="card-title"><span id="tableCount-mat">Materiais</span></div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head"><span id="tableCount-mat">Materiais</span></div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead id="matThead-mat">
             <tr>
@@ -328,13 +328,13 @@
 
     <div class="modal-bg" id="modalBg-mat">
       <div class="modal" style="max-width:760px" role="dialog" aria-modal="true" aria-labelledby="modalTitle-mat">
-        <div class="modal-header">
+        <div class="modal-header" data-ui="dialog-head">
           <h2 id="modalTitle-mat">Novo Material</h2>
           <button class="modal-close" id="modalClose-mat" title="Fechar" aria-label="Fechar">×</button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body" data-ui="dialog-body">
           <div class="section-label">Identificação</div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group">
               <label>Código</label>
               <input type="text" id="fCodigo-mat" readonly placeholder="Gerado automaticamente ao salvar">
@@ -392,7 +392,7 @@
           <!-- MP GERAL -->
           <div class="tipo-fields" data-tipo-for="MPGR">
             <div class="section-label">Matéria-Prima -- Geral</div>
-            <div class="form-grid">
+            <div class="form-grid" data-ui="form-grid">
               <div class="form-group"><label>Nome INCI</label><input type="text" id="fInci-mat" class="uc" placeholder="Ex: Glycerin"></div>
               <div class="form-group"><label>Função na fórmula</label><input type="text" id="fFuncaoFormula-mat" class="uc" placeholder="Ex: umectante, emulsificante..."></div>
               <div class="form-group"><label>Aparência</label><input type="text" id="fAparencia-mat" class="uc" placeholder="Ex: líquido viscoso incolor"></div>
@@ -407,7 +407,7 @@
           <!-- MP ESSÊNCIA / FRAGRÂNCIA -->
           <div class="tipo-fields" data-tipo-for="MPES">
             <div class="section-label">Fragrância / Essência</div>
-            <div class="form-grid">
+            <div class="form-grid" data-ui="form-grid">
               <div class="form-group"><label>Nome INCI</label><input type="text" id="fInciFrag-mat" class="uc" placeholder="Quando aplicável"></div>
               <div class="form-group"><label>Casa de fragrância</label><input type="text" id="fCasaFragrancia-mat" class="uc" placeholder="Ex: Givaudan, Firmenich..."></div>
               <div class="form-group full"><label>Inspiração</label><input type="text" id="fInspiracao-mat" class="uc" placeholder="Ex: inspirado em [referência de mercado]"></div>
@@ -418,7 +418,7 @@
           <!-- EMBALAGEM PRIMÁRIA -->
           <div class="tipo-fields" data-tipo-for="EP">
             <div class="section-label">Embalagem Primária</div>
-            <div class="form-grid">
+            <div class="form-grid" data-ui="form-grid">
               <div class="form-group"><label>Formato</label><input type="text" id="fFormato-mat" class="uc" placeholder="Ex: cilíndrico alto, oval achatado..."></div>
               <div class="form-group"><label>Gargalo / rosca (GPI/SPI)</label><input type="text" id="fGargalo-mat" class="uc" placeholder="Ex: 24/410"></div>
               <div class="form-group"><label>Material</label>
@@ -470,7 +470,7 @@
           <!-- EMBALAGEM SECUNDÁRIA / TERCIÁRIA -->
           <div class="tipo-fields" data-tipo-for="ES,ET">
             <div class="section-label">Embalagem Secundária / Terciária</div>
-            <div class="form-grid">
+            <div class="form-grid" data-ui="form-grid">
               <div class="form-group"><label>Material</label>
                 <select id="fMaterialResinaSt-mat">
                   <option value="">Selecione...</option>
@@ -496,7 +496,7 @@
           </div>
 
           <div class="section-label">Observações</div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group full">
               <label>Observações / especificações técnicas livres</label>
               <textarea id="fEspecificacoes" class="uc" rows="2" placeholder="Qualquer coisa relevante que não caiba nos campos acima"></textarea>
@@ -504,7 +504,7 @@
           </div>
 
           <div class="section-label">Logística</div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group">
               <label>Unidade de compra</label>
               <select id="fUnidadeCompra-mat">
@@ -530,13 +530,13 @@
           <div class="tipo-fields" data-tipo-for="MPGR,MU">
             <div class="section-label">Fornecedores homologados</div>
             <div class="section-note">Cada material pode ter vários fornecedores homologados -- o Pedido de Compra escolhe entre eles. Cadastro de fornecedor em si fica na aba Fornecedores, aqui mesmo em Cadastros.</div>
-            <div class="table-wrap" style="margin-bottom:10px">
+            <div class="table-wrap" style="margin-bottom:10px" data-ui="table-scroll">
               <table>
                 <thead><tr><th>Fornecedor</th><th>Nome comercial do item</th><th>Código deles</th><th>Status</th><th>Custo ref.</th><th style="width:40px"></th></tr></thead>
                 <tbody id="fornecedoresHomologadosBody-mat"><tr><td colspan="6" class="no-data">Nenhum fornecedor homologado ainda.</td></tr></tbody>
               </table>
             </div>
-            <div class="form-grid" style="align-items:end">
+            <div class="form-grid" style="align-items:end" data-ui="form-grid">
               <div class="form-group">
                 <label>Fornecedor</label>
                 <input type="text" id="fhFornecedor-mat" class="uc" placeholder="Digite pra buscar..." autocomplete="off">
@@ -559,7 +559,7 @@
           <div class="tipo-fields" data-tipo-for="MPES,EP,ES,ET">
             <div class="section-label">Fornecedor</div>
             <div class="section-note">Fragrância/Essência e Embalagem são um fornecedor por cadastro -- se mais de um fornecedor tiver "a mesma" essência ou peça, cada um ganha seu próprio cadastro de material (código diferente). Isso é diferente de MP Geral, que ainda aceita vários fornecedores homologados no mesmo cadastro.</div>
-            <div class="form-grid" style="align-items:end">
+            <div class="form-grid" style="align-items:end" data-ui="form-grid">
               <div class="form-group">
                 <label>Fornecedor</label>
                 <input type="text" id="fuFornecedor-mat" class="uc" placeholder="Digite pra buscar..." autocomplete="off">
@@ -573,7 +573,7 @@
 
           <div class="section-label" id="usoMatLabel-mat" style="display:none">Usado em (Fórmula / BOM) <label class="chk" style="font-weight:400;text-transform:none;letter-spacing:0;margin-left:10px"><input type="checkbox" id="chkUsoAntigas-mat"> incluir versões antigas</label></div>
           <div class="section-note" id="usoMatNote-mat" style="display:none">Somente leitura -- levantado agora, a partir das Fórmulas e BOMs cadastradas (não é um vínculo gravado no material). Se você trocar este material aqui, os produtos abaixo NÃO mudam sozinhos -- edite a Fórmula/BOM de cada um, na aba ao lado.</div>
-          <div class="table-wrap" style="margin-bottom:10px" id="usoMatWrap-mat">
+          <div class="table-wrap" style="margin-bottom:10px" id="usoMatWrap-mat" data-ui="table-scroll">
             <table>
               <thead><tr><th>Produto</th><th>Onde</th><th style="text-align:right">Proporção</th><th>Versão</th></tr></thead>
               <tbody id="usoMatBody-mat"><tr><td colspan="4" class="no-data">Carregando...</td></tr></tbody>
@@ -581,7 +581,7 @@
           </div>
 
           <div class="section-label">Status</div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group">
               <label class="chk"><input type="checkbox" id="fControlado"> Controlado (ex: álcool -- controle PF)</label>
             </div>
@@ -595,14 +595,14 @@
 
           <div class="section-label" id="historicoMatLabel-mat" style="display:none">Histórico de alterações</div>
           <div class="section-note" id="historicoMatNote-mat" style="display:none">Registrado automaticamente a cada edição salva -- não cobre a criação do registro nem edições feitas antes deste recurso existir.</div>
-          <div class="table-wrap" style="margin-bottom:10px; max-height:220px; overflow-y:auto" id="historicoMatWrap-mat">
+          <div class="table-wrap" style="margin-bottom:10px; max-height:220px; overflow-y:auto" id="historicoMatWrap-mat" data-ui="table-scroll">
             <table>
               <thead><tr><th>Campo</th><th>Antes</th><th>Depois</th><th>Por</th><th>Quando</th></tr></thead>
               <tbody id="historicoMatBody-mat"><tr><td colspan="5" class="no-data">Nenhuma alteração registrada ainda.</td></tr></tbody>
             </table>
           </div>
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer" data-ui="dialog-foot">
           <button class="btn btn-ghost" id="modalCancelBtn-mat">Cancelar</button>
           <button class="btn btn-primary" id="modalSaveBtn-mat">Salvar Material</button>
         </div>
@@ -610,7 +610,7 @@
     </div>
   </div>
   <div class="main-tab-panel" id="maintab-produtos">
-    <div class="kt-toolbar">
+    <div class="kt-toolbar" data-ui="filters">
       <div class="kt-search">
         <span class="icon">🔍</span>
         <input type="text" id="searchInput-prod" placeholder="Buscar por SKU, descrição, cliente...">
@@ -627,14 +627,14 @@
     </div>
 
     <div class="stats">
-      <div class="stat"><div class="stat-val" id="statTotal-prod">—</div><div class="stat-lbl">Total</div></div>
-      <div class="stat"><div class="stat-val" id="statAtivos-prod" style="color:var(--success)">—</div><div class="stat-lbl">Ativos</div></div>
-      <div class="stat"><div class="stat-val" id="statInativos-prod" style="color:var(--muted)">—</div><div class="stat-lbl">Inativos</div></div>
-      <div class="stat"><div class="stat-val" id="statCategorias-prod" style="color:var(--primary)">—</div><div class="stat-lbl">Categorias</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="statTotal-prod">—</div><div class="stat-lbl">Total</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="statAtivos-prod" style="color:var(--success)">—</div><div class="stat-lbl">Ativos</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="statInativos-prod" style="color:var(--muted)">—</div><div class="stat-lbl">Inativos</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="statCategorias-prod" style="color:var(--primary)">—</div><div class="stat-lbl">Categorias</div></div>
     </div>
 
-    <div class="card">
-      <div class="card-title">
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">
         <span id="tableCount-prod">Produtos</span>
       </div>
       <div class="recalc-bar" style="margin:12px 16px">
@@ -646,7 +646,7 @@
            nó não era lido por nenhuma outra tela, e quem cadastra produto
            nunca ficava sabendo da tarefa. -->
       <div id="solicitacoesCadastro-prod" style="display:none"></div>
-      <div class="table-wrap">
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead id="prodThead-prod">
             <tr>
@@ -671,23 +671,23 @@
 
     <div class="modal-bg" id="modalBg-prod">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle-prod">
-        <div class="modal-header">
+        <div class="modal-header" data-ui="dialog-head">
           <h2 id="modalTitle-prod">Novo Produto</h2>
           <button class="modal-close" id="modalClose-prod" title="Fechar" aria-label="Fechar">×</button>
         </div>
-        <div class="modal-body">
-          <div class="tabs" id="prodInnerTabs">
-            <button class="tab active" data-tab="prod-ident">Identificação</button>
-            <button class="tab" data-tab="prod-classif">Classificação</button>
-            <button class="tab" data-tab="prod-embal">Embalagem</button>
-            <button class="tab" data-tab="prod-reg">Regulatório</button>
-            <button class="tab" data-tab="prod-lote">Parâmetros de Lote</button>
+        <div class="modal-body" data-ui="dialog-body">
+          <div class="tabs" id="prodInnerTabs" data-ui="tabs">
+            <button class="tab active" data-tab="prod-ident" data-ui="tab">Identificação</button>
+            <button class="tab" data-tab="prod-classif" data-ui="tab">Classificação</button>
+            <button class="tab" data-tab="prod-embal" data-ui="tab">Embalagem</button>
+            <button class="tab" data-tab="prod-reg" data-ui="tab">Regulatório</button>
+            <button class="tab" data-tab="prod-lote" data-ui="tab">Parâmetros de Lote</button>
           </div>
 
           <div class="tab-panel active" id="tab-prod-ident">
             <div id="autoSkuBox-prod" class="info-box-green" style="display:none;border:1px solid color-mix(in srgb, var(--tint-green-fg) 30%, transparent);margin-bottom:14px">
               <div style="font-size:12px;font-weight:700;color:var(--tint-green-fg);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Gerar código automaticamente (produto novo)</div>
-              <div class="form-grid">
+              <div class="form-grid" data-ui="form-grid">
                 <div class="form-group">
                   <label>Categoria</label>
                   <select id="fAutoCategoria-prod"><option value="">Selecione...</option></select>
@@ -699,7 +699,7 @@
               </div>
               <div class="field-hint" id="skuPreviewHint-prod" style="margin-top:8px;font-size:12px;color:var(--tint-green-fg)">Escolha categoria e cliente pra gerar o código -- ou digite manualmente abaixo.</div>
             </div>
-            <div class="form-grid">
+            <div class="form-grid" data-ui="form-grid">
               <div class="form-group">
                 <label>SKU * <button type="button" id="btnUnlockSku-prod" class="btn btn-ghost btn-sm" style="display:none;padding:2px 8px;font-size:11px;margin-left:6px">✏ Alterar código</button></label>
                 <input type="text" id="fSku-prod" class="uc" placeholder="Ex: BSPL-AFEE-0001 (ou digite manualmente)">
@@ -743,7 +743,7 @@
             </div>
 
             <div class="section-label">Códigos de Barras</div>
-            <div class="form-grid">
+            <div class="form-grid" data-ui="form-grid">
               <div class="form-group">
                 <label>EAN-13</label>
                 <input type="text" id="fEan13-prod" placeholder="13 dígitos" maxlength="13">
@@ -757,7 +757,7 @@
             </div>
 
             <div class="section-label">Histórico de Produção</div>
-            <div class="form-grid">
+            <div class="form-grid" data-ui="form-grid">
               <div class="form-group">
                 <label>Prod/hora (referência manual)</label>
                 <input type="number" id="fProdHoraRef-prod" min="0" step="1" placeholder="Ex: 1200">
@@ -774,7 +774,7 @@
           </div>
 
           <div class="tab-panel" id="tab-prod-classif">
-            <div class="form-grid">
+            <div class="form-grid" data-ui="form-grid">
               <div class="form-group">
                 <label>Cliente</label>
                 <input type="text" id="fCliente-prod" class="uc" list="clientesList-prod" placeholder="Ex: MISS ROSE" autocomplete="off">
@@ -813,7 +813,7 @@
               carga que vão para a nota fiscal — hoje eles são digitados à mão na planilha, e é
               de onde vêm os erros de emissão.
             </div>
-            <div class="form-grid">
+            <div class="form-grid" data-ui="form-grid">
               <div class="form-group">
                 <label>Un. / Caixa *</label>
                 <input type="number" id="fUnCx-prod" min="1" step="1" placeholder="Ex: 12">
@@ -837,7 +837,7 @@
           </div>
 
           <div class="tab-panel" id="tab-prod-reg">
-            <div class="form-grid">
+            <div class="form-grid" data-ui="form-grid">
               <div class="form-group">
                 <label>MS Anvisa</label>
                 <input type="text" id="fMsAnvisa-prod" class="uc" placeholder="Número do registro">
@@ -857,7 +857,7 @@
             <div style="font-size:12px;color:var(--muted);margin-bottom:12px;padding:8px 12px;background:var(--tint-green-bg);border-radius:6px;border-left:3px solid var(--success)">
               Usados pelo cálculo de dimensionamento do lote na emissão de OP. Densidade nunca deve ser 1,0 por padrão -- deixe vazio até ter valor medido de verdade.
             </div>
-            <div class="form-grid">
+            <div class="form-grid" data-ui="form-grid">
               <div class="form-group">
                 <label>Densidade do Granel (g/ml)</label>
                 <input type="number" id="fDensidadeGranel-prod" min="0" step="any" placeholder="Medida, sem default">
@@ -882,7 +882,7 @@
             </div>
           </div>
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer" data-ui="dialog-foot">
           <button class="btn btn-ghost" id="modalCancelBtn-prod">Cancelar</button>
           <button class="btn btn-primary" id="modalSaveBtn-prod">Salvar Produto</button>
         </div>
@@ -890,8 +890,8 @@
     </div>
   </div>
   <div class="main-tab-panel" id="maintab-formulas">
-    <div class="card">
-      <div class="card-title">Produto</div>
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">Produto</div>
       <div style="max-width:520px;position:relative">
         <input type="text" id="fProdutoBusca-form" placeholder="Buscar produto por SKU ou descrição..." autocomplete="off">
         <div id="produtoResultados-form" style="display:none;position:absolute;z-index:20;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);max-height:260px;overflow-y:auto;width:100%;margin-top:4px"></div>
@@ -899,27 +899,27 @@
       <div id="produtoSelecionado-form" style="margin-top:10px;font-size:14px;font-weight:700;display:none"></div>
     </div>
 
-    <div id="semProduto-form" class="card">
+    <div id="semProduto-form" class="card" data-ui="surface">
       <div class="empty-state">Busque e selecione um produto acima pra ver ou cadastrar fórmula, BOM e especificações.</div>
     </div>
 
-    <div id="areaVersoes-form" class="card" style="display:none">
-      <div class="card-title">Versões</div>
+    <div id="areaVersoes-form" class="card" style="display:none" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">Versões</div>
       <div id="listaVersoes-form" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"></div>
       <button class="btn btn-primary btn-sm" id="btnNovaVersao-form">+ Nova Versão</button>
     </div>
 
-    <div id="areaEdicao-form" class="card" style="display:none">
+    <div id="areaEdicao-form" class="card" style="display:none" data-ui="surface">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-        <div class="card-title" style="margin-bottom:0">Versão <span id="versaoAtualLabel-form"></span></div>
+        <div class="card-title" style="margin-bottom:0" data-ui="surface-head">Versão <span id="versaoAtualLabel-form"></span></div>
         <div id="versaoAcoes-form" style="display:flex;gap:8px"></div>
       </div>
       <div class="section-note" style="margin-top:-4px;margin-bottom:10px">Fórmula, BOM e Especificações têm aprovação própria e independente -- cada aba tem seu status e seus botões de aprovação.</div>
 
-      <div class="tabs" id="formulasInnerTabs">
-        <button class="tab active" data-tab="form-formula">Fórmula</button>
-        <button class="tab" data-tab="form-bom">BOM (Embalagem)</button>
-        <button class="tab" data-tab="form-espec">Especificações</button>
+      <div class="tabs" id="formulasInnerTabs" data-ui="tabs">
+        <button class="tab active" data-tab="form-formula" data-ui="tab">Fórmula</button>
+        <button class="tab" data-tab="form-bom" data-ui="tab">BOM (Embalagem)</button>
+        <button class="tab" data-tab="form-espec" data-ui="tab">Especificações</button>
       </div>
 
       <div class="tab-panel active" id="tab-form-formula">
@@ -974,7 +974,7 @@
     </div>
   </div>
   <div class="main-tab-panel" id="maintab-categorias">
-    <div class="card" style="padding:16px">
+    <div class="card" style="padding:16px" data-ui="surface">
       <div class="section-note">Lista fechada, ancorada na taxonomia oficial da ANVISA pra produtos cosméticos -- a mesma classificação já usada no registro/notificação de cada produto. Alimenta a geração automática de código (formato CATEGORIA-CLIENTE-SEQUENCIAL, ex: PRF-AFEE-00001) na aba Produtos. Clique numa categoria pra ativar/desativar -- categorias que a Kuryos não usa hoje ficam inativas, mas continuam cadastradas, prontas pro dia que precisar.</div>
       <div class="tag-area" id="tCategoriasProduto-cat"></div>
       <div class="section-label" style="margin-top:18px">Adicionar categoria fora da lista</div>
@@ -985,8 +985,8 @@
         <button class="btn btn-ghost btn-sm" id="btnAddCategoriaProduto-cat">+ Adicionar</button>
       </div>
     </div>
-    <div class="card" style="padding:16px;margin-top:14px">
-      <div class="card-title">Tipos de Ensaio (Especificações)</div>
+    <div class="card" style="padding:16px;margin-top:14px" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">Tipos de Ensaio (Especificações)</div>
       <div class="section-note">Lista usada no campo "Ensaio" das Especificações de cada fórmula (aba Fórmulas/BOM/Especificações) -- fechada, pra manter o cadastro consistente em vez de digitação livre (evita duplicidade tipo "Teor de Álcool" x "Teor de Alcool" cadastrados como 2 ensaios diferentes). Clique num item pra ativar/desativar.</div>
       <div class="tag-area" id="tTiposEnsaio-cat"></div>
       <div class="section-label" style="margin-top:18px">Adicionar tipo fora da lista</div>
@@ -996,8 +996,8 @@
         <button class="btn btn-ghost btn-sm" id="btnAddTipoEnsaio-cat">+ Adicionar</button>
       </div>
     </div>
-    <div class="card" style="padding:16px;margin-top:14px">
-      <div class="card-title">Área de Endereço (Estoque / WMS)</div>
+    <div class="card" style="padding:16px;margin-top:14px" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">Área de Endereço (Estoque / WMS)</div>
       <div class="section-note">Lista usada na Estrutura de Ruas (aba Endereços) pra marcar a qual área cada rua pertence -- fechada, pra manter relatório e filtro consistentes. Clique numa área pra ativar/desativar.</div>
       <div class="tag-area" id="tAreasEndereco-cat"></div>
       <div class="section-label" style="margin-top:18px">Adicionar área fora da lista</div>
@@ -1006,8 +1006,8 @@
         <button class="btn btn-ghost btn-sm" id="btnAddAreaEndereco-cat">+ Adicionar</button>
       </div>
     </div>
-    <div class="card" style="padding:16px;margin-top:14px">
-      <div class="card-title">Motivo de Movimento de Estoque</div>
+    <div class="card" style="padding:16px;margin-top:14px" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">Motivo de Movimento de Estoque</div>
       <div class="section-note">Lista usada no histórico de movimentações do Estoque/WMS (recebimento, transferência entre endereços, saída manual, etc.) -- fechada, pra manter relatório por motivo confiável em vez de texto livre divergente. Clique num motivo pra ativar/desativar.</div>
       <div class="tag-area" id="tMotivosMovEstoque-cat"></div>
       <div class="section-label" style="margin-top:18px">Adicionar motivo fora da lista</div>
@@ -1018,7 +1018,7 @@
     </div>
   </div>
   <div class="main-tab-panel" id="maintab-clientes">
-    <div class="kt-toolbar">
+    <div class="kt-toolbar" data-ui="filters">
       <div class="kt-search">
         <span class="icon">🔍</span>
         <input type="text" id="searchInput-cli" placeholder="Buscar por nome ou código...">
@@ -1031,9 +1031,9 @@
       <button class="btn btn-primary" id="btnNovo-cli">+ Novo Cliente</button>
     </div>
 
-    <div class="card">
-      <div class="card-title"><span id="tableCount-cli">Clientes</span></div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head"><span id="tableCount-cli">Clientes</span></div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead id="cliThead-cli">
             <tr>
@@ -1054,12 +1054,12 @@
 
     <div class="modal-bg" id="modalBg-cli">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle-cli">
-        <div class="modal-header">
+        <div class="modal-header" data-ui="dialog-head">
           <h2 id="modalTitle-cli">Novo Cliente</h2>
           <button class="modal-close" id="modalClose-cli" title="Fechar" aria-label="Fechar">×</button>
         </div>
-        <div class="modal-body">
-          <div class="form-grid">
+        <div class="modal-body" data-ui="dialog-body">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group full">
               <label>Nome *</label>
               <input type="text" id="fNome-cli" class="uc" placeholder="Ex: AFEER OF ARABIAN">
@@ -1078,7 +1078,7 @@
           <div class="field-hint">Adicione as pessoas necessárias. Uma pessoa pode atender várias áreas; cada área pode ter um contato principal.</div>
           <div id="contatosClienteEditor"></div>
           <div class="section-label">Localização</div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group">
               <label>Cidade</label>
               <input type="text" id="fCidade-cli" class="uc">
@@ -1088,13 +1088,13 @@
               <input type="text" id="fUf-cli" maxlength="2" style="text-transform:uppercase">
             </div>
           </div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group full"><label>Endereço de entrega</label><input type="text" id="fEnderecoEntrega-cli" placeholder="Logradouro, número, complemento, bairro, cidade, UF e CEP"></div>
             <div class="form-group full"><label>Endereço de faturamento</label><input type="text" id="fEnderecoFaturamento-cli" placeholder="Endereço completo de faturamento"></div>
           </div>
           <div class="field-hint">Usados como sugestão nos novos pedidos comerciais. Alterações no cadastro não mudam pedidos já gravados.</div>
           <div class="section-label">Comercial</div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group">
               <label>Condição de pagamento</label>
               <input type="text" id="fCondicaoPagamento-cli" class="uc" placeholder="Ex: 30/60/90 dias">
@@ -1105,7 +1105,7 @@
             </div>
           </div>
           <div class="section-label">Regulatório</div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group">
               <label>Detentor do registro ANVISA</label>
               <select id="fDetentorAnvisa-cli">
@@ -1118,7 +1118,7 @@
           <div class="section-label">Vínculos</div>
           <div class="field-hint" style="margin-bottom:8px">Use isto quando este cliente é filial/matriz de outro cliente já cadastrado, ou quando ele também é fornecedor (ex: pra emitir nota de devolução) -- evita cadastro duplicado da mesma empresa.</div>
           <div id="cliDupHint-cli" class="dup-hint"></div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group full">
               <label>Matriz (se este for filial de outro cliente)</label>
               <input type="text" id="cliMatriz-cli" class="uc" placeholder="Digite pra buscar..." autocomplete="off">
@@ -1133,7 +1133,7 @@
             </div>
           </div>
           <div class="section-label">Logo para etiquetas</div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group full">
               <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
                 <div id="logoPrev-cli" style="width:180px;height:60px;border:1px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff;color:#888;font-size:12px;overflow:hidden">sem logo</div>
@@ -1144,7 +1144,7 @@
             </div>
           </div>
           <div class="section-label">Status</div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group">
               <label>Status</label>
               <select id="fAtivo-cli">
@@ -1154,7 +1154,7 @@
             </div>
           </div>
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer" data-ui="dialog-foot">
           <button class="btn btn-ghost" id="modalCancelBtn-cli">Cancelar</button>
           <button class="btn btn-primary" id="modalSaveBtn-cli">Salvar Cliente</button>
         </div>
@@ -1162,7 +1162,7 @@
     </div>
   </div>
   <div class="main-tab-panel" id="maintab-fornecedores">
-    <div class="kt-toolbar">
+    <div class="kt-toolbar" data-ui="filters">
       <div class="kt-search"><span class="icon">🔍</span><input type="text" id="fnSearch-forn" placeholder="Buscar por razão social, nome fantasia ou CNPJ..."></div>
       <select class="kt-select" id="fnFilterTipo-forn">
         <option value="">Todos os tipos</option>
@@ -1183,9 +1183,9 @@
       </select>
       <button class="btn btn-primary" id="btnNovoFornecedor-forn">+ Novo Fornecedor</button>
     </div>
-    <div class="card">
-      <div class="card-title" id="fnCount-forn">Fornecedores</div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-title" id="fnCount-forn" data-ui="surface-head">Fornecedores</div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead id="fnThead-forn"><tr>
             <th data-sort="razaoSocial">Razão Social</th>
@@ -1208,9 +1208,9 @@
 
     <div class="modal-bg" id="modalFornecedor-forn">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalFornecedorTitle-forn">
-        <div class="modal-header"><h2 id="modalFornecedorTitle-forn">Novo Fornecedor</h2><button class="modal-close" id="modalFornecedorClose-forn" title="Fechar" aria-label="Fechar">×</button></div>
-        <div class="modal-body">
-          <div class="form-grid">
+        <div class="modal-header" data-ui="dialog-head"><h2 id="modalFornecedorTitle-forn">Novo Fornecedor</h2><button class="modal-close" id="modalFornecedorClose-forn" title="Fechar" aria-label="Fechar">×</button></div>
+        <div class="modal-body" data-ui="dialog-body">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group full">
               <label>Razão Social *</label>
               <input type="text" id="fnRazaoSocial-forn" class="uc" placeholder="Ex: Distribuidora ABC Ltda">
@@ -1250,20 +1250,20 @@
 
           <div class="section-label">CNPJs adicionais</div>
           <div class="section-note">Use quando esta MESMA relação comercial (contato, condição de pagamento, homologações) emite nota fiscal por mais de um CNPJ -- ex: uma matriz com filiais que vendem categorias diferentes. Continua sendo 1 cadastro só, não 3: os fornecedores homologados vinculados aos materiais valem pra todos os CNPJs daqui. Se for uma empresa DIFERENTE (contato próprio, preço próprio, precisa ser avaliada separado), use "Vínculos" → matriz/filial logo abaixo em vez disto -- aí sim como 2 cadastros ligados.</div>
-          <div class="table-wrap" style="margin-bottom:10px">
+          <div class="table-wrap" style="margin-bottom:10px" data-ui="table-scroll">
             <table>
               <thead><tr><th>CNPJ</th><th>Razão social / observação</th><th style="width:40px"></th></tr></thead>
               <tbody id="fnCnpjsBody-forn"><tr><td colspan="3" class="no-data">Nenhum CNPJ adicional.</td></tr></tbody>
             </table>
           </div>
-          <div class="form-grid" style="align-items:end">
+          <div class="form-grid" style="align-items:end" data-ui="form-grid">
             <div class="form-group"><label>CNPJ</label><input type="text" id="fnCnpjAdd-forn" placeholder="00.000.000/0000-00"></div>
             <div class="form-group"><label>Razão social / observação (opcional)</label><input type="text" id="fnCnpjAddObs-forn" class="uc" placeholder="Ex: Filial SP -- embalagens"></div>
             <div class="form-group"><button type="button" class="btn btn-ghost btn-sm" id="btnAddCnpj-forn" style="width:100%">+ Adicionar</button></div>
           </div>
 
           <div class="section-label">Contato</div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group">
               <label>Nome do contato</label>
               <input type="text" id="fnContatoNome-forn" class="uc">
@@ -1282,7 +1282,7 @@
             </div>
           </div>
           <div class="section-label">Localização e Certificações</div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <!-- Endereço em campos separados, no padrão de e-commerce: digita
                  o CEP e logradouro/bairro/cidade/UF vêm preenchidos; só
                  número e complemento ficam pra pessoa. É o que a Logística
@@ -1329,7 +1329,7 @@
           <div class="section-label">Vínculos</div>
           <div class="field-hint" style="margin-bottom:8px">Use isto quando esta empresa é filial/matriz de outro fornecedor já cadastrado, ou quando ela também é cliente (ex: pra emitir nota de devolução) -- evita cadastro duplicado da mesma empresa.</div>
           <div id="fnDupHint-forn" class="dup-hint"></div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group full">
               <label>Matriz (se esta for filial de outro fornecedor)</label>
               <input type="text" id="fnMatriz-forn" class="uc" placeholder="Digite pra buscar..." autocomplete="off">
@@ -1348,7 +1348,7 @@
           <label class="chk" style="margin-top:6px"><input type="checkbox" id="fnRevisado-forn" checked> Já revisado</label>
           <div class="field-hint">Marca que os dados deste fornecedor (contato, condição, prazo) já foram conferidos. Fornecedores recém-importados vêm desmarcados.</div>
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer" data-ui="dialog-foot">
           <button class="btn btn-ghost" id="modalFornecedorCancel-forn">Cancelar</button>
           <button class="btn btn-primary" id="modalFornecedorSave-forn">Salvar Fornecedor</button>
         </div>

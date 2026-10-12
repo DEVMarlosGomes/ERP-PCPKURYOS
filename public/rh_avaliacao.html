@@ -82,9 +82,9 @@
     @media(max-width:600px){.form-grid,.form-grid.cols-3,.form-grid.cols-4{grid-template-columns:1fr}.pilar-head{flex-wrap:wrap}}
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
 
-<div class="header">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Avaliação de Desempenho</h1>
     <div class="header-sub">Modelo de avaliação, registro por período e histórico -- Fase 2 do módulo de RH.</div>
@@ -94,10 +94,10 @@
 
 <div class="main"><div id="alertBox" class="alert alert-success"></div></div>
 
-<div class="main-tabs" id="mainTabs">
-  <button class="main-tab" data-maintab="modelo" id="tabBtnModelo">Modelo de Avaliação</button>
-  <button class="main-tab active" data-maintab="registrar">Registrar Avaliação</button>
-  <button class="main-tab" data-maintab="historico">Histórico</button>
+<div class="main-tabs" id="mainTabs" data-ui="tabs">
+  <button class="main-tab" data-maintab="modelo" id="tabBtnModelo" data-ui="tab">Modelo de Avaliação</button>
+  <button class="main-tab active" data-maintab="registrar" data-ui="tab">Registrar Avaliação</button>
+  <button class="main-tab" data-maintab="historico" data-ui="tab">Histórico</button>
 </div>
 
 <div class="main">
@@ -106,15 +106,15 @@
   <div class="main-tab-panel" id="maintab-modelo">
     <div class="section-note">O modelo vale pra empresa inteira -- não existe um modelo por cargo/setor. Editável livremente (pilares/critérios/faixas), com uma regra só: a soma dos pesos dos pilares tem que fechar em exatamente 100% pra salvar. Cada avaliação, ao ser criada, grava sua própria cópia do modelo vigente no momento -- editar o modelo depois NUNCA muda uma avaliação já registrada.</div>
 
-    <div class="card">
-      <div class="card-title"><span>Pilares</span><button class="btn btn-ghost btn-sm" id="btnAddPilar-av">+ Adicionar pilar</button></div>
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head"><span>Pilares</span><button class="btn btn-ghost btn-sm" id="btnAddPilar-av">+ Adicionar pilar</button></div>
       <div id="pilaresBox-av"></div>
       <div class="soma-bar" id="somaBar-av">Soma dos pesos: 0%</div>
     </div>
 
-    <div class="card">
-      <div class="card-title"><span>Faixas de classificação</span><button class="btn btn-ghost btn-sm" id="btnAddFaixa-av">+ Adicionar faixa</button></div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head"><span>Faixas de classificação</span><button class="btn btn-ghost btn-sm" id="btnAddFaixa-av">+ Adicionar faixa</button></div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr><th style="width:90px">De</th><th style="width:90px">Até</th><th>Nome</th><th>Recomendação</th><th style="width:40px"></th></tr></thead>
           <tbody id="faixasBody-av"><tr><td colspan="5" class="no-data">Nenhuma faixa cadastrada.</td></tr></tbody>
@@ -128,8 +128,8 @@
 
   <!-- ═══ REGISTRAR AVALIAÇÃO ═══ -->
   <div class="main-tab-panel active" id="maintab-registrar">
-    <div class="card">
-      <div class="form-grid">
+    <div class="card" data-ui="surface">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group full">
           <label>Colaborador avaliado *</label>
           <input type="text" id="avColaborador" placeholder="Digite pra buscar..." autocomplete="off">
@@ -141,23 +141,23 @@
       </div>
     </div>
 
-    <div class="card" id="cardCriterios-av" style="display:none">
-      <div class="card-title">Notas por critério (escala 1-5)</div>
+    <div class="card" id="cardCriterios-av" style="display:none" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">Notas por critério (escala 1-5)</div>
       <div id="criteriosBox-av"></div>
       <div class="soma-bar soma-ok" id="notaResumo-av" style="margin-top:12px"></div>
     </div>
 
-    <div class="card">
-      <div class="form-grid">
+    <div class="card" data-ui="surface">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group full"><label>Pontos fortes</label><textarea id="avPontosFortes" rows="2"></textarea></div>
         <div class="form-group full"><label>Pontos de melhoria</label><textarea id="avPontosMelhoria" rows="2"></textarea></div>
         <div class="form-group full"><label>Comentário do colaborador (opcional -- autoavaliação, se compartilhada com você)</label><textarea id="avComentarioColaborador" rows="2"></textarea></div>
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-title"><span>Plano de ação</span><button class="btn btn-ghost btn-sm" id="btnAddPlanoAcao-av">+ Adicionar ação</button></div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head"><span>Plano de ação</span><button class="btn btn-ghost btn-sm" id="btnAddPlanoAcao-av">+ Adicionar ação</button></div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr><th>Ação combinada</th><th style="width:160px">Responsável</th><th style="width:130px">Prazo</th><th style="width:120px">Status</th><th style="width:40px"></th></tr></thead>
           <tbody id="planoAcaoBody-av"><tr><td colspan="5" class="no-data">Nenhuma ação registrada ainda.</td></tr></tbody>
@@ -170,9 +170,9 @@
 
   <!-- ═══ HISTÓRICO ═══ -->
   <div class="main-tab-panel" id="maintab-historico">
-    <div class="card">
-      <div class="card-title"><span id="histCount-av">Avaliações registradas</span></div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head"><span id="histCount-av">Avaliações registradas</span></div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead><tr><th>Colaborador</th><th>Período</th><th>Data</th><th style="text-align:right">Nota geral</th><th>Faixa</th><th>Avaliador</th></tr></thead>
           <tbody id="histBody-av"><tr><td colspan="6" class="no-data">Carregando...</td></tr></tbody>

@@ -172,9 +172,9 @@
     .kt-ac-item:hover,.kt-ac-item.active{background:color-mix(in srgb, var(--primary) 12%, transparent)}
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
 
-<div class="header">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Pedidos</h1>
     <div class="header-sub">OPs de produção e backlog de Pedidos Comerciais · sincronizado com Firebase</div>
@@ -182,7 +182,7 @@
   <div class="status-pill"><div class="dot" id="sDot"></div><span id="sTxt">Conectando...</span></div>
 </div>
 
-<div class="kt-toolbar">
+<div class="kt-toolbar" data-ui="filters">
   <div class="kt-search">
     <span class="icon">🔍</span>
     <input type="text" id="searchInput" placeholder="Buscar por ID, produto...">
@@ -231,29 +231,29 @@
 
   <div id="tabPanelOps">
   <div class="stats">
-    <div class="stat">
+    <div class="stat" data-ui="kpi">
       <div class="stat-val" id="statTotal">—</div>
       <div class="stat-lbl">Total</div>
     </div>
-    <div class="stat">
+    <div class="stat" data-ui="kpi">
       <div class="stat-val" id="statAndamento" style="color:var(--primary)">—</div>
       <div class="stat-lbl">Em Andamento</div>
     </div>
-    <div class="stat">
+    <div class="stat" data-ui="kpi">
       <div class="stat-val" id="statConcluido" style="color:var(--success)">—</div>
       <div class="stat-lbl">Concluídos</div>
     </div>
-    <div class="stat">
+    <div class="stat" data-ui="kpi">
       <div class="stat-val" id="statEncerrado" style="color:var(--muted)">—</div>
       <div class="stat-lbl">Encerrados</div>
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-title">
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">
       <span id="tableCount">Pedidos</span>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap" data-ui="table-scroll">
       <table>
         <thead>
           <tr>
@@ -282,25 +282,25 @@
 
   <div id="tabPanelComerciais" style="display:none">
     <div class="stats">
-      <div class="stat">
+      <div class="stat" data-ui="kpi">
         <div class="stat-val" id="pcStatTotal">—</div>
         <div class="stat-lbl">Total</div>
       </div>
-      <div class="stat">
+      <div class="stat" data-ui="kpi">
         <div class="stat-val" id="pcStatAberto" style="color:var(--primary)">—</div>
         <div class="stat-lbl">Aguardando OP</div>
       </div>
-      <div class="stat">
+      <div class="stat" data-ui="kpi">
         <div class="stat-val" id="pcStatParcial" style="color:var(--warning)">—</div>
         <div class="stat-lbl">Produção Parcial</div>
       </div>
-      <div class="stat">
+      <div class="stat" data-ui="kpi">
         <div class="stat-val" id="pcStatCompleto" style="color:var(--success)">—</div>
         <div class="stat-lbl">Atendido (100%)</div>
       </div>
     </div>
-    <div class="card">
-      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap" data-ui="surface-head">
         <span id="pcTableCount">Pedidos Comerciais</span>
         <select class="kt-select" id="filterStatusComercial" style="font-weight:600">
           <option value="aberto" selected>Em aberto / parcial</option>
@@ -308,7 +308,7 @@
           <option value="completo">Atendido (100%)</option>
         </select>
       </div>
-      <div class="table-wrap">
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead>
             <tr>
@@ -339,25 +339,25 @@
      Expedido/Conferência, quebrada por OP. -->
 <div class="modal-bg" id="modalOpBg">
   <div class="modal" style="max-width:860px">
-    <div class="modal-header" style="background:linear-gradient(135deg,#0a1c69,#3b5bdb)">
+    <div class="modal-header" style="background:linear-gradient(135deg,#0a1c69,#3b5bdb)" data-ui="dialog-head">
       <h2 id="modalOpTitle">Expedido e estoque, OP por OP</h2>
       <button class="modal-close" id="modalOpClose">×</button>
     </div>
-    <div class="modal-body" id="modalOpBody"></div>
+    <div class="modal-body" id="modalOpBody" data-ui="dialog-body"></div>
   </div>
 </div>
 
 <div class="modal-bg" id="modalBg">
   <div class="modal">
-    <div class="modal-header">
+    <div class="modal-header" data-ui="dialog-head">
       <h2 id="modalTitle">Novo Pedido</h2>
       <button class="modal-close" id="modalClose">×</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" data-ui="dialog-body">
       <div id="modalAlertBox" class="alert alert-danger" style="margin-bottom:12px"></div>
 
       <div class="section-label" style="margin-top:0">Identificação</div>
-      <div class="form-grid">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group">
           <label>ID do Pedido *</label>
           <input type="text" id="fId" placeholder="Ex: PED-2026-001">
@@ -382,7 +382,7 @@
       </div>
 
       <div class="section-label">Produção</div>
-      <div class="form-grid">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group">
           <label>Qtd Total (unidades) *</label>
           <input type="number" id="fQtdTotal" min="1" step="1" placeholder="Ex: 5000">
@@ -407,7 +407,7 @@
       </div>
 
       <div class="section-label">Informações calculadas</div>
-      <div class="form-grid">
+      <div class="form-grid" data-ui="form-grid">
         <div class="form-group">
           <label>Progresso atual</label>
           <input type="text" id="fProgresso" readonly placeholder="—">
@@ -418,7 +418,7 @@
         </div>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <div>
         <button class="btn btn-danger btn-sm" id="btnEncerrar" style="display:none">⬛ Encerrar Pedido</button>
       </div>
@@ -433,7 +433,7 @@
 <!-- Modal: Confirmar exclusão -->
 <div class="modal-bg" id="delModalBg">
   <div class="modal del-modal">
-    <div class="modal-header" style="background:linear-gradient(135deg,#9b1c1c,var(--danger))">
+    <div class="modal-header" style="background:linear-gradient(135deg,#9b1c1c,var(--danger))" data-ui="dialog-head">
       <h2>Excluir Pedido</h2>
       <button class="modal-close" id="delModalClose">×</button>
     </div>
@@ -444,7 +444,7 @@
         Atenção: os apontamentos de produção vinculados a este pedido <strong>não serão apagados</strong>, mas deixarão de ser contabilizados no progresso.
       </p>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <div></div>
       <div class="modal-footer-right">
         <button class="btn btn-ghost" id="delBtnCancelar">Cancelar</button>
@@ -457,18 +457,18 @@
 <!-- Modal: Ordenar Prioridades -->
 <div class="modal-bg" id="prioModalBg">
   <div class="modal modal-prio">
-    <div class="modal-header">
+    <div class="modal-header" data-ui="dialog-head">
       <h2>🔀 Ordenar Prioridades</h2>
       <button class="modal-close" id="prioModalClose">×</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" data-ui="dialog-body">
       <div class="prio-hint">
         Arraste (⠿) pra ajustar a posição de um pedido em relação aos vizinhos, ou digite a posição desejada no campo <strong>Classificar Prioridade do Pedido</strong> pra pular direto pro lugar certo — os outros pedidos se reorganizam sozinhos. Só pedidos em andamento aparecem aqui.
       </div>
       <div id="prioListEmpty" class="no-data" style="display:none;padding:20px">Nenhum pedido em andamento pra priorizar.</div>
       <div class="prio-list" id="prioList"></div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <div style="font-size:11px;color:var(--muted)" id="prioSaveStatus"></div>
       <div class="modal-footer-right">
         <button class="btn btn-ghost" id="prioModalFechar">Fechar</button>

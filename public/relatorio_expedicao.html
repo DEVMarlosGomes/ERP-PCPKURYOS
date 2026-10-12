@@ -53,14 +53,14 @@
   @media(max-width:700px){.wrap{padding:14px 10px 40px}.total .val{font-size:18px}}
 </style>
 </head>
-<body class="kuryos-theme has-sidebar">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
 <div class="wrap">
   <h1>Relatório de Expedição</h1>
   <div class="sub">Tudo que saiu, com os recortes cruzados. Use para responder perguntas do tipo “o que expedi da Afeer, dos itens X, Y e Z, entre duas datas”.</div>
 
-  <div class="card">
+  <div class="card" data-ui="surface">
     <h2>Filtros</h2>
-    <div class="filtros">
+    <div class="filtros" data-ui="filters">
       <div class="campo"><label for="fDe">Data de</label><input type="date" id="fDe"></div>
       <div class="campo"><label for="fAte">Data até</label><input type="date" id="fAte"></div>
       <div class="campo"><label for="fCliente">Cliente</label><select id="fCliente" multiple></select><span class="dica">Ctrl/⌘ para marcar vários. Nada marcado = todos.</span></div>
@@ -91,17 +91,17 @@
     <div class="chips" id="chips"></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-ui="surface">
     <h2>Totais do recorte</h2>
     <div class="totais" id="totais"></div>
   </div>
 
-  <div class="card" id="cardGraf">
+  <div class="card" id="cardGraf" data-ui="surface">
     <h2 id="tituloGraf">Evolução por mês</h2>
     <svg class="graf" id="graf" role="img" aria-label="Unidades expedidas por mês"></svg>
   </div>
 
-  <div class="card">
+  <div class="card" data-ui="surface">
     <h2 id="tituloTabela">Resultado</h2>
     <div class="tabela-wrap"><table>
       <thead><tr id="cabecalho"></tr></thead>

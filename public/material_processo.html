@@ -43,47 +43,47 @@ td{padding:9px 8px;border-bottom:1px solid #f2f4f7;vertical-align:top}td.num,th.
 .hist{font-size:12px;color:#475467;margin:6px 0 0;padding-left:16px}
 .table-wrap{overflow-x:auto}
 @media(max-width:700px){.wrap{padding:16px 12px}}
-</style></head><body class="kuryos-theme has-sidebar"><main class="wrap">
+</style></head><body class="kuryos-theme has-sidebar" data-kuryos-operational=""><main class="wrap">
 <h1>Material em Processo</h1>
 <p class="sub">O que está entre uma etapa e outra: <b>sobras e itens retidos</b> quando uma OP termina ou sai da linha e, se quiserem, o <b>bulk em bombona ou tanque</b> com etiqueta de lote e validade (opcional).</p>
 <div id="aviso" class="aviso" hidden role="status" aria-live="polite"></div>
 
-<div class="abas" role="tablist">
+<div class="abas" role="tablist" data-ui="tabs">
   <button type="button" id="abaBombonas" class="on" role="tab">🛢️ Bombonas e tanques</button>
   <button type="button" id="abaSobras" role="tab">📦 Sobras e retidos</button>
 </div>
 
 <section id="painelBombonas">
-  <div class="card"><div class="chips" id="resumoBombonas"></div></div>
-  <div class="card" id="cardSemRecipiente" hidden>
+  <div class="card" data-ui="surface"><div class="chips" id="resumoBombonas"></div></div>
+  <div class="card" id="cardSemRecipiente" hidden data-ui="surface">
     <h2>🛢️ Bulk ainda sem bombona registrada <span class="dica" style="font-weight:400">(opcional)</span></h2>
     <p class="dica">OPs com bulk manipulado cujos kg não estão em nenhuma bombona ou tanque registrado. Não é obrigatório: registre quando quiser etiqueta com lote e validade no recipiente.</p>
-    <div class="table-wrap"><table><thead><tr><th>OP</th><th>Produto</th><th class="num">Manipulado</th><th class="num">Já envasado</th><th class="num">Sem recipiente</th><th></th></tr></thead><tbody id="corpoSemRecipiente"></tbody></table></div>
+    <div class="table-wrap" data-ui="table-scroll"><table><thead><tr><th>OP</th><th>Produto</th><th class="num">Manipulado</th><th class="num">Já envasado</th><th class="num">Sem recipiente</th><th></th></tr></thead><tbody id="corpoSemRecipiente"></tbody></table></div>
   </div>
-  <div class="card">
+  <div class="card" data-ui="surface">
     <div class="barra">
       <input type="search" id="buscaBombona" placeholder="🔎 Buscar por código, lote, produto, cliente...">
       <select id="filtroBombona"><option value="">Todas</option><option value="CHEIA">Com bulk</option><option value="VAZIA">Vazias</option></select>
       <button type="button" class="btn" id="btnNovas">+ Cadastrar bombonas / tanques</button>
       <button type="button" class="btn ghost" id="btnRegistrar">⬇ Registrar bulk em recipiente</button>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>Código</th><th>Situação</th><th>Conteúdo</th><th class="num">Kg</th><th>Validade</th><th>Dono</th><th>Local</th><th></th></tr></thead><tbody id="corpoBombonas"><tr><td colspan="8" class="dica">Carregando…</td></tr></tbody></table></div>
+    <div class="table-wrap" data-ui="table-scroll"><table><thead><tr><th>Código</th><th>Situação</th><th>Conteúdo</th><th class="num">Kg</th><th>Validade</th><th>Dono</th><th>Local</th><th></th></tr></thead><tbody id="corpoBombonas"><tr><td colspan="8" class="dica">Carregando…</td></tr></tbody></table></div>
   </div>
 </section>
 
 <section id="painelSobras" hidden>
-  <div class="card" id="cardValidacao" hidden>
+  <div class="card" id="cardValidacao" hidden data-ui="surface">
     <h2>🏷️ Frascos rotulados — validação da Qualidade</h2>
     <p class="dica">Frascos já rotulados esperando o envase (saldo da rotulagem ou sobra declarada). O PCP só conta como utilizável o que a Qualidade <b>liberou</b>; o resto aparece como "aguardando" na Consulta de Estoque.</p>
-    <div class="table-wrap"><table><thead><tr><th>OP</th><th class="num">Frascos rotulados</th><th>Situação</th><th></th></tr></thead><tbody></tbody></table></div>
+    <div class="table-wrap" data-ui="table-scroll"><table><thead><tr><th>OP</th><th class="num">Frascos rotulados</th><th>Situação</th><th></th></tr></thead><tbody></tbody></table></div>
   </div>
-  <div class="card">
+  <div class="card" data-ui="surface">
     <div class="barra">
       <input type="search" id="buscaSobra" placeholder="🔎 Buscar por OP, produto, item, cliente...">
       <select id="filtroSobra"><option value="EM_PROCESSO">Em processo</option><option value="">Todos os status</option><option value="USADO">Usado</option><option value="DESCARTADO">Descartado</option><option value="DEVOLVIDO">Devolvido ao estoque</option></select>
       <span class="dica" id="resumoSobras"></span>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>Item</th><th>OP</th><th class="num">Quantidade</th><th>Dono</th><th>Onde</th><th>Declarado</th><th>Situação</th><th></th></tr></thead><tbody id="corpoSobras"><tr><td colspan="8" class="dica">Carregando…</td></tr></tbody></table></div>
+    <div class="table-wrap" data-ui="table-scroll"><table><thead><tr><th>Item</th><th>OP</th><th class="num">Quantidade</th><th>Dono</th><th>Onde</th><th>Declarado</th><th>Situação</th><th></th></tr></thead><tbody id="corpoSobras"><tr><td colspan="8" class="dica">Carregando…</td></tr></tbody></table></div>
   </div>
 </section>
 </main>

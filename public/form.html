@@ -300,8 +300,8 @@
     }
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
-<div class="header">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
+<div class="header" data-ui="page-header">
   <div class="header-top">
     <div>
       <h1>Registro de Produção</h1>
@@ -321,7 +321,7 @@
        posto de trabalho (instâncias abertas sob demanda), com parada
        embutida no card da linha e fechamento em lote por turno. -->
   <div class="tab-panel active" id="tabPanelTurno">
-    <div class="card turno-header-card">
+    <div class="card turno-header-card" data-ui="surface">
       <div>
         <div class="form-hint" style="margin:0;display:block">Turno atual</div>
         <div style="font-size:17px;font-weight:800;color:var(--text)" id="turnoAtualLabel">--</div>
@@ -339,7 +339,7 @@
          errado sem ninguém perceber. "Iniciar turno" é o checkpoint que
          faltava: confirma turno detectado + quem está abrindo, antes de
          qualquer apontamento daquele turno. -->
-    <div id="iniciarTurnoBox" style="display:none;margin-bottom:16px" class="card">
+    <div id="iniciarTurnoBox" style="display:none;margin-bottom:16px" class="card" data-ui="surface">
       <div style="padding:14px 16px">
         <div style="font-weight:700;margin-bottom:8px" id="iniciarTurnoTitulo">Confirmar início do turno</div>
         <div class="form-group full">
@@ -401,7 +401,7 @@
         </div>
         <button type="button" class="modal-close" id="btnFecharAlocarOp">×</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" data-ui="dialog-body">
         <input type="hidden" id="alocarOpAlvo">
         <div class="form-group">
           <label>Ordem de Produção (OP)</label>
@@ -417,7 +417,7 @@
         <div class="alocar-op-lista" id="alocarOpLista"></div>
         <input type="hidden" id="alocarOpLote">
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer" data-ui="dialog-foot">
         <button type="button" class="btn-cancel" id="btnCancelarAlocarOp">Cancelar</button>
         <button type="button" class="btn-confirm-danger" style="background:var(--primary)" id="btnConfirmarAlocarOp">Alocar</button>
       </div>
@@ -434,7 +434,7 @@
         </div>
         <button type="button" class="modal-close" id="btnFecharEncerrarOpTurno">×</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" data-ui="dialog-body">
         <input type="hidden" id="encerrarOpTurnoAlvo">
         <div class="form-group">
           <label>Quantidade TOTAL produzida até agora nesta OP</label>
@@ -475,7 +475,7 @@
           <textarea id="encerrarOpTurnoJustificativa" rows="3" placeholder="Explique o motivo do desvio (ex: quebras de embalagens, rendimento do lote de bulk, refugo, etc.)"></textarea>
         </div>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer" data-ui="dialog-foot">
         <button type="button" class="btn-cancel" id="btnCancelarEncerrarOpTurno">Cancelar</button>
         <button type="button" class="btn-confirm-danger" style="background:var(--success)" id="btnConfirmarEncerrarOpTurno">Encerrar OP</button>
       </div>
@@ -492,7 +492,7 @@
         </div>
         <button type="button" class="modal-close" id="btnFecharAtividadePosto">×</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" data-ui="dialog-body">
         <input type="hidden" id="atividadePostoAlvo">
         <div class="form-group">
           <label>Produto / Item (opcional)</label>
@@ -507,7 +507,7 @@
           <input type="text" id="atividadePostoOperador" placeholder="Nome do operador..." autocomplete="off">
         </div>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer" data-ui="dialog-foot">
         <button type="button" class="btn-cancel" id="btnCancelarAtividadePosto">Cancelar</button>
         <button type="button" class="btn-confirm-danger" style="background:var(--primary)" id="btnConfirmarAtividadePosto">Somar</button>
       </div>
@@ -526,7 +526,7 @@
         <button type="button" class="modal-close" onclick="closeAndonModal()">×</button>
       </div>
       <form id="andonStopForm">
-        <div class="modal-body">
+        <div class="modal-body" data-ui="dialog-body">
           <input type="hidden" id="andonLineName">
           <div class="form-group">
             <label>Motivo da Parada *</label>
@@ -541,7 +541,7 @@
             </select>
           </div>
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer" data-ui="dialog-foot">
           <button type="button" class="btn-cancel" onclick="closeAndonModal()">Cancelar</button>
           <button type="submit" class="btn-confirm-danger">Confirmar Parada</button>
         </div>
@@ -572,8 +572,8 @@
   <summary>Modo avançado (apontamento hora a hora, fechar OP com perdas, lançar atrasado)</summary>
 
   <!-- PAINEL ANDON (ESTADO DAS LINHAS) -->
-  <div class="card" style="margin-bottom: 20px;margin-top:14px">
-    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+  <div class="card" style="margin-bottom: 20px;margin-top:14px" data-ui="surface">
+    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;" data-ui="surface-head">
       <span>🚨 Status das Linhas de Produção (ANDON)</span>
       <span style="font-size:11px; background:#eff6ff; color:#1e40af; padding:2px 8px; border-radius:12px; font-weight:700;">Tempo Real</span>
     </div>
@@ -595,8 +595,8 @@
 
   <!-- PAINEL 1: APONTAMENTO NORMAL -->
   <div class="tab-panel active" id="tabPanelNormal">
-    <div class="card">
-      <div class="card-title">Novo Registro &mdash; <span id="clockLabel">--:--</span></div>
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">Novo Registro &mdash; <span id="clockLabel">--:--</span></div>
       <form id="prodForm">
         <div class="form-row">
           <div class="form-group">
@@ -716,8 +716,8 @@
        quantidade total, e calcula o ritmo real sozinho a partir do tempo
        decorrido desde a abertura) -->
   <div class="tab-panel" id="tabPanelTotal">
-    <div class="card">
-      <div class="card-title">📦 Apontamento por Total da OP</div>
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">📦 Apontamento por Total da OP</div>
       <div class="retro-note" style="margin-bottom:12px">
         Pra quando não dá pra apontar hora a hora ainda. Clique <strong>Abrir OP</strong> quando
         começar a trabalhar nela (marca o horário sozinho) e <strong>Encerrar OP</strong> quando
@@ -749,8 +749,8 @@
     </div>
 
     <!-- Encerrar OP -->
-    <div class="card" id="encerrarCard" style="display:none;margin-top:14px">
-      <div class="card-title">⏹️ Encerrar OP</div>
+    <div class="card" id="encerrarCard" style="display:none;margin-top:14px" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">⏹️ Encerrar OP</div>
       <div class="form-hint prog" id="encerrarInfo" style="margin-bottom:10px"></div>
       <form id="totalForm">
         <div class="form-group">
@@ -779,8 +779,8 @@
 
   <!-- PAINEL 3: FECHAMENTO DE OP -->
   <div class="tab-panel" id="tabPanelFinalizar">
-    <div class="card">
-      <div class="card-title">🏁 Fechar Lote (Ordem de Produção)</div>
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">🏁 Fechar Lote (Ordem de Produção)</div>
       <div class="retro-note" style="margin-bottom: 12px;">
         Selecione uma OP ativa para encerrar. O sistema calcula a producao do periodo final e registra as perdas da ordem.
       </div>
@@ -838,8 +838,8 @@
 
   <!-- PAINEL 3: ENTRADA RETROATIVA -->
   <div class="tab-panel" id="tabPanelRetro">
-    <div class="card">
-      <div class="card-title">📅 Registrar Turno Retroativo</div>
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">📅 Registrar Turno Retroativo</div>
       <div class="retro-note" style="margin-bottom: 12px;">
         Informe o início/término do setup e do envase (podem virar o dia) e o total produzido no envase. O sistema distribui a quantidade pelas horas de envase, descontando a pausa configurada pro turno selecionado. O setup fica registrado só como duração, sem quantidade.
       </div>
@@ -992,8 +992,8 @@
 
   </details>
 
-  <div class="card">
-    <div class="card-title">Ultimos Registros de Hoje</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Ultimos Registros de Hoje</div>
     <div id="ultimosRegs"><div class="empty">Aguardando registros...</div></div>
   </div>
 </div>

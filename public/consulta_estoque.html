@@ -162,9 +162,9 @@ body.denso .sub2{display:none}
 @media (prefers-reduced-motion:reduce){.drawer,.fundo{transition:none}.skel{animation:none}}
 </style>
 </head>
-<body class="kuryos-theme has-sidebar">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
 <main class="ce">
-  <div class="ce-head">
+  <div class="ce-head" data-ui="page-header">
     <div>
       <h1>Consulta de Estoque</h1>
       <div class="ce-sub">Digite para achar qualquer item, lote ou endereço. Clique numa linha para ver tudo sobre ele. Esta tela só consulta; para mover, ajustar ou endereçar use o <a href="estoque.html" class="linklike">Estoque/WMS</a>.</div>
@@ -178,9 +178,9 @@ body.denso .sub2{display:none}
 
   <div class="kpis" id="kpis" role="group" aria-label="Resumo"></div>
 
-  <div class="abas" role="tablist">
-    <button type="button" class="aba on" id="abaItens" role="tab" aria-selected="true">📦 Itens em estoque <span class="n" id="nItens">…</span></button>
-    <button type="button" class="aba" id="abaInter" role="tab" aria-selected="false">🧪 Intermediários e envase <span class="n" id="nInter">…</span></button>
+  <div class="abas" role="tablist" data-ui="tabs">
+    <button type="button" class="aba on" id="abaItens" role="tab" aria-selected="true" data-ui="tab">📦 Itens em estoque <span class="n" id="nItens">…</span></button>
+    <button type="button" class="aba" id="abaInter" role="tab" aria-selected="false" data-ui="tab">🧪 Intermediários e envase <span class="n" id="nInter">…</span></button>
   </div>
 
   <section id="pItens">
@@ -190,9 +190,9 @@ body.denso .sub2{display:none}
       <button type="button" class="limpa" id="qLimpa" hidden aria-label="Limpar busca">✕</button>
       <kbd>/</kbd>
     </div>
-    <div class="filtros" id="fGrupo" role="group" aria-label="Tipo de item"></div>
-    <div class="filtros" id="fTag" role="group" aria-label="Situação"></div>
-    <div class="filtros">
+    <div class="filtros" id="fGrupo" role="group" aria-label="Tipo de item" data-ui="filters"></div>
+    <div class="filtros" id="fTag" role="group" aria-label="Situação" data-ui="filters"></div>
+    <div class="filtros" data-ui="filters">
       <span class="rot">Cliente</span>
       <select class="sel" id="fCliente" aria-label="Filtrar por cliente"></select>
       <span class="sep"></span>
@@ -230,7 +230,7 @@ body.denso .sub2{display:none}
       <span class="lupa">🔍</span>
       <input type="search" id="qI" placeholder="Busque por OP, produto, cliente ou embalagem que falta…" autocomplete="off" aria-label="Buscar intermediários">
     </div>
-    <div class="filtros" id="fEstado" role="group" aria-label="Situação do envase"></div>
+    <div class="filtros" id="fEstado" role="group" aria-label="Situação do envase" data-ui="filters"></div>
     <div class="resumo"><span id="resumoInter"></span><span></span></div>
     <div id="gradeInter" class="grade"></div>
     <div class="sub-h"><h3>📦 Retidos pela produção</h3><span class="dica">O que foi declarado ao encerrar ou devolver OP à fila (bulk, frascos rotulados…). Dá baixa em Material em Processo.</span></div>

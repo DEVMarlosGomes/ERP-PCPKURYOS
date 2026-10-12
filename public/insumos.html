@@ -859,9 +859,9 @@
     .kt-ac-item:hover,.kt-ac-item.active{background:color-mix(in srgb, var(--primary) 12%, transparent)}
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
 
-<div class="header">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Insumos por Pedido</h1>
     <div class="header-sub">Matriz de checklist e alocação física de insumos do PCP</div>
@@ -873,10 +873,10 @@
   <div id="alertBox" class="alert alert-success"></div>
 
   <!-- Tab navigation -->
-  <div class="top-tabs">
-    <button class="top-tab" id="tabBtnMrp" onclick="switchTab('mrp')">🧮 MRP — Necessidade de Materiais</button>
-    <button class="top-tab active" id="tabBtnMatriz" onclick="switchTab('matriz')">📋 Visão Geral (Matriz)</button>
-    <button class="top-tab" id="tabBtnDetalhes" onclick="switchTab('detalhes')">🔍 Detalhes do Pedido</button>
+  <div class="top-tabs" data-ui="tabs">
+    <button class="top-tab" id="tabBtnMrp" onclick="switchTab('mrp')" data-ui="tab">🧮 MRP — Necessidade de Materiais</button>
+    <button class="top-tab active" id="tabBtnMatriz" onclick="switchTab('matriz')" data-ui="tab">📋 Visão Geral (Matriz)</button>
+    <button class="top-tab" id="tabBtnDetalhes" onclick="switchTab('detalhes')" data-ui="tab">🔍 Detalhes do Pedido</button>
   </div>
 
   <!-- TAB: MRP -->
@@ -887,7 +887,7 @@
   <!-- TAB: MATRIZ DE INSUMOS -->
   <div class="tab-content active" id="panelMatriz">
     <!-- Toolbar for Matrix Filter and Batch Allocation -->
-    <div class="kt-toolbar" style="background:var(--card); border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,0.06); padding:14px 16px; border:1px solid var(--border);">
+    <div class="kt-toolbar" style="background:var(--card); border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,0.06); padding:14px 16px; border:1px solid var(--border);" data-ui="filters">
       <div class="kt-search" style="flex:0 0 280px; min-width:200px">
         <span class="icon">🔍</span>
         <input type="text" id="searchMatriz" placeholder="Filtrar por ID ou Produto..." oninput="clearTimeout(window._searchMatrizT); window._searchMatrizT = setTimeout(renderMatriz, 200)">
@@ -929,15 +929,15 @@
 
     <!-- Stats (hidden until pedido selected) -->
     <div class="stats" id="statsBlock" style="display:none">
-      <div class="stat"><div class="stat-val" id="statTotal">—</div><div class="stat-lbl">Insumos</div></div>
-      <div class="stat"><div class="stat-val" id="statRecebidos" style="color:var(--success)">—</div><div class="stat-lbl">Recebidos</div></div>
-      <div class="stat"><div class="stat-val" id="statParciais" style="color:var(--warning)">—</div><div class="stat-lbl">Parciais</div></div>
-      <div class="stat"><div class="stat-val" id="statPendentes" style="color:var(--danger)">—</div><div class="stat-lbl">Pendentes</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="statTotal">—</div><div class="stat-lbl">Insumos</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="statRecebidos" style="color:var(--success)">—</div><div class="stat-lbl">Recebidos</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="statParciais" style="color:var(--warning)">—</div><div class="stat-lbl">Parciais</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="statPendentes" style="color:var(--danger)">—</div><div class="stat-lbl">Pendentes</div></div>
     </div>
 
     <!-- Insumos list -->
-    <div class="card" id="insumosCard">
-      <div class="card-title">
+    <div class="card" id="insumosCard" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">
         <span id="insumosCardTitle">Selecione um pedido</span>
       </div>
       <div id="insumosBody">
@@ -950,11 +950,11 @@
 <!-- Modal: Novo / Editar Insumo -->
 <div class="modal-bg" id="insumoModalBg">
   <div class="modal">
-    <div class="modal-header">
+    <div class="modal-header" data-ui="dialog-head">
       <h2 id="insumoModalTitle">Novo Insumo</h2>
       <button class="modal-close" id="insumoModalClose">×</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" data-ui="dialog-body">
       <div id="insumoAlertBox" class="alert alert-danger" style="margin-bottom:10px"></div>
       <label class="form-label">Nome do Insumo *</label>
       <input type="text" id="iNome" class="form-ctrl" placeholder="Ex: Frascos 200ml, Rótulos frente, Válvulas...">
@@ -966,7 +966,7 @@
       <label class="form-label">Observação inicial (opcional)</label>
       <textarea id="iObsInicial" class="form-ctrl" style="height:60px;resize:none" placeholder="Ex: Previsto chegar dia 15/06"></textarea>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <div><button class="btn btn-danger btn-sm" id="btnDeleteInsumo" style="display:none">🗑 Excluir</button></div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost btn-sm" id="insumoModalCancel">Cancelar</button>
@@ -979,11 +979,11 @@
 <!-- Modal: Receber -->
 <div class="modal-bg" id="recvModalBg">
   <div class="modal">
-    <div class="modal-header">
+    <div class="modal-header" data-ui="dialog-head">
       <h2 id="recvModalTitle">Registrar Recebimento</h2>
       <button class="modal-close" id="recvModalClose">×</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" data-ui="dialog-body">
       <div class="recv-current" id="recvCurrentInfo"></div>
       <label class="form-label">Qtd. Total Recebida até agora *</label>
       <input type="number" id="rQtdRec" class="form-ctrl" min="0" step="1">
@@ -991,7 +991,7 @@
       <label class="form-label">Observação (opcional)</label>
       <textarea id="rObs" class="form-ctrl" style="height:60px;resize:none" placeholder="Ex: Recebido parcialmente em 15/06, falta 2000 un."></textarea>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <div></div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost btn-sm" id="recvModalCancel">Cancelar</button>
@@ -1006,18 +1006,18 @@
      de cada insumo, e continua editável: quem envia confere antes. -->
 <div class="modal-bg" id="solCompraModalBg">
   <div class="modal" style="max-width:640px">
-    <div class="modal-header" style="background:linear-gradient(135deg,#0a1c69,#1e3a8a)">
+    <div class="modal-header" style="background:linear-gradient(135deg,#0a1c69,#1e3a8a)" data-ui="dialog-head">
       <h2>🛒 Solicitar Compra</h2>
       <button class="modal-close" id="solCompraClose">×</button>
     </div>
-    <div class="modal-body" style="max-height:520px;overflow-y:auto">
+    <div class="modal-body" style="max-height:520px;overflow-y:auto" data-ui="dialog-body">
       <div id="solCompraResumo"></div>
       <div id="solCompraItens"></div>
       <label class="form-label">Justificativa</label>
       <textarea id="solCompraJustificativa" class="form-ctrl" style="height:60px;resize:none"></textarea>
       <div class="form-hint">Vai junto na solicitação, para quem aprova entender a urgência.</div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <div style="font-size:12px;opacity:.8" id="solCompraContagem"></div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost btn-sm" id="solCompraCancel">Cancelar</button>
@@ -1030,11 +1030,11 @@
 <!-- Modal: Recebimento em Lote -->
 <div class="modal-bg" id="batchRecvModalBg">
   <div class="modal" style="max-width: 580px;">
-    <div class="modal-header" style="background: linear-gradient(135deg, #0a1c69, #1e3a8a);">
+    <div class="modal-header" style="background: linear-gradient(135deg, #0a1c69, #1e3a8a);" data-ui="dialog-head">
       <h2>📥 Recebimento de Insumos em Lote</h2>
       <button class="modal-close" onclick="closeBatchRecvModal()">×</button>
     </div>
-    <div class="modal-body" style="max-height: 480px; overflow-y: auto;">
+    <div class="modal-body" style="max-height: 480px; overflow-y: auto;" data-ui="dialog-body">
       <label class="form-label">Pedido ID *</label>
       <select id="brPedidoId" class="form-ctrl" onchange="onBatchRecvPedidoChange()"></select>
       
@@ -1074,7 +1074,7 @@
         <div style="color: var(--muted); font-size: 12px; text-align: center; padding: 10px;">Selecione o pedido e o material para ver a simulação de alocação.</div>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost btn-sm" onclick="closeBatchRecvModal()">Cancelar</button>
       <button class="btn btn-primary btn-sm" id="brConfirmBtn" onclick="executeBatchAllocation()">✓ Confirmar Alocação</button>
     </div>

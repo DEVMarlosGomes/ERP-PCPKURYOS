@@ -48,9 +48,9 @@
     @media(max-width:800px){.cols-2{grid-template-columns:1fr}}
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
 
-<div class="header">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Dashboard do RH</h1>
     <div class="header-sub">Consolidado de Cadastro, Avaliação e Férias -- só RH Central.</div>
@@ -61,24 +61,24 @@
 <div class="main">
 
   <div class="section-label">Alertas</div>
-  <div class="card">
+  <div class="card" data-ui="surface">
     <div class="row-list" id="alertasList-dash"><div class="no-data">Carregando...</div></div>
   </div>
 
   <div class="section-label">Quadro de pessoas</div>
   <div class="grid-stats">
-    <div class="stat"><div class="stat-val" id="statHeadcount-dash">—</div><div class="stat-lbl">Headcount ativo</div></div>
-    <div class="stat"><div class="stat-val" id="statAdmissoes-dash">—</div><div class="stat-lbl">Admissões (30d)</div></div>
-    <div class="stat"><div class="stat-val" id="statDesligamentos-dash">—</div><div class="stat-lbl">Desligamentos (30d)</div></div>
-    <div class="stat"><div class="stat-val" id="statTurnover-dash">—</div><div class="stat-lbl">Turnover (30d)</div></div>
+    <div class="stat" data-ui="kpi"><div class="stat-val" id="statHeadcount-dash">—</div><div class="stat-lbl">Headcount ativo</div></div>
+    <div class="stat" data-ui="kpi"><div class="stat-val" id="statAdmissoes-dash">—</div><div class="stat-lbl">Admissões (30d)</div></div>
+    <div class="stat" data-ui="kpi"><div class="stat-val" id="statDesligamentos-dash">—</div><div class="stat-lbl">Desligamentos (30d)</div></div>
+    <div class="stat" data-ui="kpi"><div class="stat-val" id="statTurnover-dash">—</div><div class="stat-lbl">Turnover (30d)</div></div>
   </div>
   <div class="cols-2">
-    <div class="card">
-      <div class="card-title">Por sexo</div>
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">Por sexo</div>
       <div class="row-list" id="porSexo-dash"></div>
     </div>
-    <div class="card">
-      <div class="card-title">Por tipo de contrato</div>
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">Por tipo de contrato</div>
       <div class="row-list" id="porContrato-dash"></div>
     </div>
   </div>
@@ -86,26 +86,26 @@
   <div class="section-label">Custos de pessoal</div>
   <div class="section-note pendente">⚑ Cálculo completo e confirmado só para CLT (fórmula da especificação, seção 3.12). PJ soma salário+VT sem o "bônus adicional" (percentual pendente -- D-10). Temporário/Aprendiz/Terceirizado/Outro ainda não têm regra de custo definida (D-10) -- esses colaboradores contam no headcount mas ficam de fora da soma de custo abaixo.</div>
   <div class="grid-stats">
-    <div class="stat"><div class="stat-val" id="statSalarioMedio-dash">—</div><div class="stat-lbl">Salário médio</div></div>
-    <div class="stat"><div class="stat-val" id="statCustoMedio-dash">—</div><div class="stat-lbl">Custo médio/colaborador</div></div>
-    <div class="stat"><div class="stat-val" id="statCustoTotal-dash">—</div><div class="stat-lbl">Custo total estimado</div></div>
-    <div class="stat" title="Decisão pendente D-10 na especificação do módulo"><div class="stat-val" id="statForaRegra-dash">—</div><div class="stat-lbl">Sem cálculo de custo definido</div></div>
+    <div class="stat" data-ui="kpi"><div class="stat-val" id="statSalarioMedio-dash">—</div><div class="stat-lbl">Salário médio</div></div>
+    <div class="stat" data-ui="kpi"><div class="stat-val" id="statCustoMedio-dash">—</div><div class="stat-lbl">Custo médio/colaborador</div></div>
+    <div class="stat" data-ui="kpi"><div class="stat-val" id="statCustoTotal-dash">—</div><div class="stat-lbl">Custo total estimado</div></div>
+    <div class="stat" title="Decisão pendente D-10 na especificação do módulo" data-ui="kpi"><div class="stat-val" id="statForaRegra-dash">—</div><div class="stat-lbl">Sem cálculo de custo definido</div></div>
   </div>
 
   <div class="section-label">Desempenho</div>
   <div class="cols-2">
-    <div class="card">
-      <div class="card-title">Nota geral média da empresa</div>
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">Nota geral média da empresa</div>
       <div class="stat-val" id="notaMediaEmpresa-dash" style="font-size:32px">—</div>
     </div>
-    <div class="card">
-      <div class="card-title">Distribuição por faixa</div>
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">Distribuição por faixa</div>
       <div class="row-list" id="porFaixa-dash"><div class="no-data">Sem avaliações registradas ainda.</div></div>
     </div>
   </div>
 
   <div class="section-label">Clima organizacional &amp; Canal de denúncia</div>
-  <div class="card">
+  <div class="card" data-ui="surface">
     <div class="no-data">Ainda não implementados (Fase 5 do módulo de RH) -- ver plano.</div>
   </div>
 

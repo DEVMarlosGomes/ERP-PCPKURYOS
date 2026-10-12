@@ -104,8 +104,8 @@
     @media(max-width:600px){.form-grid{grid-template-columns:1fr}.resumo-grid{grid-template-columns:1fr 1fr}}
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
-<div class="header">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Emissão de OP</h1>
     <div class="header-sub">Calcula o lote a partir da fórmula aprovada e gera o registro de produção</div>
@@ -117,8 +117,8 @@
   <div id="alertBox" class="alert alert-success"></div>
 
   <!-- 1. Produto -->
-  <div class="card">
-    <div class="card-title">1. Produto</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">1. Produto</div>
     <div style="position:relative">
       <input type="text" id="fProdutoBusca" placeholder="Buscar por SKU ou descrição..." autocomplete="off">
       <div id="produtoResultados" style="display:none;position:absolute;z-index:20;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);max-height:260px;overflow-y:auto;width:100%;margin-top:4px"></div>
@@ -131,22 +131,22 @@
   </div>
 
   <!-- 2. Vincular a um pedido -->
-  <div id="cardAlocacao" class="card" style="display:none">
-    <div class="card-title">2. Vincular a um pedido</div>
+  <div id="cardAlocacao" class="card" style="display:none" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">2. Vincular a um pedido</div>
     <div class="field-hint" style="margin-bottom:10px">Toda OP deve sair vinculada a um pedido -- é assim que ele conta como atendido e a OP fica rastreável. "Emitir sem vincular" é só pra exceção de verdade (amostra, teste, retrabalho sem pedido).</div>
     <div id="alocacaoLista"></div>
   </div>
 
   <!-- 3. Dimensionamento -->
-  <div id="cardDimensionamento" class="card" style="display:none">
-    <div class="card-title">3. Dimensionamento do Lote</div>
+  <div id="cardDimensionamento" class="card" style="display:none" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">3. Dimensionamento do Lote</div>
     <div id="dimensionamentoErro" class="alert alert-danger" style="display:none;margin-bottom:10px"></div>
     <div id="bomWarning" class="alert alert-warning" style="display:none;margin-bottom:10px"></div>
     <div class="radio-row">
       <label class="radio-opt"><input type="radio" name="modoQtd" value="massa" checked> Informar massa total (kg)</label>
       <label class="radio-opt"><input type="radio" name="modoQtd" value="pecas"> Informar peças desejadas</label>
     </div>
-    <div class="form-grid">
+    <div class="form-grid" data-ui="form-grid">
       <div class="form-group" id="grpMassa">
         <label>Massa total de fabricação (kg)</label>
         <input type="number" id="fMassaTotal" min="0" step="any" placeholder="Ex: 800">
@@ -180,8 +180,8 @@
   </div>
 
   <!-- 3. Materiais -->
-  <div id="cardMateriais" class="card" style="display:none">
-    <div class="card-title">4. Consumo de Materiais (fórmula + embalagem)</div>
+  <div id="cardMateriais" class="card" style="display:none" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">4. Consumo de Materiais (fórmula + embalagem)</div>
     <table>
       <thead><tr><th>Material</th><th>Origem</th><th class="num">%</th><th class="num">Quantidade</th><th class="num">Estoque atual</th><th></th></tr></thead>
       <tbody id="materiaisBody"></tbody>
@@ -190,9 +190,9 @@
   </div>
 
   <!-- 4. Emissão -->
-  <div id="cardEmissao" class="card" style="display:none">
-    <div class="card-title">5. Confirmar Emissão</div>
-    <div class="form-grid">
+  <div id="cardEmissao" class="card" style="display:none" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">5. Confirmar Emissão</div>
+    <div class="form-grid" data-ui="form-grid">
       <div class="form-group">
         <label>Cliente</label>
         <input type="text" id="fCliente" readonly>
@@ -208,7 +208,7 @@
   </div>
 
   <!-- 5. Pós-emissão -->
-  <div id="cardSucesso" class="card" style="display:none;text-align:center">
+  <div id="cardSucesso" class="card" style="display:none;text-align:center" data-ui="surface">
     <div style="font-size:32px">✅</div>
     <div style="font-size:18px;font-weight:700;margin:8px 0">OP <span id="loteEmitido"></span> emitida com sucesso</div>
     <!-- Pedido do usuário: "preciso poder selecionar quais fichas serão
@@ -236,11 +236,11 @@
 <!-- Modal de substituição de material -->
 <div class="modal-bg" id="substModalBg">
   <div class="modal">
-    <div class="modal-header">
+    <div class="modal-header" data-ui="dialog-head">
       <h2 id="substModalTitle">Substituir material</h2>
       <button class="modal-close" id="substModalClose" title="Fechar" aria-label="Fechar">×</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" data-ui="dialog-body">
       <div class="form-group">
         <label>Buscar</label>
         <input type="text" id="substBusca" placeholder="Código, nome, cor, gargalo/rosca, resina, INCI...">
@@ -248,7 +248,7 @@
       </div>
       <div class="subst-lista" id="substLista"></div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="substModalCancelBtn">Cancelar</button>
     </div>
   </div>

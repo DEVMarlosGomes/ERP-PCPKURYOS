@@ -67,9 +67,9 @@
     @media(max-width:600px){.form-grid{grid-template-columns:1fr}}
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
 
-<div class="header">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Férias</h1>
     <div class="header-sub">Solicitação e aprovação em duas etapas (Gestor → RH Central).</div>
@@ -82,10 +82,10 @@
 
   <div class="section-note pendente">⚑ Regra de saldo provisória: 30 dias por período aquisitivo de 12 meses, sem limite de fracionamento aplicado ainda (a CLT permite até 3 períodos, um deles com mínimo de 14 dias -- essa checagem específica ainda não está implementada). Isso corresponde à decisão pendente <strong>D-01</strong> da especificação do módulo -- ajustar assim que a Kuryos/Contabilidade confirmar a regra definitiva.</div>
 
-  <div class="card">
-    <div class="card-title">Nova solicitação</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Nova solicitação</div>
     <div class="section-note">Autoatendimento do colaborador (ele mesmo solicitando) ainda não existe nesta fase -- Gestor ou RH registram em nome do colaborador.</div>
-    <div class="form-grid">
+    <div class="form-grid" data-ui="form-grid">
       <div class="form-group full">
         <label>Colaborador *</label>
         <input type="text" id="fColaborador-fer" placeholder="Digite pra buscar..." autocomplete="off">
@@ -105,7 +105,7 @@
     <button class="btn btn-primary" id="btnSolicitar-fer" style="margin-top:10px">Registrar solicitação</button>
   </div>
 
-  <div class="kt-toolbar">
+  <div class="kt-toolbar" data-ui="filters">
     <select class="kt-select" id="filterStatus-fer">
       <option value="">Todos os status</option>
       <option value="Solicitada">Solicitada</option>
@@ -116,9 +116,9 @@
     </select>
   </div>
 
-  <div class="card">
-    <div class="card-title"><span id="listCount-fer">Solicitações</span></div>
-    <div class="table-wrap">
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head"><span id="listCount-fer">Solicitações</span></div>
+    <div class="table-wrap" data-ui="table-scroll">
       <table>
         <thead><tr><th>Colaborador</th><th>Período</th><th>Datas</th><th style="text-align:right">Dias</th><th>Status</th><th style="min-width:220px">Ações</th></tr></thead>
         <tbody id="listBody-fer"><tr><td colspan="6" class="no-data">Carregando...</td></tr></tbody>

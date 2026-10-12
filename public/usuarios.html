@@ -247,18 +247,18 @@
     }
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
 
 <div class="container">
-  <div class="head">
+  <div class="head" data-ui="page-header">
     <div>
       <h1>Gerenciamento de Usuários</h1>
       <div class="subtitle">Aprove cadastros e gerencie os perfis de acesso ao sistema PCP Kuryos</div>
     </div>
   </div>
   
-  <div class="card">
-    <div class="table-container">
+  <div class="card" data-ui="surface">
+    <div class="table-container" data-ui="table-scroll">
       <table>
         <thead>
           <tr>
@@ -283,18 +283,18 @@
 <!-- MODAL: módulos liberados por usuário (só ADM chega aqui) -->
 <div class="modal-bg" id="modalModBg">
   <div class="modal">
-    <div class="modal-head">
+    <div class="modal-head" data-ui="dialog-head">
       <div>
         <h2 id="modTitulo">Módulos liberados</h2>
         <div class="sub" id="modSub"></div>
       </div>
       <button class="modal-x" id="modFechar" title="Fechar" aria-label="Fechar">×</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" data-ui="dialog-body">
       <div class="aviso" id="modAviso"></div>
       <div id="modLista"></div>
     </div>
-    <div class="modal-foot">
+    <div class="modal-foot" data-ui="dialog-foot">
       <button class="btn-link" id="modVoltarPadrao">Voltar ao padrão do perfil</button>
       <div style="display:flex;gap:8px">
         <button class="btn-mod" id="modCancelar">Cancelar</button>

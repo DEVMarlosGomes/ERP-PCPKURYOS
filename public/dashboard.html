@@ -217,8 +217,8 @@
   <link rel="stylesheet" href="shared/dashboard-showcase.css?v=20261008-1">
   <script defer src="shared/dashboard-showcase.js?v=20261008-1"></script>
 </head>
-<body class="kuryos-theme has-sidebar dashboard-showcase">
-<div class="top-row">
+<body class="kuryos-theme has-sidebar dashboard-showcase" data-kuryos-operational="">
+<div class="top-row" data-ui="page-header">
   <div>
     <div class="eyebrow">Sistema PCP · Produção do dia</div>
     <h1 id="hDate">—</h1>
@@ -246,8 +246,8 @@
     <div class="metric red"><div class="metric-val" id="mParadas">—</div><div class="metric-lbl">Paradas</div></div>
   </div>
 
-  <div class="card" id="crmPdModules" style="margin-bottom:20px;border-left-color:#7c3aed">
-    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+  <div class="card" id="crmPdModules" style="margin-bottom:20px;border-left-color:#7c3aed" data-ui="surface">
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap" data-ui="surface-head">
       <span>Comercial e Desenvolvimento</span>
       <span style="font-size:11px;color:var(--muted);font-weight:600">Firebase ERP Kuryos</span>
     </div>
@@ -267,8 +267,8 @@
     </div>
   </div>
   <!-- CADEIA DO LOTE: onde as OPs estão esperando (Manipulação → Qualidade → Envase → Rotulagem → Conferência → Qualidade) -->
-  <div class="card" id="cadeiaCard" style="margin-bottom: 20px;">
-    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+  <div class="card" id="cadeiaCard" style="margin-bottom: 20px;" data-ui="surface">
+    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;" data-ui="surface-head">
       <span>🔗 Cadeia do lote · onde está esperando</span>
       <span id="cadeiaResumo" style="font-size:11.5px; font-weight:600; color:var(--muted)">carregando…</span>
     </div>
@@ -278,8 +278,8 @@
   </div>
 
   <!-- PAINEL ANDON REALTIME (STATUS DAS LINHAS) -->
-  <div class="card" style="margin-bottom: 20px;">
-    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+  <div class="card" style="margin-bottom: 20px;" data-ui="surface">
+    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;" data-ui="surface-head">
       <span>🚨 Status das Linhas · OP em Andamento</span>
       <span style="font-size:11px; background:#fee2e2; color:#b91c1c; padding:2px 8px; border-radius:12px; font-weight:700; animation: pulse 2.5s infinite;">Tempo Real</span>
     </div>
@@ -289,8 +289,8 @@
   </div>
 
   <!-- ANDON DA ROTULAGEM E POSTOS -->
-  <div class="card" id="rotulagemAndonCard" style="margin-bottom: 20px; display:none">
-    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+  <div class="card" id="rotulagemAndonCard" style="margin-bottom: 20px; display:none" data-ui="surface">
+    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;" data-ui="surface-head">
       <span>🏷️ Rotulagem e Postos de Trabalho</span>
       <span style="font-size:11px; background:#fee2e2; color:#b91c1c; padding:2px 8px; border-radius:12px; font-weight:700; animation: pulse 2.5s infinite;">Tempo Real</span>
     </div>
@@ -302,51 +302,51 @@
     @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
   </style>
 
-  <div class="card" id="metasCard" style="display:none">
-    <div class="card-title">Acompanhamento e Empilhamento de Metas</div>
+  <div class="card" id="metasCard" style="display:none" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Acompanhamento e Empilhamento de Metas</div>
     <div id="stackedMetasContainer" style="display:flex; flex-direction:column; gap:14px"></div>
   </div>
 
   <!-- OPs encerradas hoje + status dos turnos -->
   <div class="two-col">
-    <div class="card">
-      <div class="card-title">Lançamentos por OP / Posto — Hoje</div>
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">Lançamentos por OP / Posto — Hoje</div>
       <div id="opsEncerradasList"></div>
     </div>
-    <div class="card">
-      <div class="card-title">Turnos do Dia</div>
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">Turnos do Dia</div>
       <div id="turnosStatusList"></div>
     </div>
   </div>
 
   <!-- Charts Row 2: Linhas e Postos -->
   <div class="two-col">
-    <div class="card">
-      <div class="card-title">Linhas de Envase (Envase)</div>
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">Linhas de Envase (Envase)</div>
       <div class="chart-wrapper" id="chartLinhasWrapper"><canvas id="chartLinhas"></canvas></div>
     </div>
-    <div class="card">
-      <div class="card-title">Rotulagem & Postos de Trabalho</div>
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head">Rotulagem & Postos de Trabalho</div>
       <div class="chart-wrapper" id="chartPostosWrapper"><canvas id="chartPostos"></canvas></div>
     </div>
   </div>
 
   <!-- Fechamento do Dia (Fase 9 do plano) -->
-  <div class="card" id="fechamentoDoDiaCard" style="display:none">
-    <div class="card-title">🔒 Fechamento do Dia</div>
+  <div class="card" id="fechamentoDoDiaCard" style="display:none" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">🔒 Fechamento do Dia</div>
     <div class="section-note" style="font-size:11.5px;color:var(--muted);margin:-10px 0 14px">Painel de conferência, não de digitação — agrega o que já foi capturado ao longo do dia (apontamento, paradas, encerramento de OP) pra você confirmar e tratar exceções, não preencher de novo.</div>
     <div id="fechamentoDoDiaBody"></div>
   </div>
 
   <!-- Meta diaria por linha -->
-  <div class="card" id="metaDiariaCard" style="display:none">
-    <div class="card-title">Progresso Diário por Linha / Posto</div>
+  <div class="card" id="metaDiariaCard" style="display:none" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Progresso Diário por Linha / Posto</div>
     <div id="metaDiariaContent"></div>
   </div>
 
   <!-- Programacao vs Realizado -->
-  <div class="card" id="progCard" style="display:none">
-    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+  <div class="card" id="progCard" style="display:none" data-ui="surface">
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center" data-ui="surface-head">
       <span>Programacao vs Realizado</span>
       <a href="planejamento.html" style="font-size:11px;color:var(--primary);text-decoration:none;font-weight:600">Programar ↗</a>
     </div>
@@ -354,25 +354,25 @@
   </div>
 
   <!-- Acompanhamento de Pedidos -->
-  <div class="card" id="pedidosCard" style="display:none">
-    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+  <div class="card" id="pedidosCard" style="display:none" data-ui="surface">
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center" data-ui="surface-head">
       <span>Acompanhamento de Pedidos</span>
     </div>
     <div id="pedidosContent"></div>
   </div>
 
   <div class="two-col">
-    <div class="card"><div class="card-title">Por Produto</div><div id="prodProd"></div></div>
-    <div class="card"><div class="card-title">Paradas</div><div id="paradasList"></div></div>
+    <div class="card" data-ui="surface"><div class="card-title" data-ui="surface-head">Por Produto</div><div id="prodProd"></div></div>
+    <div class="card" data-ui="surface"><div class="card-title" data-ui="surface-head">Paradas</div><div id="paradasList"></div></div>
   </div>
 
   <div class="two-col">
-    <div class="card"><div class="card-title">Por Colaborador</div><div id="prodColab"></div></div>
-    <div class="card"><div class="card-title">Por Lote</div><div id="prodLote"></div></div>
+    <div class="card" data-ui="surface"><div class="card-title" data-ui="surface-head">Por Colaborador</div><div id="prodColab"></div></div>
+    <div class="card" data-ui="surface"><div class="card-title" data-ui="surface-head">Por Lote</div><div id="prodLote"></div></div>
   </div>
 
-  <div class="card">
-    <div class="card-title">Ultimos Registros</div>
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Ultimos Registros</div>
     <div id="feedLive"></div>
   </div>
 

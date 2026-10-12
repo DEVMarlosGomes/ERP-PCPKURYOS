@@ -81,8 +81,8 @@
     }
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
-<div class="header">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Dossiê do Lote</h1>
     <div class="header-sub">Tudo o que aconteceu com um lote: ordem de fabricação, pesagens com foto, conferência, manipulação, envase e qualidade</div>
@@ -91,8 +91,8 @@
 </div>
 
 <div class="main">
-  <div class="card nao-imprime" id="dBuscaCard">
-    <div class="card-header"><h3>Buscar lote</h3><span class="hint" id="dResumoBusca">Carregando OPs...</span></div>
+  <div class="card nao-imprime" id="dBuscaCard" data-ui="surface">
+    <div class="card-header" data-ui="surface-head"><h3>Buscar lote</h3><span class="hint" id="dResumoBusca">Carregando OPs...</span></div>
     <div class="card-body">
       <input type="search" class="busca" id="dBusca" placeholder="Lote (26250/02), cliente, produto ou SKU" autocomplete="off">
       <div class="hint" style="margin-top:6px">Não precisa de acento nem da barra: "26250 02", "miss rose leao" e "rôse bourbon" funcionam.</div>

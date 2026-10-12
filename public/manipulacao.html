@@ -178,8 +178,8 @@
     @media(max-width:700px){.val,.lote{width:100%}}
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
-<div class="header">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Manipulação</h1>
     <div class="header-sub">Pesagem, conferência e manipulação do bulk — mesma numeração de lote da OP</div>
@@ -195,8 +195,8 @@
     liberado depois que a Qualidade aprovar o bulk.
   </div>
 
-  <div class="card" id="mCardLista">
-    <div class="card-header">
+  <div class="card" id="mCardLista" data-ui="surface">
+    <div class="card-header" data-ui="surface-head">
       <h3>Lotes em produção</h3>
       <span class="field-hint" id="mListaResumo"></span>
     </div>
@@ -206,8 +206,8 @@
     </table></div>
   </div>
 
-  <div class="card" id="mPainel" style="display:none">
-    <div class="card-header">
+  <div class="card" id="mPainel" style="display:none" data-ui="surface">
+    <div class="card-header" data-ui="surface-head">
       <h3 id="mPainelTitulo">Fase de bulk</h3>
       <button class="btn btn-ghost btn-sm" id="mFechar">Fechar</button>
     </div>
@@ -248,7 +248,7 @@
       <!-- 3. Manipulação -->
       <div id="mBlocoManipulacao" style="margin-top:18px">
         <h4 style="font-size:13px;margin-bottom:8px">3 · Manipulação</h4>
-        <div class="form-grid">
+        <div class="form-grid" data-ui="form-grid">
           <div><label>Rendimento obtido (kg)</label><input type="number" step="any" min="0" id="mRendimento"></div>
           <div><label>Perda — resíduo de tacho (kg)</label><input type="number" step="any" min="0" id="mPerdaResiduo"></div>
           <div><label>Perda — amostra/análise (kg)</label><input type="number" step="any" min="0" id="mPerdaAmostra"></div>

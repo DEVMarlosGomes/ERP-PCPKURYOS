@@ -106,10 +106,10 @@ table tr:hover { background: #f8fafc; }
 </style>
 <link rel="stylesheet" href="shared/dashboard-showcase.css?v=20261008-1">
 </head>
-<body class="kuryos-theme has-sidebar dashboard-showcase">
+<body class="kuryos-theme has-sidebar dashboard-showcase" data-kuryos-operational="">
 
 <div class="container">
-  <div class="head">
+  <div class="head" data-ui="page-header">
     <div>
       <div class="eyebrow">Módulo de Análise PCP</div>
       <h1>Dashboard de Produção</h1>
@@ -118,7 +118,7 @@ table tr:hover { background: #f8fafc; }
   <div class="subtitle" id="subtitle">Carregando...</div>
 
   <!-- FILTER BAR -->
-  <div class="filterbar">
+  <div class="filterbar" data-ui="filters">
     <div class="filter-row">
       <div class="fgroup" style="min-width:280px">
         <label>Período</label>
@@ -186,66 +186,66 @@ table tr:hover { background: #f8fafc; }
     <div class="summary" id="summary"></div>
   </div>
 
-  <div class="tabs">
-    <button class="tab active" data-tab="overview">Visão Geral</button>
-    <button class="tab" data-tab="producao">Produção</button>
-    <button class="tab" data-tab="pedidos">Pedidos</button>
-    <button class="tab" data-tab="insumos">Insumos</button>
-    <button class="tab" data-tab="logistica">Logística</button>
-    <button class="tab" data-tab="ops">OPs</button>
-    <button class="tab" data-tab="planejamento">Indicadores PCP</button>
+  <div class="tabs" data-ui="tabs">
+    <button class="tab active" data-tab="overview" data-ui="tab">Visão Geral</button>
+    <button class="tab" data-tab="producao" data-ui="tab">Produção</button>
+    <button class="tab" data-tab="pedidos" data-ui="tab">Pedidos</button>
+    <button class="tab" data-tab="insumos" data-ui="tab">Insumos</button>
+    <button class="tab" data-tab="logistica" data-ui="tab">Logística</button>
+    <button class="tab" data-tab="ops" data-ui="tab">OPs</button>
+    <button class="tab" data-tab="planejamento" data-ui="tab">Indicadores PCP</button>
   </div>
 
   <section id="overview" class="pane">
     <div class="kpi-grid" id="kpi-main"></div>
     <div class="row">
-      <div class="card"><h3 class="dyn-prod" data-kind="unid">Produção mensal — Unidades</h3><div class="chart-wrap"><canvas id="c_mensal"></canvas></div></div>
-      <div class="card"><h3 class="dyn-prod" data-kind="hops">Produção mensal — Horas e OPs</h3><div class="chart-wrap"><canvas id="c_horas"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3 class="dyn-prod" data-kind="unid">Produção mensal — Unidades</h3><div class="chart-wrap"><canvas id="c_mensal"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3 class="dyn-prod" data-kind="hops">Produção mensal — Horas e OPs</h3><div class="chart-wrap"><canvas id="c_horas"></canvas></div></div>
     </div>
     <div class="row">
-      <div class="card"><h3>Status dos pedidos</h3><div class="chart-wrap"><canvas id="c_status"></canvas></div></div>
-      <div class="card"><h3>Mix por categoria</h3><div class="chart-wrap"><canvas id="c_cat"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Status dos pedidos</h3><div class="chart-wrap"><canvas id="c_status"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Mix por categoria</h3><div class="chart-wrap"><canvas id="c_cat"></canvas></div></div>
     </div>
   </section>
 
   <section id="producao" class="pane hidden">
     <div class="kpi-grid" id="kpi-producao"></div>
     <div class="row">
-      <div class="card"><h3 id="title-prod-evol">Evolução mensal — Unid., Horas, OPs</h3><div class="chart-wrap tall"><canvas id="c_prod_evol"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3 id="title-prod-evol">Evolução mensal — Unid., Horas, OPs</h3><div class="chart-wrap tall"><canvas id="c_prod_evol"></canvas></div></div>
     </div>
 
     <!-- Linhas de produção -->
-    <div class="card" style="margin-bottom:12px"><h3>Por linha de produção</h3><div class="kpi-grid" id="kpi-linhas"></div></div>
+    <div class="card" style="margin-bottom:12px" data-ui="surface"><h3>Por linha de produção</h3><div class="kpi-grid" id="kpi-linhas"></div></div>
     <div class="row">
-      <div class="card"><h3 id="title-lin-evol">Evolução mensal — Unidades por linha</h3><div class="chart-wrap tall"><canvas id="c_lin_evol"></canvas></div></div>
-      <div class="card"><h3>Mix por linha — Unidades</h3><div class="chart-wrap tall"><canvas id="c_lin_mix"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3 id="title-lin-evol">Evolução mensal — Unidades por linha</h3><div class="chart-wrap tall"><canvas id="c_lin_evol"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Mix por linha — Unidades</h3><div class="chart-wrap tall"><canvas id="c_lin_mix"></canvas></div></div>
     </div>
     <div class="row">
-      <div class="card"><h3>Eficiência por linha <small>unidades / hora</small></h3><div class="chart-wrap"><canvas id="c_lin_eff"></canvas></div></div>
-      <div class="card"><h3>Horas úteis por linha</h3><div class="chart-wrap"><canvas id="c_lin_horas"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Eficiência por linha <small>unidades / hora</small></h3><div class="chart-wrap"><canvas id="c_lin_eff"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Horas úteis por linha</h3><div class="chart-wrap"><canvas id="c_lin_horas"></canvas></div></div>
     </div>
 
     <div class="row">
-      <div class="card"><h3>Top clientes — Unidades</h3><div class="chart-wrap tall"><canvas id="c_top_clientes"></canvas></div></div>
-      <div class="card"><h3>Top SKUs — Unidades</h3><div class="chart-wrap tall"><canvas id="c_top_sku"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Top clientes — Unidades</h3><div class="chart-wrap tall"><canvas id="c_top_clientes"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Top SKUs — Unidades</h3><div class="chart-wrap tall"><canvas id="c_top_sku"></canvas></div></div>
     </div>
     <div class="row">
-      <div class="card"><h3>Sub-categorias</h3><div class="chart-wrap"><canvas id="c_subcat"></canvas></div></div>
-      <div class="card"><h3>Viscosidade</h3><div class="chart-wrap"><canvas id="c_visc"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Sub-categorias</h3><div class="chart-wrap"><canvas id="c_subcat"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Viscosidade</h3><div class="chart-wrap"><canvas id="c_visc"></canvas></div></div>
     </div>
-    <div class="card"><h3>Eficiência por cliente <small>unidades / hora</small></h3><div id="eff-bars"></div></div>
+    <div class="card" data-ui="surface"><h3>Eficiência por cliente <small>unidades / hora</small></h3><div id="eff-bars"></div></div>
   </section>
 
   <section id="pedidos" class="pane hidden">
     <div class="kpi-grid" id="kpi-pedidos"></div>
     <div class="row">
-      <div class="card"><h3>Status dos pedidos</h3><div class="chart-wrap"><canvas id="c_ped_status"></canvas></div></div>
-      <div class="card"><h3>Tipo de serviço</h3><div class="chart-wrap"><canvas id="c_ped_serv"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Status dos pedidos</h3><div class="chart-wrap"><canvas id="c_ped_status"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Tipo de serviço</h3><div class="chart-wrap"><canvas id="c_ped_serv"></canvas></div></div>
     </div>
     <div class="row">
-      <div class="card"><h3>Top clientes — Quantidade pedida</h3><div class="chart-wrap tall"><canvas id="c_ped_cli"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Top clientes — Quantidade pedida</h3><div class="chart-wrap tall"><canvas id="c_ped_cli"></canvas></div></div>
     </div>
-    <div class="card">
+    <div class="card" data-ui="surface">
       <h3>Pedidos <small id="pedidos-count"></small></h3>
       <div class="scroll-tbl">
         <table id="tbl-pedidos">
@@ -262,25 +262,25 @@ table tr:hover { background: #f8fafc; }
 
   <section id="insumos" class="pane hidden">
     <div class="kpi-grid" id="kpi-insumos"></div>
-    <div class="card" style="margin-bottom:12px"><h3>Prontidão de insumos <small>pedidos não concluídos no filtro</small></h3><div id="insumos-bars"></div></div>
+    <div class="card" style="margin-bottom:12px" data-ui="surface"><h3>Prontidão de insumos <small>pedidos não concluídos no filtro</small></h3><div id="insumos-bars"></div></div>
     <div class="row">
-      <div class="card"><h3>Pendências por insumo</h3><div class="chart-wrap tall"><canvas id="c_pend"></canvas></div></div>
-      <div class="card"><h3>Cobertura geral</h3><div class="chart-wrap tall"><canvas id="c_cover"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Pendências por insumo</h3><div class="chart-wrap tall"><canvas id="c_pend"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Cobertura geral</h3><div class="chart-wrap tall"><canvas id="c_cover"></canvas></div></div>
     </div>
   </section>
 
   <section id="logistica" class="pane hidden">
-    <div class="card" style="margin-bottom:12px;border-left:3px solid #dc2626;background:#fef2f2">
+    <div class="card" style="margin-bottom:12px;border-left:3px solid #dc2626;background:#fef2f2" data-ui="surface">
       <strong style="color:#991b1b">⚠️ Dados congelados:</strong>
       <span style="color:#991b1b">esta aba (estoque, expedições, entradas) mostra um retrato exportado manualmente em <strong id="snapshot-date-logistica">—</strong> e NÃO reflete movimentações depois dessa data. A integração ao vivo de estoque de produto acabado ainda não existe neste sistema.</span>
     </div>
     <!-- Qualidade dos cadastros -->
-    <div class="card" style="margin-bottom:12px;border-left:3px solid #f59e0b">
+    <div class="card" style="margin-bottom:12px;border-left:3px solid #f59e0b" data-ui="surface">
       <h3>Qualidade dos cadastros <small id="qual-summary"></small></h3>
       <div class="kpi-grid" id="kpi-log-quality" style="margin-top:8px"></div>
       <div class="row" style="margin-top:12px">
-        <div class="card" style="margin:0"><h3 style="font-size:13px">Tipos de problema</h3><div class="chart-wrap"><canvas id="c_log_quality"></canvas></div></div>
-        <div class="card" style="margin:0">
+        <div class="card" style="margin:0" data-ui="surface"><h3 style="font-size:13px">Tipos de problema</h3><div class="chart-wrap"><canvas id="c_log_quality"></canvas></div></div>
+        <div class="card" style="margin:0" data-ui="surface">
           <h3 style="font-size:13px">Cadastros com pendências <small id="qual-tbl-count"></small></h3>
           <div class="scroll-tbl" style="max-height:300px">
             <table id="tbl-log-quality">
@@ -299,28 +299,28 @@ table tr:hover { background: #f8fafc; }
     <h2 style="margin:16px 0 8px;font-size:14px;color:var(--m);text-transform:uppercase;letter-spacing:.4px">Estoque atual <span style="font-size:10px;color:var(--l);text-transform:none;font-weight:400">(ignora filtro de período · só estado atual)</span></h2>
     <div class="kpi-grid" id="kpi-log-stock"></div>
     <div class="row">
-      <div class="card"><h3>Aging de estoque <small>idade × volume parado</small></h3><div class="chart-wrap tall"><canvas id="c_log_aging"></canvas></div></div>
-      <div class="card"><h3 id="title-log-evol">Expedição mensal — Caixas, Unidades, Carga (kg)</h3><div class="chart-wrap tall"><canvas id="c_log_evol"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Aging de estoque <small>idade × volume parado</small></h3><div class="chart-wrap tall"><canvas id="c_log_aging"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3 id="title-log-evol">Expedição mensal — Caixas, Unidades, Carga (kg)</h3><div class="chart-wrap tall"><canvas id="c_log_evol"></canvas></div></div>
     </div>
     <div class="row">
-      <div class="card"><h3>SKUs mais parados em estoque <small>tempo médio (dias)</small></h3><div class="chart-wrap tall"><canvas id="c_log_sku_slow"></canvas></div></div>
-      <div class="card"><h3>Clientes — tempo médio em estoque</h3><div class="chart-wrap tall"><canvas id="c_log_cli_slow"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>SKUs mais parados em estoque <small>tempo médio (dias)</small></h3><div class="chart-wrap tall"><canvas id="c_log_sku_slow"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Clientes — tempo médio em estoque</h3><div class="chart-wrap tall"><canvas id="c_log_cli_slow"></canvas></div></div>
     </div>
     <div class="row">
-      <div class="card"><h3>Status da expedição</h3><div class="chart-wrap"><canvas id="c_log_status"></canvas></div></div>
-      <div class="card"><h3>Top transportadoras <small>por carga (kg)</small></h3><div class="chart-wrap"><canvas id="c_log_transp"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Status da expedição</h3><div class="chart-wrap"><canvas id="c_log_status"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Top transportadoras <small>por carga (kg)</small></h3><div class="chart-wrap"><canvas id="c_log_transp"></canvas></div></div>
     </div>
     <div class="row">
-      <div class="card"><h3>Top clientes — Caixas expedidas</h3><div class="chart-wrap tall"><canvas id="c_log_cli"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Top clientes — Caixas expedidas</h3><div class="chart-wrap tall"><canvas id="c_log_cli"></canvas></div></div>
     </div>
 
     <!-- Cargas disponiveis por cliente -->
-    <div class="card" style="margin-bottom:12px;border-left:3px solid #2563eb">
+    <div class="card" style="margin-bottom:12px;border-left:3px solid #2563eb" data-ui="surface">
       <h3>Cargas disponíveis por cliente <small id="cargas-cli-summary" style="color:var(--l)">· estoque atual (ignora filtro de período)</small></h3>
       <div id="cargas-cli-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:10px"></div>
     </div>
 
-    <div class="card">
+    <div class="card" data-ui="surface">
       <h3>Pedidos em estoque <small id="estoque-count"></small></h3>
       <div class="scroll-tbl">
         <table id="tbl-estoque">
@@ -337,16 +337,16 @@ table tr:hover { background: #f8fafc; }
 
   <!-- ===== Aba OPs (acompanhamento de OPs emitidas vs preenchidas) ===== -->
   <section id="ops" class="pane hidden">
-    <div class="card" style="margin-bottom:12px;border-left:3px solid #dc2626;background:#fef2f2">
+    <div class="card" style="margin-bottom:12px;border-left:3px solid #dc2626;background:#fef2f2" data-ui="surface">
       <strong style="color:#991b1b">⚠️ Dados congelados:</strong>
       <span style="color:#991b1b">a comparação de OPs emitidas x preenchidas usa um retrato exportado manualmente em <strong id="snapshot-date-ops">—</strong> e NÃO inclui OPs emitidas depois dessa data.</span>
     </div>
     <div class="kpi-grid" id="kpi-ops"></div>
     <div class="row">
-      <div class="card"><h3>Emitidas x preenchidas por mês</h3><div class="chart-wrap tall"><canvas id="c_ops_mes"></canvas></div></div>
-      <div class="card"><h3>Pendentes por cliente</h3><div class="chart-wrap tall"><canvas id="c_ops_cli"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Emitidas x preenchidas por mês</h3><div class="chart-wrap tall"><canvas id="c_ops_mes"></canvas></div></div>
+      <div class="card" data-ui="surface"><h3>Pendentes por cliente</h3><div class="chart-wrap tall"><canvas id="c_ops_cli"></canvas></div></div>
     </div>
-    <div class="card" style="border-left:3px solid #dc2626">
+    <div class="card" style="border-left:3px solid #dc2626" data-ui="surface">
       <h3>OPs pendentes de preenchimento <small id="ops-pend-count" style="color:var(--l)">· arquivo emitido mas sem registro no Controle de Produção</small></h3>
       <div class="scroll-tbl" style="max-height:500px">
         <table id="tbl-ops-pend">
@@ -357,7 +357,7 @@ table tr:hover { background: #f8fafc; }
         </table>
       </div>
     </div>
-    <div class="card" style="margin-top:12px;border-left:3px solid #94a3b8">
+    <div class="card" style="margin-top:12px;border-left:3px solid #94a3b8" data-ui="surface">
       <h3>OPs no Controle de Produção sem arquivo correspondente <small id="ops-orfas-count" style="color:var(--l)">· lote registrado na planilha mas sem ficha em pasta</small></h3>
       <div class="scroll-tbl" style="max-height:300px">
         <table id="tbl-ops-orfas">
@@ -372,15 +372,15 @@ table tr:hover { background: #f8fafc; }
 
   <!-- ===== Aba Indicadores PCP (Fase 10 do plano — KPIs ao vivo, sem retrato estático) ===== -->
   <section id="planejamento" class="pane hidden">
-    <div class="card" style="margin-bottom:12px;border-left:3px solid #2456d6;background:#eff4ff">
+    <div class="card" style="margin-bottom:12px;border-left:3px solid #2456d6;background:#eff4ff" data-ui="surface">
       <span style="color:#1e3a8a">ℹ️ Dados ao vivo do Firebase (<code>ops</code>/<code>paradas_historico</code>), mesma fonte das abas Produção/Pedidos — não usa o retrato estático das abas Logística/OPs.</span>
     </div>
     <div class="kpi-grid" id="kpi-planejamento"></div>
     <div class="row">
-      <div class="card"><h3>Rendimento por linha <small>produzido ÷ planejado, OPs com produção no período</small></h3><div id="rendimento-bars"></div></div>
-      <div class="card"><h3>Pareto de motivo de parada <small>minutos parados no período</small></h3><div id="paradas-pareto-bars"></div></div>
+      <div class="card" data-ui="surface"><h3>Rendimento por linha <small>produzido ÷ planejado, OPs com produção no período</small></h3><div id="rendimento-bars"></div></div>
+      <div class="card" data-ui="surface"><h3>Pareto de motivo de parada <small>minutos parados no período</small></h3><div id="paradas-pareto-bars"></div></div>
     </div>
-    <div class="card">
+    <div class="card" data-ui="surface">
       <h3>Setup: planejado × realizado por linha <small>alimenta a calibração do ajuste automático de setup</small></h3>
       <div id="setup-kpi-note" style="font-size:11.5px;color:var(--l);margin:-6px 0 10px"></div>
       <div id="setup-bars"></div>

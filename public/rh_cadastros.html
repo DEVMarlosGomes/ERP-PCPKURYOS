@@ -105,9 +105,9 @@
     .main-tab-panel.active{display:block}
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
 
-<div class="header">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Recursos Humanos</h1>
     <div class="header-sub">Cadastro do Colaborador e Organizacional (Cargos) -- Fase 1 do módulo de RH.</div>
@@ -119,14 +119,14 @@
   <div id="alertBox" class="alert alert-success"></div>
 </div>
 
-<div class="main-tabs" id="mainTabs">
-  <button class="main-tab active" data-maintab="colaboradores">Colaboradores</button>
-  <button class="main-tab" data-maintab="cargos">Cargos</button>
+<div class="main-tabs" id="mainTabs" data-ui="tabs">
+  <button class="main-tab active" data-maintab="colaboradores" data-ui="tab">Colaboradores</button>
+  <button class="main-tab" data-maintab="cargos" data-ui="tab">Cargos</button>
 </div>
 
 <div class="main">
   <div class="main-tab-panel active" id="maintab-colaboradores">
-    <div class="kt-toolbar">
+    <div class="kt-toolbar" data-ui="filters">
       <div class="kt-search"><span class="icon">🔍</span><input type="text" id="searchInput-col" placeholder="Buscar por nome, CPF ou cargo..."></div>
       <select class="kt-select" id="filterStatus-col">
         <option value="">Todos</option>
@@ -137,15 +137,15 @@
     </div>
 
     <div class="stats">
-      <div class="stat"><div class="stat-val" id="statTotal-col">—</div><div class="stat-lbl">Total</div></div>
-      <div class="stat"><div class="stat-val" id="statAtivos-col" style="color:var(--success)">—</div><div class="stat-lbl">Ativos</div></div>
-      <div class="stat"><div class="stat-val" id="statDesligados-col" style="color:var(--muted)">—</div><div class="stat-lbl">Desligados</div></div>
-      <div class="stat"><div class="stat-val" id="statClt-col" style="color:var(--primary)">—</div><div class="stat-lbl">CLT (dos ativos)</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="statTotal-col">—</div><div class="stat-lbl">Total</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="statAtivos-col" style="color:var(--success)">—</div><div class="stat-lbl">Ativos</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="statDesligados-col" style="color:var(--muted)">—</div><div class="stat-lbl">Desligados</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="statClt-col" style="color:var(--primary)">—</div><div class="stat-lbl">CLT (dos ativos)</div></div>
     </div>
 
-    <div class="card">
-      <div class="card-title"><span id="tableCount-col">Colaboradores</span></div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head"><span id="tableCount-col">Colaboradores</span></div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead id="colThead-col">
             <tr>
@@ -166,13 +166,13 @@
 
     <div class="modal-bg" id="modalBg-col">
       <div class="modal">
-        <div class="modal-header">
+        <div class="modal-header" data-ui="dialog-head">
           <h2 id="modalTitle-col">Novo Colaborador</h2>
           <button class="modal-close" id="modalClose-col" title="Fechar" aria-label="Fechar">×</button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body" data-ui="dialog-body">
           <div class="section-label">Identificação</div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group full"><label>Nome completo *</label><input type="text" id="fNome-col" class="uc" placeholder="Ex: MARIA DA SILVA SANTOS"></div>
             <div class="form-group"><label>Data de nascimento</label><input type="date" id="fNascimento-col"></div>
             <div class="form-group"><label>Sexo</label>
@@ -187,7 +187,7 @@
           </div>
 
           <div class="section-label">Documentação</div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group"><label>CPF</label><input type="text" id="fCpf-col" placeholder="000.000.000-00"></div>
             <div class="form-group"><label>RG</label><input type="text" id="fRg-col"></div>
             <div class="form-group"><label>PIS</label><input type="text" id="fPis-col"></div>
@@ -195,7 +195,7 @@
           </div>
 
           <div class="section-label">Contato</div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group"><label>Telefone</label><input type="tel" id="fTelefone-col"></div>
             <div class="form-group"><label>E-mail</label><input type="email" id="fEmail-col"></div>
             <div class="form-group full"><label>Endereço</label><input type="text" id="fEndereco-col" class="uc"></div>
@@ -204,7 +204,7 @@
           </div>
 
           <div class="section-label">Vínculo</div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group">
               <label>Cargo</label>
               <input type="text" id="fCargo-col" class="uc" placeholder="Digite pra buscar..." autocomplete="off">
@@ -238,7 +238,7 @@
 
           <div class="section-label">Dados sensíveis (visível só ao RH central)</div>
           <div class="section-note sensivel">Nunca exibidos a Gestor de linha nem ao próprio colaborador -- restrito no `database.rules.json`, não só escondido na tela.</div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group"><label>Salário base (R$)</label><input type="number" id="fSalario-col" min="0" step="0.01"></div>
             <div class="form-group"><label>Vale-transporte -- VT (R$/mês)</label><input type="number" id="fVt-col" min="0" step="0.01"></div>
             <div class="form-group"><label>Vale-alimentação -- VA (R$/mês)</label><input type="number" id="fVa-col" min="0" step="0.01"></div>
@@ -246,7 +246,7 @@
           </div>
 
           <div class="section-label">Status</div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group"><label>Status</label><input type="text" id="fStatusDisplay-col" readonly></div>
             <div class="form-group" id="wrapDesligamento-col" style="display:none">
               <label>Desligamento</label>
@@ -254,7 +254,7 @@
             </div>
           </div>
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer" data-ui="dialog-foot">
           <button class="btn btn-ghost" id="modalCancelBtn-col">Cancelar</button>
           <button class="btn btn-primary" id="modalSaveBtn-col">Salvar Colaborador</button>
         </div>
@@ -263,10 +263,10 @@
 
     <div class="modal-bg" id="modalDesligar-col">
       <div class="modal modal-sm">
-        <div class="modal-header"><h2>Desligamento</h2><button class="modal-close" id="modalDesligarClose-col" title="Fechar" aria-label="Fechar">×</button></div>
-        <div class="modal-body">
+        <div class="modal-header" data-ui="dialog-head"><h2>Desligamento</h2><button class="modal-close" id="modalDesligarClose-col" title="Fechar" aria-label="Fechar">×</button></div>
+        <div class="modal-body" data-ui="dialog-body">
           <div class="section-note">Muda o status pra "Desligado" e registra o motivo -- o histórico do colaborador (nada é apagado) fica preservado.</div>
-          <div class="form-grid">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group full"><label>Tipo</label>
               <select id="dTipo-col">
                 <option value="Sem justa causa">Sem justa causa</option>
@@ -279,7 +279,7 @@
             <div class="form-group full"><label>Motivo / observações</label><textarea id="dMotivo-col" rows="3"></textarea></div>
           </div>
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer" data-ui="dialog-foot">
           <button class="btn btn-ghost" id="dCancelBtn-col">Cancelar</button>
           <button class="btn btn-danger-ghost" id="dConfirmBtn-col">Confirmar desligamento</button>
         </div>
@@ -288,7 +288,7 @@
   </div>
 
   <div class="main-tab-panel" id="maintab-cargos">
-    <div class="kt-toolbar">
+    <div class="kt-toolbar" data-ui="filters">
       <div class="kt-search"><span class="icon">🔍</span><input type="text" id="searchInput-cgo" placeholder="Buscar por nome do cargo ou setor..."></div>
       <select class="kt-select" id="filterAtivo-cgo">
         <option value="">Todos</option>
@@ -299,9 +299,9 @@
     </div>
     <div class="section-note" style="max-width:96%;margin:0 auto 16px">A estrutura completa do plano de carreira (quantos níveis existem, critérios de progressão) ainda não foi definida com a Kuryos -- por ora "Nível/trilha" é texto livre. Ver decisão pendente D-03 na especificação do módulo.</div>
 
-    <div class="card">
-      <div class="card-title"><span id="tableCount-cgo">Cargos</span></div>
-      <div class="table-wrap">
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head"><span id="tableCount-cgo">Cargos</span></div>
+      <div class="table-wrap" data-ui="table-scroll">
         <table>
           <thead id="cgoThead-cgo">
             <tr>
@@ -319,19 +319,19 @@
 
     <div class="modal-bg" id="modalBg-cgo">
       <div class="modal modal-sm">
-        <div class="modal-header">
+        <div class="modal-header" data-ui="dialog-head">
           <h2 id="modalTitle-cgo">Novo Cargo</h2>
           <button class="modal-close" id="modalClose-cgo" title="Fechar" aria-label="Fechar">×</button>
         </div>
-        <div class="modal-body">
-          <div class="form-grid">
+        <div class="modal-body" data-ui="dialog-body">
+          <div class="form-grid" data-ui="form-grid">
             <div class="form-group full"><label>Nome do cargo *</label><input type="text" id="fNome-cgo" class="uc" placeholder="Ex: Operador(a) de Produção"></div>
             <div class="form-group full"><label>Nível / trilha</label><input type="text" id="fNivelTrilha-cgo" class="uc" placeholder="Ex: Júnior, Pleno, Sênior (a confirmar com a Kuryos)"></div>
             <div class="form-group full"><label>Setor</label><input type="text" id="fSetor-cgo" class="uc"></div>
             <div class="form-group full"><label class="chk"><input type="checkbox" id="fAtivo-cgo" checked> Ativo</label></div>
           </div>
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer" data-ui="dialog-foot">
           <button class="btn btn-ghost" id="modalCancelBtn-cgo">Cancelar</button>
           <button class="btn btn-primary" id="modalSaveBtn-cgo">Salvar Cargo</button>
         </div>

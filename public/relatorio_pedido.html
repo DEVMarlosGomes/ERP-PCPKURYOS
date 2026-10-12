@@ -81,8 +81,8 @@
     }
   </style>
 </head>
-<body class="kuryos-theme has-sidebar">
-<div class="header">
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
+<div class="header" data-ui="page-header">
   <div>
     <h1>Relatório de Pedido</h1>
     <div class="header-sub">Por item: produção total, lotes, expedido, em estoque e perdas</div>
@@ -91,7 +91,7 @@
 </div>
 
 <div class="main">
-  <div class="toolbar nao-imprime">
+  <div class="toolbar nao-imprime" data-ui="filters">
     <input type="text" id="busca" placeholder="Buscar pedido, cliente ou nº do cliente...">
     <select id="selPedido"><option value="">Carregando pedidos...</option></select>
     <label class="chk"><input type="checkbox" id="soAbertos"> Só com itens em aberto</label>
@@ -99,7 +99,7 @@
     <button class="btn" id="btnCsv" disabled>⬇️ Exportar CSV</button>
   </div>
 
-  <div id="relatorio"><div class="card vazio">Escolha um pedido.</div></div>
+  <div id="relatorio"><div class="card vazio" data-ui="surface">Escolha um pedido.</div></div>
 </div>
 
 <script>
