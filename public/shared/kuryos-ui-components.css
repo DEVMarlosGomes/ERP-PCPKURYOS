@@ -1,0 +1,132 @@
+/* Componentes equivalentes a ui/{button,input,card,tabs,table,dialog}.jsx.
+   A geometria de calendários, grades de PCP e documentos impressos fica no módulo. */
+html { background: var(--k-bg); accent-color: var(--k-blue); }
+body, body.kuryos-theme {
+  font-family: var(--k-ui-font-body) !important;
+  color: var(--k-text);
+  background: radial-gradient(circle at top left, var(--k-blue-soft), transparent 34rem), var(--k-bg) !important;
+  -webkit-font-smoothing: antialiased;
+}
+:is(h1,h2,h3,h4,h5,h6,.kt-h1,.kuryos-topbar-title) {
+  font-family: var(--k-ui-font-heading) !important;
+  letter-spacing: -.02em !important;
+}
+:is(code,pre,.mono,.mono-num,[class*='font-mono']) { font-family: var(--k-ui-font-mono) !important; }
+::selection { background: var(--k-blue); color: var(--k-surface); }
+
+.k-button, .btn, #root button:not([role='tab']):not([role='combobox']) {
+  font-family: var(--k-ui-font-body);
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--k-radius-md) !important;
+  transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.k-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; padding: 8px 16px; border: 1px solid var(--k-border); color: var(--k-text); background: var(--k-surface); cursor: pointer; }
+.k-button svg { flex: none; width: 16px; height: 16px; }
+.k-button-primary, .btn-primary, #root button.bg-primary {
+  background: var(--k-blue) !important;
+  border-color: var(--k-blue) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  box-shadow: var(--k-shadow-1) !important;
+}
+.k-button-primary:hover, .btn-primary:hover, #root button.bg-primary:hover { background: var(--k-blue-hover) !important; }
+.k-button-secondary { background: var(--k-surface-2); }
+.k-button-danger { background: var(--k-danger); border-color: var(--k-danger); color: #fff; }
+.k-button:disabled, button[disabled] { cursor: not-allowed; opacity: .5; }
+
+.k-field,
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='hidden']),
+select, textarea, [role='combobox'] {
+  border-color: var(--k-border-strong) !important;
+  border-radius: var(--k-radius-md) !important;
+  color: var(--k-text) !important;
+  background-color: var(--k-surface) !important;
+  font-family: var(--k-ui-font-body) !important;
+  box-shadow: var(--k-shadow-1) !important;
+}
+input::placeholder, textarea::placeholder { color: var(--k-text-3) !important; opacity: 1; }
+:is(.k-field,input,textarea,select,[role='combobox']):disabled { opacity: .6; cursor: not-allowed; }
+:is(.k-field,input,textarea,select,[role='combobox']):focus-visible {
+  outline: 2px solid var(--k-blue-soft) !important;
+  outline-offset: 2px;
+  border-color: var(--k-blue) !important;
+  box-shadow: 0 0 0 3px var(--k-blue-soft) !important;
+}
+:is(a,button,[role='button']):focus-visible { outline: 2px solid var(--k-blue) !important; outline-offset: 3px; }
+
+.k-card, [data-ui='surface'], #root .bg-card {
+  border: 1px solid var(--k-border) !important;
+  border-radius: var(--k-radius-md) !important;
+  color: var(--k-text);
+  background: var(--k-surface) !important;
+  box-shadow: var(--k-shadow-1) !important;
+}
+.k-card-head { padding: 20px 24px; border-bottom: 1px solid var(--k-border); }
+.k-card-body { padding: 24px; }
+.k-status { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid var(--k-border); border-radius: 6px; font-size: 11px; font-weight: 600; background: var(--k-surface-2); }
+.k-status[data-tone='success'] { color: var(--k-success); background: color-mix(in srgb,var(--k-success) 8%,var(--k-surface)); }
+.k-status[data-tone='warning'] { color: var(--k-warning); background: color-mix(in srgb,var(--k-warning) 8%,var(--k-surface)); }
+.k-status[data-tone='danger'] { color: var(--k-danger); background: color-mix(in srgb,var(--k-danger) 8%,var(--k-surface)); }
+
+.k-tabs, [data-ui='tabs'], #root [role='tablist'] {
+  border: 1px solid var(--k-border) !important;
+  border-radius: var(--k-radius-md) !important;
+  background: var(--k-surface-2) !important;
+  box-shadow: none !important;
+}
+.k-tab, [data-ui='tab'], #root [role='tab'] {
+  border-radius: var(--k-radius-sm) !important;
+  font-family: var(--k-ui-font-body);
+  font-weight: 600;
+}
+#root [role='tab'][data-state='active'] {
+  color: var(--k-text) !important;
+  background: var(--k-surface) !important;
+  box-shadow: var(--k-shadow-1) !important;
+}
+
+[data-ui='table-scroll'], .k-table-scroll { overflow-x: auto; max-width: 100%; border: 1px solid var(--k-border); border-radius: var(--k-radius-md); overscroll-behavior-inline: contain; }
+.k-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.k-table th { height: 40px; padding: 8px 12px; color: var(--k-text-2); background: var(--k-surface-2); text-align: left; font-weight: 500; }
+.k-table td { padding: 10px 12px; border-top: 1px solid var(--k-border); vertical-align: middle; }
+.k-table tbody tr:hover { background: color-mix(in srgb,var(--k-surface-2) 50%,transparent); }
+
+[role='dialog'] {
+  color: var(--k-text);
+  background: var(--k-surface) !important;
+  border-color: var(--k-border) !important;
+  border-radius: var(--k-radius-md) !important;
+  box-shadow: var(--k-shadow-2) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+body.has-sidebar > [role='dialog'][class*='inset-y-0'] { border-radius: var(--k-radius-md) !important; }
+[data-radix-popper-content-wrapper] > *, .kuryos-search-results {
+  color: var(--k-text);
+  background: var(--k-surface) !important;
+  border-color: var(--k-border) !important;
+  border-radius: var(--k-radius-md) !important;
+  box-shadow: var(--k-shadow-2) !important;
+}
+
+#root .page-enter > h1, #root .page-enter > .flex h1 { font-size: 30px; line-height: 1.2; font-weight: 600 !important; }
+#root :is(.rounded-xl,.rounded-2xl,.rounded-3xl) { border-radius: var(--k-radius-md) !important; }
+#root .kanban-board { gap: 16px; }
+#root .kanban-column { border-radius: var(--k-radius-md) !important; background: color-mix(in srgb,var(--k-surface-2) 50%,transparent) !important; box-shadow: none !important; }
+#root .kanban-column .bg-card { border-radius: var(--k-radius-sm) !important; }
+#root .kanban-column .bg-card:hover { border-color: color-mix(in srgb,var(--k-blue) 35%,var(--k-border)) !important; }
+#root .bg-accent { background: var(--k-blue-soft); }
+
+.login-container { border: 1px solid var(--k-border) !important; border-radius: 8px !important; background: var(--k-surface) !important; box-shadow: var(--k-shadow-2) !important; }
+.login-container label { text-transform: none !important; font-size: 13px !important; color: var(--k-text) !important; letter-spacing: 0 !important; }
+.login-container .tabs { border: 1px solid var(--k-border); border-radius: 8px !important; background: var(--k-surface-2); }
+.login-container .btn-primary { color: hsl(var(--primary-foreground)) !important; }
+
+@media (max-width: 640px) {
+  .k-button { min-height: 44px; }
+  input:not([type='checkbox']):not([type='radio']):not([type='hidden']), select, textarea { font-size: 16px; }
+  body.has-sidebar > [role='dialog'][class*='inset-y-0'] { border-radius: 0 !important; }
+  #root .page-enter > .flex h1 { font-size: 26px; }
+}
+@media (prefers-reduced-motion: reduce) { .k-button, .btn, #root button { transition: none !important; } }
+@media print { body { background: #fff !important; } .k-card { box-shadow: none; } }

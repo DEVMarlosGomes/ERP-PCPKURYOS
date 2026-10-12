@@ -58,10 +58,11 @@ async function viewport(width, height, mobile = false) {
 
 async function navigate(path, theme) {
   const before = runtimeErrors.length;
-  await value(`localStorage.setItem('kuryos-theme', ${JSON.stringify(theme)}); localStorage.removeItem('kuryos.sidebar.collapsed')`);
+  await value(`localStorage.setItem('kuryos-theme', ${JSON.stringify(theme)}); localStorage.setItem('kuryos.sidebar.collapsed', '0')`);
   await call('Page.navigate', { url: `${baseUrl}${path}${path.includes('?') ? '&' : '?'}repo-visual-test=${Date.now()}` });
   await waitFor(`document.readyState === 'complete'`);
   await waitFor(`Boolean(document.querySelector('#unified-navbar')) && Boolean([...document.styleSheets].some((sheet) => String(sheet.href || '').includes('kuryos-repo-visual.css')))`);
+  await waitFor(`document.body.dataset.kuryosUi === 'reference' && document.documentElement.getAttribute('data-kuryos-enterprise-shell') === 'ready'`);
   const expectedText = path.startsWith('/pd.html') ? 'Pipeline P&D'
     : path.startsWith('/crm1.html') ? 'Pipeline Comercial'
       : path.startsWith('/dashboard_executivo.html') ? 'Visão executiva 360°'
@@ -90,6 +91,8 @@ async function navigate(path, theme) {
       topbarDisplay: topbar ? getComputedStyle(topbar).display : null,
       activeRadius: active ? getComputedStyle(active).borderRadius : null,
       groupIcons: document.querySelectorAll('.kt-cap-icon svg').length,
+      footerInViewport: document.querySelector('.kt-sidebar-foot').getBoundingClientRect().bottom <= innerHeight + 1,
+      navigationScrolls: getComputedStyle(document.querySelector('.kuryos-sidebar-nav')).overflowY === 'auto',
       overflow: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - innerWidth,
       denied: document.body.innerText.includes('Acesso Negado')
     };
@@ -122,6 +125,7 @@ for (const theme of ['light', 'dark']) {
     assert.equal(result.sidebarWidth, 280, `${path}: sidebar expandida divergente`);
     assert.equal(result.topbarDisplay, 'none', `${path}: topbar desktop deveria estar oculta`);
     assert.ok(result.groupIcons > 0, `${path}: grupos sem icones`);
+    assert.ok(result.footerInViewport && result.navigationScrolls, `${path}: usuário/tema inacessíveis`);
     assert.ok(result.overflow <= 1, `${path}: overflow global de ${result.overflow}px`);
     assert.equal(result.errors.length, 0, `${path}: erros de runtime: ${result.errors.join('\n')}`);
     desktopResults.push(result);
@@ -129,6 +133,31 @@ for (const theme of ['light', 'dark']) {
   await navigate('/dashboard_executivo.html?periodo=30', theme);
   await screenshot(`dashboard-${theme}`);
 }
+
+// Os controles devem funcionar sem depender de haver uma topbar desktop visível.
+await navigate('/cadastros.html', 'light');
+await value(`document.querySelector('.kuryos-sidebar-collapse').click()`);
+await waitFor(`document.body.classList.contains('kuryos-sidebar-collapsed') && Math.round(document.querySelector('#unified-navbar').getBoundingClientRect().width) === 76`);
+const collapsed = await value(`({ width: Math.round(document.querySelector('#unified-navbar').getBoundingClientRect().width), padding: parseFloat(getComputedStyle(document.body).paddingLeft), themeAvailable: document.querySelector('#kt-theme-toggle').getClientRects().length > 0, brand: getComputedStyle(document.querySelector('.kuryos-brand-mark')).display })`);
+assert.equal(collapsed.padding, 76, 'recolhido: recuo não acompanha navegação');
+assert.ok(collapsed.themeAvailable && collapsed.brand === 'inline-flex', 'recolhido: marca/tema indisponíveis');
+await value(`document.querySelector('#unified-navbar').dispatchEvent(new MouseEvent('mouseenter'))`);
+await waitFor(`Math.round(document.querySelector('#unified-navbar').getBoundingClientRect().width) === 280`);
+assert.equal(await value(`parseFloat(getComputedStyle(document.body).paddingLeft)`), 76, 'hover: conteúdo foi deslocado');
+await value(`document.querySelector('#unified-navbar').dispatchEvent(new MouseEvent('mouseleave'))`);
+await value(`document.querySelector('.kuryos-sidebar-search-launch').click()`);
+await waitFor(`!document.querySelector('.kuryos-command-search').hidden`);
+await value(`(() => { const input = document.querySelector('.kuryos-global-search input'); input.value = 'Compras'; input.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+const search = await value(`({ count: document.querySelectorAll('.kuryos-search-result').length, focus: document.activeElement === document.querySelector('.kuryos-global-search input'), width: document.querySelector('.kuryos-command-search').getBoundingClientRect().width })`);
+assert.ok(search.count > 0 && search.focus && search.width <= 560, 'busca desktop não abriu/findou módulos');
+await value(`document.querySelector('.kuryos-global-search input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+assert.equal(await value(`document.querySelector('.kuryos-command-search').hidden`), true, 'Esc não fecha busca');
+
+// Impressão não deve conter o shell nem deixar o recuo da sidebar.
+await call('Emulation.setEmulatedMedia', { media: 'print' });
+assert.equal(await value(`getComputedStyle(document.querySelector('#unified-navbar')).display`), 'none');
+assert.equal(await value(`parseFloat(getComputedStyle(document.body).paddingLeft)`), 0);
+await call('Emulation.setEmulatedMedia', { media: '' });
 
 await viewport(390, 844, true);
 const mobile = await navigate('/dashboard_executivo.html?periodo=30', 'light');
@@ -138,6 +167,15 @@ assert.ok(mobile.overflow <= 1, `mobile: overflow global de ${mobile.overflow}px
 assert.equal(mobile.errors.length, 0, `mobile: erros de runtime: ${mobile.errors.join('\n')}`);
 await screenshot('dashboard-mobile');
 
+await value(`document.querySelector('#kt-hamburger').click()`);
+await waitFor(`document.querySelector('#unified-navbar').getBoundingClientRect().left >= -1`);
+const mobileMenu = await value(`({ expanded: document.querySelector('#kt-hamburger').getAttribute('aria-expanded'), width: document.querySelector('#unified-navbar').getBoundingClientRect().width, footer: document.querySelector('.kt-sidebar-foot').getBoundingClientRect().bottom, minTouch: Math.min(...[...document.querySelectorAll('.kt-nav-cap,.kt-nav-link')].filter(e => e.getClientRects().length > 0).map(e => e.getBoundingClientRect().height)) })`);
+assert.equal(mobileMenu.expanded, 'true');
+assert.ok(mobileMenu.width <= 390 && mobileMenu.footer <= 845 && mobileMenu.minTouch >= 44, 'menu mobile não é acessível');
+await value(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+assert.equal(await value(`document.querySelector('#kt-hamburger').getAttribute('aria-expanded')`), 'false');
+
 await call('Emulation.clearDeviceMetricsOverride');
+await value(`localStorage.removeItem('kuryos.sidebar.collapsed')`);
 socket.close();
-console.log(JSON.stringify({ desktop: desktopResults, mobile }, null, 2));
+console.log(JSON.stringify({ desktop: desktopResults, collapsed, search, mobile, mobileMenu }, null, 2));

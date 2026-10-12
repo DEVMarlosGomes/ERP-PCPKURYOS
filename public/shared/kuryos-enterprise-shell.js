@@ -51,8 +51,11 @@
     empty.textContent = 'Nenhum módulo autorizado corresponde à busca.';
     tools.insertAdjacentElement('afterend', empty);
 
-    var collapsed = false;
-    try { collapsed = localStorage.getItem('kuryos.sidebar.collapsed') === '1'; } catch (error) {}
+    var collapsed = !/\/dashboard(?:_ex|_an|_se|\.html)/.test(location.pathname);
+    try {
+      var preference = localStorage.getItem('kuryos.sidebar.collapsed');
+      if (preference === '0' || preference === '1') collapsed = preference === '1';
+    } catch (error) {}
     document.body.classList.toggle('kuryos-sidebar-collapsed', collapsed);
     var collapse = tools.querySelector('.kuryos-sidebar-collapse');
     collapse.setAttribute('aria-pressed', String(collapsed));
@@ -62,10 +65,24 @@
       collapsed = document.body.classList.contains('kuryos-sidebar-collapsed');
       document.body.classList.toggle('kuryos-sidebar-collapsed', !collapsed);
       collapsed = !collapsed;
+      document.body.classList.remove('kuryos-sidebar-preview');
       collapse.setAttribute('aria-pressed', String(collapsed));
       collapse.setAttribute('aria-label', collapsed ? 'Expandir menu' : 'Recolher menu');
       collapse.title = collapsed ? 'Expandir menu' : 'Recolher menu';
       try { localStorage.setItem('kuryos.sidebar.collapsed', collapsed ? '1' : '0'); } catch (error) {}
+    });
+
+    // Hover e foco expandem a navegação sem mover a página nem gravar preferência.
+    function preview(open) {
+      document.body.classList.toggle('kuryos-sidebar-preview', open && document.body.classList.contains('kuryos-sidebar-collapsed') && innerWidth > 980);
+    }
+    sidebar.addEventListener('mouseenter', function () { preview(true); });
+    sidebar.addEventListener('mouseleave', function () { preview(sidebar.contains(document.activeElement) && document.activeElement !== collapse); });
+    sidebar.addEventListener('focusin', function (event) { if (event.target !== collapse) preview(true); });
+    sidebar.addEventListener('focusout', function (event) { if (!sidebar.contains(event.relatedTarget)) preview(false); });
+    window.addEventListener('resize', function () { if (innerWidth <= 980) preview(false); }, { passive: true });
+    sidebar.querySelectorAll('.kt-nav-cap').forEach(function (cap) {
+      cap.title = text(cap.querySelector('.kt-cap-txt')?.textContent);
     });
 
     sidebar.querySelectorAll('.kt-nav-link').forEach(function (link) {
@@ -73,8 +90,11 @@
       link.title = label;
       var span = document.createElement('span');
       span.textContent = label;
-      Array.from(link.childNodes).forEach(function (node) { if (node.nodeType === Node.TEXT_NODE) node.remove(); });
-      if (!link.querySelector('span')) link.appendChild(span);
+      if (!link.querySelector('span')) {
+        Array.from(link.childNodes).forEach(function (node) { if (node.nodeType === Node.TEXT_NODE) node.remove(); });
+        link.appendChild(span);
+      }
+      if (link.classList.contains('active')) link.setAttribute('aria-current', 'page');
     });
     collectNavigation(sidebar);
 
@@ -96,7 +116,7 @@
 
     sidebar.addEventListener('keydown', function (event) {
       if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;
-      var links = Array.from(sidebar.querySelectorAll('.kt-nav-link:not([hidden])'));
+      var links = Array.from(sidebar.querySelectorAll('.kt-nav-cap,.kt-nav-link:not([hidden])')).filter(function (link) { return link.getClientRects().length && !link.closest('[hidden]'); });
       var index = links.indexOf(document.activeElement);
       if (index < 0) return;
       event.preventDefault();
@@ -147,7 +167,51 @@
     var search = bar.querySelector('.kuryos-global-search');
     var input = search.querySelector('input');
     var results = search.querySelector('.kuryos-search-results');
+    var command = document.createElement('div');
+    command.className = 'kuryos-command-search';
+    command.hidden = true;
+    command.setAttribute('role', 'dialog');
+    command.setAttribute('aria-label', 'Buscar módulos autorizados');
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'kuryos-command-close';
+    close.textContent = 'Fechar · Esc';
+    command.appendChild(close);
+    document.body.appendChild(command);
+    var trigger = null;
+    function openSearch() {
+      trigger = document.activeElement;
+      if (innerWidth > 980) {
+        command.hidden = false;
+        command.insertBefore(search, close);
+      } else {
+        command.hidden = true;
+        if (search.parentElement !== bar) bar.insertBefore(search, bar.querySelector('.kuryos-topbar-actions'));
+        bar.classList.add('search-open');
+      }
+      input.focus();
+      render();
+    }
+    function closeSearch(restoreFocus) {
+      search.classList.remove('open');
+      command.hidden = true;
+      bar.classList.remove('search-open');
+      if (restoreFocus && trigger && trigger.isConnected) trigger.focus();
+    }
+    close.addEventListener('click', function () { closeSearch(true); });
+    var launch = document.createElement('button');
+    launch.type = 'button';
+    launch.className = 'kuryos-sidebar-search-launch';
+    launch.innerHTML = icon.search + '<span>Buscar</span><small>Ctrl K</small>';
+    launch.setAttribute('aria-label', 'Buscar módulos — Ctrl K');
+    launch.title = 'Buscar módulos — Ctrl K';
+    sidebar.querySelector('.kt-sidebar-foot').insertAdjacentElement('beforebegin', launch);
+    launch.addEventListener('click', openSearch);
     function render() {
+      if (innerWidth > 980) {
+        command.hidden = false;
+        if (search.parentElement !== command) command.insertBefore(search, close);
+      }
       var query = norm(input.value);
       var items = query ? navigation.filter(function (item) { return norm(item.label + ' ' + item.group).includes(query); }) : navigation;
       results.innerHTML = resultHtml(items);
@@ -167,18 +231,18 @@
       } else if (event.key === 'Enter' && active) {
         location.href = active.href;
       } else if (event.key === 'Escape') {
-        search.classList.remove('open'); input.blur();
+        closeSearch(true);
       }
     });
-    document.addEventListener('click', function (event) { if (!search.contains(event.target)) search.classList.remove('open'); });
+    document.addEventListener('click', function (event) { if (!search.contains(event.target) && !launch.contains(event.target) && !event.target.closest('.kuryos-topbar-search-toggle')) closeSearch(false); });
     document.addEventListener('keydown', function (event) {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault(); bar.classList.add('search-open'); input.focus(); render();
+        event.preventDefault(); openSearch();
       }
     });
     bar.querySelector('.kuryos-topbar-search-toggle').addEventListener('click', function () {
-      bar.classList.toggle('search-open');
-      if (bar.classList.contains('search-open')) { input.focus(); render(); }
+      if (bar.classList.contains('search-open')) closeSearch(true);
+      else openSearch();
     });
   }
 

@@ -894,8 +894,10 @@ function renderUnifiedNavbar(user) {
   // papel novo (foi assim que 'pcp' e 'qualidade' foram esquecidos antes).
   var brandHome = homeDoUsuario(user);
   sidebar.innerHTML =
-    '<div class="kt-brand" onclick="window.location.href=\'' + brandHome + '\'"><img class="kt-brand-logo" src="kuryos-logo.svg" alt="Kuryos"></div>' +
+    '<button type="button" class="kt-brand" aria-label="Kuryos — página inicial" onclick="window.location.href=\'' + brandHome + '\'"><span class="kuryos-brand-mark" aria-hidden="true">K</span><img class="kt-brand-logo" src="kuryos-logo.svg" alt="Kuryos"></button>' +
+    '<nav class="kuryos-sidebar-nav" aria-label="Navegação principal">' +
     analisesGroup + geralGroup + comercialGroup + comprasGroup + pcpGroup + logisticaGroup + qualidadeGroup + producaoGroup + usersGroup + rhGroup + manuaisGroup +
+    '</nav>' +
     '<div class="kt-sidebar-foot">' +
       '<span class="kt-avatar">' + initials + '</span>' +
       '<div class="who"><div class="name">' + user.nome + '</div><div class="role">' + roleLabel + '</div></div>' +
@@ -913,15 +915,22 @@ function renderUnifiedNavbar(user) {
   hamburger.className = 'kt-hamburger';
   hamburger.id = 'kt-hamburger';
   hamburger.title = 'Menu';
+  hamburger.setAttribute('aria-label', 'Abrir menu');
+  hamburger.setAttribute('aria-controls', 'unified-navbar');
+  hamburger.setAttribute('aria-expanded', 'false');
   hamburger.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3.5 6.5h17M3.5 12h17M3.5 17.5h17"/></svg>';
 
   function closeDrawer() {
     sidebar.classList.remove('open');
     backdrop.classList.remove('open');
+    hamburger.setAttribute('aria-expanded', 'false');
+    hamburger.setAttribute('aria-label', 'Abrir menu');
   }
   function toggleDrawer() {
     sidebar.classList.toggle('open');
     backdrop.classList.toggle('open');
+    hamburger.setAttribute('aria-expanded', String(sidebar.classList.contains('open')));
+    hamburger.setAttribute('aria-label', sidebar.classList.contains('open') ? 'Fechar menu' : 'Abrir menu');
   }
   hamburger.addEventListener('click', toggleDrawer);
   backdrop.addEventListener('click', closeDrawer);
@@ -1642,16 +1651,23 @@ function _autoAjustarPlanejamentoInterno(db, pedidoKey) {
   if (!document.querySelector('link[data-kuryos-repo-visual]')) {
     var referenceStyle = document.createElement('link');
     referenceStyle.rel = 'stylesheet';
-    referenceStyle.href = 'shared/kuryos-repo-visual.css?v=20261009-1';
+    referenceStyle.href = 'shared/kuryos-repo-visual.css?v=20261012-1';
     referenceStyle.setAttribute('data-kuryos-repo-visual', '');
     document.head.appendChild(referenceStyle);
   }
   if (!document.querySelector('script[data-kuryos-enterprise-shell]')) {
     var enterpriseShell = document.createElement('script');
-    enterpriseShell.src = 'shared/kuryos-enterprise-shell.js?v=20261008-6';
+    enterpriseShell.src = 'shared/kuryos-enterprise-shell.js?v=20261012-1';
     enterpriseShell.defer = true;
     enterpriseShell.setAttribute('data-kuryos-enterprise-shell', '');
     document.head.appendChild(enterpriseShell);
+  }
+  if (!document.querySelector('script[data-kuryos-ui]')) {
+    var ui = document.createElement('script');
+    ui.src = 'shared/kuryos-ui.js?v=20261012-1';
+    ui.defer = true;
+    ui.setAttribute('data-kuryos-ui', '');
+    document.head.appendChild(ui);
   }
 })();
 
