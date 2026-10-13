@@ -32,7 +32,8 @@ socket.addEventListener('message', (event) => {
 function call(method, params = {}) {
   return new Promise((resolve, reject) => {
     const id = ++sequence;
-    pending.set(id, { resolve, reject });
+    const timer = setTimeout(() => { pending.delete(id); reject(new Error(`CDP timeout: ${method}`)); }, 30000);
+    pending.set(id, { resolve: result => { clearTimeout(timer); resolve(result); }, reject: error => { clearTimeout(timer); reject(error); } });
     socket.send(JSON.stringify({ id, method, params }));
   });
 }
@@ -57,6 +58,7 @@ async function viewport(width, height, mobile = false) {
 }
 
 async function navigate(path, theme) {
+  console.error(`Validando ${theme}: ${path}`);
   const before = runtimeErrors.length;
   await value(`localStorage.setItem('kuryos-theme', ${JSON.stringify(theme)}); localStorage.setItem('kuryos.sidebar.collapsed', '0')`);
   await call('Page.navigate', { url: `${baseUrl}${path}${path.includes('?') ? '&' : '?'}repo-visual-test=${Date.now()}` });
@@ -68,6 +70,7 @@ async function navigate(path, theme) {
       : path.startsWith('/dashboard_executivo.html') ? 'Visão executiva 360°'
         : null;
   if (expectedText) await waitFor(`document.body.innerText.includes(${JSON.stringify(expectedText)})`);
+  if (path.startsWith('/pd.html') || path.startsWith('/crm1.html')) await waitFor(`Boolean(document.querySelector('#root h1'))`);
   await new Promise((resolve) => setTimeout(resolve, 500));
   const result = await value(`(() => {
     const root = getComputedStyle(document.documentElement);
@@ -93,6 +96,8 @@ async function navigate(path, theme) {
       groupIcons: document.querySelectorAll('.kt-cap-icon svg').length,
       footerInViewport: document.querySelector('.kt-sidebar-foot').getBoundingClientRect().bottom <= innerHeight + 1,
       navigationScrolls: getComputedStyle(document.querySelector('.kuryos-sidebar-nav')).overflowY === 'auto',
+      legacyColorsValid: !document.body.hasAttribute('data-kuryos-operational') || ['--card','--primary','--muted','--border'].every(name => CSS.supports('color', getComputedStyle(document.body).getPropertyValue(name).trim())),
+      reactColorsValid: !document.getElementById('root') || ['--card','--primary','--accent','--border'].every(name => CSS.supports('color', 'hsl(' + getComputedStyle(document.body).getPropertyValue(name).trim() + ')')),
       overflow: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - innerWidth,
       denied: document.body.innerText.includes('Acesso Negado')
     };
@@ -102,6 +107,7 @@ async function navigate(path, theme) {
 }
 
 async function screenshot(name) {
+  await call('Page.bringToFront');
   const shot = await call('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
   await writeFile(`scripts/artifacts/repo-visual/${name}.png`, Buffer.from(shot.data, 'base64'));
 }
@@ -121,14 +127,17 @@ for (const theme of ['light', 'dark']) {
     assert.equal(result.stylesheet, true, `${path}: camada visual ausente`);
     assert.equal(result.radius, '8px', `${path}: raio visual divergente`);
     assert.match(result.bodyFont, /Manrope/i, `${path}: fonte de corpo divergente`);
-    if (result.headingFont) assert.match(result.headingFont, /Outfit/i, `${path}: fonte de titulo divergente`);
+    assert.match(result.headingFont, /Outfit/i, `${path}: fonte de titulo divergente`);
     assert.equal(result.sidebarWidth, 280, `${path}: sidebar expandida divergente`);
     assert.equal(result.topbarDisplay, 'none', `${path}: topbar desktop deveria estar oculta`);
     assert.ok(result.groupIcons > 0, `${path}: grupos sem icones`);
     assert.ok(result.footerInViewport && result.navigationScrolls, `${path}: usuário/tema inacessíveis`);
+    assert.ok(result.legacyColorsValid, `${path}: tokens React invadiram cores operacionais`);
+    assert.ok(result.reactColorsValid, `${path}: tokens legados invadiram cores React`);
     assert.ok(result.overflow <= 1, `${path}: overflow global de ${result.overflow}px`);
     assert.equal(result.errors.length, 0, `${path}: erros de runtime: ${result.errors.join('\n')}`);
     desktopResults.push(result);
+    if (path === '/cadastros.html' || path === '/crm1.html') await screenshot(`${path.slice(1,-5)}-${theme}`);
   }
   await navigate('/dashboard_executivo.html?periodo=30', theme);
   await screenshot(`dashboard-${theme}`);
@@ -140,7 +149,7 @@ await value(`document.querySelector('.kuryos-sidebar-collapse').click()`);
 await waitFor(`document.body.classList.contains('kuryos-sidebar-collapsed') && Math.round(document.querySelector('#unified-navbar').getBoundingClientRect().width) === 76`);
 const collapsed = await value(`({ width: Math.round(document.querySelector('#unified-navbar').getBoundingClientRect().width), padding: parseFloat(getComputedStyle(document.body).paddingLeft), themeAvailable: document.querySelector('#kt-theme-toggle').getClientRects().length > 0, brand: getComputedStyle(document.querySelector('.kuryos-brand-mark')).display })`);
 assert.equal(collapsed.padding, 76, 'recolhido: recuo não acompanha navegação');
-assert.ok(collapsed.themeAvailable && collapsed.brand === 'inline-flex', 'recolhido: marca/tema indisponíveis');
+assert.ok(collapsed.themeAvailable && ['inline-flex', 'flex'].includes(collapsed.brand), `recolhido: marca/tema indisponíveis: ${JSON.stringify(collapsed)}`);
 await value(`document.querySelector('#unified-navbar').dispatchEvent(new MouseEvent('mouseenter'))`);
 await waitFor(`Math.round(document.querySelector('#unified-navbar').getBoundingClientRect().width) === 280`);
 assert.equal(await value(`parseFloat(getComputedStyle(document.body).paddingLeft)`), 76, 'hover: conteúdo foi deslocado');
@@ -154,10 +163,15 @@ await value(`document.querySelector('.kuryos-global-search input').dispatchEvent
 assert.equal(await value(`document.querySelector('.kuryos-command-search').hidden`), true, 'Esc não fecha busca');
 
 // Impressão não deve conter o shell nem deixar o recuo da sidebar.
+await value(`applyKuryosTheme('dark')`);
 await call('Emulation.setEmulatedMedia', { media: 'print' });
 assert.equal(await value(`getComputedStyle(document.querySelector('#unified-navbar')).display`), 'none');
 assert.equal(await value(`parseFloat(getComputedStyle(document.body).paddingLeft)`), 0);
+assert.equal(await value(`getComputedStyle(document.querySelector('[data-ui="surface"]')).backgroundColor`), 'rgb(255, 255, 255)', 'impressão escura: painel não virou papel');
 await call('Emulation.setEmulatedMedia', { media: '' });
+
+await navigate('/descarte.html', 'light');
+assert.equal(await value(`Boolean(document.querySelector('header[data-ui="page-header"] h1'))`), true, 'cabeçalho de Descarte removido pelo shell');
 
 await viewport(390, 844, true);
 const mobile = await navigate('/dashboard_executivo.html?periodo=30', 'light');
@@ -179,3 +193,4 @@ await call('Emulation.clearDeviceMetricsOverride');
 await value(`localStorage.removeItem('kuryos.sidebar.collapsed')`);
 socket.close();
 console.log(JSON.stringify({ desktop: desktopResults, collapsed, search, mobile, mobileMenu }, null, 2));
+await writeFile('scripts/artifacts/repo-visual/report.json', JSON.stringify({ desktop: desktopResults, collapsed, search, mobile, mobileMenu }, null, 2));

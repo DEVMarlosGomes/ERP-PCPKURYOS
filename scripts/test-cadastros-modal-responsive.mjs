@@ -56,6 +56,11 @@ const sizes = [
   { name: 'celular', width: 390, height: 844, mobile: true },
 ];
 const results = [];
+const contrastChecks = [];
+function luminance(color) {
+  const channels = color.match(/[\d.]+/g).slice(0, 3).map(Number).map(v => { const x = v / 255; return x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4; });
+  return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+}
 const artifactDir = new URL('./artifacts/cadastros-modal/', import.meta.url);
 await mkdir(artifactDir, { recursive: true });
 
@@ -108,6 +113,16 @@ for (const size of sizes) {
   }
 }
 
+for (const theme of ['light', 'dark']) {
+  await value(`applyKuryosTheme('${theme}'); document.querySelector('button[data-maintab="materiais"]').click(); document.querySelector('#btnNovo-mat').click()`);
+  const colors = await value(`({color:getComputedStyle(document.querySelector('#modalTitle-mat')).color,background:getComputedStyle(document.querySelector('#modalBg-mat .modal-header')).backgroundColor})`);
+  const foreground = luminance(colors.color), background = luminance(colors.background);
+  const contrast = (Math.max(foreground, background) + .05) / (Math.min(foreground, background) + .05);
+  assert.ok(contrast >= 4.5, `${theme}: título de material sem contraste (${contrast.toFixed(2)})`);
+  contrastChecks.push({theme, ...colors, contrast});
+  await value(`document.querySelector('#modalClose-mat').click()`);
+}
+
 await Promise.race([
   call('Emulation.clearDeviceMetricsOverride'),
   new Promise((resolve) => setTimeout(resolve, 2000)),
@@ -115,3 +130,4 @@ await Promise.race([
 socket.close();
 console.log(`OK: ${results.length} cenários de modais de Cadastros responsivos.`);
 console.log(JSON.stringify(results, null, 2));
+console.log(JSON.stringify({contrastChecks}, null, 2));

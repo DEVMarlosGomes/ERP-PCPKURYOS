@@ -25,7 +25,9 @@ async function value(expression) {
   if (result.exceptionDetails) throw new Error(result.exceptionDetails.text);
   return result.result?.value;
 }
-async function waitFor(expression, timeout = 25000) {
+// A primeira leitura Firebase após reiniciar a sessão pode ser mais lenta.
+// O prazo continua limitado e preserva o diagnóstico da tela em caso de erro.
+async function waitFor(expression, timeout = 45000) {
   const start = Date.now();
   while (Date.now() - start < timeout) {
     if (await value(expression)) return;
