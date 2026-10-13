@@ -10,8 +10,9 @@
     document.body.dataset.kuryosPage = page.replace(/\.html$/, '');
     document.body.dataset.kuryosUi = 'reference';
   }
-  window.KuryosUI = Object.freeze({ version: '20261012-1', refresh: markPage });
+  window.KuryosUI = Object.freeze({ version: '20261012-2', refresh: markPage });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', markPage, { once: true });
   markPage();
   window.addEventListener('popstate', markPage);
+  window.addEventListener('kuryos-location-change', markPage);
 })();

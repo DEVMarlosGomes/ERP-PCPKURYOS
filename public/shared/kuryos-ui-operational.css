@@ -312,6 +312,7 @@
     font-size: 20px !important;
     font-weight: 500 !important;
     line-height: 1.3;
+    color: var(--k-text) !important;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="dialog-head"], .modal-header) .modal-close {

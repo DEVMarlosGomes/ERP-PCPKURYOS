@@ -81,7 +81,7 @@ body.has-sidebar.kuryos-sidebar-collapsed { padding-left: var(--k-shell-sidebar-
   border-top: 1px solid var(--k-border);
   background: var(--k-bg);
 }
-#unified-navbar .kt-avatar { width: 32px; height: 32px; border-radius: 6px; background: var(--k-blue); color: hsl(var(--primary-foreground)); font-size: 11px; }
+#unified-navbar .kt-avatar { width: 32px; height: 32px; border-radius: 6px; background: var(--k-blue) !important; color: hsl(var(--primary-foreground)); font-size: 11px; }
 #unified-navbar .who { min-width: 0; }
 #unified-navbar .who .name { font-size: 12px; }
 #unified-navbar .who .role { color: var(--k-text-2); font-size: 11px; }
@@ -102,7 +102,7 @@ body.has-sidebar.kuryos-sidebar-collapsed { padding-left: var(--k-shell-sidebar-
   body.kuryos-sidebar-collapsed:not(.kuryos-sidebar-preview) #unified-navbar .kt-sidebar-foot { grid-template-columns: 1fr; justify-items: center; }
   body.kuryos-sidebar-collapsed #unified-navbar #kt-theme-toggle { display: inline-flex !important; }
   body.kuryos-sidebar-preview #unified-navbar { width: var(--k-shell-sidebar-w) !important; box-shadow: var(--k-shadow-2) !important; }
-  body.kuryos-sidebar-preview #unified-navbar :is(.kt-cap-txt,.kt-cap-chev,.kt-nav-link span,.kt-sidebar-foot .who) { display: block !important; }
+  body.kuryos-sidebar-preview #unified-navbar :is(.kt-cap-txt,.kt-cap-chev,.kt-nav-link span,.kt-nav-sub,.kt-sidebar-foot .who) { display: block !important; }
   body.kuryos-sidebar-preview #unified-navbar .kuryos-module-search { display: block; }
   body.kuryos-sidebar-preview #unified-navbar .kt-brand { justify-content: flex-start; }
   body.kuryos-sidebar-preview #unified-navbar .kt-nav-link { width: 100%; margin: 0; justify-content: flex-start; }
@@ -142,7 +142,7 @@ body.has-sidebar.kuryos-sidebar-collapsed { padding-left: var(--k-shell-sidebar-
   #unified-navbar.kt-sidebar { width: min(340px,88vw) !important; }
   #unified-navbar .kt-brand { padding-left: 64px !important; }
   #unified-navbar .kuryos-sidebar-tools { grid-template-columns: 1fr !important; }
-  #unified-navbar :is(.kt-cap-txt,.kt-cap-chev,.kt-nav-link span,.kt-sidebar-foot .who,#kt-theme-toggle) { display: block !important; }
+  #unified-navbar :is(.kt-cap-txt,.kt-cap-chev,.kt-nav-link span,.kt-nav-sub,.kt-sidebar-foot .who,#kt-theme-toggle) { display: block !important; }
   #unified-navbar .kt-nav-body { display: flex !important; }
   #unified-navbar .kt-nav-group.fechado .kt-nav-body { display: none !important; }
   #unified-navbar .kt-nav-link { width: 100% !important; margin: 0; justify-content: flex-start; }

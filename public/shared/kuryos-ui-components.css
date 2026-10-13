@@ -1,5 +1,6 @@
 /* Componentes equivalentes a ui/{button,input,card,tabs,table,dialog}.jsx.
    A geometria de calendários, grades de PCP e documentos impressos fica no módulo. */
+@media screen {
 html { background: var(--k-bg); accent-color: var(--k-blue); }
 body, body.kuryos-theme {
   font-family: var(--k-ui-font-body) !important;
@@ -116,6 +117,7 @@ body.has-sidebar > [role='dialog'][class*='inset-y-0'] { border-radius: var(--k-
 #root .kanban-column .bg-card { border-radius: var(--k-radius-sm) !important; }
 #root .kanban-column .bg-card:hover { border-color: color-mix(in srgb,var(--k-blue) 35%,var(--k-border)) !important; }
 #root .bg-accent { background: var(--k-blue-soft); }
+#root table th { height: 40px; font-size: 12px !important; font-weight: 500 !important; letter-spacing: 0 !important; text-transform: none; background: var(--k-surface-2); }
 
 .login-container { border: 1px solid var(--k-border) !important; border-radius: 8px !important; background: var(--k-surface) !important; box-shadow: var(--k-shadow-2) !important; }
 .login-container label { text-transform: none !important; font-size: 13px !important; color: var(--k-text) !important; letter-spacing: 0 !important; }
@@ -129,4 +131,4 @@ body.has-sidebar > [role='dialog'][class*='inset-y-0'] { border-radius: var(--k-
   #root .page-enter > .flex h1 { font-size: 26px; }
 }
 @media (prefers-reduced-motion: reduce) { .k-button, .btn, #root button { transition: none !important; } }
-@media print { body { background: #fff !important; } .k-card { box-shadow: none; } }
+}

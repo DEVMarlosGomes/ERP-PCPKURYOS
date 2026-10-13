@@ -10,6 +10,7 @@
   };
   var built = false;
   var navigation = [];
+  var lastRoute = '';
 
   function text(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
   function norm(value) { return text(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
@@ -36,6 +37,35 @@
         element: link
       };
     }).filter(function (item) { return item.href && item.label; });
+  }
+
+  function syncRoute(sidebar) {
+    if (!window.__PCP_EMBEDDED__ || lastRoute === location.pathname) return;
+    lastRoute = location.pathname;
+    var path = lastRoute;
+    if (/^\/crm\/clients(?:\/|$)/.test(path)) path = '/crm1.html';
+    else if (/^\/crm\/projects(?:\/|$)/.test(path)) path = '/crm2.html';
+    else if (/^\/crm\/samples(?:\/|$)/.test(path)) path = '/crm3.html';
+    else if (/^\/pd(?:\/|$)/.test(path)) path = '/pd.html';
+    var match = navigation.find(function (item) { return new URL(item.href, document.baseURI).pathname === path; });
+    if (!match) return;
+    navigation.forEach(function (item) {
+      var active = item === match;
+      item.element.classList.toggle('active', active);
+      if (active) item.element.setAttribute('aria-current', 'page');
+      else item.element.removeAttribute('aria-current');
+    });
+    sidebar.querySelectorAll('.kt-nav-group').forEach(function (group) {
+      var active = Boolean(group.querySelector('.kt-nav-link.active'));
+      group.classList.toggle('tem-ativo', active);
+      if (active) { group.classList.remove('fechado'); group.querySelector('.kt-nav-cap').setAttribute('aria-expanded', 'true'); }
+    });
+    var context = activeContext(sidebar);
+    var title = document.querySelector('.kuryos-topbar-title');
+    if (title) title.textContent = context.page;
+    var breadcrumbs = document.querySelector('.kuryos-breadcrumbs span:last-child');
+    if (breadcrumbs) breadcrumbs.textContent = context.group;
+    window.dispatchEvent(new CustomEvent('kuryos-location-change'));
   }
 
   function setupSidebar(sidebar) {
@@ -152,12 +182,14 @@
   function setupTopbar(sidebar) {
     if (document.querySelector('.kuryos-enterprise-topbar')) return;
     var context = activeContext(sidebar);
+    var attentionAllowed = navigation.some(function (item) { return new URL(item.href, document.baseURI).pathname === '/dashboard_executivo.html'; });
     var bar = document.createElement('div');
     bar.className = 'kuryos-enterprise-topbar';
     bar.setAttribute('role', 'banner');
     bar.innerHTML = '<div class="kuryos-topbar-context"><div class="kuryos-breadcrumbs"><span>Kuryos ERP</span>' + icon.chevron + '<span>' + context.group + '</span></div><div class="kuryos-topbar-title">' + context.page + '</div></div>' +
       '<div class="kuryos-global-search">' + icon.search + '<input type="search" aria-label="Busca global de módulos" placeholder="Buscar no sistema" autocomplete="off"><span class="kuryos-search-key">Ctrl K</span><div class="kuryos-search-results" role="listbox"></div></div>' +
-      '<div class="kuryos-topbar-actions"><span class="kuryos-sector-pill" title="Contexto atual">' + context.group + '</span><button type="button" class="kuryos-topbar-icon kuryos-topbar-search-toggle" aria-label="Abrir busca">' + icon.search + '</button><a class="kuryos-topbar-icon kuryos-attention-link" href="dashboard_executivo.html#atencao" aria-label="Central de atenção" title="Central de atenção">' + icon.bell + '</a></div>';
+      '<div class="kuryos-topbar-actions"><span class="kuryos-sector-pill" title="Contexto atual">' + context.group + '</span><button type="button" class="kuryos-topbar-icon kuryos-topbar-search-toggle" aria-label="Abrir busca">' + icon.search + '</button>' +
+      (attentionAllowed ? '<a class="kuryos-topbar-icon kuryos-attention-link" href="dashboard_executivo.html#atencao" aria-label="Central de atenção" title="Central de atenção">' + icon.bell + '</a>' : '') + '</div>';
     var insertion = document.getElementById('kt-hamburger') || sidebar;
     insertion.insertAdjacentElement('afterend', bar);
 
@@ -167,10 +199,11 @@
     var search = bar.querySelector('.kuryos-global-search');
     var input = search.querySelector('input');
     var results = search.querySelector('.kuryos-search-results');
+    results.setAttribute('role', 'navigation');
+    results.setAttribute('aria-label', 'Resultados da busca de módulos');
     var command = document.createElement('div');
     command.className = 'kuryos-command-search';
     command.hidden = true;
-    command.setAttribute('role', 'dialog');
     command.setAttribute('aria-label', 'Buscar módulos autorizados');
     var close = document.createElement('button');
     close.type = 'button';
@@ -183,9 +216,11 @@
       trigger = document.activeElement;
       if (innerWidth > 980) {
         command.hidden = false;
+        command.setAttribute('role', 'dialog');
         command.insertBefore(search, close);
       } else {
         command.hidden = true;
+        command.removeAttribute('role');
         if (search.parentElement !== bar) bar.insertBefore(search, bar.querySelector('.kuryos-topbar-actions'));
         bar.classList.add('search-open');
       }
@@ -195,6 +230,7 @@
     function closeSearch(restoreFocus) {
       search.classList.remove('open');
       command.hidden = true;
+      command.removeAttribute('role');
       bar.classList.remove('search-open');
       if (restoreFocus && trigger && trigger.isConnected) trigger.focus();
     }
@@ -210,6 +246,7 @@
     function render() {
       if (innerWidth > 980) {
         command.hidden = false;
+        command.setAttribute('role', 'dialog');
         if (search.parentElement !== command) command.insertBefore(search, close);
       }
       var query = norm(input.value);
@@ -249,10 +286,11 @@
   function build() {
     var sidebar = document.getElementById('unified-navbar');
     if (!sidebar) return;
-    if (built) { syncAppViewport(); return; }
+    if (built) { syncRoute(sidebar); syncAppViewport(); return; }
     built = true;
     setupSidebar(sidebar);
     setupTopbar(sidebar);
+    syncRoute(sidebar);
     document.documentElement.setAttribute('data-kuryos-enterprise-shell', 'ready');
   }
 

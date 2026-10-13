@@ -2,7 +2,7 @@
 
 /* ERPKuryosBeauty a6892e6 — escala visual canônica, com navy institucional PCP.
    Tokens HSL alimentam o React existente; --k-* e aliases alimentam o legado. */
-:root {
+:root, :root[data-theme='light'] {
   color-scheme: light;
   --k-bg: #f8f9fc;
   --k-bg-elevated: #ffffff;
@@ -37,6 +37,9 @@
   --k-radius-md: 8px;
   --k-radius-lg: 8px;
   --k-radius-xl: 8px;
+  --radius-sm: var(--k-radius-sm);
+  --radius-md: var(--k-radius-md);
+  --radius-lg: var(--k-radius-lg);
   --k-shadow-1: 0 1px 2px rgb(15 32 68 / 5%);
   --k-shadow-2: 0 18px 55px rgb(15 32 68 / 14%);
   --k-shadow-hover: 0 22px 60px rgb(15 32 68 / 12%);
@@ -150,9 +153,38 @@
   --chart-5: 348 83% 64%;
 }
 
+/* O legado usa cores completas, enquanto o React usa canais HSL. O escopo
+   operacional evita misturar contratos homônimos entre as duas tecnologias. */
+body[data-kuryos-operational] {
+  --card: var(--k-surface);
+  --primary: var(--k-blue);
+  --muted: var(--k-text-2);
+  --border: var(--k-border);
+  --text: var(--k-text);
+  --surface: var(--k-surface);
+  --surface-2: var(--k-surface-2);
+}
+body:has(> #root) { --accent: 228 83% 23%; }
+:root[data-theme='dark'] body:has(> #root), :root.dark body:has(> #root) { --accent: 228 100% 83%; }
+
 @media (max-width: 980px) {
   :root { --k-shell-topbar-h: 56px; --k-ui-page-padding: 20px; }
 }
 @media (max-width: 640px) {
   :root { --k-ui-page-padding: 16px; }
+}
+@media print {
+  :root, :root[data-theme='light'], :root[data-theme='dark'], :root.dark {
+    color-scheme: light;
+    --k-bg: #fff;
+    --k-bg-elevated: #fff;
+    --k-surface: #fff;
+    --k-surface-2: #f3f4f6;
+    --k-text: #000;
+    --k-text-2: #444;
+    --k-text-3: #555;
+    --k-border: #ccc;
+    --k-border-strong: #aaa;
+    --k-blue: #0a1c69;
+  }
 }
