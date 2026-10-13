@@ -414,6 +414,10 @@ window.currentUser = null;
   function clearAuthWatchdog() {
     authWatchdogResolved = true;
     if (authWatchdogTimer) { clearTimeout(authWatchdogTimer); authWatchdogTimer = null; }
+    // A leitura pode terminar depois do aviso de 12s. A conclusão validada
+    // deve liberar a tela; o aviso não pode permanecer sobre o módulo pronto.
+    var loadError = document.getElementById('kt-auth-error-overlay');
+    if (loadError) loadError.remove();
   }
   function showAuthLoadError(msg) {
     authWatchdogResolved = true;
@@ -624,10 +628,9 @@ function renderUnifiedNavbar(user) {
   // Remove qualquer cabeçalho legado ou barra preta antiga
   // NOTA: '.header' foi removido deste seletor -- hoje é a classe do cabeçalho
   // ATUAL e intencional de quase toda página (título h1, status de conexão,
-  // relógio em form.html). Nenhum <header> semântico nem #auth-status-bar
-  // sobrevive no HTML atual (confirmado via grep no repo); este seletor fica
-  // aqui só como salvaguarda caso um cabeçalho legado real volte a existir.
-  const oldHeader = document.querySelector('header, #auth-status-bar, #auth-status-bar-black');
+  // relógio em form.html). Headers operacionais marcados pelo UI kit também
+  // são preservados; só a navegação antiga pode ser substituída pelo shell.
+  const oldHeader = document.querySelector('header:not([data-ui="page-header"]), #auth-status-bar, #auth-status-bar-black');
   const blackToolbar = document.querySelector('body > div[style*="background:#0f172a"], body > div[style*="background: #0f172a"]');
   const body = document.body;
   const activePage = getActivePageName();
@@ -1651,20 +1654,20 @@ function _autoAjustarPlanejamentoInterno(db, pedidoKey) {
   if (!document.querySelector('link[data-kuryos-repo-visual]')) {
     var referenceStyle = document.createElement('link');
     referenceStyle.rel = 'stylesheet';
-    referenceStyle.href = 'shared/kuryos-repo-visual.css?v=20261012-1';
+    referenceStyle.href = 'shared/kuryos-repo-visual.css?v=20261012-2';
     referenceStyle.setAttribute('data-kuryos-repo-visual', '');
     document.head.appendChild(referenceStyle);
   }
   if (!document.querySelector('script[data-kuryos-enterprise-shell]')) {
     var enterpriseShell = document.createElement('script');
-    enterpriseShell.src = 'shared/kuryos-enterprise-shell.js?v=20261012-1';
+    enterpriseShell.src = 'shared/kuryos-enterprise-shell.js?v=20261012-2';
     enterpriseShell.defer = true;
     enterpriseShell.setAttribute('data-kuryos-enterprise-shell', '');
     document.head.appendChild(enterpriseShell);
   }
   if (!document.querySelector('script[data-kuryos-ui]')) {
     var ui = document.createElement('script');
-    ui.src = 'shared/kuryos-ui.js?v=20261012-1';
+    ui.src = 'shared/kuryos-ui.js?v=20261012-2';
     ui.defer = true;
     ui.setAttribute('data-kuryos-ui', '');
     document.head.appendChild(ui);
