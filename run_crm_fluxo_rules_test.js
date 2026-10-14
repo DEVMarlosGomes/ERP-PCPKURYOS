@@ -61,6 +61,20 @@ const negado = (p) => assert.rejects(p, /PERMISSION_DENIED|permission_denied/i);
   await negado(gest.ref('pedidos/PED-0001__PRF-MISS-0001').set({id: 'PED-0001', sku: 'PRF-MISS-0001', qtdTotal: 1, parentPedidoId: 'PED-0001'}));
   await negado(gest.ref('notificacoes_comercial/PED-0001').set({tipo: 'PEDIDO_LIBERADO_PCP'}));
 
+  // v1 de Fórmula/BOM/Especificação da SKU nova: só criar, em rascunho, com origem do CGI.
+  const v1 = {codProduto: 'PRF-LUMI-0001', versao: 'v1', status: 'RASCUNHO', itens: {}, origemCrm: {cgiContratoId: 'cgi-1'}};
+  await gest.ref().update({'formulas/PRF-LUMI-0001__v1': v1, 'bom/PRF-LUMI-0001__v1': v1, 'especificacoes/PRF-LUMI-0001__v1': v1});
+  await negado(gest.ref('formulas/PRF-LUMI-0001__v1/status').set('APROVADA'));
+  await negado(gest.ref('formulas/PRF-LUMI-0001__v2').set({...v1, versao: 'v2', status: 'APROVADA'}));
+  await negado(gest.ref('bom/PRF-MISS-0001__v1').set({codProduto: 'PRF-MISS-0001', versao: 'v1', status: 'RASCUNHO'}));
+  await negado(prod.ref('especificacoes/PRF-LUMI-0002__v1').set({...v1, codProduto: 'PRF-LUMI-0002'}));
+
+  // Índice público de usuários: cada um grava o próprio, com o papel verdadeiro; todos leem.
+  await gest.ref('usuarios_publico/gest').set({nome: 'Gestora', role: 'gestor'});
+  await negado(gest.ref('usuarios_publico/gest').set({nome: 'Gestora', role: 'admin'}));
+  await negado(gest.ref('usuarios_publico/prod').set({nome: 'Outro', role: 'production'}));
+  assert.equal((await prod.ref('usuarios_publico/gest/nome').once('value')).val(), 'Gestora');
+
   const final = (await raiz.database().ref().once('value')).val();
   assert.equal(final.pedidos_comerciais['PED-0042'].status, 'LIBERADO_PCP');
   assert.equal(final.pedidos_comerciais['PED-0001'].status, 'LIBERADO_PCP');

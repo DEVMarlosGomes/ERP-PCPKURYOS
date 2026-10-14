@@ -25,7 +25,7 @@ const server = createServer(async (request, response) => {
     const pathname = decodeURIComponent(new URL(request.url, 'http://127.0.0.1').pathname);
     const rewrite = rewrites.find(item => item.match.test(pathname));
     const file = await resolveFile(pathname) || (rewrite && await resolveFile(rewrite.destination));
-    if (!file) { response.writeHead(404); response.end('Página não encontrada'); return; }
+    if (!file) { response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); response.end('Página não encontrada'); return; }
     response.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
     response.end(request.method === 'HEAD' ? undefined : await readFile(file));
   } catch { response.writeHead(500); response.end('Não foi possível carregar o recurso'); }

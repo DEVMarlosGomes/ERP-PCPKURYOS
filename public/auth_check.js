@@ -514,6 +514,14 @@ window.currentUser = null;
               // Encontrado ao construir a edição de Pedido de Compra.
               window.dispatchEvent(new CustomEvent('kuryos-auth-pronto', { detail: window.currentUser }));
               clearAuthWatchdog();
+              // Índice público (nome + papel) para listas de responsáveis do CRM:
+              // usuarios/ só abre para admin/RH. Grava só quando muda.
+              (function(pub) {
+                firebase.database().ref('usuarios_publico/' + user.uid).once('value').then(function(snap) {
+                  var atual = snap.val() || {};
+                  if (atual.nome !== pub.nome || atual.role !== pub.role) return snap.ref.set(pub);
+                }).catch(function() {});
+              })({ nome: window.currentUser.nome, role: role });
 
               if (role === 'admin' && typeof window.syncAllActiveOpsStatus === 'function') {
                 window.syncAllActiveOpsStatus();
@@ -1127,6 +1135,11 @@ window.updateOpStatusAutomatically = function(pedidoId, callback, preloadedProgr
 // deixar de rodar quando genuinamente faz sentido (primeira carga do dia).
 window.syncAllActiveOpsStatus = function() {
   if (typeof firebase === 'undefined') return;
+  // Depende de shared/utils.js (getProduzido, sanitizeKey). Páginas que não o
+  // carregam -- o CRM/P&D em crm-app.html -- pulam a sincronização (antes dava
+  // "getProduzido is not defined" para o ADM nessas telas); a próxima página
+  // operacional sincroniza normalmente.
+  if (typeof getProduzido !== 'function' || typeof sanitizeKey !== 'function') return;
   try {
     const last = parseInt(sessionStorage.getItem('kuryos_last_ops_sync') || '0', 10);
     if (Date.now() - last < 5 * 60 * 1000) return;

@@ -59,6 +59,15 @@
         ".write": "auth != null && ((auth.uid == $uid && !data.exists()) || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')"
       }
     },
+    "usuarios_publico": {
+      // Nome e papel de cada usuário, legíveis por todos (lista de responsáveis do CRM);
+      // usuarios/ continua restrito a admin/RH. O papel tem de bater com usuarios/{uid}.
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && (auth.uid == $uid || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')",
+        ".validate": "newData.child('nome').isString() && newData.child('role').val() == root.child('usuarios').child($uid).child('role').val()"
+      }
+    },
     "produtos": {
       ".read": "auth != null",
       ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))",
@@ -98,11 +107,19 @@
     },
     "formulas": {
       ".read": "auth != null",
-      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))"
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))",
+      "$versaoKey": {
+        // v1 em rascunho criada na assinatura do CGI para a SKU nova (só criar).
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'vendedor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sales_ops' || root.child('usuarios').child(auth.uid).child('role').val() == 'gestor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sucesso_cliente' || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true) && !data.exists() && newData.child('origemCrm').child('cgiContratoId').isString() && newData.child('status').val() == 'RASCUNHO'"
+      }
     },
     "bom": {
       ".read": "auth != null",
-      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))"
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))",
+      "$versaoKey": {
+        // v1 em rascunho criada na assinatura do CGI para a SKU nova (só criar).
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'vendedor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sales_ops' || root.child('usuarios').child(auth.uid).child('role').val() == 'gestor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sucesso_cliente' || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true) && !data.exists() && newData.child('origemCrm').child('cgiContratoId').isString() && newData.child('status').val() == 'RASCUNHO'"
+      }
     },
     "specs_mp_propostas": {
       // Sugestoes de especificacao de MP lidas dos laudos antigos do laboratorio (F0070). Nao sao especificacao: viram uma quando a Qualidade confere e salva na aba Especificacoes.
@@ -112,7 +129,11 @@
     "especificacoes": {
       // A Qualidade escreve aqui desde 23/09: a especificacao de materia-prima nasce na analise do lote (aba Especificacoes de qualidade.html). Sem o papel 'qualidade' nesta regra, a analista levava PERMISSION_DENIED ao salvar.
       ".read": "auth != null",
-      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'qualidade')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('qualidade').val() == true))"
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'qualidade')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('qualidade').val() == true))",
+      "$versaoKey": {
+        // v1 em rascunho criada na assinatura do CGI para a SKU nova (só criar).
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'vendedor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sales_ops' || root.child('usuarios').child(auth.uid).child('role').val() == 'gestor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sucesso_cliente' || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true) && !data.exists() && newData.child('origemCrm').child('cgiContratoId').isString() && newData.child('status').val() == 'RASCUNHO'"
+      }
     },
     "fornecedores": {
       ".read": "auth != null",

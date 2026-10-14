@@ -358,6 +358,25 @@
     }
   });
   
+  // usuarios_publico/{uid} = nome + papel, legível por todos (lista de responsáveis
+  // do CRM). Cada um grava o próprio ao entrar; aqui o ADM corrige papel trocado e
+  // remove quem saiu. Só grava diferenças.
+  function sincronizarUsuariosPublico(users) {
+    database.ref('usuarios_publico').once('value').then(function(snap) {
+      var publico = snap.val() || {};
+      var updates = {};
+      Object.keys(users).forEach(function(uid) {
+        var u = users[uid] || {};
+        var nome = u.nome || u.name || u.email || uid;
+        var atual = publico[uid] || {};
+        // O papel tem de ser o mesmo de usuarios/{uid} (validado na regra do banco).
+        if (atual.nome !== nome || (atual.role || null) !== (u.role || null)) updates[uid] = { nome: nome, role: u.role || null };
+      });
+      Object.keys(publico).forEach(function(uid) { if (!users[uid]) updates[uid] = null; });
+      if (Object.keys(updates).length) return database.ref('usuarios_publico').update(updates);
+    }).catch(function(err) { console.warn('Índice público de usuários não sincronizado:', err.message); });
+  }
+
   function listenToUsers() {
     dbOnValue(database.ref('usuarios'), snapshot => {
       const users = snapshot.val() || {};
@@ -370,7 +389,8 @@
         return;
       }
       usuariosCache = users;
-      
+      sincronizarUsuariosPublico(users);
+
       // Sort users: pendings first, then by date desc
       const sortedUsers = uids.map(uid => ({
         uid: uid,

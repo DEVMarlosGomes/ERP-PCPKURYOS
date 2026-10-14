@@ -5243,7 +5243,13 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
 
-    dbOnValue(db.ref('produtos'), function(snap) { allProdutos = snap.val() || {}; });
+    // ?tab=formulas&produto=SKU abre direto a SKU (atalho do CGI assinado no CRM,
+    // que cria a v1 em rascunho com os itens pendentes de revisão).
+    var produtoDaUrl = new URLSearchParams(location.search).get('produto');
+    dbOnValue(db.ref('produtos'), function(snap) {
+      allProdutos = snap.val() || {};
+      if (produtoDaUrl && allProdutos[produtoDaUrl] && !produtoSelecionadoKey) selecionarProduto(produtoDaUrl);
+    });
     dbOnValue(db.ref('materiais'), function(snap) { allMateriais = snap.val() || {}; });
     dbOnValue(db.ref('fornecedores'), function(snap) { allFornecedores = snap.val() || {}; });
     // Semeado/gerenciado na aba Categorias (mesma config/tiposEnsaio) --
