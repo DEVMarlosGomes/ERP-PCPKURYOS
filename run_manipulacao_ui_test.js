@@ -181,7 +181,7 @@ async function campo(page, seletor, valor) {
       'OP concluída com bulk ainda em manipulação continua na lista, senão ninguém fecha e a Qualidade nunca recebe');
     assert.equal(await page.locator('#mListaBody tr', {hasText: '26260/04'}).count(), 0, 'bulk já liberado: sai da lista');
     // Dossiê é ferramenta de gestão (Qualidade/PCP): o operador não vê.
-    assert.equal(await page.locator('.kt-sidebar a[href="dossie_lote.html"]').count(), 0, 'operador sem Dossiê no menu');
+    assert.equal(await page.locator('.kt-sidebar a[href="dossie_lote"]').count(), 0, 'operador sem Dossiê no menu');
     assert.equal(await page.locator('#mDossie').count(), 0, 'sem botão de dossiê na tela do operador');
 
     await linha.locator('[data-abrir]').click();
@@ -544,7 +544,7 @@ async function campo(page, seletor, valor) {
     assert.match(txt, /pesagem do granel/, 'consumo de MP vem da pesagem');
     assert.equal(await dossie.page.locator('#dossie .foto img').count(), 5, '2 do álcool + 2 da água (1 cancelada) + 1 da fragrância');
     assert.equal(await dossie.page.locator('#dossie .foto.cancelada').count(), 1);
-    assert.equal(await dossie.page.locator('.kt-sidebar a[href="dossie_lote.html"]').count(), 1, 'Qualidade tem o Dossiê no menu');
+    assert.equal(await dossie.page.locator('.kt-sidebar a[href="dossie_lote"]').count(), 1, 'Qualidade tem o Dossiê no menu');
     // Busca sem acento, por cliente e produto.
     await dossie.page.fill('#dBusca', 'rose nectar');
     await dossie.page.waitForFunction(() => /2 lote/.test(document.getElementById('dResumoBusca').innerText));

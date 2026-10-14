@@ -4,7 +4,7 @@
   "buildCommand": "",
   "installCommand": "",
   "outputDirectory": "public",
-  "cleanUrls": false,
+  "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
     {
@@ -12,56 +12,44 @@
       "destination": "/static/js/9752.masterintegration20261008.chunk.js"
     },
     {
-      "source": "/crm1.html",
-      "destination": "/crm-app.html"
+      "source": "/crm1",
+      "destination": "/crm-app"
     },
     {
-      "source": "/crm2.html",
-      "destination": "/crm-app.html"
+      "source": "/crm2",
+      "destination": "/crm-app"
     },
     {
-      "source": "/crm3.html",
-      "destination": "/crm-app.html"
+      "source": "/crm3",
+      "destination": "/crm-app"
     },
     {
-      "source": "/crm-admin.html",
-      "destination": "/crm-app.html"
-    },
-    {
-      "source": "/kickoffs.html",
-      "destination": "/crm-app.html"
+      "source": "/crm-admin",
+      "destination": "/crm-app"
     },
     {
       "source": "/kickoffs",
-      "destination": "/crm-app.html"
-    },
-    {
-      "source": "/kickoff/:path*",
-      "destination": "/crm-app.html"
-    },
-    {
-      "source": "/contratos.html",
-      "destination": "/crm-app.html"
+      "destination": "/crm-app"
     },
     {
       "source": "/contratos",
-      "destination": "/crm-app.html"
-    },
-    {
-      "source": "/pd.html",
-      "destination": "/crm-app.html"
-    },
-    {
-      "source": "/crm/:path*",
-      "destination": "/crm-app.html"
+      "destination": "/crm-app"
     },
     {
       "source": "/pd",
-      "destination": "/crm-app.html"
+      "destination": "/crm-app"
+    },
+    {
+      "source": "/kickoff/:path*",
+      "destination": "/crm-app"
+    },
+    {
+      "source": "/crm/:path*",
+      "destination": "/crm-app"
     },
     {
       "source": "/pd/:path*",
-      "destination": "/crm-app.html"
+      "destination": "/crm-app"
     }
   ],
   "headers": [
@@ -105,8 +93,43 @@
   "redirects": [
     {
       "source": "/",
-      "destination": "/login.html",
+      "destination": "/login",
       "permanent": false
+    },
+    {
+      "source": "/crm1.html",
+      "destination": "/crm1",
+      "permanent": true
+    },
+    {
+      "source": "/crm2.html",
+      "destination": "/crm2",
+      "permanent": true
+    },
+    {
+      "source": "/crm3.html",
+      "destination": "/crm3",
+      "permanent": true
+    },
+    {
+      "source": "/crm-admin.html",
+      "destination": "/crm-admin",
+      "permanent": true
+    },
+    {
+      "source": "/kickoffs.html",
+      "destination": "/kickoffs",
+      "permanent": true
+    },
+    {
+      "source": "/contratos.html",
+      "destination": "/contratos",
+      "permanent": true
+    },
+    {
+      "source": "/pd.html",
+      "destination": "/pd",
+      "permanent": true
     }
   ]
 }

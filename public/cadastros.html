@@ -4105,7 +4105,14 @@ document.addEventListener('DOMContentLoaded', function() {
     var skuPromise;
     if (autoCategoria && autoCliente) {
       var counterPath = 'config/contadores/sku/' + autoCategoria + '_' + autoCliente;
-      skuPromise = nextSequential(db, counterPath, autoCategoria + '-' + autoCliente, 4).then(function(r) { return r.formatado; });
+      // Contador atrás de um SKU já cadastrado à mão (auditoria 14/10: PEL_SEUN=1
+      // com PEL-SEUN-0002 existente) pula o número ocupado, como o CRM faz.
+      var reservarSku = function(tentativas) {
+        return nextSequential(db, counterPath, autoCategoria + '-' + autoCliente, 4).then(function(r) {
+          return allProdutos[sanitizeSkuKey(r.formatado)] && tentativas > 0 ? reservarSku(tentativas - 1) : r.formatado;
+        });
+      };
+      skuPromise = reservarSku(20);
     } else {
       var skuDigitado = document.getElementById('fSku-prod').value.trim();
       if (!skuDigitado) {

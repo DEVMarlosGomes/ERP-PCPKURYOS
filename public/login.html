@@ -421,27 +421,27 @@
     // 'admin'/'production'/'rotulagem'. Mesmo destino de página que
     // auth_check.js já usa pra cada papel (isPcpAdmin, rhHome).
     if (role === 'admin' || role === 'pcp') {
-      window.location.href = 'dashboard.html';
+      window.location.href = 'dashboard';
     } else if (role === 'production' || role === 'rotulagem') {
-      window.location.href = 'form.html';
+      window.location.href = 'form';
     } else if (role === 'logistica') {
-      window.location.href = 'logistica.html';
+      window.location.href = 'logistica';
     } else if (role === 'rh') {
-      window.location.href = 'rh_dashboard.html';
+      window.location.href = 'rh_dashboard';
     } else if (role === 'gestor') {
-      window.location.href = 'rh_avaliacao.html';
+      window.location.href = 'rh_avaliacao';
     } else if (role === 'qualidade') {
       // Módulo de Qualidade: pousa na fila de inspeção, sua tela de
       // trabalho. Adicionado JUNTO com a criação do papel, de propósito --
       // foi exatamente esta função que deixou o perfil 'pcp' de fora quando
       // ele nasceu, e o usuário caiu em "Perfil desconhecido" ao logar.
-      window.location.href = 'qualidade.html?tab=fila';
+      window.location.href = 'qualidade?tab=fila';
     } else if (role === 'comercial') {
       // Comercial e P&D (14/10/2026): criadas junto com a seleção de várias
       // funções em usuarios.html. Quem tem mais de uma cai na da função principal.
-      window.location.href = 'crm1.html';
+      window.location.href = 'crm1';
     } else if (role === 'pd') {
-      window.location.href = 'pd.html';
+      window.location.href = 'pd';
     } else {
       showFeedback('error', 'Perfil desconhecido no sistema.');
     }

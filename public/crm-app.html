@@ -12,7 +12,7 @@
     // fixar links futuros, recupera URLs ruins já abertas antes desta correção.
     (function() {
       var legacy = location.pathname.match(/^\/(?:crm|pd|kickoff)\/([^/]+\.html)$/);
-      if (legacy) history.replaceState(null, '', '/' + legacy[1] + location.search + location.hash);
+      if (legacy) history.replaceState(null, '', '/' + legacy[1].replace(/\.html$/, '') + location.search + location.hash);
     })();
     // O React agora é compilado a partir do fonte (Vite, bloco crm-build abaixo);
     // o reescritor do chunk 9752 editado à mão deixou de ser necessário (14/10/2026).
@@ -23,7 +23,7 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/shared/theme.css">
   <!-- crm-build:start (scripts/integrar-crm-build.mjs) -->
-  <script type="module" crossorigin src="/static/crm/index-I2uz8iyi.js"></script>
+  <script type="module" crossorigin src="/static/crm/index-D5_8b5ir.js"></script>
   <link rel="modulepreload" crossorigin href="/static/crm/dist-8p_zICft.js">
   <link rel="stylesheet" crossorigin href="/static/crm/index-BgqyeyXO.css">
   <!-- crm-build:end -->

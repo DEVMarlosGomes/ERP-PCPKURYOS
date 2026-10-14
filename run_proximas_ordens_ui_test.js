@@ -220,8 +220,8 @@ const ordemNaTela = (page, setor, recurso) => page.evaluate(({setor, recurso}) =
     assert.doesNotMatch(await r.locator('#fila').innerText(), /planejado na grade|sugerida pela grade/, 'desvio é informação do PCP');
     assert.doesNotMatch(await r.locator('#fila').innerText(), /Mover para|informe o ritmo/);
     // O menu leva à fila do setor.
-    assert.equal(await r.locator('.kt-sidebar a[href="proximas_ordens.html?setor=rotulagem"]').count(), 1);
-    assert.equal(await r.locator('.kt-sidebar a[href="proximas_ordens.html?setor=envase"]').count(), 0);
+    assert.equal(await r.locator('.kt-sidebar a[href="proximas_ordens?setor=rotulagem"]').count(), 1);
+    assert.equal(await r.locator('.kt-sidebar a[href="proximas_ordens?setor=envase"]').count(), 0);
     if (process.env.SQ_SCREENSHOT) {
       const cel = await abrir(browser, 'rot', 'proximas_ordens.html', {width: 390, height: 800});
       await cel.page.waitForSelector('[data-sq-item]');
@@ -236,7 +236,7 @@ const ordemNaTela = (page, setor, recurso) => page.evaluate(({setor, recurso}) =
     await log.page.waitForSelector('[data-sq-setor]', {timeout: 8000});
     assert.deepEqual(await log.page.$$eval('[data-sq-setor]', (els) => els.map((e) => e.getAttribute('data-sq-setor'))), ['separacao']);
     assert.match(await log.page.locator('#fila').innerText(), /26300\/01[\s\S]*A separar[\s\S]*Sem estimativa: o PCP ainda não informou o ritmo/);
-    assert.equal(await log.page.locator('.kt-sidebar a[href="proximas_ordens.html?setor=separacao"]').count(), 1);
+    assert.equal(await log.page.locator('.kt-sidebar a[href="proximas_ordens?setor=separacao"]').count(), 1);
     assert.deepEqual(log.errors, []);
 
     console.log('OK Próximas Ordens: PCP ordena por setor/recurso no Planejamento (caminhos planos, troca de linha, ritmo); setor consulta só a sua fila, com estimativa, sem editar.');

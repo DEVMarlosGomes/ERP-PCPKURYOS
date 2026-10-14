@@ -34,7 +34,8 @@ function scenario(profile) {
   const firebase = {
     auth() { return { onAuthStateChanged(callback) { authCallback = callback; } }; },
     database() { return { ref(path) {
-      assert.equal(path, 'usuarios/teste-ui', 'a recuperação não deve tocar dados operacionais');
+      // usuarios_publico/{uid}: índice nome+papel do próprio usuário (14/10), não dado operacional.
+      assert.ok(['usuarios/teste-ui', 'usuarios_publico/teste-ui'].includes(path), 'a recuperação não deve tocar dados operacionais: ' + path);
       return { once(event, callback) { profileCallback = callback; } };
     } }; },
   };

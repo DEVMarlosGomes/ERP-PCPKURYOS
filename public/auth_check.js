@@ -7,8 +7,9 @@
 var KURYOS_FUNCTIONS_ORIGIN = 'https://pcp-kuryos-functions.onrender.com';
 (function() {
   var host = location.hostname;
-  var noFirebase = !/\.(web\.app|firebaseapp\.com)$/.test(host) && !/^(localhost|127\.|.*\.nip\.io$)/.test(host);
-  if (!noFirebase || typeof firebase === 'undefined' || typeof firebase.functions !== 'function') return;
+  // *.test é o domínio reservado dos testes automatizados (Firebase simulado).
+  var noFirebase = !/\.(web\.app|firebaseapp\.com|test)$/.test(host) && !/^(localhost|127\.|.*\.nip\.io$)/.test(host);
+  if (!noFirebase || typeof firebase === 'undefined' || typeof firebase.functions !== 'function' || typeof firebase.app !== 'function') return;
   var original = firebase.functions;
   var desviado = function(app) { return (app || firebase.app()).functions(KURYOS_FUNCTIONS_ORIGIN); };
   Object.keys(original).forEach(function(k) { desviado[k] = original[k]; });
@@ -381,10 +382,21 @@ window.podeConferirPesagem = podeConferirPesagem;
 window.podeEditarApontamentos = podeEditarApontamentos;
 
 // Extrai o nome da página atual
+// URLs limpas (14/10/2026): /dashboard e /dashboard.html são a mesma página.
+// O acesso por módulo (PAGINA_MODULOS) e o menu comparam pelo nome com .html,
+// então o caminho sem extensão é normalizado aqui — senão a página viraria
+// "sem regra = liberada".
 function getActivePageName() {
   const path = window.location.pathname;
-  return path.substring(path.lastIndexOf('/') + 1) || 'index.html';
+  var nome = path.substring(path.lastIndexOf('/') + 1) || 'index.html';
+  if (nome.indexOf('.') < 0) nome += '.html';
+  return nome;
 }
+// "comercial.html?tab=x" -> "comercial?tab=x" (links do menu já saem limpos).
+function urlLimpa(href) {
+  return String(href).replace(/.html(?=$|[?#])/, '');
+}
+window.urlLimpa = urlLimpa;
 
 window.currentUser = null;
 
@@ -624,8 +636,12 @@ window.currentUser = null;
               clearAuthWatchdog();
               // Índice público (nome + papel) para listas de responsáveis do CRM:
               // usuarios/ só abre para admin/RH. Grava só quando muda.
+              // Promise.resolve().then: um throw síncrono aqui não pode pular o
+              // resto do login (sincronização do ADM, planejamento só leitura).
               (function(pub) {
-                firebase.database().ref('usuarios_publico/' + user.uid).once('value').then(function(snap) {
+                Promise.resolve().then(function() {
+                  return firebase.database().ref('usuarios_publico/' + user.uid).once('value');
+                }).then(function(snap) {
                   var atual = snap.val() || {};
                   if (atual.nome !== pub.nome || atual.role !== pub.role) return snap.ref.set(pub);
                 }).catch(function() {});
@@ -699,6 +715,7 @@ const ktIcons = {
   list: '<path d="M4 7h16M4 12h16M4 17h10"/>',
   tag: '<path d="M11.5 3.5H5A1.5 1.5 0 0 0 3.5 5v6.5c0 .4.16.78.44 1.06l9 9a1.5 1.5 0 0 0 2.12 0l6.5-6.5a1.5 1.5 0 0 0 0-2.12l-9-9a1.5 1.5 0 0 0-1.06-.44Z"/><circle cx="8" cy="8" r="1.5"/>',
   box: '<path d="M3.5 8 12 4l8.5 4M3.5 8v8L12 20l8.5-4V8M3.5 8 12 12m0 0 8.5-4M12 12v8"/>',
+  document: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
   sliders: '<path d="M4 6h9M17 6h3M4 12h3M9 12h11M4 18h13M19 18h1"/><circle cx="11" cy="6" r="2"/><circle cx="7" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
   pencil: '<path d="M4 20.5V9l6-4.5 6 4.5v11.5"/><path d="M10 20.5v-6h4v6M15 9.5h5v11"/>',
   people: '<circle cx="9" cy="8" r="3.2"/><path d="M2.8 20c.6-3.4 3-5.5 6.2-5.5s5.6 2.1 6.2 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.3 14.7c2.3.3 4 2 4.5 4.8"/>',
@@ -736,7 +753,7 @@ function ktLink(href, icon, label, activePage) {
     ativo = !setorAqui || setorAqui === setorLink;
   }
   var cls = 'kt-nav-link' + (ativo ? ' active' : '');
-  return '<a class="' + cls + '" href="' + href + '">' + ktIcon(icon) + '<span>' + label + '</span></a>';
+  return '<a class="' + cls + '" href="' + urlLimpa(href) + '">' + ktIcon(icon) + '<span>' + label + '</span></a>';
 }
 
 // Renderiza a sidebar de navegação (linguagem visual Apple, aprovada 2026-07-19)

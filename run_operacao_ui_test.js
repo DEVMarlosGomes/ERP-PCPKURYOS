@@ -171,7 +171,9 @@ async function abrir(browser, uid, estado, pagina, viewport) {
 }
 
 async function linksDoMenu(page) {
-  return page.$$eval('.kt-sidebar a.kt-nav-link', (as) => as.map((a) => a.getAttribute('href')));
+  // O menu usa URL limpa (14/10: "dashboard", não "dashboard.html"); as
+  // expectativas abaixo seguem pelo nome do arquivo.
+  return page.$$eval('.kt-sidebar a.kt-nav-link', (as) => as.map((a) => a.getAttribute('href').replace(/^([^?#.]+)(?=[?#]|$)/, '$1.html')));
 }
 async function textoOperacao(page) {
   return page.$$eval('.kt-nav-group', (gs) => {

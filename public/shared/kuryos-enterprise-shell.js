@@ -13,6 +13,7 @@
   var lastRoute = '';
 
   function text(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
+  function cleanPath(value) { return String(value || '').replace(/\.html$/, ''); }
   function norm(value) { return text(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
   function currentTitle() {
     var heading = document.querySelector('main h1, .container h1, .main h1, #root h1, body > h1');
@@ -42,12 +43,12 @@
   function syncRoute(sidebar) {
     if (!window.__PCP_EMBEDDED__ || lastRoute === location.pathname) return;
     lastRoute = location.pathname;
-    var path = lastRoute;
-    if (/^\/crm\/clients(?:\/|$)/.test(path)) path = '/crm1.html';
-    else if (/^\/crm\/projects(?:\/|$)/.test(path)) path = '/crm2.html';
-    else if (/^\/crm\/samples(?:\/|$)/.test(path)) path = '/crm3.html';
-    else if (/^\/pd(?:\/|$)/.test(path)) path = '/pd.html';
-    var match = navigation.find(function (item) { return new URL(item.href, document.baseURI).pathname === path; });
+    var path = cleanPath(lastRoute);
+    if (/^\/crm\/clients(?:\/|$)/.test(path)) path = '/crm1';
+    else if (/^\/crm\/projects(?:\/|$)/.test(path)) path = '/crm2';
+    else if (/^\/crm\/samples(?:\/|$)/.test(path)) path = '/crm3';
+    else if (/^\/pd(?:\/|$)/.test(path)) path = '/pd';
+    var match = navigation.find(function (item) { return cleanPath(new URL(item.href, document.baseURI).pathname) === path; });
     if (!match) return;
     navigation.forEach(function (item) {
       var active = item === match;
@@ -81,7 +82,7 @@
     empty.textContent = 'Nenhum módulo autorizado corresponde à busca.';
     tools.insertAdjacentElement('afterend', empty);
 
-    var collapsed = !/\/dashboard(?:_ex|_an|_se|\.html)/.test(location.pathname);
+    var collapsed = !/\/dashboard(?:_ex|_an|_se|\.html|\/?$)/.test(location.pathname);
     try {
       var preference = localStorage.getItem('kuryos.sidebar.collapsed');
       if (preference === '0' || preference === '1') collapsed = preference === '1';
@@ -182,14 +183,14 @@
   function setupTopbar(sidebar) {
     if (document.querySelector('.kuryos-enterprise-topbar')) return;
     var context = activeContext(sidebar);
-    var attentionAllowed = navigation.some(function (item) { return new URL(item.href, document.baseURI).pathname === '/dashboard_executivo.html'; });
+    var attentionAllowed = navigation.some(function (item) { return cleanPath(new URL(item.href, document.baseURI).pathname) === '/dashboard_executivo'; });
     var bar = document.createElement('div');
     bar.className = 'kuryos-enterprise-topbar';
     bar.setAttribute('role', 'banner');
     bar.innerHTML = '<div class="kuryos-topbar-context"><div class="kuryos-breadcrumbs"><span>Kuryos ERP</span>' + icon.chevron + '<span>' + context.group + '</span></div><div class="kuryos-topbar-title">' + context.page + '</div></div>' +
       '<div class="kuryos-global-search">' + icon.search + '<input type="search" aria-label="Busca global de módulos" placeholder="Buscar no sistema" autocomplete="off"><span class="kuryos-search-key">Ctrl K</span><div class="kuryos-search-results" role="listbox"></div></div>' +
       '<div class="kuryos-topbar-actions"><span class="kuryos-sector-pill" title="Contexto atual">' + context.group + '</span><button type="button" class="kuryos-topbar-icon kuryos-topbar-search-toggle" aria-label="Abrir busca">' + icon.search + '</button>' +
-      (attentionAllowed ? '<a class="kuryos-topbar-icon kuryos-attention-link" href="dashboard_executivo.html#atencao" aria-label="Central de atenção" title="Central de atenção">' + icon.bell + '</a>' : '') + '</div>';
+      (attentionAllowed ? '<a class="kuryos-topbar-icon kuryos-attention-link" href="dashboard_executivo#atencao" aria-label="Central de atenção" title="Central de atenção">' + icon.bell + '</a>' : '') + '</div>';
     var insertion = document.getElementById('kt-hamburger') || sidebar;
     insertion.insertAdjacentElement('afterend', bar);
 

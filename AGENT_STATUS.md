@@ -5,12 +5,20 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — URLs sem .html + auditoria ponta a ponta (14/10/2026)
+
+- **URLs limpas:** `cleanUrls` em `vercel.json` e `firebase.json` (`/x.html` → 301 → `/x`); CRM/P&D/Kickoffs/Contratos por rewrite para `/crm-app`; menu (`ktLink` → `urlLimpa`), login, shell (rota ativa, sino da Central de Atenção) e rotas React sem `.html`. `getActivePageName` normaliza `/x` → `x.html`, então `PAGINA_MODULOS`/acesso por módulo seguem iguais. `scripts/preview-ui.mjs` imita redirects + cleanUrls. Validado no navegador real (admin): 16 rotas, 70 links sem `.html`, item ativo certo, 0 erros.
+- **Corrigido na auditoria:** bottom sheet do celular sem limite de altura (`kuryos-ui-components.css`; botão Encerrar OP saía da tela em 375×667 — achado do Codex); desvio Render não roda em host `*.test` nem sem `firebase.app` (destrava `run_fluxo_ponta_a_ponta_test.js`, que voltou a passar inteiro); gravação de `usuarios_publico` com `Promise.resolve().then`; ícone `document` inexistente ("undefinedContratos CGI"); SKU automático pula número já ocupado (`cadastros.html`, contador `PEL_SEUN` atrás). Testes de menu passaram a procurar o href limpo.
+- **Arquivos ativos:** nenhum após o commit.
+
 ### Codex — teste ponta a ponta do sistema (14/10/2026)
 
 - **Pedido:** testar o sistema de ponta a ponta no estado atual da árvore, cobrindo o fluxo integrado e as regressões relevantes sem publicar nem alterar dados de produção.
-- **Escopo:** executar o harness `run_fluxo_ponta_a_ponta_test.js`, validar pré-requisitos/runtime e complementar com testes de integração do CRM/PCP que sejam isolados e não destrutivos.
-- **Arquivos ativos:** somente este bloco em `AGENT_STATUS.md`; nenhum arquivo funcional será editado. `public/auth_check.js`, `public/cadastros.html` e todos os demais arquivos reservados pelo Claude serão apenas lidos/executados.
-- **Estado:** em execução; resultados e pendências serão registrados aqui ao término.
+- **Resultado do fluxo:** o harness real percorreu Orçamento → aceite → cadastro → pedido PCP → emissão de OP → apontamento → confirmação PCP → Conferência de PA → WMS/quarentena → fila da Qualidade → bloqueio da Expedição. Após contornar apenas no runner temporário os dois bloqueios abaixo, terminou com exit 0 e achou um gap de negócio: OP sem bloco programado nasce sem `dataInicioPlanejada`/`dataFimPlanejada` e fica fora do horizonte/promessa de prazo.
+- **Defeito reproduzido:** no celular 375×667, o modal Encerrar OP deixa o botão abaixo da viewport. `kuryos-ui-components.css` impõe `padding:24px 0 0 !important` e `max-height:none` no bottom sheet, anulando o limite/rolagem segura de `form.html`. Com a regra de altura restaurada só em memória, apontamento e restante do fluxo passaram.
+- **Harness desatualizado:** `fluxo.test` agora aciona o desvio Vercel→Render de `auth_check.js`, mas o mock não implementa `firebase.app()`. A continuação usou `fluxo.web.app`, equivalente ao Hosting; o teste permanente precisa ajustar o host/mock.
+- **Regressões aprovadas:** apontamento/encerramento, Conferência de PA cliente+servidor, Qualidade PA, Expedição regra+UI e servidor Render (13/13). `run_operacao_ui_test.js` falha só porque ainda exige o emoji removido pelo novo sistema de ícones; `test-ui-auth-recovery.mjs` não aceita a nova leitura de `usuarios_publico`; `test-ui-operational-contracts.mjs` compara `cadastros.html` com baseline anterior às mudanças CRM. Testes de regras CRM/clientes não rodaram: Firebase CLI/Java ausentes.
+- **Arquivos ativos:** nenhum. Nenhum arquivo funcional alterado, nenhum dado real escrito, nenhum commit/push/deploy feito; o runner temporário foi removido. O único registro desta tarefa é este bloco.
 
 ### Claude — Repaginação Apple: design system global (13/10/2026)
 

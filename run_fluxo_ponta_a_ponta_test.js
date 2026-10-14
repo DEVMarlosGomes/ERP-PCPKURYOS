@@ -489,6 +489,11 @@ async function fechar(page, errors, etapa) {
     // Celular pequeno (29/09): com a lista de perdas o modal passava da tela e
     // o botão "Encerrar OP" ficava inalcançável. Botões fixos, o meio rola.
     await page.setViewportSize({width: 375, height: 667});
+    // No celular o modal vira bottom sheet e entra deslizando (k-sheet-in,
+    // .38s, 40px abaixo); mede depois de assentar.
+    await page.evaluate(() => Promise.all(document.getAnimations()
+      .filter((a) => a.effect && a.effect.getTiming().iterations !== Infinity)
+      .map((a) => a.finished.catch(() => {}))));
     const geo = await page.evaluate(() => {
       const b = document.getElementById('btnConfirmarEncerrarOpTurno').getBoundingClientRect();
       const corpo = document.querySelector('#encerrarOpTurnoModal .modal-body');

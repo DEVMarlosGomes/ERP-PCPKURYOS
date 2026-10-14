@@ -136,7 +136,7 @@ async function abrir(browser, uid, estadoInicial, pagina) {
     const db = () => page.evaluate(() => window.__db);
     await page.waitForFunction(() => document.getElementById('btnDoca') && !document.getElementById('btnDoca').disabled);
     assert.equal(await page.locator('#passoOque').isVisible(), false, 'começa só pelo passo 1');
-    assert.equal(await page.locator('.kt-sidebar a[href="movimentar.html"]').count(), 1, 'Movimentar no menu da Logística');
+    assert.equal(await page.locator('.kt-sidebar a[href="movimentar"]').count(), 1, 'Movimentar no menu da Logística');
 
     // ── 1. Posição inteira (palete com 2 lotes) para uma livre sugerida ──
     await page.fill('#deCodigo', 'fab-1.1.1');

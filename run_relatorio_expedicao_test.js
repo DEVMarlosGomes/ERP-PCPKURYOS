@@ -110,7 +110,7 @@ const texto = (page, sel) => page.locator(sel).innerText();
     // ── 0b. O menu lateral do auth_check desenha, e a página está nele ───
     await page.waitForSelector('.kt-sidebar', {timeout: 5000});
     assert.equal(await page.locator('.kt-sidebar').count(), 1, 'menu lateral ausente');
-    assert.equal(await page.locator('.kt-sidebar a[href="relatorio_expedicao.html"]').count(), 1,
+    assert.equal(await page.locator('.kt-sidebar a[href="relatorio_expedicao"]').count(), 1,
       'a tela precisa estar no menu — exige registro em KURYOS_MODULOS e o link em auth_check.js');
     assert.ok(page.url().endsWith('relatorio_expedicao.html'),
       'não pode redirecionar: a página tem que estar liberada no módulo logistica');

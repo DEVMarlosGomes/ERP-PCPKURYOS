@@ -166,7 +166,7 @@ const titulo = (page, re) => page.waitForFunction((src) => new RegExp(src).test(
     assert.equal(await page.locator('#tbHist a', {hasText: 'Dossiê'}).count(), 2);
     assert.match(await page.locator('#tbHist').innerText(), /correção, ciclo 2[\s\S]*1ª análise/);
     // O menu da Qualidade leva à página.
-    assert.equal(await page.locator('.kt-sidebar a[href="qualidade_historico.html"]').count(), 1);
+    assert.equal(await page.locator('.kt-sidebar a[href="qualidade_historico"]').count(), 1);
     if (process.env.QH_SCREENSHOT) {
       await page.click('.aba[data-aba="sem"]');
       await page.screenshot({path: process.env.QH_SCREENSHOT, fullPage: true});

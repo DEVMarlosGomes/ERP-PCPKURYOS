@@ -135,7 +135,7 @@ async function abrir(browser, viewport, url, role) {
     assert.match(await p.locator('#relatorio').innerText(), /Pedido 05 · FEBELLA/);
     ok('busca e troca de pedido (link atualizado)');
 
-    assert.equal(await p.locator('a[href="relatorio_pedido.html"]').count(), 1, 'PCP: um link só no menu');
+    assert.equal(await p.locator('a[href="relatorio_pedido"]').count(), 1, 'PCP: um link só no menu');
     assert.deepEqual(errors, []);
     await context.close();
   }

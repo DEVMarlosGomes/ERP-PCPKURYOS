@@ -8,45 +8,125 @@
       "**/node_modules/**"
     ],
     "rewrites": [
-      { "source": "/static/js/9752.048286cd.chunk.js", "destination": "/static/js/9752.masterintegration20261008.chunk.js" },
-      { "source": "/crm1.html", "destination": "/crm-app.html" },
-      { "source": "/crm2.html", "destination": "/crm-app.html" },
-      { "source": "/crm3.html", "destination": "/crm-app.html" },
-      { "source": "/crm-admin.html", "destination": "/crm-app.html" },
-      { "source": "/kickoffs.html", "destination": "/crm-app.html" },
-      { "source": "/kickoffs", "destination": "/crm-app.html" },
-      { "source": "/kickoff/**", "destination": "/crm-app.html" },
-      { "source": "/contratos.html", "destination": "/crm-app.html" },
-      { "source": "/contratos", "destination": "/crm-app.html" },
-      { "source": "/pd.html", "destination": "/crm-app.html" },
-      { "source": "/crm/**", "destination": "/crm-app.html" },
-      { "source": "/pd", "destination": "/crm-app.html" },
-      { "source": "/pd/**", "destination": "/crm-app.html" }
+      {
+        "source": "/static/js/9752.048286cd.chunk.js",
+        "destination": "/static/js/9752.masterintegration20261008.chunk.js"
+      },
+      {
+        "source": "/crm1",
+        "destination": "/crm-app.html"
+      },
+      {
+        "source": "/crm2",
+        "destination": "/crm-app.html"
+      },
+      {
+        "source": "/crm3",
+        "destination": "/crm-app.html"
+      },
+      {
+        "source": "/crm-admin",
+        "destination": "/crm-app.html"
+      },
+      {
+        "source": "/kickoffs",
+        "destination": "/crm-app.html"
+      },
+      {
+        "source": "/contratos",
+        "destination": "/crm-app.html"
+      },
+      {
+        "source": "/pd",
+        "destination": "/crm-app.html"
+      },
+      {
+        "source": "/kickoff/**",
+        "destination": "/crm-app.html"
+      },
+      {
+        "source": "/crm/**",
+        "destination": "/crm-app.html"
+      },
+      {
+        "source": "/pd/**",
+        "destination": "/crm-app.html"
+      }
     ],
     "headers": [
       {
         "source": "**/*.@(svg|png|jpg|jpeg|ico)",
         "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=86400" }
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=86400"
+          }
         ]
       },
       {
         "source": "shared/**",
         "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=300, must-revalidate" }
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=300, must-revalidate"
+          }
         ]
       },
       {
         "source": "auth_check.js",
         "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=300, must-revalidate" }
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=300, must-revalidate"
+          }
         ]
       },
       {
         "source": "**/*.@(html|json)",
         "headers": [
-          { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, must-revalidate"
+          }
         ]
+      }
+    ],
+    "cleanUrls": true,
+    "redirects": [
+      {
+        "source": "/crm1.html",
+        "destination": "/crm1",
+        "type": 301
+      },
+      {
+        "source": "/crm2.html",
+        "destination": "/crm2",
+        "type": 301
+      },
+      {
+        "source": "/crm3.html",
+        "destination": "/crm3",
+        "type": 301
+      },
+      {
+        "source": "/crm-admin.html",
+        "destination": "/crm-admin",
+        "type": 301
+      },
+      {
+        "source": "/kickoffs.html",
+        "destination": "/kickoffs",
+        "type": 301
+      },
+      {
+        "source": "/contratos.html",
+        "destination": "/contratos",
+        "type": 301
+      },
+      {
+        "source": "/pd.html",
+        "destination": "/pd",
+        "type": 301
       }
     ]
   },
@@ -70,11 +150,22 @@
     }
   ],
   "emulators": {
-    "auth": { "port": 9099 },
-    "database": { "port": 9000 },
-    "functions": { "port": 5001 },
-    "hosting": { "port": 5000 },
-    "ui": { "enabled": true, "port": 4000 },
+    "auth": {
+      "port": 9099
+    },
+    "database": {
+      "port": 9000
+    },
+    "functions": {
+      "port": 5001
+    },
+    "hosting": {
+      "port": 5000
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    },
     "singleProjectMode": true
   }
 }

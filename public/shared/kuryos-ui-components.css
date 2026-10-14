@@ -274,7 +274,11 @@ body:has(> .login-container) {
     max-width: 100% !important;
     margin: auto 0 0 !important;
     border-radius: 16px 16px 0 0 !important;
-    max-height: none;
+    /* Altura limitada à tela: com "none" o rodapé de modais em coluna
+       (Encerrar OP em form.html) caía abaixo da viewport no celular. */
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
     padding-bottom: env(safe-area-inset-bottom, 0px);
     animation: k-sheet-in .38s var(--k-ease-sheet) both;
   }

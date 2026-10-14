@@ -22,9 +22,22 @@ async function resolveFile(pathname) {
 const server = createServer(async (request, response) => {
   try {
     if (!['GET', 'HEAD'].includes(request.method)) { response.writeHead(405); response.end(); return; }
-    const pathname = decodeURIComponent(new URL(request.url, 'http://127.0.0.1').pathname);
+    const url = new URL(request.url, 'http://127.0.0.1');
+    const pathname = decodeURIComponent(url.pathname);
+    // Mesmo comportamento do Hosting/Vercel: redirects do firebase.json e
+    // cleanUrls (/x.html -> /x com 301; /x serve x.html).
+    const redirect = (config.hosting.redirects || []).find(item => item.source === pathname);
+    const cleanTarget = config.hosting.cleanUrls && /\.html$/.test(pathname) && pathname !== '/index.html' && await resolveFile(pathname)
+      ? pathname.replace(/\.html$/, '') : null;
+    if (redirect || cleanTarget) {
+      response.writeHead(redirect ? (redirect.type || 301) : 301, { Location: (redirect ? redirect.destination : cleanTarget) + url.search });
+      response.end();
+      return;
+    }
     const rewrite = rewrites.find(item => item.match.test(pathname));
-    const file = await resolveFile(pathname) || (rewrite && await resolveFile(rewrite.destination));
+    const file = await resolveFile(pathname)
+      || (config.hosting.cleanUrls && !path.extname(pathname) && await resolveFile(pathname + '.html'))
+      || (rewrite && await resolveFile(rewrite.destination));
     if (!file) { response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); response.end('Página não encontrada'); return; }
     response.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
     response.end(request.method === 'HEAD' ? undefined : await readFile(file));
