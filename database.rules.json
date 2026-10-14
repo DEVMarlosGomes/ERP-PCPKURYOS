@@ -443,6 +443,14 @@
       ".read": "auth != null",
       ".write": false
     },
+    "erp": {
+      // CRM/P&D incorporado (adaptador Firebase do ERP): dados em erp/{tenant}/*.
+      // ADM ou usuário do mesmo tenant_id (igual ao que o repo do ERP mesclava).
+      "$tenant": {
+        ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('tenant_id').val() == $tenant)",
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('tenant_id').val() == $tenant)"
+      }
+    },
     "retrabalhos_linhas": {
       ".read": "auth != null",
       ".write": false

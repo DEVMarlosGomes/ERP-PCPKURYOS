@@ -1,5 +1,22 @@
 {
   "projects": {
-    "default": "prod-kuryos"
+    "default": "prod-kuryos",
+    "erpkuryos": "erpkuryos"
+  },
+  "targets": {
+    "prod-kuryos": {
+      "hosting": {
+        "pcp": [
+          "prod-kuryos"
+        ]
+      }
+    },
+    "erpkuryos": {
+      "hosting": {
+        "pcp": [
+          "pcp-kuryos"
+        ]
+      }
+    }
   }
 }

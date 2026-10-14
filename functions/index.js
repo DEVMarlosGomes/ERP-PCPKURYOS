@@ -2,6 +2,9 @@ const {onRequest, onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {onValueCreated, onValueWritten} = require("firebase-functions/v2/database");
 const {defineSecret} = require("firebase-functions/params");
+// Banco dos gatilhos: functions/.env.<projeto> (ex.: .env.erpkuryos) define RTDB_INSTANCE;
+// sem o arquivo, segue o banco de produção original (prod-kuryos), como sempre foi.
+const RTDB_INSTANCE = process.env.RTDB_INSTANCE || "prod-kuryos-default-rtdb";
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const {prepararFinalizacao} = require("./conferencia_pa");
@@ -554,7 +557,7 @@ exports.faturamentoCargaPA = onCall({timeoutSeconds: 120, memory: "512MiB"}, asy
 exports.onSolicitacaoFaturamentoPA = onValueCreated(
   {
     ref: "/agendamentos_expedicao/{agendaKey}/faturamento/solicitacoes/{sid}",
-    instance: "prod-kuryos-default-rtdb",
+    instance: RTDB_INSTANCE,
     secrets: [MS_GRAPH_TENANT_ID, MS_GRAPH_CLIENT_ID, MS_GRAPH_CLIENT_SECRET, MS_GRAPH_SENDER_EMAIL],
   },
   async (event) => {
@@ -1281,7 +1284,7 @@ function resumoTipoHtml(resumo) {
 exports.onTurnoEncerrado = onValueCreated(
   {
     ref: "/turnosEncerrados/{data}/{turno}",
-    instance: "prod-kuryos-default-rtdb",
+    instance: RTDB_INSTANCE,
     secrets: [MS_GRAPH_TENANT_ID, MS_GRAPH_CLIENT_ID, MS_GRAPH_CLIENT_SECRET, MS_GRAPH_SENDER_EMAIL],
   },
   async (event) => {
@@ -1410,7 +1413,7 @@ exports.onTurnoEncerrado = onValueCreated(
 exports.onOpEncerrada = onValueWritten(
   {
     ref: "/ops/{opKey}/status",
-    instance: "prod-kuryos-default-rtdb",
+    instance: RTDB_INSTANCE,
     secrets: [MS_GRAPH_TENANT_ID, MS_GRAPH_CLIENT_ID, MS_GRAPH_CLIENT_SECRET, MS_GRAPH_SENDER_EMAIL],
   },
   async (event) => {
@@ -1457,7 +1460,7 @@ exports.onOpEncerrada = onValueWritten(
 exports.onPesagemFechada = onValueWritten(
   {
     ref: "/ops/{opKey}/manipulacao/status",
-    instance: "prod-kuryos-default-rtdb",
+    instance: RTDB_INSTANCE,
     secrets: [MS_GRAPH_TENANT_ID, MS_GRAPH_CLIENT_ID, MS_GRAPH_CLIENT_SECRET, MS_GRAPH_SENDER_EMAIL],
   },
   async (event) => {
@@ -1539,7 +1542,7 @@ async function enviarPedidoDiretoria(id, versaoNum) {
 exports.onPedidoComercialCriado = onValueCreated(
   {
     ref: "/pedidos_comerciais/{id}",
-    instance: "prod-kuryos-default-rtdb",
+    instance: RTDB_INSTANCE,
     secrets: [MS_GRAPH_TENANT_ID, MS_GRAPH_CLIENT_ID, MS_GRAPH_CLIENT_SECRET, MS_GRAPH_SENDER_EMAIL],
   },
   async (event) => {
@@ -1551,7 +1554,7 @@ exports.onPedidoComercialCriado = onValueCreated(
 exports.onPedidoComercialVersao = onValueCreated(
   {
     ref: "/pedidos_comerciais/{id}/versoes/{versao}",
-    instance: "prod-kuryos-default-rtdb",
+    instance: RTDB_INSTANCE,
     secrets: [MS_GRAPH_TENANT_ID, MS_GRAPH_CLIENT_ID, MS_GRAPH_CLIENT_SECRET, MS_GRAPH_SENDER_EMAIL],
   },
   async (event) => {

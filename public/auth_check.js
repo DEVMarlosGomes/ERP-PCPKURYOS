@@ -1,3 +1,20 @@
+// --- Cloud Functions fora do Firebase (site na Vercel, funções no Render) ---
+// No Firebase Hosting (prod-kuryos.web.app etc.) e no preview local, nada muda:
+// as funções seguem nas Cloud Functions do projeto. Em qualquer outro domínio
+// (Vercel), firebase.functions() passa a chamar o servidor do Render, que roda o
+// mesmo functions/index.js (functions/render-server.js). Resolvido na hora da
+// chamada, porque as páginas inicializam o Firebase depois deste script.
+var KURYOS_FUNCTIONS_ORIGIN = 'https://pcp-kuryos-functions.onrender.com';
+(function() {
+  var host = location.hostname;
+  var noFirebase = !/\.(web\.app|firebaseapp\.com)$/.test(host) && !/^(localhost|127\.|.*\.nip\.io$)/.test(host);
+  if (!noFirebase || typeof firebase === 'undefined' || typeof firebase.functions !== 'function') return;
+  var original = firebase.functions;
+  var desviado = function(app) { return (app || firebase.app()).functions(KURYOS_FUNCTIONS_ORIGIN); };
+  Object.keys(original).forEach(function(k) { desviado[k] = original[k]; });
+  firebase.functions = desviado;
+})();
+
 // --- Preferência manual de tema (claro/escuro/automático) ---
 // Aplicado já no topo do script, antes de qualquer outra coisa, pra não
 // piscar o tema errado (o CSS já está linkado no <head> antes deste script).

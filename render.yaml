@@ -1,0 +1,34 @@
+# Render (plano gratuito): Cloud Functions do PCP fora do Firebase.
+# O site fica na Vercel (vercel.json); banco e login continuam no Firebase (Spark).
+# Valores com sync:false são preenchidos no painel do Render (não vão para o git).
+services:
+  - type: web
+    name: pcp-kuryos-functions
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: functions
+    buildCommand: npm ci
+    startCommand: node render-server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: FIREBASE_DATABASE_URL
+        value: https://erpkuryos-default-rtdb.firebaseio.com
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: OPS_API_KEY
+        sync: false
+      - key: PEDIDOS_API_KEY
+        sync: false
+      - key: MS_GRAPH_TENANT_ID
+        sync: false
+      - key: MS_GRAPH_CLIENT_ID
+        sync: false
+      - key: MS_GRAPH_CLIENT_SECRET
+        sync: false
+      - key: MS_GRAPH_SENDER_EMAIL
+        sync: false
