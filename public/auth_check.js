@@ -15,6 +15,67 @@ var KURYOS_FUNCTIONS_ORIGIN = 'https://pcp-kuryos-functions.onrender.com';
   firebase.functions = desviado;
 })();
 
+// --- Leituras únicas esperam o login ser restaurado ---
+// Ao abrir uma página, o Firebase leva alguns instantes para restaurar a sessão
+// (IndexedDB). Leitura com .once()/.get() disparada nesse intervalo vai sem
+// usuário e o banco nega ("permission_denied", ex.: "Erro ao recalcular
+// Prod/hora" no Cadastros). dbOnValue (shared/utils.js) já tenta de novo; as
+// leituras únicas não tinham isso. Aqui elas esperam a primeira resposta do
+// Auth (com ou sem usuário) — depois disso seguem direto, sem atraso.
+(function() {
+  if (typeof firebase === 'undefined' || !firebase.database || !firebase.database.Query) return;
+  var proto = firebase.database.Query.prototype;
+  var authResolvido = null;
+  function esperarAuth() {
+    if (authResolvido) return authResolvido;
+    authResolvido = new Promise(function(resolve) {
+      try {
+        var parar = firebase.auth().onAuthStateChanged(function() { parar(); resolve(); });
+      } catch (e) { resolve(); }
+    });
+    return authResolvido;
+  }
+  function precisaEsperar() {
+    try { return firebase.apps.length > 0 && typeof firebase.auth === 'function' && !firebase.auth().currentUser; }
+    catch (e) { return false; }
+  }
+  // Mesmo com o usuário já restaurado, a conexão do banco recebe o token um
+  // instante depois: leitura nesse intervalo volta permission_denied. Com
+  // usuário logado, tenta de novo (3x, como dbOnValue) antes de devolver o erro.
+  function comRetentativa(executar) {
+    function tentar(restantes) {
+      return executar().catch(function(err) {
+        var negado = /permission[_ ]denied/i.test(String((err && (err.code || err.message)) || ''));
+        var logado = false;
+        try { logado = !!firebase.auth().currentUser; } catch (e) {}
+        if (!negado || !logado || restantes <= 0) throw err;
+        return new Promise(function(r) { setTimeout(r, 700); }).then(function() { return tentar(restantes - 1); });
+      });
+    }
+    return (precisaEsperar() ? esperarAuth() : Promise.resolve()).then(function() { return tentar(3); });
+  }
+  var onceOriginal = proto.once;
+  if (typeof onceOriginal === 'function') {
+    // once(evento, sucesso?, falha|contexto?, contexto?) — com callbacks, eles
+    // passam a ser chamados a partir da promessa com retentativa.
+    proto.once = function(evento, sucesso, falhaOuContexto, contexto) {
+      var self = this;
+      var falha = typeof falhaOuContexto === 'function' ? falhaOuContexto : null;
+      var ctx = falha ? contexto : falhaOuContexto;
+      var p = comRetentativa(function() { return onceOriginal.call(self, evento); });
+      if (typeof sucesso !== 'function') return p;
+      return p.then(function(snap) { sucesso.call(ctx, snap); return snap; }, function(err) {
+        if (falha) { falha.call(ctx, err); return undefined; }
+        throw err;
+      });
+    };
+  }
+  var getOriginal = proto.get;
+  if (typeof getOriginal === 'function') {
+    proto.get = function() { var self = this; return comRetentativa(function() { return getOriginal.call(self); }); };
+  }
+})();
+
 // --- Preferência manual de tema (claro/escuro/automático) ---
 // Aplicado já no topo do script, antes de qualquer outra coisa, pra não
 // piscar o tema errado (o CSS já está linkado no <head> antes deste script).
@@ -1184,11 +1245,15 @@ window.syncAllActiveOpsStatus = function() {
   // "getProduzido is not defined" para o ADM nessas telas); a próxima página
   // operacional sincroniza normalmente.
   if (typeof getProduzido !== 'function' || typeof sanitizeKey !== 'function') return;
+  // Intervalo de 5 min vale para o NAVEGADOR (localStorage), não por aba: cada
+  // aba nova repetia ~1,2 MB de pedidos/programação/OPs/alocações (medido em
+  // 14/10/2026). sessionStorage segue como reserva se o localStorage falhar.
   try {
-    const last = parseInt(sessionStorage.getItem('kuryos_last_ops_sync') || '0', 10);
+    const store = (function() { try { localStorage.setItem('kuryos_probe', '1'); localStorage.removeItem('kuryos_probe'); return localStorage; } catch (e) { return sessionStorage; } })();
+    const last = parseInt(store.getItem('kuryos_last_ops_sync') || '0', 10);
     if (Date.now() - last < 5 * 60 * 1000) return;
-    sessionStorage.setItem('kuryos_last_ops_sync', String(Date.now()));
-  } catch (e) { /* sessionStorage indisponível -- segue sem cooldown */ }
+    store.setItem('kuryos_last_ops_sync', String(Date.now()));
+  } catch (e) { /* armazenamento indisponível -- segue sem cooldown */ }
   const db = firebase.database();
 
   db.ref('pedidos').once('value', snapshot => {

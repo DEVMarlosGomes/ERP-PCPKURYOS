@@ -4262,7 +4262,23 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  function calcProdHora() {
+  // Prod/hora calculada baixa TODO o histórico de apontamentos (/registros,
+  // ~450 KB e crescendo). Ao abrir a tela (auto), usa o resultado guardado na
+  // sessão por até 2 h e, se falhar, não mostra alerta; o botão sempre recalcula.
+  var PROD_HORA_CACHE = 'kuryos-prodhora-calc-v1';
+  var PROD_HORA_TTL_MS = 2 * 60 * 60 * 1000;
+  function calcProdHora(opts) {
+    var auto = !!(opts && opts.auto === true);
+    if (auto) {
+      try {
+        var cache = JSON.parse(sessionStorage.getItem(PROD_HORA_CACHE) || 'null');
+        if (cache && cache.em && Date.now() - cache.em < PROD_HORA_TTL_MS && cache.mapa) {
+          prodHoraCalcMap = cache.mapa;
+          renderTable();
+          return;
+        }
+      } catch (e) { /* sessão indisponível: calcula */ }
+    }
     var btn = document.getElementById('btnRecalc-prod');
     btn.disabled = true;
     btn.textContent = '↻ Calculando...';
@@ -4284,9 +4300,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (d.count >= 3) prodHoraCalcMap[k] = d.sum / d.count;
       });
       renderTable();
-      showAlert('Prod/hora recalculado a partir de ' + Object.keys(prodHoraCalcMap).length + ' produtos com histórico.', 'success');
+      try { sessionStorage.setItem(PROD_HORA_CACHE, JSON.stringify({ em: Date.now(), mapa: prodHoraCalcMap })); } catch (e) {}
+      if (!auto) showAlert('Prod/hora recalculado a partir de ' + Object.keys(prodHoraCalcMap).length + ' produtos com histórico.', 'success');
     }).catch(function(err) {
-      showAlert('Erro ao recalcular Prod/hora: ' + err.message, 'danger');
+      if (auto) console.warn('Prod/hora (automático) não calculado:', err.message);
+      else showAlert('Erro ao recalcular Prod/hora: ' + err.message, 'danger');
     }).finally(function() {
       btn.disabled = false;
       btn.textContent = '↻ Prod/hora';
@@ -4335,7 +4353,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('fAutoCategoria-prod').addEventListener('change', updateSkuPreview);
     document.getElementById('fAutoCliente-prod').addEventListener('change', updateSkuPreview);
 
-    document.getElementById('btnRecalc-prod').addEventListener('click', calcProdHora);
+    document.getElementById('btnRecalc-prod').addEventListener('click', function() { calcProdHora(); });
 
     document.getElementById('btnUsarSugestaoRitmo-prod').addEventListener('click', function() {
       var box = document.getElementById('sugestaoRitmoBox-prod');
@@ -4386,7 +4404,7 @@ document.addEventListener('DOMContentLoaded', function() {
       refreshAutoSkuSelects();
     });
 
-    calcProdHora();
+    calcProdHora({ auto: true });
   });
 })();
 
