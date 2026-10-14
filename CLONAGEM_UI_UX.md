@@ -143,3 +143,43 @@ fora deste trabalho visual.
 - Nenhuma nova métrica, coleção, fórmula de KPI ou biblioteca foi criada.
   Fontes/cálculos/indisponibilidades dos dashboards existentes foram preservados.
 - Nenhum push ou deploy das alterações desta etapa.
+
+
+## Repaginação Apple — 13/10/2026
+
+Substitui a identidade clonada (Outfit/Manrope, raios de 6–8 px) por uma linguagem
+Apple, mantendo a mesma arquitetura modular, os mesmos seletores e nenhuma mudança de
+markup, IDs, scripts, dados ou regras. HTML só mudou nas versões de cache.
+
+- **Tipografia:** SF Pro nativo em Mac/iPhone; Inter com eixo óptico como equivalente
+  no Windows. Escala fixa (títulos 30/26 px, seções 15–20 px, corpo 13–14 px), tracking
+  negativo crescente com o tamanho, números tabulares em tabelas e KPIs.
+- **Cor:** neutros Apple (`#f5f5f7`, `#1d1d1f`, `#6e6e73`), escuro em `#000`/`#1c1c1e`,
+  cores semânticas do sistema Apple, navy institucional como único acento. Novos
+  tokens: `--k-fill`, `--k-fill-strong`, `--k-seg-active`, `--k-hairline`,
+  `--k-material*`, `--k-blur`, `--k-scrim`, `--k-focus`, `--k-on-accent`,
+  `--k-accent-ink`, curvas `--k-ease-*`, `--k-control-h`/`--k-target`.
+- **Materiais:** sidebar e topbar mobile translúcidas (vibrancy), busca no estilo
+  Spotlight, popovers de vidro; respeita `prefers-reduced-transparency` e
+  `prefers-contrast`.
+- **Componentes:** controle segmentado para abas, cards de 14 px com sombra difusa,
+  campos com anel de foco azul do sistema, select com chevron nativo, tabelas com
+  cabeçalho em caixa de frase, modais de 20 px com scrim e entrada suave.
+- **Sidebar:** grupos como rótulos de seção do macOS (chevron no hover), itens com
+  ícone e seleção em tinta navy; trilho recolhido mostra só os ícones de grupo.
+- **Responsividade:** alvos de 44 px por ponteiro grosso (não por largura); no
+  celular, abas viram cápsulas roláveis de borda a borda, filtros quebram em duas
+  colunas, modais legados viram sheet ancorado na base com safe-area, gaveta com
+  curva de sheet; `dvh` e `env(safe-area-inset-*)` em shell e rodapés.
+- **Dashboards:** palco verde, faixa colorida, círculos decorativos, KPI com
+  gradiente e cartões que levitavam foram retirados; aliases `--dash-*` apontam para
+  os tokens globais. Executivo e setorial seguem a mesma linguagem.
+- **Ícones:** `kuryos-icon-system.js` passou de 13 para ~60 símbolos (traço 1,75,
+  estilo SF Symbols). Emoji sem correspondência agora some em vez de virar um círculo
+  vazio — era o caso de buscas, configurações, datas e ações em dezenas de telas.
+
+**Validação (Playwright, Firebase simulado como nos `run_*_ui_test.js`):** 12 telas ×
+desktop/celular × claro/escuro sem overflow horizontal nem erro de JS; 42 telas
+operacionais no escuro passadas no detector de clarões; gaveta, busca, sheet e tablet
+inspecionados; testes de UI de Consulta de Estoque, Encerrar Turno, Gestão Comercial,
+Expedição, Fichas de OP e Andon aprovados. Pendências em `MELHORIAS_FUTURAS.md`.

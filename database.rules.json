@@ -27,6 +27,17 @@
       // Sem isto, quem tem so o modulo Compras tomava PERMISSION_DENIED ao criar
       // qualquer documento. So sobe -- ninguem volta a numeracao.
       "contadores": {
+        // Contadores usados pelo fluxo do CRM (SKU no CGI e número do pedido).
+        "sku": {
+          "$par": {
+            ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'vendedor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sales_ops' || root.child('usuarios').child(auth.uid).child('role').val() == 'gestor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sucesso_cliente' || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true)",
+            ".validate": "newData.isNumber() && (!data.exists() || newData.val() > data.val())"
+          }
+        },
+        "pedido_comercial": {
+          ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'vendedor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sales_ops' || root.child('usuarios').child(auth.uid).child('role').val() == 'gestor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sucesso_cliente' || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true)",
+          ".validate": "newData.isNumber() && (!data.exists() || newData.val() > data.val())"
+        },
         "solicitacaoCompra": {
           ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('compras').val() == true)",
           ".validate": "newData.isNumber() && (!data.exists() || newData.val() > data.val())"
@@ -50,7 +61,14 @@
     },
     "produtos": {
       ".read": "auth != null",
-      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))"
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))",
+      "$sku": {
+        // SKU gerada pela assinatura do CGI no CRM (produto novo com origemCrm).
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'vendedor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sales_ops' || root.child('usuarios').child(auth.uid).child('role').val() == 'gestor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sucesso_cliente' || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true) && !data.exists() && newData.child('origemCrm').child('cgiContratoId').isString()",
+        "origemCrm": {
+          ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'vendedor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sales_ops' || root.child('usuarios').child(auth.uid).child('role').val() == 'gestor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sucesso_cliente' || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true) && data.exists()"
+        }
+      }
     },
     "sku_historico": {
       ".read": "auth != null",
@@ -66,7 +84,9 @@
     },
     "clientes": {
       ".read": "auth != null",
-      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))"
+      "$clienteKey": {
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || (data.exists() && (root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true)) || (!data.exists() && newData.child('origemCrmClienteId').isString() && (root.child('usuarios').child(auth.uid).child('role').val() == 'vendedor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sales_ops' || root.child('usuarios').child(auth.uid).child('role').val() == 'gestor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sucesso_cliente' || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true)))"
+      }
     },
     "materiais": {
       ".read": "auth != null",
@@ -156,7 +176,11 @@
     },
     "pedidos": {
       ".read": "auth != null",
-      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp') || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('pedidos').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true))"
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'production' || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp') || root.child('usuarios').child(auth.uid).child('role').val() == 'rotulagem')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('pedidos').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true))",
+      "$linha": {
+        // Linha liberada pelo CGI de um pedido que nasceu no CRM.
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'vendedor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sales_ops' || root.child('usuarios').child(auth.uid).child('role').val() == 'gestor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sucesso_cliente' || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true) && newData.child('parentPedidoId').isString() && root.child('pedidos_comerciais').child(newData.child('parentPedidoId').val()).child('origemCrm').child('projetoId').isString()"
+      }
     },
     "programacao": {
       ".read": "auth != null",
@@ -250,7 +274,11 @@
     },
     "pedidos_comerciais": {
       ".read": "auth != null",
-      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('pedidos').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true))"
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('pedidos').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true))",
+      "$pedidoId": {
+        // Pedido do orçamento aprovado no CRM2 (nasce AGUARDANDO_CGI, liberado na assinatura).
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'vendedor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sales_ops' || root.child('usuarios').child(auth.uid).child('role').val() == 'gestor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sucesso_cliente' || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true) && ((!data.exists() && newData.child('origemCrm').child('projetoId').isString()) || (data.child('origemCrm').child('projetoId').isString() && newData.child('origemCrm').child('projetoId').val() == data.child('origemCrm').child('projetoId').val()))"
+      }
     },
     "devolucoes_cliente": {
       ".read": "auth != null",
@@ -283,7 +311,10 @@
     },
     "notificacoes_comercial": {
       ".read": "auth != null",
-      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true)"
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true)",
+      "$pedidoId": {
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'vendedor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sales_ops' || root.child('usuarios').child(auth.uid).child('role').val() == 'gestor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sucesso_cliente' || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true) && root.child('pedidos_comerciais').child($pedidoId).child('origemCrm').child('projetoId').isString()"
+      }
     },
     "comercial_eventos": {
       ".read": "auth != null",

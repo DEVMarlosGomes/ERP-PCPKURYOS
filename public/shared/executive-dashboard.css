@@ -100,3 +100,35 @@
   .executive-chart { height: 220px; }
 }
 @media (prefers-reduced-motion: reduce) { .executive-loading::after { animation: none; } .executive-kpi { transition: none; } }
+
+/* ── Linguagem Apple (13/10/2026) ───────────────────────────────────── */
+.executive-dashboard { padding: 32px 32px 64px; background: var(--k-bg); }
+.executive-eyebrow { color: var(--k-text-2); font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.executive-hero h1 { font-size: 30px; font-weight: 700 !important; letter-spacing: -.02em; }
+.executive-control label { color: var(--k-text-2); font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.executive-control select { height: var(--k-control-h); }
+.executive-live { min-height: 28px; padding: 0 11px; border: 0; border-radius: 99px; background: var(--k-fill); font-size: 12px; font-weight: 500; }
+.executive-live::before { box-shadow: none; }
+.executive-section-head h2 { font-size: 20px; font-weight: 600; letter-spacing: -.015em; }
+.executive-section-head p { color: var(--k-text-2); font-size: 13px; }
+.executive-section-link { color: var(--k-accent-ink); font-size: 13px; font-weight: 500; }
+.executive-kpi { min-height: 128px; padding: 16px 18px; border-radius: var(--k-radius-kpi); box-shadow: var(--k-shadow-card); transition: box-shadow .2s ease; }
+.executive-kpi[href]:hover { transform: none; border-color: var(--k-border); box-shadow: var(--k-shadow-hover); }
+.executive-kpi-label { font-size: 12.5px; font-weight: 500; }
+.executive-kpi-label svg { color: var(--k-text-3); }
+.executive-kpi[data-tone="success"] .executive-kpi-label svg { color: var(--k-success); }
+.executive-kpi[data-tone="warning"] .executive-kpi-label svg { color: var(--k-warning); }
+.executive-kpi[data-tone="danger"] .executive-kpi-label svg { color: var(--k-danger); }
+.executive-kpi-value { font-family: var(--k-font-display); font-size: 30px; font-weight: 600; letter-spacing: -.02em; }
+.executive-kpi-meta { color: var(--k-text-2); font-size: 12px; }
+.executive-kpi.unavailable { background: var(--k-surface); }
+.executive-kpi.unavailable .executive-kpi-value { font-size: 20px; font-weight: 500; }
+.executive-card { padding: 24px; border-radius: var(--k-radius-xl); box-shadow: var(--k-shadow-card); }
+.executive-card h3 { font-size: 16px; font-weight: 500; letter-spacing: -.01em; }
+.executive-card-desc { color: var(--k-text-2); font-size: 12px; }
+.executive-source { border-radius: 99px; color: var(--k-text-2); background: var(--k-fill); font-size: 11px; font-weight: 500; }
+.executive-flow-step { border-radius: var(--k-radius-md); background: var(--k-surface); }
+@media (max-width: 640px) {
+  .executive-dashboard { padding: 20px 16px 48px; }
+  .executive-hero h1 { font-size: 26px; }
+}

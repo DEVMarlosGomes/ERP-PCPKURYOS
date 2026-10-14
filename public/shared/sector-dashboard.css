@@ -37,3 +37,40 @@
 @media (max-width: 1180px) { .sector-kpis { grid-template-columns: repeat(3, minmax(160px, 1fr)); } }
 @media (max-width: 820px) { .sector-page { padding: 20px 16px 40px; } .sector-head { align-items: start; flex-direction: column; } .sector-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sector-panels { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { .sector-kpis { grid-template-columns: 1fr; } .sector-bar-row { grid-template-columns: 100px 1fr auto; } }
+
+/* ── Linguagem Apple (13/10/2026) ───────────────────────────────────── */
+.sector-page { padding: 32px 32px 64px; }
+.sector-head .executive-eyebrow { color: var(--k-text-2); font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.sector-head h1 { font-size: 30px; font-weight: 700 !important; letter-spacing: -.02em; }
+.sector-tabs { width: fit-content; max-width: 100%; padding: 4px; border: 0; border-radius: 12px; background: var(--k-fill); scrollbar-width: none; scroll-snap-type: x proximity; }
+.sector-tab { min-height: 36px; border-radius: 9px; color: var(--k-text-2); font-size: 13px; font-weight: 600; scroll-snap-align: start; }
+.sector-tab.active { background: var(--k-seg-active); color: var(--k-text); box-shadow: var(--k-shadow-soft), 0 1px 2px rgb(15 32 68 / 8%); }
+.sector-summary h2 { font-size: 22px; font-weight: 600; letter-spacing: -.015em; }
+.sector-summary p { color: var(--k-text-2); font-size: 13px; }
+.sector-source-state { padding: 4px 10px; border: 0; background: color-mix(in srgb, var(--k-success) 12%, transparent); font-size: 12px; font-weight: 500; }
+.sector-kpi { position: relative; overflow: hidden; min-height: 128px; padding: 16px 18px; border-radius: var(--k-radius-kpi); box-shadow: var(--k-shadow-card); }
+.sector-kpi[href]:hover { border-color: var(--k-border); box-shadow: var(--k-shadow-hover); }
+.sector-kpi-name { font-size: 12.5px; font-weight: 500; }
+.sector-kpi::before { content: ''; position: absolute; inset: 0 0 auto; height: 3px; background: var(--k-blue); opacity: .9; }
+.sector-kpi-value { font-family: var(--k-font-display); font-size: 30px; font-weight: 600; letter-spacing: -.02em; }
+.sector-kpi-detail { color: var(--k-text-2); font-size: 12px; }
+.sector-kpi[data-available="false"] { background: var(--k-surface); }
+.sector-kpi[data-available="false"] .sector-kpi-value { font-weight: 500; }
+.sector-card { padding: 24px; border-radius: var(--k-radius-xl); box-shadow: var(--k-shadow-card); }
+.sector-card h3 { font-size: 16px; font-weight: 500; letter-spacing: -.01em; }
+.sector-card > p { color: var(--k-text-2); font-size: 12px; }
+.sector-bar-row { font-size: 12.5px; }
+.sector-bar-track { height: 8px; background: var(--k-fill); }
+.sector-bar-fill { background: var(--k-blue); }
+.sector-bar-value { font-weight: 600; font-variant-numeric: tabular-nums; }
+.sector-method { border: 0; border-radius: var(--k-radius-md); background: var(--k-fill); }
+.sector-method strong { font-size: 12.5px; font-weight: 600; }
+.sector-method span { color: var(--k-text-2); font-size: 12px; }
+.sector-empty { color: var(--k-text-2); font-size: 13px; }
+@media (max-width: 820px) {
+  .sector-page { padding: 20px 16px 48px; }
+  .sector-head h1 { font-size: 26px; }
+  .sector-tabs { width: auto; margin-inline: -16px; padding: 2px 16px; border-radius: 0; background: transparent; gap: 6px; }
+  .sector-tab { background: var(--k-fill); border-radius: 99px; }
+  .sector-tab.active { background: var(--k-blue); color: var(--k-on-accent); box-shadow: none; }
+}

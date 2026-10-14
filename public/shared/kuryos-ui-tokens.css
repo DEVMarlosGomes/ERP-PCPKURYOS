@@ -1,33 +1,45 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-/* ERPKuryosBeauty a6892e6 — escala visual canônica, com navy institucional PCP.
-   Tokens HSL alimentam o React existente; --k-* e aliases alimentam o legado. */
+/* Kuryos — identidade do ERPKuryosBeauty (a6892e6) com acabamento Apple (13/10/2026).
+   Do ERP: Outfit/Manrope/JetBrains Mono, navy institucional, acento pervinca
+   #6485F2, fundos frios, controles de 8 px, KPIs de 16 px e painéis de 20 px.
+   Da Apple: materiais translúcidos, controle segmentado, foco, movimento,
+   sheets e alvos de toque. Tokens HSL alimentam o React; --k-* o legado. */
+
 :root, :root[data-theme='light'] {
   color-scheme: light;
-  --k-bg: #f8f9fc;
+  --k-bg: #f8f9fb;
   --k-bg-elevated: #ffffff;
   --k-surface: #ffffff;
-  --k-surface-2: #f1f3f7;
-  --k-surface-3: #e7eaf0;
+  --k-surface-2: #f1f3f6;
+  --k-surface-3: #e6e9ef;
+  --k-fill: rgb(15 32 68 / 6%);
+  --k-fill-strong: rgb(15 32 68 / 10%);
+  --k-seg-active: #ffffff;
   --k-text: #0e1320;
-  --k-text-2: #646a78;
-  --k-text-3: #707886;
-  --k-border: #dbe0e8;
+  --k-text-2: #646b78;
+  --k-text-3: #6b7280;
+  --k-border: #dfe3ea;
   --k-border-strong: #cbd2dc;
+  --k-hairline: rgb(15 32 68 / 10%);
   --k-brand-950: #06123f;
   --k-brand-900: #0a1c69;
   --k-brand-700: #28458f;
-  --k-brand-500: #4e6fb5;
+  --k-brand-500: #6485f2;
   --k-brand-300: #acbcd4;
   --k-brand-100: #e6ebf4;
   --k-brand-50: #f2f5fa;
+  --k-periwinkle: #6485f2;
   --k-blue: var(--k-brand-900);
-  --k-blue-hover: var(--k-brand-700);
+  --k-blue-hover: #13277f;
   --k-blue-soft: rgb(10 28 105 / 8%);
-  --k-info: #2d63d5;
+  --k-accent-ink: var(--k-brand-900);
+  --k-on-accent: #ffffff;
+  --k-focus: rgb(100 133 242 / 35%);
+  --k-info: #4f6fe8;
   --k-success: #17875f;
   --k-warning: #a86600;
-  --k-danger: #bf3b46;
+  --k-danger: #c7364a;
   --k-green: var(--k-success);
   --k-orange: var(--k-warning);
   --k-red: var(--k-danger);
@@ -35,18 +47,27 @@
   --k-radius-xs: 4px;
   --k-radius-sm: 6px;
   --k-radius-md: 8px;
-  --k-radius-lg: 8px;
-  --k-radius-xl: 8px;
+  --k-radius-lg: 12px;
+  --k-radius-kpi: 16px;
+  --k-radius-xl: 20px;
   --radius-sm: var(--k-radius-sm);
   --radius-md: var(--k-radius-md);
   --radius-lg: var(--k-radius-lg);
   --k-shadow-1: 0 1px 2px rgb(15 32 68 / 5%);
-  --k-shadow-2: 0 18px 55px rgb(15 32 68 / 14%);
+  --k-shadow-card: 0 1px 2px rgb(15 32 68 / 4%), 0 12px 28px -14px rgb(15 32 68 / 16%);
+  --k-shadow-2: 0 18px 55px rgb(15 32 68 / 14%), 0 0 0 .5px rgb(15 32 68 / 6%);
   --k-shadow-hover: 0 22px 60px rgb(15 32 68 / 12%);
-  --k-blur: none;
-  --k-ui-font-body: 'Manrope', 'Segoe UI', sans-serif;
-  --k-ui-font-heading: 'Outfit', 'Segoe UI', sans-serif;
-  --k-ui-font-mono: 'JetBrains Mono', 'Cascadia Code', monospace;
+  --k-shadow-soft: 0 18px 55px rgb(15 32 68 / 8%);
+  --k-material: rgb(255 255 255 / 82%);
+  --k-material-thick: rgb(248 249 251 / 88%);
+  --k-blur: saturate(160%) blur(24px);
+  --k-scrim: rgb(6 12 30 / 40%);
+  --k-ease-out: cubic-bezier(.23, 1, .32, 1);
+  --k-ease-in-out: cubic-bezier(.77, 0, .175, 1);
+  --k-ease-sheet: cubic-bezier(.32, .72, 0, 1);
+  --k-ui-font-body: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --k-ui-font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --k-ui-font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
   --k-font-display: var(--k-ui-font-heading);
   --k-font-mono: var(--k-ui-font-mono);
   --k-ui-space-1: 4px;
@@ -56,7 +77,9 @@
   --k-ui-space-5: 20px;
   --k-ui-space-6: 24px;
   --k-ui-space-8: 32px;
-  --k-ui-page-padding: 24px;
+  --k-ui-page-padding: 32px;
+  --k-control-h: 40px;
+  --k-target: 40px;
   --k-shell-sidebar-w: 280px;
   --k-shell-sidebar-compact: 76px;
   --k-shell-topbar-h: 0px;
@@ -73,18 +96,18 @@
   --muted: 220 20% 95%;
   --muted-foreground: 220 9% 43%;
   --accent-foreground: 0 0% 100%;
-  --destructive: 0 66% 49%;
+  --destructive: 352 57% 50%;
   --destructive-foreground: 0 0% 100%;
   --border: 220 18% 88%;
-  --input: 220 18% 86%;
-  --ring: 228 83% 23%;
-  --chart-1: 228 83% 23%;
+  --input: 220 18% 88%;
+  --ring: 224 91% 66%;
+  --chart-1: 224 91% 66%;
   --chart-2: 158 70% 39%;
   --chart-3: 199 89% 48%;
   --chart-4: 38 92% 50%;
   --chart-5: 348 83% 57%;
   --radius: .5rem;
-  --shadow-soft: var(--k-shadow-2);
+  --shadow-soft: var(--k-shadow-soft);
   --shadow-hover: var(--k-shadow-hover);
   --bg: var(--k-bg);
   --panel: var(--k-surface);
@@ -94,8 +117,8 @@
   --line: var(--k-border);
   --accent: var(--k-blue);
   --accent-deep: var(--k-brand-950);
-  --sidebar-bg: color-mix(in srgb, var(--k-bg) 96%, transparent);
-  --shadow: var(--k-shadow-1);
+  --sidebar-bg: var(--k-material-thick);
+  --shadow: var(--k-shadow-card);
   --font-ui: var(--k-ui-font-body);
 }
 
@@ -104,49 +127,61 @@
   --k-bg: #0e1015;
   --k-bg-elevated: #15171e;
   --k-surface: #15171e;
-  --k-surface-2: #20232c;
+  --k-surface-2: #1d2028;
   --k-surface-3: #2a2e39;
+  --k-fill: rgb(255 255 255 / 6%);
+  --k-fill-strong: rgb(255 255 255 / 10%);
+  --k-seg-active: #2a2e39;
   --k-text: #fafafa;
   --k-text-2: #a4abba;
   --k-text-3: #959dae;
-  --k-border: #2c303a;
+  --k-border: #2a2e38;
   --k-border-strong: #3a404d;
+  --k-hairline: rgb(255 255 255 / 8%);
   --k-brand-950: #dfe6ff;
   --k-brand-900: #a9baff;
   --k-brand-700: #829af5;
-  --k-brand-500: #617bd7;
+  --k-brand-500: #6485f2;
   --k-brand-300: #40528b;
   --k-brand-100: #232c4d;
   --k-brand-50: #151a2d;
-  --k-blue: var(--k-brand-900);
-  --k-blue-hover: #bdc9ff;
-  --k-blue-soft: rgb(169 186 255 / 12%);
+  --k-blue: #7391f5;
+  --k-blue-hover: #8aa3f7;
+  --k-blue-soft: rgb(115 145 245 / 14%);
+  --k-accent-ink: #a9baff;
+  --k-on-accent: #0e1015;
+  --k-focus: rgb(115 145 245 / 45%);
   --k-info: #79a0ff;
   --k-success: #55c99c;
   --k-warning: #f0b45a;
   --k-danger: #ff7b84;
   --k-purple: #b695f0;
   --k-shadow-1: 0 1px 2px rgb(0 0 0 / 24%);
-  --k-shadow-2: 0 18px 55px rgb(0 0 0 / 34%);
+  --k-shadow-card: 0 1px 2px rgb(0 0 0 / 30%), 0 12px 28px -14px rgb(0 0 0 / 45%);
+  --k-shadow-2: 0 24px 70px rgb(0 0 0 / 45%), 0 0 0 .5px rgb(255 255 255 / 8%);
   --k-shadow-hover: 0 24px 70px rgb(0 0 0 / 34%);
+  --k-shadow-soft: 0 18px 55px rgb(0 0 0 / 24%);
+  --k-material: rgb(21 23 30 / 80%);
+  --k-material-thick: rgb(14 16 21 / 86%);
+  --k-scrim: rgb(0 0 0 / 55%);
   --background: 225 20% 7%;
   --foreground: 0 0% 98%;
   --card: 224 18% 10%;
   --card-foreground: 0 0% 98%;
   --popover: 224 18% 10%;
   --popover-foreground: 0 0% 98%;
-  --primary: 228 100% 83%;
+  --primary: 224 91% 70%;
   --primary-foreground: 222 38% 8%;
   --secondary: 224 16% 15%;
   --secondary-foreground: 0 0% 98%;
   --muted: 224 15% 16%;
   --muted-foreground: 220 11% 68%;
-  --accent-foreground: 222 38% 8%;
+  --accent-foreground: 0 0% 98%;
   --destructive: 0 63% 31%;
   --border: 224 13% 20%;
   --input: 224 13% 22%;
-  --ring: 228 100% 83%;
-  --chart-1: 228 100% 83%;
+  --ring: 224 91% 70%;
+  --chart-1: 224 91% 70%;
   --chart-2: 158 64% 48%;
   --chart-3: 199 89% 56%;
   --chart-4: 38 92% 58%;
@@ -164,14 +199,25 @@ body[data-kuryos-operational] {
   --surface: var(--k-surface);
   --surface-2: var(--k-surface-2);
 }
-body:has(> #root) { --accent: 228 83% 23%; }
-:root[data-theme='dark'] body:has(> #root), :root.dark body:has(> #root) { --accent: 228 100% 83%; }
+body:has(> #root) { --accent: 224 91% 66%; }
+:root[data-theme='dark'] body:has(> #root), :root.dark body:has(> #root) { --accent: 224 91% 66%; }
 
+/* Alvos de toque crescem com o ponteiro, não com a largura. */
+@media (pointer: coarse) {
+  :root { --k-control-h: 44px; --k-target: 44px; }
+}
 @media (max-width: 980px) {
-  :root { --k-shell-topbar-h: 56px; --k-ui-page-padding: 20px; }
+  :root { --k-shell-topbar-h: 56px; --k-ui-page-padding: 24px; }
 }
 @media (max-width: 640px) {
   :root { --k-ui-page-padding: 16px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root { --k-material: var(--k-bg-elevated); --k-material-thick: var(--k-bg-elevated); --k-blur: none; }
+}
+@media (prefers-contrast: more) {
+  :root { --k-border: #a9b2c0; --k-border-strong: #8791a1; --k-text-2: #454b56; --k-text-3: #454b56; }
+  :root[data-theme='dark'], :root.dark { --k-border: #5a5a60; --k-border-strong: #78787e; --k-text-2: #d1d1d6; --k-text-3: #d1d1d6; }
 }
 @media print {
   :root, :root[data-theme='light'], :root[data-theme='dark'], :root.dark {

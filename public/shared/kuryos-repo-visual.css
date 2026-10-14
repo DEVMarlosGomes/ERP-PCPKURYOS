@@ -1,6 +1,6 @@
 /* Ponto de entrada compatível. A identidade fica em módulos revisáveis.
-   Referência: DEVMarlosGomes/ERPKuryosBeauty, master a6892e6. */
-@import url('./kuryos-ui-tokens.css?v=20261012-2');
-@import url('./kuryos-ui-components.css?v=20261012-2');
-@import url('./kuryos-ui-layout.css?v=20261012-2');
-@import url('./kuryos-ui-operational.css?v=20261012-2');
+   Linguagem Apple (13/10/2026); estrutura modular herdada da clonagem de 12/10. */
+@import url('./kuryos-ui-tokens.css?v=20261013-apple2');
+@import url('./kuryos-ui-components.css?v=20261013-apple2');
+@import url('./kuryos-ui-layout.css?v=20261013-apple2');
+@import url('./kuryos-ui-operational.css?v=20261013-apple2');

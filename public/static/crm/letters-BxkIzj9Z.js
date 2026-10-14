@@ -1,0 +1,1 @@
+function e(e,t=`upper`){let n=Math.max(0,Math.floor(e)),r=``,i=t===`lower`?97:65;do r=String.fromCharCode(i+n%26)+r,n=Math.floor(n/26)-1;while(n>=0);return r}export{e as t};

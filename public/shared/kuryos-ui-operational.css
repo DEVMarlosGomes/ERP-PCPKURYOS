@@ -45,7 +45,7 @@
 
   body[data-kuryos-operational]:not(.dashboard-showcase) [data-ui="page-header"] h1,
   body[data-kuryos-operational]:not(.dashboard-showcase) > :is(.wrap, main.ce, main.pg) > h1 {
-    font: 600 clamp(26px, 2.1vw, 34px)/1.15 var(--k-font-display, 'Outfit', sans-serif) !important;
+    font: 600 30px/1.12 var(--k-font-display) !important;
     letter-spacing: -.02em !important;
     color: var(--k-text) !important;
     margin-bottom: 6px;
@@ -53,19 +53,22 @@
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is(.header-sub, .subtitle, .sub, .ce-sub) {
     color: var(--k-text-2) !important;
-    font-size: 13px;
-    line-height: 1.65;
-    max-width: 88ch;
+    font-size: 14px;
+    line-height: 1.5;
+    letter-spacing: 0;
+    max-width: 80ch;
+    text-wrap: pretty;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is(.status-pill, .pill, .status-bar) {
-    border: 1px solid var(--k-border);
-    background: var(--k-surface) !important;
+    border: 0;
+    background: var(--k-fill) !important;
     color: var(--k-text-2) !important;
-    border-radius: 6px !important;
-    min-height: 32px;
-    padding: 6px 10px;
-    font-size: 11px;
+    border-radius: 99px !important;
+    min-height: 28px;
+    padding: 5px 11px;
+    font-size: 12px;
+    font-weight: 500;
     white-space: nowrap;
     box-shadow: none;
   }
@@ -76,14 +79,16 @@
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 4px !important;
+    width: fit-content;
+    gap: 2px !important;
     padding: 4px !important;
-    border: 1px solid var(--k-border) !important;
-    border-radius: 8px !important;
-    background: var(--k-surface-2) !important;
+    border: 0 !important;
+    border-radius: 12px !important;
+    background: var(--k-fill) !important;
     overflow-x: auto;
     overflow-y: hidden;
-    scrollbar-width: thin;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
     overscroll-behavior-inline: contain;
     max-width: 100%;
     min-width: 0;
@@ -97,11 +102,13 @@
     padding: 8px 14px !important;
     margin: 0 !important;
     border: 0 !important;
-    border-radius: 5px !important;
+    border-radius: 9px !important;
+    scroll-snap-align: start;
     background: transparent !important;
     font-size: 13px !important;
     line-height: 20px;
-    font-weight: 500 !important;
+    font-weight: 600 !important;
+    letter-spacing: 0;
     color: var(--k-text-2) !important;
     text-decoration: none;
     white-space: nowrap;
@@ -111,15 +118,15 @@
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="tabs"], .abas) > :is(button, a, .tab):hover {
     color: var(--k-text) !important;
-    background: color-mix(in srgb, var(--k-surface) 65%, transparent) !important;
+    background: var(--k-fill) !important;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="tabs"], .abas) > :is(.active, .on, [aria-selected="true"]),
   body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="tabs"], .abas) > :is([style*="background:var(--card)"], [style*="background: var(--card)"]),
   body[data-kuryos-operational]:not(.dashboard-showcase) [data-ui="tab"].active {
-    background: var(--k-surface) !important;
+    background: var(--k-seg-active) !important;
     color: var(--k-text) !important;
-    box-shadow: 0 1px 2px rgba(15, 32, 68, .08) !important;
+    box-shadow: var(--k-shadow-soft), 0 1px 2px rgb(15 32 68 / 8%) !important;
     font-weight: 600 !important;
   }
 
@@ -137,10 +144,10 @@
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is(.kt-search, .ce-search) {
-    min-height: 40px;
-    border: 1px solid var(--k-border) !important;
-    border-radius: 6px !important;
-    background: var(--k-surface) !important;
+    min-height: var(--k-control-h);
+    border: 0 !important;
+    border-radius: 10px !important;
+    background: var(--k-fill) !important;
     box-shadow: none !important;
   }
 
@@ -148,13 +155,13 @@
     background: transparent !important;
     border: 0 !important;
     box-shadow: none !important;
-    min-height: 38px;
-    font-size: 13px !important;
+    min-height: var(--k-control-h);
+    font-size: 14px !important;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is(.kt-search, .ce-search):focus-within {
-    border-color: var(--k-blue) !important;
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--k-blue) 15%, transparent) !important;
+    background: var(--k-surface) !important;
+    box-shadow: 0 0 0 1px var(--k-info), 0 0 0 4px var(--k-focus) !important;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) .main :is([data-ui="filters"], .toolbar, .kt-toolbar) {
@@ -167,29 +174,53 @@
     max-width: 100%;
   }
 
+  /* Barra de filtros: busca elástica, seletores no tamanho do conteúdo, tudo
+     numa linha que só quebra quando falta espaço. As telas definem
+     select{width:100%} para formulários, o que empilhava os filtros. */
+  body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="filters"], .toolbar, .kt-toolbar) {
+    display: flex !important;
+    flex-wrap: wrap;
+  }
+
+  body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="filters"], .toolbar, .kt-toolbar) > :is(.kt-search, .ce-search) {
+    flex: 1 1 280px !important;
+  }
+
+  body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="filters"], .toolbar, .kt-toolbar) > select {
+    width: auto !important;
+    flex: 0 1 auto !important;
+    min-width: 150px;
+    max-width: 280px;
+  }
+
+  body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="filters"], .toolbar, .kt-toolbar) > input:not([type="checkbox"]):not([type="radio"]) {
+    width: auto !important;
+    flex: 1 1 220px !important;
+  }
+
   body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="surface"], .card, .grid-card, .line-card) {
     border: 1px solid var(--k-border) !important;
-    border-radius: 8px !important;
+    border-radius: var(--k-radius-lg) !important;
     background: var(--k-surface) !important;
-    box-shadow: none !important;
+    box-shadow: var(--k-shadow-card) !important;
     color: var(--k-text);
     min-width: 0;
-    margin-bottom: 18px;
+    margin-bottom: 20px;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="surface-head"], .card-title, .card-header) {
     background: transparent !important;
     color: var(--k-text) !important;
-    font: 500 15px/1.4 var(--k-font-display, 'Outfit', sans-serif) !important;
-    letter-spacing: 0 !important;
+    font: 500 16px/1.35 var(--k-font-display) !important;
+    letter-spacing: -.01em !important;
     text-transform: none !important;
-    padding: 18px 20px !important;
+    padding: 16px 20px !important;
     border-bottom: 1px solid var(--k-border) !important;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) .card-header > h3 {
     font-size: 15px;
-    font-weight: 500;
+    font-weight: 600;
     margin: 0;
   }
 
@@ -204,70 +235,76 @@
     overscroll-behavior-inline: contain;
     min-width: 0;
     max-width: 100%;
-    border-radius: 0 0 8px 8px;
+    border-radius: 0 0 var(--k-radius-lg) var(--k-radius-lg);
     scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="table-scroll"], .table-wrap, .table-container) table {
-    font-size: 12px !important;
+    font-size: 13px !important;
     background: var(--k-surface) !important;
     border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="table-scroll"], .table-wrap, .table-container) thead th {
-    background: var(--k-surface-2) !important;
+    background: var(--k-surface) !important;
     color: var(--k-text-2) !important;
-    padding: 12px 16px !important;
-    height: 44px;
-    font-size: 11px !important;
+    padding: 10px 14px !important;
+    height: 36px;
+    font-size: 12px !important;
     font-weight: 600 !important;
+    white-space: nowrap;
     text-transform: none !important;
     letter-spacing: 0 !important;
     border-bottom: 1px solid var(--k-border) !important;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="table-scroll"], .table-wrap, .table-container) td {
-    padding: 12px 16px !important;
+    padding: 11px 14px !important;
     min-height: var(--k-op-row);
     border-bottom-color: var(--k-border) !important;
-    line-height: 1.5;
+    line-height: 1.45;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="table-scroll"], .table-wrap, .table-container) tbody tr:hover > td {
-    background: color-mix(in srgb, var(--k-blue) 3%, var(--k-surface)) !important;
+    background: var(--k-surface-2) !important;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is(.code-cell, .sku, .lote-code) {
-    font-family: var(--k-font-mono, 'JetBrains Mono', monospace) !important;
-    font-size: 11px;
+    font-family: var(--k-font-mono) !important;
+    font-size: 12px;
     font-weight: 500;
+    letter-spacing: 0;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="kpi"], .stat, .kpi, .sum-card) {
-    padding: 18px 20px !important;
+    padding: 16px 18px !important;
     border: 1px solid var(--k-border) !important;
-    border-radius: 8px !important;
+    border-radius: var(--k-radius-kpi) !important;
     background: var(--k-surface) !important;
-    box-shadow: none !important;
+    box-shadow: var(--k-shadow-card) !important;
     text-align: left !important;
     min-width: 0;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is(.stat-val, .sum-val, .kpi-value, .kpi-val),
   body[data-kuryos-operational]:not(.dashboard-showcase) .stat > b {
-    font-family: var(--k-font-display, 'Outfit', sans-serif);
+    font-family: var(--k-font-display);
     font-size: 28px !important;
-    line-height: 1.15;
+    line-height: 1.1;
     font-weight: 500 !important;
+    letter-spacing: -.02em;
     font-variant-numeric: tabular-nums;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is(.stat-lbl, .sum-lbl, .kpi-label, .kpi-lbl),
   body[data-kuryos-operational]:not(.dashboard-showcase) .stat > span {
-    font-size: 11px !important;
+    font-size: 12px !important;
+    font-weight: 500;
     color: var(--k-text-2) !important;
-    line-height: 1.5;
-    margin-top: 6px;
+    line-height: 1.4;
+    margin-top: 4px;
     letter-spacing: 0 !important;
     text-transform: none !important;
   }
@@ -279,8 +316,10 @@
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is(.form-group, .form-row, .campo) > label {
     color: var(--k-text) !important;
-    font-size: 12px !important;
+    font-size: 13px !important;
     font-weight: 500 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
     margin-bottom: 6px;
   }
 
@@ -295,50 +334,77 @@
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is(.section-note, .note, .nota-box) {
-    background: var(--k-surface-2) !important;
-    border-radius: 6px !important;
-    padding: 12px 16px;
+    background: var(--k-fill) !important;
+    border: 0 !important;
+    border-radius: var(--k-radius-md) !important;
+    padding: 12px 14px;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="dialog-head"], .modal-header) {
-    padding: 20px 24px !important;
-    background: var(--k-surface) !important;
+    padding: 18px 20px 14px 24px !important;
+    background: transparent !important;
     color: var(--k-text) !important;
-    border-bottom: 1px solid var(--k-border);
+    border-bottom: 0;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="dialog-head"], .modal-header) h2 {
-    font-family: var(--k-font-display, 'Outfit', sans-serif);
-    font-size: 20px !important;
-    font-weight: 500 !important;
-    line-height: 1.3;
+    font-family: var(--k-font-display);
+    font-size: 19px !important;
+    font-weight: 600 !important;
+    letter-spacing: -.015em !important;
+    line-height: 1.25;
     color: var(--k-text) !important;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="dialog-head"], .modal-header) .modal-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    padding: 0 !important;
     color: var(--k-text-2) !important;
-    min-width: 36px;
-    min-height: 36px;
-    border-radius: 6px;
+    background: var(--k-fill) !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    font-size: 17px !important;
+    line-height: 1 !important;
+    opacity: 1 !important;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="dialog-body"], .modal-body) {
-    padding: 24px !important;
+    padding: 8px 24px 20px !important;
     min-width: 0;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="dialog-foot"], .modal-footer) {
-    padding: 16px 24px !important;
-    border-top: 1px solid var(--k-border);
-    background: var(--k-surface) !important;
+    padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+    border-top: .5px solid var(--k-hairline);
+    background: transparent !important;
     gap: 8px;
+  }
+
+  /* Cabeçalhos de tabela e rótulos de filtro em caixa de frase, como no Finder
+     e no Numbers; caixa alta espaçada em 10–11px vira ruído em telas densas. */
+  body[data-kuryos-operational]:not(.dashboard-showcase) table :is(thead th, th) {
+    text-transform: none !important;
+    letter-spacing: -.004em !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    color: var(--k-text-2) !important;
+  }
+
+  body[data-kuryos-operational]:not(.dashboard-showcase) :is(.filtro-lbl, .f-lbl, .flt-lbl, .grupo-lbl, .label-sm, .lbl, .rot, .section-title, .sec-title, .secao h3) {
+    text-transform: none !important;
+    letter-spacing: -.004em !important;
   }
 
   /* Procurement cards retain every condition/price field and compact option.
      Their visual hierarchy now follows the reference's vendor detail cards. */
   body[data-kuryos-page="compras"] :is(.cot-condicoes, .cot-item-proposta, .cot-comparacao-item, .cot-opcao, .vinc-box) {
     border: 1px solid var(--k-border);
-    border-radius: 8px !important;
+    border-radius: var(--k-radius-md) !important;
     background: var(--k-surface);
     box-shadow: none;
   }
@@ -359,7 +425,7 @@
   }
 
   body[data-kuryos-page="compras"] .cot-fornecedor-tab {
-    border-radius: 6px;
+    border-radius: 8px;
     border-color: var(--k-border);
     background: var(--k-surface);
   }
@@ -371,7 +437,7 @@
   }
 
   body[data-kuryos-page="compras"] .cot-etapa {
-    border-radius: 6px;
+    border-radius: 99px;
   }
 
   body[data-kuryos-page="compras"] .cot-opcao.melhor {
@@ -384,8 +450,8 @@
   body[data-kuryos-page="planejamento"] :is(.week-bar, .grid-card) {
     background: var(--k-surface);
     border: 1px solid var(--k-border);
-    border-radius: 8px;
-    box-shadow: none;
+    border-radius: var(--k-radius-lg);
+    box-shadow: var(--k-shadow-card);
   }
 
   body[data-kuryos-page="planejamento"] .week-bar {
@@ -394,13 +460,13 @@
   }
 
   body[data-kuryos-page="planejamento"] .week-nav-btn {
-    border-radius: 6px;
-    min-height: 36px;
+    border-radius: 8px;
+    min-height: var(--k-control-h);
     font-weight: 500;
   }
 
   body[data-kuryos-page="qualidade"] .q-tipo {
-    border-radius: 6px;
+    border-radius: 8px;
     border-color: var(--k-border);
   }
 
@@ -411,9 +477,11 @@
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is(.no-data, .empty) {
     color: var(--k-text-2);
-    font-size: 13px;
-    padding: 40px 24px;
-    line-height: 1.7;
+    font-size: 14px;
+    padding: 48px 24px;
+    line-height: 1.6;
+    text-align: center;
+    text-wrap: balance;
   }
 }
 
@@ -439,7 +507,35 @@
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) > .header {
-    padding-block: 20px !important;
+    padding-block: 20px 16px !important;
+  }
+
+  body[data-kuryos-operational]:not(.dashboard-showcase) [data-ui="page-header"] h1,
+  body[data-kuryos-operational]:not(.dashboard-showcase) > :is(.wrap, main.ce, main.pg) > h1 {
+    font-size: 26px !important;
+  }
+
+  /* No celular, as abas viram uma fileira de cápsulas roláveis de borda a borda. */
+  body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="tabs"], .abas) {
+    width: auto;
+    margin-inline: calc(var(--k-op-gutter) * -1) !important;
+    padding: 2px var(--k-op-gutter) !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    gap: 6px !important;
+    scroll-padding-inline: var(--k-op-gutter);
+  }
+
+  body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="tabs"], .abas) > :is(button, a, .tab) {
+    background: var(--k-fill) !important;
+    border-radius: 99px !important;
+  }
+
+  body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="tabs"], .abas) > :is(.active, .on, [aria-selected="true"]),
+  body[data-kuryos-operational]:not(.dashboard-showcase) [data-ui="tab"].active {
+    background: var(--k-blue) !important;
+    color: var(--k-on-accent) !important;
+    box-shadow: none !important;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) > :is(.container, .wrap, main.ce, main.pg) {
@@ -447,18 +543,18 @@
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="tabs"], .abas) > :is(button, a, .tab) {
-    min-height: 40px !important;
+    min-height: 36px !important;
     padding-inline: 12px !important;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="filters"], .toolbar, .kt-toolbar) > :is(input, .kt-search) {
-    flex: 1 1 100%;
+    flex: 1 1 100% !important;
     width: 100%;
     min-width: 0 !important;
   }
 
   body[data-kuryos-operational]:not(.dashboard-showcase) :is([data-ui="filters"], .toolbar, .kt-toolbar) > select {
-    flex: 1 1 140px;
+    flex: 1 1 140px !important;
     max-width: 100%;
     min-width: 0 !important;
   }
@@ -494,4 +590,13 @@
   body[data-kuryos-operational]:not(.dashboard-showcase) [data-ui="tab"] {
     transition: none;
   }
+}
+
+/* Planejamento: abas de dia como segmentos; coluna de hoje em tinta suave. */
+@media screen {
+  body[data-kuryos-page="planejamento"] .day-tab { border-radius: 8px 8px 0 0; background: var(--k-fill) !important; color: var(--k-text-2) !important; font-weight: 600; }
+  body[data-kuryos-page="planejamento"] .day-tab:hover:not(.active) { background: var(--k-fill-strong) !important; color: var(--k-text) !important; }
+  body[data-kuryos-page="planejamento"] .day-tab.active { background: var(--k-blue) !important; color: var(--k-on-accent) !important; }
+  body[data-kuryos-page="planejamento"] .wb-hdr.is-today { background: var(--k-blue-soft) !important; color: var(--k-accent-ink) !important; }
+  body[data-kuryos-page="planejamento"] .wb-cell.is-today { background: color-mix(in srgb, var(--k-blue) 4%, transparent) !important; }
 }

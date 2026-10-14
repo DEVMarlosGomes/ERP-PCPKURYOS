@@ -140,7 +140,7 @@ const KURYOS_MODULOS = {
   emitir_op:    { rotulo: 'Emitir OP',             desc: 'Criar a ordem de produção que a fábrica executa',
                   paginas: ['emitir_op.html', 'dossie_lote.html'] },
   comercial:    { rotulo: 'Comercial',             desc: 'Orçamentos, pedidos, CRM e desenvolvimento',
-                  paginas: ['comercial.html', 'gestao_comercial.html', 'crm1.html', 'crm2.html', 'crm3.html', 'pd.html', 'devolucoes.html', 'relatorio_pedido.html'] },
+                  paginas: ['comercial.html', 'gestao_comercial.html', 'crm1.html', 'crm2.html', 'crm3.html', 'pd.html', 'crm-admin.html', 'devolucoes.html', 'relatorio_pedido.html'] },
   pedidos:      { rotulo: 'Pedidos e MRP',         desc: 'Backlog de produção e Matriz de Insumos',
                   paginas: ['pedidos.html', 'insumos.html', 'relatorio_pedido.html', 'consulta_estoque.html', 'o_que_comprar.html'] },
   cadastros:    { rotulo: 'Cadastros',             desc: 'Produtos, materiais, clientes, fórmulas e BOM',
@@ -724,6 +724,12 @@ function renderUnifiedNavbar(user) {
     temMod('comercial') && ktLink('crm2.html', 'list', 'CRM 2 · Projetos', activePage),
     temMod('comercial') && ktLink('crm3.html', 'flask', 'CRM 3 · Amostras', activePage),
     temMod('comercial') && ktLink('pd.html', 'gear', 'P&D', activePage),
+    // Orçamento aprovado no CRM2 -> Kickoff -> CGI assinado -> SKU e pedido
+    // liberado ao PCP (14/10/2026). O CQ (papel qualidade) aprova uma etapa do Kickoff.
+    (temMod('comercial') || user.role === 'qualidade') && ktLink('kickoffs.html', 'clipboard', 'Kickoffs', activePage),
+    temMod('comercial') && ktLink('contratos.html', 'document', 'Contratos CGI', activePage),
+    // Painel do ADM para corrigir/remover cards do funil (13/10/2026).
+    user.role === 'admin' && ktLink('crm-admin.html', 'people', 'Gerenciar cards do CRM', activePage),
     // Devolução de cliente (GAP-02): o Comercial autoriza, a Logística recebe
     // e a Qualidade acompanha o destino -- a mesma tela nos três blocos.
     temMod('comercial') && ktLink('devolucoes.html', 'history', 'Devoluções de Cliente', activePage),
@@ -1639,7 +1645,7 @@ function _autoAjustarPlanejamentoInterno(db, pedidoKey) {
   }
   if (!document.querySelector('script[data-kuryos-icon-system]')) {
     var icons = document.createElement('script');
-    icons.src = 'shared/kuryos-icon-system.js?v=20261007-1';
+    icons.src = 'shared/kuryos-icon-system.js?v=20261013-apple2';
     icons.defer = true;
     icons.setAttribute('data-kuryos-icon-system', '');
     document.head.appendChild(icons);
@@ -1654,7 +1660,7 @@ function _autoAjustarPlanejamentoInterno(db, pedidoKey) {
   if (!document.querySelector('link[data-kuryos-repo-visual]')) {
     var referenceStyle = document.createElement('link');
     referenceStyle.rel = 'stylesheet';
-    referenceStyle.href = 'shared/kuryos-repo-visual.css?v=20261012-2';
+    referenceStyle.href = 'shared/kuryos-repo-visual.css?v=20261013-apple2';
     referenceStyle.setAttribute('data-kuryos-repo-visual', '');
     document.head.appendChild(referenceStyle);
   }

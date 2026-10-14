@@ -2613,6 +2613,19 @@ document.addEventListener('DOMContentLoaded', function() {
      sempre -- a pessoa confere antes. */
   var espelhoOrigemForn = null; // {key, nome} do fornecedor que originou este cliente
 
+  // Cliente novo direto pelo cadastro é decisão do administrador (13/10/2026):
+  // o comercial cria clientes pelo funil do CRM, que alimenta este cadastro.
+  // A regra do banco (clientes/$key) aplica o mesmo limite.
+  var AVISO_CLIENTE_DIRETO = 'Cliente novo direto pelo cadastro só pode ser criado por um administrador. O comercial cria clientes pelo CRM 1.';
+  function podeCriarClienteDireto() {
+    return Boolean(window.currentUser && window.currentUser.role === 'admin');
+  }
+  function aplicarPermissaoClienteDireto() {
+    var botao = document.getElementById('btnNovo-cli');
+    if (botao) botao.hidden = !podeCriarClienteDireto();
+  }
+  window.addEventListener('kuryos-auth-pronto', aplicarPermissaoClienteDireto);
+
   window.abrirClienteEspelhado = function(origem, fornecedor) {
     var r = EspelhoCadastro.paraCliente(fornecedor, {origemKey: origem.key, clientes: allClientes});
     var existente = EspelhoCadastro.acharEquivalente(allClientes, fornecedor, ['nome']);
@@ -2677,6 +2690,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var codigo = document.getElementById('fCodigo-cli').value.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
     if (!nome || !codigo) { showAlert('Nome e código são obrigatórios (código só letras/números/hífen/underline).', 'danger'); return; }
 
+    if (!editingKey && !podeCriarClienteDireto()) { showAlert(AVISO_CLIENTE_DIRETO, 'warning'); return; }
     var key = editingKey || sanitizeKey(codigo);
     var duplicado = Object.entries(allClientes).some(function(entry) {
       return entry[0] !== editingKey && entry[1].codigo === codigo;
@@ -2748,7 +2762,11 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('logoRemover-cli').addEventListener('click', function() {
       logoCli = {url: '', novo: null}; document.getElementById('fLogo-cli').value = ''; mostrarLogoCli();
     });
-    document.getElementById('btnNovo-cli').addEventListener('click', function() { openModal(null); });
+    document.getElementById('btnNovo-cli').addEventListener('click', function() {
+      if (!podeCriarClienteDireto()) { showAlert(AVISO_CLIENTE_DIRETO, 'warning'); return; }
+      openModal(null);
+    });
+    aplicarPermissaoClienteDireto();
     document.getElementById('modalClose-cli').addEventListener('click', closeModal);
     document.getElementById('modalCancelBtn-cli').addEventListener('click', closeModal);
     document.getElementById('modalSaveBtn-cli').addEventListener('click', saveModal);
