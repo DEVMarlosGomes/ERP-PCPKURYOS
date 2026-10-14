@@ -436,6 +436,12 @@
       // foi exatamente esta função que deixou o perfil 'pcp' de fora quando
       // ele nasceu, e o usuário caiu em "Perfil desconhecido" ao logar.
       window.location.href = 'qualidade.html?tab=fila';
+    } else if (role === 'comercial') {
+      // Comercial e P&D (14/10/2026): criadas junto com a seleção de várias
+      // funções em usuarios.html. Quem tem mais de uma cai na da função principal.
+      window.location.href = 'crm1.html';
+    } else if (role === 'pd') {
+      window.location.href = 'pd.html';
     } else {
       showFeedback('error', 'Perfil desconhecido no sistema.');
     }

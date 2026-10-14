@@ -146,6 +146,26 @@
       color: #0ea5e9;
     }
 
+    .badge.comercial {
+      background: color-mix(in srgb, #f59e0b 18%, var(--panel));
+      color: #b45309;
+    }
+
+    .badge.pd {
+      background: color-mix(in srgb, #8b5cf6 18%, var(--panel));
+      color: #7c3aed;
+    }
+
+    .badges { display: flex; flex-wrap: wrap; gap: 4px; }
+    .btn-funcoes {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 36px;
+      padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink);
+      font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+    }
+    .btn-funcoes:hover { border-color: var(--accent); }
+    .btn-funcoes:disabled { opacity: .55; cursor: not-allowed; }
+    .btn-funcoes .seta { color: var(--ink-mute); flex-shrink: 0; }
+
     .badge.qualidade {
       background: color-mix(in srgb, #0d9488 18%, var(--panel));
       color: #0d9488;
@@ -281,6 +301,29 @@
 </div>
 
 <!-- MODAL: módulos liberados por usuário (só ADM chega aqui) -->
+<div class="modal-bg" id="modalFuncBg">
+  <div class="modal">
+    <div class="modal-head" data-ui="dialog-head">
+      <div>
+        <h2 id="funcTitulo">Funções</h2>
+        <div class="sub" id="funcSub"></div>
+      </div>
+      <button class="modal-x" id="funcFechar" title="Fechar" aria-label="Fechar">×</button>
+    </div>
+    <div class="modal-body" data-ui="dialog-body">
+      <div class="aviso">Marque <b>uma ou mais</b> funções. O acesso é a soma das funções marcadas. Sem nenhuma marcada, o usuário fica <b>Pendente</b> e não entra no sistema.</div>
+      <div id="funcLista"></div>
+    </div>
+    <div class="modal-foot" data-ui="dialog-foot">
+      <span></span>
+      <div style="display:flex;gap:8px">
+        <button class="btn-mod" id="funcCancelar">Cancelar</button>
+        <button class="btn-salvar" id="funcSalvar">Salvar funções</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="modalModBg">
   <div class="modal">
     <div class="modal-head" data-ui="dialog-head">
@@ -406,11 +449,12 @@
         
         const dateStr = u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '-';
         
-        const badgeClasses = { 'pending': 'pending', 'production': 'production', 'admin': 'admin', 'pcp': 'pcp', 'rotulagem': 'rotulagem', 'logistica': 'pcp', 'rh': 'rh', 'gestor': 'gestor', 'qualidade': 'qualidade' };
-        const badgeLabels = { 'pending': 'Pendente', 'production': 'Produção', 'admin': 'Administrador', 'pcp': 'PCP', 'rotulagem': 'Rotulagem', 'logistica': 'Logística', 'rh': 'RH Central', 'gestor': 'Gestor de Linha', 'qualidade': 'Qualidade' };
+        const badgeClasses = { 'pending': 'pending', 'production': 'production', 'admin': 'admin', 'pcp': 'pcp', 'rotulagem': 'rotulagem', 'logistica': 'pcp', 'rh': 'rh', 'gestor': 'gestor', 'qualidade': 'qualidade', 'comercial': 'comercial', 'pd': 'pd' };
         
-        const badgeClass = badgeClasses[u.role] || 'pending';
-        const badgeLabel = badgeLabels[u.role] || u.role;
+        const funcoesU = funcoesAtivas(u);
+        const badgesHtml = funcoesU.length
+          ? '<div class="badges">' + funcoesU.map(function(f) { return '<span class="badge ' + (badgeClasses[f] || 'pending') + '">' + escapeHtml(rotuloFuncao(f)) + '</span>'; }).join('') + '</div>'
+          : '<span class="badge pending">Pendente</span>';
         
         // Disable dropdown for the logged-in administrator itself to prevent accidental lockouts!
         const selfLogged = firebase.auth().currentUser.uid === u.uid;
@@ -421,23 +465,17 @@
           <td><strong>${escapeHtml(u.nome || '-')}</strong>${noteSelf}</td>
           <td>${escapeHtml(u.email || '-')}</td>
           <td>${dateStr}</td>
-          <td><span class="badge ${badgeClass}">${badgeLabel}</span></td>
+          <td>${badgesHtml}</td>
           <td>
-            <select onchange="updateUserRole('${u.uid}', this.value)" ${disableAttr}>
-              <option value="pending" ${u.role === 'pending' ? 'selected' : ''}>Pendente</option>
-              <option value="production" ${u.role === 'production' ? 'selected' : ''}>Produção</option>
-              <option value="rotulagem" ${u.role === 'rotulagem' ? 'selected' : ''}>Rotulagem</option>
-              <option value="logistica" ${u.role === 'logistica' ? 'selected' : ''}>Logística (WMS, recebimento, expedição e separação)</option>
-              <option value="qualidade" ${u.role === 'qualidade' ? 'selected' : ''}>Qualidade (só o módulo de CQ)</option>
-              <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Administrador (vê tudo, sem exceção)</option>
-              <option value="pcp" ${u.role === 'pcp' ? 'selected' : ''}>PCP (vê tudo, menos RH)</option>
-              <option value="rh" ${u.role === 'rh' ? 'selected' : ''}>RH Central</option>
-              <option value="gestor" ${u.role === 'gestor' ? 'selected' : ''}>Gestor de Linha (RH)</option>
-            </select>
+            <button type="button" class="btn-funcoes" ${disableAttr} title="${selfLogged ? 'Você não pode alterar as próprias funções' : 'Escolher uma ou mais funções'}">
+              <span>${escapeHtml(funcoesU.length ? funcoesU.map(rotuloFuncao).join(' + ') : 'Pendente')}</span><span class="seta">▾</span>
+            </button>
           </td>
           <td>${celulaModulos(u, selfLogged)}</td>
         `;
 
+        const btnFunc = tr.querySelector('.btn-funcoes');
+        if (btnFunc && !selfLogged) btnFunc.addEventListener('click', () => abrirFuncoes(u.uid));
         const btnMod = tr.querySelector('.btn-mod');
         if (btnMod) btnMod.addEventListener('click', () => abrirModulos(u.uid));
         tbody.appendChild(tr);
@@ -462,16 +500,16 @@
       return '<span class="badge admin">Todos</span>' +
              '<div class="mod-resumo">Administrador vê tudo, sem exceção</div>';
     }
-    if (u.role === 'pending') {
+    if (u.role === 'pending' && !funcoesAtivas(u).length) {
       return '<span style="color:var(--ink-mute);font-size:12px">—</span>' +
              '<div class="mod-resumo">Defina um perfil primeiro</div>';
     }
-    const personalizado = !!(u.modulos && typeof u.modulos === 'object');
+    const personalizado = !!(u.modulos && typeof u.modulos === 'object') && u.modulosDasFuncoes !== true;
     const ativos = window.modulosDoUsuario(u);
     const total = Object.keys(window.KURYOS_MODULOS).length;
     return '<button class="btn-mod"' + (selfLogged ? ' disabled title="Você não pode alterar os próprios módulos"' : '') +
              '>🔑 ' + ativos.length + ' de ' + total + '</button>' +
-           '<div class="mod-resumo">' + (personalizado ? 'Personalizado' : 'Padrão do perfil ' + escapeHtml(u.role)) + '</div>';
+           '<div class="mod-resumo">' + (u.modulosDasFuncoes === true ? 'Padrão das funções' : personalizado ? 'Personalizado' : 'Padrão do perfil ' + escapeHtml(u.role)) + '</div>';
   }
 
   function abrirModulos(uid) {
@@ -479,7 +517,7 @@
     if (!u) return;
     modUidAtual = uid;
     const ativos = window.modulosDoUsuario(Object.assign({ uid: uid }, u));
-    const personalizado = !!(u.modulos && typeof u.modulos === 'object');
+    const personalizado = !!(u.modulos && typeof u.modulos === 'object') && u.modulosDasFuncoes !== true;
 
     document.getElementById('modTitulo').textContent = 'Módulos de ' + (u.nome || u.email || uid);
     document.getElementById('modSub').textContent = (u.email || '') + ' · perfil ' + (u.role || '—');
@@ -529,7 +567,7 @@
     btn.disabled = true;
     // Caminho plano: update({ modulos: {...} }) num nó de usuário substitui
     // só o ramo `modulos` e preserva nome/email/role/created_at.
-    database.ref('usuarios/' + modUidAtual).update({ modulos: marcados })
+    database.ref('usuarios/' + modUidAtual).update({ modulos: marcados, modulosDasFuncoes: null })
       .then(function() {
         btn.disabled = false;
         fecharModulos();
@@ -551,7 +589,9 @@
     const u = usuariosCache[modUidAtual] || {};
     if (!confirm('Voltar ' + (u.nome || 'este usuário') + ' ao padrão do perfil "' + (u.role || '') + '"?\n\n' +
                  'A marcação personalizada é apagada e ele volta a acompanhar o perfil.')) return;
-    database.ref('usuarios/' + modUidAtual + '/modulos').remove()
+    (precisaModulosGravados(u)
+      ? database.ref('usuarios/' + modUidAtual).update(modulosGravadosDasFuncoes(u.role, u.funcoes))
+      : database.ref('usuarios/' + modUidAtual).update({ modulos: null, modulosDasFuncoes: null }))
       .then(function() { fecharModulos(); showToast('Usuário voltou ao padrão do perfil.'); })
       .catch(function(err) { showToast('Erro: ' + err.message); });
   }
@@ -565,6 +605,106 @@
   });
   document.addEventListener('keydown', function(ev) { if (ev.key === 'Escape') fecharModulos(); });
 
+  /* ══════════════════════════════════════════════════════════════════
+     FUNÇÕES (14/10/2026): o usuário pode ter mais de uma.
+     - role = função principal (a de maior prioridade) — é a que o resto do
+       sistema e as regras do banco leem;
+     - funcoes = todas as marcadas;
+     - com mais de uma função, ou com Comercial/P&D (que as regras do banco
+       reconhecem pelos módulos), os módulos somados são gravados com
+       modulosDasFuncoes=true: as regras enxergam, e a tela continua tratando
+       como "padrão das funções", não como personalização.
+     ══════════════════════════════════════════════════════════════════ */
+  var FUNCOES = [
+    { id: 'admin', rot: 'Administrador', dsc: 'Vê tudo, sem exceção' },
+    { id: 'pcp', rot: 'PCP', dsc: 'Vê tudo, menos RH' },
+    { id: 'comercial', rot: 'Comercial', dsc: 'CRM 1/2/3, orçamentos, pedidos, Kickoffs e contratos CGI' },
+    { id: 'pd', rot: 'P&D', dsc: 'Pipeline de desenvolvimento, fórmulas, homologação e aprovação do Kickoff' },
+    { id: 'qualidade', rot: 'Qualidade', dsc: 'Módulo de CQ e aprovação do CQ no Kickoff' },
+    { id: 'logistica', rot: 'Logística', dsc: 'WMS, recebimento, expedição e separação' },
+    { id: 'production', rot: 'Produção', dsc: 'Apontamento, manipulação, rotulagem e planejamento' },
+    { id: 'rotulagem', rot: 'Rotulagem', dsc: 'Sala de rótulos' },
+    { id: 'rh', rot: 'RH Central', dsc: 'Colaboradores, avaliações e férias' },
+    { id: 'gestor', rot: 'Gestor de Linha (RH)', dsc: 'Avaliação da equipe da linha' }
+  ];
+  var PRIORIDADE = FUNCOES.map(function(f) { return f.id; });
+  var funcUidAtual = null;
+
+  function rotuloFuncao(id) {
+    var f = FUNCOES.filter(function(x) { return x.id === id; })[0];
+    return f ? f.rot : id;
+  }
+  function funcoesAtivas(u) {
+    return window.funcoesDoUsuario(u).filter(function(f) { return f !== 'pending'; })
+      .sort(function(a, b) { return PRIORIDADE.indexOf(a) - PRIORIDADE.indexOf(b); });
+  }
+  function precisaModulosGravados(u) {
+    var lista = funcoesAtivas(u);
+    if (lista.indexOf('admin') >= 0) return false;
+    return lista.length > 1 || lista.indexOf('comercial') >= 0 || lista.indexOf('pd') >= 0;
+  }
+  function modulosGravadosDasFuncoes(role, funcoes) {
+    var marcados = {};
+    window.modulosPadraoDasFuncoes({ role: role, funcoes: funcoes }).forEach(function(m) { marcados[m] = true; });
+    return { modulos: marcados, modulosDasFuncoes: true };
+  }
+
+  function abrirFuncoes(uid) {
+    var u = usuariosCache[uid];
+    if (!u) return;
+    funcUidAtual = uid;
+    var atuais = funcoesAtivas(u);
+    document.getElementById('funcTitulo').textContent = 'Funções de ' + (u.nome || u.email || uid);
+    document.getElementById('funcSub').textContent = u.email || '';
+    document.getElementById('funcLista').innerHTML = FUNCOES.map(function(f) {
+      return '<label class="mod-item">' +
+        '<input type="checkbox" data-funcao="' + f.id + '"' + (atuais.indexOf(f.id) !== -1 ? ' checked' : '') + '>' +
+        '<span><span class="rot">' + escapeHtml(f.rot) + '</span>' +
+        '<div class="dsc">' + escapeHtml(f.dsc) + '</div></span></label>';
+    }).join('');
+    document.getElementById('modalFuncBg').classList.add('open');
+  }
+  function fecharFuncoes() {
+    document.getElementById('modalFuncBg').classList.remove('open');
+    funcUidAtual = null;
+  }
+  function salvarFuncoes() {
+    if (!funcUidAtual) return;
+    if (!window.currentUser || window.currentUser.role !== 'admin') {
+      alert('Acesso Negado: Apenas administradores podem gerenciar perfis de acesso.');
+      return;
+    }
+    if (funcUidAtual === firebase.auth().currentUser.uid) { alert('Você não pode alterar as próprias funções.'); return; }
+    var marcadas = [];
+    document.querySelectorAll('#funcLista input[data-funcao]').forEach(function(chk) { if (chk.checked) marcadas.push(chk.getAttribute('data-funcao')); });
+    marcadas.sort(function(a, b) { return PRIORIDADE.indexOf(a) - PRIORIDADE.indexOf(b); });
+    var anterior = usuariosCache[funcUidAtual] || {};
+    var tinhaPersonalizado = !!(anterior.modulos && typeof anterior.modulos === 'object') && anterior.modulosDasFuncoes !== true;
+    if (tinhaPersonalizado && !confirm('Este usuário tem módulos personalizados.\n\nTrocar as funções apaga essa personalização e ele passa a usar o padrão das funções marcadas.\n\nContinuar?')) return;
+    var role = marcadas[0] || 'pending';
+    var funcoes = null;
+    if (marcadas.length) { funcoes = {}; marcadas.forEach(function(f) { funcoes[f] = true; }); }
+    var update = { role: role, funcoes: funcoes, modulos: null, modulosDasFuncoes: null };
+    if (precisaModulosGravados({ role: role, funcoes: funcoes })) Object.assign(update, modulosGravadosDasFuncoes(role, funcoes));
+    // O CRM/P&D incorporado lê erp/kuryos: as regras liberam por tenant_id.
+    if (!anterior.tenant_id && marcadas.some(function(f) { return ['admin', 'pcp', 'comercial', 'pd', 'qualidade'].indexOf(f) >= 0; })) update.tenant_id = 'kuryos';
+    var btn = document.getElementById('funcSalvar');
+    btn.disabled = true;
+    database.ref('usuarios/' + funcUidAtual).update(update)
+      .then(function() {
+        btn.disabled = false;
+        fecharFuncoes();
+        showToast(marcadas.length ? 'Funções atualizadas: ' + marcadas.map(rotuloFuncao).join(' + ') + '.' : 'Usuário voltou a Pendente.');
+      })
+      .catch(function(err) { btn.disabled = false; console.error(err); showToast('Erro ao salvar funções: ' + err.message); });
+  }
+  document.getElementById('funcFechar').addEventListener('click', fecharFuncoes);
+  document.getElementById('funcCancelar').addEventListener('click', fecharFuncoes);
+  document.getElementById('funcSalvar').addEventListener('click', salvarFuncoes);
+  document.getElementById('modalFuncBg').addEventListener('click', function(ev) { if (ev.target === this) fecharFuncoes(); });
+  document.addEventListener('keydown', function(ev) { if (ev.key === 'Escape') fecharFuncoes(); });
+
+  // Seletor antigo de uma função só (mantido para compatibilidade).
   function updateUserRole(uid, newRole) {
     if (!window.currentUser || window.currentUser.role !== 'admin') {
       alert('Acesso Negado: Apenas administradores podem gerenciar perfis de acesso.');

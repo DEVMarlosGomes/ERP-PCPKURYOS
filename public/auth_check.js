@@ -158,6 +158,10 @@ const KURYOS_MODULOS = {
                   paginas: ['emitir_op.html', 'dossie_lote.html'] },
   comercial:    { rotulo: 'Comercial',             desc: 'Orçamentos, pedidos, CRM e desenvolvimento',
                   paginas: ['comercial.html', 'gestao_comercial.html', 'crm1.html', 'crm2.html', 'crm3.html', 'pd.html', 'crm-admin.html', 'devolucoes.html', 'relatorio_pedido.html'] },
+  // P&D (14/10/2026): função própria, separada do Comercial (que continua vendo
+  // o P&D). Kickoffs/Contratos ficam fora do mapa -- o CRM decide por função.
+  pd:           { rotulo: 'P&D',                   desc: 'Pipeline de desenvolvimento, fórmulas, homologação e Kickoff',
+                  paginas: ['pd.html'] },
   pedidos:      { rotulo: 'Pedidos e MRP',         desc: 'Backlog de produção e Matriz de Insumos',
                   paginas: ['pedidos.html', 'insumos.html', 'relatorio_pedido.html', 'consulta_estoque.html', 'o_que_comprar.html'] },
   cadastros:    { rotulo: 'Cadastros',             desc: 'Produtos, materiais, clientes, fórmulas e BOM',
@@ -192,6 +196,8 @@ const MODULOS_POR_PAPEL = {
   qualidade: ['qualidade', 'conferencia_pesagem'],
   rh: ['rh', 'rh_dashboard'],
   gestor: ['rh'],
+  comercial: ['comercial'],
+  pd: ['pd'],
   pending: []
 };
 
@@ -211,9 +217,31 @@ const PAGINA_MODULOS = (function() {
 // Módulos efetivos de um usuário: o que o ADM marcou; se nunca marcou, o
 // padrão do papel. `admin` recebe tudo, sempre -- é a trava contra o ADM
 // desmarcar a própria gestão de usuários e ninguém mais conseguir entrar.
+// Funções (14/10/2026): o usuário pode ter mais de uma. `role` segue sendo a
+// principal (é a que o resto do sistema e as regras do banco leem); `funcoes`
+// guarda todas. O padrão de módulos é a SOMA dos padrões de cada função.
+function funcoesDoUsuario(user) {
+  if (!user) return [];
+  const extras = Object.keys(user.funcoes || {}).filter(function(f) { return user.funcoes[f] === true; });
+  return [user.role].concat(extras).filter(function(f, i, all) { return f && all.indexOf(f) === i; });
+}
+function modulosPadraoDasFuncoes(user) {
+  const out = [];
+  const funcoes = funcoesDoUsuario(user);
+  for (let i = 0; i < funcoes.length; i++) {
+    const padrao = MODULOS_POR_PAPEL[funcoes[i]];
+    if (padrao === '*') return Object.keys(KURYOS_MODULOS);
+    (padrao || []).forEach(function(m) { if (out.indexOf(m) < 0) out.push(m); });
+  }
+  return out;
+}
+
 function modulosDoUsuario(user) {
   if (!user) return [];
-  if (user.role === 'admin') return Object.keys(KURYOS_MODULOS);
+  if (user.role === 'admin' || (user.funcoes && user.funcoes.admin === true)) return Object.keys(KURYOS_MODULOS);
+  // Módulos gravados pela tela de Usuários a partir das funções (não é
+  // personalização): seguem o padrão atual das funções.
+  if (user.modulosDasFuncoes === true) return modulosPadraoDasFuncoes(user);
   const marcados = user.modulos;
   if (marcados && typeof marcados === 'object') {
     const ativos = Object.keys(marcados).filter(function(m) {
@@ -231,9 +259,7 @@ function modulosDoUsuario(user) {
     // acessa nada"), não um dado faltando -- respeitamos.
     return ativos;
   }
-  const padrao = MODULOS_POR_PAPEL[user.role];
-  if (padrao === '*') return Object.keys(KURYOS_MODULOS);
-  return (padrao || []).slice();
+  return modulosPadraoDasFuncoes(user);
 }
 function usuarioTemModulo(user, modulo) {
   return modulosDoUsuario(user).indexOf(modulo) !== -1;
@@ -273,7 +299,7 @@ function podeAbrirPagina(user, pagina) {
 // destino de um Acesso Negado. Sem isto, mandar alguém pra dashboard.html
 // (que ele também não acessa) trocaria um Acesso Negado por outro, em loop.
 const ORDEM_HOME = ['dashboard_executivo.html', 'dashboard.html', 'form.html', 'qualidade.html', 'manipulacao.html', 'planejamento.html',
-                    'logistica.html', 'comercial.html', 'compras.html', 'cadastros.html', 'pedidos.html',
+                    'logistica.html', 'comercial.html', 'pd.html', 'compras.html', 'cadastros.html', 'pedidos.html',
                     'rh_dashboard.html', 'rh_avaliacao.html'];
 function homeDoUsuario(user) {
   for (var i = 0; i < ORDEM_HOME.length; i++) {
@@ -285,6 +311,8 @@ function homeDoUsuario(user) {
 window.KURYOS_MODULOS = KURYOS_MODULOS;
 window.MODULOS_POR_PAPEL = MODULOS_POR_PAPEL;
 window.modulosDoUsuario = modulosDoUsuario;
+window.funcoesDoUsuario = funcoesDoUsuario;
+window.modulosPadraoDasFuncoes = modulosPadraoDasFuncoes;
 window.usuarioTemModulo = usuarioTemModulo;
 window.podeAbrirPagina = podeAbrirPagina;
 window.setoresOperacao = setoresOperacao;
@@ -497,7 +525,9 @@ window.currentUser = null;
               // Módulos marcados pelo ADM. Ausente = usa o padrão do papel
               // (ver modulosDoUsuario) -- é o que mantém os usuários atuais
               // exatamente como estavam antes desta mudança.
-              modulos: profile.modulos || null
+              modulos: profile.modulos || null,
+              funcoes: profile.funcoes || null,
+              modulosDasFuncoes: profile.modulosDasFuncoes === true
             };
 
             // Validação de acessos da página, agora por MÓDULO
@@ -678,12 +708,9 @@ function renderUnifiedNavbar(user) {
   // Agora o menu e a validação de página leem a MESMA função: se o link
   // aparece, a página abre.
   const temMod = function(m) { return usuarioTemModulo(user, m); };
-  const roleLabel = user.role === 'admin' ? 'Administrador'
-    : user.role === 'pcp' ? 'PCP'
-    : user.role === 'rh' ? 'RH Central'
-    : user.role === 'gestor' ? 'Gestor de Linha'
-    : user.role === 'qualidade' ? 'Qualidade'
-    : user.role === 'rotulagem' ? 'Rotulagem' : 'Produção';
+  const ROTULO_FUNCAO = { admin: 'Administrador', pcp: 'PCP', rh: 'RH Central', gestor: 'Gestor de Linha', qualidade: 'Qualidade',
+    rotulagem: 'Rotulagem', logistica: 'Logística', comercial: 'Comercial', pd: 'P&D', production: 'Produção' };
+  const roleLabel = funcoesDoUsuario(user).map(function(f) { return ROTULO_FUNCAO[f] || f; }).join(' · ') || 'Produção';
   // Um grupo inteiro some quando nenhum link dentro dele sobrevive -- senão
   // sobra uma legenda flutuando sem nada embaixo (defeito já visto aqui
   // antes, ao testar com o papel 'production').
@@ -748,10 +775,10 @@ function renderUnifiedNavbar(user) {
     temMod('comercial') && ktLink('crm1.html', 'people', 'CRM 1 · Clientes', activePage),
     temMod('comercial') && ktLink('crm2.html', 'list', 'CRM 2 · Projetos', activePage),
     temMod('comercial') && ktLink('crm3.html', 'flask', 'CRM 3 · Amostras', activePage),
-    temMod('comercial') && ktLink('pd.html', 'gear', 'P&D', activePage),
+    (temMod('comercial') || temMod('pd')) && ktLink('pd.html', 'gear', 'P&D', activePage),
     // Orçamento aprovado no CRM2 -> Kickoff -> CGI assinado -> SKU e pedido
     // liberado ao PCP (14/10/2026). O CQ (papel qualidade) aprova uma etapa do Kickoff.
-    (temMod('comercial') || user.role === 'qualidade') && ktLink('kickoffs.html', 'clipboard', 'Kickoffs', activePage),
+    (temMod('comercial') || temMod('pd') || user.role === 'qualidade') && ktLink('kickoffs.html', 'clipboard', 'Kickoffs', activePage),
     temMod('comercial') && ktLink('contratos.html', 'document', 'Contratos CGI', activePage),
     // Painel do ADM para corrigir/remover cards do funil (13/10/2026).
     user.role === 'admin' && ktLink('crm-admin.html', 'people', 'Gerenciar cards do CRM', activePage),

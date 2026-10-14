@@ -20,7 +20,8 @@ const negado = (p) => assert.rejects(p, /PERMISSION_DENIED|permission_denied/i);
   await raiz.database().ref().set({
     usuarios: {
       adm: {role: 'admin'},
-      gest: {role: 'gestor'},
+      gest: {role: 'comercial'},
+      linha: {role: 'gestor'},
       vend: {role: 'pcp', modulos: {comercial: true}},
       prod: {role: 'production'}
     },
@@ -28,7 +29,10 @@ const negado = (p) => assert.rejects(p, /PERMISSION_DENIED|permission_denied/i);
     produtos: {'PRF-MISS-0001': {sku: 'PRF-MISS-0001', descricao: 'Produto PCP'}},
     pedidos_comerciais: {'PED-0001': {status: 'LIBERADO_PCP', cliente: 'MISS ROSE'}}
   });
-  const gest = como('gest'), vend = como('vend'), prod = como('prod');
+  const gest = como('gest'), vend = como('vend'), prod = como('prod'), linha = como('linha');
+
+  // Gestor de Linha é do RH no PCP: não opera o comercial.
+  await negado(linha.ref('config/contadores/pedido_comercial').set(50));
 
   // Contadores: comercial reserva o próximo número; voltar ou travar é negado.
   await gest.ref('config/contadores/pedido_comercial').set(42);
@@ -70,7 +74,7 @@ const negado = (p) => assert.rejects(p, /PERMISSION_DENIED|permission_denied/i);
   await negado(prod.ref('especificacoes/PRF-LUMI-0002__v1').set({...v1, codProduto: 'PRF-LUMI-0002'}));
 
   // Índice público de usuários: cada um grava o próprio, com o papel verdadeiro; todos leem.
-  await gest.ref('usuarios_publico/gest').set({nome: 'Gestora', role: 'gestor'});
+  await gest.ref('usuarios_publico/gest').set({nome: 'Gestora', role: 'comercial'});
   await negado(gest.ref('usuarios_publico/gest').set({nome: 'Gestora', role: 'admin'}));
   await negado(gest.ref('usuarios_publico/prod').set({nome: 'Outro', role: 'production'}));
   assert.equal((await prod.ref('usuarios_publico/gest/nome').once('value')).val(), 'Gestora');
