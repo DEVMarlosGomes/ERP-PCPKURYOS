@@ -29,7 +29,12 @@ Motores em `lib/pdAmostra.js` e `lib/pdCards.js` (fonte do ERP), testes em
 5. **V1 automática** na aba Amostras ao finalizar a manipulação.
 6. **Cards do P&D com o status real** (hoje o espelho em lote fica para trás).
 
-## Fase 2 — Funil e numeração
+## Fase 2 — Funil e numeração (publicada em 15/10/2026)
+
+Decisões de implementação: projetos que já estavam em Cotação/Orçamento/Negociação
+seguem o caminho antigo (Kickoff abre no pedido aprovado); quem está em Amostra Enviada
+passa pelo Kickoff. A revisão do Kickoff mantém o número (`KO-2026-031`) e muda a versão
+(`v2`). Registrar o retorno do cliente numa amostra do P&D não é travado.
 
 1. **Amostra enviada trava o P&D** (manipulação/fórmula/amostra somente leitura) até o retorno
    do cliente. Retrabalho destrava e abre a próxima versão (V1 preservada); aprovada segue
