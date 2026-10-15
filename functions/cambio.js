@@ -1,6 +1,6 @@
 /* Dólar ao vivo + spread (PLANO_PD_CRM_AJUSTES.md, Fase 5).
 
-   O servidor do Render busca o dólar comercial a cada 15 min (função
+   O servidor do Render busca o dólar comercial a cada 15 min (AwesomeAPI, BCB PTAX, ExchangeRate-API) (função
    atualizarCambio em functions/index.js) e grava em config/cambio:
      usd_brl: { compra, venda, fonte, cotadoEm, atualizadoEm }
      spread_pct: definido pelo ADM
@@ -29,6 +29,25 @@
     var compra = num(c && c.bid), venda = num(c && c.ask);
     if (!venda) return null;
     return { compra: compra || venda, venda: venda, fonte: 'AwesomeAPI (dólar comercial)', cotadoEm: String(c.create_date || '') };
+  }
+
+  // Banco Central (PTAX, boletins de abertura/intermediários/fechamento do dia). Oficial,
+  // gratuito e sem limite de chamadas — a AwesomeAPI responde 429 para o servidor do Render
+  // (IP de nuvem compartilhado), então o BCB é a segunda fonte. Janela de 7 dias cobre
+  // fim de semana e feriado (pega o boletim mais recente).
+  function urlBcbPtax(agora) {
+    var fim = new Date(agora || Date.now());
+    var ini = new Date(fim.getTime() - 7 * 864e5);
+    var fmt = function(d) { return ('0' + (d.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + d.getUTCDate()).slice(-2) + '-' + d.getUTCFullYear(); };
+    return 'https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodo(moeda=@moeda,dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)' +
+      "?@moeda='USD'&@dataInicial='" + fmt(ini) + "'&@dataFinalCotacao='" + fmt(fim) + "'&$format=json&$orderby=dataHoraCotacao%20desc&$top=1";
+  }
+
+  function deBcbPtax(json) {
+    var c = json && Array.isArray(json.value) ? json.value[0] : null;
+    var venda = num(c && c.cotacaoVenda);
+    if (!venda) return null;
+    return { compra: num(c.cotacaoCompra) || venda, venda: venda, fonte: 'Banco Central (PTAX ' + String(c.tipoBoletim || '').toLowerCase() + ')', cotadoEm: String(c.dataHoraCotacao || '').slice(0, 19) };
   }
 
   // https://open.er-api.com/v6/latest/USD (reserva, taxa única)
@@ -102,7 +121,7 @@
 
   return {
     PADRAO_SEM_CAMBIO: PADRAO_SEM_CAMBIO, MAX_IDADE_MIN: MAX_IDADE_MIN, SPREAD_MAX: SPREAD_MAX,
-    deAwesome: deAwesome, deErApi: deErApi, validarSpread: validarSpread, taxaEfetiva: taxaEfetiva,
+    deAwesome: deAwesome, deErApi: deErApi, urlBcbPtax: urlBcbPtax, deBcbPtax: deBcbPtax, validarSpread: validarSpread, taxaEfetiva: taxaEfetiva,
     idadeMinutos: idadeMinutos, situacao: situacao, cotacaoDaFormula: cotacaoDaFormula,
     congelar: congelar, taxaDaCotacao: taxaDaCotacao
   };

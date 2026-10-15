@@ -17,6 +17,13 @@ assert.equal(C.deAwesome({ status: 429 }), null);
 assert.deepEqual(C.deErApi({ result: 'success', time_last_update_utc: 'Wed, 15 Oct 2026 00:02:31 +0000', rates: { BRL: 5.44 } }),
   { compra: 5.44, venda: 5.44, fonte: 'ExchangeRate-API (reserva)', cotadoEm: 'Wed, 15 Oct 2026 00:02:31 +0000' });
 assert.equal(C.deErApi({ result: 'error' }), null);
+// Banco Central (PTAX intradiário), formato real da API Olinda
+const BCB = { value: [{ cotacaoCompra: 5.0515, cotacaoVenda: 5.0521, dataHoraCotacao: '2026-10-15 13:05:33.305854', tipoBoletim: 'Fechamento' }] };
+assert.deepEqual(C.deBcbPtax(BCB), { compra: 5.0515, venda: 5.0521, fonte: 'Banco Central (PTAX fechamento)', cotadoEm: '2026-10-15 13:05:33' });
+assert.equal(C.deBcbPtax({ value: [] }), null);
+const urlBcb = C.urlBcbPtax('2026-10-15T18:00:00Z');
+assert.match(urlBcb, /olinda.bcb.gov.br/);
+assert.match(urlBcb, /dataInicial='10-08-2026'&@dataFinalCotacao='10-15-2026'/, 'janela de 7 dias (fim de semana/feriado)');
 
 // taxa efetiva com spread do ADM
 const cambio = { usd_brl: { compra: 5.4312, venda: 5.4342, fonte: 'AwesomeAPI', atualizadoEm: '2026-10-15T15:00:00Z' }, spread_pct: 3 };
@@ -69,15 +76,22 @@ assert.equal(C.congelar({}, 'x'), null);
     assert.equal(gravado.at(-1)[1].erro, null);
     assert.equal(gravado.at(-1)[1].aviso, null);
 
-    global.fetch = async (url) => (url.includes('awesomeapi') ? { ok: false, status: 429, json: async () => ({}) } : { ok: true, json: async () => ({ result: 'success', rates: { BRL: 5.44 } }) });
+    // AwesomeAPI 429 (o que o Render recebe): cai no Banco Central, ainda intradiário
+    global.fetch = async (url) => (url.includes('awesomeapi') ? { ok: false, status: 429, json: async () => ({}) }
+      : url.includes('bcb.gov.br') ? { ok: true, json: async () => BCB } : { ok: true, json: async () => ({ result: 'success', rates: { BRL: 5.44 } }) });
+    await roda();
+    assert.equal(gravado.at(-1)[1].usd_brl.fonte, 'Banco Central (PTAX fechamento)');
+    assert.match(gravado.at(-1)[1].aviso, /awesomeapi.*HTTP 429/, 'motivo da falha da principal fica registrado');
+
+    // AwesomeAPI e BCB fora: reserva diária
+    global.fetch = async (url) => (url.includes('er-api') ? { ok: true, json: async () => ({ result: 'success', rates: { BRL: 5.44 } }) } : { ok: false, status: 503, json: async () => ({}) });
     await roda();
     assert.equal(gravado.at(-1)[1].usd_brl.fonte, 'ExchangeRate-API (reserva)');
-    assert.match(gravado.at(-1)[1].aviso, /awesomeapi.*HTTP 429/, 'motivo da falha da principal fica registrado');
 
     global.fetch = async () => { throw new Error('sem rede'); };
     await roda();
     assert.equal(gravado.at(-1)[1].usd_brl, undefined, 'falha nas duas mantém a última cotação');
-    assert.match(gravado.at(-1)[1].erro, /awesomeapi.*sem rede.*er-api.*sem rede/);
+    assert.match(gravado.at(-1)[1].erro, /awesomeapi.*sem rede.*bcb.gov.br.*sem rede.*er-api.*sem rede/);
   } finally { global.fetch = fetchOriginal; }
   console.log('run_cambio_test: OK');
 })().catch((e) => { console.error(e); process.exit(1); });

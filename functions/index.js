@@ -2168,20 +2168,23 @@ exports.receberDevolucaoCliente = onCall(async (request) => {
 });
 
 // Dólar ao vivo (PLANO_PD_CRM_AJUSTES.md, Fase 5): dólar comercial a cada 15 min em
-// config/cambio/usd_brl. Fonte principal AwesomeAPI, reserva ExchangeRate-API (ambas
+// config/cambio/usd_brl. Fontes: AwesomeAPI, Banco Central (PTAX) e ExchangeRate-API (todas
 // gratuitas, sem chave). Falha nas duas mantém a última cotação e registra o erro;
 // a tela avisa quando a cotação passa de 1 h sem atualizar (shared/cambio.js).
 const cambio = require("./cambio");
+// AwesomeAPI responde 429 ao Render (IP compartilhado); o BCB (PTAX intradiário) segura o "ao vivo".
 const FONTES_CAMBIO = [
-  ["https://economia.awesomeapi.com.br/json/last/USD-BRL", cambio.deAwesome],
-  ["https://open.er-api.com/v6/latest/USD", cambio.deErApi],
+  [() => "https://economia.awesomeapi.com.br/json/last/USD-BRL", cambio.deAwesome],
+  [(agora) => cambio.urlBcbPtax(agora), cambio.deBcbPtax],
+  [() => "https://open.er-api.com/v6/latest/USD", cambio.deErApi],
 ];
 exports.atualizarCambio = onSchedule(
   {schedule: "every 15 minutes", timeZone: "America/Sao_Paulo"},
   async () => {
     const agora = new Date().toISOString();
     const erros = [];
-    for (const [url, ler] of FONTES_CAMBIO) {
+    for (const [montarUrl, ler] of FONTES_CAMBIO) {
+      const url = montarUrl(agora);
       try {
         const resp = await fetch(url, {
           signal: AbortSignal.timeout(10000),
