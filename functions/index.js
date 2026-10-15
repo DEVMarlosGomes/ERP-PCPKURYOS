@@ -2183,11 +2183,15 @@ exports.atualizarCambio = onSchedule(
     const erros = [];
     for (const [url, ler] of FONTES_CAMBIO) {
       try {
-        const resp = await fetch(url, {signal: AbortSignal.timeout(10000)});
+        const resp = await fetch(url, {
+          signal: AbortSignal.timeout(10000),
+          headers: {"User-Agent": "KuryosPCP/1.0 (atualizarCambio)", "Accept": "application/json"},
+        });
         if (!resp.ok) throw new Error("HTTP " + resp.status);
         const cotacao = ler(await resp.json());
         if (!cotacao) throw new Error("resposta sem cotação");
-        await db.ref("config/cambio").update({usd_brl: {...cotacao, atualizadoEm: agora}, erro: null, falhouEm: null});
+        // Reserva usada: o motivo da falha da principal fica em `aviso` para diagnóstico.
+        await db.ref("config/cambio").update({usd_brl: {...cotacao, atualizadoEm: agora}, erro: null, falhouEm: null, aviso: erros.length ? erros.join(" | ") : null});
         return;
       } catch (e) {
         erros.push(url + ": " + e.message);

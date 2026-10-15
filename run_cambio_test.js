@@ -67,10 +67,12 @@ assert.equal(C.congelar({}, 'x'), null);
     assert.equal(gravado.at(-1)[0], 'config/cambio');
     assert.equal(gravado.at(-1)[1].usd_brl.venda, 5.4342);
     assert.equal(gravado.at(-1)[1].erro, null);
+    assert.equal(gravado.at(-1)[1].aviso, null);
 
     global.fetch = async (url) => (url.includes('awesomeapi') ? { ok: false, status: 429, json: async () => ({}) } : { ok: true, json: async () => ({ result: 'success', rates: { BRL: 5.44 } }) });
     await roda();
     assert.equal(gravado.at(-1)[1].usd_brl.fonte, 'ExchangeRate-API (reserva)');
+    assert.match(gravado.at(-1)[1].aviso, /awesomeapi.*HTTP 429/, 'motivo da falha da principal fica registrado');
 
     global.fetch = async () => { throw new Error('sem rede'); };
     await roda();
