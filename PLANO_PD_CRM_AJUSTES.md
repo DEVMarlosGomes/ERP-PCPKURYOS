@@ -109,7 +109,11 @@ Procedimento: Pesar adequadamente as matérias-primas na ordem descrita. Aquecer
 sobre a Fase A sob agitação contínua. Em seguida, adicionar a Fase C e D a 50 °C e
 homogeneizar até completa uniformidade. Por fim, envasar em frasco de sua preferência.
 
-## Fase 4 — Cadastro do que nasce no P&D (PCP › Cadastros)
+## Fase 4 — Cadastro do que nasce no P&D (PCP › Cadastros) (publicada em 15/10/2026)
+
+Implementação: fila `solicitacoes_cadastro_material/` (regra publicada), módulos
+`shared/sku-entrada.js` (PCP) e `lib/filaCadastroMp.js` (P&D). O "Código deles" do
+fornecedor passa a espelhar o SKU de entrada vigente (final, senão o de aprovação).
 
 - Cliente aprovou → cada MP nova vira tarefa na fila do time de cadastro (origem, projeto,
   amostra, tipo).

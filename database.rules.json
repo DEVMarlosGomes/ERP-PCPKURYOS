@@ -330,6 +330,12 @@
       ".read": "auth != null",
       ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))"
     },
+    // Fase 4 (PLANO_PD_CRM_AJUSTES.md): MPs novas do P&D aprovadas pelo cliente viram
+    // tarefa de cadastro. Quem abre: P&D/Comercial (aprovação do cliente); quem fecha: Cadastros.
+    "solicitacoes_cadastro_material": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'pd' || root.child('usuarios').child(auth.uid).child('role').val() == 'comercial')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('pd').val() == true))"
+    },
     "notificacoes_comercial": {
       ".read": "auth != null",
       ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true)",

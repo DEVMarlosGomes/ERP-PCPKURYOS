@@ -11,6 +11,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage-compat.js"></script>
   <script src="shared/utils.js"></script>
+  <script src="shared/sku-entrada.js"></script>
   <script src="shared/itens-cadastro.js"></script>
   <script src="auth_check.js"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -255,6 +256,7 @@
       <button type="button" class="btn btn-ghost" id="btnAdvSearch-mat">🔍 Busca avançada</button>
       <button class="btn btn-primary" id="btnNovo-mat">+ Novo Material</button>
     </div>
+    <div id="solicitacoesCadastro-mat" style="display:none"></div>
 
     <!-- Busca avançada de Materiais -- pedido do usuário: tela dedicada
          estilo loja (ex: Centauro), filtros em checkbox com contagem ao
@@ -566,10 +568,21 @@
                 <input type="hidden" id="fuFornecedorKey-mat">
               </div>
               <div class="form-group"><label>Nome comercial do item</label><input type="text" id="fuNomeComercial-mat" class="uc"></div>
-              <div class="form-group"><label>Código deles</label><input type="text" id="fuCodigoFornecedor-mat" class="uc"></div>
+              <!-- Fase 4: o código do fornecedor agora é o SKU de entrada (seção abaixo); este campo só espelha o vigente para Compras. -->
+              <div class="form-group" style="display:none"><label>Código deles</label><input type="text" id="fuCodigoFornecedor-mat" class="uc"></div>
               <div class="form-group"><label>Custo ref.</label><input type="number" id="fuCustoRef-mat" min="0" step="any"></div>
             </div>
           </div>
+
+          <div class="section-label">SKU de entrada (código do fornecedor)</div>
+          <div class="section-note" id="skuEntradaNota-mat">O código interno acima é gerado no cadastro e não muda quando o SKU de entrada do fornecedor mudar.</div>
+          <div class="form-grid" style="align-items:end" data-ui="form-grid">
+            <div class="form-group"><label>SKU de aprovação (amostra do fornecedor)</label><input type="text" id="fSkuAprovacao-mat" class="uc"></div>
+            <div class="form-group" id="wrapQuerFinal-mat"><label class="chk"><input type="checkbox" id="fQuerSkuFinal-mat"> Adicionar versão final do SKU de entrada</label></div>
+            <div class="form-group" id="wrapSkuFinal-mat"><label>SKU final (lote de compra)</label><input type="text" id="fSkuFinal-mat" class="uc"></div>
+            <div class="form-group"><label>Situação</label><div id="skuEntradaStatus-mat" style="font-size:13px;font-weight:600;padding:6px 0">—</div></div>
+          </div>
+          <div id="skuEntradaHist-mat" style="font-size:12px;color:var(--muted);margin:-4px 0 10px"></div>
 
           <div class="section-label" id="usoMatLabel-mat" style="display:none">Usado em (Fórmula / BOM) <label class="chk" style="font-weight:400;text-transform:none;letter-spacing:0;margin-left:10px"><input type="checkbox" id="chkUsoAntigas-mat"> incluir versões antigas</label></div>
           <div class="section-note" id="usoMatNote-mat" style="display:none">Somente leitura -- levantado agora, a partir das Fórmulas e BOMs cadastradas (não é um vínculo gravado no material). Se você trocar este material aqui, os produtos abaixo NÃO mudam sozinhos -- edite a Fórmula/BOM de cada um, na aba ao lado.</div>
@@ -1514,6 +1527,99 @@ document.addEventListener('DOMContentLoaded', function() {
   var allBomMat = {};
   var allProdutosMat = {};
   var editingKey = null;
+  /* Fase 4 (PLANO_PD_CRM_AJUSTES.md): MPs novas do P&D aprovadas pelo cliente chegam
+     aqui como tarefa (solicitacoes_cadastro_material/). Cadastrar pela tarefa fecha
+     a tarefa no mesmo update. Regras puras em shared/sku-entrada.js. */
+  var solicitacoesMat = {};
+  var solicitacaoMatEmCurso = null;
+
+  function renderSolicitacoesMat() {
+    var box = document.getElementById('solicitacoesCadastro-mat');
+    if (!box) return;
+    var pend = SkuEntrada.pendentes(solicitacoesMat);
+    if (!pend.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    box.style.display = 'block';
+    box.innerHTML =
+      '<div class="recalc-bar" style="margin:12px 0;background:#fff7e6;border-color:#f0c36d">' +
+        '<b>🧪 ' + pend.length + ' MP(s) nova(s) do P&D aguardando cadastro</b>' +
+        '<div style="font-size:12px;color:var(--muted);margin:4px 0 8px">Aprovadas pelo cliente na amostra. Cadastrar aqui gera o código interno e fecha a tarefa. Fragrância (MPES) precisa do SKU de aprovação agora e do SKU final no lote de compra.</div>' +
+        pend.map(function(e) {
+          var t = e[1], o = t.origem || {};
+          return '<div style="display:flex;gap:10px;align-items:center;padding:5px 0;flex-wrap:wrap">' +
+            '<button class="btn btn-primary btn-sm btn-cadastrar-solic-mat" data-solic="' + escapeAttr(e[0]) + '">Cadastrar</button>' +
+            '<span class="badge">' + escapeHtml(t.tipo || '') + '</span>' +
+            '<b>' + escapeHtml(t.nome || t.ingrediente || '(sem nome)') + '</b>' +
+            '<span style="color:var(--muted)">' + escapeHtml([o.projetoNumero, o.projeto].filter(Boolean).join(' ') || '—') +
+              (o.amostra ? ' · amostra ' + escapeHtml(o.amostra) : '') + (o.cliente ? ' · ' + escapeHtml(o.cliente) : '') +
+              (t.fornecedor ? ' · fornecedor ' + escapeHtml(t.fornecedor) : '') + '</span>' +
+          '</div>';
+        }).join('') +
+      '</div>';
+    box.querySelectorAll('.btn-cadastrar-solic-mat').forEach(function(btn) {
+      btn.addEventListener('click', function() { abrirCadastroDeSolicitacaoMat(btn.getAttribute('data-solic')); });
+    });
+  }
+
+  function abrirCadastroDeSolicitacaoMat(k) {
+    var t = solicitacoesMat[k];
+    if (!t) return;
+    var d = SkuEntrada.dadosParaFormulario(t);
+    openModal(null);
+    solicitacaoMatEmCurso = k;
+    document.getElementById('fTipo').value = d.tipo;
+    updateTipoFieldsVisibility();
+    document.getElementById('fNome-mat').value = d.nome;
+    document.getElementById('fInci-mat').value = d.inci;
+    document.getElementById('fInciFrag-mat').value = d.inci;
+    document.getElementById('fEspecificacoes').value = d.especificacoes;
+    if (d.fornecedorNome) {
+      var alvo = norm(d.fornecedorNome);
+      var fKey = Object.keys(allFornecedores || {}).find(function(key) {
+        var fo = allFornecedores[key] || {};
+        return norm(fo.nomeFantasia) === alvo || norm(fo.razaoSocial) === alvo;
+      }) || '';
+      document.getElementById('fuFornecedor-mat').value = fKey ? ((allFornecedores[fKey] || {}).nomeFantasia || (allFornecedores[fKey] || {}).razaoSocial || d.fornecedorNome) : d.fornecedorNome;
+      document.getElementById('fuFornecedorKey-mat').value = fKey;
+    }
+    document.getElementById('modalTitle-mat').textContent = 'Novo Material — do P&D';
+  }
+
+  function atualizarSkuEntradaUI() {
+    var tipo = document.getElementById('fTipo').value;
+    var obrigatorio = SkuEntrada.exigeFinal(tipo);
+    var querFinal = document.getElementById('fQuerSkuFinal-mat').checked;
+    document.getElementById('wrapQuerFinal-mat').style.display = obrigatorio ? 'none' : '';
+    document.getElementById('wrapSkuFinal-mat').style.display = obrigatorio || querFinal ? '' : 'none';
+    document.getElementById('skuEntradaNota-mat').textContent = obrigatorio
+      ? 'Fragrância (MPES): SKU de aprovação obrigatório no cadastro; a validação só fecha com o SKU final do lote de compra. O código interno não muda.'
+      : 'O código interno acima é gerado no cadastro e não muda quando o SKU de entrada do fornecedor mudar.';
+    var est = SkuEntrada.estado({ tipo: tipo, skusEntrada: { aprovacao: document.getElementById('fSkuAprovacao-mat').value, final: obrigatorio || querFinal ? document.getElementById('fSkuFinal-mat').value : '' } });
+    var el = document.getElementById('skuEntradaStatus-mat');
+    el.textContent = est.rotulo;
+    el.style.color = est.status === 'aguardando_final' ? '#b45309' : (est.status === 'validado' ? '#047857' : 'var(--muted)');
+  }
+
+  function renderSkuEntradaHist(m) {
+    var hist = SkuEntrada.estado(m).historico;
+    document.getElementById('skuEntradaHist-mat').innerHTML = hist.length
+      ? 'Histórico: ' + hist.map(function(h) {
+          return escapeHtml((h.campo === 'final' ? 'final ' : 'aprovação ') + h.codigo) + ' (até ' + escapeHtml(String(h.ate || '').slice(0, 10)) + (h.por ? ', ' + escapeHtml(h.por) : '') + ')';
+        }).join(' · ')
+      : '';
+  }
+
+  function skuEntradaVigente() {
+    var tipo = document.getElementById('fTipo').value;
+    var final = SkuEntrada.exigeFinal(tipo) || document.getElementById('fQuerSkuFinal-mat').checked ? document.getElementById('fSkuFinal-mat').value.trim() : '';
+    return final || document.getElementById('fSkuAprovacao-mat').value.trim();
+  }
+
+  function badgeSkuEntrada(m) {
+    return SkuEntrada.estado(m).status === 'aguardando_final'
+      ? ' <span style="font-size:10px;font-weight:600;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:4px;padding:0 4px;white-space:nowrap">Aguardando SKU final</span>'
+      : '';
+  }
+
   var fornecedoresHomologadosStaged = {}; // fornecedorKey -> {nomeComercial, codigoFornecedor, statusHomologacao, custoReferencia} -- staged em memória até salvar
   var matSortable = makeSortableTable(document.getElementById('matThead-mat'), 'mpCodigo', 'asc');
 
@@ -1616,6 +1722,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     document.getElementById('tipoDescricaoHint-mat').textContent = TIPO_DESCRICOES[tipo] || '';
     refreshFhFornecedorOptions(); // MP/fragrância x Embalagem pedem fornecedor de tipo diferente
+    atualizarSkuEntradaUI();
   }
 
   function updateHeadSpace() {
@@ -1858,7 +1965,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var tipoLabel = TIPO_LABELS[m.tipo] || m.tipo || '—';
       return '<tr class="adv-result-row" data-key="' + escapeAttr(key) + '">' +
         '<td class="code-cell">' + escapeHtml(m.mpCodigo || '—') + '</td>' +
-        '<td>' + escapeHtml(m.mpNome || '—') + '</td>' +
+        '<td>' + escapeHtml(m.mpNome || '—') + badgeSkuEntrada(m) + '</td>' +
         '<td><span class="badge ' + (TIPO_BADGE_CLASS[m.tipo] || 'badge-gray') + '">' + escapeHtml(tipoLabel) + '</span></td>' +
         '<td>' + escapeHtml(m.unidade || '—') + '</td>' +
       '</tr>';
@@ -1954,7 +2061,7 @@ document.addEventListener('DOMContentLoaded', function() {
         : '<span style="color:var(--muted)">—</span>';
       return '<tr>' +
         '<td class="code-cell">' + escapeHtml(m.mpCodigo || '—') + '</td>' +
-        '<td>' + escapeHtml(m.mpNome || '—') + '</td>' +
+        '<td>' + escapeHtml(m.mpNome || '—') + badgeSkuEntrada(m) + '</td>' +
         '<td>' + tipoBadge + '</td>' +
         '<td>' + escapeHtml(m.unidade || '—') + '</td>' +
         '<td style="text-align:center">' + (qtdHomolog || '—') + '</td>' +
@@ -2048,6 +2155,16 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('fControlado').checked = !!m.controlado;
     document.getElementById('fAtivo-mat').checked = m.ativo !== false;
     document.getElementById('fControlaEstoque-mat').checked = m.controlaEstoque !== false;
+
+    solicitacaoMatEmCurso = null;
+    var skuEst = SkuEntrada.estado(m);
+    // Material antigo: o "Código deles" que já existia vira o SKU de aprovação.
+    if (!skuEst.aprovacao && !skuEst.final && fu && fu.codigoFornecedor) skuEst.aprovacao = fu.codigoFornecedor;
+    document.getElementById('fSkuAprovacao-mat').value = skuEst.aprovacao;
+    document.getElementById('fSkuFinal-mat').value = skuEst.final;
+    document.getElementById('fQuerSkuFinal-mat').checked = !!skuEst.final;
+    renderSkuEntradaHist(m);
+    atualizarSkuEntradaUI();
 
     updateTipoFieldsVisibility();
     renderHistoricoMaterial(key);
@@ -2297,7 +2414,8 @@ document.addEventListener('DOMContentLoaded', function() {
     var out = {};
     out[fKey] = {
       nomeComercial: document.getElementById('fuNomeComercial-mat').value.trim(),
-      codigoFornecedor: document.getElementById('fuCodigoFornecedor-mat').value.trim(),
+      // SKU de entrada vigente (final, senão o de aprovação) — é o que Compras lê como código do fornecedor.
+      codigoFornecedor: skuEntradaVigente() || document.getElementById('fuCodigoFornecedor-mat').value.trim(),
       custoReferencia: custoVal !== '' ? parseFloat(custoVal) : null
     };
     return out;
@@ -2329,6 +2447,14 @@ document.addEventListener('DOMContentLoaded', function() {
       // Água e afins (01/10): sem baixa, sem reserva, fora da compra.
       controlaEstoque: document.getElementById('fControlaEstoque-mat').checked
     }, coletarDadosPorTipo(tipo));
+
+    var skuEntrada = SkuEntrada.aplicar(editingKey ? allMateriais[editingKey] : {}, {
+      aprovacao: document.getElementById('fSkuAprovacao-mat').value,
+      final: document.getElementById('fSkuFinal-mat').value,
+      querFinal: document.getElementById('fQuerSkuFinal-mat').checked
+    }, tipo, currentUserNome(), new Date().toISOString());
+    if (skuEntrada.erro) { showAlert(skuEntrada.erro, 'danger'); return; }
+    data.skusEntrada = skuEntrada.skusEntrada;
 
     document.getElementById('modalSaveBtn-mat').disabled = true;
 
@@ -2362,7 +2488,11 @@ document.addEventListener('DOMContentLoaded', function() {
       data.mpCodigo = r.formatado;
       var updates = {};
       updates['materiais/' + key] = data;
-      return db.ref().update(updates);
+      if (solicitacaoMatEmCurso) {
+        var fecha = SkuEntrada.fechamento(key, r.formatado, currentUserNome(), new Date().toISOString());
+        Object.keys(fecha).forEach(function(campo) { updates['solicitacoes_cadastro_material/' + solicitacaoMatEmCurso + '/' + campo] = fecha[campo]; });
+      }
+      return db.ref().update(updates).then(function() { solicitacaoMatEmCurso = null; });
     }).then(function() {
       showAlert('Material salvo com sucesso!', 'success');
       closeModal();
@@ -2381,6 +2511,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('modalBg-mat').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
 
     document.getElementById('fTipo').addEventListener('change', updateTipoFieldsVisibility);
+    ['fSkuAprovacao-mat', 'fSkuFinal-mat'].forEach(function(id) { document.getElementById(id).addEventListener('input', atualizarSkuEntradaUI); });
+    document.getElementById('fQuerSkuFinal-mat').addEventListener('change', atualizarSkuEntradaUI);
     document.getElementById('fVolumeNominal-mat').addEventListener('input', updateHeadSpace);
     document.getElementById('fVolumeInterno-mat').addEventListener('input', updateHeadSpace);
     document.getElementById('btnAddFornHomolog-mat').addEventListener('click', addFornecedorHomologado);
@@ -2426,6 +2558,10 @@ document.addEventListener('DOMContentLoaded', function() {
     dbOnValue(db.ref('materiais'), function(snap) {
       allMateriais = snap.val() || {};
       renderTable();
+    });
+    dbOnValue(db.ref('solicitacoes_cadastro_material'), function(snap) {
+      solicitacoesMat = snap.val() || {};
+      renderSolicitacoesMat();
     });
     dbOnValue(db.ref('fornecedores'), function(snap) {
       allFornecedores = snap.val() || {};
