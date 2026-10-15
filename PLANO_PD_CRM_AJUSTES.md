@@ -132,7 +132,10 @@ Render busca o dólar comercial (API gratuita) a cada 15 min e grava em `config/
 define o spread (%). Toda tela com preço em US$ lê esse valor. Cotação **rascunho** acompanha o
 dólar; cotação **enviada** congela o câmbio usado.
 
-## Fase 6 — Estabilidade em sequência
+## Fase 6 — Estabilidade em sequência (publicada em 15/10/2026)
+
+Medido antes: 98% das leituras registravam só o Aspecto. A leitura completa (12 parâmetros,
+"N/A" permitido) é exigência nova para o laboratório. Buraco antigo na sequência não trava.
 
 Características padrão (aspecto, cor, odor, pH, densidade) acima da grade D24/D48/D7…; só o
 próximo checkpoint fica liberado, preenchido **completo**; o seguinte destrava quando o anterior
