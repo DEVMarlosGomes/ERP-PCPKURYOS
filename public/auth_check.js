@@ -394,7 +394,7 @@ function getActivePageName() {
 }
 // "comercial.html?tab=x" -> "comercial?tab=x" (links do menu já saem limpos).
 function urlLimpa(href) {
-  return String(href).replace(/.html(?=$|[?#])/, '');
+  return String(href).replace(/\.html(?=$|[?#])/, '');
 }
 window.urlLimpa = urlLimpa;
 

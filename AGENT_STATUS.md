@@ -5,6 +5,13 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Ajustes P&D → CRM → Cadastros, Fase 1 (15/10/2026)
+
+- **Pedido:** plano aprovado em `PLANO_PD_CRM_AJUSTES.md` (7 fases). **Fase 1 publicada.**
+- **Fase 1 (fonte do ERP, sem commit no GitHub do ERP; build em `public/static/crm`):** `lib/pdAmostra.js` (amostra 60 + unidade, base 1000, R$ da cotação na coluna própria, g/mL como milésimo de kg — antes 60 g contava como 60 kg no custo) e `lib/pdCards.js` (retorno do cliente no CRM3 volta ao P&D: aprovada → Aprovado, retrabalho/reprovada → Retrabalho; solicitação sem card ganha card; card órfão sai do quadro). Aprovação do químico saiu (`crmRules.formulaRegistrada` = cliente; Qualidade segue no Kickoff). "É decisor" no contato, sem "Tem Anvisa?" (`crmRules.temContatoDecisor`, lista antiga ainda vale). V1 nasce ao ir para Em Testes. Vitest 145/145.
+- **Dados (15/10, conferidos contra ensaio sem gravação):** 10 solicitações → Aprovado (Afeer ×9, Perfumes de Nicho), 1 → Retrabalho (Maya Massafera), 3 cards criados, 10 aprovações de cliente, 11 entradas no histórico ("Retorno do cliente (CRM3)"). Backup antes: scratchpad `mongo/backup-pd-antes-fase1-20261015.json`.
+- **Arquivos ativos:** nenhum após o commit. Próxima: Fase 2 (trava do P&D, numeração por projeto, Kickoff antes da cotação).
+
 ### Claude — URLs sem .html + auditoria ponta a ponta (14/10/2026)
 
 - **URLs limpas:** `cleanUrls` em `vercel.json` e `firebase.json` (`/x.html` → 301 → `/x`); CRM/P&D/Kickoffs/Contratos por rewrite para `/crm-app`; menu (`ktLink` → `urlLimpa`), login, shell (rota ativa, sino da Central de Atenção) e rotas React sem `.html`. `getActivePageName` normaliza `/x` → `x.html`, então `PAGINA_MODULOS`/acesso por módulo seguem iguais. `scripts/preview-ui.mjs` imita redirects + cleanUrls. Validado no navegador real (admin): 16 rotas, 70 links sem `.html`, item ativo certo, 0 erros.
