@@ -12,6 +12,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage-compat.js"></script>
   <script src="shared/utils.js"></script>
   <script src="shared/sku-entrada.js"></script>
+  <script src="shared/cambio.js"></script>
   <script src="shared/itens-cadastro.js"></script>
   <script src="auth_check.js"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -413,7 +414,7 @@
               <div class="form-group"><label>Nome INCI</label><input type="text" id="fInciFrag-mat" class="uc" placeholder="Quando aplicável"></div>
               <div class="form-group"><label>Casa de fragrância</label><input type="text" id="fCasaFragrancia-mat" class="uc" placeholder="Ex: Givaudan, Firmenich..."></div>
               <div class="form-group full"><label>Inspiração</label><input type="text" id="fInspiracao-mat" class="uc" placeholder="Ex: inspirado em [referência de mercado]"></div>
-              <div class="form-group"><label>Custo target (USD/kg)</label><input type="number" id="fCustoTargetUsd-mat" min="0" step="any"></div>
+              <div class="form-group"><label>Custo target (USD/kg)</label><input type="number" id="fCustoTargetUsd-mat" min="0" step="any"><div class="field-hint" id="custoTargetBrl-mat"></div></div>
             </div>
           </div>
 
@@ -1614,6 +1615,18 @@ document.addEventListener('DOMContentLoaded', function() {
     return final || document.getElementById('fSkuAprovacao-mat').value.trim();
   }
 
+  // Fase 5: custo target em US$ mostrado em R$ pelo dólar do dia (config/cambio, servidor a cada 15 min).
+  var cambioMat = null;
+  function atualizarCustoTargetBrl() {
+    var el = document.getElementById('custoTargetBrl-mat');
+    if (!el) return;
+    var usd = parseFloat(document.getElementById('fCustoTargetUsd-mat').value);
+    var sit = Cambio.situacao(cambioMat, new Date().toISOString());
+    el.textContent = usd > 0 && sit.disponivel
+      ? '≈ R$ ' + (usd * sit.taxa).toFixed(2).replace('.', ',') + '/kg (dólar de hoje R$ ' + sit.taxa.toFixed(4).replace('.', ',') + (sit.velho ? ' — cotação sem atualizar há mais de 1 h' : '') + ')'
+      : '';
+  }
+
   function badgeSkuEntrada(m) {
     return SkuEntrada.estado(m).status === 'aguardando_final'
       ? ' <span style="font-size:10px;font-weight:600;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:4px;padding:0 4px;white-space:nowrap">Aguardando SKU final</span>'
@@ -2165,6 +2178,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('fQuerSkuFinal-mat').checked = !!skuEst.final;
     renderSkuEntradaHist(m);
     atualizarSkuEntradaUI();
+    atualizarCustoTargetBrl();
 
     updateTipoFieldsVisibility();
     renderHistoricoMaterial(key);
@@ -2559,6 +2573,8 @@ document.addEventListener('DOMContentLoaded', function() {
       allMateriais = snap.val() || {};
       renderTable();
     });
+    dbOnValue(db.ref('config/cambio'), function(snap) { cambioMat = snap.val() || null; atualizarCustoTargetBrl(); });
+    document.getElementById('fCustoTargetUsd-mat').addEventListener('input', atualizarCustoTargetBrl);
     dbOnValue(db.ref('solicitacoes_cadastro_material'), function(snap) {
       solicitacoesMat = snap.val() || {};
       renderSolicitacoesMat();

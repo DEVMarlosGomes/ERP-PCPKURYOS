@@ -223,7 +223,7 @@ function startTriggers({ fns, db, log = console }) {
   return { stop: () => unsubscribers.forEach((u) => u()), drain: () => Promise.all([...queue.values()]) };
 }
 
-function startSchedules({ fns, log = console, setIntervalFn = setInterval }) {
+function startSchedules({ fns, log = console, setIntervalFn = setInterval, setTimeoutFn = setTimeout }) {
   const timers = [];
   for (const [name, fn] of Object.entries(fns)) {
     if (kindOf(fn) !== "schedule") continue;
@@ -237,6 +237,9 @@ function startSchedules({ fns, log = console, setIntervalFn = setInterval }) {
       try { await fn.run({ scheduleTime: new Date().toISOString(), jobName: name }); } catch (e) { log.error(`[agenda ${name}]`, e); } finally { running = false; }
     };
     timers.push(setIntervalFn(tick, Number(m[1]) * 60 * 1000));
+    // Agenda longa (dólar a cada 15 min) roda também 30 s depois de ligar: no plano gratuito
+    // o servidor reinicia com frequência e esperaria o intervalo inteiro sem dado.
+    if (Number(m[1]) >= 5) setTimeoutFn(tick, 30000);
     log.info(`[agenda] ${name} a cada ${m[1]} min`);
   }
   return { stop: () => timers.forEach(clearInterval) };

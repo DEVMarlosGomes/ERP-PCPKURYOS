@@ -8,7 +8,7 @@
    - gatilhos do banco: estado inicial é linha de base (não dispara), created só em
      criação, written em alteração/remoção, com params e before/after corretos;
    - agenda "every N minutes";
-   - classificação das 20 funções reais do functions/index.js. */
+   - classificação das 21 funções reais do functions/index.js. */
 const assert = require('assert/strict');
 const path = require('path');
 const fnsDir = path.join(__dirname, 'functions');
@@ -135,17 +135,26 @@ function fakeDb() {
   await check('agenda "every 2 minutes" roda o handler', async () => {
     let tick;
     let ms;
-    server.startSchedules({ fns, log: quiet, setIntervalFn: (f, m) => { tick = f; ms = m; return 0; } });
+    let inicio = 0;
+    server.startSchedules({ fns, log: quiet, setIntervalFn: (f, m) => { tick = f; ms = m; return 0; }, setTimeoutFn: () => { inicio += 1; } });
     assert.equal(ms, 120000);
+    assert.equal(inicio, 0, 'agenda curta não roda ao ligar');
     await tick();
     assert.deepEqual(seen, [['agenda']]);
   });
 
-  await check('as 20 funções reais são reconhecidas (11 ações, 2 APIs, 6 gatilhos, 1 agenda)', async () => {
+  await check('agenda longa (dólar a cada 15 min) roda também 30 s depois de ligar', async () => {
+    const longa = Object.assign(async () => {}, { __endpoint: { scheduleTrigger: { schedule: 'every 15 minutes' } }, run: async () => {} });
+    const agendados = [];
+    server.startSchedules({ fns: { longa }, log: quiet, setIntervalFn: () => 0, setTimeoutFn: (f, m) => { agendados.push(m); } });
+    assert.deepEqual(agendados, [30000]);
+  });
+
+  await check('as 21 funções reais são reconhecidas (11 ações, 2 APIs, 6 gatilhos, 2 agendas)', async () => {
     const real = require('./functions/index.js');
     const count = {};
     for (const f of Object.values(real)) { const k = server.kindOf(f); count[k] = (count[k] || 0) + 1; }
-    assert.deepEqual(count, { callable: 11, request: 2, event: 6, schedule: 1 });
+    assert.deepEqual(count, { callable: 11, request: 2, event: 6, schedule: 2 });
   });
 
   srv.close();

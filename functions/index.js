@@ -2167,6 +2167,36 @@ exports.receberDevolucaoCliente = onCall(async (request) => {
   return {ok: true, total: plano.total};
 });
 
+// Dólar ao vivo (PLANO_PD_CRM_AJUSTES.md, Fase 5): dólar comercial a cada 15 min em
+// config/cambio/usd_brl. Fonte principal AwesomeAPI, reserva ExchangeRate-API (ambas
+// gratuitas, sem chave). Falha nas duas mantém a última cotação e registra o erro;
+// a tela avisa quando a cotação passa de 1 h sem atualizar (shared/cambio.js).
+const cambio = require("./cambio");
+const FONTES_CAMBIO = [
+  ["https://economia.awesomeapi.com.br/json/last/USD-BRL", cambio.deAwesome],
+  ["https://open.er-api.com/v6/latest/USD", cambio.deErApi],
+];
+exports.atualizarCambio = onSchedule(
+  {schedule: "every 15 minutes", timeZone: "America/Sao_Paulo"},
+  async () => {
+    const agora = new Date().toISOString();
+    const erros = [];
+    for (const [url, ler] of FONTES_CAMBIO) {
+      try {
+        const resp = await fetch(url, {signal: AbortSignal.timeout(10000)});
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        const cotacao = ler(await resp.json());
+        if (!cotacao) throw new Error("resposta sem cotação");
+        await db.ref("config/cambio").update({usd_brl: {...cotacao, atualizadoEm: agora}, erro: null, falhouEm: null});
+        return;
+      } catch (e) {
+        erros.push(url + ": " + e.message);
+      }
+    }
+    await db.ref("config/cambio").update({erro: erros.join(" | "), falhouEm: agora});
+  },
+);
+
 exports.checkNotificacoes = onSchedule(
   {
     schedule: "every 2 minutes",

@@ -123,7 +123,10 @@ fornecedor passa a espelhar o SKU de entrada vigente (final, senão o de aprova�
 - **SKU interno** gerado no cadastro e **nunca alterado** pelas trocas do SKU de entrada
   (`codigoFornecedor` vira lista versionada aprovação → final).
 
-## Fase 5 — Dólar ao vivo + spread
+## Fase 5 — Dólar ao vivo + spread (publicada em 15/10/2026)
+
+Medido no dia: dólar comercial R$ 5,08 contra R$ 6,00 fixo das fórmulas — todo insumo em
+US$ saía ~18% mais caro em R$. Fórmula pode ter a cotação fixada (Config); vazio = ao vivo.
 
 Render busca o dólar comercial (API gratuita) a cada 15 min e grava em `config/cambio`; o ADM
 define o spread (%). Toda tela com preço em US$ lê esse valor. Cotação **rascunho** acompanha o
