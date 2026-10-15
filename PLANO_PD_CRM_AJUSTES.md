@@ -46,7 +46,11 @@ passa pelo Kickoff. A revisão do Kickoff mantém o número (`KO-2026-031`) e mu
    (nova versão, anterior no histórico, log de quem/o quê/por quê). CRM2 ganha a etapa
    Kickoff entre "Amostra aprovada" e "Cotação".
 
-## Fase 3 — Manipulação no modelo das fichas (alimenta a 2.2 da Ficha Técnica)
+## Fase 3 — Manipulação no modelo das fichas (alimenta a 2.2 da Ficha Técnica) (publicada em 15/10/2026)
+
+Achado ao montar o exemplo: a ficha da Manteiga de Banho soma **99%** (Mochi Blur soma 100%);
+a Manipulação sinaliza total diferente de 100%. A ida da MP nova para o Cadastros depois da
+aprovação do cliente é a Fase 4.
 
 Modelo do usuário (fichas Scentec, abaixo): tabela **Ordem/Fase · Ingrediente · INCI ·
 Fornecedor · %** e um bloco **PROCEDIMENTO** em texto corrido.
