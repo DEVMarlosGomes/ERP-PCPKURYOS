@@ -24,6 +24,12 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 - **Ensaio (base real, sem gravar):** 1 Kickoff com BOM (KO-2026-0001, teste "Shampoo bubaloo"): 4 MPs com preço da fórmula (0,300 L = 300 mL), 5 embalagens SEM PREÇO → envio bloqueado até o comercial digitar o preço.
 - **Pendente (permissão):** publicar a regra nova `servicos` em `erpkuryos` (`npx firebase-tools deploy --only database --project erpkuryos`). Regras no ar conferidas = HEAD antes da mudança; backup no scratchpad `regras-no-ar-antes-fase7-20261015.json`. Sem a regra, a aba Serviços e a cotação mostram "sem permissão para ler a tabela de serviços" e a cotação segue só com os insumos.
 - **Arquivos ativos:** nenhum após o commit. Plano das 7 fases concluído no código.
+- **Revisão completa (16/10):** quatro correções, com teste.
+  1. **Retrabalho voltava sozinho** (Fase 1/2): depois de um retrabalho a variação segue "retrabalho" no CRM; quando o P&D reenviava a amostra refeita, a reconciliação a devolvia para Retrabalho na abertura seguinte do quadro. Agora a entrega ao cliente grava `aguardando_cliente_desde` e só vale retorno com `resultado_em` posterior (`pdCards.statusPeloRetornoDoCliente`). Solicitação antiga sem a data segue como antes. Na base: só 1 volta automática (Maya, legítima); ela seria a primeira a cair no defeito ao reenviar.
+  2. **Cotação com dólar padrão** (Fase 7): sem dólar ao vivo nem congelado, o servidor convertia US$ a R$ 6,00 enquanto a tela marcava SEM CÂMBIO. Agora o servidor também recusa (só taxa real).
+  3. **Fila de MP nova sem nova tentativa** (Fase 4): falha ao gravar ficava só no console. Agora marca `fila_mp_nova_falhou_em` na solicitação e tenta de novo a cada abertura do quadro do P&D.
+  4. Menores: tela da estabilidade usa a mesma data de início do servidor (`started_at || created_at`); cotação avisa quando o Kickoff ainda não está aprovado; `startSchedules().stop()` cancela também a primeira rodada de 30 s.
+  Vitest 203/203. Conferido de novo no navegador (banco em memória).
 
 ### Claude — URLs sem .html + auditoria ponta a ponta (14/10/2026)
 

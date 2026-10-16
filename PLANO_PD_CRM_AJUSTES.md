@@ -146,7 +146,8 @@ está completo **e** o prazo passou (a tela mostra "libera em X h").
 Implementação: motor `lib/cotacao.js` (ERP) e `shared/servicos.js` (PCP), rota
 `GET /crm/projects/:id/cotacao-base`, composição gravada em `crm_propostas/*/composicao`
 (com `resumo` recalculado no servidor), aba Cadastros › Serviços (nó `servicos/`).
-Medido antes: nenhum dos 939 materiais tem preço (embalagem entra SEM PREÇO e o comercial
+Medido antes: 938 dos 939 materiais não têm preço — o único é um "Custo ref." de fornecedor sem moeda
+nem unidade (embalagem entra SEM PREÇO e o comercial
 digita na linha), 770 de 782 itens de fórmula têm preço, nenhuma proposta tem valor por
 etapa (a carga inicial nasce SEM PREÇO), custo-hora não existe em lugar nenhum (o sugerido
 só aparece quando alguém preencher). Insumo em US$ usa o dólar da cotação (congelado no

@@ -239,7 +239,7 @@ function startSchedules({ fns, log = console, setIntervalFn = setInterval, setTi
     timers.push(setIntervalFn(tick, Number(m[1]) * 60 * 1000));
     // Agenda longa (dólar a cada 15 min) roda também 30 s depois de ligar: no plano gratuito
     // o servidor reinicia com frequência e esperaria o intervalo inteiro sem dado.
-    if (Number(m[1]) >= 5) setTimeoutFn(tick, 30000);
+    if (Number(m[1]) >= 5) timers.push(setTimeoutFn(tick, 30000)); // stop() também cancela a primeira rodada
     log.info(`[agenda] ${name} a cada ${m[1]} min`);
   }
   return { stop: () => timers.forEach(clearInterval) };
