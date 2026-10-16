@@ -13,6 +13,7 @@
   <script src="shared/utils.js"></script>
   <script src="shared/sku-entrada.js"></script>
   <script src="shared/cambio.js"></script>
+  <script src="shared/servicos.js"></script>
   <script src="shared/itens-cadastro.js"></script>
   <script src="auth_check.js"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -231,6 +232,7 @@
   <a class="main-tab" href="estoque.html?tab=estrutura" data-maintab="enderecos" title="Estrutura de ruas e posições agora vivem no WMS (Estoque)" data-ui="tab">🏬 Estoque / WMS</a>
   <button class="main-tab" data-maintab="clientes" data-ui="tab">Clientes</button>
   <button class="main-tab" data-maintab="fornecedores" data-ui="tab">Fornecedores</button>
+  <button class="main-tab" data-maintab="servicos" data-ui="tab">Serviços</button>
 </div>
 
 <div class="main">
@@ -1175,6 +1177,123 @@
       </div>
     </div>
   </div>
+  <div class="main-tab-panel" id="maintab-servicos">
+    <div class="section-note">Tabela de preços dos serviços cobrados na cotação do CRM (envase, rosqueamento, celofane…). Cada etapa tem o seu <b>desconto padrão</b>, que o comercial ajusta linha a linha na cotação. Serviço sem preço aparece como <b>SEM PREÇO</b> e bloqueia o envio da cotação — nunca vira zero. Mudou preço, desconto, setup ou mínimo, abre vigência nova: cotação em rascunho passa a usar o valor novo; cotação já enviada fica como saiu.</div>
+    <div class="kt-toolbar" data-ui="filters">
+      <select class="kt-select" id="filtroAtivo-srv">
+        <option value="ativo">Ativos</option>
+        <option value="">Todos</option>
+        <option value="inativo">Inativos</option>
+      </select>
+      <button class="btn btn-ghost" id="btnSemente-srv" style="display:none">Carregar os 10 serviços padrão</button>
+      <button class="btn btn-primary" id="btnNovo-srv">+ Novo Serviço</button>
+    </div>
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head"><span id="tableCount-srv">Serviços</span></div>
+      <div class="table-wrap" data-ui="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th style="min-width:80px">Código</th>
+              <th style="min-width:200px">Serviço</th>
+              <th style="min-width:110px">Cobrança</th>
+              <th style="min-width:120px">Preço</th>
+              <th style="min-width:80px">Desconto</th>
+              <th style="min-width:90px">Setup/lote</th>
+              <th style="min-width:90px">Mínimo</th>
+              <th style="min-width:110px">Sugerido</th>
+              <th style="min-width:100px">Vigente desde</th>
+              <th style="min-width:70px">Status</th>
+              <th style="min-width:50px"></th>
+            </tr>
+          </thead>
+          <tbody id="tableBody-srv"><tr><td colspan="11" class="no-data">Carregando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="modal-bg" id="modalBg-srv">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle-srv">
+        <div class="modal-header" data-ui="dialog-head">
+          <h2 id="modalTitle-srv">Novo Serviço</h2>
+          <button class="modal-close" id="modalClose-srv" title="Fechar" aria-label="Fechar">×</button>
+        </div>
+        <div class="modal-body" data-ui="dialog-body">
+          <div class="form-grid" data-ui="form-grid">
+            <div class="form-group full">
+              <label>Serviço *</label>
+              <input type="text" id="fNome-srv" placeholder="Ex: Envase líquido">
+            </div>
+            <div class="form-group">
+              <label>Unidade de cobrança *</label>
+              <select id="fUnidade-srv">
+                <option value="un">Por unidade</option>
+                <option value="milheiro">Por milheiro</option>
+                <option value="kg">Por kg de granel</option>
+                <option value="lote">Por lote</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Preço (R$)</label>
+              <input type="text" inputmode="decimal" id="fPreco-srv" placeholder="vazio = SEM PREÇO">
+              <div class="field-hint" id="hintPreco-srv">Por unidade de cobrança. Vazio bloqueia o envio da cotação que usar este serviço.</div>
+            </div>
+            <div class="form-group">
+              <label>Desconto da etapa (%)</label>
+              <input type="text" inputmode="decimal" id="fDesconto-srv" placeholder="0">
+              <div class="field-hint">Padrão desta etapa; o comercial muda linha a linha na cotação.</div>
+            </div>
+            <div class="form-group">
+              <label>Setup por lote (R$)</label>
+              <input type="text" inputmode="decimal" id="fSetup-srv" placeholder="0">
+            </div>
+            <div class="form-group">
+              <label>Mínimo por pedido (R$)</label>
+              <input type="text" inputmode="decimal" id="fMinimo-srv" placeholder="0">
+              <div class="field-hint">Se a etapa der menos que isto no pedido, cobra o mínimo.</div>
+            </div>
+          </div>
+          <div class="section-label">Preço sugerido (custo-hora ÷ produtividade × margem)</div>
+          <div class="form-grid" data-ui="form-grid">
+            <div class="form-group">
+              <label>Custo-hora da linha (R$/h)</label>
+              <input type="text" inputmode="decimal" id="fCustoHora-srv" placeholder="ex: 280">
+            </div>
+            <div class="form-group">
+              <label id="lblProd-srv">Produtividade (un/h)</label>
+              <input type="text" inputmode="decimal" id="fProd-srv" placeholder="ex: 600">
+            </div>
+            <div class="form-group">
+              <label>Margem (%)</label>
+              <input type="text" inputmode="decimal" id="fMargem-srv" placeholder="0">
+            </div>
+            <div class="form-group">
+              <label>Sugerido</label>
+              <div id="sugerido-srv" style="padding:8px 0;font-weight:600">—</div>
+              <button type="button" class="btn btn-ghost btn-sm" id="btnUsarSugerido-srv" style="display:none">Usar como preço</button>
+            </div>
+            <div class="form-group full">
+              <label>Observação</label>
+              <input type="text" id="fObs-srv" placeholder="Origem da produtividade, o que está incluso…">
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select id="fAtivo-srv">
+                <option value="ativo">Ativo</option>
+                <option value="inativo">Inativo (some da cotação)</option>
+              </select>
+            </div>
+          </div>
+          <div class="section-label" id="histLabel-srv" style="display:none">Histórico de vigência</div>
+          <div id="hist-srv" style="font-size:12px"></div>
+        </div>
+        <div class="modal-footer" data-ui="dialog-foot">
+          <button class="btn btn-ghost" id="modalCancelBtn-srv">Cancelar</button>
+          <button class="btn btn-primary" id="modalSaveBtn-srv">Salvar Serviço</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="main-tab-panel" id="maintab-fornecedores">
     <div class="kt-toolbar" data-ui="filters">
       <div class="kt-search"><span class="icon">🔍</span><input type="text" id="fnSearch-forn" placeholder="Buscar por razão social, nome fantasia ou CNPJ..."></div>
@@ -1486,7 +1605,7 @@ try {
 }
 
 // ── Abas de nível página + roteamento por ?tab= ────────────────────────
-var MAINTAB_ALIASES = { produtos: 'produtos', materiais: 'materiais', formulas: 'formulas', categorias: 'categorias', clientes: 'clientes', fornecedores: 'fornecedores' };
+var MAINTAB_ALIASES = { produtos: 'produtos', materiais: 'materiais', formulas: 'formulas', categorias: 'categorias', clientes: 'clientes', fornecedores: 'fornecedores', servicos: 'servicos' };
 // "enderecos" saiu daqui de propósito -- virou link-out pra estoque.html?tab=estrutura (WMS),
 // não existe mais painel local pra essa aba (pedido do usuário: cadastro de endereços/estrutura
 // de ruas mora só no WMS agora, cadastros.html só referencia o mesmo link).
@@ -1510,6 +1629,148 @@ document.addEventListener('DOMContentLoaded', function() {
   var tab = params.get('tab');
   if (tab && MAINTAB_ALIASES[tab]) activateMainTab(tab, false);
 });
+
+// ════════════════════════════════════════════════════════════════════
+// ABA: SERVIÇOS (PLANO_PD_CRM_AJUSTES.md, Fase 7) -- tabela de preços da
+// cotação do CRM. Regras puras em shared/servicos.js; o CRM lê servicos/.
+// ════════════════════════════════════════════════════════════════════
+(function() {
+  var servicos = {};
+  var editando = null;
+  var $ = function(id) { return document.getElementById(id); };
+  function autor() { return (window.currentUser && window.currentUser.nome) || (firebase.auth().currentUser && firebase.auth().currentUser.email) || 'Desconhecido'; }
+  function brl(n, casas) { return 'R$ ' + Number(n).toLocaleString('pt-BR', { minimumFractionDigits: casas == null ? 2 : casas, maximumFractionDigits: 4 }); }
+  function dataBr(iso) { return iso ? new Date(iso).toLocaleDateString('pt-BR') : '—'; }
+  function campo(n) { return n === null || n === undefined ? '' : String(n).replace('.', ','); }
+  var ROTULO_CAMPO = { nome: 'nome', unidade: 'unidade', preco: 'preço', descontoPct: 'desconto %', setupLote: 'setup/lote', minimoPedido: 'mínimo',
+    custoHora: 'custo-hora', produtividade: 'produtividade', margemPct: 'margem %', ativo: 'status', obs: 'observação' };
+
+  function render() {
+    var filtro = $('filtroAtivo-srv').value;
+    var lista = Object.keys(servicos).map(function(k) { return [k, servicos[k]]; })
+      .filter(function(e) { var at = e[1].ativo !== false; return !filtro || (filtro === 'ativo' ? at : !at); })
+      .sort(function(a, b) { return String(a[1].codigo || '').localeCompare(String(b[1].codigo || '')); });
+    var total = Object.keys(servicos).length;
+    var semPreco = Object.keys(servicos).filter(function(k) { return servicos[k].ativo !== false && !(servicos[k].preco > 0); }).length;
+    $('tableCount-srv').textContent = total + ' serviço(s)' + (semPreco ? ' · ' + semPreco + ' ativo(s) SEM PREÇO' : '');
+    $('btnSemente-srv').style.display = total ? 'none' : '';
+    if (!lista.length) {
+      $('tableBody-srv').innerHTML = '<tr><td colspan="11" class="no-data">' + (total ? 'Nenhum serviço neste filtro.' : 'Tabela vazia -- use "Carregar os 10 serviços padrão" ou "+ Novo Serviço".') + '</td></tr>';
+      return;
+    }
+    $('tableBody-srv').innerHTML = lista.map(function(e) {
+      var k = e[0], sv = e[1], u = Servicos.UNIDADES[sv.unidade] || Servicos.UNIDADES.un;
+      var sug = Servicos.precoSugerido(sv);
+      return '<tr>' +
+        '<td>' + escapeHtml(sv.codigo || '') + '</td>' +
+        '<td><b>' + escapeHtml(sv.nome || '') + '</b>' + (sv.obs ? '<div style="font-size:11px;color:var(--muted)">' + escapeHtml(sv.obs) + '</div>' : '') + '</td>' +
+        '<td>' + escapeHtml(u.rotulo) + '</td>' +
+        '<td>' + (sv.preco > 0 ? brl(sv.preco) + ' / ' + escapeHtml(u.curto) : '<span class="badge" style="background:#fdecec;color:#b42318">SEM PREÇO</span>') + '</td>' +
+        '<td>' + (Number(sv.descontoPct) || 0).toLocaleString('pt-BR') + '%</td>' +
+        '<td>' + (sv.setupLote ? brl(sv.setupLote) : '—') + '</td>' +
+        '<td>' + (sv.minimoPedido ? brl(sv.minimoPedido) : '—') + '</td>' +
+        '<td>' + (sug ? brl(sug) : '<span style="color:var(--muted);font-size:12px">sem custo-hora</span>') + '</td>' +
+        '<td>' + dataBr(sv.vigenteDesde) + '</td>' +
+        '<td>' + (sv.ativo !== false ? 'Ativo' : 'Inativo') + '</td>' +
+        '<td><button class="btn btn-ghost btn-sm btn-editar-srv" data-key="' + escapeAttr(k) + '">Editar</button></td>' +
+      '</tr>';
+    }).join('');
+    document.querySelectorAll('.btn-editar-srv').forEach(function(b) { b.addEventListener('click', function() { abrir(b.getAttribute('data-key')); }); });
+  }
+
+  function lerForm() {
+    return Servicos.normalizar({
+      nome: $('fNome-srv').value, unidade: $('fUnidade-srv').value, preco: $('fPreco-srv').value, descontoPct: $('fDesconto-srv').value,
+      setupLote: $('fSetup-srv').value, minimoPedido: $('fMinimo-srv').value, custoHora: $('fCustoHora-srv').value,
+      produtividade: $('fProd-srv').value, margemPct: $('fMargem-srv').value, obs: $('fObs-srv').value, ativo: $('fAtivo-srv').value === 'ativo'
+    });
+  }
+
+  function atualizarSugerido() {
+    var f = lerForm();
+    var u = Servicos.UNIDADES[f.unidade] || Servicos.UNIDADES.un;
+    $('lblProd-srv').textContent = 'Produtividade (' + u.produtividade + ')';
+    $('hintPreco-srv').textContent = 'R$ ' + u.rotulo + '. Vazio bloqueia o envio da cotação que usar este serviço.';
+    var sug = Servicos.precoSugerido(f);
+    $('sugerido-srv').textContent = sug ? brl(sug) + ' / ' + u.curto : 'preencha custo-hora e produtividade';
+    $('btnUsarSugerido-srv').style.display = sug ? '' : 'none';
+    $('btnUsarSugerido-srv').setAttribute('data-valor', sug || '');
+  }
+
+  function abrir(key) {
+    editando = key || null;
+    var sv = key ? servicos[key] : {};
+    $('modalTitle-srv').textContent = key ? (sv.codigo + ' · ' + (sv.nome || '')) : 'Novo Serviço';
+    $('fNome-srv').value = sv.nome || '';
+    $('fUnidade-srv').value = sv.unidade || 'un';
+    $('fPreco-srv').value = campo(sv.preco);
+    $('fDesconto-srv').value = campo(sv.descontoPct || (key ? 0 : ''));
+    $('fSetup-srv').value = campo(sv.setupLote || '');
+    $('fMinimo-srv').value = campo(sv.minimoPedido || '');
+    $('fCustoHora-srv').value = campo(sv.custoHora);
+    $('fProd-srv').value = campo(sv.produtividade);
+    $('fMargem-srv').value = campo(sv.margemPct);
+    $('fObs-srv').value = sv.obs || '';
+    $('fAtivo-srv').value = sv.ativo === false ? 'inativo' : 'ativo';
+    var hist = Object.keys(sv.historico || {}).map(function(h) { return sv.historico[h]; })
+      .sort(function(a, b) { return String(b.em).localeCompare(String(a.em)); });
+    $('histLabel-srv').style.display = hist.length ? '' : 'none';
+    $('hist-srv').innerHTML = hist.map(function(h) {
+      var txt = h.criado ? 'criado' : Object.keys(h.campos || {}).map(function(c) {
+        var d = h.campos[c];
+        return (ROTULO_CAMPO[c] || c) + ': ' + (d.de === null || d.de === '' ? 'vazio' : d.de) + ' → ' + (d.para === null || d.para === '' ? 'vazio' : d.para);
+      }).join(' · ');
+      return '<div style="padding:4px 0;border-bottom:1px solid var(--border)"><b>' + new Date(h.em).toLocaleString('pt-BR') + '</b> · ' + escapeHtml(h.por || '') + ' -- ' + escapeHtml(txt) + '</div>';
+    }).join('');
+    atualizarSugerido();
+    $('modalBg-srv').classList.add('open');
+  }
+  function fechar() { $('modalBg-srv').classList.remove('open'); editando = null; }
+
+  function salvar() {
+    var f = lerForm();
+    var erro = Servicos.validar(f);
+    if (erro) { showAlert(erro, 'danger'); return; }
+    var agora = new Date().toISOString();
+    var key = editando || db.ref('servicos').push().key;
+    if (!editando) f.codigo = Servicos.proximoCodigo(servicos);
+    var g = Servicos.gravacao(key, editando ? servicos[editando] : null, f, autor(), agora, db.ref('servicos').push().key);
+    if (!g.mudou) { fechar(); return; }
+    $('modalSaveBtn-srv').disabled = true;
+    db.ref().update(g.update).then(function() {
+      showAlert('Serviço ' + (f.codigo || servicos[key].codigo || '') + ' salvo.', 'success');
+      fechar();
+    }).catch(function(e) { showAlert('Erro ao salvar: ' + (e && e.message || e), 'danger'); })
+      .then(function() { $('modalSaveBtn-srv').disabled = false; });
+  }
+
+  function carregarSemente() {
+    if (Object.keys(servicos).length) return;
+    var agora = new Date().toISOString(), up = {};
+    Servicos.semente().forEach(function(sv) {
+      var g = Servicos.gravacao(db.ref('servicos').push().key, null, sv, autor(), agora, db.ref('servicos').push().key);
+      Object.assign(up, g.update);
+    });
+    $('btnSemente-srv').disabled = true;
+    db.ref().update(up).then(function() { showAlert('10 serviços carregados -- todos SEM PREÇO até alguém preencher.', 'success'); })
+      .catch(function(e) { showAlert('Erro ao carregar: ' + (e && e.message || e), 'danger'); })
+      .then(function() { $('btnSemente-srv').disabled = false; });
+  }
+
+  $('filtroAtivo-srv').addEventListener('change', render);
+  $('btnNovo-srv').addEventListener('click', function() { abrir(null); });
+  $('btnSemente-srv').addEventListener('click', carregarSemente);
+  $('modalClose-srv').addEventListener('click', fechar);
+  $('modalCancelBtn-srv').addEventListener('click', fechar);
+  $('modalSaveBtn-srv').addEventListener('click', salvar);
+  $('modalBg-srv').addEventListener('click', function(e) { if (e.target === this) fechar(); });
+  ['fUnidade-srv', 'fCustoHora-srv', 'fProd-srv', 'fMargem-srv'].forEach(function(id) { $(id).addEventListener('input', atualizarSugerido); });
+  $('btnUsarSugerido-srv').addEventListener('click', function() { $('fPreco-srv').value = campo($('btnUsarSugerido-srv').getAttribute('data-valor')); });
+  dbOnValue(db.ref('servicos'), function(snap) { servicos = snap.val() || {}; render(); }, { onError: function(err) {
+    $('tableBody-srv').innerHTML = '<tr><td colspan="11" class="no-data">Sem permissão para ler a tabela de serviços (' + escapeHtml(err && err.code || String(err)) + '). Falta publicar a regra do banco para servicos/.</td></tr>';
+    $('btnNovo-srv').disabled = true;
+  } });
+})();
 
 // ════════════════════════════════════════════════════════════════════
 // ABA: MATERIAIS (portado de materiais.html -- Fase 6.1)

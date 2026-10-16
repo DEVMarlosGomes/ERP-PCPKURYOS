@@ -141,7 +141,17 @@ Características padrão (aspecto, cor, odor, pH, densidade) acima da grade D24/
 próximo checkpoint fica liberado, preenchido **completo**; o seguinte destrava quando o anterior
 está completo **e** o prazo passou (a tela mostra "libera em X h").
 
-## Fase 7 — Cotação por insumo e por serviço
+## Fase 7 — Cotação por insumo e por serviço (código pronto em 15/10/2026; regra do banco a publicar)
+
+Implementação: motor `lib/cotacao.js` (ERP) e `shared/servicos.js` (PCP), rota
+`GET /crm/projects/:id/cotacao-base`, composição gravada em `crm_propostas/*/composicao`
+(com `resumo` recalculado no servidor), aba Cadastros › Serviços (nó `servicos/`).
+Medido antes: nenhum dos 939 materiais tem preço (embalagem entra SEM PREÇO e o comercial
+digita na linha), 770 de 782 itens de fórmula têm preço, nenhuma proposta tem valor por
+etapa (a carga inicial nasce SEM PREÇO), custo-hora não existe em lugar nenhum (o sugerido
+só aparece quando alguém preencher). Insumo em US$ usa o dólar da cotação (congelado no
+envio); cotação enviada congela também a composição. Insumo fornecido pelo cliente não é
+cobrado. MP em L é cobrada pelo preço/kg (densidade 1, como o BOM do Kickoff já fazia).
 
 - Itens vêm do BOM do Kickoff (MPs, embalagens, derivados), com preço unitário convertido pelo
   dólar quando em US$.
@@ -155,7 +165,9 @@ está completo **e** o prazo passou (a tela mostra "libera em X h").
 - **Preço sugerido**, nunca inventado: custo-hora da linha ÷ produtividade (un/h, pelo
   `prodHoraRef` conservador) × (1 + margem). O comercial decide o preço final.
 - Serviço **sem preço bloqueia o envio** da cotação ("SEM PREÇO", nunca zero).
-- Carga inicial pelos valores das últimas propostas enviadas.
+- Carga inicial pelos valores das últimas propostas enviadas. *(Feito: nenhuma proposta tinha
+  valor por etapa; os 10 nascem SEM PREÇO. Envase líquido 150 un/h = P25 dos 165 líquidos, puxado
+  por 45 perfumes de 50 mL; envase creme 515 un/h = P25 dos 73 cremosos.)*
 
 ## Ordem
 

@@ -1304,6 +1304,16 @@ Corrigido no mesmo dia está no `AGENT_STATUS.md` (bloco "URLs sem .html + audit
 - **Testes de UI que já falhavam antes (asserção presa a emoji/glifo que o `kuryos-icon-system.js` troca por SVG desde 07/10):** `run_fotos_qualidade_ui_test.js` (📷), `run_propriedade_estoque_ui_test.js` (🏭), `run_proximas_ordens_ui_test.js` (⚠), `run_seletor_endereco_ui_test.js` (📦), `run_calendario_logistica_ui_test.js` (⚠), `run_pedidos_conciliacao_ui_test.js` (✓), `run_portao_bulk_ui_test.js`, `run_movimentar_ui_test.js`, `run_operacao_ui_test.js`. Trocar a asserção pelo texto sem o glifo ou pelo `data-*`.
 - **Testes sensíveis ao ambiente:** `run_etiquetas_leitura_test.js` precisa de `@zxing/library`; os de UI pedem o pacote `playwright` (nesta máquina rodaram com o Chrome instalado, `channel: 'chrome'`); `scripts/test-ui-operational-contracts.mjs` compara byte a byte e acusa CRLF do checkout no Windows mesmo sem mudança (`admin.html`). Sob carga, `run_inspecao_pa_ui_test.js`, `run_painel_rearranjo_ui_test.js` e `run_pc_rota_envio_ui_test.js` estouram o tempo e passam sozinhos.
 
+## Cotação por insumo e serviço — o que ficou de fora (Fase 7, 15/10/2026)
+
+Passo COM (cotação). Contexto em `PLANO_PD_CRM_AJUSTES.md`, Fase 7.
+
+- **Preço de embalagem na cotação é digitado à mão.** Nenhum dos 939 materiais tem preço; quando Compras gravar o preço da cotação do fornecedor no material (ver `PROMPT_CUSTOS_ERP.md`, `ESTIMADO_PD → COTADO`), `insumosDoBom` (`lib/cotacao.js`) pode ler dali e marcar `origem_preco: "cadastro"`.
+- **Densidade fora do cálculo.** O BOM do Kickoff converte mL em L e a cotação cobra o preço/kg da MP por litro (1 L = 1 kg); `kg_por_unidade` idem. Só 6 de 377 produtos têm densidade. Quando a fórmula tiver densidade, multiplicar em `buildBomLines` (`firebaseCommercial.js`) e no `kgDaUnidade` da `cotacaoBase`.
+- **Custo-hora da linha não existe.** O preço sugerido do serviço só aparece com custo-hora preenchido à mão em Cadastros › Serviços. Origem natural: `PLANO_CUSTOS.md` (absorção por horas-padrão). Até lá o comercial decide o preço.
+- **Produtividade da carga inicial é por tipo, não por produto.** Envase líquido 150 un/h (P25, puxado por 45 perfumes de 50 mL; sem perfume ~600 un/h) e creme 515 un/h. Se a cotação for de um produto parecido com um SKU existente, dá para sugerir pelo `prodHoraRef` dele.
+- **Não existe documento da cotação para o cliente.** A composição fica na tela e no banco (`crm_propostas/*/composicao`). Quando houver um PDF da proposta, decidir se o cliente vê a abertura por etapa (preço cheio, desconto) ou só o preço por unidade.
+
 ## Acesso ao CRM/P&D por usuário que não é ADM (achado de 15/10/2026)
 
 - **Só 1 dos 14 usuários ativos tem `tenant_id = kuryos`.** As regras de `erp/{tenant}/*` (CRM, P&D, Kickoff, Contratos) liberam leitura e escrita só para ADM ou para quem tem o tenant. Hoje os usuários de PCP, Qualidade, Produção etc. não abrem o CRM/P&D — o que bate com o uso atual (só ADM opera lá). Quem receber a função Comercial ou P&D em Usuários ganha o tenant ao salvar. Se alguém de PCP/Cadastros precisar ver o P&D, salvar o usuário de novo em Usuários com a função certa. Retomar: decidir se as regras de `erp/` passam a aceitar módulos (`modulos/pd`, `modulos/comercial`) em vez de só o tenant.
