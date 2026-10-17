@@ -119,16 +119,18 @@ const abelinhaId = await value(`(async () => {
 if (abelinhaId) {
   await call('Page.navigate', { url: 'http://127.0.0.1.nip.io:5000/pd/' + encodeURIComponent(abelinhaId) });
   await waitFor(`document.readyState === 'complete' && Boolean(globalThis.__KURYOS_PD_API__)`);
+  // 17/10/2026: a acao de Compras fica na aba Custos P&D (antes era um botao flutuante).
+  await value(`[...document.querySelectorAll('[role=tab]')].find((t) => /Custos P&D/.test(t.textContent))?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }))`);
   try {
-    await waitFor(`Boolean(document.getElementById('kuryos-pd-purchase-action'))`, 10000);
+    await waitFor(`Boolean(document.querySelector('[data-testid="pd-enviar-compras"]'))`, 10000);
   } catch (error) {
-    const diagnostic = await value(`({ path: location.pathname, script: Boolean(document.querySelector('script[src*="crm-pd-master-integration"]')), integration: Boolean(globalThis.__KURYOS_MASTER_INTEGRATION__), integrationError: globalThis.__KURYOS_MASTER_INTEGRATION_ERROR__ || null, api: Boolean(globalThis.__KURYOS_PD_API__), button: Boolean(document.getElementById('kuryos-pd-purchase-action')) })`);
+    const diagnostic = await value(`({ path: location.pathname, script: Boolean(document.querySelector('script[src*="crm-pd-master-integration"]')), integration: Boolean(globalThis.__KURYOS_MASTER_INTEGRATION__), integrationError: globalThis.__KURYOS_MASTER_INTEGRATION_ERROR__ || null, api: Boolean(globalThis.__KURYOS_PD_API__), button: Boolean(document.querySelector('[data-testid="pd-enviar-compras"]')) })`);
     throw new Error(error.message + ' ' + JSON.stringify(diagnostic));
   }
-  const actionState = await value(`({ path: location.pathname, script: Boolean(document.querySelector('script[src*="crm-pd-master-integration"]')), integration: Boolean(globalThis.__KURYOS_MASTER_INTEGRATION__), error: globalThis.__KURYOS_MASTER_INTEGRATION_ERROR__ || null, api: Boolean(globalThis.__KURYOS_PD_API__), button: Boolean(document.getElementById('kuryos-pd-purchase-action')), body: document.body.innerText.slice(0, 120) })`);
+  const actionState = await value(`({ path: location.pathname, script: Boolean(document.querySelector('script[src*="crm-pd-master-integration"]')), integration: Boolean(globalThis.__KURYOS_MASTER_INTEGRATION__), error: globalThis.__KURYOS_MASTER_INTEGRATION_ERROR__ || null, api: Boolean(globalThis.__KURYOS_PD_API__), button: Boolean(document.querySelector('[data-testid="pd-enviar-compras"]')), body: document.body.innerText.slice(0, 120) })`);
   if (!actionState.button) throw new Error('Acao de Compras ausente: ' + JSON.stringify(actionState));
   const ui = await value(`(() => {
-    const button = document.getElementById('kuryos-pd-purchase-action');
+    const button = document.querySelector('[data-testid="pd-enviar-compras"]');
     button.click();
     return true;
   })()`);

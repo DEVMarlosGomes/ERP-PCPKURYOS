@@ -1314,6 +1314,15 @@ Passo COM (cotação). Contexto em `PLANO_PD_CRM_AJUSTES.md`, Fase 7.
 - **Produtividade da carga inicial é por tipo, não por produto.** Envase líquido 150 un/h (P25, puxado por 45 perfumes de 50 mL; sem perfume ~600 un/h) e creme 515 un/h. Se a cotação for de um produto parecido com um SKU existente, dá para sugerir pelo `prodHoraRef` dele.
 - **Não existe documento da cotação para o cliente.** A composição fica na tela e no banco (`crm_propostas/*/composicao`). Quando houver um PDF da proposta, decidir se o cliente vê a abertura por etapa (preço cheio, desconto) ou só o preço por unidade.
 
+## Teste do cliente JOHN — pendências de dado (17/10/2026)
+
+Passo COM (pedido) e CAD (cadastro). Correções de código no `AGENT_STATUS.md` (17/10).
+
+- **PED-0009 duplicado.** Rascunho do CRM nascido vazio (CGI assinado antes da cotação) e bloqueado; o usuário lançou o mesmo pedido à mão como PED-0010 (liberado ao PCP). Cancelar o PED-0009 em Comercial; reprocessar a assinatura liberaria um segundo pedido do mesmo SKU no PCP.
+- **PRF-JOHN-0001 v1 em rascunho.** Fórmula, BOM e Especificação esperam 4 itens que não existem no cadastro: Álcool Cetílico C16 (Oxyteno), frasco PLASTSUL, caixa master KUTM (20 un) e rótulo frontal/contra (Gráfica X). Cadastrar em Cadastros › Materiais, escolher nos itens pendentes da Fórmula/BOM e aprovar (P&D/Qualidade, PCP/Comercial). Backup do estado antes: scratchpad `backup-john-antes-aprovacao-20261017.json`.
+- **Kickoffs antigos com o id do usuário como responsável.** O KO-2026-031 (e os criados antes de 17/10) guardam `responsavel_comercial`/`responsavel_kuryos` com o id; os novos gravam o nome. Corrigir na próxima edição do Kickoff ou num ajuste em lote.
+- **Clientes do cadastro mestre criados pelo CRM antes de 17/10 sem contato.** O pedido lê o contato do CRM enquanto o cadastro estiver vazio; copiar para o cadastro exige papel PCP/Cadastros (a regra não deixa o Comercial alterar cliente existente).
+
 ## Acesso ao CRM/P&D por usuário que não é ADM (achado de 15/10/2026)
 
 - **Só 1 dos 14 usuários ativos tem `tenant_id = kuryos`.** As regras de `erp/{tenant}/*` (CRM, P&D, Kickoff, Contratos) liberam leitura e escrita só para ADM ou para quem tem o tenant. Hoje os usuários de PCP, Qualidade, Produção etc. não abrem o CRM/P&D — o que bate com o uso atual (só ADM opera lá). Quem receber a função Comercial ou P&D em Usuários ganha o tenant ao salvar. Se alguém de PCP/Cadastros precisar ver o P&D, salvar o usuário de novo em Usuários com a função certa. Retomar: decidir se as regras de `erp/` passam a aceitar módulos (`modulos/pd`, `modulos/comercial`) em vez de só o tenant.

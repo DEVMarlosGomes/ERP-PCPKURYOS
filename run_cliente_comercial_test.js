@@ -2,6 +2,7 @@
 const assert=require('node:assert/strict'), fs=require('node:fs'), vm=require('node:vm');
 const ClienteComercial=require('./public/shared/cliente-comercial');
 const ContatosCliente=require('./public/shared/contatos-cliente');
+const CrmParaPedido=require('./public/shared/crm-para-pedido');
 const html=fs.readFileSync('public/comercial.html','utf8');
 const cadastro=fs.readFileSync('public/cadastros.html','utf8');
 for(const file of ['public/comercial.html','public/cadastros.html']) {
@@ -16,7 +17,7 @@ assert.equal(ClienteComercial.dados({endereco:{logradouro:'Rua A',numero:10,cida
 const campos={};
 for(const id of ['pContatoEscolha','pCliente','pContato','pTelefone','pEmail','pEntrega','pFaturamento','pPagamento','pNF','pFrete','pPrazo','pData','pPO','pPrevisao','pObs','saveP'])campos[id]={value:'',disabled:false};
 let gravado;
-const ctx={ClienteComercial,ContatosCliente,E:String,clientes:{a:cliente,b:{nome:'Cliente B'}},produtos:{p1:{sku:'SKU-1',descricao:'Produto'}},pItens:[{key:'p1',qtd:3,valor:10}],
+const ctx={ClienteComercial,ContatosCliente,CrmParaPedido,crmClientes:{},crmPropostas:{},E:String,clientes:{a:cliente,b:{nome:'Cliente B'}},produtos:{p1:{sku:'SKU-1',descricao:'Produto'}},pItens:[{key:'p1',qtd:3,valor:10}],
  document:{getElementById:id=>campos[id],querySelectorAll:()=>Object.entries(campos).filter(([id])=>!['pCliente','pNF','pFrete','pData','saveP'].includes(id)).map(([,v])=>v)},
  nextSequential:async()=>({numero:1,formatado:'PED-0001'}),db:{ref:()=>({update:async u=>{gravado=JSON.parse(JSON.stringify(u));}})},
  iso:()=> '2026-09-11T18:00:00Z',me:()=> 'Teste',evento:()=>({tipo:'LIBERADO_PCP'}),sanitizeKey:s=>s,renderPItens:()=>{},alertar:(m,erro)=>{if(erro)throw Error(m);}};

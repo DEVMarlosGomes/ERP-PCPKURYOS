@@ -30,6 +30,20 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   3. **Fila de MP nova sem nova tentativa** (Fase 4): falha ao gravar ficava só no console. Agora marca `fila_mp_nova_falhou_em` na solicitação e tenta de novo a cada abertura do quadro do P&D.
   4. Menores: tela da estabilidade usa a mesma data de início do servidor (`started_at || created_at`); cotação avisa quando o Kickoff ainda não está aprovado; `startSchedules().stop()` cancela também a primeira rodada de 30 s.
   Vitest 203/203. Conferido de novo no navegador (banco em memória).
+- **Regra `servicos/` publicada em `erpkuryos` (17/10, aprovada pelo usuário):** no ar antes = repo menos `servicos`; depois = repo. Backup: scratchpad `regras-no-ar-20261017.json`.
+- **Ajustes do teste do cliente JOHN (17/10):**
+  1. Responsável comercial: o lote de amostras mostrava o id do usuário em texto livre; agora é lista de usuários, e o Kickoff grava o nome (`nomeDoUsuario`), não o id.
+  2. "Enviar para Compras" saiu do botão flutuante e foi para dentro da aba Custos P&D (`shared/crm-pd-master-integration.js` só remove o antigo; `scripts/test-pd-master-integration.mjs` atualizado).
+  3. Lote de amostras: "Base fixa de referência" nascia fixa no código ("Agua, Alcool, Acido hialuronico"); agora vem dos ingredientes da fórmula base (código, INCI, % do Cadastros), fragrância fora; grava `base_reference_items`.
+  4. Manipulação: tabela rola na horizontal (nenhuma coluna cortada), página do P&D até 1600 px, sugestões de ingrediente com o nome inteiro; preço zero no cadastro aparece "sem preço".
+  5. Descrição de elaboração (fases + passo a passo) foi para baixo dos Lotes de Amostras, com escolha da versão; continua alimentando a 2.2 da Ficha Técnica.
+  6. Aprovar/Reprovar saiu do P&D: o retorno do cliente é registrado pelo Comercial no CRM2/CRM3 e chega ao P&D sozinho.
+  7. CRM2 pareado com a amostra (`lib/etapaPelaAmostra.js`): P&D trabalhando → Amostra em Desenvolvimento; entregue → Amostra Enviada; cliente aprovou → Kickoff (se a fórmula estiver registrada; o pareamento automático nunca usa a dispensa do ADM). Roda ao abrir o CRM2, ao registrar o retorno do cliente e quando o P&D muda o status.
+  8. Modal da cotação refeito: uma área de rolagem só (a área útil foi de ~100 px para 630 px em 1920×830), abas presas no topo, rodapé fixo, cores do tema (o título branco sobre degradê âmbar sumia no escuro).
+  9. Pedido do JOHN saiu vazio porque o CGI foi assinado antes da cotação. Agora: CGI só com o projeto em Pedido Aprovado (409); aprovar o orçamento atualiza o rascunho do pedido (quantidade, valor, pagamento) e, se o CGI já estava assinado, reprocessa a assinatura e libera.
+  10. Pedidos (`comercial.html` + `shared/crm-para-pedido.js`, `run_crm_para_pedido_test.js`): cadastro mestre sem contato oferece os contatos do CRM; produto que nasceu no CRM traz quantidade e valor da cotação (editáveis). Cliente criado pelo CRM já nasce com os contatos.
+  Vitest 209/209. Conferido no navegador (banco em memória) e, no banco real só lendo, o pedido do JOHN: contato JOHN do CRM, 5.000 un × R$ 9,228.
+- **Ficou com o usuário (permissão negada para eu gravar em produção):** cadastrar os 4 itens do JOHN e aprovar Fórmula/BOM/Especificação do PRF-JOHN-0001 v1; cancelar o PED-0009 (rascunho vazio do CRM, duplicado do PED-0010 lançado à mão); carregar os 10 serviços em Cadastros › Serviços.
 
 ### Claude — URLs sem .html + auditoria ponta a ponta (14/10/2026)
 

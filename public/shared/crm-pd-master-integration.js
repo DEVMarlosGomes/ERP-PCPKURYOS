@@ -24,22 +24,11 @@
   }
   function materialLabel(item) { return (item.codigo_interno || item.id) + ' — ' + (item.nome || item.descricao || ''); }
 
+  // 17/10/2026: o botão saiu da tela (era flutuante sobre todas as abas) e foi para a aba
+  // Custos P&D, que chama __KURYOS_MASTER_INTEGRATION__.openDialog. Aqui só remove o antigo.
   function ensureAction() {
-    var requestId = requestIdFromPath();
     var current = document.getElementById('kuryos-pd-purchase-action');
-    if (!requestId || !api()) {
-      if (current) current.remove();
-      return;
-    }
-    if (current && current.dataset.requestId === requestId) return;
     if (current) current.remove();
-    var button = document.createElement('button');
-    button.id = 'kuryos-pd-purchase-action';
-    button.type = 'button';
-    button.dataset.requestId = requestId;
-    button.innerHTML = icon.cart + '<span>Enviar para Compras</span>';
-    button.addEventListener('click', function () { openDialog(requestId); });
-    document.body.appendChild(button);
   }
   globalThis.__KURYOS_MASTER_INTEGRATION__ = { ensureAction: ensureAction, openDialog: openDialog };
 
