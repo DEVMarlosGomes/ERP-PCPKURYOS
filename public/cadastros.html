@@ -14,6 +14,7 @@
   <script src="shared/sku-entrada.js"></script>
   <script src="shared/cambio.js"></script>
   <script src="shared/servicos.js"></script>
+  <script src="shared/pendencias-setor.js"></script><script src="shared/pendencias-setor-ui.js"></script>
   <script src="shared/itens-cadastro.js"></script>
   <script src="auth_check.js"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -222,6 +223,7 @@
 
 <div class="main">
   <div id="alertBox" class="alert alert-success"></div>
+  <div id="pendenciasSetor" style="display:none"></div>
 </div>
 
 <div class="main-tabs" id="mainTabs" data-ui="tabs">
@@ -1503,6 +1505,8 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 kuryosConnectEmulatorsIfLocal();
 var db = firebase.database();
+// 17/10/2026: o que faltou na Emissão de OP (volume, caixa, materiais fora do cadastro) chega aqui.
+try { PendenciasSetorUI.montar({ el: document.getElementById("pendenciasSetor"), setores: ["CADASTROS"], db: db, autor: function() { return (window.currentUser && window.currentUser.nome) || (firebase.auth().currentUser && firebase.auth().currentUser.email) || "Cadastros"; } }); } catch (e) { console.error("[pendências] ", e); }
 
 // ── Utilitários compartilhados por TODAS as sub-abas (Fase 6) ──────────
 // Únicos de propósito -- produtos.html/materiais.html/formulas.html/

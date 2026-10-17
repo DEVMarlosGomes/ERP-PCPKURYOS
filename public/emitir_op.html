@@ -11,6 +11,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
   <script src="shared/utils.js"></script>
   <script src="shared/itens-cadastro.js"></script>
+  <script src="shared/pendencias-setor.js"></script>
   <script src="shared/qrcode-lib.js"></script>
   <script src="shared/etiqueta-caixa.js"></script>
   <script src="auth_check.js"></script>
@@ -230,6 +231,21 @@
       <button class="btn btn-primary" id="btnImprimir">🖨 Abrir documento pra impressão</button>
       <button class="btn btn-primary" id="btnImprimirEtiquetas">🏷️ Imprimir etiquetas de caixa</button>
       <button class="btn btn-ghost" id="btnNovaOp">Emitir outra OP</button>
+    </div>
+  </div>
+</div>
+
+<!-- Completar o que falta para emitir (17/10/2026): preenche na hora ou avisa o setor dono do dado. -->
+<div class="modal-bg" id="completarModalBg">
+  <div class="modal" style="max-width:820px" role="dialog" aria-modal="true" aria-labelledby="completarTitulo">
+    <div class="modal-header" data-ui="dialog-head">
+      <h2 id="completarTitulo">Completar para emitir a OP</h2>
+      <button class="modal-close" id="completarClose" title="Fechar" aria-label="Fechar">×</button>
+    </div>
+    <div class="modal-body" data-ui="dialog-body" id="completarCorpo"></div>
+    <div class="modal-footer" data-ui="dialog-foot">
+      <button class="btn btn-ghost" id="completarCancelar">Fechar</button>
+      <button class="btn btn-primary" id="completarSalvar">Salvar e avisar os setores</button>
     </div>
   </div>
 </div>
@@ -531,15 +547,143 @@ function renderPendenciasEmissao() {
   var p = produtoSelecionado, falta = [];
   var dim = dimensaoNominalDoProduto(p);
   if (!dim.ok || !dim.valor) falta.push('Volume nominal e unidade do produto — Cadastros › Produtos › Identificação.');
-  if (!(parseFloat(document.getElementById('fDensidade').value) > 0)) falta.push('Densidade do granel — informe no card de dimensionamento abaixo (ou em Cadastros › Produtos › Parâmetros de Lote).');
+  var faltaDensidade = !(parseFloat(document.getElementById('fDensidade').value) > 0);
+  if (faltaDensidade) falta.push('Densidade do granel — informe no card de dimensionamento abaixo (ou em Cadastros › Produtos › Parâmetros de Lote).');
   if (!(parseInt(p.prazoValidadeMeses) > 0)) falta.push('Prazo de validade (meses) — Cadastros › Produtos › Parâmetros de Lote.');
   var foraF = ItensCadastro.problemas((formulaEscolhida && formulaEscolhida.itens) || {}, allMateriais, 'mpCodigo');
   if (foraF.length) falta.push(ItensCadastro.mensagem(foraF, 'Fórmula com') + ' Cadastre o material e escolha-o no item pendente (Cadastros › Fórmulas / BOM), ou use "Substituir" aqui.');
   var foraB = ItensCadastro.problemas((bomEscolhido && bomEscolhido.itens) || {}, allMateriais, 'materialCodigo');
   if (foraB.length) falta.push(ItensCadastro.mensagem(foraB, 'BOM com') + ' Cadastre o material e escolha-o no item pendente (Cadastros › Fórmulas / BOM), ou use "Substituir" aqui.');
+  var avisados = PendenciasSetor.abertasDoSetor(allPendencias).filter(function(e) { return e[1].produtoKey === p.key; });
   box.style.display = falta.length ? 'block' : 'none';
   box.innerHTML = falta.length ? '<b>Para emitir esta OP falta:</b><ul style="margin:6px 0 0 18px;padding:0">' +
-    falta.map(function(t) { return '<li>' + escapeHtml(t) + '</li>'; }).join('') + '</ul>' : '';
+    falta.map(function(t) { return '<li>' + escapeHtml(t) + '</li>'; }).join('') + '</ul>' +
+    (avisados.length ? '<div style="margin-top:6px;font-size:12px">Setores já avisados: ' + avisados.map(function(e) {
+      return escapeHtml((PendenciasSetor.SETORES[e[1].setor] || e[1].setor) + ' — ' + e[1].rotulo);
+    }).join('; ') + '.</div>' : '') +
+    '<div style="margin-top:8px"><button type="button" class="btn btn-primary btn-sm" id="btnCompletar">Completar agora</button></div>' : '';
+  var btn = document.getElementById('btnCompletar');
+  if (btn) btn.addEventListener('click', abrirCompletar);
+  // Abre sozinho uma vez por produto quando há trava que não se resolve nesta tela
+  // (densidade se digita no dimensionamento, então sozinha não abre o quadro).
+  if (falta.length - (faltaDensidade ? 1 : 0) > 0 && completarAbertoPara !== p.key) { completarAbertoPara = p.key; setTimeout(abrirCompletar, 50); }
+}
+
+var allPendencias = {}, completarAbertoPara = null, completarItens = [];
+function tiposDoItem(colecao) { return colecao === 'bom' ? ['EP', 'ES', 'ET', 'MU'] : ['MPGR', 'MPES']; }
+function abrirCompletar() {
+  if (!produtoSelecionado || !formulaEscolhida) return;
+  var p = produtoSelecionado;
+  var faltas = PendenciasSetor.faltasDoProduto(p, { densidadeNaTela: document.getElementById('fDensidade').value });
+  completarItens = [];
+  [['formulas', formulaEscolhida, 'mpCodigo'], ['bom', bomEscolhido, 'materialCodigo']].forEach(function(x) {
+    var reg = x[1] || {};
+    ItensCadastro.problemas(reg.itens || {}, allMateriais, x[2]).forEach(function(prob) {
+      var it = (reg.itens || {})[prob.chave] || {};
+      completarItens.push({ colecao: x[0], versaoKey: chaveVersao(p.key, formulaEscolhida.versao), itemKey: prob.chave,
+        texto: it.textoOriginalGeradorOPs || prob.codigo || prob.chave, motivo: prob.texto, editavel: (reg.status || 'RASCUNHO') === 'RASCUNHO' });
+    });
+  });
+  var opcoesMat = function(colecao) {
+    var tipos = tiposDoItem(colecao);
+    return Object.keys(allMateriais).map(function(k) { return allMateriais[k]; })
+      .filter(function(m) { return m && m.ativo !== false && tipos.indexOf(m.tipo) >= 0 && m.mpCodigo; })
+      .sort(function(a, b) { return String(a.mpNome || '').localeCompare(String(b.mpNome || '')); })
+      .map(function(m) { return '<option value="' + escapeAttr(m.mpCodigo + ' — ' + (m.mpNome || '')) + '"></option>'; }).join('');
+  };
+  var linhaAviso = function(id, setor) {
+    return '<label style="display:inline-flex;gap:6px;align-items:center;font-size:12px;margin-top:4px"><input type="checkbox" class="cp-avisar" data-id="' + id + '" checked> Se ficar em branco, avisar ' + escapeHtml(PendenciasSetor.SETORES[setor] || setor) + '</label>';
+  };
+  var html = '<p class="field-hint" style="margin-top:0">Preencha o que você souber: vai direto para o cadastro do produto. O que ficar em branco vira pendência na tela do setor responsável (Cadastros ou Qualidade), com seu nome e a data.</p>';
+  if (faltas.length) {
+    html += '<div class="section-label" style="font-weight:700;margin:12px 0 6px">Dados do produto ' + escapeHtml(p.sku) + '</div>';
+    html += faltas.map(function(fa) {
+      var id = 'cp_' + fa.campo;
+      return '<div class="form-group" style="margin-bottom:10px">' +
+        '<label>' + escapeHtml(fa.rotulo) + ' <span class="badge">' + escapeHtml(PendenciasSetor.SETORES[fa.setor]) + '</span> ' + (fa.obrigatorio ? '<span class="badge" style="background:var(--tint-red-bg);color:var(--tint-red-fg)">trava a OP</span>' : '<span class="badge">aviso</span>') + '</label>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap"><input type="text" inputmode="decimal" class="cp-campo" data-campo="' + fa.campo + '" id="' + id + '" style="max-width:200px"' +
+          (fa.campo === 'volume' && p.volume ? ' value="' + escapeAttr(p.volume) + '"' : '') + '>' +
+          (fa.campo === 'volume' ? '<select id="cp_unidade" style="width:auto;max-width:110px">' + PendenciasSetor.UNIDADES_VOLUME.map(function(u) { return '<option value="' + u + '"' + (String(p.unidadeVolume || 'ml').toLowerCase() === u ? ' selected' : '') + '>' + u + '</option>'; }).join('') + '</select>' : '') +
+        '</div><div class="field-hint">' + escapeHtml(fa.onde) + '</div>' + linhaAviso(id, fa.setor) + '</div>';
+    }).join('');
+  }
+  if (completarItens.length) {
+    html += '<div class="section-label" style="font-weight:700;margin:14px 0 6px">Itens fora do cadastro de materiais</div>' +
+      '<datalist id="cpMatFormula">' + opcoesMat('formulas') + '</datalist><datalist id="cpMatBom">' + opcoesMat('bom') + '</datalist>';
+    html += completarItens.map(function(it, i) {
+      var id = 'cpi_' + i;
+      return '<div class="form-group" style="margin-bottom:10px">' +
+        '<label>' + (it.colecao === 'bom' ? 'BOM' : 'Fórmula') + ': ' + escapeHtml(it.texto) + ' <span class="badge">Cadastros</span> <span class="badge" style="background:var(--tint-red-bg);color:var(--tint-red-fg)">trava a OP</span></label>' +
+        (it.editavel
+          ? '<input type="text" class="cp-item" data-i="' + i + '" id="' + id + '" list="' + (it.colecao === 'bom' ? 'cpMatBom' : 'cpMatFormula') + '" placeholder="Busque o material já cadastrado (código ou nome)">' +
+            '<div class="field-hint">Não achou? Deixe em branco: o Cadastros recebe o pedido de cadastro. Para só esta OP, use "Substituir" na tabela de materiais.</div>'
+          : '<div class="field-hint">' + (it.colecao === 'bom' ? 'BOM' : 'Fórmula') + ' já aprovada: não muda por aqui. Use "Substituir" nesta OP ou peça a correção ao Cadastros.</div>') +
+        linhaAviso(id, 'CADASTROS') + '</div>';
+    }).join('');
+  }
+  html += '<div id="completarErro" style="color:var(--danger);font-size:13px;margin-top:8px"></div>';
+  document.getElementById('completarCorpo').innerHTML = html;
+  document.getElementById('completarModalBg').classList.add('open');
+}
+function fecharCompletar() { document.getElementById('completarModalBg').classList.remove('open'); }
+function codigoDoTexto(v) { var c = String(v || '').split(' — ')[0].trim(); return allMateriais[sanitizeKey(c)] ? c : (Object.values(allMateriais).find(function(m) { return m && m.mpCodigo === c; }) ? c : ''); }
+function salvarCompletar() {
+  var p = produtoSelecionado, erroEl = document.getElementById('completarErro');
+  if (!p) return;
+  var autor = (window.currentUser && window.currentUser.nome) || (firebase.auth().currentUser && firebase.auth().currentUser.email) || 'Usuário do sistema';
+  var agora = new Date().toISOString(), cadastro = {}, avisos = {}, erros = [], preenchidos = 0, avisados = 0;
+  var avisar = function(id) { var c = document.querySelector('.cp-avisar[data-id="' + id + '"]'); return !c || c.checked; };
+  var fecha = function(ref) {
+    var k = PendenciasSetor.chave(p.key, ref);
+    if (allPendencias[k] && allPendencias[k].status === 'ABERTA') Object.assign(avisos, PendenciasSetor.gravacaoResolvida(k, autor, agora, 'preenchido na Emissão de OP'));
+  };
+  document.querySelectorAll('.cp-campo').forEach(function(inp) {
+    var campo = inp.getAttribute('data-campo');
+    var r = PendenciasSetor.validarValor(campo, inp.value, campo === 'volume' ? document.getElementById('cp_unidade').value : '');
+    if (r.erro) { erros.push(r.erro); return; }
+    if (r.vazio) {
+      if (avisar(inp.id)) { var nova = PendenciasSetor.pendenciaDeCampo(p.key, p, campo, autor, agora); Object.assign(avisos, PendenciasSetor.gravacaoAviso(allPendencias[PendenciasSetor.chave(p.key, campo)], nova)); avisados++; }
+      return;
+    }
+    Object.keys(r.valores).forEach(function(c) { cadastro['produtos/' + p.key + '/' + c] = r.valores[c]; });
+    if (campo === 'densidadeGranel') document.getElementById('fDensidade').value = r.valores.densidadeGranel;
+    fecha(campo); preenchidos++;
+  });
+  document.querySelectorAll('.cp-avisar').forEach(function(c) {
+    var m = /^cpi_(\d+)$/.exec(c.getAttribute('data-id'));
+    if (!m) return;
+    var it = completarItens[Number(m[1])], inp = document.getElementById('cpi_' + m[1]);
+    var codigo = inp ? codigoDoTexto(inp.value) : '';
+    if (inp && inp.value.trim() && !codigo) { erros.push('"' + inp.value.trim() + '" não é um material do cadastro — escolha da lista.'); return; }
+    var ref = it.colecao + '_' + it.itemKey;
+    if (codigo) {
+      var mat = allMateriais[sanitizeKey(codigo)] || Object.values(allMateriais).find(function(x) { return x && x.mpCodigo === codigo; }) || {};
+      var base = it.colecao + '/' + it.versaoKey + '/itens/' + it.itemKey + '/';
+      cadastro[base + (it.colecao === 'bom' ? 'materialCodigo' : 'mpCodigo')] = codigo;
+      cadastro[base + (it.colecao === 'bom' ? 'materialNome' : 'mpNome')] = mat.mpNome || '';
+      cadastro[base + 'pendente'] = null; cadastro[base + 'textoOriginalGeradorOPs'] = null; cadastro[base + 'sugestaoMatch'] = null;
+      fecha(ref); preenchidos++;
+    } else if (c.checked) {
+      var nova = PendenciasSetor.pendenciaDeItem(p.key, p, it, autor, agora);
+      Object.assign(avisos, PendenciasSetor.gravacaoAviso(allPendencias[PendenciasSetor.chave(p.key, ref)], nova)); avisados++;
+    }
+  });
+  if (erros.length) { erroEl.textContent = erros.join(' '); return; }
+  var btn = document.getElementById('completarSalvar');
+  btn.disabled = true;
+  // Cadastro primeiro; os avisos vão num update separado (sem a regra de pendencias_setor o cadastro não pode se perder).
+  (Object.keys(cadastro).length ? db.ref().update(cadastro) : Promise.resolve()).then(function() {
+    return Object.keys(avisos).length ? db.ref().update(avisos).then(function() { return true; }, function(err) { return err; }) : true;
+  }).then(function(resAvisos) {
+    fecharCompletar();
+    var msg = (preenchidos ? preenchidos + ' dado(s) gravado(s) no cadastro. ' : '') +
+      (avisados ? (resAvisos === true ? avisados + ' pendência(s) enviada(s) aos setores.' : 'Não foi possível avisar os setores (' + (resAvisos && resAvisos.message || resAvisos) + ').') : '');
+    showAlert(msg || 'Nada a gravar.', resAvisos === true ? 'success' : 'danger');
+    var key = p.key;
+    setTimeout(function() { completarAbertoPara = key; selecionarProduto(key); }, 700);
+  }).catch(function(err) {
+    erroEl.textContent = 'Não foi possível gravar no cadastro: ' + (err && err.message || err) + '. Deixe os campos em branco para só avisar os setores.';
+  }).finally(function() { btn.disabled = false; });
 }
 
 function recalcular() {
@@ -1452,6 +1596,11 @@ document.addEventListener('DOMContentLoaded', function() {
       if (Object.keys(materiaisConsumo).length) renderMateriaisTable();
     });
     dbOnValue(db.ref('formulas'), function(snap) { allFormulas = snap.val() || {}; });
+    dbOnValue(db.ref('pendencias_setor'), function(snap) { allPendencias = snap.val() || {}; if (produtoSelecionado) renderPendenciasEmissao(); }, { onError: function() { allPendencias = {}; } });
+    document.getElementById('completarClose').addEventListener('click', fecharCompletar);
+    document.getElementById('completarCancelar').addEventListener('click', fecharCompletar);
+    document.getElementById('completarSalvar').addEventListener('click', salvarCompletar);
+    document.getElementById('completarModalBg').addEventListener('click', function(e) { if (e.target === this) fecharCompletar(); });
     dbOnValue(db.ref('bom'), function(snap) { allBom = snap.val() || {}; });
     dbOnValue(db.ref('especificacoes'), function(snap) { allEspecificacoes = snap.val() || {}; });
     // Vínculo com Programação (Fase 1 do plano "Emissão de OP nativa"):

@@ -11,6 +11,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage-compat.js"></script>
   <script src="shared/utils.js"></script>
+  <script src="shared/pendencias-setor.js"></script><script src="shared/pendencias-setor-ui.js"></script>
   <script src="shared/anexos.js"></script>
   <script src="shared/fotos-qualidade.js"></script>
   <script src="shared/inspecao-pa.js"></script>
@@ -175,6 +176,7 @@
 
 <div class="main">
   <div class="alert" id="alertBox"></div>
+  <div id="pendenciasSetor" style="display:none"></div>
 </div>
 
 <div class="main" id="mainPanelsQualidade">
@@ -986,6 +988,8 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 kuryosConnectEmulatorsIfLocal();
 var db = firebase.database();
+// 17/10/2026: densidade e validade que faltaram na Emissão de OP chegam aqui para a Qualidade.
+try { PendenciasSetorUI.montar({ el: document.getElementById("pendenciasSetor"), setores: ["QUALIDADE"], db: db, autor: function() { return (window.currentUser && window.currentUser.nome) || (firebase.auth().currentUser && firebase.auth().currentUser.email) || "Qualidade"; } }); } catch (e) { console.error("[pendências] ", e); }
 var storage = (typeof firebase.storage === "function") ? firebase.storage() : null;  // SDK do Storage; só as fotos dependem dele
 
 // norm() vem de shared/utils.js -- normalização única do sistema (minúscula,

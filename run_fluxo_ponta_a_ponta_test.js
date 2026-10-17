@@ -367,6 +367,11 @@ async function fechar(page, errors, etapa) {
     await page.waitForSelector('#produtoResultados [data-produto], #produtoResultados div', {timeout: 6000});
     await page.locator('#produtoResultados').getByText('MRARBS04', {exact: false}).first().click();
     await page.waitForSelector('#cardDimensionamento', {state: 'visible', timeout: 6000});
+    // 17/10/2026: item fora do cadastro abre o quadro "Completar para emitir a OP" sozinho.
+    await page.waitForSelector('#completarModalBg.open', {timeout: 6000});
+    assert.match(await page.locator('#completarCorpo').innerText(), /TAMPA 24\/410/);
+    await page.click('#completarCancelar');
+    console.log('   quadro de completar abriu com a tampa fora do cadastro');
 
     await page.check('input[name=modoQtd][value=pecas]');
     await page.fill('#fPecasDesejadas', '1000');

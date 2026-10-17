@@ -1323,6 +1323,14 @@ Passo COM (pedido) e CAD (cadastro). Correções de código no `AGENT_STATUS.md`
 - **Kickoffs antigos com o id do usuário como responsável.** O KO-2026-031 (e os criados antes de 17/10) guardam `responsavel_comercial`/`responsavel_kuryos` com o id; os novos gravam o nome. Corrigir na próxima edição do Kickoff ou num ajuste em lote.
 - **Clientes do cadastro mestre criados pelo CRM antes de 17/10 sem contato.** O pedido lê o contato do CRM enquanto o cadastro estiver vazio; copiar para o cadastro exige papel PCP/Cadastros (a regra não deixa o Comercial alterar cliente existente).
 
+## Pendências da Emissão de OP por setor — o que ficou de fora (17/10/2026)
+
+Passo PCP (emissão de OP). Contexto no `AGENT_STATUS.md` (17/10).
+
+- **P&D não recebe pendência ainda.** Densidade e validade foram para a Qualidade (estabilidade/especificação). Se o P&D tiver que responder, a barra precisa entrar na tela do P&D, que é do app do CRM (React) — `shared/pendencias-setor-ui.js` é para as páginas do PCP.
+- **Sem e-mail.** O setor vê a pendência ao abrir a própria tela. Se precisar de aviso ativo, ligar `pendencias_setor` ao `checkNotificacoes` (functions/index.js), como `notificacoes_comercial`.
+- **Un./caixa e peso por caixa são aviso, não trava.** Seguem a decisão de 2026-09 (375 produtos sem peso por caixa). Quando o cadastro estiver em dia, virar trava em `emitirOP()` e marcar `obrigatorio: true` em `PendenciasSetor.CAMPOS`.
+
 ## Acesso ao CRM/P&D por usuário que não é ADM (achado de 15/10/2026)
 
 - **Só 1 dos 14 usuários ativos tem `tenant_id = kuryos`.** As regras de `erp/{tenant}/*` (CRM, P&D, Kickoff, Contratos) liberam leitura e escrita só para ADM ou para quem tem o tenant. Hoje os usuários de PCP, Qualidade, Produção etc. não abrem o CRM/P&D — o que bate com o uso atual (só ADM opera lá). Quem receber a função Comercial ou P&D em Usuários ganha o tenant ao salvar. Se alguém de PCP/Cadastros precisar ver o P&D, salvar o usuário de novo em Usuários com a função certa. Retomar: decidir se as regras de `erp/` passam a aceitar módulos (`modulos/pd`, `modulos/comercial`) em vez de só o tenant.

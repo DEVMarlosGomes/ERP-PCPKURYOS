@@ -336,6 +336,12 @@
       ".read": "auth != null",
       ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'pd' || root.child('usuarios').child(auth.uid).child('role').val() == 'comercial')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('pd').val() == true))"
     },
+    // 17/10/2026: o que falta para emitir OP vira pendência para o setor dono do dado (Cadastros, Qualidade).
+    // Abre quem emite OP; resolve quem cuida do cadastro ou da qualidade.
+    "pendencias_setor": {
+      ".read": "auth != null",
+      ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'qualidade' || root.child('usuarios').child(auth.uid).child('modulos').child('emitir_op').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('qualidade').val() == true)"
+    },
     // Fase 7 (PLANO_PD_CRM_AJUSTES.md): tabela de serviços da cotação. Edita quem cuida do Cadastros; a cotação do CRM só lê.
     "servicos": {
       ".read": "auth != null",
