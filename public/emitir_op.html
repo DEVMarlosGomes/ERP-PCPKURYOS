@@ -127,6 +127,7 @@
       <div style="font-weight:700;font-size:15px" id="produtoNomeLabel"></div>
       <div class="field-hint" id="produtoDetalheLabel"></div>
       <div id="formulaWarning" class="alert alert-warning" style="display:none;margin-top:10px"></div>
+      <div id="pendenciasEmissao" class="alert alert-danger" style="display:none;margin-top:10px" data-testid="pendencias-emissao"></div>
     </div>
   </div>
 
@@ -451,6 +452,7 @@ function selecionarProduto(key) {
   }
   formulaEscolhida = achado.registro;
   bomEscolhido = bomDaVersao(allBom, key, formulaEscolhida.versao) || { itens: {} };
+  setTimeout(renderPendenciasEmissao, 0);
   if (!achado.temAprovada) {
     // Fórmula, BOM e Especificação têm aprovação própria agora (pedido do
     // usuário: "3 aprovações... as 3 aprovadas" definem a versão como
@@ -520,8 +522,29 @@ function limparResumoCalc() {
   document.getElementById('rValidade').textContent = '—';
   calc = null;
 }
+// 17/10/2026 (teste do cliente JOHN): as travas apareciam uma por vez, só ao clicar em Emitir.
+// Aqui elas aparecem juntas assim que o produto é escolhido, cada uma dizendo onde corrigir.
+function renderPendenciasEmissao() {
+  var box = document.getElementById('pendenciasEmissao');
+  if (!box) return;
+  if (!produtoSelecionado || !formulaEscolhida) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  var p = produtoSelecionado, falta = [];
+  var dim = dimensaoNominalDoProduto(p);
+  if (!dim.ok || !dim.valor) falta.push('Volume nominal e unidade do produto — Cadastros › Produtos › Identificação.');
+  if (!(parseFloat(document.getElementById('fDensidade').value) > 0)) falta.push('Densidade do granel — informe no card de dimensionamento abaixo (ou em Cadastros › Produtos › Parâmetros de Lote).');
+  if (!(parseInt(p.prazoValidadeMeses) > 0)) falta.push('Prazo de validade (meses) — Cadastros › Produtos › Parâmetros de Lote.');
+  var foraF = ItensCadastro.problemas((formulaEscolhida && formulaEscolhida.itens) || {}, allMateriais, 'mpCodigo');
+  if (foraF.length) falta.push(ItensCadastro.mensagem(foraF, 'Fórmula com') + ' Cadastre o material e escolha-o no item pendente (Cadastros › Fórmulas / BOM), ou use "Substituir" aqui.');
+  var foraB = ItensCadastro.problemas((bomEscolhido && bomEscolhido.itens) || {}, allMateriais, 'materialCodigo');
+  if (foraB.length) falta.push(ItensCadastro.mensagem(foraB, 'BOM com') + ' Cadastre o material e escolha-o no item pendente (Cadastros › Fórmulas / BOM), ou use "Substituir" aqui.');
+  box.style.display = falta.length ? 'block' : 'none';
+  box.innerHTML = falta.length ? '<b>Para emitir esta OP falta:</b><ul style="margin:6px 0 0 18px;padding:0">' +
+    falta.map(function(t) { return '<li>' + escapeHtml(t) + '</li>'; }).join('') + '</ul>' : '';
+}
+
 function recalcular() {
   if (!produtoSelecionado) return;
+  renderPendenciasEmissao();
   var modoQtd = document.querySelector('input[name=modoQtd]:checked').value;
   var dimInfo = dimensaoNominalDoProduto(produtoSelecionado);
   var densidade = parseFloat(document.getElementById('fDensidade').value) || 0;
