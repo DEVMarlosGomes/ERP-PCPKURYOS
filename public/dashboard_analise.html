@@ -389,7 +389,7 @@ table tr:hover { background: #f8fafc; }
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
-<script src="shared/dashboard-showcase.js?v=20261008-1"></script>
+<script src="shared/dashboard-showcase.js?v=20261020-1"></script>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://erpkuryos-default-rtdb.firebaseio.com">
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
@@ -679,9 +679,11 @@ function loadFirebaseAndRun() {
 const fmt = n => n == null ? '-' : Math.round(n).toLocaleString('pt-BR');
 const fmt1 = n => n == null ? '-' : Number(n).toLocaleString('pt-BR', {maximumFractionDigits:1});
 const fmtK = n => { if (n == null) return '-'; if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(2)+'M'; if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(1)+'k'; return Math.round(n).toString(); };
-const COLORS = ['#0a6848','#29936c','#5bb78e','#8bd0ad','#247d6a','#5a9d83','#0e5140','#a6d9bf','#347f62','#73b99a','#12634a','#97cdb2'];
+// Paleta do tema (mesma --chart-1..5 do ERP) em tons médios, legíveis no claro e no
+// escuro; hex porque alguns gráficos somam alfa ('cc') e as barras HTML usam inline.
+const COLORS = ['#6485f2','#1fa874','#17a2e0','#f0a020','#e5486e','#8557ce','#4e6fb5','#14b8a6','#acbcd4','#f97316','#7d91b8','#0ea5a5'];
 // Cores estaveis por linha (mesmo grafico em grafico)
-const LINHA_COLOR = { 'Linha 01':'#2563eb', 'Linha 02':'#16a34a', 'Linha 03':'#f59e0b', 'Linha 04':'#9333ea', 'Linha 05':'#0891b2', 'Linha 06':'#dc2626', 'S/LINHA':'#94a3b8' };
+const LINHA_COLOR = { 'Linha 01':'#6485f2', 'Linha 02':'#16a34a', 'Linha 03':'#f59e0b', 'Linha 04':'#9333ea', 'Linha 05':'#0891b2', 'Linha 06':'#dc2626', 'S/LINHA':'#94a3b8' };
 function colorForLinha(lin, fallbackIdx) {
   return LINHA_COLOR[lin] || COLORS[(fallbackIdx || 0) % COLORS.length];
 }
@@ -690,12 +692,12 @@ const STATUS_ORDER = ['Concluído','Em Produção','Produção Parcial','Program
 const STATUS_CLASS = { 'Concluído':'concl', 'Em Produção':'prod', 'Produção Parcial':'parc', 'Programado':'prog', 'Desenvolv.':'dev', 'Não Iniciado':'nao' };
 const MES_ABBR = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
-Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
-Chart.defaults.font.size = 11;
-Chart.defaults.color = '#334155';
-Chart.defaults.plugins.legend.labels.boxWidth = 10;
-Chart.defaults.plugins.legend.labels.boxHeight = 10;
-Chart.defaults.animation = { duration: 720, easing: 'easeOutQuart' };
+// Fonte, cor do texto, grade, legenda e tooltip vêm do tema global
+// (shared/kuryos-erp-ref.js), que acompanha claro/escuro -- o '#334155' fixo
+// que havia aqui sumia no escuro. A animação é mesclada, não substituída:
+// trocar o objeto inteiro de Chart.defaults.animation quebra os ganchos
+// internos do Chart.js 4 ("Maximum call stack size exceeded" ao abrir a tela).
+Object.assign(Chart.defaults.animation, { duration: 720, easing: 'easeOutQuart' });
 
 // Pre-parse dates once
 function _weekStart(d) {
@@ -1100,7 +1102,7 @@ function renderAll() {
 
   makeChart('c_mensal', {
     type: 'bar',
-    data: { labels: mesLabels, datasets: [{ label: 'Unidades', data: meses.map(m => mesAgg[m].u), backgroundColor: '#2563eb', borderRadius: 4 }] },
+    data: { labels: mesLabels, datasets: [{ label: 'Unidades', data: meses.map(m => mesAgg[m].u), backgroundColor: '#6485f2', borderRadius: 4 }] },
     options: { maintainAspectRatio: false, responsive: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmt(c.parsed.y) + ' u' } } }, scales: { y: { ticks: { callback: v => fmtK(v) }, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } } }
   });
   makeChart('c_horas', {
@@ -1147,7 +1149,7 @@ function renderAll() {
   if (evoTitleEl) evoTitleEl.textContent = `Evolução ${granNames[gran]} — Unid., Horas, OPs`;
   makeChart('c_prod_evol', {
     data: { labels: mesLabels, datasets: [
-      { type: 'bar', label: 'Unidades', data: meses.map(m => mesAgg[m].u), backgroundColor: '#2563eb', borderRadius: 4, order: 2 },
+      { type: 'bar', label: 'Unidades', data: meses.map(m => mesAgg[m].u), backgroundColor: '#6485f2', borderRadius: 4, order: 2 },
       { type: 'line', label: 'Horas', data: meses.map(m => mesAgg[m].h), borderColor: '#16a34a', yAxisID: 'y2', borderWidth: 2, pointRadius: 3, tension: .3, order: 1 },
       { type: 'line', label: 'OPs', data: meses.map(m => mesAgg[m].ops), borderColor: '#dc2626', yAxisID: 'y3', borderWidth: 2, borderDash: [4,4], pointRadius: 3, tension: .3, order: 0 }
     ]},
@@ -1440,7 +1442,7 @@ function renderAll() {
   makeChart('c_log_aging', { type: 'bar',
     data: { labels: BUCKETS.map(b=>b.lab), datasets: [
       { label: 'NFs', data: agingCounts, backgroundColor: BUCKETS.map(b=>b.color), borderRadius: 4, yAxisID: 'y' },
-      { label: 'Caixas', data: agingCx, type: 'line', borderColor: '#0f172a', borderWidth: 2, pointRadius: 4, tension: .3, yAxisID: 'y2' }
+      { label: 'Caixas', data: agingCx, type: 'line', borderColor: '#8557ce', borderWidth: 2, pointRadius: 4, tension: .3, yAxisID: 'y2' }
     ]},
     options: { maintainAspectRatio: false, responsive: true, plugins: { legend: { position: 'bottom' } }, scales: {
       y: { position: 'left', title: { display: true, text: 'NFs' } },
@@ -1455,7 +1457,7 @@ function renderAll() {
   document.getElementById('title-log-evol').textContent = `Expedição ${granLNames[granL]} — Caixas, Unidades, Carga (kg)`;
   makeChart('c_log_evol', {
     data: { labels: logAgg.labels, datasets: [
-      { type: 'bar', label: 'Caixas', data: logAgg.keys.map(k => logAgg.map[k].cx), backgroundColor: '#2563eb', borderRadius: 4 },
+      { type: 'bar', label: 'Caixas', data: logAgg.keys.map(k => logAgg.map[k].cx), backgroundColor: '#6485f2', borderRadius: 4 },
       { type: 'line', label: 'Unidades', data: logAgg.keys.map(k => logAgg.map[k].u), borderColor: '#16a34a', yAxisID: 'y2', borderWidth: 2, pointRadius: 3, tension: .3 },
       { type: 'line', label: 'Carga (kg)', data: logAgg.keys.map(k => logAgg.map[k].kg), borderColor: '#dc2626', yAxisID: 'y3', borderWidth: 2, borderDash: [4,4], pointRadius: 3, tension: .3 }
     ]},

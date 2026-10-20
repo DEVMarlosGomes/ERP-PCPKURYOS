@@ -5,6 +5,15 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Visual do ERP (erpkuryos.web.app) em todo o PCP + dashboards (20/10/2026)
+
+- **Pedido:** seções e dashboards com o aspecto do ERP no ar, mantendo as cores do PCP; "tudo de uma vez".
+- **Referência:** capturas do ERP no ar (somente leitura) no scratchpad `e2e/ref/`: menu horizontal no topo com submenus, escuro por padrão, cabeçalho com ícone + título + ações, KPIs com ícone e borda tingida, painéis com borda fina, abas segmentadas.
+- **Feito:** camada nova `shared/kuryos-erp-ref.css` + `.js`, carregada por último pelo `auth_check.js` em todas as telas (só apresentação). Menu vira barra no topo com submenus (mesmo DOM/permissões; clique, Esc, clique fora, setas; grupo de 1 link é link direto; quebra em 2 linhas em tela estreita; celular segue com a gaveta). Ícone da seção antes do título; KPIs com rótulo em cima e borda tingida pelo tom (Diário mantém a faixa colorida por tom, como o PCP do ERP); painéis e abas no padrão do ERP. Gráficos: tema global do Chart.js a partir dos tokens (fontes, grade tracejada só no eixo de valores, tooltip, rosca 72%, área com degradê, borda branca fixa e grade cinza fixa trocadas pelos tokens) + paleta `--chart-1..5` no Executivo e no Geral. Login no formato dividido do ERP. `kuryos-enterprise-shell.js` desconta a barra do topo na altura do app React.
+- **Defeito antigo corrigido:** Dashboard Geral estourava a pilha ("Maximum call stack size exceeded", 5x por tema já no "antes") — `shared/dashboard-showcase.js` regravava `chart.options.*.labels/ticks/grid` sobre eles mesmos a cada mudança do DOM e trocava o objeto de `Chart.defaults.animation` (também em `dashboard_analise.html`). Agora mescla e não toca nas instâncias.
+- **Validação (emuladores + Chrome, dados fictícios):** menu 21/21 (1440/1024/390), login+usuários 55/55, 16 telas × 2 temas sem erro de JS. `test-ui-operational-contracts.mjs` não se aplica mais (falha contra o baseline por commits antigos e não compara contra HEAD). CRM/P&D (React) não conferidos localmente: o bundle fala com produção — conferir no ar.
+- **Arquivos ativos:** nenhum após o commit.
+
 ### Claude — Esqueci minha senha + cadastro de usuário pelo ADM (20/10/2026)
 
 - **Pedido:** "esqueci minha senha" na tela de login e CRUD de usuários para o ADM em `usuarios.html`.

@@ -90,36 +90,38 @@
     });
     return output;
   }
+  // Paleta dos tokens do tema (a mesma --chart-1..5 do ERP), lida a cada desenho
+  // para acompanhar claro/escuro. O navy puro some no fundo escuro, por isso a
+  // cor principal dos gráficos é o pervinca da marca.
+  function token(name, fallback) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback; }
+  function chartColor(n) { var v = token('--chart-' + n, ''); return v ? 'hsl(' + v + ')' : ['#6485f2', '#1fa874', '#17a2e0', '#f0a020', '#e5486e'][n - 1]; }
   function palette(count) {
-    var colors = ['#0a1c69', '#4e6fb5', '#7d91b8', '#acbcd4', '#17875f', '#a86600', '#bf3b46', '#6d4db2'];
+    var colors = [chartColor(1), chartColor(2), chartColor(3), chartColor(4), chartColor(5), token('--k-purple', '#8557ce'), token('--k-brand-300', '#acbcd4'), token('--k-brand-700', '#28458f')];
     return Array.from({ length: count }, function (_, index) { return colors[index % colors.length]; });
   }
   function chart(id, config) {
     if (!window.Chart) { document.getElementById(id).parentElement.innerHTML = '<div class="executive-empty">Biblioteca de gráficos indisponível.</div>'; return; }
     if (charts[id]) charts[id].destroy();
-    var dark = document.documentElement.classList.contains('dark') || document.documentElement.dataset.theme === 'dark';
-    Chart.defaults.color = dark ? '#aeaeb2' : '#6e6e73';
-    Chart.defaults.borderColor = dark ? 'rgba(255,255,255,.10)' : 'rgba(10,28,105,.10)';
-    Chart.defaults.font.family = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';
-    config.options = Object.assign({ responsive: true, maintainAspectRatio: false, animation: { duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 480 }, plugins: { legend: { labels: { usePointStyle: true, boxWidth: 8 } } } }, config.options || {});
+    // Fontes, grade, tooltip e legenda vêm do tema global (shared/kuryos-erp-ref.js).
+    config.options = Object.assign({ responsive: true, maintainAspectRatio: false, animation: { duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 480 } }, config.options || {});
     charts[id] = new Chart(document.getElementById(id), config);
   }
   function renderCharts() {
     var orders = rows(state.data.orders).filter(function (row) { return !canceled(row); });
     var orderGroups = groupBy(orders, function (row) { return row.status || 'Sem status'; });
-    chart('executive-orders-chart', { type: 'doughnut', data: { labels: Object.keys(orderGroups), datasets: [{ data: Object.values(orderGroups), backgroundColor: palette(Object.keys(orderGroups).length), borderWidth: 0 }] }, options: { cutout: '68%', plugins: { legend: { position: 'bottom', labels: { padding: 14, usePointStyle: true, boxWidth: 8 } } } } });
+    chart('executive-orders-chart', { type: 'doughnut', data: { labels: Object.keys(orderGroups), datasets: [{ data: Object.values(orderGroups), backgroundColor: palette(Object.keys(orderGroups).length) }] }, options: { plugins: { legend: { position: 'bottom' } } } });
 
     var purchases = rows(state.data.purchases).filter(function (row) { return !canceled(row); });
     var purchaseGroups = groupBy(purchases, function (row) { return String(row.status || 'Sem status').replaceAll('_', ' '); });
-    chart('executive-purchases-chart', { type: 'doughnut', data: { labels: Object.keys(purchaseGroups), datasets: [{ data: Object.values(purchaseGroups), backgroundColor: palette(Object.keys(purchaseGroups).length).reverse(), borderWidth: 0 }] }, options: { cutout: '68%', plugins: { legend: { position: 'bottom', labels: { padding: 14, usePointStyle: true, boxWidth: 8 } } } } });
+    chart('executive-purchases-chart', { type: 'doughnut', data: { labels: Object.keys(purchaseGroups), datasets: [{ data: Object.values(purchaseGroups), backgroundColor: palette(Object.keys(purchaseGroups).length) }] }, options: { plugins: { legend: { position: 'bottom' } } } });
 
     var ops = rows(state.data.ops).filter(function (row) { return !canceled(row) && done(row) && inPeriod(row); });
     var monthly = {};
     ops.forEach(function (row) { var date = rowDate(row); if (!date) return; var key = date.toISOString().slice(0, 7); monthly[key] = monthly[key] || { planned: 0, produced: 0 }; monthly[key].planned += number(row.qtdPlanejada); monthly[key].produced += number(row.produzido); });
     var labels = Object.keys(monthly).sort();
     if (labels.length > 12) labels = labels.slice(-12);
-    chart('executive-production-chart', { type: 'bar', data: { labels: labels.map(monthLabel), datasets: [{ label: 'Planejado', data: labels.map(function (key) { return monthly[key].planned; }), backgroundColor: '#acbcd4', borderRadius: 6 }, { label: 'Realizado', data: labels.map(function (key) { return monthly[key].produced; }), backgroundColor: '#0a1c69', borderRadius: 6 }] }, options: { scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } } });
-    chart('executive-trend-chart', { type: 'line', data: { labels: labels.map(monthLabel), datasets: [{ label: 'Unidades produzidas', data: labels.map(function (key) { return monthly[key].produced; }), borderColor: '#0a1c69', backgroundColor: 'rgba(10,28,105,.10)', fill: true, tension: .34, pointRadius: 3, pointHoverRadius: 5 }] }, options: { scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } } });
+    chart('executive-production-chart', { type: 'bar', data: { labels: labels.map(monthLabel), datasets: [{ label: 'Planejado', data: labels.map(function (key) { return monthly[key].planned; }), backgroundColor: token('--k-brand-300', '#acbcd4') }, { label: 'Realizado', data: labels.map(function (key) { return monthly[key].produced; }), backgroundColor: chartColor(1) }] }, options: { scales: { y: { beginAtZero: true } } } });
+    chart('executive-trend-chart', { type: 'line', data: { labels: labels.map(monthLabel), datasets: [{ label: 'Unidades produzidas', data: labels.map(function (key) { return monthly[key].produced; }), borderColor: chartColor(1), backgroundColor: chartColor(1), fill: true }] }, options: { scales: { y: { beginAtZero: true } } } });
   }
   function monthLabel(key) { var parts = key.split('-'); return new Date(Number(parts[0]), Number(parts[1]) - 1, 1).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }); }
 

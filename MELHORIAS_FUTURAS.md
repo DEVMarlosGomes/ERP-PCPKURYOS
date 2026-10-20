@@ -1286,6 +1286,21 @@ em paralelo), `bomDaVersao` (BOM `v1` atende fórmula `V1`). Fica para depois:
 - **Pareto de não conformidades:** padronizar causa/categoria nas RNCs; texto livre não deve ser agrupado automaticamente como se fosse uma taxonomia.
 - **Faturamento, recebíveis, margem, lucro e EBITDA:** integrar uma fronteira financeira confiável (NF, competência, títulos, vencimentos e baixas). Carga aguardando NF não é razão financeira.
 
+## UI — aspecto do ERP no ar (20/10/2026)
+
+- **CRM/P&D/Kickoffs (React incorporado) não conferidos no emulador.** O bundle
+  em `public/static/crm` fala com o Firebase de produção, então no teste local a
+  tela cai no login do React. O cálculo de altura do app foi ajustado em
+  `shared/kuryos-enterprise-shell.js` (`syncAppViewport` desconta a barra do
+  topo); conferir no ar que o CRM não rola 64 px a mais.
+- **Gráficos com cor fixa fora do Executivo/Geral.** `dashboard.html` (cores por
+  linha em `colorMap`) e `gestao_comercial.html` mantêm as cores próprias; o tema
+  global só ajusta fonte, grade, tooltip e bordas. Se quiser tudo na paleta
+  `--chart-1..5`, é trocar as constantes de cor dessas telas.
+- **Abas fora do padrão `data-ui="tab"`** (ex.: as duas abas de `pedidos.html`,
+  as de `gestao_comercial.html`) seguem o visual antigo. Retomar marcando-as com
+  `data-ui="tabs"`/`data-ui="tab"`; a camada `kuryos-erp-ref.css` já cobre.
+
 ## UI — pendências da repaginação Apple (13/10/2026) — dívida técnica
 
 - **Cores claras fixas no CSS de cada tela.** A camada global remapeia no modo escuro os fundos/cores mais comuns escritos em `style=""` e os casos achados pelo detector de "clarões" (fundo com luminância > 0,78 no tema escuro) nas 42 telas operacionais com dados simulados. Com dados reais podem surgir outros (badges e linhas geradas por JS). Retomar: rodar o detector (`glare.js`, descrito em `CLONAGEM_UI_UX.md` › Repaginação Apple) contra a base real e acrescentar a regra em `public/shared/kuryos-ui-components.css`, bloco "Modo escuro: componentes legados".

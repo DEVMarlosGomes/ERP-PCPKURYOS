@@ -166,7 +166,11 @@
     var appRoot = document.getElementById('root');
     var appMain = document.querySelector('[data-app-main="true"]');
     var topbar = document.querySelector('.kuryos-enterprise-topbar');
-    var availableHeight = Math.max(320, window.innerHeight - (topbar ? topbar.getBoundingClientRect().height : 68)) + 'px';
+    // Menu no topo do aspecto ERP (kuryos-erp-ref.css, desktop): desconta a
+    // barra também, senão o app React fica 64 px mais alto que a janela.
+    var nav = document.getElementById('unified-navbar');
+    var menuTopo = document.documentElement.classList.contains('kr-topnav') && window.innerWidth > 980 && nav ? nav.getBoundingClientRect().height : 0;
+    var availableHeight = Math.max(320, window.innerHeight - (topbar ? topbar.getBoundingClientRect().height : 68) - menuTopo) + 'px';
     if (appRoot) {
       appRoot.style.setProperty('transition', 'none', 'important');
       appRoot.style.setProperty('min-height', availableHeight, 'important');
@@ -196,6 +200,8 @@
 
     syncAppViewport();
     window.addEventListener('resize', syncAppViewport, { passive: true });
+    // A barra do topo pode crescer (2 linhas em tela estreita) sem resize da janela.
+    if (window.ResizeObserver) new ResizeObserver(syncAppViewport).observe(sidebar);
 
     var search = bar.querySelector('.kuryos-global-search');
     var input = search.querySelector('input');

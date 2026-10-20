@@ -12,31 +12,19 @@
     });
   }
 
+  // Cores, grade, legenda e tooltip dos gráficos vêm do tema global
+  // (shared/kuryos-erp-ref.js), que lê os tokens e refaz tudo ao trocar o tema.
+  // Aqui sobra só o ritmo da animação. Antes esta função rodava a cada mudança
+  // do DOM, regravava chart.options.*.labels/ticks/grid sobre eles mesmos (o
+  // que estoura a pilha nos proxies do Chart.js 4: "Maximum call stack size
+  // exceeded") e trocava o objeto de Chart.defaults.animation inteiro ("this._fn
+  // is not a function" ao destruir um gráfico animando). Também pintava texto e
+  // grade de verde, sobra de um tema antigo.
+  var animacaoAjustada = false;
   function chartTheme() {
-    if (!window.Chart) return;
-    var dark = document.documentElement.classList.contains('dark') || document.documentElement.dataset.effectiveTheme === 'dark';
-    var text = dark ? '#b5c4bb' : '#64736a';
-    var grid = dark ? 'rgba(154,171,161,.14)' : 'rgba(64,105,82,.12)';
-    Chart.defaults.color = text;
-    Chart.defaults.borderColor = grid;
-    Chart.defaults.animation = { duration: 720, easing: 'easeOutQuart' };
-    Chart.defaults.plugins.legend.labels.usePointStyle = true;
-    Chart.defaults.plugins.legend.labels.pointStyle = 'circle';
-    Chart.defaults.plugins.legend.labels.boxWidth = 7;
-    Chart.defaults.plugins.legend.labels.boxHeight = 7;
-    Object.values(Chart.instances || {}).forEach(function (chart) {
-      if (chart.options.plugins && chart.options.plugins.legend) {
-        chart.options.plugins.legend.labels = chart.options.plugins.legend.labels || {};
-        chart.options.plugins.legend.labels.color = text;
-      }
-      Object.values(chart.options.scales || {}).forEach(function (scale) {
-        scale.ticks = scale.ticks || {};
-        scale.grid = scale.grid || {};
-        scale.ticks.color = text;
-        scale.grid.color = grid;
-      });
-      chart.update('none');
-    });
+    if (!window.Chart || animacaoAjustada) return;
+    animacaoAjustada = true;
+    Object.assign(Chart.defaults.animation, { duration: 720, easing: 'easeOutQuart' });
   }
 
   function setupMobileFilters() {
