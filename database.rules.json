@@ -56,7 +56,11 @@
       ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'rh')",
       "$uid": {
         ".read": "auth != null",
-        ".write": "auth != null && ((auth.uid == $uid && !data.exists()) || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')"
+        ".write": "auth != null && ((auth.uid == $uid && !data.exists()) || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')",
+        // Quem cria o próprio perfil (aba Cadastrar / login sem perfil) só nasce
+        // 'pending', sem funções, módulos nem tenant: antes dava para se gravar
+        // já como admin. Só o ADM atribui acesso.
+        ".validate": "root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || (newData.child('role').val() == 'pending' && !newData.child('funcoes').exists() && !newData.child('modulos').exists() && !newData.child('modulosDasFuncoes').exists() && !newData.child('tenant_id').exists())"
       }
     },
     "usuarios_publico": {

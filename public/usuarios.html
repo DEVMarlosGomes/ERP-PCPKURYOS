@@ -265,6 +265,35 @@
       background: none; border: none; color: var(--accent); font-size: 12px;
       cursor: pointer; font-family: inherit; text-decoration: underline; padding: 0;
     }
+
+    /* ── Cadastro / edição de usuário pelo ADM ── */
+    .badge.desativado {
+      background: color-mix(in srgb, var(--critical) 14%, var(--panel));
+      color: var(--critical);
+    }
+    tr.linha-desativada td { opacity: .62; }
+    .campo { margin-bottom: 14px; }
+    .campo label {
+      display: block; font-size: 12px; font-weight: 600; color: var(--ink-mute);
+      margin-bottom: 5px;
+    }
+    .campo input {
+      width: 100%; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px;
+      background: var(--bg); color: var(--ink); font: inherit; font-size: 14px;
+    }
+    .campo input:focus { outline: none; border-color: var(--accent); }
+    .campo input[readonly] { background: color-mix(in srgb, var(--ink) 5%, var(--panel)); color: var(--ink-mute); }
+    .campo .dica { font-size: 11.5px; color: var(--ink-mute); margin-top: 4px; line-height: 1.45; }
+    .secao-rot { font-size: 12px; font-weight: 700; color: var(--ink); margin: 6px 0 6px; }
+    .erro-form {
+      display: none; font-size: 12.5px; line-height: 1.5; padding: 9px 12px; border-radius: 8px; margin-bottom: 12px;
+      background: color-mix(in srgb, var(--critical) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--critical) 30%, transparent); color: var(--critical);
+    }
+    .erro-form.on { display: block; }
+    .acoes-conta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+    .btn-perigo { color: var(--critical); }
+    .btn-perigo:hover { border-color: var(--critical); color: var(--critical); }
   </style>
 </head>
 <body class="kuryos-theme has-sidebar" data-kuryos-operational="">
@@ -275,8 +304,9 @@
       <h1>Gerenciamento de Usuários</h1>
       <div class="subtitle">Aprove cadastros e gerencie os perfis de acesso ao sistema PCP Kuryos</div>
     </div>
+    <button type="button" class="btn-salvar" id="btnNovoUsuario" style="display:none">+ Novo usuário</button>
   </div>
-  
+
   <div class="card" data-ui="surface">
     <div class="table-container" data-ui="table-scroll">
       <table>
@@ -288,11 +318,12 @@
             <th>Status/Perfil</th>
             <th>Alterar Função</th>
             <th>Módulos liberados</th>
+            <th>Conta</th>
           </tr>
         </thead>
         <tbody id="users-tbody">
           <tr>
-            <td colspan="6" style="text-align:center; color:var(--ink-mute); padding:30px;">Carregando lista de usuários...</td>
+            <td colspan="7" style="text-align:center; color:var(--ink-mute); padding:30px;">Carregando lista de usuários...</td>
           </tr>
         </tbody>
       </table>
@@ -347,6 +378,83 @@
   </div>
 </div>
 
+<!-- MODAL: novo usuário criado pelo ADM -->
+<div class="modal-bg" id="modalNovoBg">
+  <div class="modal">
+    <div class="modal-head" data-ui="dialog-head">
+      <div>
+        <h2>Novo usuário</h2>
+        <div class="sub">A conta já nasce liberada com as funções marcadas.</div>
+      </div>
+      <button class="modal-x" id="novoFechar" title="Fechar" aria-label="Fechar">×</button>
+    </div>
+    <div class="modal-body" data-ui="dialog-body">
+      <div class="erro-form" id="novoErro"></div>
+      <div class="campo">
+        <label for="novoNome">Nome completo</label>
+        <input type="text" id="novoNome" autocomplete="off" placeholder="Ex.: Yasmim Fantini">
+      </div>
+      <div class="campo">
+        <label for="novoEmail">E-mail</label>
+        <input type="email" id="novoEmail" autocomplete="off" placeholder="nome@kuryos.com.br">
+      </div>
+      <div class="campo">
+        <label for="novoSenha">Senha inicial (opcional)</label>
+        <input type="text" id="novoSenha" autocomplete="off" placeholder="Deixe em branco para a pessoa criar a dela">
+        <div class="dica">Em branco: a pessoa recebe um e-mail com um link para criar a própria senha (recomendado). Preenchida (mínimo 6 caracteres): passe a senha para ela, que pode trocar depois em "Esqueci minha senha".</div>
+      </div>
+      <div class="secao-rot">Funções</div>
+      <div id="novoFuncoes"></div>
+    </div>
+    <div class="modal-foot" data-ui="dialog-foot">
+      <span></span>
+      <div style="display:flex;gap:8px">
+        <button class="btn-mod" id="novoCancelar">Cancelar</button>
+        <button class="btn-salvar" id="novoSalvar">Criar usuário</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: editar conta (nome, link de senha, desativar/reativar) -->
+<div class="modal-bg" id="modalEditBg">
+  <div class="modal">
+    <div class="modal-head" data-ui="dialog-head">
+      <div>
+        <h2 id="editTitulo">Editar usuário</h2>
+        <div class="sub" id="editSub"></div>
+      </div>
+      <button class="modal-x" id="editFechar" title="Fechar" aria-label="Fechar">×</button>
+    </div>
+    <div class="modal-body" data-ui="dialog-body">
+      <div class="erro-form" id="editErro"></div>
+      <div class="campo">
+        <label for="editNome">Nome completo</label>
+        <input type="text" id="editNome" autocomplete="off">
+      </div>
+      <div class="campo">
+        <label for="editEmail">E-mail</label>
+        <input type="email" id="editEmail" readonly>
+        <div class="dica">O e-mail é o login e não muda por aqui. Para trocar, crie um usuário novo com o e-mail certo e desative este.</div>
+      </div>
+      <div class="secao-rot">Conta</div>
+      <div class="acoes-conta">
+        <button type="button" class="btn-mod" id="editLinkSenha">✉ Enviar link para nova senha</button>
+        <button type="button" class="btn-mod btn-perigo" id="editDesativar">Desativar acesso</button>
+        <button type="button" class="btn-mod" id="editReativar">Reativar acesso</button>
+      </div>
+      <div class="dica" id="editDicaConta" style="font-size:11.5px;color:var(--ink-mute);margin-top:8px;line-height:1.45"></div>
+    </div>
+    <div class="modal-foot" data-ui="dialog-foot">
+      <span></span>
+      <div style="display:flex;gap:8px">
+        <button class="btn-mod" id="editCancelar">Cancelar</button>
+        <button class="btn-salvar" id="editSalvar">Salvar nome</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <!-- Firebase App Configuration -->
@@ -384,6 +492,7 @@
         const p = snap.val();
         if (p && p.role === 'admin' && !jaEscutandoUsuarios) {
           jaEscutandoUsuarios = true;
+          document.getElementById('btnNovoUsuario').style.display = '';
           listenToUsers();
         } else if (p && p.role !== 'admin') {
           // Achado do agente de auditoria (4a rodada): o menu mostra este
@@ -394,7 +503,7 @@
           // Marcar módulos é exclusivo de ADM (pedido do usuário), e a regra
           // de banco em usuarios/$uid já garante isso do lado do servidor.
           document.getElementById('users-tbody').innerHTML =
-            '<tr><td colspan="6" style="text-align:center; color:var(--ink-mute); padding:30px;">' +
+            '<tr><td colspan="7" style="text-align:center; color:var(--ink-mute); padding:30px;">' +
             'Apenas administradores podem gerenciar usuários e módulos de acesso.</td></tr>';
         }
       });
@@ -428,19 +537,19 @@
       
       const uids = Object.keys(users);
       if (uids.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--ink-mute);">Nenhum usuário cadastrado.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--ink-mute);">Nenhum usuário cadastrado.</td></tr>';
         return;
       }
       usuariosCache = users;
       sincronizarUsuariosPublico(users);
 
-      // Sort users: pendings first, then by date desc
+      // Pendentes primeiro (pedem ação), desativados por último, data desc no meio.
+      const grupo = u => u.desativado ? 2 : (u.role === 'pending' ? 0 : 1);
       const sortedUsers = uids.map(uid => ({
         uid: uid,
         ...users[uid]
       })).sort((a, b) => {
-        if (a.role === 'pending' && b.role !== 'pending') return -1;
-        if (a.role !== 'pending' && b.role === 'pending') return 1;
+        if (grupo(a) !== grupo(b)) return grupo(a) - grupo(b);
         return new Date(b.created_at || 0) - new Date(a.created_at || 0);
       });
       
@@ -452,9 +561,12 @@
         const badgeClasses = { 'pending': 'pending', 'production': 'production', 'admin': 'admin', 'pcp': 'pcp', 'rotulagem': 'rotulagem', 'logistica': 'pcp', 'rh': 'rh', 'gestor': 'gestor', 'qualidade': 'qualidade', 'comercial': 'comercial', 'pd': 'pd' };
         
         const funcoesU = funcoesAtivas(u);
-        const badgesHtml = funcoesU.length
+        const badgesHtml = u.desativado
+          ? '<span class="badge desativado">Desativado</span>'
+          : funcoesU.length
           ? '<div class="badges">' + funcoesU.map(function(f) { return '<span class="badge ' + (badgeClasses[f] || 'pending') + '">' + escapeHtml(rotuloFuncao(f)) + '</span>'; }).join('') + '</div>'
           : '<span class="badge pending">Pendente</span>';
+        if (u.desativado) tr.className = 'linha-desativada';
         
         // Disable dropdown for the logged-in administrator itself to prevent accidental lockouts!
         const selfLogged = firebase.auth().currentUser.uid === u.uid;
@@ -468,16 +580,18 @@
           <td>${badgesHtml}</td>
           <td>
             <button type="button" class="btn-funcoes" ${disableAttr} title="${selfLogged ? 'Você não pode alterar as próprias funções' : 'Escolher uma ou mais funções'}">
-              <span>${escapeHtml(funcoesU.length ? funcoesU.map(rotuloFuncao).join(' + ') : 'Pendente')}</span><span class="seta">▾</span>
+              <span>${escapeHtml(u.desativado ? 'Desativado' : funcoesU.length ? funcoesU.map(rotuloFuncao).join(' + ') : 'Pendente')}</span><span class="seta">▾</span>
             </button>
           </td>
           <td>${celulaModulos(u, selfLogged)}</td>
+          <td><button type="button" class="btn-mod btn-editar">✎ Editar</button></td>
         `;
 
         const btnFunc = tr.querySelector('.btn-funcoes');
         if (btnFunc && !selfLogged) btnFunc.addEventListener('click', () => abrirFuncoes(u.uid));
-        const btnMod = tr.querySelector('.btn-mod');
+        const btnMod = tr.querySelector('.btn-mod:not(.btn-editar)');
         if (btnMod) btnMod.addEventListener('click', () => abrirModulos(u.uid));
+        tr.querySelector('.btn-editar').addEventListener('click', () => abrirEdicao(u.uid));
         tbody.appendChild(tr);
       });
     });
@@ -502,7 +616,7 @@
     }
     if (u.role === 'pending' && !funcoesAtivas(u).length) {
       return '<span style="color:var(--ink-mute);font-size:12px">—</span>' +
-             '<div class="mod-resumo">Defina um perfil primeiro</div>';
+             '<div class="mod-resumo">' + (u.desativado ? 'Sem acesso' : 'Defina um perfil primeiro') + '</div>';
     }
     const personalizado = !!(u.modulos && typeof u.modulos === 'object') && u.modulosDasFuncoes !== true;
     const ativos = window.modulosDoUsuario(u);
@@ -649,19 +763,41 @@
     return { modulos: marcados, modulosDasFuncoes: true };
   }
 
+  function htmlFuncoes(marcadas) {
+    return FUNCOES.map(function(f) {
+      return '<label class="mod-item">' +
+        '<input type="checkbox" data-funcao="' + f.id + '"' + (marcadas.indexOf(f.id) !== -1 ? ' checked' : '') + '>' +
+        '<span><span class="rot">' + escapeHtml(f.rot) + '</span>' +
+        '<div class="dsc">' + escapeHtml(f.dsc) + '</div></span></label>';
+    }).join('');
+  }
+  function funcoesMarcadas(containerId) {
+    var marcadas = [];
+    document.querySelectorAll('#' + containerId + ' input[data-funcao]').forEach(function(chk) { if (chk.checked) marcadas.push(chk.getAttribute('data-funcao')); });
+    return marcadas.sort(function(a, b) { return PRIORIDADE.indexOf(a) - PRIORIDADE.indexOf(b); });
+  }
+  // Campos de acesso a partir das funções marcadas -- o mesmo cálculo serve
+  // para trocar funções de quem existe e para o usuário criado pelo ADM.
+  function perfilDasFuncoes(marcadas, anterior) {
+    var role = marcadas[0] || 'pending';
+    var funcoes = null;
+    if (marcadas.length) { funcoes = {}; marcadas.forEach(function(f) { funcoes[f] = true; }); }
+    var perfil = { role: role, funcoes: funcoes, modulos: null, modulosDasFuncoes: null };
+    if (precisaModulosGravados({ role: role, funcoes: funcoes })) Object.assign(perfil, modulosGravadosDasFuncoes(role, funcoes));
+    // O CRM/P&D incorporado lê erp/kuryos: as regras liberam por tenant_id.
+    if (!anterior.tenant_id && marcadas.some(function(f) { return ['admin', 'pcp', 'comercial', 'pd', 'qualidade'].indexOf(f) >= 0; })) perfil.tenant_id = 'kuryos';
+    return perfil;
+  }
+
   function abrirFuncoes(uid) {
     var u = usuariosCache[uid];
     if (!u) return;
     funcUidAtual = uid;
-    var atuais = funcoesAtivas(u);
-    document.getElementById('funcTitulo').textContent = 'Funções de ' + (u.nome || u.email || uid);
+    // Desativado: sugere as funções que tinha antes, para reativar com um clique.
+    var atuais = u.desativado ? Object.keys(u.funcoes_antes_desativar || {}) : funcoesAtivas(u);
+    document.getElementById('funcTitulo').textContent = (u.desativado ? 'Reativar ' : 'Funções de ') + (u.nome || u.email || uid);
     document.getElementById('funcSub').textContent = u.email || '';
-    document.getElementById('funcLista').innerHTML = FUNCOES.map(function(f) {
-      return '<label class="mod-item">' +
-        '<input type="checkbox" data-funcao="' + f.id + '"' + (atuais.indexOf(f.id) !== -1 ? ' checked' : '') + '>' +
-        '<span><span class="rot">' + escapeHtml(f.rot) + '</span>' +
-        '<div class="dsc">' + escapeHtml(f.dsc) + '</div></span></label>';
-    }).join('');
+    document.getElementById('funcLista').innerHTML = htmlFuncoes(atuais);
     document.getElementById('modalFuncBg').classList.add('open');
   }
   function fecharFuncoes() {
@@ -675,26 +811,24 @@
       return;
     }
     if (funcUidAtual === firebase.auth().currentUser.uid) { alert('Você não pode alterar as próprias funções.'); return; }
-    var marcadas = [];
-    document.querySelectorAll('#funcLista input[data-funcao]').forEach(function(chk) { if (chk.checked) marcadas.push(chk.getAttribute('data-funcao')); });
-    marcadas.sort(function(a, b) { return PRIORIDADE.indexOf(a) - PRIORIDADE.indexOf(b); });
+    var marcadas = funcoesMarcadas('funcLista');
     var anterior = usuariosCache[funcUidAtual] || {};
+    if (anterior.desativado && !marcadas.length) { alert('Para reativar, marque pelo menos uma função.'); return; }
     var tinhaPersonalizado = !!(anterior.modulos && typeof anterior.modulos === 'object') && anterior.modulosDasFuncoes !== true;
     if (tinhaPersonalizado && !confirm('Este usuário tem módulos personalizados.\n\nTrocar as funções apaga essa personalização e ele passa a usar o padrão das funções marcadas.\n\nContinuar?')) return;
-    var role = marcadas[0] || 'pending';
-    var funcoes = null;
-    if (marcadas.length) { funcoes = {}; marcadas.forEach(function(f) { funcoes[f] = true; }); }
-    var update = { role: role, funcoes: funcoes, modulos: null, modulosDasFuncoes: null };
-    if (precisaModulosGravados({ role: role, funcoes: funcoes })) Object.assign(update, modulosGravadosDasFuncoes(role, funcoes));
-    // O CRM/P&D incorporado lê erp/kuryos: as regras liberam por tenant_id.
-    if (!anterior.tenant_id && marcadas.some(function(f) { return ['admin', 'pcp', 'comercial', 'pd', 'qualidade'].indexOf(f) >= 0; })) update.tenant_id = 'kuryos';
+    var update = perfilDasFuncoes(marcadas, anterior);
+    if (anterior.desativado) {
+      update.desativado = null; update.desativado_em = null; update.desativado_por = null; update.funcoes_antes_desativar = null;
+      update.reativado_em = new Date().toISOString();
+    }
     var btn = document.getElementById('funcSalvar');
     btn.disabled = true;
     database.ref('usuarios/' + funcUidAtual).update(update)
       .then(function() {
         btn.disabled = false;
         fecharFuncoes();
-        showToast(marcadas.length ? 'Funções atualizadas: ' + marcadas.map(rotuloFuncao).join(' + ') + '.' : 'Usuário voltou a Pendente.');
+        showToast(anterior.desativado ? 'Acesso reativado: ' + marcadas.map(rotuloFuncao).join(' + ') + '.'
+          : marcadas.length ? 'Funções atualizadas: ' + marcadas.map(rotuloFuncao).join(' + ') + '.' : 'Usuário voltou a Pendente.');
       })
       .catch(function(err) { btn.disabled = false; console.error(err); showToast('Erro ao salvar funções: ' + err.message); });
   }
@@ -703,6 +837,220 @@
   document.getElementById('funcSalvar').addEventListener('click', salvarFuncoes);
   document.getElementById('modalFuncBg').addEventListener('click', function(ev) { if (ev.target === this) fecharFuncoes(); });
   document.addEventListener('keydown', function(ev) { if (ev.key === 'Escape') fecharFuncoes(); });
+
+  /* ══════════════════════════════════════════════════════════════════
+     CONTA DO USUÁRIO PELO ADM (20/10/2026): criar, editar nome, mandar
+     link de nova senha, desativar/reativar.
+     - Criar sem servidor: a conta do Firebase Auth nasce numa SEGUNDA
+       instância do app (createUserWithEmailAndPassword loga quem acabou de
+       ser criado -- na instância principal derrubaria a sessão do ADM).
+       O perfil em usuarios/{uid} é gravado pela instância principal, como ADM.
+     - Desativar em vez de excluir: apagar usuarios/{uid} deixaria o login
+       ativo e o nó vazio, que a regra deixa o próprio dono recriar; e o
+       nome segue nos apontamentos/OPs antigos. Desativado = sem função,
+       role 'pending' (nenhuma tela abre) e marca `desativado`.
+     ══════════════════════════════════════════════════════════════════ */
+  var editUidAtual = null;
+
+  function urlVoltaLogin() { return { url: location.origin + '/login' }; }
+
+  // Mesmo comportamento do login: domínio fora da lista autorizada do
+  // Firebase Auth manda o link sem o "voltar para o site".
+  function mandarLinkSenha(auth, email) {
+    return auth.sendPasswordResetEmail(email, urlVoltaLogin()).catch(function(err) {
+      if (err.code === 'auth/unauthorized-continue-uri' || err.code === 'auth/invalid-continue-uri') return auth.sendPasswordResetEmail(email);
+      throw err;
+    });
+  }
+
+  function instanciaCadastro() {
+    var app = firebase.initializeApp(firebaseConfig, 'cadastro-adm-' + Date.now());
+    var auth = app.auth();
+    if (kuryosIsLocalDev()) auth.useEmulator('http://localhost:9099', { disableWarnings: true });
+    auth.useDeviceLanguage();
+    return auth.setPersistence(firebase.auth.Auth.Persistence.NONE).then(function() { return { app: app, auth: auth }; });
+  }
+
+  // Senha que ninguém vê: só existe porque o Auth exige uma. A pessoa cria a
+  // dela pelo link que segue no e-mail.
+  function senhaDescartavel() {
+    var bytes = new Uint8Array(18);
+    crypto.getRandomValues(bytes);
+    return Array.prototype.map.call(bytes, function(b) { return ('0' + b.toString(16)).slice(-2); }).join('') + 'Aa1!';
+  }
+
+  function erroForm(id, msg) {
+    var el = document.getElementById(id);
+    el.textContent = msg || '';
+    el.classList.toggle('on', !!msg);
+  }
+
+  function abrirNovo() {
+    ['novoNome', 'novoEmail', 'novoSenha'].forEach(function(id) { document.getElementById(id).value = ''; });
+    document.getElementById('novoFuncoes').innerHTML = htmlFuncoes([]);
+    erroForm('novoErro', '');
+    document.getElementById('modalNovoBg').classList.add('open');
+    document.getElementById('novoNome').focus();
+  }
+  function fecharNovo() { document.getElementById('modalNovoBg').classList.remove('open'); }
+
+  function criarUsuario() {
+    if (!window.currentUser || window.currentUser.role !== 'admin') { alert('Acesso Negado: apenas administradores criam usuários.'); return; }
+    var nome = document.getElementById('novoNome').value.trim().replace(/\s+/g, ' ');
+    var email = document.getElementById('novoEmail').value.trim().toLowerCase();
+    var senha = document.getElementById('novoSenha').value;
+    var marcadas = funcoesMarcadas('novoFuncoes');
+    if (!nome) return erroForm('novoErro', 'Informe o nome.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return erroForm('novoErro', 'E-mail inválido.');
+    if (senha && senha.length < 6) return erroForm('novoErro', 'A senha inicial precisa de pelo menos 6 caracteres (ou deixe em branco).');
+    if (!marcadas.length) return erroForm('novoErro', 'Marque pelo menos uma função.');
+    var existente = Object.keys(usuariosCache).filter(function(uid) { return String(usuariosCache[uid].email || '').toLowerCase() === email; })[0];
+    if (existente) {
+      var ex = usuariosCache[existente];
+      return erroForm('novoErro', (ex.nome || email) + ' já está na lista' + (ex.desativado ? ' (desativado). Use Editar › Reativar acesso.' : '. Ajuste as funções na linha dele.'));
+    }
+    erroForm('novoErro', '');
+
+    var mandarLink = !senha;
+    var btn = document.getElementById('novoSalvar');
+    btn.disabled = true;
+    btn.textContent = 'Criando...';
+    var sec = null;
+    var aviso = '';
+    instanciaCadastro()
+      .then(function(s) { sec = s; return sec.auth.createUserWithEmailAndPassword(email, senha || senhaDescartavel()); })
+      .then(function(cred) {
+        var perfil = Object.assign({
+          nome: nome,
+          email: email,
+          created_at: new Date().toISOString(),
+          criado_por: firebase.auth().currentUser.uid,
+          criado_por_nome: window.currentUser.nome || null
+        }, perfilDasFuncoes(marcadas, {}));
+        return database.ref('usuarios/' + cred.user.uid).set(perfil).catch(function(err) {
+          // Sem perfil a conta não serve para nada e prenderia o e-mail:
+          // desfaz o login criado para o ADM poder tentar de novo.
+          return cred.user.delete().then(function() { throw err; }, function() { throw err; });
+        });
+      })
+      .then(function() {
+        if (!mandarLink) return;
+        return mandarLinkSenha(sec.auth, email).catch(function(err) {
+          aviso = ' Mas o e-mail com o link não saiu (' + err.code + '): use Editar › Enviar link para nova senha.';
+        });
+      })
+      .then(function() {
+        fecharNovo();
+        showToast(nome + ' criado como ' + marcadas.map(rotuloFuncao).join(' + ') + '.' +
+          (aviso || (mandarLink ? ' Link para criar a senha enviado para ' + email + '.' : ' Passe a senha inicial para a pessoa.')), aviso ? 9000 : 6000);
+      })
+      .catch(function(err) {
+        console.error(err);
+        var msg = 'Não foi possível criar: ' + err.message + (err.code ? ' (' + err.code + ')' : '');
+        if (err.code === 'auth/email-already-in-use') {
+          msg = 'Já existe um login com esse e-mail, mas sem perfil nesta lista (cadastro antigo incompleto). ' +
+                'Peça para a pessoa entrar uma vez em /login (se não lembrar a senha, "Esqueci minha senha"): ' +
+                'ela aparece aqui como Pendente e você marca as funções.';
+        } else if (err.code === 'auth/invalid-email') msg = 'E-mail inválido.';
+        else if (err.code === 'auth/weak-password') msg = 'Senha fraca demais (mínimo 6 caracteres).';
+        else if (err.code === 'auth/network-request-failed') msg = 'Sem conexão com a internet.';
+        erroForm('novoErro', msg);
+      })
+      .then(function() {
+        btn.disabled = false;
+        btn.textContent = 'Criar usuário';
+        if (sec) sec.auth.signOut().catch(function() {}).then(function() { return sec.app.delete(); }).catch(function() {});
+      });
+  }
+
+  function abrirEdicao(uid) {
+    var u = usuariosCache[uid];
+    if (!u) return;
+    editUidAtual = uid;
+    var proprio = uid === firebase.auth().currentUser.uid;
+    document.getElementById('editTitulo').textContent = 'Editar ' + (u.nome || u.email || uid);
+    document.getElementById('editSub').textContent = u.desativado
+      ? 'Desativado' + (u.desativado_em ? ' em ' + new Date(u.desativado_em).toLocaleDateString('pt-BR') : '')
+      : (u.created_at ? 'Cadastrado em ' + new Date(u.created_at).toLocaleDateString('pt-BR') : '');
+    document.getElementById('editNome').value = u.nome || '';
+    document.getElementById('editEmail').value = u.email || '';
+    document.getElementById('editLinkSenha').disabled = !u.email;
+    document.getElementById('editDesativar').style.display = u.desativado ? 'none' : '';
+    document.getElementById('editDesativar').disabled = proprio;
+    document.getElementById('editDesativar').title = proprio ? 'Você não pode desativar a própria conta' : '';
+    document.getElementById('editReativar').style.display = u.desativado ? '' : 'none';
+    document.getElementById('editDicaConta').textContent = u.desativado
+      ? 'Reativar abre a escolha de funções, já com as que ele tinha antes.'
+      : 'O link chega no e-mail da pessoa e serve uma vez só. Desativar tira todas as funções na hora; o histórico dela continua.';
+    erroForm('editErro', '');
+    document.getElementById('modalEditBg').classList.add('open');
+  }
+  function fecharEdicao() { document.getElementById('modalEditBg').classList.remove('open'); editUidAtual = null; }
+
+  function salvarNome() {
+    if (!editUidAtual) return;
+    if (!window.currentUser || window.currentUser.role !== 'admin') { alert('Acesso Negado.'); return; }
+    var nome = document.getElementById('editNome').value.trim().replace(/\s+/g, ' ');
+    if (!nome) return erroForm('editErro', 'Informe o nome.');
+    var uid = editUidAtual;
+    if (nome === (usuariosCache[uid] || {}).nome) { fecharEdicao(); return; }
+    var btn = document.getElementById('editSalvar');
+    btn.disabled = true;
+    // Caminho plano: só o campo nome; usuarios_publico acompanha pelo listener.
+    database.ref('usuarios/' + uid + '/nome').set(nome)
+      .then(function() { btn.disabled = false; fecharEdicao(); showToast('Nome atualizado.'); })
+      .catch(function(err) { btn.disabled = false; erroForm('editErro', 'Erro ao salvar: ' + err.message); });
+  }
+
+  function enviarLinkSenhaAdm() {
+    var u = usuariosCache[editUidAtual] || {};
+    if (!u.email) return;
+    var btn = document.getElementById('editLinkSenha');
+    btn.disabled = true;
+    mandarLinkSenha(firebase.auth(), u.email)
+      .then(function() { showToast('Link para nova senha enviado para ' + u.email + '.'); })
+      .catch(function(err) {
+        erroForm('editErro', err.code === 'auth/user-not-found'
+          ? 'Não existe login para ' + u.email + ' (perfil sem conta). Crie o usuário de novo com esse e-mail.'
+          : 'O e-mail não saiu: ' + err.message + ' (' + err.code + ')');
+      })
+      .then(function() { btn.disabled = false; });
+  }
+
+  function desativarUsuario() {
+    var uid = editUidAtual;
+    var u = usuariosCache[uid] || {};
+    if (!uid || uid === firebase.auth().currentUser.uid) return;
+    if (!window.currentUser || window.currentUser.role !== 'admin') { alert('Acesso Negado.'); return; }
+    if (!confirm('Desativar o acesso de ' + (u.nome || u.email) + '?\n\nEle perde todas as funções e não abre mais nenhuma tela. ' +
+                 'O nome continua no histórico. Dá para reativar depois.')) return;
+    var antes = funcoesAtivas(u);
+    var funcoesAntes = null;
+    if (antes.length) { funcoesAntes = {}; antes.forEach(function(f) { funcoesAntes[f] = true; }); }
+    database.ref('usuarios/' + uid).update({
+      role: 'pending', funcoes: null, modulos: null, modulosDasFuncoes: null,
+      desativado: true,
+      desativado_em: new Date().toISOString(),
+      desativado_por: firebase.auth().currentUser.uid,
+      funcoes_antes_desativar: funcoesAntes
+    })
+      .then(function() { fecharEdicao(); showToast((u.nome || u.email) + ' desativado.'); })
+      .catch(function(err) { erroForm('editErro', 'Erro ao desativar: ' + err.message); });
+  }
+
+  document.getElementById('btnNovoUsuario').addEventListener('click', abrirNovo);
+  document.getElementById('novoFechar').addEventListener('click', fecharNovo);
+  document.getElementById('novoCancelar').addEventListener('click', fecharNovo);
+  document.getElementById('novoSalvar').addEventListener('click', criarUsuario);
+  document.getElementById('modalNovoBg').addEventListener('click', function(ev) { if (ev.target === this) fecharNovo(); });
+  document.getElementById('editFechar').addEventListener('click', fecharEdicao);
+  document.getElementById('editCancelar').addEventListener('click', fecharEdicao);
+  document.getElementById('editSalvar').addEventListener('click', salvarNome);
+  document.getElementById('editLinkSenha').addEventListener('click', enviarLinkSenhaAdm);
+  document.getElementById('editDesativar').addEventListener('click', desativarUsuario);
+  document.getElementById('editReativar').addEventListener('click', function() { var uid = editUidAtual; fecharEdicao(); abrirFuncoes(uid); });
+  document.getElementById('modalEditBg').addEventListener('click', function(ev) { if (ev.target === this) fecharEdicao(); });
+  document.addEventListener('keydown', function(ev) { if (ev.key === 'Escape') { fecharNovo(); fecharEdicao(); } });
 
   // Seletor antigo de uma função só (mantido para compatibilidade).
   function updateUserRole(uid, newRole) {
@@ -738,13 +1086,15 @@
     });
   }
   
-  function showToast(text) {
+  var toastTimer = null;
+  function showToast(text, ms) {
     const toast = document.getElementById('toast');
     toast.textContent = text;
     toast.style.display = 'block';
-    setTimeout(() => {
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
       toast.style.display = 'none';
-    }, 3000);
+    }, ms || 3000);
   }
 </script>
 </body>

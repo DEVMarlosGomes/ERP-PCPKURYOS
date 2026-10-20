@@ -5,6 +5,15 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Esqueci minha senha + cadastro de usuário pelo ADM (20/10/2026)
+
+- **Pedido:** "esqueci minha senha" na tela de login e CRUD de usuários para o ADM em `usuarios.html`.
+- **Login:** "Esqueci minha senha" envia o link do Firebase (mesma resposta para e-mail inexistente; continueUrl `/login` com fallback se o domínio não estiver autorizado); a própria tela troca a senha com `?mode=resetPassword&oobCode=` (confere o código, pede a senha 2x, tira o código da URL). Conta desativada vê o motivo e sai; login sem perfil cria perfil `pending` (antes nunca aparecia para o ADM); `auth/invalid-credential` com mensagem amigável.
+- **Usuários (ADM):** "+ Novo usuário" (nome, e-mail, senha opcional — em branco manda link —, funções) cria a conta numa segunda instância do Firebase no navegador, sem derrubar a sessão do ADM e sem servidor; perfil com o mesmo cálculo de funções/módulos/tenant da janela de funções (`perfilDasFuncoes`). Coluna "Conta › Editar": nome, link de nova senha, **Desativar** (role `pending`, sem funções/módulos, guarda `funcoes_antes_desativar`) e **Reativar** (abre funções já marcadas). Não exclui: apagar o nó deixaria o login vivo e o nó recriável pelo dono.
+- **Regra (`database.rules.json`, NÃO publicada):** `.validate` em `usuarios/$uid` — quem cria o próprio perfil só nasce `pending`, sem funções/módulos/tenant. Antes qualquer pessoa podia se cadastrar pela aba pública e gravar `role: admin`.
+- **Validação:** emuladores Auth + Database (JRE portátil no scratchpad) + Chrome via Playwright: 55/55 (`scratchpad/e2e/e2e.js`) — regras (6), esqueci/troca de senha (13), CRUD do ADM (36, incl. 375 px). Pendências em MELHORIAS › Segurança.
+- **Arquivos ativos:** nenhum após o commit.
+
 ### Claude — Ajustes P&D → CRM → Cadastros, Fase 1 (15/10/2026)
 
 - **Pedido:** plano aprovado em `PLANO_PD_CRM_AJUSTES.md` (7 fases). **Fase 1 publicada.**

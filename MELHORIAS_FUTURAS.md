@@ -546,6 +546,26 @@ dedicado por tela em vez de fixes pontuais:
 
 ## Segurança / Regras de Acesso
 
+- **Contas de usuário: o que ficou de fora do CRUD do ADM (20/10/2026).**
+  `usuarios.html` cria, edita o nome, manda link de senha e desativa/reativa
+  sem servidor (conta nasce numa segunda instância do Firebase no navegador).
+  Ficou para depois, porque exige Admin SDK (servidor do Render, que dorme no
+  plano grátis): (1) **trocar o e-mail** de login de alguém — hoje o caminho é
+  criar outro usuário e desativar o antigo; (2) **apagar a conta do Auth** —
+  "Desativar" tira todo o acesso, mas o login continua existindo; (3) derrubar
+  a sessão aberta na hora: quem é desativado com a tela aberta só sai na
+  próxima carga de página. Retomar: callable `gerenciarUsuario` em
+  `functions/index.js` (`admin.auth().updateUser/deleteUser/revokeRefreshTokens`).
+- **Link do "Esqueci minha senha" ainda abre a página do Firebase (operação,
+  não código).** A tela `login.html` já troca a senha sozinha quando recebe
+  `?mode=resetPassword&oobCode=...`. Para o e-mail cair nela: Console do
+  Firebase (`erpkuryos`) › Authentication › Templates › Redefinição de senha ›
+  editar o URL de ação para `https://<domínio do PCP>/login`, e incluir o
+  domínio da Vercel em Authentication › Settings › Domínios autorizados (sem
+  isso o "voltar para o site" do link é descartado — o envio continua
+  funcionando, com fallback no código). No mesmo lugar dá para traduzir o
+  modelo do e-mail para português.
+
 - **Desmarcar um módulo não revoga a ESCRITA no banco** (limite conhecido,
   aceito ao publicar o acesso por módulo em 2026-09-07). Os checkboxes por
   usuário valem nas duas pontas, mas de forma **aditiva**: a regra do banco

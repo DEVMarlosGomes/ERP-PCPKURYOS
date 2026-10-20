@@ -191,6 +191,41 @@
       color: color-mix(in srgb, var(--warn) 65%, black);
       display: block;
     }
+
+    .btn:disabled {
+      opacity: .55;
+      cursor: wait;
+    }
+
+    .link-btn {
+      display: block;
+      margin: 16px auto 0;
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: var(--font-ui);
+      cursor: pointer;
+      padding: 4px;
+    }
+
+    .link-btn:hover {
+      text-decoration: underline;
+    }
+
+    .form-title {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .form-hint {
+      font-size: 13px;
+      color: var(--ink-mute);
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
   </style>
 </head>
 <body class="kuryos-theme">
@@ -220,8 +255,37 @@
       <input type="password" id="login-password" required placeholder="Sua senha">
     </div>
     <button type="submit" class="btn">Entrar no Sistema</button>
+    <button type="button" class="link-btn" onclick="switchTab('forgot')">Esqueci minha senha</button>
   </form>
-  
+
+  <!-- Esqueci minha senha: o Firebase manda por e-mail um link de uso único -->
+  <form id="form-forgot" onsubmit="handleForgot(event)" style="display:none;">
+    <div class="form-title">Esqueci minha senha</div>
+    <p class="form-hint">Informe o e-mail da sua conta. Enviaremos um link para você criar uma senha nova.</p>
+    <div class="form-group">
+      <label for="forgot-email">E-mail</label>
+      <input type="email" id="forgot-email" required placeholder="exemplo@kuryos.com" autocomplete="email">
+    </div>
+    <button type="submit" class="btn">Enviar link</button>
+    <button type="button" class="link-btn" onclick="switchTab('login')">Voltar para o login</button>
+  </form>
+
+  <!-- Nova senha: aberto pelo link do e-mail (?mode=resetPassword&oobCode=...) -->
+  <form id="form-newpass" onsubmit="handleNewPassword(event)" style="display:none;">
+    <div class="form-title">Criar nova senha</div>
+    <p class="form-hint" id="newpass-hint">Conferindo o link...</p>
+    <div class="form-group">
+      <label for="newpass-password">Nova senha</label>
+      <input type="password" id="newpass-password" required minlength="6" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+    </div>
+    <div class="form-group">
+      <label for="newpass-confirm">Repita a nova senha</label>
+      <input type="password" id="newpass-confirm" required minlength="6" placeholder="Digite de novo" autocomplete="new-password">
+    </div>
+    <button type="submit" class="btn" id="newpass-btn" disabled>Salvar nova senha</button>
+    <button type="button" class="link-btn" onclick="sairDaTrocaDeSenha()">Voltar para o login</button>
+  </form>
+
   <!-- Form Cadastro -->
   <form id="form-register" onsubmit="handleRegister(event)" style="display:none;">
     <div class="form-group">
@@ -269,21 +333,37 @@
 
   const auth = firebase.auth();
   const db = firebase.database();
-  
+  // E-mail de troca de senha no idioma do navegador (pt-BR na fábrica).
+  auth.useDeviceLanguage();
+
+  // Código do link "Esqueci minha senha" enquanto a tela de nova senha está
+  // aberta. Com ele presente, quem já está logado NÃO é redirecionado --
+  // senão a troca de senha some antes de a pessoa digitar.
+  var codigoTrocaSenha = null;
+
+  const MSG_DESATIVADO = 'Seu acesso foi desativado pelo administrador. Se isso for engano, procure o administrador do PCP.';
+
   // Check URL query parameters for pending status
   window.onload = function() {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('status') === 'pending') {
+    if (params.get('mode') === 'resetPassword' && params.get('oobCode')) {
+      abrirNovaSenha(params.get('oobCode'));
+    } else if (params.get('status') === 'pending') {
       showFeedback('warning', 'Acesso pendente: Sua conta foi criada, mas ainda não foi ativada por um administrador. Entre em contato para liberação.');
     }
-    
+
     // Check if user is already logged in but pending
     auth.onAuthStateChanged(user => {
       if (user) {
         db.ref('usuarios/' + user.uid).once('value')
           .then(snap => {
             const profile = snap.val();
-            if (profile && profile.role !== 'pending') {
+            if (codigoTrocaSenha) return;
+            if (profile && profile.desativado) {
+              // auth_check manda para cá com ?status=pending; aqui dá o motivo certo.
+              showFeedback('error', MSG_DESATIVADO);
+              auth.signOut();
+            } else if (profile && profile.role !== 'pending') {
               // Already approved, redirect
               redirectUser(profile.role);
             }
@@ -294,28 +374,123 @@
       }
     });
   };
-  
+
+  // login | register | forgot | newpass. As abas só aparecem em login/cadastro.
   function switchTab(mode) {
-    const tabLogin = document.getElementById('tab-login');
-    const tabRegister = document.getElementById('tab-register');
-    const formLogin = document.getElementById('form-login');
-    const formRegister = document.getElementById('form-register');
     const feedback = document.getElementById('feedback');
-    
     feedback.className = 'feedback-message';
     feedback.style.display = 'none';
-    
-    if (mode === 'login') {
-      tabLogin.classList.add('active');
-      tabRegister.classList.remove('active');
-      formLogin.style.display = 'block';
-      formRegister.style.display = 'none';
-    } else {
-      tabLogin.classList.remove('active');
-      tabRegister.classList.add('active');
-      formLogin.style.display = 'none';
-      formRegister.style.display = 'block';
+
+    document.getElementById('tab-login').classList.toggle('active', mode === 'login');
+    document.getElementById('tab-register').classList.toggle('active', mode === 'register');
+    document.querySelector('.tabs').style.display = (mode === 'login' || mode === 'register') ? '' : 'none';
+    ['login', 'register', 'forgot', 'newpass'].forEach(function(m) {
+      document.getElementById('form-' + m).style.display = m === mode ? 'block' : 'none';
+    });
+    if (mode === 'forgot') {
+      // Traz o e-mail que a pessoa já digitou no login, se houver.
+      const digitado = document.getElementById('login-email').value.trim();
+      if (digitado) document.getElementById('forgot-email').value = digitado;
+      document.getElementById('forgot-email').focus();
     }
+  }
+
+  /* ── Esqueci minha senha ──────────────────────────────────────────────
+     O link do e-mail volta para esta tela (?mode=resetPassword&oobCode=...)
+     quando o modelo de e-mail do Firebase aponta para cá; com o modelo
+     padrão, a troca acontece na página do próprio Firebase e o "Continuar"
+     traz a pessoa de volta para o login. As duas formas funcionam. */
+  function enviarLinkSenha(email) {
+    const volta = { url: location.origin + '/login' };
+    return auth.sendPasswordResetEmail(email, volta).catch(function(err) {
+      // Domínio do site fora da lista autorizada do Firebase Auth: manda o
+      // link sem o "voltar para o site" em vez de não mandar nada.
+      if (err.code === 'auth/unauthorized-continue-uri' || err.code === 'auth/invalid-continue-uri') {
+        return auth.sendPasswordResetEmail(email);
+      }
+      throw err;
+    });
+  }
+
+  function handleForgot(e) {
+    e.preventDefault();
+    const email = document.getElementById('forgot-email').value.trim();
+    const btn = document.querySelector('#form-forgot .btn');
+    btn.disabled = true;
+    enviarLinkSenha(email)
+      .catch(function(err) {
+        // Conta inexistente recebe a MESMA resposta de sucesso: a tela não
+        // pode servir para descobrir quais e-mails têm acesso ao sistema.
+        if (err.code === 'auth/user-not-found') return;
+        throw err;
+      })
+      .then(function() {
+        btn.disabled = false;
+        switchTab('login');
+        document.getElementById('login-email').value = email;
+        showFeedback('success', 'Se existir uma conta com ' + email + ', enviamos um link para criar uma nova senha. Confira a caixa de entrada e o spam.');
+      })
+      .catch(function(err) {
+        btn.disabled = false;
+        let msg = 'Não foi possível enviar o link: ' + err.message + ' (' + err.code + ')';
+        if (err.code === 'auth/invalid-email') msg = 'Formato de e-mail inválido.';
+        else if (err.code === 'auth/too-many-requests') msg = 'Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo.';
+        else if (err.code === 'auth/network-request-failed') msg = 'Sem conexão com a internet. Confira a rede e tente de novo.';
+        showFeedback('error', msg);
+      });
+  }
+
+  function abrirNovaSenha(codigo) {
+    codigoTrocaSenha = codigo;
+    switchTab('newpass');
+    auth.verifyPasswordResetCode(codigo)
+      .then(function(email) {
+        document.getElementById('newpass-hint').textContent = 'Conta: ' + email + '. Escolha uma senha nova com pelo menos 6 caracteres.';
+        document.getElementById('newpass-btn').disabled = false;
+        document.getElementById('login-email').value = email;
+        document.getElementById('newpass-password').focus();
+      })
+      .catch(function() {
+        sairDaTrocaDeSenha();
+        showFeedback('error', 'Este link de troca de senha expirou ou já foi usado. Peça um novo em "Esqueci minha senha".');
+      });
+  }
+
+  // Tira o código da URL: recarregar a página não reabre um link já gasto.
+  function sairDaTrocaDeSenha() {
+    codigoTrocaSenha = null;
+    history.replaceState(null, '', location.pathname);
+    switchTab('login');
+  }
+
+  function handleNewPassword(e) {
+    e.preventDefault();
+    const pass = document.getElementById('newpass-password').value;
+    const confirma = document.getElementById('newpass-confirm').value;
+    if (pass !== confirma) {
+      showFeedback('error', 'As duas senhas não são iguais.');
+      return;
+    }
+    const btn = document.getElementById('newpass-btn');
+    btn.disabled = true;
+    auth.confirmPasswordReset(codigoTrocaSenha, pass)
+      .then(function() {
+        document.getElementById('form-newpass').reset();
+        sairDaTrocaDeSenha();
+        showFeedback('success', 'Senha alterada. Entre com a nova senha.');
+        document.getElementById('login-password').focus();
+      })
+      .catch(function(err) {
+        btn.disabled = false;
+        if (err.code === 'auth/weak-password') {
+          showFeedback('error', 'Senha fraca demais. Use pelo menos 6 caracteres.');
+        } else if (err.code === 'auth/expired-action-code' || err.code === 'auth/invalid-action-code') {
+          sairDaTrocaDeSenha();
+          showFeedback('error', 'Este link de troca de senha expirou ou já foi usado. Peça um novo em "Esqueci minha senha".');
+        } else {
+          showFeedback('error', 'Não foi possível trocar a senha: ' + err.message + ' (' + err.code + ')');
+        }
+      });
   }
   
   function showFeedback(type, text) {
@@ -342,9 +517,21 @@
         return db.ref('usuarios/' + cred.user.uid).once('value')
           .then(snap => {
             const profile = snap.val();
-            if (!profile || profile.role === 'pending') {
-              showFeedback('error', 'Acesso pendente: Sua conta ainda não foi aprovada pelo Administrador.');
+            if (profile && profile.desativado) {
+              showFeedback('error', MSG_DESATIVADO);
               auth.signOut();
+            } else if (!profile || profile.role === 'pending') {
+              showFeedback('error', 'Acesso pendente: Sua conta ainda não foi aprovada pelo Administrador.');
+              // Login sem perfil (cadastro antigo que falhou no meio) nunca
+              // aparecia na lista do ADM para ser liberado. Cria o perfil
+              // pendente agora; a regra do banco só aceita 'pending' aqui.
+              const criarPendente = profile ? Promise.resolve() : db.ref('usuarios/' + cred.user.uid).set({
+                nome: email.split('@')[0],
+                email: email.toLowerCase(),
+                role: 'pending',
+                created_at: new Date().toISOString()
+              }).catch(err => console.warn('Perfil pendente não criado:', err.message));
+              criarPendente.then(() => auth.signOut());
             } else {
               redirectUser(profile.role);
             }
@@ -355,8 +542,10 @@
       })
       .catch(err => {
         let msg = 'Erro ao realizar login. Verifique seu e-mail e senha.';
-        if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-          msg = 'E-mail ou senha incorretos.';
+        // invalid-credential: o que o Firebase devolve hoje no lugar dos dois
+        // códigos antigos, com a proteção contra enumeração de e-mail ligada.
+        if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-login-credentials') {
+          msg = 'E-mail ou senha incorretos. Se esqueceu a senha, use "Esqueci minha senha".';
         } else if (err.code === 'auth/invalid-email') {
           msg = 'Formato de e-mail inválido.';
         } else {
