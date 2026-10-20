@@ -1,7 +1,7 @@
 /* Aspecto do ERP (erpkuryos.web.app) no PCP -- comportamento que acompanha
    shared/kuryos-erp-ref.css. Carregado em todas as telas pelo auth_check.js.
-   - Menu no topo: o mesmo menu montado pelas permissões vira barra horizontal
-     com submenus (desktop). Abaixo de 981 px nada muda (gaveta do celular).
+   A navegação segue na barra lateral inteligente do PCP (o menu no topo do
+   ERP foi testado e recusado pelo usuário em 20/10/2026).
    - Ícone da seção antes do título da página, como no ERP.
    - Gráficos: acabamento do ERP no Chart.js (fontes, grade, tooltip, barras
      arredondadas, rosca fina, área com degradê), seguindo o tema claro/escuro.
@@ -9,124 +9,7 @@
 (function () {
   'use strict';
 
-  var DESKTOP = 981;
-  function desktop() { return window.innerWidth >= DESKTOP; }
   function css(nome) { return getComputedStyle(document.documentElement).getPropertyValue(nome).trim(); }
-
-  /* ── Menu no topo ─────────────────────────────────────────────────────── */
-  function montarTopo(nav) {
-    if (nav.getAttribute('data-kr-topo')) return;
-    nav.setAttribute('data-kr-topo', '1');
-    document.body.classList.add('kt-topnav');
-
-    var marca = nav.querySelector('.kt-brand');
-    if (marca && !marca.querySelector('.kt-brand-txt')) {
-      marca.insertAdjacentHTML('beforeend', '<span class="kt-brand-txt"><b>KURYOS</b><small>PCP</small></span>');
-    }
-
-    // Recolher/expandir a barra lateral não existe no topo: a preferência
-    // gravada continua lá para o celular, mas não estreita o desktop.
-    function semTrilho() {
-      // Só mexe se houver o que tirar: remover classe ausente regrava o
-      // atributo e redispararia este mesmo observador.
-      var cl = document.body.classList;
-      if (desktop() && (cl.contains('kuryos-sidebar-collapsed') || cl.contains('kuryos-sidebar-preview'))) {
-        cl.remove('kuryos-sidebar-collapsed', 'kuryos-sidebar-preview');
-      }
-    }
-    semTrilho();
-    new MutationObserver(semTrilho).observe(document.body, { attributes: true, attributeFilter: ['class'] });
-
-    // Altura real da barra (1 ou 2 linhas) vira o recuo do topo da página.
-    function medir() {
-      var raiz = document.documentElement.style;
-      if (!desktop()) { raiz.removeProperty('--kr-nav-real'); return; }
-      raiz.setProperty('--kr-nav-real', Math.round(nav.getBoundingClientRect().height) + 'px');
-    }
-    medir();
-    if (window.ResizeObserver) new ResizeObserver(medir).observe(nav);
-    window.addEventListener('resize', medir, { passive: true });
-
-    var aberto = null;
-    function capDe(grupo) { return grupo.querySelector('.kt-nav-cap'); }
-    function fechar(devolverFoco) {
-      if (!aberto) return;
-      var g = aberto;
-      aberto = null;
-      g.classList.remove('kt-drop-open');
-      capDe(g).setAttribute('aria-expanded', 'false');
-      if (devolverFoco) capDe(g).focus();
-    }
-    function abrir(grupo, focarPrimeiro) {
-      if (aberto === grupo) return;
-      fechar(false);
-      var cap = capDe(grupo);
-      var corpo = grupo.querySelector('.kt-nav-body');
-      grupo.classList.add('kt-drop-open');
-      cap.setAttribute('aria-expanded', 'true');
-      aberto = grupo;
-      // Alinha o submenu ao botão, sem sair da tela (e abaixo da linha dele
-      // quando a barra quebra em duas linhas).
-      var r = cap.getBoundingClientRect();
-      var largura = corpo.offsetWidth || 260;
-      var esquerda = Math.max(12, Math.min(r.left, window.innerWidth - largura - 12));
-      corpo.style.setProperty('--kr-drop-left', esquerda + 'px');
-      corpo.style.setProperty('--kr-drop-top', Math.round(r.bottom + 6) + 'px');
-      if (focarPrimeiro) {
-        var primeiro = corpo.querySelector('.kt-nav-link:not([hidden])');
-        if (primeiro) primeiro.focus();
-      }
-    }
-
-    var grupos = Array.prototype.slice.call(nav.querySelectorAll('.kt-nav-group'));
-    grupos.forEach(function (g) {
-      var cap = capDe(g);
-      var links = g.querySelectorAll('.kt-nav-link');
-      // Um link só: o botão do grupo leva direto à tela.
-      if (links.length === 1) {
-        g.classList.add('kr-direto');
-        cap.removeAttribute('aria-expanded');
-        cap.addEventListener('click', function () { if (desktop()) window.location.href = links[0].href; });
-        return;
-      }
-      if (desktop()) cap.setAttribute('aria-expanded', 'false');
-      cap.setAttribute('aria-haspopup', 'true');
-      cap.addEventListener('click', function () {
-        if (!desktop()) return;
-        if (aberto === g) fechar(false); else abrir(g, false);
-      });
-      // Com um submenu já aberto, passar o mouse troca de grupo (como numa barra de menus).
-      cap.addEventListener('mouseenter', function () { if (desktop() && aberto && aberto !== g) abrir(g, false); });
-      cap.addEventListener('keydown', function (e) {
-        if (!desktop()) return;
-        if (e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); abrir(g, true); }
-        else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-          e.preventDefault();
-          var i = grupos.indexOf(g) + (e.key === 'ArrowRight' ? 1 : -1);
-          var alvo = grupos[(i + grupos.length) % grupos.length];
-          capDe(alvo).focus();
-          if (aberto) abrir(alvo, false);
-        }
-      });
-      var corpo = g.querySelector('.kt-nav-body');
-      if (corpo) corpo.addEventListener('keydown', function (e) {
-        if (!desktop() || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
-        var links = Array.prototype.slice.call(corpo.querySelectorAll('.kt-nav-link:not([hidden])'));
-        var i = links.indexOf(document.activeElement);
-        if (i < 0) return;
-        e.preventDefault(); e.stopPropagation();
-        if (e.key === 'ArrowUp' && i === 0) { fechar(true); return; }
-        links[Math.min(links.length - 1, Math.max(0, i + (e.key === 'ArrowDown' ? 1 : -1)))].focus();
-      });
-    });
-    document.addEventListener('click', function (e) {
-      if (aberto && (!aberto.contains(e.target) || e.target.closest('.kt-nav-link'))) fechar(false);
-    });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && aberto) fechar(true); });
-    window.addEventListener('resize', function () { fechar(false); semTrilho(); }, { passive: true });
-    var trilho = nav.querySelector('.kuryos-sidebar-nav');
-    if (trilho) trilho.addEventListener('scroll', function () { fechar(false); }, { passive: true });
-  }
 
   /* ── Ícone antes do título ────────────────────────────────────────────── */
   function iconeDoTitulo() {
@@ -197,19 +80,25 @@
     d.elements.point.hitRadius = 12;
     d.elements.arc.borderWidth = 2;
     d.elements.arc.borderColor = superficie;
-    try {
-      d.datasets.bar.maxBarThickness = 40;
-      d.datasets.doughnut.cutout = '72%';
-      d.scale.grid.color = borda;
-      d.scale.border.display = false;
-      d.scale.border.dash = [3, 4];
-      d.scale.ticks.padding = 8;
-      d.scales.category.grid.display = false;
-      // Escala radial (polar/radar): número sem caixa branca, grade no token.
-      d.scales.radialLinear.ticks.backdropColor = 'transparent';
-      d.scales.radialLinear.grid.color = borda;
-      d.scales.radialLinear.angleLines.color = borda;
-    } catch (e) { /* versão do Chart.js sem algum destes nós: segue com o resto */ }
+    // Cada ajuste isolado: nó ausente numa versão do Chart.js não pode anular os
+    // outros (antes, num try só, o eixo de categorias derrubava o resto).
+    function ramo(o, k) { if (!o[k] || typeof o[k] !== 'object') o[k] = {}; return o[k]; }
+    function ajuste(fn) { try { fn(); } catch (e) { /* segue com os demais */ } }
+    ajuste(function () { ramo(d.datasets, 'bar').maxBarThickness = 40; });
+    ajuste(function () { ramo(d.datasets, 'doughnut').cutout = '72%'; });
+    ajuste(function () {
+      ramo(d.scale, 'grid').color = borda;
+      var b = ramo(d.scale, 'border'); b.display = false; b.dash = [3, 4];
+      ramo(d.scale, 'ticks').padding = 8;
+    });
+    ajuste(function () { ramo(ramo(d.scales, 'category'), 'grid').display = false; });
+    // Escala radial (polar/radar): número sem caixa branca, grade no token.
+    ajuste(function () {
+      var r = ramo(d.scales, 'radialLinear');
+      ramo(r, 'ticks').backdropColor = 'transparent';
+      ramo(r, 'grid').color = borda;
+      ramo(r, 'angleLines').color = borda;
+    });
   }
 
   // Área com degradê nas linhas preenchidas e grade só no eixo de valores.
@@ -274,7 +163,7 @@
   /* ── Ligação ──────────────────────────────────────────────────────────── */
   function verificar() {
     var nav = document.getElementById('unified-navbar');
-    if (nav) { montarTopo(nav); iconeDoTitulo(); }
+    if (nav) iconeDoTitulo();
   }
   new MutationObserver(verificar).observe(document.documentElement, { childList: true, subtree: true });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', verificar, { once: true });

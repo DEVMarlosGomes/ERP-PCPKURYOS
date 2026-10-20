@@ -1288,11 +1288,6 @@ em paralelo), `bomDaVersao` (BOM `v1` atende fórmula `V1`). Fica para depois:
 
 ## UI — aspecto do ERP no ar (20/10/2026)
 
-- **CRM/P&D/Kickoffs (React incorporado) não conferidos no emulador.** O bundle
-  em `public/static/crm` fala com o Firebase de produção, então no teste local a
-  tela cai no login do React. O cálculo de altura do app foi ajustado em
-  `shared/kuryos-enterprise-shell.js` (`syncAppViewport` desconta a barra do
-  topo); conferir no ar que o CRM não rola 64 px a mais.
 - **Gráficos com cor fixa fora do Executivo/Geral.** `dashboard.html` (cores por
   linha em `colorMap`) e `gestao_comercial.html` mantêm as cores próprias; o tema
   global só ajusta fonte, grade, tooltip e bordas. Se quiser tudo na paleta

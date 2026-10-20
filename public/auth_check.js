@@ -1805,7 +1805,7 @@ function _autoAjustarPlanejamentoInterno(db, pedidoKey) {
   }
   if (!document.querySelector('script[data-kuryos-enterprise-shell]')) {
     var enterpriseShell = document.createElement('script');
-    enterpriseShell.src = 'shared/kuryos-enterprise-shell.js?v=20261020-1';
+    enterpriseShell.src = 'shared/kuryos-enterprise-shell.js?v=20261020-2';
     enterpriseShell.defer = true;
     enterpriseShell.setAttribute('data-kuryos-enterprise-shell', '');
     document.head.appendChild(enterpriseShell);
@@ -1817,20 +1817,18 @@ function _autoAjustarPlanejamentoInterno(db, pedidoKey) {
     ui.setAttribute('data-kuryos-ui', '');
     document.head.appendChild(ui);
   }
-  // Aspecto do ERP no ar (20/10/2026): menu no topo, cabeçalhos, KPIs, painéis
-  // e gráficos. A classe no <html> sai já aqui para a página não nascer com o
-  // recuo da barra lateral e pular quando o menu montar.
-  document.documentElement.classList.add('kr-topnav');
+  // Aspecto do ERP no ar (20/10/2026): cabeçalhos, KPIs, painéis e gráficos.
+  // A navegação continua na barra lateral inteligente.
   if (!document.querySelector('link[data-kuryos-erp-ref]')) {
     var erpRef = document.createElement('link');
     erpRef.rel = 'stylesheet';
-    erpRef.href = 'shared/kuryos-erp-ref.css?v=20261020-1';
+    erpRef.href = 'shared/kuryos-erp-ref.css?v=20261020-2';
     erpRef.setAttribute('data-kuryos-erp-ref', '');
     document.head.appendChild(erpRef);
   }
   if (!document.querySelector('script[data-kuryos-erp-ref]')) {
     var erpRefJs = document.createElement('script');
-    erpRefJs.src = 'shared/kuryos-erp-ref.js?v=20261020-1';
+    erpRefJs.src = 'shared/kuryos-erp-ref.js?v=20261020-2';
     erpRefJs.setAttribute('data-kuryos-erp-ref', '');
     document.head.appendChild(erpRefJs);
   }
