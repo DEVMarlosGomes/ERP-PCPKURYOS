@@ -32,6 +32,7 @@ import DirectOrderModal from "@/components/DirectOrderModal";
 import ViewSwitcher from "@/components/ViewSwitcher";
 import FilterBar, { applyFilters } from "@/components/FilterBar";
 import ListView from "@/components/ListView";
+import AprovacaoClienteModal from "@/components/AprovacaoClienteModal";
 import { useAuth } from "@/contexts/AuthContext";
 
 function CRMSubNav({ active }) {
@@ -148,6 +149,7 @@ export default function CRM2Page() {
     const [constants, setConstants] = useState(null);
     const [users, setUsers] = useState([]);
     const [selectedProjectId, setSelectedProjectId] = useState(null);
+    const [retornoPendente, setRetornoPendente] = useState(null); // COM-02: { sampleId, variacaoId, resultado }
     const [selectedProjectData, setSelectedProjectData] = useState(null);
     const [showBatchSamples, setShowBatchSamples] = useState(false);
     const [batchProjectId, setBatchProjectId] = useState(null);
@@ -392,15 +394,15 @@ export default function CRM2Page() {
         }
     };
 
-    const handleResultadoCliente = async (sampleId, variacaoId, resultado) => {
-        try {
-            await api.post(`/crm/samples/${sampleId}/variacoes/${variacaoId}/resultado-cliente`, { resultado });
-            toast.success(resultado === "aprovada" ? "Amostra aprovada pelo cliente!" : "Reprovação registrada.");
-            await loadProjects();
-            if (selectedProjectId) await loadProjectDetail(selectedProjectId);
-        } catch (error) {
-            toast.error(formatApiError(error));
-        }
+    // COM-02: o botão abre o modal (quem aprovou, canal, data/hora); o envio vem dele.
+    const handleResultadoCliente = (sampleId, variacaoId, resultado) => setRetornoPendente({ sampleId, variacaoId, resultado });
+
+    const enviarResultadoCliente = async (aprovacaoCliente) => {
+        const { sampleId, variacaoId, resultado } = retornoPendente;
+        await api.post(`/crm/samples/${sampleId}/variacoes/${variacaoId}/resultado-cliente`, { resultado, aprovacao_cliente: aprovacaoCliente });
+        toast.success(resultado === "aprovada" ? "Amostra aprovada pelo cliente!" : "Reprovação registrada.");
+        await loadProjects();
+        if (selectedProjectId) await loadProjectDetail(selectedProjectId);
     };
 
     const handleDragEnd = async (result) => {
@@ -612,6 +614,14 @@ export default function CRM2Page() {
 
     return (
         <div className="p-6 page-enter" data-testid="crm2-page">
+            <AprovacaoClienteModal
+                open={Boolean(retornoPendente)}
+                onOpenChange={(o) => { if (!o) setRetornoPendente(null); }}
+                titulo={retornoPendente?.resultado === "aprovada" ? "Aprovação do cliente" : "Reprovação do cliente"}
+                origem={retornoPendente ? { tipo: "amostra", id: retornoPendente.sampleId } : null}
+                rotuloConfirmar={retornoPendente?.resultado === "aprovada" ? "Registrar aprovação" : "Registrar reprovação"}
+                onConfirm={enviarResultadoCliente}
+            />
             <CRMSubNav active="projects" />
             <div className="flex items-center justify-between mb-4">
                 <div>
@@ -1123,11 +1133,16 @@ export default function CRM2Page() {
                                         <div key={index} className="flex gap-3 items-start">
                                             <div className="mt-1 w-2 h-2 rounded-full bg-primary shrink-0" />
                                             <div>
+                                                {movement.texto ? (
+                                                    // COM-02/COM-01: registros de aprovação do cliente e de câmbio vêm com o texto pronto.
+                                                    <p className="text-sm">{movement.texto}</p>
+                                                ) : (
                                                 <p className="text-sm">
                                                     <span className="font-medium">{stageLabelMap[movement.de] || movement.de}</span>
                                                     <ChevronRight className="h-3 w-3 inline mx-1" />
                                                     <span className="font-medium">{stageLabelMap[movement.para] || movement.para}</span>
                                                 </p>
+                                                )}
                                                 <p className="text-xs text-muted-foreground">
                                                     {movement.usuario} · {new Date(movement.data).toLocaleString("pt-BR")}
                                                 </p>

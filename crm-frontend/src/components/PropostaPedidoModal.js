@@ -14,6 +14,7 @@ import { Plus, Trash2, X, AlertCircle, CheckCircle2, Clock, Paperclip, XCircle }
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { formatApiError } from "@/lib/formatError";
+import AprovacaoClienteModal from "@/components/AprovacaoClienteModal";
 
 const STATUS_LABELS = {
     aprovada:     { label: "Aprovada",     icon: CheckCircle2, color: "text-emerald-600" },
@@ -102,6 +103,7 @@ export default function PropostaPedidoModal({ open, onOpenChange, projeto, onSav
 
     const [saving, setSaving] = useState(false);
     const [deciding, setDeciding] = useState(false);
+    const [decisaoPendente, setDecisaoPendente] = useState(null); // COM-02: "aprovado" | "reprovado" aguardando quem/canal/data
     const [decisionReason, setDecisionReason] = useState("");
 
     const projetoId = projeto?.id;
@@ -301,6 +303,12 @@ export default function PropostaPedidoModal({ open, onOpenChange, projeto, onSav
             toast.error("Informe o motivo da reprovação.");
             return;
         }
+        setDecisaoPendente(decision);
+    };
+
+    // COM-02: chamada pelo modal de aprovação; erro do registro volta para o modal.
+    const registrarDecisao = async (aprovacaoCliente) => {
+        const decision = decisaoPendente;
         setDeciding(true);
         try {
             const saved = await handleSave("enviado", false, true);
@@ -308,6 +316,7 @@ export default function PropostaPedidoModal({ open, onOpenChange, projeto, onSav
             const { data } = await api.post(`/crm/projects/${projetoId}/proposta/decisao`, {
                 decisao: decision,
                 motivo: decisionReason.trim(),
+                aprovacao_cliente: aprovacaoCliente,
             });
             if (decision === "aprovado") {
                 toast.success("Orçamento aprovado. Pedido em rascunho e Kickoff criados.");
@@ -316,8 +325,6 @@ export default function PropostaPedidoModal({ open, onOpenChange, projeto, onSav
             }
             onSaved?.(data);
             onOpenChange(false);
-        } catch (error) {
-            toast.error(formatApiError(error));
         } finally {
             setDeciding(false);
         }
@@ -328,6 +335,15 @@ export default function PropostaPedidoModal({ open, onOpenChange, projeto, onSav
     const totalAprovadas = amostrasStatus?.total_aprovadas ?? 0;
 
     return (
+        <>
+        <AprovacaoClienteModal
+            open={Boolean(decisaoPendente)}
+            onOpenChange={(o) => { if (!o) setDecisaoPendente(null); }}
+            titulo={decisaoPendente === "aprovado" ? "Aprovação do orçamento pelo cliente" : "Reprovação do orçamento pelo cliente"}
+            origem={projetoId ? { tipo: "projeto", id: projetoId } : null}
+            rotuloConfirmar={decisaoPendente === "aprovado" ? "Registrar aprovação" : "Registrar reprovação"}
+            onConfirm={registrarDecisao}
+        />
         <Dialog open={open} onOpenChange={onOpenChange}>
             {/* 17/10/2026: layout refeito — antes cabeçalho, avisos, abas e rodapé ficavam fixos e sobrava
                 uma faixa mínima para o conteúdo; o degradê âmbar com título branco sumia no tema escuro. */}
@@ -726,5 +742,6 @@ export default function PropostaPedidoModal({ open, onOpenChange, projeto, onSav
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+        </>
     );
 }

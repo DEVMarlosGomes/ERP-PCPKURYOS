@@ -12,6 +12,8 @@ vi.mock("@/lib/firebase", () => import("@/test/memoryFirebase").then((m) => m.fi
 vi.mock("@/lib/justificationPrompt", async (orig) => ({ ...(await orig()), askJustification: async () => null }));
 
 const T = "erp/kuryos";
+// COM-02: retorno do cliente e decisão do orçamento exigem quem, canal e data/hora.
+const APROVACAO = { quem_nome: "Maria (cliente)", canal: "whatsapp", aprovado_em: "2024-01-10T15:00:00.000Z" };
 const SEED = {
   usuarios: {
     adm: { role: "admin", name: "Ana ADM", tenant_id: "kuryos" },
@@ -109,7 +111,7 @@ describe("fluxo comercial completo até a emissão de OP", () => {
 
   test("Kickoff exige amostra aprovada pelo cliente e fórmula registrada; nasce com o número do projeto", async () => {
     await fails(api.put(`/crm/projects/${project.id}/move`, { stage: "kickoff" }), 409, /amostra aprovada/);
-    await api.post(`/crm/samples/${sample.id}/variacoes/${variation.id}/resultado-cliente`, { resultado: "aprovada" });
+    await api.post(`/crm/samples/${sample.id}/variacoes/${variation.id}/resultado-cliente`, { resultado: "aprovada", aprovacao_cliente: APROVACAO });
     await fails(api.put(`/crm/projects/${project.id}/move`, { stage: "kickoff" }), 409, /formula registrada/);
     assert.equal(db(`${T}/crm_projects/${project.id}/stage`), "amostra_enviada");
     const devId = Object.values(db(`${T}/pd_developments`)).find((d) => d.request_id === variation.pd_request_id).id;
@@ -242,7 +244,9 @@ describe("fluxo comercial completo até a emissão de OP", () => {
       condicoes_pagamento: "28 dias", status: "enviado",
     });
     await api.put(`/crm/projects/${project.id}/move`, { stage: "orcamento_completo" });
-    await fails(api.post(`/crm/projects/${project.id}/proposta/decisao`, { decisao: "aprovado" }), 409, /aprovada pelo P&D e pelo Comercial/);
+    // COM-02: sem quem aprovou, canal e data/hora a decisão não é registrada.
+    await fails(api.post(`/crm/projects/${project.id}/proposta/decisao`, { decisao: "aprovado" }), 422, /quem aprovou/);
+    await fails(api.post(`/crm/projects/${project.id}/proposta/decisao`, { decisao: "aprovado", aprovacao_cliente: APROVACAO }), 409, /aprovada pelo P&D e pelo Comercial/);
   });
 
   test("decisão aprovada: pedido fechado com o Kickoff já aprovado e pedido AGUARDANDO_CGI no Comercial do PCP", async () => {
@@ -254,7 +258,7 @@ describe("fluxo comercial completo até a emissão de OP", () => {
     memory.write("config/contadores/pedido_comercial", 42);
     memory.write("pedidos_comerciais/PED-0042", { numeroFormatado: "PED-0042", status: "AGUARDANDO_CGI", origem: "orcamento_aprovado",
       origemCrm: { projetoId: project.id }, itens: [{ descricao: "Body Splash Verão", qtd: 0, valorUnitario: 0, sku: "", produtoKey: "" }], historico: [] });
-    const result = (await api.post(`/crm/projects/${project.id}/proposta/decisao`, { decisao: "aprovado" })).data;
+    const result = (await api.post(`/crm/projects/${project.id}/proposta/decisao`, { decisao: "aprovado", aprovacao_cliente: APROVACAO })).data;
     assert.equal(result.project.stage, "pedido_aprovado");
     assert.equal(result.kickoff.id, kickoff.id, "o pedido usa o Kickoff aprovado antes da cotação, não abre outro");
     assert.equal(result.kickoff.numero_kickoff, "KO-2026-001");
@@ -405,10 +409,10 @@ describe("caminhos de exceção", () => {
     as("com");
     const c = (await api.post("/crm/clients", { nome_empresa: "Beta Cosméticos", ...QUALIFIED })).data;
     const p = (await api.post("/crm/projects/batch", { cliente_id: c.id, projects: [{ nome_projeto: "Shampoo" }] })).data.projects[0];
-    await fails(api.post(`/crm/projects/${p.id}/proposta/decisao`, { decisao: "reprovado", motivo: "Preço" }), 409, /Salve o orçamento/);
+    await fails(api.post(`/crm/projects/${p.id}/proposta/decisao`, { decisao: "reprovado", motivo: "Preço", aprovacao_cliente: APROVACAO }), 409, /Salve o orçamento/);
     await api.post(`/crm/projects/${p.id}/proposta`, { tipo_produto: "Shampoo" });
     await fails(api.post(`/crm/projects/${p.id}/proposta/decisao`, { decisao: "reprovado" }), 422, /Motivo/);
-    const r = (await api.post(`/crm/projects/${p.id}/proposta/decisao`, { decisao: "reprovado", motivo: "Preço acima do mercado" })).data;
+    const r = (await api.post(`/crm/projects/${p.id}/proposta/decisao`, { decisao: "reprovado", motivo: "Preço acima do mercado", aprovacao_cliente: APROVACAO })).data;
     assert.equal(r.project.stage, "projeto_arquivado");
     assert.equal(r.project.motivo_arquivamento, "Preço acima do mercado");
     assert.equal(db(`${T}/crm_clients/${c.id}/stage`), "cliente_perdido");
@@ -443,7 +447,7 @@ describe("caminhos de exceção", () => {
     const p = (await api.post("/crm/projects/batch", { cliente_id: c.id, projects: [{ nome_projeto: "Delta Splash" }] })).data.projects[0];
     await api.put(`/crm/projects/${p.id}`, { categoria: "perfumaria" });
     const s = (await api.post("/crm/samples/batch/v2", { projeto_id: p.id, samples: [{ nome_produto: "Delta Splash", variacoes: [{ descricao_aplicacao: "Floral" }] }] })).data.samples[0];
-    await api.post(`/crm/samples/${s.id}/variacoes/${s.variacoes[0].id}/resultado-cliente`, { resultado: "aprovada" });
+    await api.post(`/crm/samples/${s.id}/variacoes/${s.variacoes[0].id}/resultado-cliente`, { resultado: "aprovada", aprovacao_cliente: APROVACAO });
     await api.post(`/crm/projects/${p.id}/proposta`, { items_pedido: [{ item: "Delta Splash Floral", qtd: null }] });
     const k = (await api.put(`/crm/projects/${p.id}/move`, { stage: "pedido_aprovado" })).data.kickoff_criado;
     memory.write(`${T}/kickoffs/${k.kickoff_id}/status`, "aprovado");
@@ -469,7 +473,7 @@ describe("caminhos de exceção", () => {
     const p = (await api.post("/crm/projects/batch", { cliente_id: c.id, projects: [{ nome_projeto: "Ômega Maquiagem" }] })).data.projects[0];
     await api.put(`/crm/projects/${p.id}`, { categoria: "maquiagem" });
     const s = (await api.post("/crm/samples/batch/v2", { projeto_id: p.id, samples: [{ nome_produto: "Batom", variacoes: [{ descricao_aplicacao: "Rosa" }] }] })).data.samples[0];
-    await api.post(`/crm/samples/${s.id}/variacoes/${s.variacoes[0].id}/resultado-cliente`, { resultado: "aprovada" });
+    await api.post(`/crm/samples/${s.id}/variacoes/${s.variacoes[0].id}/resultado-cliente`, { resultado: "aprovada", aprovacao_cliente: APROVACAO });
     const k = (await api.put(`/crm/projects/${p.id}/move`, { stage: "pedido_aprovado" })).data.kickoff_criado;
     memory.write(`${T}/kickoffs/${k.kickoff_id}/status`, "aprovado");
     const cg = (await api.post("/contratos/gerar", { kickoff_id: k.kickoff_id })).data;

@@ -26,6 +26,8 @@ import { MIN_JUSTIFICATIVA, PROJECT_STAGES, PROJECT_TRANSITIONS, formulaRegistra
 import { numeroKickoff } from "@/lib/numeracaoProjeto";
 import { taxaDaCotacao } from "@/lib/cambio";
 import { calcularCotacao, insumosDoBom, mensagemDePendencias } from "@/lib/cotacao";
+import { entradaHistoricoAprovacao, validarAprovacaoCliente } from "@/lib/aprovacaoCliente";
+import { acrescentarHistorico } from "@/lib/historicoTimeline";
 
 export const NOT_HANDLED = Symbol("not-handled");
 
@@ -1493,6 +1495,9 @@ export function createCommercialRouter(h) {
     const motivo = String(data?.motivo || "").trim();
     if (!["aprovado", "reprovado"].includes(decisao)) throw apiError(422, "decisao deve ser 'aprovado' ou 'reprovado'.");
     if (decisao === "reprovado" && !motivo) throw apiError(422, "Motivo obrigatório para reprovar o orçamento.");
+    // COM-02: decisão do cliente só com quem, canal e data/hora reais.
+    const aprovacao = validarAprovacaoCliente(data?.aprovacao_cliente, { registradoPor: currentUid(), registradoPorNome: userName(profile) });
+    if (!aprovacao.ok) throw apiError(422, aprovacao.erros.join(" "));
     let project = await getProject(tenant, projectId);
     const proposta = await findProposta(tenant, projectId);
     if (!proposta) throw apiError(409, "Salve o orçamento antes de registrar a decisão do cliente.");
@@ -1509,6 +1514,7 @@ export function createCommercialRouter(h) {
     await patch(tenant, "crm_propostas", proposta.id, {
       negociacao_status: decisao, negociacao_motivo: motivo, negociacao_evidencia_file_id: data?.evidencia_file_id || "",
       negociacao_observacoes: data?.observacoes || "", negociacao_decidida_em: at, negociacao_decidida_por: currentUid(),
+      negociacao_aprovacao_cliente: aprovacao.registro,
       ...(dispensados.length ? { requisitos_dispensados: dispensados } : {}),
     });
     let kickoff = null;
@@ -1530,7 +1536,10 @@ export function createCommercialRouter(h) {
       }
       await mirrorClientStage(tenant, project, profile, "cliente_fechado", "espelho_crm2_pedido_fechado");
     }
-    await auditCard(tenant, "orcamento_decidido", "projeto", projectId, { stage: project?.stage }, { decisao, motivo, requisitos_dispensados: dispensados }, profile);
+    // Depois das mudanças de etapa (que regravam o histórico inteiro do projeto).
+    await acrescentarHistorico(`erp/${tenant}/crm_projects/${projectId}/historico_movimentacoes`,
+      entradaHistoricoAprovacao(aprovacao.registro, { oque: "Orçamento", resultado: decisao, documentoId: proposta.id }));
+    await auditCard(tenant, "orcamento_decidido", "projeto", projectId, { stage: project?.stage }, { decisao, motivo, requisitos_dispensados: dispensados, aprovacao_cliente: aprovacao.registro }, profile);
     return { decisao, project, kickoff, order };
   }
 
@@ -1656,7 +1665,19 @@ export function createCommercialRouter(h) {
         // Enviar sem mexer na composição também confere a que já está gravada.
         if (!changes.composicao && changes.status === "enviado" && current.composicao) changes.composicao = current.composicao;
         await conferirComposicao(changes, current);
-        return patch(tenant, "crm_propostas", current.id, { ...changes, updated_by: currentUid(), updated_by_name: userName(profile) });
+        // COM-02: registrar o aceite por aqui também exige quem, canal e data/hora.
+        let aprovacao = null;
+        if (changes.negociacao_status === "aprovado" && current.negociacao_status !== "aprovado") {
+          aprovacao = validarAprovacaoCliente(data?.aprovacao_cliente, { registradoPor: currentUid(), registradoPorNome: userName(profile) });
+          if (!aprovacao.ok) throw apiError(422, aprovacao.erros.join(" "));
+          changes.negociacao_aprovacao_cliente = aprovacao.registro;
+        }
+        const salva = await patch(tenant, "crm_propostas", current.id, { ...changes, updated_by: currentUid(), updated_by_name: userName(profile) });
+        if (aprovacao) {
+          await acrescentarHistorico(`erp/${tenant}/crm_projects/${m[1]}/historico_movimentacoes`,
+            entradaHistoricoAprovacao(aprovacao.registro, { oque: "Orçamento", resultado: "aprovado", documentoId: current.id }));
+        }
+        return salva;
       }
       if (is("GET", /^\/crm\/projects\/([^/]+)\/cotacao-base$/)) return cotacaoBase(tenant, m[1]);
       if (is("POST", /^\/crm\/projects\/([^/]+)\/proposta\/decisao$/)) return decidirOrcamento(tenant, m[1], data, profile);

@@ -9,6 +9,8 @@ vi.mock("@/lib/firebase", () => import("@/test/memoryFirebase").then((m) => m.fi
 vi.mock("@/lib/justificationPrompt", async (orig) => ({ ...(await orig()), askJustification: async () => null }));
 
 const T = "erp/kuryos";
+// COM-02: retorno do cliente e decisão do orçamento exigem quem, canal e data/hora.
+const APROVACAO = { quem_nome: "Maria (cliente)", canal: "whatsapp", aprovado_em: "2024-01-10T15:00:00.000Z" };
 const SEED = {
   usuarios: { pd: { role: "pd", name: "Yasmim P&D", tenant_id: "kuryos" } },
   erp: { kuryos: {
@@ -105,9 +107,21 @@ describe("cards do P&D seguem o retorno do cliente no CRM3", () => {
     expect(memory.read(`${T}/pd_requests/RB/status`)).toBe("WAITING_APPROVAL");
     // O cliente responde de novo no CRM3: agora vale.
     await new Promise((r) => setTimeout(r, 5));
-    await api.post("/crm/samples/S1/variacoes/VB/resultado-cliente", { resultado: "aprovada" });
+    await api.post("/crm/samples/S1/variacoes/VB/resultado-cliente", { resultado: "aprovada", aprovacao_cliente: APROVACAO });
     await api.get("/crm/pd/cards");
     expect(memory.read(`${T}/pd_requests/RB/status`)).toBe("APPROVED");
+  });
+
+  test("COM-02: retorno sem quem/canal/data é recusado; com registro fica na variação e na linha do tempo do projeto", async () => {
+    await expect(api.post("/crm/samples/S1/variacoes/VB/resultado-cliente", { resultado: "aprovada" }))
+      .rejects.toMatchObject({ response: { status: 422 } });
+    await expect(api.post("/crm/samples/S1/variacoes/VB/resultado-cliente", { resultado: "aprovada", aprovacao_cliente: { ...APROVACAO, aprovado_em: "2099-01-01T00:00:00Z" } }))
+      .rejects.toThrow(/futuro/);
+    const variacao = (memory.read(`${T}/crm_samples/S1/variacoes`) || []).find((v) => v.id === "VB");
+    expect(variacao.aprovacao_cliente).toMatchObject({ quem_nome: "Maria (cliente)", canal: "whatsapp", registrado_por_nome: "Yasmim P&D" });
+    const historico = memory.read(`${T}/crm_projects/P1/historico_movimentacoes`) || [];
+    const ultimo = Object.values(historico).filter((h) => h.tipo === "aprovacao_cliente").pop();
+    expect(ultimo.texto).toMatch(/aprovada por Maria \(cliente\) via WhatsApp em 10\/01\/2024, 12:00 — registrado por Yasmim P&D/);
   });
 });
 

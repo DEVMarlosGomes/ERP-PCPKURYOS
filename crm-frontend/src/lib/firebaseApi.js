@@ -12,6 +12,8 @@ import { eventoMpNova, htmlFichaTecnica, montarFichaTecnica, validarMpNova } fro
 import { solicitacoesDeMpsNovas } from "@/lib/filaCadastroMp";
 import { erroNaoFecha, fechamentoFormula, pendenciasDoLote } from "@/lib/fechamentoFormula";
 import { baseVigente, planoDaBase, substituicoesForaDaFragrancia } from "@/lib/formulacaoBase";
+import { contatosDoCliente, entradaHistoricoAprovacao, validarAprovacaoCliente } from "@/lib/aprovacaoCliente";
+import { acrescentarHistorico } from "@/lib/historicoTimeline";
 import { congelar, cotacaoDaFormula, situacao as situacaoCambio, validarSpread } from "@/lib/cambio";
 import { validarLeitura } from "@/lib/estabilidade";
 import { TRECHO_AMOSTRA, etapaPelaAmostra, passosAte } from "@/lib/etapaPelaAmostra";
@@ -860,7 +862,7 @@ async function aplicarBaseDoProjeto(tenantId, devId, lote, profile) {
   if (plano.acao === "nenhuma") return lote;
   let base = plano.base;
   if (plano.acao === "criar") {
-    const versao = await nextSequence(`erp/${tenantId}/sequences/formulacao_base_${projetoId}`);
+    const versao = await nextSequence(collectionPath(tenantId, `sequences/formulacao_base_${projetoId}`));
     base = await create(tenantId, "pd_formulacoes_base", {
       projeto_id: projetoId, versao, itens: plano.itens,
       origem: { development_id: devId, amostra: request?.internal_code || "", lote: lote.nome || "" },
@@ -1471,16 +1473,28 @@ async function dispatch(e, t) {
     }, i);
   }
   if (O = j(/^\/crm\/samples\/([^/]+)\/variacoes\/([^/]+)\/resultado-cliente$/), "POST" === e && O) {
+    // COM-02: o retorno do cliente só vale com quem, canal e data/hora reais.
+    const aprovacao = validarAprovacaoCliente(r.aprovacao_cliente, { registradoPor: firebaseAuth.currentUser.uid, registradoPorNome: pdUserName(u) });
+    if (!aprovacao.ok) throw apiError(422, aprovacao.erros.join(" "));
     const e = await one(_, "crm_samples", O[1]),
+      variacao = ((e && e.variacoes) || []).find((v) => v.id === O[2]),
       t = ((null === e || void 0 === e ? void 0 : e.variacoes) || []).map(e => e.id === O[2] ? {
         ...e,
         status: r.resultado,
         resultado_cliente: r.resultado,
         feedback_cliente: r.feedback_cliente || "",
+        direcoes_retrabalho: r.direcoes_retrabalho || "",
+        aprovacao_cliente: aprovacao.registro,
         resultado_em: now()
       } : e);
     await patch(_, "crm_samples", O[1], { variacoes: t });
     try { if (e?.projeto_id) await parearEtapasPelaAmostra(_, u, e.projeto_id); } catch (error) { console.error("[CRM2] pareamento com a amostra falhou:", error); }
+    // Depois do pareamento: a mudança de etapa ainda regrava o histórico inteiro do projeto.
+    if (e?.projeto_id && await one(_, "crm_projects", e.projeto_id)) {
+      const entrada = entradaHistoricoAprovacao(aprovacao.registro, { oque: `Amostra ${variacao?.codigo || ""}`.trim(), resultado: r.resultado, documentoId: O[2] });
+      await acrescentarHistorico(`${collectionPath(_, "crm_projects")}/${e.projeto_id}/historico_movimentacoes`, entrada);
+    }
+    await auditCard(_, "retorno_cliente_amostra", "amostra", O[1], null, { variacao_id: O[2], resultado: r.resultado, aprovacao_cliente: aprovacao.registro }, u);
     return response({
       success: !0,
       sku_created: "aprovada" === r.resultado ? {
@@ -2236,6 +2250,14 @@ async function dispatch(e, t) {
     documents: "pd_documents",
     tests: "pd_tests"
   };
+  // COM-02: contatos do cliente para o modal de aprovação (a partir do projeto ou da amostra).
+  if (O = j(/^\/crm\/contatos-aprovacao\/(projeto|amostra)\/([^/]+)$/), O && "GET" === e) {
+    const amostra = "amostra" === O[1] ? await one(_, "crm_samples", O[2]) : null;
+    const projeto = await one(_, "crm_projects", "projeto" === O[1] ? O[2] : amostra?.projeto_id || "__nenhum__");
+    const clienteId = projeto?.cliente_id || amostra?.cliente_id;
+    const cliente = clienteId ? await one(_, "crm_clients", clienteId) : null;
+    return response({ cliente: cliente?.nome_empresa || "", contatos: contatosDoCliente(cliente) }, i);
+  }
   // AMO-02: base vigente do projeto da amostra, para as demais amostras do mesmo projeto.
   if (O = j(/^\/pd\/developments\/([^/]+)\/base-projeto$/), O && "GET" === e) {
     const { projetoId } = await projetoDoDesenvolvimento(_, O[1]);

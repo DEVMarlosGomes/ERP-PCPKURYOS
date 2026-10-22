@@ -28,6 +28,8 @@ const BRIEFING = {
 let api;
 let prompted = 0;
 const T = "erp/kuryos";
+// COM-02: retorno do cliente e decisão do orçamento exigem quem, canal e data/hora.
+const APROVACAO = { quem_nome: "Maria (cliente)", canal: "whatsapp", aprovado_em: "2024-01-10T15:00:00.000Z" };
 const db = (p) => memory.read(p);
 const setUser = (uid) => memory.setUser(uid);
 const check = (name, fn) => test(name, fn);
@@ -104,7 +106,7 @@ describe("funil comercial (CRM1 → CRM2 → CRM3)", () => {
     await fails(api.put(`/crm/projects/${project.id}/move`, { stage: 'cotacao' }), 400, /Transição não permitida/);
     await fails(api.put(`/crm/projects/${project.id}/move`, { stage: 'kickoff' }), 409, /amostra aprovada/);
     const variation = db(`${T}/crm_samples/${sample.id}/variacoes`)[0];
-    await api.post(`/crm/samples/${sample.id}/variacoes/${variation.id}/resultado-cliente`, { resultado: 'aprovada' });
+    await api.post(`/crm/samples/${sample.id}/variacoes/${variation.id}/resultado-cliente`, { resultado: 'aprovada', aprovacao_cliente: APROVACAO });
     await fails(api.put(`/crm/projects/${project.id}/move`, { stage: 'kickoff' }), 409, /formula registrada/);
     const devId = Object.values(db(`${T}/pd_developments`)).find((d) => d.request_id === variation.pd_request_id).id;
     memory.write(`${T}/pd_formulas/FV`, { id: 'FV', development_id: devId, version: 1, name: 'Verão v1' });
@@ -189,7 +191,7 @@ describe("CRM2 acompanha a amostra (só para a frente)", () => {
   });
 
   check("cliente aprovou sem fórmula registrada: fica em Amostra Enviada (nem o ADM força o Kickoff)", async () => {
-    await api.post(`/crm/samples/${amostra.id}/variacoes/${variacao.id}/resultado-cliente`, { resultado: "aprovada" });
+    await api.post(`/crm/samples/${amostra.id}/variacoes/${variacao.id}/resultado-cliente`, { resultado: "aprovada", aprovacao_cliente: APROVACAO });
     assert.equal(etapa(), "amostra_enviada");
     setUser("adm");
     await abrirCrm2();

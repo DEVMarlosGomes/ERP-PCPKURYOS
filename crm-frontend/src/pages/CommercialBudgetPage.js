@@ -6,6 +6,7 @@ import { formatApiError } from "@/lib/formatError";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import AprovacaoClienteModal from "@/components/AprovacaoClienteModal";
 
 const TAB_OPTIONS = [
   { id: "ped", label: "Pedidos" },
@@ -112,6 +113,7 @@ function defaultOrcamentoForm() {
 
 export default function CommercialBudgetPage() {
   const [tab, setTab] = useState("ped");
+  const [aceitePendente, setAceitePendente] = useState(null); // COM-02: projectId aguardando quem/canal/data
   const [loading, setLoading] = useState(true);
   const [savingPedido, setSavingPedido] = useState(false);
   const [savingOrcamento, setSavingOrcamento] = useState(false);
@@ -483,14 +485,12 @@ export default function CommercialBudgetPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const markProposalAccepted = async (projectId) => {
-    try {
-      await api.patch(`/crm/projects/${projectId}/proposta`, { negociacao_status: "aprovado" });
-      showAlert("Aceite registrado. O avanço para pedido aprovado continua pelo CRM2.");
-      await load();
-    } catch (error) {
-      showAlert(formatApiError(error), true);
-    }
+  // COM-02: o aceite só é registrado com quem aprovou, canal e data/hora (modal).
+  const markProposalAccepted = (projectId) => setAceitePendente(projectId);
+  const registrarAceite = async (aprovacaoCliente) => {
+    await api.patch(`/crm/projects/${aceitePendente}/proposta`, { negociacao_status: "aprovado", aprovacao_cliente: aprovacaoCliente });
+    showAlert("Aceite registrado. O avanço para pedido aprovado continua pelo CRM2.");
+    await load();
   };
 
   const uploadDoc = async () => {
@@ -515,6 +515,14 @@ export default function CommercialBudgetPage() {
 
   return (
     <main className="min-h-screen p-4 md:p-6" data-testid="commercial-budget-page">
+      <AprovacaoClienteModal
+        open={Boolean(aceitePendente)}
+        onOpenChange={(o) => { if (!o) setAceitePendente(null); }}
+        titulo="Aceite do orçamento pelo cliente"
+        origem={aceitePendente ? { tipo: "projeto", id: aceitePendente } : null}
+        rotuloConfirmar="Registrar aceite"
+        onConfirm={registrarAceite}
+      />
       <div className="mx-auto max-w-[1280px] space-y-5 pb-12">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>

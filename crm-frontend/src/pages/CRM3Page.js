@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import ViewSwitcher from "@/components/ViewSwitcher";
 import FilterBar, { applyFilters } from "@/components/FilterBar";
 import ListView from "@/components/ListView";
+import AprovacaoClienteModal from "@/components/AprovacaoClienteModal";
 
 function CRMSubNav({ active }) {
     const navigate = useNavigate();
@@ -90,6 +91,7 @@ export default function CRM3Page() {
 
     // Estado para registrar resultado do cliente (somente quando variação está em "enviada")
     const [resultadoForm, setResultadoForm] = useState({});  // variacaoId → { resultado, feedback, loading }
+    const [retornoPendente, setRetornoPendente] = useState(null); // COM-02: { sampleId, variacaoId } aguardando quem/canal/data
 
     // Local edit values for custo_fragrancia (controlled CurrencyInput in existing-variation rows)
     const [custoCurrencyEdits, setCustoCurrencyEdits] = useState({});  // variacaoId → { value, currency }
@@ -281,13 +283,19 @@ export default function CRM3Page() {
         if (!form.resultado) return toast.error("Selecione o resultado do cliente");
         if (["retrabalho", "reprovada", "arquivado"].includes(form.resultado) && !(form.feedback || "").trim())
             return toast.error("Informe o feedback do cliente para registrar este resultado");
+        setRetornoPendente({ sampleId, variacaoId });
+    };
 
+    // COM-02: depois do modal (quem aprovou, canal, data/hora). Erro volta para o modal.
+    const enviarResultadoCliente = async (sampleId, variacaoId, aprovacaoCliente) => {
+        const form = resultadoForm[variacaoId] || {};
         setResultadoForm(prev => ({ ...prev, [variacaoId]: { ...prev[variacaoId], loading: true } }));
         try {
             const { data: res } = await api.post(`/crm/samples/${sampleId}/variacoes/${variacaoId}/resultado-cliente`, {
                 resultado: form.resultado,
                 feedback_cliente: form.feedback || "",
                 direcoes_retrabalho: form.direcoes_retrabalho || "",
+                aprovacao_cliente: aprovacaoCliente,
             });
 
             if (form.resultado === "aprovada") {
@@ -300,9 +308,8 @@ export default function CRM3Page() {
             loadSamples();
             const { data: updated } = await api.get(`/crm/samples/${sampleId}`);
             setSelectedSample(updated);
-        } catch (e) {
-            toast.error(formatApiError(e));
         } finally {
+            // Erro sobe para o modal, que mostra o motivo sem fechar.
             setResultadoForm(prev => ({ ...prev, [variacaoId]: { ...prev[variacaoId], loading: false } }));
         }
     };
@@ -474,6 +481,14 @@ export default function CRM3Page() {
     return (
         <div className="p-6 page-enter" data-testid="crm3-page">
             <CRMSubNav active="samples" />
+            <AprovacaoClienteModal
+                open={Boolean(retornoPendente)}
+                onOpenChange={(o) => { if (!o) setRetornoPendente(null); }}
+                titulo={(() => { const r = retornoPendente && resultadoForm[retornoPendente.variacaoId]?.resultado; return r === "aprovada" ? "Aprovação do cliente" : r === "reprovada" ? "Reprovação do cliente" : "Retrabalho pedido pelo cliente"; })()}
+                origem={retornoPendente ? { tipo: "amostra", id: retornoPendente.sampleId } : null}
+                rotuloConfirmar="Enviar retorno ao P&D"
+                onConfirm={(aprovacao) => enviarResultadoCliente(retornoPendente.sampleId, retornoPendente.variacaoId, aprovacao)}
+            />
             <div className="flex items-center justify-between mb-4">
                 <div>
                     <h1 className="text-3xl font-heading font-semibold tracking-tight">Pipeline de Amostras</h1>
