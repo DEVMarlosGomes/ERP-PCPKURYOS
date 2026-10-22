@@ -4,7 +4,11 @@
  * vira tarefa em solicitacoes_cadastro_material/ (raiz do banco, lida pelo
  * Cadastros do PCP). Chave fixa por fórmula+item: aprovar de novo não duplica;
  * retrabalho gera versão nova, com itens novos, e as tarefas novas.
+ * AMO-04 (22/10/2026): leva também os campos do material da linha (INCI até US$, ver
+ * ingredienteCampos.js) em `campos`; inci/fornecedor na raiz continuam para o legado.
  * Funções puras: nada aqui lê ou grava no banco. */
+
+import { camposMaterialDoItem } from "./ingredienteCampos";
 
 export const chaveSolicitacaoMp = (formulaId, itemId) => `${formulaId}__${itemId}`;
 
@@ -20,6 +24,7 @@ export function solicitacoesDeMpsNovas({ request, formula, itens, projeto, agora
       ingrediente: item.ingredient_name || "",
       inci: item.inci || "",
       fornecedor: item.fornecedor || "",
+      campos: camposMaterialDoItem(item),
       origem: {
         pdRequestId: r.id || null,
         formulaId: formula.id,

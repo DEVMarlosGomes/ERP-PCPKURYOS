@@ -12,6 +12,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage-compat.js"></script>
   <script src="shared/utils.js"></script>
   <script src="shared/sku-entrada.js"></script>
+  <script src="shared/ingrediente-campos.js"></script>
   <script src="shared/cambio.js"></script>
   <script src="shared/servicos.js"></script>
   <script src="shared/pendencias-setor.js"></script><script src="shared/pendencias-setor-ui.js"></script>
@@ -1830,14 +1831,20 @@ document.addEventListener('DOMContentLoaded', function() {
     var t = solicitacoesMat[k];
     if (!t) return;
     var d = SkuEntrada.dadosParaFormulario(t);
+    // AMO-04: os mesmos campos da linha do P&D (INCI até US$), não só nome e INCI.
+    var c = IngredienteCampos.paraFormularioMaterial(IngredienteCampos.camposDaSolicitacao(t), d.tipo);
     openModal(null);
     solicitacaoMatEmCurso = k;
     document.getElementById('fTipo').value = d.tipo;
     updateTipoFieldsVisibility();
     document.getElementById('fNome-mat').value = d.nome;
-    document.getElementById('fInci-mat').value = d.inci;
-    document.getElementById('fInciFrag-mat').value = d.inci;
-    document.getElementById('fEspecificacoes').value = d.especificacoes;
+    document.getElementById('fInci-mat').value = c.inci;
+    document.getElementById('fInciFrag-mat').value = c.inci;
+    document.getElementById('fFuncaoFormula-mat').value = c.funcaoFormula;
+    document.getElementById('fCustoTargetUsd-mat').value = c.custoTargetUsd != null ? c.custoTargetUsd : '';
+    atualizarCustoTargetBrl();
+    document.getElementById('fEspecificacoes').value = [d.especificacoes, c.referenciaPd].filter(Boolean).join('\n');
+    if (c.custoReferencia != null) document.getElementById('fuCustoRef-mat').value = c.custoReferencia;
     if (d.fornecedorNome) {
       var alvo = norm(d.fornecedorNome);
       var fKey = Object.keys(allFornecedores || {}).find(function(key) {
