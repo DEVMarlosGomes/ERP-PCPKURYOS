@@ -2410,7 +2410,7 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
 
                 {f.notes && <p className="text-xs text-muted-foreground italic">{f.notes}</p>}
 
-                {/* 17/10/2026: a descrição de elaboração (fases + passo a passo) foi para baixo dos Lotes de Amostras. */}
+                {/* A descrição de elaboração (fases + passo a passo) fica abaixo das fórmulas e acima dos Lotes de Amostras (AMO-01). */}
 
                 {/* Spreadsheet-like table with cost columns — rola na horizontal em tela estreita (17/10). */}
                 <div className="border rounded-md overflow-x-auto" data-testid="tabela-manipulacao">
@@ -2791,11 +2791,10 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
         </Dialog>
       )}
 
-      <SampleBatchSection devId={devId} formulas={formulas} onRefresh={onRefresh} canEdit={canEdit} />
-
-      {/* Descrição de elaboração: alimenta a 2.2 (Modo de Preparo) da Ficha Técnica. */}
+      {/* Descrição de elaboração: alimenta a 2.2 (Modo de Preparo) da Ficha Técnica.
+          AMO-01 (22/10/2026): o passo a passo voltou para cima dos Lotes de Amostras. */}
       {formulaElaboracao && (
-        <div className="border rounded-lg p-4 bg-muted/20 space-y-3" data-testid="descricao-elaboracao">
+        <div className="mt-8 border rounded-lg p-4 bg-muted/20 space-y-3" data-testid="descricao-elaboracao">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <p className="text-sm font-semibold">Descrição de elaboração</p>
@@ -2810,6 +2809,8 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
           <FormulaPhaseEditor key={formulaElaboracao.id} formulaId={formulaElaboracao.id} canEdit={canEdit} />
         </div>
       )}
+
+      <SampleBatchSection devId={devId} formulas={formulas} onRefresh={onRefresh} canEdit={canEdit} />
     </div>
   );
 }
