@@ -28,9 +28,11 @@ Memória completa (histórico, decisões antigas, projetos vizinhos):
   repo de melhorias" ou "deixei registrado", leia como **"considere adiado, e registre
   você"**. Registrar em `MELHORIAS_FUTURAS.md` faz parte da tarefa; basta conferir
   duplicata com `grep` antes de inserir, sem perguntar.
-- **Deploy e git andam juntos.** Todo `firebase deploy --only hosting --project prod-kuryos`
-  é seguido, no mesmo turno e sem perguntar, de `git add` + `commit` descritivo +
-  `git push origin main`. O repo existe para o dev do Kuryos ERP acompanhar o progresso —
+- **Deploy e git andam juntos.** Desde 14/10/2026 o site é a Vercel
+  (`https://pcp-kuryos.vercel.app`), que publica sozinha a cada `git push origin main`:
+  commit descritivo + push **é** o deploy. Confira depois com `curl` no arquivo mudado.
+  O antigo `firebase deploy --only hosting --project prod-kuryos` não é mais o site em
+  uso. Regras do banco seguem pela CLI (`--only database --project erpkuryos`). O repo existe para o dev do Kuryos ERP acompanhar o progresso —
   GitHub desatualizado em relação à produção anula o propósito.
 - **Enquadramento de consultor, não de revisor de código.** Em conversas de
   roadmap/funcionalidade, lidere pela razão de negócio e pela priorização
