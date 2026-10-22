@@ -11,6 +11,7 @@ import { amostraDaVersaoFaltando, precoUsd, volumeEmKg } from "@/lib/pdAmostra";
 import { eventoMpNova, htmlFichaTecnica, montarFichaTecnica, validarMpNova } from "@/lib/fichaTecnica";
 import { solicitacoesDeMpsNovas } from "@/lib/filaCadastroMp";
 import { erroNaoFecha, fechamentoFormula, pendenciasDoLote } from "@/lib/fechamentoFormula";
+import { baseVigente, planoDaBase, substituicoesForaDaFragrancia } from "@/lib/formulacaoBase";
 import { congelar, cotacaoDaFormula, situacao as situacaoCambio, validarSpread } from "@/lib/cambio";
 import { validarLeitura } from "@/lib/estabilidade";
 import { TRECHO_AMOSTRA, etapaPelaAmostra, passosAte } from "@/lib/etapaPelaAmostra";
@@ -838,6 +839,35 @@ function requireAdmin(profile, action) {
 // adaptador pede a justificativa ao usuário e repete a chamada.
 function justificationRequired(detail, opcoes = {}) {
   return apiError(428, { code: "JUSTIFICATIVA_REQUIRED", message: detail, ...opcoes });
+}
+
+// AMO-02: projeto da amostra (solicitação do P&D ligada ao CRM2), ou null em amostra avulsa.
+async function projetoDoDesenvolvimento(tenantId, devId) {
+  const dev = await one(tenantId, "pd_developments", devId);
+  const req = dev ? await one(tenantId, "pd_requests", dev.request_id || dev.pd_request_id) : null;
+  return { projetoId: req?.crm_project_id || req?.linked_projeto_id || null, request: req };
+}
+
+// AMO-02: no lote, variação só troca a fragrância; a base vira (ou reaproveita) uma versão da
+// formulação base do projeto, e o lote guarda qual versão usou. Amostra sem projeto: só o lote.
+async function aplicarBaseDoProjeto(tenantId, devId, lote, profile) {
+  const nomesDaBase = (lote.base_reference_items || []).map((i) => i.nome);
+  const foraDaFragrancia = substituicoesForaDaFragrancia(lote.variantes, nomesDaBase);
+  if (foraDaFragrancia.length) throw apiError(422, foraDaFragrancia.join(" "));
+  const { projetoId, request } = await projetoDoDesenvolvimento(tenantId, devId);
+  if (!projetoId) return lote;
+  const plano = planoDaBase(await related(tenantId, "pd_formulacoes_base", "projeto_id", projetoId), lote.base_reference_items);
+  if (plano.acao === "nenhuma") return lote;
+  let base = plano.base;
+  if (plano.acao === "criar") {
+    const versao = await nextSequence(`erp/${tenantId}/sequences/formulacao_base_${projetoId}`);
+    base = await create(tenantId, "pd_formulacoes_base", {
+      projeto_id: projetoId, versao, itens: plano.itens,
+      origem: { development_id: devId, amostra: request?.internal_code || "", lote: lote.nome || "" },
+      criado_por: firebaseAuth.currentUser.uid, criado_por_nome: pdUserName(profile), criado_em: now(),
+    });
+  }
+  return { ...lote, formulacao_base_id: base.id, formulacao_base_versao: Number(base.versao) || 1, projeto_id: projetoId };
 }
 
 // AMO-03: fórmula vigente e variantes dos lotes ativos precisam fechar 100%. Fórmula sem
@@ -2206,6 +2236,12 @@ async function dispatch(e, t) {
     documents: "pd_documents",
     tests: "pd_tests"
   };
+  // AMO-02: base vigente do projeto da amostra, para as demais amostras do mesmo projeto.
+  if (O = j(/^\/pd\/developments\/([^/]+)\/base-projeto$/), O && "GET" === e) {
+    const { projetoId } = await projetoDoDesenvolvimento(_, O[1]);
+    const base = projetoId ? baseVigente(await related(_, "pd_formulacoes_base", "projeto_id", projetoId)) : null;
+    return response({ projeto_id: projetoId, base }, i);
+  }
   if (O = j(/^\/pd\/developments\/([^/]+)\/(sample-batches|samples|documents|tests)$/), O && "GET" === e) return response(await related(_, y[O[2]], "development_id", O[1]), i);
   if (O && "POST" === e) {
     const e = await one(_, "pd_developments", O[1]);
@@ -2218,7 +2254,7 @@ async function dispatch(e, t) {
       const e = await one(_, "pd_formulas", r.formula_base_id);
       if (!e || e.development_id !== O[1]) throw apiError(404, "Fórmula base não encontrada para este desenvolvimento.");
       t = {
-        ...pdSampleBatch(r, O[1]),
+        ...(await aplicarBaseDoProjeto(_, O[1], pdSampleBatch(r, O[1]), u)),
         created_at: now(),
         created_by: firebaseAuth.currentUser.uid,
         created_by_name: pdUserName(u)
@@ -2247,7 +2283,7 @@ async function dispatch(e, t) {
     if (!t || t.development_id !== O[1]) throw apiError(404, "Fórmula base não encontrada para este desenvolvimento.");
     return response(await save(_, "pd_sample_batches", O[2], {
       ...e,
-      ...pdSampleBatch(r, O[1], O[2]),
+      ...(await aplicarBaseDoProjeto(_, O[1], pdSampleBatch(r, O[1], O[2]), u)),
       created_at: e.created_at,
       created_by: e.created_by,
       created_by_name: e.created_by_name

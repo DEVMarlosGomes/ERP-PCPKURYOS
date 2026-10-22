@@ -26,6 +26,7 @@ import { indexToLetters } from "@/lib/letters";
 import CambioPainel from "@/components/CambioPainel";
 import FechamentoFormulaDialog, { detalheNaoFecha } from "@/components/FechamentoFormulaDialog";
 import { fechamentoFormula, pendenciasDoLote, textoFechamento } from "@/lib/fechamentoFormula";
+import { mesmaBase } from "@/lib/formulacaoBase";
 import { ROTULO_ORIGEM } from "@/lib/cambio";
 import { formatarEspera, parametrosFaltando, proximoCheckpoint, rotuloDia } from "@/lib/estabilidade";
 import {
@@ -2892,6 +2893,9 @@ const BASE_REFERENCIA_ANTIGA = new Set(["agua|alcool|acido hialuronico", "base|v
 const baseReferenciaAntiga = (lista) => !lista || !lista.length || BASE_REFERENCIA_ANTIGA.has(lista.map((x) => String(x).trim().toLowerCase()).join("|"));
 const pareceVariavel = (item, opcao) => /fragr|essenc|parfum|perfum/i.test([item.ingredient_name, item.inci, opcao?.inci, opcao?.tipo, opcao?.categoria].join(" "))
   || ["MPES"].includes(String(opcao?.tipo || "").toUpperCase());
+// Opção do Cadastros que é fragrância (para a MP substituta da variante, AMO-02).
+const ehFragrancia = (opcao) => /fragr|essenc|parfum|perfum/i.test([opcao?.nome, opcao?.inci, opcao?.tipo, opcao?.categoria].join(" "))
+  || String(opcao?.tipo || "").toUpperCase() === "MPES";
 
 function SampleBatchEditor({ devId, formulas, initial, onSave, onClose }) {
   const { ingredientOptions, getSuppliersForIngredient, getIngredientOption } = usePdMaterialLibrary();
@@ -2973,6 +2977,18 @@ function SampleBatchEditor({ devId, formulas, initial, onSave, onClose }) {
     return { ...f, base_reference_ingredients: ingredientesBase.map((i) => i.nome).filter((n) => atual.has(n)) };
   });
   const percentualBase = ingredientesBase.filter((i) => naBase.has(i.nome)).reduce((s, i) => s + i.percentual, 0);
+  // AMO-02: base vigente do projeto (de outra amostra ou de um lote anterior).
+  const [baseProjeto, setBaseProjeto] = useState(null);
+  useEffect(() => {
+    if (!devId) return;
+    api.get(`/pd/developments/${devId}/base-projeto`).then(({ data }) => setBaseProjeto(data?.base || null)).catch(() => setBaseProjeto(null));
+  }, [devId]);
+  const itensNaBase = ingredientesBase.filter((i) => naBase.has(i.nome));
+  const baseIgualAoProjeto = Boolean(baseProjeto) && mesmaBase(baseProjeto.itens, itensNaBase);
+  // Variação só troca a fragrância: substituir só o que está fora da base, por fragrância.
+  const substituiveis = baseItems.filter((it) => !naBase.has(it.ingredient_name));
+  const opcoesFragrancia = ingredientOptions.filter(ehFragrancia);
+  const opcoesSubstituta = opcoesFragrancia.length ? opcoesFragrancia : ingredientOptions;
 
   const batchMetrics = useMemo(() => computeSampleBatchMetrics({
     ...form,
@@ -2994,14 +3010,6 @@ function SampleBatchEditor({ devId, formulas, initial, onSave, onClose }) {
   };
 
   const removeVariante = (idx) => setForm(f => ({ ...f, variantes: f.variantes.filter((_, i) => i !== idx) }));
-
-  const toggleChangeScope = (scope) => setForm(f => {
-    const selected = new Set(f.allowed_change_scopes || []);
-    if (selected.has(scope)) selected.delete(scope);
-    else selected.add(scope);
-    const next = [...selected];
-    return { ...f, allowed_change_scopes: next.length ? next : [scope] };
-  });
 
   const addOverride = (vIdx) => setVariante(vIdx, {
     overrides: [...(form.variantes[vIdx]?.overrides || []), { ingredient_name_base: "", ingredient_name: "", percentage: 0, fornecedor: "" }]
@@ -3071,7 +3079,7 @@ function SampleBatchEditor({ devId, formulas, initial, onSave, onClose }) {
       base_total_volume_ml: Number(form.base_total_volume_ml) || 0,
       perda_operacional_percent: Number(form.perda_operacional_percent) || 0,
       notas: form.notas || "",
-      allowed_change_scopes: form.allowed_change_scopes || ["cor", "ativo", "fragrancia"],
+      allowed_change_scopes: ["fragrancia"], // AMO-02: na variação só a fragrância muda
       base_reference_ingredients: form.base_reference_ingredients || [],
       // Detalhe da base (do Cadastros): código, INCI e % de cada ingrediente fixo.
       base_reference_items: ingredientesBase.filter((i) => naBase.has(i.nome)).map(({ nome, codigo, inci, percentual }) => ({ nome, codigo, inci, percentual })),
@@ -3181,46 +3189,6 @@ function SampleBatchEditor({ devId, formulas, initial, onSave, onClose }) {
         )}
       </div>
 
-      <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
-        <div>
-          <Label className="text-xs font-medium">Base fixa de referência</Label>
-          {ingredientesBase.length === 0 ? (
-            <p className="mt-1 text-xs text-muted-foreground">{loadingItems ? "Carregando os ingredientes da fórmula base…" : "Escolha a fórmula base abaixo: a base fixa vem dos ingredientes dela (Cadastros)."}</p>
-          ) : (
-            <div className="mt-1 space-y-1.5" data-testid="base-fixa-ingredientes">
-              <p className="text-[11px] text-muted-foreground">Ingredientes da fórmula base. Clique para tirar da base o que varia nas derivadas. Na base: <b>{percentualBase.toFixed(2).replace(".", ",")}%</b> da fórmula.</p>
-              <div className="flex flex-wrap gap-1.5">
-                {ingredientesBase.map((i) => (
-                  <button key={i.nome} type="button" onClick={() => alternarNaBase(i.nome)}
-                    className={`rounded-md border px-2 py-1 text-left text-xs leading-tight ${naBase.has(i.nome) ? "border-primary bg-primary/10 text-foreground" : "border-dashed text-muted-foreground line-through"}`}
-                    title={naBase.has(i.nome) ? "Na base fixa (clique para tirar)" : "Varia nas derivadas (clique para pôr na base)"}>
-                    <span className="font-medium">{i.nome}</span>
-                    <span className="block text-[10px] text-muted-foreground">{[i.codigo, i.inci, `${i.percentual.toLocaleString("pt-BR")}%`].filter(Boolean).join(" · ")}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-        <div>
-          <Label className="text-xs font-medium">Mudancas permitidas nas derivadas</Label>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {["cor", "ativo", "fragrancia"].map(scope => (
-              <Button
-                key={scope}
-                type="button"
-                variant={(form.allowed_change_scopes || []).includes(scope) ? "default" : "outline"}
-                size="sm"
-                onClick={() => toggleChangeScope(scope)}
-                className="h-7 text-xs"
-              >
-                {SAMPLE_BATCH_SCOPE_LABELS[scope]}
-              </Button>
-            ))}
-          </div>
-        </div>
-      </div>
-
       <div className="space-y-1">
         <Label className="text-xs font-medium">Fórmula Base <span className="text-red-500">*</span></Label>
         <Select value={form.formula_base_id} onValueChange={v => setForm(f => ({ ...f, formula_base_id: v }))}>
@@ -3231,9 +3199,54 @@ function SampleBatchEditor({ devId, formulas, initial, onSave, onClose }) {
             ))}
           </SelectContent>
         </Select>
-        {loadingItems && <p className="text-xs text-muted-foreground">Carregando ingredientes...</p>}
-        {baseItems.length > 0 && (
-          <p className="text-xs text-muted-foreground">{baseItems.length} ingredientes na fórmula base</p>
+      </div>
+
+      {/* AMO-02 (22/10/2026): ingredientes da base acima das observações; a base vira versão do projeto. */}
+      <div className="rounded-lg border bg-muted/20 p-3 space-y-2" data-testid="ingredientes-da-base">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <Label className="text-xs font-medium">Ingredientes da base</Label>
+          <span className="text-[11px] text-muted-foreground">Nas variantes muda só a fragrância.</span>
+        </div>
+        {baseProjeto && (
+          <p className={`text-[11px] ${baseIgualAoProjeto ? "text-emerald-700" : "text-amber-700"}`} data-testid="base-do-projeto">
+            Base do projeto <b>v{baseProjeto.versao}</b> ({baseProjeto.itens.map((i) => `${i.nome} ${Number(i.percentual).toLocaleString("pt-BR")}%`).join(", ")})
+            {baseProjeto.origem?.amostra ? ` — definida na amostra ${baseProjeto.origem.amostra}` : ""}.
+            {ingredientesBase.length > 0 && (baseIgualAoProjeto ? " Esta seleção é igual." : ` Esta seleção é diferente: ao salvar, a base do projeto vai para a v${Number(baseProjeto.versao) + 1}.`)}
+          </p>
+        )}
+        {ingredientesBase.length === 0 ? (
+          <p className="text-xs text-muted-foreground">{loadingItems ? "Carregando os ingredientes da fórmula base…" : "Escolha a fórmula base: os ingredientes vêm dela (com código e INCI do Cadastros)."}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="text-muted-foreground">
+                <tr>
+                  <th className="p-1 text-left font-medium">Na base</th>
+                  <th className="p-1 text-left font-medium">Ingrediente</th>
+                  <th className="p-1 text-left font-medium">Código</th>
+                  <th className="p-1 text-left font-medium">INCI</th>
+                  <th className="p-1 text-right font-medium">%</th>
+                  <th className="p-1 text-right font-medium">Por amostra</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ingredientesBase.map((i) => (
+                  <tr key={i.nome} className={`border-t ${naBase.has(i.nome) ? "" : "text-muted-foreground"}`}>
+                    <td className="p-1">
+                      <input type="checkbox" checked={naBase.has(i.nome)} onChange={() => alternarNaBase(i.nome)}
+                        title={naBase.has(i.nome) ? "Na base (desmarque o que varia: a fragrância)" : "Varia nas derivadas"} />
+                    </td>
+                    <td className="p-1 font-medium">{i.nome}{i.variavel && <Badge variant="outline" className="ml-1 h-4 px-1 text-[9px]">fragrância</Badge>}</td>
+                    <td className="p-1 font-mono">{i.codigo || "—"}</td>
+                    <td className="p-1">{i.inci || "—"}</td>
+                    <td className="p-1 text-right font-mono">{i.percentual.toLocaleString("pt-BR")}</td>
+                    <td className="p-1 text-right font-mono">{((i.percentual / 100) * (Number(form.volume_base_ml) || 0)).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} {form.unidade_medida}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="mt-1 text-[11px] text-muted-foreground">Na base: <b>{percentualBase.toFixed(2).replace(".", ",")}%</b> da fórmula. O que fica de fora é o que muda nas variantes.</p>
+          </div>
         )}
       </div>
 
@@ -3275,13 +3288,16 @@ function SampleBatchEditor({ devId, formulas, initial, onSave, onClose }) {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground font-medium">Substituições de ingredientes</span>
+                <span className="text-xs text-muted-foreground font-medium">Troca de fragrância</span>
                 <Button variant="ghost" size="sm" onClick={() => addOverride(vIdx)} className="h-6 text-xs gap-1 text-violet-600 hover:text-violet-700">
                   <Plus className="h-3 w-3" />Substituição
                 </Button>
               </div>
               {v.overrides.length === 0 && (
-                <p className="text-xs text-muted-foreground italic py-1">Sem substituições — todos os ingredientes seguem a fórmula base.</p>
+                <p className="text-xs text-muted-foreground italic py-1">Sem troca — a variante segue a fórmula base.</p>
+              )}
+              {v.overrides.length > 0 && substituiveis.length === 0 && (
+                <p className="text-xs text-amber-700 py-1">Todos os ingredientes estão na base. Desmarque a fragrância em "Ingredientes da base" para poder trocá-la.</p>
               )}
               {v.overrides.map((o, oIdx) => {
                 const filteredFornecedores = getFornecedoresForIngredient(o.ingredient_name);
@@ -3289,9 +3305,9 @@ function SampleBatchEditor({ devId, formulas, initial, onSave, onClose }) {
                   <div key={oIdx} className="border border-border rounded-md p-2 space-y-1.5 bg-background">
                     <div className="grid grid-cols-1 items-center gap-1.5 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto]">
                       <Select value={o.ingredient_name_base} onValueChange={val => updateOverride(vIdx, oIdx, "ingredient_name_base", val)}>
-                        <SelectTrigger className="h-8 min-w-0 text-xs"><SelectValue placeholder="Substituir..." /></SelectTrigger>
+                        <SelectTrigger className="h-8 min-w-0 text-xs"><SelectValue placeholder="Fragrância da base..." /></SelectTrigger>
                         <SelectContent>
-                          {baseItems.map(it => <SelectItem key={it.id} value={it.ingredient_name}>{it.ingredient_name}</SelectItem>)}
+                          {substituiveis.map(it => <SelectItem key={it.id} value={it.ingredient_name}>{it.ingredient_name}</SelectItem>)}
                         </SelectContent>
                       </Select>
                       <ChevronRight className="hidden h-3 w-3 text-muted-foreground sm:block" />
@@ -3301,9 +3317,9 @@ function SampleBatchEditor({ devId, formulas, initial, onSave, onClose }) {
                           v2[vIdx] = { ...v2[vIdx], overrides: v2[vIdx].overrides.map((ov, i) => i === oIdx ? { ...ov, ingredient_name: val, fornecedor: "" } : ov) };
                           setForm(f => ({ ...f, variantes: v2 }));
                         }}>
-                          <SelectTrigger className="h-8 min-w-0 text-xs"><SelectValue placeholder="MP substituta..." /></SelectTrigger>
+                          <SelectTrigger className="h-8 min-w-0 text-xs"><SelectValue placeholder="Nova fragrância..." /></SelectTrigger>
                           <SelectContent>
-                            {ingredientOptions.map(it => (
+                            {opcoesSubstituta.map(it => (
                               <SelectItem key={it.option_key} value={it.nome}>
                                 {it.nome}{it.codigo_interno ? ` · ${it.codigo_interno}` : ""}{it.fornecedores?.length ? ` · ${it.fornecedores.length} forn.` : ""}
                               </SelectItem>
