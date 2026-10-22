@@ -10,6 +10,7 @@ import { createCommercialRouter, NOT_HANDLED } from "@/lib/firebaseCommercial";
 import { amostraDaVersaoFaltando, precoUsd, volumeEmKg } from "@/lib/pdAmostra";
 import { eventoMpNova, htmlFichaTecnica, montarFichaTecnica, validarMpNova } from "@/lib/fichaTecnica";
 import { solicitacoesDeMpsNovas } from "@/lib/filaCadastroMp";
+import { erroNaoFecha, fechamentoFormula, pendenciasDoLote } from "@/lib/fechamentoFormula";
 import { congelar, cotacaoDaFormula, situacao as situacaoCambio, validarSpread } from "@/lib/cambio";
 import { validarLeitura } from "@/lib/estabilidade";
 import { TRECHO_AMOSTRA, etapaPelaAmostra, passosAte } from "@/lib/etapaPelaAmostra";
@@ -837,6 +838,28 @@ function requireAdmin(profile, action) {
 // adaptador pede a justificativa ao usuário e repete a chamada.
 function justificationRequired(detail, opcoes = {}) {
   return apiError(428, { code: "JUSTIFICATIVA_REQUIRED", message: detail, ...opcoes });
+}
+
+// AMO-03: fórmula vigente e variantes dos lotes ativos precisam fechar 100%. Fórmula sem
+// itens fica com a regra RN-PD-02 da etapa; lote bloqueado/encerrado não é entregue, fica fora.
+async function conferirFechamentoPd(tenantId, request, development) {
+  const cache = new Map();
+  const itensDe = async (formulaId) => {
+    if (!cache.has(formulaId)) cache.set(formulaId, await related(tenantId, "pd_formula_items", "formula_id", formulaId));
+    return cache.get(formulaId);
+  };
+  const vigente = (await related(tenantId, "pd_formulas", "development_id", development.id))
+    .sort((a, b) => Number(b.version || 0) - Number(a.version || 0))[0];
+  const itensVigente = vigente ? await itensDe(vigente.id) : [];
+  const fechamento = itensVigente.length ? { nome: `v${vigente.version || 1}`, ...fechamentoFormula(itensVigente) } : null;
+  const pendencias = [];
+  for (const lote of await related(tenantId, "pd_sample_batches", "development_id", development.id)) {
+    if (!lote.formula_base_id || (lote.status_base && lote.status_base !== "ativa")) continue;
+    pendencias.push(...pendenciasDoLote(lote, await itensDe(lote.formula_base_id)));
+  }
+  if ((!fechamento || fechamento.ok) && !pendencias.length) return;
+  const responsavel = request.assigned_to_name || vigente?.created_by_name || "";
+  throw apiError(422, erroNaoFecha({ formula: fechamento, pendencias, responsavel }));
 }
 
 async function auditCard(tenantId, action, entityType, entityId, before, after, profile) {
@@ -1761,14 +1784,15 @@ async function dispatch(e, t) {
       throw apiError(400, `Transição não permitida: ${a} → ${o}.`);
     }
     const s = (await all(_, "pd_developments")).find(e => e.request_id === t.id || e.pd_request_id === t.id) || null;
+    // AMO-03: concluir a manipulação ou entregar ao cliente exige 100% na fórmula vigente e em
+    // cada variante dos lotes (tolerância 0,001; antes ±0,5 só na fórmula). Popup na tela.
+    if (("IN_TESTS" === o || "WAITING_APPROVAL" === o) && s) await conferirFechamentoPd(_, t, s);
     if ("IN_TESTS" === o) {
       if (!s) throw apiError(400, "Inicie o desenvolvimento antes de avançar para Em Testes.");
       const e = (await related(_, "pd_formulas", "development_id", s.id)).sort((e, t) => Number(t.version || 0) - Number(e.version || 0))[0];
       if (!e) throw apiError(400, "Registre a fórmula antes de avançar para Em Testes (RN-PD-02).");
       const t = await related(_, "pd_formula_items", "formula_id", e.id);
       if (!t.length) throw apiError(400, "Adicione ingredientes à fórmula antes de avançar para Em Testes (RN-PD-02).");
-      const a = t.reduce((e, t) => e + Number(t.percentage || 0), 0);
-      if (Math.abs(a - 100) > 0.5) throw apiError(400, `O total da fórmula deve ser 100% (atual: ${a.toFixed(2)}%).`);
       await patch(_, "pd_formulas", e.id, {
         locked: !0,
         locked_at: now(),

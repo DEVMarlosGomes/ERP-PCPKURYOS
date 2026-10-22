@@ -24,6 +24,8 @@ import { formatApiError } from "@/lib/formatError";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { indexToLetters } from "@/lib/letters";
 import CambioPainel from "@/components/CambioPainel";
+import FechamentoFormulaDialog, { detalheNaoFecha } from "@/components/FechamentoFormulaDialog";
+import { fechamentoFormula, pendenciasDoLote, textoFechamento } from "@/lib/fechamentoFormula";
 import { ROTULO_ORIGEM } from "@/lib/cambio";
 import { formatarEspera, parametrosFaltando, proximoCheckpoint, rotuloDia } from "@/lib/estabilidade";
 import {
@@ -482,6 +484,7 @@ export default function PDDetail() {
   const [activeTab, setActiveTab] = useState("overview");
   const [showBackwardDialog, setShowBackwardDialog] = useState(false);
   const [backwardJustification, setBackwardJustification] = useState("");
+  const [naoFecha, setNaoFecha] = useState(null); // AMO-03: popup vermelho da conclusão
   const [showLinkCRM, setShowLinkCRM] = useState(false);
   const [crmProjectSearch, setCrmProjectSearch] = useState("");
   const [crmProjects, setCrmProjects] = useState([]);
@@ -546,7 +549,9 @@ export default function PDDetail() {
       }
       fetchData();
     } catch (err) {
-      toast.error(formatApiError(err) || "Erro ao alterar status");
+      const naoFechaDetalhe = detalheNaoFecha(err);
+      if (naoFechaDetalhe) setNaoFecha(naoFechaDetalhe);
+      else toast.error(formatApiError(err) || "Erro ao alterar status");
     }
   };
 
@@ -821,6 +826,8 @@ export default function PDDetail() {
               </DialogContent>
             </Dialog>
           )}
+
+          <FechamentoFormulaDialog detalhe={naoFecha} onClose={() => setNaoFecha(null)} />
 
           {showBackwardDialog && (
             <Dialog open onOpenChange={(open) => !open && setShowBackwardDialog(false)}>
@@ -2300,7 +2307,8 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
         const totalPct = items.reduce((s, it) => s + (it.percentage || 0), 0);
         const totalCostBrl = items.reduce((s, it) => s + (it.cost_brl || 0), 0);
         const totalPriceSum = items.reduce((s, it) => s + precoBrlKg(it, f.cotacao_usd), 0);
-        const isOk = Math.abs(totalPct - 100) < 0.01;
+        const fechamento = fechamentoFormula(items);
+        const isOk = fechamento.ok;
         const open = expandedFormula === f.id;
         
         const volume = f.volume || 0;
@@ -2555,7 +2563,7 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
                         <td className="p-2 text-xs">Custo Unit.</td>
                         <td className="p-2"></td>
                         <td className="p-2"></td>
-                        <td className={`p-2 text-right font-mono text-xs ${isOk ? "text-green-600" : "text-amber-600"}`}>{totalPct.toFixed(3)}</td>
+                        <td className={`p-2 text-right font-mono text-xs ${isOk ? "text-green-600" : "text-red-600 font-bold"}`} title={textoFechamento(fechamento)}>{totalPct.toFixed(3)}</td>
                         <td className="p-2 text-right font-mono text-xs text-blue-600">{volume > 0 ? `${volume} ${volumeUnit}` : "—"}</td>
                         <td className="p-2 text-right font-mono text-xs text-muted-foreground">{BASE_CALCULO} {volumeUnit}</td>
                         <td className="p-2 text-right font-mono text-xs">{totalPriceSum.toFixed(2)}</td>
@@ -2930,6 +2938,7 @@ function SampleBatchEditor({ devId, formulas, initial, onSave, onClose }) {
   const [saving, setSaving] = useState(false);
   const [baseItems, setBaseItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(false);
+  const [rascunhoPendente, setRascunhoPendente] = useState(null);
 
   const getFornecedoresForIngredient = (ingredientName) => {
     return getSuppliersForIngredient(ingredientName);
@@ -3069,6 +3078,16 @@ function SampleBatchEditor({ devId, formulas, initial, onSave, onClose }) {
       variantes: sanitizedVariantes,
     };
 
+    // AMO-03: variante fora de 100% → popup vermelho; salvar fica como rascunho (a conclusão do P&D trava).
+    const foraDe100 = baseItems.length ? pendenciasDoLote(payload, baseItems) : [];
+    if (foraDe100.length) {
+      setRascunhoPendente({ payload, linhas: foraDe100.map((p) => `${p.variante}: ${textoFechamento(p)}`) });
+      return;
+    }
+    await gravar(payload);
+  };
+
+  const gravar = async (payload) => {
     setSaving(true);
     try {
       await onSave(payload);
@@ -3324,6 +3343,12 @@ function SampleBatchEditor({ devId, formulas, initial, onSave, onClose }) {
         ))}
       </div>
 
+      <FechamentoFormulaDialog
+        detalhe={rascunhoPendente}
+        onClose={() => setRascunhoPendente(null)}
+        onSalvarRascunho={() => { const p = rascunhoPendente?.payload; setRascunhoPendente(null); if (p) gravar(p); }}
+      />
+
       <div className="flex justify-end gap-2 pt-2 border-t">
         <Button variant="outline" onClick={onClose}>Cancelar</Button>
         <Button onClick={handleSave} disabled={saving} className="gap-1.5">
@@ -3457,7 +3482,7 @@ function SampleBatchCard({ batch, formulas, onEdit, onDelete, canEdit }) {
                   {variantes.map((v, vIdx) => {
                     const resolvedItems = resolveVariantItems(v);
                     const phases = groupByPhase(resolvedItems);
-                    const totalPct = resolvedItems.reduce((s, it) => s + (it.percentage || 0), 0);
+                    const fechamento = fechamentoFormula(resolvedItems);
 
                     return (
                       <div key={v.id} className="border rounded-lg overflow-hidden shadow-sm">
@@ -3514,7 +3539,7 @@ function SampleBatchCard({ batch, formulas, onEdit, onDelete, canEdit }) {
                         <div className="flex items-center justify-between px-3 py-2 bg-slate-100 dark:bg-slate-800 font-bold border-t-2">
                           <span className="text-xs">Total</span>
                           <div className="flex items-center gap-4 text-right">
-                            <span className="font-mono text-xs text-muted-foreground w-16">{totalPct.toFixed(2)}%</span>
+                            <span className={`font-mono text-xs w-16 ${fechamento.ok ? "text-muted-foreground" : "text-red-600"}`} title={textoFechamento(fechamento)} data-testid="total-variante">{fechamento.soma.toFixed(2)}%</span>
                             <span className="font-mono text-sm w-20">{volumeMl} {unidade}*</span>
                           </div>
                         </div>
