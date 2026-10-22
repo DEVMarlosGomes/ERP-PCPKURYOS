@@ -6028,7 +6028,10 @@ function MpNovasHistorico({ devId, refreshKey }) {
             <Badge className="text-[9px] h-4 px-1 bg-amber-100 text-amber-800 border-amber-300">{t.tipo}</Badge>
             {t.status === "CADASTRADO"
               ? <span className="text-emerald-700">cadastrada como <b className="font-mono">{t.mpCodigo}</b>{t.cadastradoPor ? ` por ${t.cadastradoPor}` : ""}</span>
-              : <span className="text-amber-700">aguardando cadastro no PCP</span>}
+              : t.status === "VINCULADO"
+                // CAD-01: o Cadastros achou o material já cadastrado e vinculou, sem criar outro.
+                ? <span className="text-emerald-700">vinculada ao cadastro existente <b className="font-mono">{t.mpCodigo}</b>{t.vinculadoPor ? ` por ${t.vinculadoPor}` : ""}</span>
+                : <span className="text-amber-700">aguardando cadastro no PCP</span>}
           </div>
         ))}
         {log.map((l) => (

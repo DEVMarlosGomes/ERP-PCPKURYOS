@@ -13,6 +13,7 @@
   <script src="shared/utils.js"></script>
   <script src="shared/sku-entrada.js"></script>
   <script src="shared/ingrediente-campos.js"></script>
+  <script src="shared/duplicidade-material.js"></script>
   <script src="shared/cambio.js"></script>
   <script src="shared/servicos.js"></script>
   <script src="shared/pendencias-setor.js"></script><script src="shared/pendencias-setor-ui.js"></script>
@@ -371,6 +372,7 @@
             <div class="form-group full">
               <label>Nome / Descrição *</label>
               <input type="text" id="fNome-mat" class="uc" placeholder="Ex: FRASCO AIRLESS 120ML 24/410 ALTO TRANSPARENTE">
+              <div id="dupMat-box" class="field-hint" style="display:none;margin-top:6px;padding:8px;border:1px solid #f0c36d;border-radius:6px;background:#fff7e6"></div>
             </div>
             <div class="form-group">
               <label>Marca / Modelo</label>
@@ -1819,6 +1821,11 @@ document.addEventListener('DOMContentLoaded', function() {
             '<span style="color:var(--muted)">' + escapeHtml([o.projetoNumero, o.projeto].filter(Boolean).join(' ') || '—') +
               (o.amostra ? ' · amostra ' + escapeHtml(o.amostra) : '') + (o.cliente ? ' · ' + escapeHtml(o.cliente) : '') +
               (t.fornecedor ? ' · fornecedor ' + escapeHtml(t.fornecedor) : '') + '</span>' +
+            (function() {
+              // CAD-01: já avisa na fila quando existe material igual (abrir a tarefa mostra "Vincular").
+              var dup = DuplicidadeMaterial.duplicataExata(DuplicidadeMaterial.candidatos({ tipo: t.tipo, nome: t.nome, inci: t.inci }, allMateriais));
+              return dup ? '<span style="color:#b45309;font-weight:600">⛔ já existe ' + escapeHtml(dup.mpCodigo) + ' — abrir e vincular</span>' : '';
+            })() +
           '</div>';
         }).join('') +
       '</div>';
@@ -1845,6 +1852,12 @@ document.addEventListener('DOMContentLoaded', function() {
     atualizarCustoTargetBrl();
     document.getElementById('fEspecificacoes').value = [d.especificacoes, c.referenciaPd].filter(Boolean).join('\n');
     if (c.custoReferencia != null) document.getElementById('fuCustoRef-mat').value = c.custoReferencia;
+    // Valor vindo do P&D segue a regra dos campos "uc" (maiúsculas sem acento), que só roda ao digitar.
+    ['fNome-mat', 'fInci-mat', 'fInciFrag-mat', 'fFuncaoFormula-mat'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el && el.classList.contains('uc')) el.value = stripAccents(el.value).toUpperCase();
+    });
+    setTimeout(renderDuplicidadeMat, 0);
     if (d.fornecedorNome) {
       var alvo = norm(d.fornecedorNome);
       var fKey = Object.keys(allFornecedores || {}).find(function(key) {
@@ -1855,6 +1868,45 @@ document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('fuFornecedorKey-mat').value = fKey;
     }
     document.getElementById('modalTitle-mat').textContent = 'Novo Material — do P&D';
+  }
+
+  /* CAD-01 (22/10/2026): parecidos já cadastrados, regras em shared/duplicidade-material.js.
+     Mesmo tipo + mesmo nome bloqueia o cadastro (o caminho é vincular); o resto só avisa. */
+  function renderDuplicidadeMat() {
+    var box = document.getElementById('dupMat-box');
+    if (!box) return;
+    var cands = DuplicidadeMaterial.candidatos({
+      tipo: document.getElementById('fTipo').value,
+      nome: document.getElementById('fNome-mat').value,
+      inci: document.getElementById('fInci-mat').value || document.getElementById('fInciFrag-mat').value
+    }, allMateriais, editingKey).slice(0, 5);
+    if (!cands.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    box.style.display = 'block';
+    box.innerHTML = '<b>' + (DuplicidadeMaterial.duplicataExata(cands)
+        ? '⛔ Já existe material com este nome e tipo — vincule em vez de cadastrar de novo:'
+        : '⚠ Parecido(s) já cadastrado(s) — confira antes de criar:') + '</b>' +
+      cands.map(function(c) {
+        return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px">' +
+          '<span class="badge">' + escapeHtml(c.mpCodigo) + '</span>' + escapeHtml(c.mpNome) +
+          ' <span style="color:var(--muted)">(' + escapeHtml(c.motivo) + ')</span>' +
+          (solicitacaoMatEmCurso ? ' <button type="button" class="btn btn-primary btn-sm btn-vincular-mat" data-key="' + escapeAttr(c.key) + '">Vincular</button>' : '') +
+        '</div>';
+      }).join('');
+    box.querySelectorAll('.btn-vincular-mat').forEach(function(btn) {
+      btn.addEventListener('click', function() { vincularSolicitacaoMat(btn.getAttribute('data-key')); });
+    });
+  }
+
+  // Fecha a tarefa do P&D apontando para o material que já existe — nenhum material novo é criado.
+  function vincularSolicitacaoMat(materialKey) {
+    var k = solicitacaoMatEmCurso;
+    if (!k || !allMateriais[materialKey]) return;
+    var fecha = DuplicidadeMaterial.vinculo(allMateriais[materialKey], materialKey, currentUserNome(), new Date().toISOString());
+    var updates = {};
+    Object.keys(fecha).forEach(function(campo) { updates['solicitacoes_cadastro_material/' + k + '/' + campo] = fecha[campo]; });
+    db.ref().update(updates)
+      .then(function() { solicitacaoMatEmCurso = null; showAlert('MP nova vinculada a ' + fecha.mpCodigo + ' — nenhum material novo foi criado.', 'success'); closeModal(); })
+      .catch(function(err) { showAlert('Erro: ' + err.message, 'danger'); });
   }
 
   function atualizarSkuEntradaUI() {
@@ -2442,6 +2494,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('fControlaEstoque-mat').checked = m.controlaEstoque !== false;
 
     solicitacaoMatEmCurso = null;
+    setTimeout(renderDuplicidadeMat, 0);
     var skuEst = SkuEntrada.estado(m);
     // Material antigo: o "Código deles" que já existia vira o SKU de aprovação.
     if (!skuEst.aprovacao && !skuEst.final && fu && fu.codigoFornecedor) skuEst.aprovacao = fu.codigoFornecedor;
@@ -2710,6 +2763,13 @@ document.addEventListener('DOMContentLoaded', function() {
     var nome = document.getElementById('fNome-mat').value.trim();
     if (!nome) { showAlert('Nome / descrição é obrigatório.', 'danger'); return; }
     var tipo = document.getElementById('fTipo').value;
+    // CAD-01: mesmo tipo + mesmo nome de um material ativo não vira cadastro novo.
+    var duplicata = DuplicidadeMaterial.duplicataExata(DuplicidadeMaterial.candidatos({ tipo: tipo, nome: nome }, allMateriais, editingKey));
+    if (duplicata) {
+      showAlert('Já existe ' + duplicata.mpCodigo + ' (' + duplicata.mpNome + ') com este nome e tipo. ' +
+        (solicitacaoMatEmCurso ? 'Use "Vincular" no aviso abaixo do nome.' : 'Edite o existente ou diferencie o nome (cor, fornecedor, medida).'), 'danger');
+      return;
+    }
 
     var unidadeCompraVal = document.getElementById('fUnidadeCompra-mat').value;
     var fatorConvVal = document.getElementById('fFatorConversao-mat').value;
@@ -2797,6 +2857,9 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('modalBg-mat').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
 
     document.getElementById('fTipo').addEventListener('change', updateTipoFieldsVisibility);
+    // CAD-01: avisa parecidos enquanto digita o nome (e ao trocar o tipo).
+    ['fNome-mat', 'fInci-mat', 'fInciFrag-mat'].forEach(function(id) { document.getElementById(id).addEventListener('input', renderDuplicidadeMat); });
+    document.getElementById('fTipo').addEventListener('change', renderDuplicidadeMat);
     ['fSkuAprovacao-mat', 'fSkuFinal-mat'].forEach(function(id) { document.getElementById(id).addEventListener('input', atualizarSkuEntradaUI); });
     document.getElementById('fQuerSkuFinal-mat').addEventListener('change', atualizarSkuEntradaUI);
     document.getElementById('fVolumeNominal-mat').addEventListener('input', updateHeadSpace);
