@@ -22,3 +22,7 @@ importacao_legado/
 relatorios/
 scripts/artifacts/
 EXEMPLO*
+
+# Fonte React do CRM: o build vai para public/static/crm pelo scripts/integrar-crm-build.mjs
+crm-frontend/build/
+crm-frontend/coverage/

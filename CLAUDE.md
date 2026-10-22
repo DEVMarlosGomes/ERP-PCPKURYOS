@@ -100,6 +100,19 @@ defeitos que 46 asserções sintéticas não pegaram** (semanas vencidas espalha
 grade e uma sentinela interna vazando no texto da tela). Rode o motor contra a base
 antes de fechar.
 
+## Fonte das telas do CRM e regras do banco
+
+- **As telas CRM/P&D/Kickoff/Cotação/Contratos (`/crm-app`) são React e a fonte vive em
+  `crm-frontend/` neste repo** (desde 22/10/2026). Mudou a fonte:
+  `cd crm-frontend && npx vitest run && npx vite build --assetsDir static/crm`, depois
+  `node scripts/integrar-crm-build.mjs`. O que vai para `public/static/crm` é o
+  resultado compilado: nunca edite ali.
+- O projeto antigo `../KURYOS/ERPKuryosBeauty-master` (backend Python/Mongo) está
+  **abandonado**: não recebe commit nem deploy.
+- **Banco e login de PCP e CRM são o projeto Firebase `erpkuryos`** (não `prod-kuryos`).
+  As regras se publicam **só** a partir de `database.rules.json` deste repo; a cópia da
+  pasta antiga foi desativada porque apagaria nós em produção.
+
 ## Armadilhas confirmadas (todas já custaram caro)
 
 - **`firebase database:update /nó` com objetos aninhados APAGA campos.** O RTDB trata

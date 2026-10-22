@@ -1,5 +1,5 @@
-// Integra um build do ERPKuryosBeauty (frontend/build, Vite) ao CRM incorporado do PCP.
-// Build esperado: cd frontend && npx vite build --assetsDir static/crm
+// Integra um build da fonte React do CRM (crm-frontend/build, Vite) ao CRM incorporado do PCP.
+// Build esperado: cd crm-frontend && npx vite build --assetsDir static/crm
 // Uso: node scripts/integrar-crm-build.mjs [caminho/do/frontend/build]
 //
 // - copia para public/static/crm só os arquivos que ainda não existem
@@ -13,7 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const BUILD = path.resolve(process.argv[2] || path.join(ROOT, '..', 'KURYOS', 'ERPKuryosBeauty-master', 'frontend', 'build'));
+const BUILD = path.resolve(process.argv[2] || path.join(ROOT, 'crm-frontend', 'build'));
 const PUBLIC = path.join(ROOT, 'public');
 const HTML = path.join(PUBLIC, 'crm-app.html');
 const ASSETS = path.join('static', 'crm');
