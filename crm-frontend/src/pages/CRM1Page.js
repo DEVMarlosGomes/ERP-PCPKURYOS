@@ -2108,11 +2108,16 @@ function ClientDetailSheet({ client, constants, isAdmin = false, canEdit = false
                                 <div key={idx} className="flex gap-3 items-start">
                                     <div className="mt-1 w-2 h-2 rounded-full bg-primary shrink-0" />
                                     <div>
+                                        {mov.texto ? (
+                                            // COM-01: registro de câmbio (taxa em número nos campos, texto pronto para leitura).
+                                            <p className="text-sm" data-testid={mov.tipo === "cambio" ? "historico-cambio" : undefined}>{mov.texto}</p>
+                                        ) : (
                                         <p className="text-sm">
                                             <span className="font-medium">{STAGES.find(s => s.id === mov.de)?.label || mov.de}</span>
                                             <ChevronRight className="h-3 w-3 inline mx-1" />
                                             <span className="font-medium">{STAGES.find(s => s.id === mov.para)?.label || mov.para}</span>
                                         </p>
+                                        )}
                                         <p className="text-xs text-muted-foreground">
                                             {mov.usuario} · {new Date(mov.data).toLocaleString("pt-BR")}
                                             {mov.is_regression && <span className="ml-1 text-amber-600 font-medium">(retroativa)</span>}

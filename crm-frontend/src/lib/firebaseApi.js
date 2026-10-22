@@ -14,7 +14,7 @@ import { erroNaoFecha, fechamentoFormula, pendenciasDoLote } from "@/lib/fechame
 import { baseVigente, planoDaBase, substituicoesForaDaFragrancia } from "@/lib/formulacaoBase";
 import { contatosDoCliente, entradaHistoricoAprovacao, validarAprovacaoCliente } from "@/lib/aprovacaoCliente";
 import { acrescentarHistorico } from "@/lib/historicoTimeline";
-import { congelar, cotacaoDaFormula, situacao as situacaoCambio, validarSpread } from "@/lib/cambio";
+import { cotacaoDaFormula, situacao as situacaoCambio, validarSpread } from "@/lib/cambio";
 import { validarLeitura } from "@/lib/estabilidade";
 import { TRECHO_AMOSTRA, etapaPelaAmostra, passosAte } from "@/lib/etapaPelaAmostra";
 import { bloqueioPdComCliente, cardParaSolicitacao, cardsVisiveis, rotaDeBancada, statusPeloRetornoDoCliente } from "@/lib/pdCards";
@@ -1150,7 +1150,7 @@ async function adminEditCard(tenantId, entity, cardId, values, profile) {
 // Orçamento → Kickoff → CGI → SKU → pedido no PCP (src/lib/firebaseCommercial.js).
 const commercial = createCommercialRouter({
   all, one, save, patch, create, related, masterAll, masterOne, apiError, now, newId: id, auditCard, syncMasterClients,
-  ensureNumeroProjeto, justificationRequired, lerCambio, congelarCambio: congelar,
+  ensureNumeroProjeto, justificationRequired, lerCambio,
   // Chamada interna a outra rota do adaptador (ex.: gerar o EPA do P&D na aprovação do Kickoff).
   call: (method, url, data) => dispatch(method, url, data, {}),
 });

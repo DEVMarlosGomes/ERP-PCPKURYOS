@@ -67,7 +67,7 @@ export default function CotacaoComposicao({ projetoId, salva, congelada, taxa, o
           <p className="text-xs text-muted-foreground">
             {base?.numero_kickoff ? `Insumos do BOM do Kickoff ${base.numero_kickoff}` : "Projeto sem Kickoff: só os serviços entram na composição"}
             {base?.kickoff_status && base.kickoff_status !== "aprovado" && <span className="text-amber-700" data-testid="kickoff-em-revisao"> (Kickoff ainda não aprovado — o BOM pode mudar)</span>}
-            {taxa ? ` · dólar R$ ${Number(taxa).toFixed(4).replace(".", ",")}${congelada ? " (congelado no envio)" : ""}` : ""}
+            {taxa ? ` · dólar R$ ${Number(taxa).toFixed(4).replace(".", ",")}${congelada ? " (da aprovação)" : ""}` : ""}
           </p>
         </div>
         <div className="space-y-1">

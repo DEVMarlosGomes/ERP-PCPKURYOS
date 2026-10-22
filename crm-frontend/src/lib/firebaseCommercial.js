@@ -24,7 +24,7 @@ import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage
 import { firebaseAuth, firebaseDb, firebaseStorage } from "@/lib/firebase";
 import { MIN_JUSTIFICATIVA, PROJECT_STAGES, PROJECT_TRANSITIONS, formulaRegistrada, hasAnyRole, isAdmin, isComercial, movementEntry, normalizeName } from "@/lib/crmRules";
 import { numeroKickoff } from "@/lib/numeracaoProjeto";
-import { taxaDaCotacao } from "@/lib/cambio";
+import { registroDeCambio, taxaDaCotacao, textoCambio } from "@/lib/cambio";
 import { calcularCotacao, insumosDoBom, mensagemDePendencias } from "@/lib/cotacao";
 import { entradaHistoricoAprovacao, validarAprovacaoCliente } from "@/lib/aprovacaoCliente";
 import { acrescentarHistorico } from "@/lib/historicoTimeline";
@@ -398,7 +398,25 @@ export function createCommercialRouter(h) {
   const ensureNumeroProjeto = h.ensureNumeroProjeto || (async (tenant, project) => project?.numero_projeto || "");
   const justificationRequired = h.justificationRequired || ((detail) => apiError(400, detail));
   const lerCambio = h.lerCambio || (async () => null);
-  const congelarCambio = h.congelarCambio || (() => null);
+
+  /* COM-01 (22/10/2026): sem congelamento. Em cada etapa a taxa do momento vai, em número e
+   * em texto, para o histórico do cliente (aba Histórico do CRM1) e para erp/{t}/cambio_log.
+   * Chamar DEPOIS de mudar etapa do projeto/cliente: essas rotinas regravam o histórico inteiro. */
+  async function cambioAgora(project, etapa, profile) {
+    return registroDeCambio(await lerCambio(true), {
+      etapa, documento: project?.numero_projeto ? `Projeto ${project.numero_projeto}` : (project?.nome_projeto || ""),
+      projetoId: project?.id || "", agora: now(), por: currentUid(), porNome: userName(profile),
+    });
+  }
+  async function registrarCambio(tenant, project, etapa, profile, pronto = null) {
+    const registro = pronto || await cambioAgora(project, etapa, profile);
+    if (!registro) return null;
+    const entrada = { ...registro, texto: textoCambio(registro), data: registro.registrado_em, usuario: registro.registrado_por_nome };
+    const cliente = project?.cliente_id ? await one(tenant, "crm_clients", project.cliente_id) : null;
+    if (cliente) await acrescentarHistorico(`erp/${tenant}/crm_clients/${cliente.id}/historico_movimentacoes`, entrada);
+    await create(tenant, "cambio_log", { ...entrada, cliente_id: cliente?.id || null });
+    return registro;
+  }
 
   const requireComercial = (profile, action) => {
     if (!isComercial(profile)) throw apiError(403, `${action}: permissão exclusiva do Comercial ou do administrador.`);
@@ -425,14 +443,14 @@ export function createCommercialRouter(h) {
   const findProposta = async (tenant, projectId) => (await related(tenant, "crm_propostas", "projeto_id", projectId))[0] || null;
 
   // Fase 7: a composição (insumos do BOM + serviços) é recalculada aqui com a taxa da cotação
-  // (congelada no envio, senão ao vivo). Enviar com item SEM PREÇO é recusado — nunca vira zero.
+  // (a da aprovação quando aprovada, senão a do dia). Enviar com item SEM PREÇO é recusado — nunca vira zero.
   async function conferirComposicao(changes, existing) {
     if (!changes.composicao) return;
     const status = changes.status ?? existing?.status;
-    const congelado = changes.cambio_congelado || existing?.cambio_congelado;
-    // Só taxa real (congelada ou ao vivo): o padrão de R$ 6,00 das fórmulas não vale para cotação
-    // ao cliente — sem dólar, insumo em US$ fica "SEM CÂMBIO", como na tela.
-    const cambio = taxaDaCotacao({ cambio_congelado: congelado }, await lerCambio());
+    // Só taxa real (registrada na aprovação ou ao vivo): o padrão de R$ 6,00 das fórmulas não vale
+    // para cotação ao cliente — sem dólar, insumo em US$ fica "SEM CÂMBIO", como na tela.
+    // Leitura forçada: o cache de 30 s pode estar atrás do dólar que será registrado nesta gravação.
+    const cambio = taxaDaCotacao({ ...(existing || {}), ...changes }, await lerCambio(true));
     const r = calcularCotacao(changes.composicao, cambio.origem === "padrao" ? null : cambio.taxa);
     if (status === "enviado" && !r.pode_enviar) throw apiError(422, mensagemDePendencias(r.pendencias));
     changes.composicao = {
@@ -492,20 +510,23 @@ export function createCommercialRouter(h) {
       ...pickProposta(data, { dropNull: false }),
       updated_by: currentUid(), updated_by_name: userName(profile),
     };
-    // Fase 5: cotação enviada ao cliente congela o câmbio do momento; rascunho acompanha o dólar.
-    if (payload.status === "enviado" && !existing?.cambio_congelado) {
-      const congelado = congelarCambio(await lerCambio(true), now());
-      if (congelado) payload.cambio_congelado = congelado;
-    }
     if (!payload.composicao) delete payload.composicao;
     if (!payload.composicao && payload.status === "enviado" && existing?.composicao) payload.composicao = existing.composicao;
     await conferirComposicao(payload, existing);
-    if (existing) return patch(tenant, "crm_propostas", existing.id, payload);
-    return create(tenant, "crm_propostas", {
+    // COM-01: enviar ao cliente registra a taxa do momento no histórico (não congela nada).
+    const registrarEnvio = payload.status === "enviado" && existing?.status !== "enviado";
+    if (existing) {
+      const salva = await patch(tenant, "crm_propostas", existing.id, payload);
+      if (registrarEnvio) await registrarCambio(tenant, project, "envio", profile);
+      return salva;
+    }
+    const criada = await create(tenant, "crm_propostas", {
       projeto_id: projectId, projeto_nome: project.nome_projeto || "", cliente_id: project.cliente_id || null,
       cliente_nome: project.cliente_nome || "", arquivos: [], ...payload,
       created_by: currentUid(), created_by_name: userName(profile),
     });
+    if (registrarEnvio) await registrarCambio(tenant, project, "envio", profile);
+    return criada;
   }
 
   async function amostrasStatus(tenant, projectId) {
@@ -1511,10 +1532,13 @@ export function createCommercialRouter(h) {
       dispensados.push(...(await assertKickoffPossible(tenant, projectId, profile)));
     }
     const at = now();
+    // COM-01: orçamento aprovado fica com a taxa do momento da aprovação (registrada no histórico abaixo).
+    const cambioAprovacao = decisao === "aprovado" ? await cambioAgora(project, "orcamento_aprovado", profile) : null;
     await patch(tenant, "crm_propostas", proposta.id, {
       negociacao_status: decisao, negociacao_motivo: motivo, negociacao_evidencia_file_id: data?.evidencia_file_id || "",
       negociacao_observacoes: data?.observacoes || "", negociacao_decidida_em: at, negociacao_decidida_por: currentUid(),
       negociacao_aprovacao_cliente: aprovacao.registro,
+      ...(cambioAprovacao ? { cambio_da_etapa: cambioAprovacao } : {}),
       ...(dispensados.length ? { requisitos_dispensados: dispensados } : {}),
     });
     let kickoff = null;
@@ -1536,9 +1560,10 @@ export function createCommercialRouter(h) {
       }
       await mirrorClientStage(tenant, project, profile, "cliente_fechado", "espelho_crm2_pedido_fechado");
     }
-    // Depois das mudanças de etapa (que regravam o histórico inteiro do projeto).
+    // Depois das mudanças de etapa (que regravam o histórico inteiro do projeto e do cliente).
     await acrescentarHistorico(`erp/${tenant}/crm_projects/${projectId}/historico_movimentacoes`,
       entradaHistoricoAprovacao(aprovacao.registro, { oque: "Orçamento", resultado: decisao, documentoId: proposta.id }));
+    if (cambioAprovacao) await registrarCambio(tenant, project, "orcamento_aprovado", profile, cambioAprovacao);
     await auditCard(tenant, "orcamento_decidido", "projeto", projectId, { stage: project?.stage }, { decisao, motivo, requisitos_dispensados: dispensados, aprovacao_cliente: aprovacao.registro }, profile);
     return { decisao, project, kickoff, order };
   }
@@ -1652,27 +1677,28 @@ export function createCommercialRouter(h) {
       if (is("POST", /^\/crm\/projects\/([^/]+)\/proposta$/)) return upsertProposta(tenant, m[1], data, profile);
       if (is("PATCH", /^\/crm\/projects\/([^/]+)\/proposta$/)) {
         requireComercial(profile, "Atualizar proposta");
-        await getProject(tenant, m[1]);
+        const project = await getProject(tenant, m[1]);
         const current = await findProposta(tenant, m[1]);
         const changes = pickProposta(data, { dropNull: true });
         if (!Object.keys(changes).length) return { ok: true };
         if (!current) throw apiError(404, "Proposta não encontrada — crie com POST primeiro");
-        // Fase 5: enviar ao cliente congela o câmbio (uma vez; reenvio mantém o primeiro).
-        if (changes.status === "enviado" && !current.cambio_congelado) {
-          const congelado = congelarCambio(await lerCambio(true), now());
-          if (congelado) changes.cambio_congelado = congelado;
-        }
-        // Enviar sem mexer na composição também confere a que já está gravada.
-        if (!changes.composicao && changes.status === "enviado" && current.composicao) changes.composicao = current.composicao;
-        await conferirComposicao(changes, current);
         // COM-02: registrar o aceite por aqui também exige quem, canal e data/hora.
         let aprovacao = null;
+        let cambioAprovacao = null;
         if (changes.negociacao_status === "aprovado" && current.negociacao_status !== "aprovado") {
           aprovacao = validarAprovacaoCliente(data?.aprovacao_cliente, { registradoPor: currentUid(), registradoPorNome: userName(profile) });
           if (!aprovacao.ok) throw apiError(422, aprovacao.erros.join(" "));
           changes.negociacao_aprovacao_cliente = aprovacao.registro;
+          // COM-01: o orçamento aprovado fica com a taxa do momento da aprovação.
+          cambioAprovacao = await cambioAgora(project, "orcamento_aprovado", profile);
+          if (cambioAprovacao) changes.cambio_da_etapa = cambioAprovacao;
         }
+        // Enviar sem mexer na composição também confere a que já está gravada.
+        if (!changes.composicao && changes.status === "enviado" && current.composicao) changes.composicao = current.composicao;
+        await conferirComposicao(changes, current);
         const salva = await patch(tenant, "crm_propostas", current.id, { ...changes, updated_by: currentUid(), updated_by_name: userName(profile) });
+        if (changes.status === "enviado" && current.status !== "enviado") await registrarCambio(tenant, project, "envio", profile);
+        if (cambioAprovacao) await registrarCambio(tenant, project, "orcamento_aprovado", profile, cambioAprovacao);
         if (aprovacao) {
           await acrescentarHistorico(`erp/${tenant}/crm_projects/${m[1]}/historico_movimentacoes`,
             entradaHistoricoAprovacao(aprovacao.registro, { oque: "Orçamento", resultado: "aprovado", documentoId: current.id }));

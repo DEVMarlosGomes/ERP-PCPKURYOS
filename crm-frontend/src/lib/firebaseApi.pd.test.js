@@ -276,19 +276,29 @@ describe("dólar ao vivo + spread (Fase 5)", () => {
     memory.setUser("adm");
   });
 
-  test("cotação enviada ao cliente congela o câmbio; o dólar mudar depois não altera", async () => {
-    memory.write(`${T}/crm_projects/PC5`, { id: "PC5", nome_projeto: "Cotação dólar", stage: "cotacao" });
+  test("COM-01: envio não congela; cada etapa grava a taxa (número + texto) no histórico do cliente; aprovado fica com a taxa da aprovação", async () => {
+    memory.write(`${T}/crm_clients/CL5`, { id: "CL5", nome_empresa: "Cliente Dólar", historico_movimentacoes: [{ de: "prospeccao", para: "qualificado", usuario: "x", data: "2026-01-01" }] });
+    memory.write(`${T}/crm_projects/PC5`, { id: "PC5", nome_projeto: "Cotação dólar", numero_projeto: "2026-055", stage: "cotacao", cliente_id: "CL5" });
     await api.post("/crm/projects/PC5/proposta", { tipo_produto: "Splash", status: "rascunho" });
-    let proposta = Object.values(memory.read(`${T}/crm_propostas`)).find((p) => p.projeto_id === "PC5");
-    expect(proposta.cambio_congelado).toBeUndefined();
+    const proposta = () => Object.values(memory.read(`${T}/crm_propostas`)).find((p) => p.projeto_id === "PC5");
+    const historico = () => Object.values(memory.read(`${T}/crm_clients/CL5/historico_movimentacoes`) || {});
     await api.patch("/crm/projects/PC5/proposta", { status: "enviado" });
-    proposta = Object.values(memory.read(`${T}/crm_propostas`)).find((p) => p.projeto_id === "PC5");
-    expect(proposta.cambio_congelado).toMatchObject({ taxa: 5.207, venda: 5.08, spread_pct: 2.5 });
+    expect(proposta().cambio_congelado).toBeUndefined();
+    const envio = historico().find((h) => h.tipo === "cambio" && h.etapa === "envio");
+    expect(envio).toMatchObject({ taxa: 5.207, venda: 5.08, spread_pct: 2.5, projeto_id: "PC5" });
+    expect(envio.texto).toMatch(/Enviado ao cliente Projeto 2026-055 — US\$ 1,00 = R\$ 5,2070/);
+    expect(historico()[0].para).toBe("qualificado"); // o que já existia continua lá
+    // Reenviar não duplica o registro de envio; o dólar muda e a proposta aberta acompanha.
     memory.write("config/cambio/usd_brl/venda", 5.9);
-    await api.get("/config/cambio");
     await api.patch("/crm/projects/PC5/proposta", { status: "enviado", observacoes_proposta: "reenvio" });
-    proposta = Object.values(memory.read(`${T}/crm_propostas`)).find((p) => p.projeto_id === "PC5");
-    expect(proposta.cambio_congelado.taxa).toBe(5.207);
+    expect(historico().filter((h) => h.etapa === "envio")).toHaveLength(1);
+    // Aprovação: a taxa do momento fica no orçamento e no histórico; depois o dólar pode mudar.
+    await api.patch("/crm/projects/PC5/proposta", { negociacao_status: "aprovado", aprovacao_cliente: APROVACAO });
+    expect(proposta().cambio_da_etapa).toMatchObject({ etapa: "orcamento_aprovado", taxa: 6.0475 });
+    expect(historico().filter((h) => h.etapa === "orcamento_aprovado")).toHaveLength(1);
+    expect(Object.values(memory.read(`${T}/cambio_log`) || {}).map((l) => l.etapa)).toEqual(["envio", "orcamento_aprovado"]);
+    const { taxaDaCotacao } = await import("@/lib/cambio");
+    expect(taxaDaCotacao(proposta(), { usd_brl: { venda: 7 }, spread_pct: 0 })).toMatchObject({ taxa: 6.0475, origem: "aprovacao" });
   });
 });
 

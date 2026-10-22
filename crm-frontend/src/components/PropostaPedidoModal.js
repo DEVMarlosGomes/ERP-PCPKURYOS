@@ -86,7 +86,8 @@ export default function PropostaPedidoModal({ open, onOpenChange, projeto, onSav
     const [insumosFabricacao, setInsumosFabricacao] = useState([emptyInsumo()]);
     const [rodapeObservacoes, setRodapeObservacoes] = useState("");
     const [status, setStatus] = useState("rascunho");
-    const [cambioCongelado, setCambioCongelado] = useState(null);
+    // COM-01: sem congelamento — só o orçamento aprovado fica com a taxa registrada na aprovação.
+    const [cambioAprovacao, setCambioAprovacao] = useState(null);
     // Fase 7: composição do preço (insumos do BOM do Kickoff + serviços com desconto por etapa)
     const [composicaoSalva, setComposicaoSalva] = useState(null);
     const [composicao, setComposicao] = useState(null);
@@ -148,7 +149,7 @@ export default function PropostaPedidoModal({ open, onOpenChange, projeto, onSav
                     );
                     setRodapeObservacoes(data.rodape_observacoes || "");
                     setStatus(data.status || "rascunho");
-                    setCambioCongelado(data.cambio_congelado || null);
+                    setCambioAprovacao(data.negociacao_status === "aprovado" ? (data.cambio_da_etapa || data.cambio_congelado || null) : null);
                     setComposicaoSalva(data.composicao || null);
                 }
             } catch { /* proposta ainda não existe */ }
@@ -227,7 +228,7 @@ export default function PropostaPedidoModal({ open, onOpenChange, projeto, onSav
     // ── Totais ────────────────────────────────────────────────────────────────
 
     const totalGeral = itemsPedido.reduce((acc, item) => acc + calcTotal(item), 0);
-    const taxaCotacao = cambioCongelado?.taxa ?? cambioVivo?.taxa ?? null;
+    const taxaCotacao = cambioAprovacao?.taxa ?? cambioVivo?.taxa ?? null;
     const calcComposicao = composicao ? calcularCotacao(composicao, taxaCotacao) : null;
     const composicaoBloqueia = Boolean(calcComposicao && !calcComposicao.pode_enviar);
 
@@ -359,11 +360,11 @@ export default function PropostaPedidoModal({ open, onOpenChange, projeto, onSav
 
                 <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain" data-testid="modal-cotacao-corpo">
                 <div className="px-5 sm:px-6 pt-4 space-y-3">
-                    {/* Fase 5: cotação enviada congela o câmbio; rascunho acompanha o dólar */}
-                    {cambioCongelado ? (
-                        <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300">Câmbio congelado no envio: <b>R$ {Number(cambioCongelado.taxa).toFixed(4).replace(".", ",")}</b> (comercial {Number(cambioCongelado.venda).toFixed(4).replace(".", ",")} + spread {cambioCongelado.spread_pct}%) em {new Date(cambioCongelado.congeladoEm).toLocaleString("pt-BR")}</p>
+                    {/* COM-01: o dólar acompanha a cotação do dia até a aprovação; cada etapa fica no histórico do cliente */}
+                    {cambioAprovacao ? (
+                        <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300">Orçamento aprovado com o dólar a <b>R$ {Number(cambioAprovacao.taxa).toFixed(4).replace(".", ",")}</b>{cambioAprovacao.spread_pct ? ` (comercial ${Number(cambioAprovacao.venda).toFixed(4).replace(".", ",")} + spread ${cambioAprovacao.spread_pct}%)` : ""} em {new Date(cambioAprovacao.registrado_em || cambioAprovacao.congeladoEm).toLocaleString("pt-BR")}.</p>
                     ) : (
-                        <div><CambioPainel compacto /><p className="text-[11px] text-muted-foreground mt-1">O câmbio fica congelado quando a cotação for enviada ao cliente.</p></div>
+                        <div><CambioPainel compacto /><p className="text-[11px] text-muted-foreground mt-1">O dólar acompanha a cotação do dia até a aprovação do orçamento. O envio ao cliente e a aprovação ficam registrados, com a taxa, no histórico do cliente.</p></div>
                     )}
 
                 {/* R18 — banner de status de amostras */}
@@ -514,7 +515,7 @@ export default function PropostaPedidoModal({ open, onOpenChange, projeto, onSav
                                     <CotacaoComposicao
                                         projetoId={projetoId}
                                         salva={composicao || composicaoSalva}
-                                        congelada={Boolean(cambioCongelado) && Boolean(composicaoSalva)}
+                                        congelada={Boolean(cambioAprovacao) && Boolean(composicaoSalva)}
                                         taxa={taxaCotacao}
                                         onChange={setComposicao}
                                         onAplicarPreco={aplicarPrecoCalculado}

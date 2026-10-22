@@ -2083,9 +2083,9 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
         volume: parseFloat(formulaVolume) || 0,
         volume_unit: formulaVolumeUnit,
         indice_perdas: parseFloat(formulaIndicePerdas) || 0,
-        // Fase 5: vazio = acompanha o dólar ao vivo; preenchido = cotação fixada nesta fórmula.
-        cotacao_usd: parseFloat(formulaCotacao) > 0 ? parseFloat(formulaCotacao) : null,
-        cotacao_usd_fixa: parseFloat(formulaCotacao) > 0,
+        // COM-01 (22/10/2026): sem dólar fixo — a fórmula acompanha o dólar do dia.
+        cotacao_usd: null,
+        cotacao_usd_fixa: false,
       });
       toast.success("Fórmula criada!");
       setFormulaName(""); setFormulaNotes(""); setFormulaVolume(String(VOLUME_AMOSTRA_PADRAO)); setShowCreate(false);
@@ -2191,9 +2191,9 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
         volume: parseFloat(configForm.volume) || 0,
         volume_unit: configForm.volume_unit,
         indice_perdas: parseFloat(configForm.indice_perdas) || 0,
-        // Fase 5: vazio = volta a acompanhar o dólar ao vivo (a cotação gravada fica como estava).
-        cotacao_usd_fixa: parseFloat(configForm.cotacao_usd) > 0,
-        cotacao_usd: parseFloat(configForm.cotacao_usd) > 0 ? parseFloat(configForm.cotacao_usd) : (formulas.find(x => x.id === formulaId)?.cotacao_usd_gravada ?? null),
+        // COM-01 (22/10/2026): sem dólar fixo — acompanha o dólar do dia (a cotação gravada fica como estava).
+        cotacao_usd_fixa: false,
+        cotacao_usd: formulas.find(x => x.id === formulaId)?.cotacao_usd_gravada ?? null,
       };
       if (configForm.fragrance_target !== "" && configForm.fragrance_target != null) {
         payload.fragrance_target = parseFloat(configForm.fragrance_target);
@@ -2285,10 +2285,6 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
               <div>
                 <Label>Índice de Perdas e Acréscimos (%)</Label>
                 <Input type="number" step="0.1" value={formulaIndicePerdas} onChange={e => setFormulaIndicePerdas(e.target.value)} placeholder="10" />
-              </div>
-              <div>
-                <Label>Cotação US$ fixa (opcional)</Label>
-                <Input type="number" step="0.01" value={formulaCotacao} onChange={e => setFormulaCotacao(e.target.value)} placeholder="vazio = dólar ao vivo" />
               </div>
             </div>
             <div>
@@ -2382,10 +2378,6 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
                       <div>
                         <Label className="text-[11px]">Índice Perdas (%)</Label>
                         <Input type="number" step="0.1" value={configForm.indice_perdas} onChange={e => setConfigForm(p => ({ ...p, indice_perdas: e.target.value }))} className="h-8 text-sm" />
-                      </div>
-                      <div>
-                        <Label className="text-[11px]">Cotação US$ fixa</Label>
-                        <Input type="number" step="0.01" value={configForm.cotacao_usd} onChange={e => setConfigForm(p => ({ ...p, cotacao_usd: e.target.value }))} placeholder="vazio = ao vivo" className="h-8 text-sm" />
                       </div>
                       <div>
                         <Label className="text-[11px] text-purple-700">Target Fragrância (%)</Label>
