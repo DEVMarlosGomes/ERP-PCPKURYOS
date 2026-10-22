@@ -5,6 +5,14 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Plano Amostra → Kickoff → Cotação → OP (21/10/2026)
+
+- **Pedido:** avaliação do sistema + plano das alterações do usuário (lote de amostras, 100%, MP nova sem duplicar, aprovação do cliente, Kickoff estruturado, cotação/Compras/orçamento, SKU/CGI, OP 100%).
+- **22/10:** o usuário mandou um prompt de engenharia (FastAPI/Mongo) para adaptar ao Firebase. Feito `PROMPT_ENGENHARIA_PACOTE_20261021.md` (prompt adaptado + viabilidade + plano estrutural); o rascunho `PLANO_FLUXO_AMOSTRA_OP.md` foi incorporado e removido. Nada implementado, sem commit; aguardando Q11–Q16.
+- **Achados de infraestrutura:** fonte do ERP sem commit desde 09/10 (59 arquivos); `ERPKuryosBeauty-master/database.rules.json` é cópia velha que aponta para `erpkuryos` (sem `pendencias_setor`, `servicos`, `solicitacoes_cadastro_material`) — não publicar de lá; frontend do ERP não chama o servidor (travas só no navegador).
+- **Revisão 2 (22/10), decisões do usuário:** Q15 autorizada (a fonte React vem para `crm-frontend/` neste repo; o repo ERPKuryosBeauty não recebe mais commit); Q14 tenant pela operação; câmbio sem congelamento, número + texto no histórico do cliente a cada etapa; Q16 sem q.s.p., popup vermelho e a Química completa; KO-09 (CGI) e PCP-01 (etiquetas) por último — avisar o usuário que faltam instruções ao terminar as Ondas 0–5. **Aguardando o usuário liberar a produção.**
+- **Arquivos ativos:** `PROMPT_ENGENHARIA_PACOTE_20261021.md`.
+
 ### Claude — Visual do ERP (erpkuryos.web.app) em todo o PCP + dashboards (20/10/2026)
 
 - **Pedido:** seções e dashboards com o aspecto do ERP no ar, mantendo as cores do PCP; "tudo de uma vez".
