@@ -96,12 +96,19 @@ export function mesclarComposicao(salva, base, { congelada = false } = {}) {
     };
   });
   const tabela = new Map((b.servicos || []).map((sv) => [sv.id, sv]));
+  // KO-08: os serviços escolhidos no Kickoff entram sozinhos; o que o Kickoff não escolheu fica
+  // marcado (e trava o envio). Kickoff sem escolha (antigo) segue como antes: o comercial monta.
+  const escolhidos = new Set(b.servicos_selecionados || []);
   const servicos = (s.servicos || []).map((l) => {
     const atual = tabela.get(l.servico_id);
-    if (!atual) return { ...l, fora_da_tabela: true };
+    const fora = escolhidos.size && !escolhidos.has(l.servico_id) ? { fora_do_kickoff: true } : {};
+    if (!atual) return { ...l, fora_da_tabela: true, ...fora };
     const nova = linhaDeServico(atual);
-    return { ...nova, desconto_pct: pct(l.desconto_pct), fator: positivo(l.fator) || 1 };
+    return { ...nova, desconto_pct: pct(l.desconto_pct), fator: positivo(l.fator) || 1, ...fora };
   });
+  for (const id of escolhidos) {
+    if (tabela.has(id) && !servicos.some((l) => l.servico_id === id)) servicos.push(linhaDeServico(tabela.get(id)));
+  }
   return {
     ...s,
     kickoff_id: b.kickoff_id ?? s.kickoff_id ?? null, numero_kickoff: b.numero_kickoff ?? s.numero_kickoff ?? "",
@@ -144,6 +151,7 @@ export function calcularCotacao(composicao, taxa) {
   });
 
   const servicos = (c.servicos || []).map((l) => {
+    if (l.fora_do_kickoff) pendencias.push({ tipo: "servico", descricao: l.nome, motivo: "FORA DO KICKOFF" });
     const cheio = positivo(l.preco_cheio);
     const quantidade = quantidadeCobrada(l.unidade, l.fator, ctx);
     if (cheio === null) {

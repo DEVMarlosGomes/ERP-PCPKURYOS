@@ -143,3 +143,22 @@ describe("quem fornece vem do Kickoff (KO-05/BOM-01)", () => {
     expect(m.insumos.map((l) => l.fornecido_por)).toEqual(["cliente", "cliente"]);
   });
 });
+
+describe("serviços escolhidos no Kickoff (KO-08)", () => {
+  const ROTULAGEM = { id: "S2", codigo: "ROT", nome: "Rotulagem", unidade: "un", preco: 0.05 };
+  const base = { qtd_pedido: 1000, insumos: [], servicos: [ENVASE, ROTULAGEM], servicos_selecionados: ["S2"] };
+  test("o escolhido entra sozinho; o que o Kickoff não escolheu fica marcado e trava o envio", () => {
+    const m = mesclarComposicao({ servicos: [{ ...linhaDeServico(ENVASE), desconto_pct: 5 }] }, base);
+    expect(m.servicos.map((l) => [l.servico_id, Boolean(l.fora_do_kickoff)])).toEqual([[ENVASE.id, true], ["S2", false]]);
+    const c = calcularCotacao(m, 5);
+    expect(c.pendencias).toContainEqual({ tipo: "servico", descricao: ENVASE.nome, motivo: "FORA DO KICKOFF" });
+    expect(c.pode_enviar).toBe(false);
+    const semEnvase = mesclarComposicao({ servicos: m.servicos.filter((l) => l.servico_id === "S2") }, base);
+    expect(calcularCotacao(semEnvase, 5).pode_enviar).toBe(true);
+  });
+  test("Kickoff sem escolha (antigo) segue como antes", () => {
+    const m = mesclarComposicao({ servicos: [linhaDeServico(ENVASE)] }, { ...base, servicos_selecionados: [] });
+    expect(m.servicos.map((l) => l.servico_id)).toEqual([ENVASE.id]);
+    expect(m.servicos[0].fora_do_kickoff).toBeUndefined();
+  });
+});

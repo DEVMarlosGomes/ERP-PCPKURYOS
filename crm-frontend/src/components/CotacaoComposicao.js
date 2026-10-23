@@ -57,7 +57,9 @@ export default function CotacaoComposicao({ projetoId, salva, congelada, taxa, o
 
   const bloqueado = Boolean(congelada);
   const usados = new Set(composicao.servicos.map((l) => l.servico_id));
-  const disponiveis = (base?.servicos || []).filter((s) => !usados.has(s.id));
+  // KO-08: com serviços escolhidos no Kickoff, só eles podem entrar; mudar a lista é no Kickoff.
+  const doKickoff = new Set(base?.servicos_selecionados || []);
+  const disponiveis = (base?.servicos || []).filter((s) => !usados.has(s.id) && (!doKickoff.size || doKickoff.has(s.id)));
 
   return (
     <div className="space-y-4" data-testid="cotacao-composicao">
@@ -155,7 +157,8 @@ export default function CotacaoComposicao({ projetoId, salva, congelada, taxa, o
                   <tr key={`${l.servico_id}-${i}`} className={l.pendente ? "bg-red-500/5" : ""}>
                     <td className="px-2 py-1.5 min-w-[150px]">
                       <span className="font-medium">{l.nome}</span>
-                      <span className="block text-[10px] text-muted-foreground">{UNIDADES_SERVICO[l.unidade]?.rotulo || l.unidade}{l.fora_da_tabela ? " · fora da tabela atual" : ""}</span>
+                      <span className="block text-[10px] text-muted-foreground">{UNIDADES_SERVICO[l.unidade]?.rotulo || l.unidade}{l.fora_da_tabela ? " · fora da tabela atual" : ""}{doKickoff.has(l.servico_id) ? " · do Kickoff" : ""}</span>
+                      {l.fora_do_kickoff && <span className="block text-[10px] font-medium text-red-700" data-testid="servico-fora-kickoff">não escolhido no Kickoff — remova ou marque no Kickoff</span>}
                     </td>
                     <td className="px-2 py-1.5 tabular-nums whitespace-nowrap">
                       {qtd(l.quantidade)} {UNIDADES_SERVICO[l.unidade]?.curto || ""}
@@ -180,7 +183,7 @@ export default function CotacaoComposicao({ projetoId, salva, congelada, taxa, o
                       {l.minimo_aplicado && <span className="block text-[10px] text-amber-700">mínimo do pedido</span>}
                     </td>
                     <td className="px-2 py-1.5 tabular-nums whitespace-nowrap">{l.pendente ? "—" : rs(l.por_unidade, 4)}</td>
-                    <td className="px-1 py-1.5">{!bloqueado && <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => removerServico(i)}><Trash2 className="h-3.5 w-3.5 text-red-500" /></Button>}</td>
+                    <td className="px-1 py-1.5">{!bloqueado && !doKickoff.has(l.servico_id) && <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => removerServico(i)}><Trash2 className="h-3.5 w-3.5 text-red-500" /></Button>}</td>
                   </tr>
                 ))}
               </tbody>

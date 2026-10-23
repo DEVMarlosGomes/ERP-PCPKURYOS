@@ -421,6 +421,18 @@ describe("fluxo comercial completo até a emissão de OP", () => {
     await fails(api.post(`/crm/projects/${project.id}/proposta`, {}), 403);
     await fails(api.post(`/contratos/${contrato.id}/assinar`, {}), 403);
   });
+
+  test("KO-08: serviços escolhidos no Bloco 0 do Kickoff chegam à cotação", async () => {
+    as("com");
+    assert.deepEqual((await api.get("/cadastros/servicos")).data.map((sv) => sv.id), ["s1", "s2"], "só os ativos");
+    const k = Object.values(db(`${T}/kickoffs`)).filter((x) => x.projeto_id === project.id && !["substituida", "arquivado"].includes(x.status)).sort((a, b) => Number(b.versao_numero || 0) - Number(a.versao_numero || 0))[0];
+    await api.put(`/kickoff/${k.id}/questionario-composicao`, { questionario: { bloco0: { servicos_selecionados: ["s2"] } },
+      justificativa: "Cliente contratou a rotulagem junto com o envase" });
+    const atual = Object.values(db(`${T}/kickoffs`)).filter((x) => x.projeto_id === project.id && !["substituida", "arquivado"].includes(x.status)).sort((a, b) => Number(b.versao_numero || 0) - Number(a.versao_numero || 0))[0];
+    assert.deepEqual(atual.servicos_selecionados, { s2: true });
+    const base = (await api.get(`/crm/projects/${project.id}/cotacao-base`)).data;
+    assert.deepEqual(base.servicos_selecionados, ["s2"]);
+  });
 });
 
 describe("numeração por projeto", () => {
@@ -588,4 +600,5 @@ describe("caminhos de exceção", () => {
     expect(depois.find((tp) => tp.codigo === "ESTOJO").atributos[0]).toMatchObject({ chave: "material", opcoes: ["Cartão", "Madeira"] });
     expect(depois.length).toBe(antes.length + 1);
   });
+
 });

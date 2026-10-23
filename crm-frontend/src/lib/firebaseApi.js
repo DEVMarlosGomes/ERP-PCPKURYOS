@@ -2006,6 +2006,10 @@ async function dispatch(e, t) {
     }
   }
   if ("GET" === e && "/cadastros/fragrancias" === S) return response(await all(_, "fragrancias"), i);
+  // KO-08: serviços ativos (Cadastros › Serviços) para o Kickoff escolher.
+  if ("GET" === e && "/cadastros/servicos" === S) return response((await masterAll("servicos")).filter((sv) => sv.ativo !== false)
+    .map((sv) => ({ id: sv.id, codigo: sv.codigo || "", nome: sv.nome || sv.id, unidade: sv.unidade || "" }))
+    .sort((a, b) => String(a.codigo || a.nome).localeCompare(String(b.codigo || b.nome))), i);
   if ("GET" === e && "/compras/fornecedores" === S) return response((await masterAll("fornecedores")).map(e => ({
     ...e,
     razao_social: e.razaoSocial || e.razao_social,

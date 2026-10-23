@@ -85,6 +85,7 @@ export function emptyKickoffQuestionnaire() {
       detentor_registro: "",
       responsavel_tecnico: "",
       modelo_servico: "",
+      servicos_selecionados: [],
     },
     bloco1: {
       formula: "",
@@ -535,6 +536,7 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
   const q = mergeQuestionnaire(value);
   const pend = pendenciasQuestionario(q).status;
   const [materiais, setMateriais] = useState([]);
+  const [servicos, setServicos] = useState(null);
   const [catalogo, setCatalogo] = useState(CATALOGO_PADRAO);
   const [catalogoAberto, setCatalogoAberto] = useState(false);
   const carregarCatalogo = () => api.get("/config/tipos-componente")
@@ -542,6 +544,7 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
   useEffect(() => {
     api.get("/cadastros/materiais").then(({ data }) => setMateriais(Array.isArray(data) ? data : [])).catch(() => setMateriais([]));
     carregarCatalogo();
+    api.get("/cadastros/servicos").then(({ data }) => setServicos(Array.isArray(data) ? data : [])).catch(() => setServicos([]));
   }, []);
   const update = (section, field, nextValue) => {
     onChange({ ...q, [section]: { ...(q[section] || {}), [field]: nextValue } });
@@ -601,6 +604,12 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
           { value: "industrializacao_com_desenvolvimento", label: "Industrializacao com desenvolvimento" },
           { value: "full_service_marca_propria", label: "Full service / marca propria" },
         ]} />
+        {/* KO-08: os serviços marcados aqui são os que a cotação cobra. */}
+        {servicos === null ? null : servicos.length ? (
+          <CheckboxGroup label="Serviços contratados (entram na cotação)" values={q.bloco0.servicos_selecionados}
+            onChange={(v) => update("bloco0", "servicos_selecionados", v)}
+            options={servicos.map((sv) => ({ value: sv.id, label: sv.codigo ? `${sv.codigo} · ${sv.nome}` : sv.nome }))} />
+        ) : <p className="text-xs text-muted-foreground">Serviços contratados: a tabela de serviços está vazia (PCP › Cadastros › Serviços).</p>}
       </Section>
 
       <Section title="Bloco 1 - Formulacao" pendencias={pend.bloco1.pendencias}>

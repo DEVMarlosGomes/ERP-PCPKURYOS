@@ -499,6 +499,8 @@ export function createCommercialRouter(h) {
       qtd_pedido: Number(kickoff.bloco2?.volume_primeiro_pedido) || qtdProposta || Number(project.volume_estimado_pedido) || 0,
       kg_por_unidade: kgDaUnidade(b3.volume_peso_liquido_valor, b3.volume_peso_liquido_unidade),
       insumos: insumosDoBom(bom, itens), servicos, servicos_erro: servicosErro,
+      // KO-08: serviços que o Kickoff contratou (Bloco 0).
+      servicos_selecionados: servicosDoKickoff(kickoff),
     };
   }
 
@@ -1073,6 +1075,12 @@ export function createCommercialRouter(h) {
     return decorateKickoff(tenant, kickoff);
   }
 
+  // KO-08: o Bloco 0 guarda a lista; o Kickoff espelha em servicos_selecionados/{id}: true.
+  const servicosDoKickoff = (kickoff) => {
+    const lista = kickoff?.questionario_composicao?.bloco0?.servicos_selecionados;
+    return Array.isArray(lista) ? lista.filter(Boolean) : Object.keys(kickoff?.servicos_selecionados || {});
+  };
+
   async function updateQuestionario(tenant, kickoffId, data, profile) {
     if (!isComercial(profile) && !hasAnyRole(profile, [...KICKOFF_EDIT_ROLES])) throw apiError(403, "Sem permissão para editar o Kickoff.");
     let kickoff = await getKickoff(tenant, kickoffId);
@@ -1106,6 +1114,7 @@ export function createCommercialRouter(h) {
       usuario_id: currentUid(), usuario_nome: userName(profile), datetime: at }));
     const updated = await patch(tenant, "kickoffs", kickoff.id, {
       questionario_composicao: merged, questionario_composicao_version: QUESTIONARIO_COMPOSICAO_VERSION, ...legacy, status,
+      servicos_selecionados: Object.fromEntries(servicosDoKickoff({ questionario_composicao: merged }).map((id) => [id, true])),
       blocos_estado: estados, aprovacoes,
       log_auditoria: [...(kickoff.log_auditoria || []), ...changes, ...invalidacoes],
     });
