@@ -28,9 +28,9 @@ import { registroDeCambio, taxaDaCotacao, textoCambio } from "@/lib/cambio";
 import { calcularCotacao, insumosDoBom, mensagemDePendencias } from "@/lib/cotacao";
 import { entradaHistoricoAprovacao, validarAprovacaoCliente } from "@/lib/aprovacaoCliente";
 import { acrescentarHistorico } from "@/lib/historicoTimeline";
-import { normalizarLinhaComponente, pendenciasQuestionario, simNao } from "@/lib/kickoffPendencias";
+import { ROTULOS, normalizarLinhaComponente, pendenciasQuestionario, simNao } from "@/lib/kickoffPendencias";
 import { BLOCOS_DA_ETAPA, aguardaPd, assinaturaDoBloco, congelarTodos, estadoDosBlocos, validarBlocos } from "@/lib/kickoffBlocos";
-import { preencherVazios } from "@/lib/kickoffAutopreenchimento";
+import { aplicarSobrescritas, coletorDeOrigem, preencherVazios, sobrescritasDaOrigem, variacaoEntreSkus } from "@/lib/kickoffAutopreenchimento";
 import { insumosDoKickoff, linhasDeEmbalagem } from "@/lib/kickoffBom";
 import { validarResponsavel } from "@/lib/responsaveisTecnicos";
 
@@ -966,42 +966,54 @@ export function createCommercialRouter(h) {
     const fragrance = formulaItems.filter((item) => /fragr|essenc/i.test(`${item.ingredient_name || ""} ${item.phase || ""} ${item.function || ""}`))
       .map((item) => item.ingredient_name).filter(Boolean).join(", ");
     const formulaVolume = EMPTY(formula.volume) ? "" : `${formula.volume} ${formula.volume_unit || ""}`.trim();
+    // KO-02: cada campo guarda a fonte (selo na tela; mudar exige motivo).
+    const { de, origem } = coletorDeOrigem(now());
+    const PROJ = "Projeto (CRM)", CLI = "Cliente (CRM)", PROP = "Proposta", AMO = "Amostra", FORM = "Fórmula (P&D)";
+    const variacao = variacaoEntreSkus(approved, project.categoria);
     Object.assign(questionario.bloco0, {
-      cliente: firstValue(project.cliente_nome, client.nome_empresa),
-      nome_produto: firstValue(proposta.tipo_produto, firstItem.item, firstSample.nome_produto, project.nome_projeto),
-      categoria: mapCategoria(firstValue(project.categoria, firstSample.categoria)),
-      forma_fisica: firstValue(firstSample.textura_esperada, project.forma_fisica),
-      volume_gramatura: firstValue(firstItem.volume_gramatura, formulaVolume, project.volume_gramatura),
-      numero_skus_variacoes: asText(firstValue((proposta.items_pedido || []).length || "", approved.length || "", project.numero_skus_variacoes)),
-      varia_entre_skus: firstSample.parametro_variacao ? [firstSample.parametro_variacao] : [],
-      displays_ou_unidades_por_caixa_master: asText(firstItem.quantidade_por_caixa),
-      registro_notificacao_anvisa: firstValue(project.registro_notificacao_anvisa, client.tem_anvisa, "a_providenciar"),
-      detentor_registro: firstValue(project.detentor_registro, client.nome_empresa),
-      responsavel_tecnico: firstValue(project.responsavel_tecnico, client.responsavel_tecnico),
-      modelo_servico: mapModeloServico(firstValue(project.tipo_servico, proposta.modelo_servico)),
+      cliente: de("bloco0", "cliente", [project.cliente_nome, PROJ], [client.nome_empresa, CLI]),
+      nome_produto: de("bloco0", "nome_produto", [proposta.tipo_produto, PROP], [firstItem.item, PROP], [firstSample.nome_produto, AMO], [project.nome_projeto, PROJ]),
+      categoria: mapCategoria(de("bloco0", "categoria", [project.categoria, PROJ], [firstSample.categoria, AMO])),
+      forma_fisica: de("bloco0", "forma_fisica", [firstSample.textura_esperada, AMO], [project.forma_fisica, PROJ]),
+      volume_gramatura: de("bloco0", "volume_gramatura", [firstItem.volume_gramatura, PROP], [formulaVolume, FORM], [project.volume_gramatura, PROJ]),
+      // Nº de SKUs = variações aprovadas pelo cliente; sem amostra aprovada, a proposta e o projeto.
+      numero_skus_variacoes: asText(de("bloco0", "numero_skus_variacoes", [variacao.numero_skus || "", "Variações aprovadas"],
+        [(proposta.items_pedido || []).length || "", PROP], [project.numero_skus_variacoes, PROJ])),
+      varia_entre_skus: de("bloco0", "varia_entre_skus", [variacao.varia_entre_skus, "Variações aprovadas"],
+        [firstSample.parametro_variacao ? [firstSample.parametro_variacao] : [], AMO]) || [],
+      varia_entre_skus_outro: de("bloco0", "varia_entre_skus_outro", [variacao.varia_entre_skus_outro, "Variações aprovadas"]),
+      variacao_outra_categoria: de("bloco0", "variacao_outra_categoria", [variacao.variacao_outra_categoria, "Variações aprovadas"]),
+      variacao_outra_categoria_qual: de("bloco0", "variacao_outra_categoria_qual", [variacao.variacao_outra_categoria_qual, "Variações aprovadas"]),
+      unidades_por_display: asText(de("bloco0", "unidades_por_display", [project.unidades_por_display, PROJ])),
+      displays_ou_unidades_por_caixa_master: asText(de("bloco0", "displays_ou_unidades_por_caixa_master", [project.displays_por_caixa_master, PROJ], [firstItem.quantidade_por_caixa, PROP])),
+      registro_notificacao_anvisa: firstValue(de("bloco0", "registro_notificacao_anvisa", [project.registro_notificacao_anvisa, PROJ], [client.tem_anvisa, CLI]), "a_providenciar"),
+      detentor_registro: de("bloco0", "detentor_registro", [project.detentor_registro, PROJ], [client.nome_empresa, CLI]),
+      responsavel_tecnico: de("bloco0", "responsavel_tecnico", [project.responsavel_tecnico, PROJ], [client.responsavel_tecnico, CLI]),
+      modelo_servico: mapModeloServico(de("bloco0", "modelo_servico", [project.tipo_servico, PROJ], [proposta.modelo_servico, PROP])),
     });
     Object.assign(questionario.bloco1, {
-      formula: formula.id ? "desenvolvida_kuryos" : firstValue(project.formula_origem, ""),
-      cliente_fornece: project.tipo_servico === "formula_do_cliente" ? ["formula_documento"] : [],
-      tem_cor: firstVariation.cor ? "sim" : "",
-      viscosidade: firstValue(firstSample.viscosidade, project.viscosidade),
-      densidade: firstValue(firstSample.densidade, project.densidade),
-      fragrancia_essencia: firstValue(fragrance, firstVariation.referencia_fragrancia),
-      compra_fragrancia_por: firstValue(firstVariation.compra_fragrancia_por, fragrance ? "kuryos" : ""),
-      observacoes_formulacao: firstValue(formula.notes, firstSample.observacao_tecnica, proposta.observacoes_proposta),
+      formula: formula.id ? de("bloco1", "formula", ["desenvolvida_kuryos", FORM]) : de("bloco1", "formula", [project.formula_origem, PROJ]),
+      cliente_fornece: project.tipo_servico === "formula_do_cliente" ? de("bloco1", "cliente_fornece", [["formula_documento"], PROJ]) : [],
+      tem_cor: firstVariation.cor ? de("bloco1", "tem_cor", ["sim", AMO]) : "",
+      viscosidade: de("bloco1", "viscosidade", [firstSample.viscosidade, AMO], [project.viscosidade, PROJ]),
+      densidade: de("bloco1", "densidade", [firstSample.densidade, AMO], [project.densidade, PROJ]),
+      fragrancia_essencia: de("bloco1", "fragrancia_essencia", [fragrance, FORM], [firstVariation.referencia_fragrancia, AMO]),
+      compra_fragrancia_por: de("bloco1", "compra_fragrancia_por", [firstVariation.compra_fragrancia_por, AMO], [fragrance ? "kuryos" : "", FORM]),
+      observacoes_formulacao: de("bloco1", "observacoes_formulacao", [formula.notes, FORM], [firstSample.observacao_tecnica, AMO], [proposta.observacoes_proposta, PROP]),
     });
     Object.assign(questionario.bloco5, {
-      especificacoes_cq_componentes: firstValue(project.especificacoes_cq_componentes, firstSample.observacao_tecnica),
-      testes_aprovacoes_obrigatorios: firstValue(project.testes_aprovacoes_obrigatorios, ""),
-      amostra_referencia_fornecida_cliente: samples.length ? "sim" : "",
+      especificacoes_cq_componentes: de("bloco5", "especificacoes_cq_componentes", [project.especificacoes_cq_componentes, PROJ], [firstSample.observacao_tecnica, AMO]),
+      testes_aprovacoes_obrigatorios: de("bloco5", "testes_aprovacoes_obrigatorios", [project.testes_aprovacoes_obrigatorios, PROJ]),
+      amostra_referencia_fornecida_cliente: samples.length ? de("bloco5", "amostra_referencia_fornecida_cliente", ["sim", AMO]) : "",
     });
     Object.assign(questionario.fechamento, {
-      data_prevista_inicio_producao: firstValue(project.data_prevista_inicio_producao, firstItem.prazo_entrega),
-      volume_primeiro_lote: asText(firstValue(firstItem.qtd, proposta.volume_primeiro_lote, project.volume_estimado_pedido)),
-      responsavel_kuryos: firstValue(await nomeDoUsuario(masterOne, project.responsavel_comercial), autoBlock.responsavel_comercial),
-      responsavel_cliente: firstValue(contato.nome, client.responsavel_cliente),
+      data_prevista_inicio_producao: de("fechamento", "data_prevista_inicio_producao", [project.data_prevista_inicio_producao, PROJ], [firstItem.prazo_entrega, PROP]),
+      volume_primeiro_lote: asText(de("fechamento", "volume_primeiro_lote", [firstItem.qtd, PROP], [proposta.volume_primeiro_lote, PROP], [project.volume_estimado_pedido, PROJ])),
+      responsavel_kuryos: de("fechamento", "responsavel_kuryos", [await nomeDoUsuario(masterOne, project.responsavel_comercial), PROJ], [autoBlock.responsavel_comercial, PROJ]),
+      responsavel_cliente: de("fechamento", "responsavel_cliente", [contato.nome, CLI], [client.responsavel_cliente, CLI]),
       data_preenchimento: now().slice(0, 10),
     });
+    questionario.origem = origem;
     questionario.autopopulated_from = [["crm_projects", project], ["crm_clients", client], ["propostas_comerciais", proposta.id], ["crm_samples", samples.length], ["pd_formulas", formula.id]]
       .filter(([, present]) => Boolean(present)).map(([label]) => label);
     return questionario;
@@ -1092,6 +1104,20 @@ export function createCommercialRouter(h) {
     kickoff = await ensureMutableVersion(tenant, kickoff, profile, String(data?.justificativa || "").trim() || "Alteracao no questionario de composicao apos aprovacao");
     const existing = kickoff.questionario_composicao || questionarioTemplate();
     const merged = mergeQuestionario(existing, data?.questionario || {});
+    // KO-02: a origem é gravada pelo servidor (a tela não a altera); mudar um valor que veio da
+    // origem exige motivo, que fica em origem[bloco][campo].
+    const motivos = { ...(data?.questionario?.motivos_sobrescrita || {}), ...(data?.motivos_sobrescrita || {}) };
+    delete merged.motivos_sobrescrita;
+    if (existing.origem) merged.origem = clone(existing.origem); else delete merged.origem;
+    const sobrescritas = sobrescritasDaOrigem(existing, merged);
+    if (sobrescritas.length) {
+      const r = aplicarSobrescritas(merged, sobrescritas, motivos, { por: currentUid(), porNome: userName(profile), em: now() });
+      if (r.faltam.length) {
+        const lista = r.faltam.map((f) => `${ROTULOS[f.campo.split(".")[1]] || f.campo}${f.fonte ? ` (veio de: ${f.fonte})` : ""}`).join("; ");
+        throw apiError(422, `Informe o motivo para alterar o que veio da origem: ${lista}.`);
+      }
+      merged.origem = r.questionario.origem;
+    }
     const legacy = legacyBlocksFromQuestionario(merged, kickoff);
     const { ok } = questionarioReady(merged);
     let status = kickoff.status || "em_preenchimento";

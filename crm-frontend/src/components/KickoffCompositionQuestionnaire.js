@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, createContext, useContext, useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 import CatalogoComponentesDialog from "@/components/CatalogoComponentesDialog";
 import ResponsavelTecnicoField from "@/components/ResponsavelTecnicoField";
@@ -80,6 +80,8 @@ export function emptyKickoffQuestionnaire() {
       numero_skus_variacoes: "",
       varia_entre_skus: [],
       varia_entre_skus_outro: "",
+      variacao_outra_categoria: "",
+      variacao_outra_categoria_qual: "",
       unidades_por_display: "",
       displays_ou_unidades_por_caixa_master: "",
       registro_notificacao_anvisa: "",
@@ -129,7 +131,7 @@ function mergeQuestionnaire(value) {
   return {
     ...base,
     ...data,
-    bloco0: { ...base.bloco0, ...(data.bloco0 || {}) },
+    bloco0: { ...base.bloco0, ...(data.bloco0 || {}), variacao_outra_categoria: normalizeBinary(data.bloco0?.variacao_outra_categoria) },
     bloco1: {
       ...base.bloco1,
       ...(data.bloco1 || {}),
@@ -174,6 +176,32 @@ export function questionnaireFromKickoff(kickoff) {
   return q;
 }
 
+// KO-02: selo "veio de …" no campo preenchido da origem; mudar o valor pede o motivo (o servidor exige).
+const OrigemCtx = createContext(null);
+
+function OrigemInfo({ o }) {
+  const ctx = useContext(OrigemCtx);
+  if (!ctx || !o) return null;
+  const [bloco, campo] = o.split(".");
+  const info = ctx.q.origem?.[bloco]?.[campo];
+  if (!info) return null;
+  if (info.sobrescrito) {
+    return <p className="mt-1 text-[10px] text-muted-foreground" data-testid="origem-sobrescrita">Alterado (veio de {info.fonte}): {info.motivo}</p>;
+  }
+  const mudou = ctx.original && JSON.stringify(ctx.original?.[bloco]?.[campo] ?? "") !== JSON.stringify(ctx.q?.[bloco]?.[campo] ?? "");
+  return (
+    <div className="mt-1 space-y-1">
+      <span className="inline-flex rounded-full border border-sky-300/70 bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-800 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-300" data-testid="selo-origem">
+        veio de {info.fonte}
+      </span>
+      {mudou && (
+        <Input className="h-8 border-amber-400 text-xs dark:border-amber-600" placeholder={`Motivo para alterar o que veio de ${info.fonte} *`}
+          value={ctx.q.motivos_sobrescrita?.[o] || ""} onChange={(ev) => ctx.setMotivo(o, ev.target.value)} data-testid="motivo-sobrescrita" />
+      )}
+    </div>
+  );
+}
+
 function Section({ title, pendencias, children }) {
   const lista = pendencias || [];
   return (
@@ -194,26 +222,28 @@ function Section({ title, pendencias, children }) {
   );
 }
 
-function Field({ label, value, onChange, type = "text", className = "" }) {
+function Field({ label, value, onChange, type = "text", className = "", o }) {
   return (
     <div className={className}>
       <Label>{label}</Label>
       <Input type={type} value={value || ""} onChange={(event) => onChange(event.target.value)} />
+      <OrigemInfo o={o} />
     </div>
   );
 }
 
-function TextField({ label, value, onChange, className = "", rows = 3 }) {
+function TextField({ label, value, onChange, className = "", rows = 3, o }) {
   return (
     <div className={className}>
       <Label>{label}</Label>
       <Textarea rows={rows} value={value || ""} onChange={(event) => onChange(event.target.value)} />
+      <OrigemInfo o={o} />
     </div>
   );
 }
 
 // KO-03: Sim / Não sem nenhum marcado até alguém responder (borda âmbar = pendente).
-function YesNoToggle({ label, value, onChange, compact = false }) {
+function YesNoToggle({ label, value, onChange, compact = false, o }) {
   const v = normalizeBinary(value);
   const botao = (opcao, rotulo, cor) => (
     <button type="button" aria-pressed={v === opcao}
@@ -228,11 +258,12 @@ function YesNoToggle({ label, value, onChange, compact = false }) {
         {botao("sim", "SIM", "bg-emerald-500 text-white")}
         {botao("nao", "NÃO", "bg-red-500 text-white")}
       </div>
+      <OrigemInfo o={o} />
     </div>
   );
 }
 
-function ChoiceGroup({ label, value, onChange, options }) {
+function ChoiceGroup({ label, value, onChange, options, o }) {
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
@@ -248,11 +279,12 @@ function ChoiceGroup({ label, value, onChange, options }) {
           </button>
         ))}
       </div>
+      <OrigemInfo o={o} />
     </div>
   );
 }
 
-function CheckboxGroup({ label, values = [], onChange, options }) {
+function CheckboxGroup({ label, values = [], onChange, options, o }) {
   const current = Array.isArray(values) ? values : [];
   const toggle = (value) => {
     onChange(current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
@@ -272,6 +304,7 @@ function CheckboxGroup({ label, values = [], onChange, options }) {
           </button>
         ))}
       </div>
+      <OrigemInfo o={o} />
     </div>
   );
 }
@@ -534,7 +567,7 @@ function ComponentTable({ title, value, onChange, defaults, hasArt = false, bloc
 
 const LINHAS_DO_NIVEL = { primaria: BLOCO2_COMPONENTS, secundaria: BLOCO3_COMPONENTS, terciaria: BLOCO4_COMPONENTS };
 
-export default function KickoffCompositionQuestionnaire({ value, onChange, onSave, saving, admin = false }) {
+export default function KickoffCompositionQuestionnaire({ value, onChange, onSave, saving, admin = false, original = null }) {
   const q = mergeQuestionnaire(value);
   const pend = pendenciasQuestionario(q).status;
   const [materiais, setMateriais] = useState([]);
@@ -551,8 +584,10 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
   const update = (section, field, nextValue) => {
     onChange({ ...q, [section]: { ...(q[section] || {}), [field]: nextValue } });
   };
+  const origemCtx = { q, original, setMotivo: (o, v) => onChange({ ...q, motivos_sobrescrita: { ...(q.motivos_sobrescrita || {}), [o]: v } }) };
 
   return (
+    <OrigemCtx.Provider value={origemCtx}>
     <div className="space-y-4" data-testid="kickoff-composition-questionnaire">
       {admin && (
         <div className="flex justify-end">
@@ -564,9 +599,9 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
       )}
       <Section title="Bloco 0 - Identificacao e comercial" pendencias={pend.bloco0.pendencias}>
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Cliente" value={q.bloco0.cliente} onChange={(v) => update("bloco0", "cliente", v)} />
-          <Field label="Nome do produto" value={q.bloco0.nome_produto} onChange={(v) => update("bloco0", "nome_produto", v)} />
-          <ChoiceGroup label="Categoria" value={q.bloco0.categoria} onChange={(v) => update("bloco0", "categoria", v)} options={[
+          <Field o="bloco0.cliente" label="Cliente" value={q.bloco0.cliente} onChange={(v) => update("bloco0", "cliente", v)} />
+          <Field o="bloco0.nome_produto" label="Nome do produto" value={q.bloco0.nome_produto} onChange={(v) => update("bloco0", "nome_produto", v)} />
+          <ChoiceGroup o="bloco0.categoria" label="Categoria" value={q.bloco0.categoria} onChange={(v) => update("bloco0", "categoria", v)} options={[
             { value: "perfumaria", label: "Perfumaria" },
             { value: "capilar", label: "Capilar" },
             { value: "skin_care", label: "Skin care" },
@@ -574,7 +609,7 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
             { value: "home_care", label: "Home care" },
             { value: "outro", label: "Outro" },
           ]} />
-          <ChoiceGroup label="Forma fisica" value={q.bloco0.forma_fisica} onChange={(v) => update("bloco0", "forma_fisica", v)} options={[
+          <ChoiceGroup o="bloco0.forma_fisica" label="Forma fisica" value={q.bloco0.forma_fisica} onChange={(v) => update("bloco0", "forma_fisica", v)} options={[
             { value: "liquido", label: "Liquido" },
             { value: "creme_gel", label: "Creme / gel" },
             { value: "po", label: "Po" },
@@ -582,34 +617,36 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
             { value: "bastao", label: "Bastao" },
             { value: "outro", label: "Outro" },
           ]} />
-          <Field label="Volume / gramatura" value={q.bloco0.volume_gramatura} onChange={(v) => update("bloco0", "volume_gramatura", v)} />
-          <Field label="No de SKUs / variacoes" value={q.bloco0.numero_skus_variacoes} onChange={(v) => update("bloco0", "numero_skus_variacoes", v)} />
-          <CheckboxGroup label="O que varia entre SKUs" values={q.bloco0.varia_entre_skus} onChange={(v) => update("bloco0", "varia_entre_skus", v)} options={[
+          <Field o="bloco0.volume_gramatura" label="Volume / gramatura" value={q.bloco0.volume_gramatura} onChange={(v) => update("bloco0", "volume_gramatura", v)} />
+          <Field o="bloco0.numero_skus_variacoes" label="No de SKUs / variacoes" value={q.bloco0.numero_skus_variacoes} onChange={(v) => update("bloco0", "numero_skus_variacoes", v)} />
+          <CheckboxGroup o="bloco0.varia_entre_skus" label="O que varia entre SKUs" values={q.bloco0.varia_entre_skus} onChange={(v) => update("bloco0", "varia_entre_skus", v)} options={[
             { value: "cor", label: "Cor" },
             { value: "fragrancia", label: "Fragrancia" },
             { value: "versao", label: "Versao" },
             { value: "volume", label: "Volume" },
             { value: "outro", label: "Outro" },
           ]} />
-          <Field label="Outro tipo de variacao" value={q.bloco0.varia_entre_skus_outro} onChange={(v) => update("bloco0", "varia_entre_skus_outro", v)} />
-          <Field label="Unidades por display" value={q.bloco0.unidades_por_display} onChange={(v) => update("bloco0", "unidades_por_display", v)} />
-          <Field label="Displays (ou unidades) por caixa master" value={q.bloco0.displays_ou_unidades_por_caixa_master} onChange={(v) => update("bloco0", "displays_ou_unidades_por_caixa_master", v)} />
-          <ChoiceGroup label="Registro / notificacao ANVISA" value={q.bloco0.registro_notificacao_anvisa} onChange={(v) => update("bloco0", "registro_notificacao_anvisa", v)} options={[
+          <Field o="bloco0.varia_entre_skus_outro" label="Outro tipo de variacao" value={q.bloco0.varia_entre_skus_outro} onChange={(v) => update("bloco0", "varia_entre_skus_outro", v)} />
+          <YesNoToggle o="bloco0.variacao_outra_categoria" label="Alguma variação é de outra categoria?" value={q.bloco0.variacao_outra_categoria} onChange={(v) => update("bloco0", "variacao_outra_categoria", v)} />
+          {normalizeBinary(q.bloco0.variacao_outra_categoria) === "sim" && <Field o="bloco0.variacao_outra_categoria_qual" label="Qual categoria?" value={q.bloco0.variacao_outra_categoria_qual} onChange={(v) => update("bloco0", "variacao_outra_categoria_qual", v)} />}
+          <Field o="bloco0.unidades_por_display" label="Unidades por display" value={q.bloco0.unidades_por_display} onChange={(v) => update("bloco0", "unidades_por_display", v)} />
+          <Field o="bloco0.displays_ou_unidades_por_caixa_master" label="Displays (ou unidades) por caixa master" value={q.bloco0.displays_ou_unidades_por_caixa_master} onChange={(v) => update("bloco0", "displays_ou_unidades_por_caixa_master", v)} />
+          <ChoiceGroup o="bloco0.registro_notificacao_anvisa" label="Registro / notificacao ANVISA" value={q.bloco0.registro_notificacao_anvisa} onChange={(v) => update("bloco0", "registro_notificacao_anvisa", v)} options={[
             { value: "existe", label: "Existe" },
             { value: "a_providenciar", label: "A providenciar" },
           ]} />
-          <Field label="Detentor do registro" value={q.bloco0.detentor_registro} onChange={(v) => update("bloco0", "detentor_registro", v)} />
+          <Field o="bloco0.detentor_registro" label="Detentor do registro" value={q.bloco0.detentor_registro} onChange={(v) => update("bloco0", "detentor_registro", v)} />
           <ResponsavelTecnicoField nome={q.bloco0.responsavel_tecnico} id={q.bloco0.responsavel_tecnico_id}
             onChange={(campos) => onChange({ ...q, bloco0: { ...q.bloco0, ...campos } })} />
         </div>
-        <ChoiceGroup label="Classificacao do projeto (modelo de servico)" value={q.bloco0.modelo_servico} onChange={(v) => update("bloco0", "modelo_servico", v)} options={[
+        <ChoiceGroup o="bloco0.modelo_servico" label="Classificacao do projeto (modelo de servico)" value={q.bloco0.modelo_servico} onChange={(v) => update("bloco0", "modelo_servico", v)} options={[
           { value: "industrializacao_pura", label: "Industrializacao pura" },
           { value: "industrializacao_com_desenvolvimento", label: "Industrializacao com desenvolvimento" },
           { value: "full_service_marca_propria", label: "Full service / marca propria" },
         ]} />
         {/* KO-08: os serviços marcados aqui são os que a cotação cobra. */}
         {servicos === null ? null : servicos.length ? (
-          <CheckboxGroup label="Serviços contratados (entram na cotação)" values={q.bloco0.servicos_selecionados}
+          <CheckboxGroup o="bloco0.servicos_selecionados" label="Serviços contratados (entram na cotação)" values={q.bloco0.servicos_selecionados}
             onChange={(v) => update("bloco0", "servicos_selecionados", v)}
             options={servicos.map((sv) => ({ value: sv.id, label: sv.codigo ? `${sv.codigo} · ${sv.nome}` : sv.nome }))} />
         ) : <p className="text-xs text-muted-foreground">Serviços contratados: a tabela de serviços está vazia (PCP › Cadastros › Serviços).</p>}
@@ -617,25 +654,25 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
 
       <Section title="Bloco 1 - Formulacao" pendencias={pend.bloco1.pendencias}>
         <div className="grid gap-4 md:grid-cols-2">
-          <ChoiceGroup label="Formula" value={q.bloco1.formula} onChange={(v) => update("bloco1", "formula", v)} options={[
+          <ChoiceGroup o="bloco1.formula" label="Formula" value={q.bloco1.formula} onChange={(v) => update("bloco1", "formula", v)} options={[
             { value: "do_cliente", label: "Do cliente" },
             { value: "desenvolvida_kuryos", label: "Desenvolvida pela Kuryos" },
           ]} />
-          <CheckboxGroup label="O cliente fornece" values={q.bloco1.cliente_fornece} onChange={(v) => update("bloco1", "cliente_fornece", v)} options={[
+          <CheckboxGroup o="bloco1.cliente_fornece" label="O cliente fornece" values={q.bloco1.cliente_fornece} onChange={(v) => update("bloco1", "cliente_fornece", v)} options={[
             { value: "formula_documento", label: "Formula (documento)" },
             { value: "bulk_pronto", label: "Bulk pronto" },
             { value: "mps", label: "MPs" },
             { value: "nada", label: "Nada (Kuryos compra tudo)" },
           ]} />
-          <YesNoToggle label="Tem Cor?" value={q.bloco1.tem_cor} onChange={(v) => update("bloco1", "tem_cor", v)} />
-          <YesNoToggle label="Tem Brilho/mica/glitter?" value={q.bloco1.tem_brilho_mica_glitter} onChange={(v) => update("bloco1", "tem_brilho_mica_glitter", v)} />
-          {normalizeBinary(q.bloco1.tem_cor) === "sim" && <Field label="Qual cor (descrição / código)? *" value={q.bloco1.cor_descricao} onChange={(v) => update("bloco1", "cor_descricao", v)} />}
-          {normalizeBinary(q.bloco1.tem_brilho_mica_glitter) === "sim" && <Field label="Qual brilho / mica / glitter? *" value={q.bloco1.brilho_descricao} onChange={(v) => update("bloco1", "brilho_descricao", v)} />}
-          <Field label="Qual a viscosidade?" value={q.bloco1.viscosidade} onChange={(v) => update("bloco1", "viscosidade", v)} />
-          <Field label="Qual a densidade?" value={q.bloco1.densidade} onChange={(v) => update("bloco1", "densidade", v)} />
-          <Field className="md:col-span-2" label="Fragrancia / essencia definida ou aprovada - casa de fragrancia e codigos" value={q.bloco1.fragrancia_essencia} onChange={(v) => update("bloco1", "fragrancia_essencia", v)} />
-          <ChoiceGroup label="Compra da fragrancia por" value={q.bloco1.compra_fragrancia_por} onChange={(v) => update("bloco1", "compra_fragrancia_por", v)} options={[{ value: "cliente", label: "Cliente" }, { value: "kuryos", label: "Kuryos" }]} />
-          <TextField className="md:col-span-2" label="Observacoes de formulacao" value={q.bloco1.observacoes_formulacao} onChange={(v) => update("bloco1", "observacoes_formulacao", v)} />
+          <YesNoToggle o="bloco1.tem_cor" label="Tem Cor?" value={q.bloco1.tem_cor} onChange={(v) => update("bloco1", "tem_cor", v)} />
+          <YesNoToggle o="bloco1.tem_brilho_mica_glitter" label="Tem Brilho/mica/glitter?" value={q.bloco1.tem_brilho_mica_glitter} onChange={(v) => update("bloco1", "tem_brilho_mica_glitter", v)} />
+          {normalizeBinary(q.bloco1.tem_cor) === "sim" && <Field o="bloco1.cor_descricao" label="Qual cor (descrição / código)? *" value={q.bloco1.cor_descricao} onChange={(v) => update("bloco1", "cor_descricao", v)} />}
+          {normalizeBinary(q.bloco1.tem_brilho_mica_glitter) === "sim" && <Field o="bloco1.brilho_descricao" label="Qual brilho / mica / glitter? *" value={q.bloco1.brilho_descricao} onChange={(v) => update("bloco1", "brilho_descricao", v)} />}
+          <Field o="bloco1.viscosidade" label="Qual a viscosidade?" value={q.bloco1.viscosidade} onChange={(v) => update("bloco1", "viscosidade", v)} />
+          <Field o="bloco1.densidade" label="Qual a densidade?" value={q.bloco1.densidade} onChange={(v) => update("bloco1", "densidade", v)} />
+          <Field o="bloco1.fragrancia_essencia" className="md:col-span-2" label="Fragrancia / essencia definida ou aprovada - casa de fragrancia e codigos" value={q.bloco1.fragrancia_essencia} onChange={(v) => update("bloco1", "fragrancia_essencia", v)} />
+          <ChoiceGroup o="bloco1.compra_fragrancia_por" label="Compra da fragrancia por" value={q.bloco1.compra_fragrancia_por} onChange={(v) => update("bloco1", "compra_fragrancia_por", v)} options={[{ value: "cliente", label: "Cliente" }, { value: "kuryos", label: "Kuryos" }]} />
+          <TextField o="bloco1.observacoes_formulacao" className="md:col-span-2" label="Observacoes de formulacao" value={q.bloco1.observacoes_formulacao} onChange={(v) => update("bloco1", "observacoes_formulacao", v)} />
         </div>
       </Section>
 
@@ -652,19 +689,19 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
       </Section>
 
       <Section title="Bloco 5 - Qualidade de recebimento" pendencias={pend.bloco5.pendencias}>
-        <TextField label="Especificacoes de CQ por componente (texto / anexos)" value={q.bloco5.especificacoes_cq_componentes} onChange={(v) => update("bloco5", "especificacoes_cq_componentes", v)} rows={4} />
-        <TextField label="Testes / aprovacoes obrigatorios antes da producao" value={q.bloco5.testes_aprovacoes_obrigatorios} onChange={(v) => update("bloco5", "testes_aprovacoes_obrigatorios", v)} rows={4} />
-        <YesNoToggle label="Amostra de referencia fornecida pelo cliente" value={q.bloco5.amostra_referencia_fornecida_cliente} onChange={(v) => update("bloco5", "amostra_referencia_fornecida_cliente", v)} />
-        {normalizeBinary(q.bloco5.amostra_referencia_fornecida_cliente) === "sim" && <TextField label="Descreva a amostra de referência (o que é, quem guarda) *" value={q.bloco5.amostra_referencia_descricao} onChange={(v) => update("bloco5", "amostra_referencia_descricao", v)} rows={2} />}
+        <TextField o="bloco5.especificacoes_cq_componentes" label="Especificacoes de CQ por componente (texto / anexos)" value={q.bloco5.especificacoes_cq_componentes} onChange={(v) => update("bloco5", "especificacoes_cq_componentes", v)} rows={4} />
+        <TextField o="bloco5.testes_aprovacoes_obrigatorios" label="Testes / aprovacoes obrigatorios antes da producao" value={q.bloco5.testes_aprovacoes_obrigatorios} onChange={(v) => update("bloco5", "testes_aprovacoes_obrigatorios", v)} rows={4} />
+        <YesNoToggle o="bloco5.amostra_referencia_fornecida_cliente" label="Amostra de referencia fornecida pelo cliente" value={q.bloco5.amostra_referencia_fornecida_cliente} onChange={(v) => update("bloco5", "amostra_referencia_fornecida_cliente", v)} />
+        {normalizeBinary(q.bloco5.amostra_referencia_fornecida_cliente) === "sim" && <TextField o="bloco5.amostra_referencia_descricao" label="Descreva a amostra de referência (o que é, quem guarda) *" value={q.bloco5.amostra_referencia_descricao} onChange={(v) => update("bloco5", "amostra_referencia_descricao", v)} rows={2} />}
       </Section>
 
       <Section title="Fechamento" pendencias={pend.fechamento.pendencias}>
         <div className="grid gap-4 md:grid-cols-2">
-          <Field type="date" label="Data prevista de inicio de producao" value={q.fechamento.data_prevista_inicio_producao} onChange={(v) => update("fechamento", "data_prevista_inicio_producao", v)} />
-          <Field label="Volume do primeiro lote" value={q.fechamento.volume_primeiro_lote} onChange={(v) => update("fechamento", "volume_primeiro_lote", v)} />
-          <Field label="Responsavel Kuryos" value={q.fechamento.responsavel_kuryos} onChange={(v) => update("fechamento", "responsavel_kuryos", v)} />
-          <Field label="Responsavel Cliente" value={q.fechamento.responsavel_cliente} onChange={(v) => update("fechamento", "responsavel_cliente", v)} />
-          <Field type="date" label="Data do preenchimento" value={q.fechamento.data_preenchimento} onChange={(v) => update("fechamento", "data_preenchimento", v)} />
+          <Field o="fechamento.data_prevista_inicio_producao" type="date" label="Data prevista de inicio de producao" value={q.fechamento.data_prevista_inicio_producao} onChange={(v) => update("fechamento", "data_prevista_inicio_producao", v)} />
+          <Field o="fechamento.volume_primeiro_lote" label="Volume do primeiro lote" value={q.fechamento.volume_primeiro_lote} onChange={(v) => update("fechamento", "volume_primeiro_lote", v)} />
+          <Field o="fechamento.responsavel_kuryos" label="Responsavel Kuryos" value={q.fechamento.responsavel_kuryos} onChange={(v) => update("fechamento", "responsavel_kuryos", v)} />
+          <Field o="fechamento.responsavel_cliente" label="Responsavel Cliente" value={q.fechamento.responsavel_cliente} onChange={(v) => update("fechamento", "responsavel_cliente", v)} />
+          <Field o="fechamento.data_preenchimento" type="date" label="Data do preenchimento" value={q.fechamento.data_preenchimento} onChange={(v) => update("fechamento", "data_preenchimento", v)} />
         </div>
       </Section>
 
@@ -672,5 +709,6 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
         <Button disabled={saving} onClick={onSave}>Salvar questionario</Button>
       </div>
     </div>
+    </OrigemCtx.Provider>
   );
 }

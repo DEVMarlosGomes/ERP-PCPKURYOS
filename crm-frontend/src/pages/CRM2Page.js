@@ -986,6 +986,27 @@ export default function CRM2Page() {
                                                 }}
                                             />
                                         </div>
+                                        {/* KO-02: vão para o Bloco 0 do Kickoff e para a conta da embalagem terciária. */}
+                                        <div className="space-y-2">
+                                            <Label>Unidades por display</Label>
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                step="1"
+                                                defaultValue={selectedProject.unidades_por_display ?? ""}
+                                                onBlur={(event) => { if (event.target.value !== String(selectedProject.unidades_por_display ?? "")) handleUpdateProject(selectedProject.id, { unidades_por_display: event.target.value === "" ? null : Number(event.target.value) }); }}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Displays (ou unidades) por caixa master</Label>
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                step="1"
+                                                defaultValue={selectedProject.displays_por_caixa_master ?? ""}
+                                                onBlur={(event) => { if (event.target.value !== String(selectedProject.displays_por_caixa_master ?? "")) handleUpdateProject(selectedProject.id, { displays_por_caixa_master: event.target.value === "" ? null : Number(event.target.value) }); }}
+                                            />
+                                        </div>
                                         <div className="space-y-2">
                                             <Label>Prazo desejado para amostra</Label>
                                             <Input

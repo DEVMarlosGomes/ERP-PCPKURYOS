@@ -161,11 +161,18 @@ describe("fluxo comercial completo até a emissão de OP", () => {
     await fails(api.post(`/kickoff/${kickoff.id}/aprovacao`, { etapa: "lider_pd", decisao: "aprovado" }), 400, /Questionario incompleto/);
     as("com");
     // KO-03: "Sim" sem o complemento deixa pendente; "Não" não pende.
-    const semDescricao = questionarioCompleto(kickoff);
+    // KO-02: o que veio da origem tem selo; trocar sem motivo é recusado (o modelo de serviço veio do projeto).
+    assert.equal(kickoff.questionario_composicao.origem.bloco0.modelo_servico.fonte, "Projeto (CRM)");
+    await fails(api.put(`/kickoff/${kickoff.id}/questionario-composicao`, { questionario: questionarioCompleto(kickoff) }), 422, /motivo.*Classificação do projeto \(veio de: Projeto \(CRM\)\)/);
+    const semDescricao = { ...questionarioCompleto(kickoff), motivos_sobrescrita: { "bloco0.modelo_servico": "Cliente fechou full service na reunião" } };
     semDescricao.bloco5.amostra_referencia_descricao = "";
     const pendente = (await api.put(`/kickoff/${kickoff.id}/questionario-composicao`, { questionario: semDescricao })).data;
     assert.equal(pendente.status, "em_preenchimento");
     assert.deepEqual(pendente.blocos_status.bloco5.campos_pendentes, ["amostra_referencia_descricao"]);
+    const origemModelo = db(`${T}/kickoffs/${kickoff.id}/questionario_composicao/origem/bloco0/modelo_servico`);
+    assert.equal(origemModelo.sobrescrito, true);
+    assert.equal(origemModelo.motivo, "Cliente fechou full service na reunião");
+    assert.equal(db(`${T}/kickoffs/${kickoff.id}/questionario_composicao/motivos_sobrescrita`), undefined, "motivo não fica solto no questionário");
     const filled = (await api.put(`/kickoff/${kickoff.id}/questionario-composicao`, { questionario: questionarioCompleto(kickoff) })).data;
     assert.equal(filled.status, "aguardando_aprovacao");
     assert.equal(filled.progress.percentual, 100);

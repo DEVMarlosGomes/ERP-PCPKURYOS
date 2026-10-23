@@ -31,6 +31,26 @@ function estavel(v) {
 }
 export const assinaturaDoBloco = (questionario, bloco) => estavel((questionario || {})[bloco] || {});
 
+/* Campo vazio ("", null, [], {}) conta como ausente: campo novo no questionário (KO-02/06/08) e o
+ * banco, que descarta lista e objeto vazios, não invalidam um bloco validado sem ninguém mudar nada. */
+function semVazios(v) {
+  if (Array.isArray(v)) return v.map(semVazios);
+  if (v && typeof v === "object") {
+    const out = {};
+    for (const [k, x] of Object.entries(v)) {
+      const y = semVazios(x);
+      if (y === undefined || y === null || y === "" || (Array.isArray(y) && !y.length) || (typeof y === "object" && !Array.isArray(y) && !Object.keys(y).length)) continue;
+      out[k] = y;
+    }
+    return out;
+  }
+  return v;
+}
+export function mesmaAssinatura(a, b) {
+  if (a === b) return true;
+  try { return estavel(semVazios(JSON.parse(a))) === estavel(semVazios(JSON.parse(b))); } catch { return false; }
+}
+
 // Bloco sem nada respondido (linha de componente só com o nome padrão não conta).
 function vazio(dados) {
   const d = dados || {};
@@ -55,7 +75,7 @@ export function estadoDosBlocos({ questionario, pendencias, anterior = {}, conge
     const assinatura = assinaturaDoBloco(questionario, bloco);
     const base = { dono: DONO_DO_BLOCO[bloco], aguardando: bloco === "bloco1" && aguardandoPd ? "pd" : null };
     const validadoAntes = ["validado", "congelado"].includes(antes.estado);
-    if (validadoAntes && antes.assinatura === assinatura) {
+    if (validadoAntes && mesmaAssinatura(antes.assinatura, assinatura)) {
       estados[bloco] = { ...antes, ...base, estado: congelado ? "congelado" : "validado" };
       continue;
     }

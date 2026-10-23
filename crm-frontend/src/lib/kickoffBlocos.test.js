@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { BLOCOS_DA_ETAPA, aguardaPd, assinaturaDoBloco, congelarTodos, estadoDosBlocos, validarBlocos } from "./kickoffBlocos";
+import { BLOCOS_DA_ETAPA, aguardaPd, assinaturaDoBloco, congelarTodos, mesmaAssinatura, estadoDosBlocos, validarBlocos } from "./kickoffBlocos";
 import { pendenciasQuestionario } from "./kickoffPendencias";
 
 const q0 = () => ({
@@ -50,5 +50,14 @@ describe("estado por bloco (RFC-001)", () => {
     expect(aguardaPd({ formula_id: null }, { bloco1: { formula: "desenvolvida_kuryos" } })).toBe(true);
     expect(aguardaPd({ formula_id: null }, { bloco1: { formula: "do_cliente" } })).toBe(false);
     expect(aguardaPd({ formula_id: "F1" }, {})).toBe(false);
+  });
+});
+
+describe("assinatura tolera campo novo vazio (KO-02/06/08)", () => {
+  test("campo vazio conta como ausente; valor mudado continua mudando", () => {
+    const antes = assinaturaDoBloco({ bloco0: { cliente: "Lumi", varia: ["cor"] } }, "bloco0");
+    expect(mesmaAssinatura(antes, assinaturaDoBloco({ bloco0: { cliente: "Lumi", varia: ["cor"], responsavel_tecnico_id: "", servicos_selecionados: [] } }, "bloco0"))).toBe(true);
+    expect(mesmaAssinatura(antes, assinaturaDoBloco({ bloco0: { cliente: "Lumi Cosméticos", varia: ["cor"] } }, "bloco0"))).toBe(false);
+    expect(mesmaAssinatura(antes, assinaturaDoBloco({ bloco0: { cliente: "Lumi", varia: ["cor"], servicos_selecionados: ["s1"] } }, "bloco0"))).toBe(false);
   });
 });

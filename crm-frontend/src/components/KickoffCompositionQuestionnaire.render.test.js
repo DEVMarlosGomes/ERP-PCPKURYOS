@@ -18,3 +18,17 @@ test("questionário renderiza tipo, atributos com Outro e especificação das ca
   expect(html).toContain("Catálogo de componentes");
   expect(html).toContain("Bisnaga");
 });
+
+// KO-02: campo que veio da origem mostra o selo; alterado sem motivo registrado pede o motivo.
+test("selo de origem e motivo de alteração", () => {
+  const original = emptyKickoffQuestionnaire();
+  original.bloco0.volume_gramatura = "200 mL";
+  original.origem = { bloco0: { volume_gramatura: { fonte: "Fórmula (P&D)", sobrescrito: false } }, fechamento: { responsavel_cliente: { fonte: "Cliente (CRM)", sobrescrito: true, motivo: "Contato mudou" } } };
+  const igual = renderToStaticMarkup(<KickoffCompositionQuestionnaire value={original} original={original} onChange={() => {}} onSave={() => {}} />);
+  expect(igual).toContain("veio de Fórmula (P&amp;D)");
+  expect(igual).not.toContain('data-testid="motivo-sobrescrita"');
+  expect(igual).toContain("Alterado (veio de Cliente (CRM)): Contato mudou");
+  const editado = { ...original, bloco0: { ...original.bloco0, volume_gramatura: "250 mL" } };
+  const html = renderToStaticMarkup(<KickoffCompositionQuestionnaire value={editado} original={original} onChange={() => {}} onSave={() => {}} />);
+  expect(html).toContain('data-testid="motivo-sobrescrita"');
+});

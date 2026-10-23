@@ -306,6 +306,7 @@ export default function KickoffPage() {
             onSave={saveQuestionario}
             saving={saving || kickoff.status === "arquivado"}
             admin={user?.role === "admin"}
+            original={kickoff?.questionario_composicao ? questionnaireFromKickoff(kickoff) : null}
           />
         </TabsContent>
 
