@@ -441,6 +441,32 @@ describe("fluxo comercial completo até a emissão de OP", () => {
     await fails(api.post("/crm/responsaveis-tecnicos", { nome: "Pedro", vinculo: "kuryos" }), 403);
   });
 
+  test("AMO-05: retrabalho da amostra aprovada desatualiza Kickoff e orçamento até revisar", async () => {
+    const variacao = db(`${T}/crm_samples/${sample.id}`).variacoes[0];
+    as("prod");
+    await fails(api.post(`/crm/samples/${sample.id}/variacoes/${variacao.id}/retrabalho-aprovada`, { o_que_alterar: "Fragrância mais suave", solicitado_por: "cliente" }), 403);
+    as("com");
+    await fails(api.post(`/crm/samples/${sample.id}/variacoes/${variacao.id}/retrabalho-aprovada`, { o_que_alterar: "curto", solicitado_por: "cliente" }), 422, /o que deve ser alterado/);
+    const r = (await api.post(`/crm/samples/${sample.id}/variacoes/${variacao.id}/retrabalho-aprovada`,
+      { o_que_alterar: "Fragrância mais suave, 0,8% no lugar de 1,2%", solicitado_por: "cliente" })).data;
+    const depois = db(`${T}/crm_samples/${sample.id}`);
+    assert.equal(depois.variacoes[0].status, "retrabalho");
+    assert.equal(depois.variacoes[0].aprovacoes_anteriores.length, 1, "a aprovação vai para o histórico");
+    assert.equal(depois.historico_retrabalhos.at(-1).apos_aprovacao, true);
+    assert.equal(db(`${T}/eventos/${r.evento_id}`).tipo, "amostra.retrabalho_solicitado");
+    assert.ok(r.kickoff_id && r.proposta_id, "Kickoff e orçamento do projeto marcados");
+    assert.match(db(`${T}/kickoffs/${r.kickoff_id}`).desatualizado.motivo, /retrabalho após aprovação/);
+    // Orçamento desatualizado não é aprovado; "revisado, sem impacto" com motivo tira a marca.
+    await fails(api.post(`/crm/projects/${project.id}/proposta/decisao`, { decisao: "aprovado", aprovacao_cliente: APROVACAO }), 409, /desatualizado/i);
+    await fails(api.post(`/crm/projects/${project.id}/proposta/desatualizado/resolver`, { motivo: "ok" }), 422);
+    await api.post(`/crm/projects/${project.id}/proposta/desatualizado/resolver`, { motivo: "A fragrância não muda o preço da cotação" });
+    const proposta = db(`${T}/crm_propostas/${r.proposta_id}`);
+    assert.equal(proposta.desatualizado ?? null, null);
+    assert.equal(proposta.desatualizado_historico[0].decisao, "revisado_sem_impacto");
+    const k = (await api.post(`/kickoff/${r.kickoff_id}/desatualizado/resolver`, { motivo: "BOM e serviços não mudam com a fragrância" })).data;
+    assert.equal(k.desatualizado ?? null, null);
+  });
+
   test("KO-08: serviços escolhidos no Bloco 0 do Kickoff chegam à cotação", async () => {
     as("com");
     assert.deepEqual((await api.get("/cadastros/servicos")).data.map((sv) => sv.id), ["s1", "s2"], "só os ativos");

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import AprovacaoClienteModal from "@/components/AprovacaoClienteModal";
+import DesatualizadoBanner from "@/components/DesatualizadoBanner";
 
 const TAB_OPTIONS = [
   { id: "ped", label: "Pedidos" },
@@ -651,6 +652,12 @@ export default function CommercialBudgetPage() {
                       {commercialProjects.map((project) => <option key={project.id} value={project.id}>{project.nome_projeto} — {project.cliente_nome || "sem cliente"} — {stageLabel(project.stage)}</option>)}
                     </NativeSelect>
                   </Field>
+                  {/* AMO-05: orçamento sobre amostra que voltou ao P&D não é enviado nem aprovado até ser revisado. */}
+                  <div className="md:col-span-3">
+                    <DesatualizadoBanner oque="orçamento" onResolvido={load}
+                      desatualizado={proposalRows.find((row) => row.project.id === orcamentoForm.projetoId)?.proposal?.desatualizado}
+                      urlResolver={orcamentoForm.projetoId ? `/crm/projects/${orcamentoForm.projetoId}/proposta/desatualizado/resolver` : null} />
+                  </div>
                   <Field label="Cliente cadastrado (opcional)" className="md:col-span-3">
                     <NativeSelect value={orcamentoForm.clienteId} onChange={(event) => applyOrcamentoClient(event.target.value)}>
                       <option value="">Prospecto / preenchimento manual</option>

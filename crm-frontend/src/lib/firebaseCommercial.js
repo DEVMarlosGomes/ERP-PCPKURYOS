@@ -33,6 +33,7 @@ import { BLOCOS_DA_ETAPA, aguardaPd, assinaturaDoBloco, congelarTodos, estadoDos
 import { aplicarSobrescritas, coletorDeOrigem, preencherVazios, sobrescritasDaOrigem, variacaoEntreSkus } from "@/lib/kickoffAutopreenchimento";
 import { insumosDoKickoff, linhasDeEmbalagem } from "@/lib/kickoffBom";
 import { validarResponsavel } from "@/lib/responsaveisTecnicos";
+import { resolverDesatualizado, textoDesatualizado } from "@/lib/retrabalhoAprovada";
 
 export const NOT_HANDLED = Symbol("not-handled");
 
@@ -519,6 +520,9 @@ export function createCommercialRouter(h) {
     };
     if (!payload.composicao) delete payload.composicao;
     if (!payload.composicao && payload.status === "enviado" && existing?.composicao) payload.composicao = existing.composicao;
+    if (existing?.desatualizado && payload.status === "enviado") {
+      throw apiError(409, `Orçamento — ${textoDesatualizado(existing.desatualizado)}. Revise ou registre "revisado, sem impacto" antes de enviar.`);
+    }
     await conferirComposicao(payload, existing);
     // COM-01: enviar ao cliente registra a taxa do momento no histórico (não congela nada).
     const registrarEnvio = payload.status === "enviado" && existing?.status !== "enviado";
@@ -943,6 +947,10 @@ export function createCommercialRouter(h) {
       ...clone(latest), id: undefined, created_at: undefined, versao_numero: number, versao: `v${number}`, status: "em_revisao", aprovacoes: approvalTemplate(), blocos_estado: null,
       created_by: currentUid(), created_by_name: userName(profile), approved_at: null, approved_by: null, approved_by_name: "",
       parent_kickoff_id: latest.id,
+      // AMO-05/RFC-001 §4: nova versão é a resposta à marca de desatualizado; a marca vai para o histórico.
+      desatualizado: null,
+      desatualizado_historico: [...(latest.desatualizado_historico || []),
+        ...(latest.desatualizado ? [{ ...latest.desatualizado, resolvido_em: now(), resolvido_por: currentUid(), resolvido_por_nome: userName(profile), decisao: "nova_versao", motivo_decisao: reason }] : [])],
       log_auditoria: [...(latest.log_auditoria || []), { campo: "versao", valor_anterior: latest.versao, valor_novo: `v${number}`,
         usuario_id: currentUid(), usuario_nome: userName(profile), datetime: now(), motivo: reason }],
     });
@@ -1215,6 +1223,10 @@ export function createCommercialRouter(h) {
       throw apiError(403, `A etapa ${APPROVAL_LABELS[etapa]} é aprovada por ${etapa === "direcao" ? "administrador" : [...APPROVAL_ROLE_MAP[etapa]].join(", ")}.`);
     }
     const override = await conferirResponsavelComercial(tenant, kickoff, etapa, profile);
+    // AMO-05: Kickoff sobre amostra em retrabalho não segue aprovando até ser revisado.
+    if (decisao === "aprovado" && kickoff.desatualizado) {
+      throw apiError(409, `Kickoff — ${textoDesatualizado(kickoff.desatualizado)}. Ajuste o Kickoff ou registre "revisado, sem impacto".`);
+    }
     if (!keepStoredBom(kickoff)) kickoff = await refreshBom(tenant, kickoff);
     const registration = await syncBomRegistration(tenant, kickoff, profile);
     kickoff = registration.kickoff;
@@ -1712,6 +1724,8 @@ export function createCommercialRouter(h) {
     let project = await getProject(tenant, projectId);
     const proposta = await findProposta(tenant, projectId);
     if (!proposta) throw apiError(409, "Salve o orçamento antes de registrar a decisão do cliente.");
+    // AMO-05: orçamento sobre amostra em retrabalho não é aprovado até ser revisado.
+    if (decisao === "aprovado" && proposta.desatualizado) throw apiError(409, `Orçamento — ${textoDesatualizado(proposta.desatualizado)}. Revise o orçamento ou registre "revisado, sem impacto".`);
     const dispensados = [];
     if (decisao === "aprovado") {
       const status = await amostrasStatus(tenant, projectId);
@@ -1856,13 +1870,41 @@ export function createCommercialRouter(h) {
 
   /* Rotas */
 
+  // AMO-05 (RFC-001 §6): Kickoff vigente e orçamento do projeto ficam desatualizados.
+  async function marcarDesatualizadoDoProjeto(tenant, projectId, marca) {
+    const marcados = {};
+    const kickoff = await kickoffVigente(tenant, projectId);
+    if (kickoff) { await patch(tenant, "kickoffs", kickoff.id, { desatualizado: marca }); marcados.kickoff_id = kickoff.id; }
+    const proposta = await findProposta(tenant, projectId);
+    if (proposta) { await patch(tenant, "crm_propostas", proposta.id, { desatualizado: marca }); marcados.proposta_id = proposta.id; }
+    return marcados;
+  }
+
+  async function resolverMarca(tenant, colecao, doc, data, profile) {
+    const r = resolverDesatualizado(doc, { motivo: data?.motivo, por: currentUid(), porNome: userName(profile), em: now() });
+    if (!r.ok) throw apiError(422, r.erro);
+    return patch(tenant, colecao, doc.id, r.mudancas);
+  }
+
   return {
     beforeProjectMove,
     afterProjectMove,
     afterProjectCreate,
+    marcarDesatualizadoDoProjeto,
     async route({ method, path, query, data, profile, tenant }) {
       let m;
       const is = (verb, pattern) => method === verb && (m = path.match(pattern));
+      // AMO-05: "revisado, sem impacto" tira a marca de desatualizado, com decisão registrada.
+      if (is("POST", /^\/kickoff\/([^/]+)\/desatualizado\/resolver$/)) {
+        if (!isComercial(profile) && !hasAnyRole(profile, [...KICKOFF_EDIT_ROLES])) throw apiError(403, "Sem permissão para revisar o Kickoff.");
+        return decorateKickoff(tenant, await resolverMarca(tenant, "kickoffs", await getKickoff(tenant, m[1]), data, profile));
+      }
+      if (is("POST", /^\/crm\/projects\/([^/]+)\/proposta\/desatualizado\/resolver$/)) {
+        requireComercial(profile, "Revisar o orçamento");
+        const proposta = await findProposta(tenant, m[1]);
+        if (!proposta) throw apiError(404, "Proposta não encontrada");
+        return resolverMarca(tenant, "crm_propostas", proposta, data, profile);
+      }
 
       if (is("GET", /^\/crm\/projects\/([^/]+)\/proposta$/)) { await getProject(tenant, m[1]); return (await findProposta(tenant, m[1])) || {}; }
       if (is("POST", /^\/crm\/projects\/([^/]+)\/proposta$/)) return upsertProposta(tenant, m[1], data, profile);
@@ -1873,6 +1915,9 @@ export function createCommercialRouter(h) {
         const changes = pickProposta(data, { dropNull: true });
         if (!Object.keys(changes).length) return { ok: true };
         if (!current) throw apiError(404, "Proposta não encontrada — crie com POST primeiro");
+        if (current.desatualizado && (changes.status === "enviado" || changes.negociacao_status === "aprovado")) {
+          throw apiError(409, `Orçamento — ${textoDesatualizado(current.desatualizado)}. Revise ou registre "revisado, sem impacto" antes de enviar ou aprovar.`);
+        }
         // COM-02: registrar o aceite por aqui também exige quem, canal e data/hora.
         let aprovacao = null;
         let cambioAprovacao = null;

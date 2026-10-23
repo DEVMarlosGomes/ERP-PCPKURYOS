@@ -24,6 +24,8 @@ import ViewSwitcher from "@/components/ViewSwitcher";
 import FilterBar, { applyFilters } from "@/components/FilterBar";
 import ListView from "@/components/ListView";
 import AprovacaoClienteModal from "@/components/AprovacaoClienteModal";
+import RetrabalhoAprovadaModal from "@/components/RetrabalhoAprovadaModal";
+import { aprovadaPeloCliente } from "@/lib/retrabalhoAprovada";
 
 function CRMSubNav({ active }) {
     const navigate = useNavigate();
@@ -91,6 +93,7 @@ export default function CRM3Page() {
 
     // Estado para registrar resultado do cliente (somente quando variação está em "enviada")
     const [resultadoForm, setResultadoForm] = useState({});  // variacaoId → { resultado, feedback, loading }
+    const [retrabalhoAprovada, setRetrabalhoAprovada] = useState(null); // AMO-05: variação aprovada a retrabalhar
     const [retornoPendente, setRetornoPendente] = useState(null); // COM-02: { sampleId, variacaoId } aguardando quem/canal/data
 
     // Local edit values for custo_fragrancia (controlled CurrencyInput in existing-variation rows)
@@ -488,6 +491,16 @@ export default function CRM3Page() {
                 origem={retornoPendente ? { tipo: "amostra", id: retornoPendente.sampleId } : null}
                 rotuloConfirmar="Enviar retorno ao P&D"
                 onConfirm={(aprovacao) => enviarResultadoCliente(retornoPendente.sampleId, retornoPendente.variacaoId, aprovacao)}
+            />
+            <RetrabalhoAprovadaModal
+                open={Boolean(retrabalhoAprovada)}
+                onOpenChange={(o) => { if (!o) setRetrabalhoAprovada(null); }}
+                sampleId={selectedSample?.id}
+                variacao={retrabalhoAprovada}
+                onFeito={async () => {
+                    loadSamples();
+                    if (selectedSample?.id) { const { data: updated } = await api.get(`/crm/samples/${selectedSample.id}`); setSelectedSample(updated); }
+                }}
             />
             <div className="flex items-center justify-between mb-4">
                 <div>
@@ -952,6 +965,20 @@ export default function CRM3Page() {
                                                         />
                                                     </div>
                                                 </div>
+                                                {/* AMO-05: amostra aprovada pode voltar ao P&D, com o que mudar e quem pediu. */}
+                                                {aprovadaPeloCliente(v) && (
+                                                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 dark:border-emerald-900 dark:bg-emerald-950/20">
+                                                        <p className="text-xs text-emerald-800 dark:text-emerald-300">Aprovada pelo cliente{v.aprovacao_cliente?.quem_nome ? ` (${v.aprovacao_cliente.quem_nome})` : ""}.</p>
+                                                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setRetrabalhoAprovada(v)} data-testid="retrabalhar-aprovada">
+                                                            Retrabalhar amostra
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                                {(v.aprovacoes_anteriores || []).length > 0 && (
+                                                    <p className="mt-1 text-[11px] text-muted-foreground">
+                                                        {v.aprovacoes_anteriores.length} aprovação(ões) anterior(es) no histórico{v.retrabalho_pos_aprovacao ? ` · último retrabalho: ${v.retrabalho_pos_aprovacao.o_que_alterar}` : ""}
+                                                    </p>
+                                                )}
                                                 {/* Registrar resultado do cliente — somente quando variação está em "enviada" */}
                                                 {canRegisterClientResult(v) && (
                                                     <div

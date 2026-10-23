@@ -18,6 +18,9 @@ import { liberarEtapaPd } from "@/lib/servidor";
 import { cotacaoDaFormula, situacao as situacaoCambio, validarSpread } from "@/lib/cambio";
 import { validarLeitura } from "@/lib/estabilidade";
 import { CATALOGO_PADRAO, mesclarCatalogo, validarTipoComponente } from "@/lib/tiposComponente";
+import {
+  EVENTO_RETRABALHO, PD_FECHADO, SOLICITANTES, entradaRetrabalhos, marcaDesatualizado, validarPedidoRetrabalho, variacaoEmRetrabalho,
+} from "@/lib/retrabalhoAprovada";
 import { TRECHO_AMOSTRA, etapaPelaAmostra, passosAte } from "@/lib/etapaPelaAmostra";
 import { bloqueioPdComCliente, cardParaSolicitacao, cardsVisiveis, rotaDeBancada, statusPeloRetornoDoCliente } from "@/lib/pdCards";
 import {
@@ -1475,6 +1478,51 @@ async function dispatch(e, t) {
       added: (r.variacoes || []).length,
       variacoes: o
     }, i);
+  }
+  // AMO-05: retrabalhar amostra já aprovada — o que mudar + quem pediu; aprovação para o histórico,
+  // P&D destravado para a próxima versão, Kickoff e orçamento do projeto desatualizados.
+  if (O = j(/^\/crm\/samples\/([^/]+)\/variacoes\/([^/]+)\/retrabalho-aprovada$/), "POST" === e && O) {
+    if (!isComercial(u) && !isAdmin(u)) throw apiError(403, "Retrabalho de amostra aprovada é pedido pelo Comercial.");
+    const amostra = await one(_, "crm_samples", O[1]);
+    const variacao = ((amostra && amostra.variacoes) || []).find((v) => v.id === O[2]);
+    if (!variacao) throw apiError(404, "Variação não encontrada.");
+    const pedido = validarPedidoRetrabalho(variacao, r);
+    if (!pedido.ok) throw apiError(422, pedido.erros.join(" "));
+    const em = now(), por = firebaseAuth.currentUser.uid, porNome = pdUserName(u);
+    await patch(_, "crm_samples", O[1], {
+      variacoes: amostra.variacoes.map((v) => (v.id === O[2] ? variacaoEmRetrabalho(v, pedido, { por, porNome, em }) : v)),
+      historico_retrabalhos: [...(amostra.historico_retrabalhos || []), entradaRetrabalhos(pedido, { variacaoId: O[2], codigo: variacao.codigo || "", em })],
+    });
+    // Solicitação do P&D fechada pela aprovação → Reprovado (Retrabalho): o P&D abre a próxima versão.
+    const ligadas = new Set((await all(_, "pd_cards"))
+      .filter((c) => (c.amostra_id || c.crm_sample_id) === O[1] && (c.amostra_variacao_id || c.crm_variacao_id) === O[2]).map((c) => c.pd_request_id).filter(Boolean));
+    for (const rq of await all(_, "pd_requests")) {
+      if ((rq.crm_sample_id || rq.linked_amostra_id) === O[1] && (rq.crm_variacao_id || rq.linked_variacao_id) === O[2]) ligadas.add(rq.id);
+    }
+    const reabertas = [];
+    for (const rid of ligadas) {
+      const rq = await one(_, "pd_requests", rid);
+      if (!rq || !PD_FECHADO.has(rq.status)) continue;
+      await patch(_, "pd_requests", rid, { status: "REJECTED" });
+      await create(_, "pd_request_status_history", { request_id: rid, pd_request_id: rid, from_status: rq.status, to_status: "REJECTED",
+        comment: `Retrabalho após aprovação (pedido: ${SOLICITANTES[pedido.solicitado_por]}): ${pedido.o_que_alterar}`, changed_by: por, changed_by_name: porNome, created_at: em, user_id: por });
+      await pdSyncRequestStatus(_, rq, "REJECTED");
+      reabertas.push(rid);
+    }
+    const evento = await create(_, "eventos", { tipo: EVENTO_RETRABALHO, entidade: "amostra", entidade_id: O[1],
+      payload: { variacao_id: O[2], codigo: variacao.codigo || "", o_que_alterar: pedido.o_que_alterar, solicitado_por: pedido.solicitado_por }, em, por, por_nome: porNome });
+    let marcados = {};
+    if (amostra.projeto_id && await one(_, "crm_projects", amostra.projeto_id)) {
+      const amostraTxt = ["amostra", variacao.codigo].filter(Boolean).join(" ");
+      marcados = await commercial.marcarDesatualizadoDoProjeto(_, amostra.projeto_id,
+        marcaDesatualizado({ motivo: `${amostraTxt} em retrabalho após aprovação — ${pedido.o_que_alterar}`, eventoId: evento.id, em }));
+      await acrescentarHistorico(`${collectionPath(_, "crm_projects")}/${amostra.projeto_id}/historico_movimentacoes`, {
+        tipo: "retrabalho_apos_aprovacao", texto: `${amostraTxt} volta ao P&D (pedido: ${SOLICITANTES[pedido.solicitado_por]}): ${pedido.o_que_alterar}`,
+        data: em, usuario: porNome, usuario_id: por,
+      });
+    }
+    await auditCard(_, "retrabalho_amostra_aprovada", "amostra", O[1], { variacao_id: O[2], status: "aprovada" }, { variacao_id: O[2], status: "retrabalho", o_que_alterar: pedido.o_que_alterar }, u);
+    return response({ ok: true, pd_reabertas: reabertas, evento_id: evento.id, ...marcados }, i);
   }
   if (O = j(/^\/crm\/samples\/([^/]+)\/variacoes\/([^/]+)\/resultado-cliente$/), "POST" === e && O) {
     // COM-02: o retorno do cliente só vale com quem, canal e data/hora reais.

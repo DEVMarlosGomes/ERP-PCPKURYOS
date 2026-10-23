@@ -16,6 +16,7 @@ import { Archive, CheckCircle2, Download, FileText, RotateCcw, XCircle } from "l
 import { toast } from "sonner";
 import { hasRole } from "@/components/RoleGuard";
 import KickoffCompositionQuestionnaire, { questionnaireFromKickoff } from "@/components/KickoffCompositionQuestionnaire";
+import DesatualizadoBanner from "@/components/DesatualizadoBanner";
 import { ROTULO_ESTADO } from "@/lib/kickoffBlocos";
 
 const STATUS_TONE = {
@@ -291,6 +292,10 @@ export default function KickoffPage() {
           <StatusGrid status={kickoff.blocos_status} estados={kickoff.blocos_estado} podeValidar={podeValidar} onValidar={validarBloco} validando={validandoBloco} />
         </CardContent>
       </Card>
+
+      {/* AMO-05: amostra voltou ao P&D depois de aprovada; aprovação travada até revisar. */}
+      <DesatualizadoBanner oque="Kickoff" desatualizado={kickoff.desatualizado} urlResolver={`/kickoff/${id}/desatualizado/resolver`}
+        onResolvido={(data) => { setKickoff(data); setQuestionario(questionnaireFromKickoff(data)); }} />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-3">
