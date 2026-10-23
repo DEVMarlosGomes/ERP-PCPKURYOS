@@ -13,6 +13,7 @@
   <script src="shared/utils.js"></script>
   <script src="shared/rotas-pc.js"></script>
   <script src="shared/cancelamento-pc.js"></script>
+  <script src="shared/ultimo-preco.js"></script>
   <script src="shared/propriedade-estoque.js"></script>
   <script src="auth_check.js"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -960,17 +961,10 @@ function homologadosDoMaterial(materialCodigo) {
     return { key: fKey, nome: forn ? (forn.nomeFantasia || forn.razaoSocial) : fKey, status: fh.statusHomologacao };
   });
 }
+// COM-04: conta única em shared/ultimo-preco.js (a cotação do CRM usa a mesma). Pedido cancelado
+// e preço zero não são referência.
 function ultimoPrecoDoMaterial(materialCodigo) {
-  var achado = null;
-  Object.values(allPedidosCompra).forEach(function(pc) {
-    if (!CancelamentoPC.contaComoCompra(pc)) return; // pedido desfeito não é referência de preço
-    Object.values(pc.itens || {}).forEach(function(it) {
-      if (it.materialCodigo !== materialCodigo || it.precoUnit == null || it.precoUnit === '') return;
-      var data = pc.dataEmissao || pc.dataCriacao || '';
-      if (!achado || data > achado.data) achado = { precoUnit: parseFloat(it.precoUnit), fornecedorNome: pc.fornecedorNome, data: data };
-    });
-  });
-  return achado;
+  return UltimoPreco.ultimoPrecoDoMaterial(allPedidosCompra, materialCodigo);
 }
 // Texto de referência curto, reutilizado nos 3 pontos de decisão (builder
 // de solicitação, preview de consolidação, cotação).

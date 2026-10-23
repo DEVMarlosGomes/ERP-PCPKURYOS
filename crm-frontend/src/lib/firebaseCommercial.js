@@ -25,7 +25,8 @@ import { firebaseAuth, firebaseDb, firebaseStorage } from "@/lib/firebase";
 import { MIN_JUSTIFICATIVA, PROJECT_STAGES, PROJECT_TRANSITIONS, formulaRegistrada, hasAnyRole, isAdmin, isComercial, movementEntry, normalizeName } from "@/lib/crmRules";
 import { numeroKickoff } from "@/lib/numeracaoProjeto";
 import { registroDeCambio, taxaDaCotacao, textoCambio } from "@/lib/cambio";
-import { calcularCotacao, insumosDoBom, mensagemDePendencias } from "@/lib/cotacao";
+import { calcularCotacao, insumosDoBom, mensagemDePendencias, precoDoItemDeFormula } from "@/lib/cotacao";
+import { ehSugestao, sugestaoDePreco, ultimoPrecoDoMaterial } from "@/lib/ultimoPreco";
 import { entradaHistoricoAprovacao, validarAprovacaoCliente } from "@/lib/aprovacaoCliente";
 import { acrescentarHistorico } from "@/lib/historicoTimeline";
 import { ROTULOS, normalizarLinhaComponente, pendenciasQuestionario, simNao } from "@/lib/kickoffPendencias";
@@ -525,6 +526,30 @@ export function createCommercialRouter(h) {
     return { vigente: vigente ? { ...vigente, resumo: resumoCotacao(vigente) } : null, revisoes: todas };
   }
 
+  /* COM-04: linha sem preço cotado recebe a sugestão — último PC → última cotação aprovada →
+   * fórmula do P&D — com a origem. Preço lançado por alguém (cotado) nunca é trocado. */
+  async function sugerirPrecos(tenant, kickoff, linhas) {
+    const [pcs, cotacoes, itens] = await Promise.all([
+      masterAll("pedidos_compra").catch(() => []),
+      all(tenant, "cotacoes").catch(() => []),
+      kickoff.formula_id ? related(tenant, "pd_formula_items", "formula_id", kickoff.formula_id) : [],
+    ]);
+    const pcsObj = Object.fromEntries((pcs || []).map((pc) => [pc.id, pc]));
+    const aprovadas = cotacoes.filter((c) => c.status === "aprovada").sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
+    const porItem = new Map(itens.map((i) => [i.id, i]));
+    return linhas.map((l) => {
+      if (l.fornecido_por === "cliente" || (l.preco > 0 && !ehSugestao(l.fonte_preco))) return l;
+      const cot = l.material_codigo && aprovadas.map((c) => ({ c, linha: (c.linhas || []).find((x) => x.material_codigo === l.material_codigo && x.preco > 0) })).find((x) => x.linha);
+      const item = porItem.get(l.linha_id);
+      const s = sugestaoDePreco({
+        ultimoPc: ultimoPrecoDoMaterial(pcsObj, l.material_codigo),
+        cotacaoAprovada: cot ? { preco: cot.linha.preco, moeda: cot.linha.moeda, numero: cot.c.numero, em: cot.c.updated_at } : null,
+        formula: item ? precoDoItemDeFormula(item) : null,
+      });
+      return { ...l, preco: s.preco, moeda: s.moeda, fonte_preco: s.fonte, fonte_detalhe: s.preco ? s.detalhe : "" };
+    });
+  }
+
   // Gera a cotação do Kickoff; rascunho acompanha o Kickoff, cotação já em Compras abre revisão.
   async function gerarCotacao(tenant, projectId, profile) {
     requireComercial(profile, "Gerar a cotação");
@@ -541,9 +566,9 @@ export function createCommercialRouter(h) {
       servicos_selecionados: servicosDoKickoff(kickoff), atualizado_em: at, atualizado_por_nome: userName(profile) };
     if (!atual) {
       return create(tenant, "cotacoes", { ...base, numero: numeroCotacao(project.numero_projeto, 1), revisao: 1, status: "rascunho",
-        linhas: novas, historico_status: [{ status: "rascunho", em: at, por_nome: userName(profile) }], created_by: currentUid(), created_by_name: userName(profile) });
+        linhas: await sugerirPrecos(tenant, kickoff, novas), historico_status: [{ status: "rascunho", em: at, por_nome: userName(profile) }], created_by: currentUid(), created_by_name: userName(profile) });
     }
-    const linhas = mesclarLinhas(novas, atual.linhas);
+    const linhas = await sugerirPrecos(tenant, kickoff, mesclarLinhas(novas, atual.linhas));
     const diff = diffLinhas(atual.linhas, linhas);
     if (!TRAVADAS.has(atual.status)) return patch(tenant, "cotacoes", atual.id, { ...base, linhas });
     if (!diff.length && atual.kickoff_id === kickoff.id) return atual;

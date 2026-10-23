@@ -470,8 +470,14 @@ describe("fluxo comercial completo até a emissão de OP", () => {
   test("COM-03: cotação em registro próprio, do Kickoff ao orçamento, com revisão quando o Kickoff muda", async () => {
     as("com");
     const { faltasDeParidade } = await import("@/lib/cotacaoKickoff");
+    // COM-04: sugestão com origem — último PC do frasco; MP pelo preço da fórmula do P&D.
+    memory.write("pedidos_compra/PC1", { numeroFormatado: "PC-0042", fornecedorNome: "Plastsul", dataEmissao: "2026-09-20", itens: { a: { materialCodigo: "EP0001", precoUnit: "1,18" } } });
     const r1 = (await api.post(`/crm/projects/${project.id}/cotacao`, {})).data.vigente;
     assert.equal(r1.numero, "COT-2026-001-r1");
+    const sugerido = r1.linhas.find((l) => l.material_codigo === "EP0001");
+    assert.deepEqual([sugerido.preco, sugerido.fonte_preco], [1.18, "ultimo_pc"]);
+    assert.match(sugerido.fonte_detalhe, /PC-0042 · Plastsul/);
+    assert.equal(r1.linhas.find((l) => l.tipo === "mp_formula" && l.preco > 0)?.fonte_preco, "formula_pd");
     assert.equal(r1.status, "rascunho");
     const kickoffVig = Object.values(db(`${T}/kickoffs`)).filter((x) => x.projeto_id === project.id && !["substituida", "arquivado"].includes(x.status))
       .sort((a, b) => Number(b.versao_numero || 0) - Number(a.versao_numero || 0))[0];

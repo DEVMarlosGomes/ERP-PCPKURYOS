@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import api from "@/lib/api";
 import { formatApiError } from "@/lib/formatError";
 import { STATUS_COTACAO } from "@/lib/cotacaoKickoff";
+import { ROTULO_FONTE, ehSugestao } from "@/lib/ultimoPreco";
 
 const qtd = (n) => (n === null || n === undefined ? "—" : Number(n).toLocaleString("pt-BR", { maximumFractionDigits: 4 }));
 const ACOES = {
@@ -61,7 +62,7 @@ export default function CotacaoKickoffPanel({ projetoId, onAlterada }) {
         <div className="overflow-x-auto rounded-md border">
           <table className="w-full min-w-[760px] text-xs">
             <thead className="bg-muted/60"><tr>
-              {["Nível", "Item", "Especificação", "Fornece", "Qtd/un", "Qtd pedido", "Preço", ""].map((h) => <th key={h} className="px-2 py-2 text-left font-medium text-muted-foreground">{h}</th>)}
+              {["Nível", "Item", "Especificação", "Fornece", "Qtd/un", "Qtd pedido", "Preço", "Origem do preço"].map((h) => <th key={h} className="px-2 py-2 text-left font-medium text-muted-foreground">{h}</th>)}
             </tr></thead>
             <tbody className="divide-y">
               {c.linhas.map((l) => (
@@ -85,7 +86,10 @@ export default function CotacaoKickoffPanel({ projetoId, onAlterada }) {
                       </span>
                     )}
                   </td>
-                  <td className="px-2 py-1.5 text-[10px] text-muted-foreground">{l.preco_atualizado_por ? `por ${l.preco_atualizado_por}` : ""}</td>
+                  <td className="px-2 py-1.5 text-[10px] text-muted-foreground" title={l.fonte_detalhe || ""}>
+                    {l.fonte_preco && <Badge variant="outline" className={`text-[10px] ${ehSugestao(l.fonte_preco) ? "border-amber-400 text-amber-700" : "border-emerald-400 text-emerald-700"}`}>{ROTULO_FONTE[l.fonte_preco] || l.fonte_preco}</Badge>}
+                    {l.fonte_preco === "cotado_compras" && l.preco_atualizado_por ? ` por ${l.preco_atualizado_por}` : ""}
+                  </td>
                 </tr>
               ))}
             </tbody>

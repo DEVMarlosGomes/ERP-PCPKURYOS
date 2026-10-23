@@ -125,7 +125,12 @@ assert.match(html, /CancelamentoPC\.passaFiltroStatus\(entry\[1\], filtStatus\)/
 assert.match(html, /querySelectorAll\('\.pc-cancelar'\)[\s\S]{0,160}abrirModalCancelarPC/);
 assert.match(html, /getElementById\('pcCancConfirmar'\)\.addEventListener\('click', confirmarCancelamentoPC\)/);
 assert.match(html, /CancelamentoPC\.aplicarCancelamento\(atual, dados\)/);
-assert.equal((html.match(/CancelamentoPC\.contaComoCompra\(pc\)/g) || []).length, 3, 'preço, histórico e análise de fornecedor ignoram cancelado');
+assert.equal((html.match(/CancelamentoPC\.contaComoCompra\(pc\)/g) || []).length, 2, 'histórico e análise de fornecedor ignoram cancelado');
+// COM-04: o último preço saiu para shared/ultimo-preco.js (mesma conta da cotação do CRM).
+assert.match(html, /UltimoPreco\.ultimoPrecoDoMaterial\(allPedidosCompra, materialCodigo\)/);
+assert.ok(html.indexOf('src="shared/ultimo-preco.js"') > 0, 'módulo do último preço carregado');
+const UltimoPreco = require('./public/shared/ultimo-preco.js');
+assert.equal(UltimoPreco.ultimoPrecoDoMaterial({ a: { status: 'CANCELADO', itens: { 1: { materialCodigo: 'X', precoUnit: 5 } } } }, 'X'), null, 'preço ignora PC cancelado');
 assert.match(html, /PEDIDO CANCELADO — NÃO ATENDER/);
 // O botão só nasce com o papel: renderPedidos consulta avaliarCancelamento com o role.
 assert.match(html, /CancelamentoPC\.avaliarCancelamento\(p, window\.currentUser && window\.currentUser\.role\)\.pode/);
