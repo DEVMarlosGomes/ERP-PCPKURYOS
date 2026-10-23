@@ -16,6 +16,7 @@ import { Archive, CheckCircle2, Download, FileText, RotateCcw, XCircle } from "l
 import { toast } from "sonner";
 import { hasRole } from "@/components/RoleGuard";
 import KickoffCompositionQuestionnaire, { questionnaireFromKickoff } from "@/components/KickoffCompositionQuestionnaire";
+import { ROTULO_ESTADO } from "@/lib/kickoffBlocos";
 
 const STATUS_TONE = {
   em_preenchimento: "secondary",
@@ -41,7 +42,18 @@ const APPROVAL_ROLES = {
   lider_pd: ["admin", "lider_pd"],
   cq: ["admin", "qa", "qualidade"],
   eng_produto: ["admin", "engenharia_produto"],
+  comercial: ["admin", "vendedor", "sales_ops", "sucesso_cliente"], // KO-07: o adaptador confere o responsável do cliente
   direcao: ["admin"],
+};
+
+// RFC-001: nome do bloco e quem valida (D-1).
+const NOME_BLOCO = { bloco0: "Bloco 0 · Identificação", bloco1: "Bloco 1 · Formulação", bloco2: "Bloco 2 · Primária", bloco3: "Bloco 3 · Secundária",
+  bloco4: "Bloco 4 · Terciária", bloco5: "Bloco 5 · Qualidade", fechamento: "Fechamento" };
+const NOME_DONO = { comercial: "Comercial", lider_pd: "Líder P&D", eng_produto: "Engenharia", cq: "CQ" };
+const COR_ESTADO = {
+  nao_iniciado: "bg-muted text-muted-foreground", em_preenchimento: "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
+  pronto: "bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300", validado: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300",
+  congelado: "bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
 };
 
 function formatDate(value) {
@@ -49,24 +61,39 @@ function formatDate(value) {
   return new Date(value).toLocaleString("pt-BR");
 }
 
-function StatusGrid({ status }) {
+function StatusGrid({ status, estados, podeValidar, onValidar, validando }) {
   const entries = Object.entries(status || {});
   if (!entries.length) return null;
   return (
-    <div className="grid gap-2 md:grid-cols-4">
-      {entries.map(([key, info]) => (
-        <div key={key} className="rounded-md border bg-muted/30 px-3 py-2">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium uppercase text-muted-foreground">{key}</p>
-            {info.completo ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <XCircle className="h-4 w-4 text-amber-600" />}
+    <div className="grid gap-2 md:grid-cols-4" data-testid="kickoff-blocos">
+      {entries.map(([key, info]) => {
+        const e = estados?.[key];
+        return (
+          <div key={key} className="rounded-md border bg-muted/30 px-3 py-2 space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium uppercase text-muted-foreground">{NOME_BLOCO[key] || key}</p>
+              {info.completo ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <XCircle className="h-4 w-4 text-amber-600" />}
+            </div>
+            {e && (
+              <div className="flex flex-wrap items-center gap-1">
+                <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${COR_ESTADO[e.estado] || ""}`}>{ROTULO_ESTADO[e.estado] || e.estado}</span>
+                {e.aguardando === "pd" && <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-800">aguardando P&D</span>}
+                <span className="text-[10px] text-muted-foreground">valida: {NOME_DONO[e.dono] || e.dono}</span>
+              </div>
+            )}
+            {e?.estado === "validado" && e.validado_por_nome && <p className="text-[10px] text-muted-foreground">por {e.validado_por_nome}</p>}
+            {e?.invalidado_em && <p className="text-[10px] text-amber-700">alterado depois de validado — validar de novo</p>}
+            {!info.completo && (
+              <p className="truncate text-xs text-muted-foreground" title={(info.pendencias || []).map((p) => p.rotulo).join(" · ")}>
+                {(info.campos_pendentes || []).length} pendente(s)
+              </p>
+            )}
+            {e?.estado === "pronto" && !e.aguardando && podeValidar?.(e.dono) && (
+              <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]" disabled={validando === key} onClick={() => onValidar(key)}>Validar</Button>
+            )}
           </div>
-          {!info.completo && (
-            <p className="mt-1 truncate text-xs text-muted-foreground">
-              {(info.campos_pendentes || []).length} pendente(s)
-            </p>
-          )}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -107,6 +134,22 @@ export default function KickoffPage() {
     if (!currentApproval || !user?.role) return false;
     return (APPROVAL_ROLES[currentApproval.etapa] || []).includes(user.role) || user.role === "admin";
   }, [currentApproval, user]);
+
+  // RFC-001: validar um bloco pronto antes da etapa (o adaptador confere papel e responsável).
+  const [validandoBloco, setValidandoBloco] = useState(null);
+  const podeValidar = useCallback((dono) => user?.role === "admin" || (APPROVAL_ROLES[dono] || []).includes(user?.role), [user]);
+  const validarBloco = async (bloco) => {
+    setValidandoBloco(bloco);
+    try {
+      const { data } = await api.post(`/kickoff/${id}/blocos/${bloco}/validar`);
+      setKickoff(data);
+      toast.success("Bloco validado.");
+    } catch (error) {
+      toast.error(formatApiError(error));
+    } finally {
+      setValidandoBloco(null);
+    }
+  };
 
   const saveQuestionario = async () => {
     setSaving(true);
@@ -245,7 +288,7 @@ export default function KickoffPage() {
             <p className="text-sm font-medium">{kickoff.progress?.percentual || 0}%</p>
           </div>
           <Progress value={kickoff.progress?.percentual || 0} />
-          <StatusGrid status={kickoff.blocos_status} />
+          <StatusGrid status={kickoff.blocos_status} estados={kickoff.blocos_estado} podeValidar={podeValidar} onValidar={validarBloco} validando={validandoBloco} />
         </CardContent>
       </Card>
 

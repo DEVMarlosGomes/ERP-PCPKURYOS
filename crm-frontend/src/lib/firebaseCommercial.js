@@ -29,6 +29,7 @@ import { calcularCotacao, insumosDoBom, mensagemDePendencias } from "@/lib/cotac
 import { entradaHistoricoAprovacao, validarAprovacaoCliente } from "@/lib/aprovacaoCliente";
 import { acrescentarHistorico } from "@/lib/historicoTimeline";
 import { pendenciasQuestionario, simNao } from "@/lib/kickoffPendencias";
+import { BLOCOS_DA_ETAPA, aguardaPd, assinaturaDoBloco, congelarTodos, estadoDosBlocos, validarBlocos } from "@/lib/kickoffBlocos";
 
 export const NOT_HANDLED = Symbol("not-handled");
 
@@ -39,14 +40,17 @@ export { isComercial };
 const KICKOFF_EDIT_ROLES = new Set(["lider_pd", "formulador", "engenharia_produto", "qa", "qualidade"]);
 const CONTRATO_READ_ROLES = new Set(["compras", "lider_pd", "qa", "qualidade", "engenharia_produto"]);
 
-const APPROVAL_SEQUENCE = ["lider_pd", "cq", "eng_produto", "direcao"];
+// KO-07 (23/10/2026): etapa Comercial antes da Direção (premissa aprovada). Aprova o responsável
+// comercial do cliente (crm_clients.responsavel_comercial) ou o ADM, com registro.
+const APPROVAL_SEQUENCE = ["lider_pd", "cq", "eng_produto", "comercial", "direcao"];
 const APPROVAL_ROLE_MAP = {
   lider_pd: new Set(["lider_pd"]),
   cq: new Set(["qa", "qualidade"]),
   eng_produto: new Set(["engenharia_produto"]),
+  comercial: new Set(["vendedor", "sales_ops", "sucesso_cliente"]),
   direcao: new Set(),
 };
-const APPROVAL_LABELS = { lider_pd: "Lider P&D", cq: "CQ", eng_produto: "Engenharia de Produto", direcao: "Direcao" };
+const APPROVAL_LABELS = { lider_pd: "Lider P&D", cq: "CQ", eng_produto: "Engenharia de Produto", comercial: "Comercial", direcao: "Direcao" };
 
 export const KURYOS_FABRICANTE = {
   razao_social: "KURYOS BEAUTY PACKING INDUSTRIAL LTDA",
@@ -262,7 +266,23 @@ const approvalTemplate = () => APPROVAL_SEQUENCE.map((etapa) => ({
   decidido_por: null, decidido_por_nome: "", decidido_em: null,
 }));
 
-const currentApprovalStep = (kickoff) => (kickoff.aprovacoes || []).find((step) => step.status === "pendente") || null;
+// Kickoff em andamento criado antes do KO-07 ganha a etapa Comercial na posição certa; aprovado fica como está.
+function normalizarAprovacoes(kickoff) {
+  if (kickoff?.status === "aprovado") return kickoff?.aprovacoes || [];
+  const porEtapa = new Map((kickoff?.aprovacoes || []).map((a) => [a.etapa, a]));
+  return approvalTemplate().map((modelo) => porEtapa.get(modelo.etapa) || modelo);
+}
+const currentApprovalStep = (kickoff) => normalizarAprovacoes(kickoff).find((step) => step.status === "pendente") || null;
+
+// RFC-001: estado de cada bloco a partir do questionário e do que já foi validado.
+function blocosDoKickoff(kickoff, questionario = kickoff?.questionario_composicao) {
+  if (!questionario) return { estados: {}, invalidados: [] };
+  const dispensouFormula = (kickoff.requisitos_dispensados || []).some((r) => /f[óo]rmula/i.test(String(r)));
+  return estadoDosBlocos({
+    questionario, pendencias: pendenciasQuestionario(questionario).status, anterior: kickoff.blocos_estado || {},
+    congelado: kickoff.status === "aprovado", aguardandoPd: aguardaPd(kickoff, questionario) && !dispensouFormula,
+  });
+}
 
 /* ── Amostras: aprovação P&D + Comercial (propostas_routes.py, R18) ───── */
 
@@ -787,6 +807,8 @@ export function createCommercialRouter(h) {
       progress: { questionario_composicao: ok, percentual: Math.round((complete / Object.keys(status).length) * 100) },
       locks: { questionario_composicao: null, aprovacao: ok ? null : "Aprovacao liberada somente apos concluir o questionario de composicao." },
       blocos_status: status,
+      blocos_estado: blocosDoKickoff(decorated).estados,
+      aprovacoes: normalizarAprovacoes(decorated),
       aprovacao_pendente: currentApprovalStep(decorated),
     };
   }
@@ -822,7 +844,7 @@ export function createCommercialRouter(h) {
     const latest = versions.sort((a, b) => Number(b.versao_numero || 0) - Number(a.versao_numero || 0))[0] || kickoff;
     const number = Number(latest.versao_numero || 1) + 1;
     const revision = await create(tenant, "kickoffs", {
-      ...clone(latest), id: undefined, created_at: undefined, versao_numero: number, versao: `v${number}`, status: "em_revisao", aprovacoes: approvalTemplate(),
+      ...clone(latest), id: undefined, created_at: undefined, versao_numero: number, versao: `v${number}`, status: "em_revisao", aprovacoes: approvalTemplate(), blocos_estado: null,
       created_by: currentUid(), created_by_name: userName(profile), approved_at: null, approved_by: null, approved_by_name: "",
       parent_kickoff_id: latest.id,
       log_auditoria: [...(latest.log_auditoria || []), { campo: "versao", valor_anterior: latest.versao, valor_novo: `v${number}`,
@@ -975,9 +997,24 @@ export function createCommercialRouter(h) {
     else if (!ok && status === "aguardando_aprovacao") status = "em_preenchimento";
     const flatten = (q) => Object.fromEntries(Object.entries(q || {}).map(([k, v]) => [k, JSON.stringify(v)]));
     const changes = diffEntries("questionario_composicao", flatten(existing), flatten(merged), profile);
+    // RFC-001 §7: bloco validado que mudou perde a validação e a etapa dona volta a pendente (com registro).
+    const { estados, invalidados } = blocosDoKickoff(kickoff, merged);
+    const at = now();
+    let aprovacoes = normalizarAprovacoes(kickoff);
+    const etapasReabertas = [...new Set(invalidados.map((b) => Object.keys(BLOCOS_DA_ETAPA).find((e) => BLOCOS_DA_ETAPA[e].includes(b))))]
+      .filter((e) => aprovacoes.some((a) => a.etapa === e && a.status === "concluida"));
+    if (etapasReabertas.length) {
+      // Reabrir uma etapa reabre também as que vieram depois dela (a sequência não pula).
+      const primeira = Math.min(...etapasReabertas.map((e) => APPROVAL_SEQUENCE.indexOf(e)));
+      aprovacoes = aprovacoes.map((a) => (APPROVAL_SEQUENCE.indexOf(a.etapa) >= primeira && a.status === "concluida"
+        ? { ...a, status: "pendente", decisao: null, reaberta_em: at, reaberta_motivo: `Bloco alterado depois de validado: ${invalidados.join(", ")}` } : a));
+    }
+    const invalidacoes = invalidados.map((b) => ({ campo: `bloco.${b}`, valor_anterior: "validado", valor_novo: "alterado — validar de novo",
+      usuario_id: currentUid(), usuario_nome: userName(profile), datetime: at }));
     const updated = await patch(tenant, "kickoffs", kickoff.id, {
       questionario_composicao: merged, questionario_composicao_version: QUESTIONARIO_COMPOSICAO_VERSION, ...legacy, status,
-      log_auditoria: [...(kickoff.log_auditoria || []), ...changes],
+      blocos_estado: estados, aprovacoes,
+      log_auditoria: [...(kickoff.log_auditoria || []), ...changes, ...invalidacoes],
     });
     if (ok) await enqueueApprovalTask(tenant, updated, "lider_pd");
     await syncProjectKickoffSummary(tenant, updated);
@@ -1004,6 +1041,41 @@ export function createCommercialRouter(h) {
     return decorateKickoff(tenant, updated);
   }
 
+  // KO-07: na etapa Comercial, só o responsável comercial do cliente (ou o ADM, registrado como override).
+  async function conferirResponsavelComercial(tenant, kickoff, etapa, profile) {
+    if (etapa !== "comercial") return null;
+    const cliente = kickoff.cliente_id ? await one(tenant, "crm_clients", kickoff.cliente_id) : null;
+    const responsavel = cliente?.responsavel_comercial || "";
+    // Medido em 23/10: 57 de 88 clientes sem responsável e 10 com id antigo do Mongo (não é usuário daqui):
+    // nesses casos qualquer um do Comercial aprova. Registro antigo com o nome em vez do id também vale.
+    if (!responsavel || responsavel === currentUid()) return null;
+    const usuario = await masterOne("usuarios", responsavel).catch(() => null);
+    const mesmoNome = normalizeName(responsavel) === normalizeName(userName(profile));
+    if (mesmoNome || (!usuario && !/\s/.test(responsavel) && responsavel.length >= 20)) return null;
+    if (isAdmin(profile)) return { responsavel, por: currentUid(), por_nome: userName(profile), motivo: "ADM aprovou no lugar do responsável comercial do cliente" };
+    throw apiError(403, `A etapa Comercial deste Kickoff é aprovada pelo responsável comercial do cliente (${await nomeDoUsuario(masterOne, responsavel)}).`);
+  }
+
+  // RFC-001: o dono valida um bloco pronto antes da etapa dele (em paralelo); a etapa depois só confirma.
+  async function validarBloco(tenant, kickoffId, bloco, profile) {
+    const kickoff = await getKickoff(tenant, kickoffId);
+    const etapa = Object.keys(BLOCOS_DA_ETAPA).find((e) => BLOCOS_DA_ETAPA[e].includes(bloco));
+    if (!etapa) throw apiError(400, "Bloco inválido.");
+    if (!isAdmin(profile) && !hasAnyRole(profile, [...APPROVAL_ROLE_MAP[etapa]])) throw apiError(403, `O bloco é validado por ${APPROVAL_LABELS[etapa]}.`);
+    await conferirResponsavelComercial(tenant, kickoff, etapa, profile);
+    if (kickoff.status === "aprovado") throw apiError(409, "Kickoff aprovado: os blocos estão congelados (alterar cria nova versão).");
+    const { estados } = blocosDoKickoff(kickoff);
+    const assinaturas = { [bloco]: assinaturaDoBloco(kickoff.questionario_composicao, bloco) };
+    const v = validarBlocos(estados, [bloco], { assinaturas, quem: currentUid(), quemNome: userName(profile), agora: now() });
+    if (v.erros.length) throw apiError(400, v.erros.join("; "));
+    const updated = await patch(tenant, "kickoffs", kickoff.id, {
+      blocos_estado: v.estados,
+      log_auditoria: [...(kickoff.log_auditoria || []), { campo: `bloco.${bloco}`, valor_anterior: estados[bloco]?.estado || "", valor_novo: "validado",
+        usuario_id: currentUid(), usuario_nome: userName(profile), datetime: now() }],
+    });
+    return decorateKickoff(tenant, updated);
+  }
+
   async function approveKickoff(tenant, kickoffId, data, profile) {
     let kickoff = await getKickoff(tenant, kickoffId);
     const etapa = data?.etapa;
@@ -1013,6 +1085,7 @@ export function createCommercialRouter(h) {
     if (!isAdmin(profile) && !hasAnyRole(profile, [...APPROVAL_ROLE_MAP[etapa]])) {
       throw apiError(403, `A etapa ${APPROVAL_LABELS[etapa]} é aprovada por ${etapa === "direcao" ? "administrador" : [...APPROVAL_ROLE_MAP[etapa]].join(", ")}.`);
     }
+    const override = await conferirResponsavelComercial(tenant, kickoff, etapa, profile);
     if (!keepStoredBom(kickoff)) kickoff = await refreshBom(tenant, kickoff);
     const registration = await syncBomRegistration(tenant, kickoff, profile);
     kickoff = registration.kickoff;
@@ -1027,18 +1100,28 @@ export function createCommercialRouter(h) {
     const step = currentApprovalStep(kickoff);
     if (!step) throw apiError(409, "O fluxo de aprovacao deste Kickoff ja foi concluido.");
     if (step.etapa !== etapa) throw apiError(409, `Etapa atual de aprovacao: ${APPROVAL_LABELS[step.etapa]}. Nao e permitido pular etapas.`);
+    // RFC-001: aprovar a etapa valida os blocos dela (prontos; o bloco 1 não pode estar esperando o P&D).
+    let blocos = blocosDoKickoff(kickoff).estados;
+    if (decisao === "aprovado" && kickoff.questionario_composicao) {
+      const assinaturas = Object.fromEntries(Object.keys(blocos).map((b) => [b, assinaturaDoBloco(kickoff.questionario_composicao, b)]));
+      const v = validarBlocos(blocos, BLOCOS_DA_ETAPA[etapa] || [], { assinaturas, quem: currentUid(), quemNome: userName(profile), agora: now() });
+      if (v.erros.length) throw apiError(400, `Não dá para aprovar ${APPROVAL_LABELS[etapa]}: ${v.erros.join("; ")}.`);
+      blocos = v.estados;
+    }
     if (decisao === "reprovado" && !String(data.justificativa || "").trim()) throw apiError(400, "Justificativa obrigatoria quando a decisao for reprovado.");
     const at = now();
-    const aprovacoes = (kickoff.aprovacoes || []).map((item) => (item.etapa !== etapa ? item : {
+    const aprovacoes = normalizarAprovacoes(kickoff).map((item) => (item.etapa !== etapa ? item : {
       ...item, status: decisao === "aprovado" ? "concluida" : "reprovada", decisao, justificativa: data.justificativa || "",
       observacoes: data.observacoes || "", decidido_por: currentUid(), decidido_por_nome: userName(profile), decidido_em: at,
       ...(dispensados.length ? { requisitos_dispensados: dispensados } : {}),
+      ...(override ? { override_responsavel: override } : {}),
     }));
     const nextIndex = APPROVAL_SEQUENCE.indexOf(etapa) + 1;
     const documentos = [];
     const status = decisao === "reprovado" ? "em_preenchimento" : (nextIndex >= APPROVAL_SEQUENCE.length ? "aprovado" : "aguardando_aprovacao");
     const updated = await patch(tenant, "kickoffs", kickoff.id, {
       aprovacoes, status,
+      ...(kickoff.questionario_composicao ? { blocos_estado: status === "aprovado" ? congelarTodos(blocos) : blocos } : {}),
       approved_at: status === "aprovado" ? at : kickoff.approved_at || null,
       approved_by: status === "aprovado" ? currentUid() : kickoff.approved_by || null,
       approved_by_name: status === "aprovado" ? userName(profile) : kickoff.approved_by_name || "",
@@ -1747,6 +1830,7 @@ export function createCommercialRouter(h) {
       if (is("GET", /^\/kickoff\/([^/]+)\/bom$/)) return (await refreshBom(tenant, await getKickoff(tenant, m[1]))).bom;
       if (is("POST", /^\/kickoff\/([^/]+)\/bom\/export$/)) return exportBom(tenant, m[1]);
       if (is("POST", /^\/kickoff\/([^/]+)\/aprovacao$/)) return approveKickoff(tenant, m[1], data, profile);
+      if (is("POST", /^\/kickoff\/([^/]+)\/blocos\/([^/]+)\/validar$/)) return validarBloco(tenant, m[1], m[2], profile);
 
       if (method === "GET" && path === "/contratos") {
         if (!canReadContrato(profile)) throw apiError(403, "Sem permissão para consultar contratos.");

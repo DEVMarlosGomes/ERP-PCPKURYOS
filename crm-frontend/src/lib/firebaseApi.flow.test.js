@@ -18,6 +18,7 @@ const SEED = {
   usuarios: {
     adm: { role: "admin", name: "Ana ADM", tenant_id: "kuryos" },
     com: { role: "gestor", name: "Carla Comercial", tenant_id: "kuryos", modulos: { comercial: true } },
+    com2: { role: "vendedor", name: "Vera Vendas", tenant_id: "kuryos" },
     pd: { role: "lider_pd", name: "Paulo P&D", tenant_id: "kuryos" },
     cq: { role: "qualidade", name: "Quésia CQ", tenant_id: "kuryos" },
     eng: { role: "engenharia_produto", name: "Edu Engenharia", tenant_id: "kuryos" },
@@ -145,7 +146,7 @@ describe("fluxo comercial completo até a emissão de OP", () => {
     await fails(api.put(`/crm/projects/${project.id}/move`, { stage: "cotacao" }), 409, /Kickoff aprovado/);
   });
 
-  test("Kickoff: aprovação só com questionário completo e na ordem P&D → CQ → Engenharia → Direção", async () => {
+  test("Kickoff: aprovação só com questionário completo e na ordem P&D → CQ → Engenharia → Comercial → Direção", async () => {
     await fails(api.post(`/kickoff/${kickoff.id}/aprovacao`, { etapa: "lider_pd", decisao: "aprovado" }), 403);
     as("pd");
     await fails(api.post(`/kickoff/${kickoff.id}/aprovacao`, { etapa: "lider_pd", decisao: "aprovado" }), 400, /Questionario incompleto/);
@@ -163,6 +164,20 @@ describe("fluxo comercial completo até a emissão de OP", () => {
     assert.ok(filled.bom.some((line) => line.tipo === "embalagem_primaria" && /Frasco PET 200 mL/.test(line.descricao)));
     assert.deepEqual(filled.bom.filter((line) => ["tampa", "rotulo", "emb_secundaria", "emb_terciaria"].includes(line.tipo)), [],
       "componente marcado como não aplicável não vira linha de BOM");
+    // RFC-001: o dono valida o bloco pronto antes da etapa dele; alterar depois invalida (com registro).
+    as("eng");
+    await fails(api.post(`/kickoff/${kickoff.id}/blocos/bloco1/validar`), 403, /Lider P&D/);
+    as("pd");
+    const validado = (await api.post(`/kickoff/${kickoff.id}/blocos/bloco1/validar`)).data;
+    assert.equal(validado.blocos_estado.bloco1.estado, "validado");
+    assert.equal(validado.blocos_estado.bloco2.estado, "pronto");
+    as("com");
+    const q2 = questionarioCompleto(kickoff);
+    q2.bloco1.viscosidade = "média";
+    const alterado = (await api.put(`/kickoff/${kickoff.id}/questionario-composicao`, { questionario: q2 })).data;
+    assert.equal(alterado.blocos_estado.bloco1.estado, "pronto", "bloco validado que muda perde a validação");
+    assert.ok(alterado.log_auditoria.some((l) => l.campo === "bloco.bloco1" && /validar de novo/.test(l.valor_novo)));
+    await api.put(`/kickoff/${kickoff.id}/questionario-composicao`, { questionario: questionarioCompleto(kickoff) });
     as("cq");
     await fails(api.post(`/kickoff/${kickoff.id}/aprovacao`, { etapa: "cq", decisao: "aprovado" }), 409, /Nao e permitido pular etapas/);
     as("pd");
@@ -172,10 +187,24 @@ describe("fluxo comercial completo até a emissão de OP", () => {
     await api.post(`/kickoff/${kickoff.id}/aprovacao`, { etapa: "cq", decisao: "aprovado" });
     as("eng");
     await api.post(`/kickoff/${kickoff.id}/aprovacao`, { etapa: "eng_produto", decisao: "aprovado" });
+    // KO-07: etapa Comercial, só pelo responsável comercial do cliente (outro comercial: 403).
+    await fails(api.post(`/kickoff/${kickoff.id}/aprovacao`, { etapa: "direcao", decisao: "aprovado" }), 403, /administrador/);
+    as("adm");
+    await fails(api.post(`/kickoff/${kickoff.id}/aprovacao`, { etapa: "direcao", decisao: "aprovado" }), 409, /Etapa atual de aprovacao: Comercial/);
+    memory.write(`${T}/crm_clients/${kickoff.cliente_id}/responsavel_comercial`, "com");
+    as("com2");
+    await fails(api.post(`/kickoff/${kickoff.id}/aprovacao`, { etapa: "comercial", decisao: "aprovado" }), 403, /responsável comercial do cliente/);
+    as("com");
+    await api.post(`/kickoff/${kickoff.id}/aprovacao`, { etapa: "comercial", decisao: "aprovado" });
+    as("eng");
     await fails(api.post(`/kickoff/${kickoff.id}/aprovacao`, { etapa: "direcao", decisao: "aprovado" }), 403, /administrador/);
     as("adm");
     const approved = (await api.post(`/kickoff/${kickoff.id}/aprovacao`, { etapa: "direcao", decisao: "aprovado" })).data;
     assert.equal(approved.status, "aprovado");
+    // RFC-001: Kickoff aprovado congela os blocos; cada etapa validou os seus.
+    assert.ok(Object.values(approved.blocos_estado).every((b) => b.estado === "congelado"));
+    assert.equal(approved.blocos_estado.bloco1.validado_por_nome, "Paulo P&D");
+    assert.equal(approved.blocos_estado.bloco0.validado_por_nome, "Carla Comercial");
     const reqs = (await api.get(`/crm/projects/${project.id}/material-requirements`)).data;
     const alcool = reqs.materiais.find((m) => m.descricao === "Álcool Etílico");
     assert.equal(alcool.qtd_necessaria, 480, "80% × 200 mL × 3.000 un = 480 L");
