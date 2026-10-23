@@ -84,8 +84,9 @@
       ".read": "auth != null",
       ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))",
       "$sku": {
-        // SKU gerada pela assinatura do CGI no CRM (produto novo com origemCrm).
-        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'vendedor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sales_ops' || root.child('usuarios').child(auth.uid).child('role').val() == 'comercial' || root.child('usuarios').child(auth.uid).child('role').val() == 'sucesso_cliente' || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true) && !data.exists() && newData.child('origemCrm').child('cgiContratoId').isString()",
+        // SKU gerada pelo CRM (produto novo com origemCrm): na assinatura do CGI ou, desde o COM-07
+        // (23/10/2026), na aprovação do orçamento — a regra confere que o orçamento está aprovado.
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'vendedor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sales_ops' || root.child('usuarios').child(auth.uid).child('role').val() == 'comercial' || root.child('usuarios').child(auth.uid).child('role').val() == 'sucesso_cliente' || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true) && !data.exists() && (newData.child('origemCrm').child('cgiContratoId').isString() || (newData.child('origemCrm').child('orcamentoId').isString() && root.child('erp').child('kuryos').child('crm_propostas').child(newData.child('origemCrm').child('orcamentoId').val()).child('negociacao_status').val() == 'aprovado'))",
         "origemCrm": {
           ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'vendedor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sales_ops' || root.child('usuarios').child(auth.uid).child('role').val() == 'comercial' || root.child('usuarios').child(auth.uid).child('role').val() == 'sucesso_cliente' || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true) && data.exists()"
         }
@@ -504,6 +505,12 @@
         // Só o servidor (Admin SDK, que não passa por regra) grava liberação.
         "pd_liberacoes_status": {
           ".validate": false
+        },
+        // COM-07 (23/10/2026): uma SKU por orçamento e variação — o índice nasce uma vez e não muda.
+        "sku_por_orcamento": {
+          "$chave": {
+            ".validate": "newData.isString() && !data.exists()"
+          }
         },
         // COM-02: aprovação do cliente nunca no futuro (2 min de folga para relógio adiantado).
         "crm_samples": {

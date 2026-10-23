@@ -323,6 +323,14 @@ describe("fluxo comercial completo até a emissão de OP", () => {
     assert.equal(pedido.itens[0].qtd, 3000);
     assert.equal(db("pedidos"), undefined, "nada vai para a emissão de OP antes do CGI");
     assert.equal(db(`${T}/crm_clients/${client.id}/stage`), "cliente_fechado");
+    // COM-07: a SKU nasce aqui, aguardando o CGI, com índice de idempotência por orçamento e variação.
+    assert.deepEqual(result.skus.map((x) => x.sku), ["PRF-LUMI-0001"]);
+    const produto = db("produtos/PRF-LUMI-0001");
+    assert.deepEqual([produto.origemCrm.origem_contratual_status, Boolean(produto.origemCrm.orcamentoId), produto.origemCrm.cgiContratoId],
+      ["aguardando_cgi", true, undefined]);
+    const propostaId = Object.values(db(`${T}/crm_propostas`)).find((x) => x.projeto_id === project.id).id;
+    assert.equal(db(`${T}/sku_por_orcamento/${propostaId}__${samples[sample.id].variacoes[0].id}`), "PRF-LUMI-0001");
+    assert.equal(db(`${T}/crm_samples/${sample.id}`).variacoes[0].sku_id, "PRF-LUMI-0001");
   });
 
   test("CGI gerado com as 29 cláusulas e reaproveitado na segunda chamada", async () => {
@@ -397,7 +405,11 @@ describe("fluxo comercial completo até a emissão de OP", () => {
     const bom = Object.values(db("bom/PRF-LUMI-0001__v1").itens);
     assert.deepEqual(bom.map((i) => [i.materialCodigo, i.qtdPorPeca, Boolean(i.pendente)]), [["EP0001", 1, false]]);
     assert.equal(db("especificacoes/PRF-LUMI-0001__v1").status, "RASCUNHO");
-    assert.equal(db("formulas/PRF-LUMI-0001__v1").origemCrm.cgiNumero, "CGI-2026-0001");
+    // COM-07: a estrutura nasce com a SKU, na aprovação do orçamento.
+    assert.ok(db("formulas/PRF-LUMI-0001__v1").origemCrm.orcamentoId);
+    // Depois da assinatura a SKU deixa de esperar o CGI e guarda os dois vínculos.
+    const origem = db("produtos/PRF-LUMI-0001").origemCrm;
+    assert.deepEqual([origem.origem_contratual_status, origem.cgiNumero, Boolean(origem.orcamentoId)], ["cgi_assinado", "CGI-2026-0001", true]);
   });
 
   test("reprocessar a assinatura é idempotente (não duplica SKU nem pedido)", async () => {

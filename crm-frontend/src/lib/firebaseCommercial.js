@@ -1596,7 +1596,7 @@ export function createCommercialRouter(h) {
     const record = {
       nome: crmClient.nome_empresa || crmClient.nome || codigo, codigo, cnpj: crmClient.cnpj || "", cidade: crmClient.cidade || "",
       uf: crmClient.uf || crmClient.estado || "", ativo: true, origemCrmClienteId: crmClient.id,
-      origemCrm: { contratoId: contrato.id, contratoNumero: contrato.numero_contrato }, criadoEm: now(),
+      origemCrm: contrato.tipo === "orcamento" ? { orcamentoId: contrato.id } : { contratoId: contrato.id, contratoNumero: contrato.numero_contrato }, criadoEm: now(),
       // 17/10/2026: o cliente nasce no cadastro já com os contatos do CRM (o pedido do PCP lê daqui).
       ...contatosParaCadastro(crmClient),
     };
@@ -1605,7 +1605,12 @@ export function createCommercialRouter(h) {
     return { id: codigo, ...record };
   }
 
+  /* COM-07 (23/10/2026): a SKU nasce na aprovação do orçamento ("aguardando_cgi", sem pedido nem OP
+   * até a assinatura) e a assinatura do CGI só acrescenta o vínculo do contrato. origem = contrato
+   * ou { tipo: "orcamento", id, numero_contrato, kickoff_id, numero_kickoff }. Idempotente por
+   * variação (sku_id) e, no orçamento, pelo índice sku_por_orcamento/{orçamento}__{variação}. */
   async function generateSkusForProject(tenant, projectId, profile, contrato) {
+    const doOrcamento = contrato?.tipo === "orcamento";
     const project = await one(tenant, "crm_projects", projectId);
     const samples = (await all(tenant, "crm_samples")).filter((sample) => sample.projeto_id === projectId);
     const kickoff = contrato.kickoff_id ? await one(tenant, "kickoffs", contrato.kickoff_id) : null;
@@ -1616,17 +1621,21 @@ export function createCommercialRouter(h) {
         if (!clientApproved(variation)) continue;
         const entry = { amostra_id: sample.id, variacao_id: variation.id, sku: null };
         results.push(entry);
-        const cgi = { origem_contratual_status: "cgi_assinado", cgiContratoId: contrato.id, cgiNumero: contrato.numero_contrato,
-          cgiAssinadoEm: contrato.signed_at || now() };
-        if (variation.sku_id) {
-          const existing = await masterOne("produtos", variation.sku_id);
+        const cgi = doOrcamento
+          ? { origem_contratual_status: "aguardando_cgi", orcamentoId: contrato.id, orcamentoAprovadoEm: now() }
+          : { origem_contratual_status: "cgi_assinado", cgiContratoId: contrato.id, cgiNumero: contrato.numero_contrato, cgiAssinadoEm: contrato.signed_at || now() };
+        const indice = doOrcamento ? `erp/${tenant}/sku_por_orcamento/${contrato.id}__${variation.id}` : null;
+        const jaGerada = indice ? (await get(ref(firebaseDb, indice))).val() : null;
+        const skuId = variation.sku_id || jaGerada;
+        if (skuId) {
+          const existing = await masterOne("produtos", skuId);
           if (existing) {
             // Só produto nascido do CRM recebe o vínculo do CGI (regra do banco: produtos/$sku/origemCrm).
-            if (existing.origemCrm && existing.origemCrm.cgiContratoId !== contrato.id) {
+            if (!doOrcamento && existing.origemCrm && existing.origemCrm.cgiContratoId !== contrato.id) {
               await set(ref(firebaseDb, `produtos/${variation.sku_id}/origemCrm`), { ...existing.origemCrm, ...cgi });
             }
-            entry.sku = { ...existing, id: variation.sku_id, codigo_interno: variation.sku_id,
-              estrutura_pcp: await ensurePcpStructure(tenant, variation.sku_id, variation, kickoff, contrato, profile) };
+            entry.sku = { ...existing, id: skuId, codigo_interno: skuId,
+              estrutura_pcp: await ensurePcpStructure(tenant, skuId, variation, kickoff, contrato, profile) };
             continue;
           }
         }
@@ -1655,12 +1664,15 @@ export function createCommercialRouter(h) {
           unCx: Number.parseInt(q0.displays_ou_unidades_por_caixa_master, 10) || 0,
           msAnvisa: /\d{5,}/.test(String(q0.registro_notificacao_anvisa || "")) ? String(q0.registro_notificacao_anvisa) : "",
           ...dadosDeProducaoDoKickoff(kickoff),
-          obs: `Gerado pela assinatura do ${contrato.numero_contrato} (Kickoff ${contrato.numero_kickoff}). Complete kg/caixa, lote padrão, capacidade e o que faltar (validade, densidade) antes da OP.`,
+          obs: doOrcamento
+            ? `Gerado pela aprovação do ${contrato.numero_contrato} (Kickoff ${contrato.numero_kickoff}). Aguardando a assinatura do CGI: sem pedido nem OP até lá. Complete kg/caixa, lote padrão, capacidade e o que faltar (validade, densidade).`
+            : `Gerado pela assinatura do ${contrato.numero_contrato} (Kickoff ${contrato.numero_kickoff}). Complete kg/caixa, lote padrão, capacidade e o que faltar (validade, densidade) antes da OP.`,
           origemCrm: { ...cgi, kickoffId: contrato.kickoff_id || null, projetoId: projectId, amostraId: sample.id, variacaoId: variation.id,
             clienteCrmId: crmClient.id, descricaoAplicacao: variation.descricao_aplicacao || "" },
           criadoEm: now(), criadoPor: userName(profile),
         };
-        await set(ref(firebaseDb, `produtos/${key}`), produto);
+        // Produto e índice no mesmo update: a regra só aceita o índice novo (nunca duas SKUs por variação).
+        await update(ref(firebaseDb), { [`produtos/${key}`]: produto, ...(indice ? { [indice]: key } : {}) });
         const fresh = await one(tenant, "crm_samples", sample.id);
         await patch(tenant, "crm_samples", sample.id, {
           stage: "aprovada",
@@ -1700,7 +1712,8 @@ export function createCommercialRouter(h) {
     const findMaterial = materialFinder(await masterAll("materiais"));
     const formula = await formulaForVariation(tenant, variation, kickoff);
     const formulaItems = formula ? (await all(tenant, "pd_formula_items")).filter((item) => item.formula_id === formula.id) : [];
-    const origemCrm = { cgiContratoId: contrato.id, cgiNumero: contrato.numero_contrato, kickoffId: kickoff.id, kickoffNumero: kickoff.numero_kickoff, pdFormulaId: formula?.id || null };
+    const origemCrm = { ...(contrato.tipo === "orcamento" ? { orcamentoId: contrato.id } : { cgiContratoId: contrato.id, cgiNumero: contrato.numero_contrato }),
+      kickoffId: kickoff.id, kickoffNumero: kickoff.numero_kickoff, pdFormulaId: formula?.id || null };
     const meta = { codProduto: skuKey, versao: "v1", status: "RASCUNHO", criadoPor: userName(profile), criadoEm: now(), origemCrm };
     const pendente = (texto) => ({ pendente: true, textoOriginalGeradorOPs: texto });
     const fItens = {};
@@ -1902,6 +1915,7 @@ export function createCommercialRouter(h) {
     let kickoff = null;
     let order = null;
     let revisao = null;
+    let skusOrcamento = null;
     if (decisao === "reprovado" && data?.cliente_desistiu === true) {
       // "Cliente desistiu": arquiva o projeto e marca o cliente como perdido (como era antes do COM-06).
       project = await advanceProjectStage(tenant, projectId, "projeto_arquivado", profile, "orcamento_reprovado", { motivo_arquivamento: motivo });
@@ -1915,6 +1929,16 @@ export function createCommercialRouter(h) {
     } else {
       project = await advanceProjectStage(tenant, projectId, "pedido_aprovado", profile, "orcamento_aprovado");
       kickoff = await createKickoffForProject(tenant, projectId, profile);
+      // COM-07: SKU por variação aprovada, aguardando CGI. Falha de SKU não desfaz a aprovação: fica
+      // registrada no orçamento e a assinatura do CGI tenta de novo.
+      try {
+        const skus = await generateSkusForProject(tenant, projectId, profile, { tipo: "orcamento", id: proposta.id,
+          numero_contrato: `orçamento do projeto ${project.numero_projeto || project.nome_projeto || ""}`.trim(), kickoff_id: kickoff.id, numero_kickoff: kickoff.numero_kickoff });
+        skusOrcamento = skus.map((x) => ({ variacao_id: x.variacao_id, sku: x.sku?.blocked ? null : x.sku?.codigo_interno || null, bloqueio: x.sku?.blocked ? x.sku.reason : null }));
+      } catch (error) {
+        skusOrcamento = [{ variacao_id: null, sku: null, bloqueio: String(error?.message || error) }];
+      }
+      await patch(tenant, "crm_propostas", proposta.id, { skus_gerados: skusOrcamento, skus_gerados_em: now() });
       order = await createOrReuseOrderDraft(tenant, project, proposta, kickoff, profile);
       order = await atualizarRascunhoDoPedido(tenant, order, proposta, projectId, profile);
       // CGI já assinado antes (fluxo antigo): reprocessa a assinatura para liberar o pedido com o orçamento.
@@ -1931,7 +1955,7 @@ export function createCommercialRouter(h) {
       entradaHistoricoAprovacao(aprovacao.registro, { oque: "Orçamento", resultado: decisao, documentoId: proposta.id }));
     if (cambioAprovacao) await registrarCambio(tenant, project, "orcamento_aprovado", profile, cambioAprovacao);
     await auditCard(tenant, "orcamento_decidido", "projeto", projectId, { stage: project?.stage }, { decisao, motivo, requisitos_dispensados: dispensados, aprovacao_cliente: aprovacao.registro }, profile);
-    return { decisao, project, kickoff, order, ...(revisao ? { revisao } : {}) };
+    return { decisao, project, kickoff, order, ...(revisao ? { revisao } : {}), ...(skusOrcamento ? { skus: skusOrcamento } : {}) };
   }
 
   async function revisarDepoisDaReprovacao(tenant, projectId, proposta, motivo, registroCliente, profile) {

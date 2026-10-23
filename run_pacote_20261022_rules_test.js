@@ -105,6 +105,17 @@ const negado = (p, msg) => assert.rejects(p, /PERMISSION_DENIED|permission_denie
   await negado(comercial.ref('config/contadores/solicitacaoCompra').set(10), 'contador não volta');
   await negado(emit.ref('config/contadores/solicitacaoCompra').set(43), 'produção não numera SC');
 
+  // ── COM-07 (23/10): SKU nasce com o orçamento aprovado; índice uma vez só ──
+  await raiz.ref('usuarios/com/tenant_id').set('kuryos');
+  await raiz.ref(T + '/crm_propostas').set({ORC1: {negociacao_status: 'aprovado'}, ORC2: {negociacao_status: 'rascunho'}});
+  const sku = (orc, cod) => ({sku: cod, descricao: 'Body Splash', origemCrm: {orcamentoId: orc, origem_contratual_status: 'aguardando_cgi'}});
+  await negado(comercial.ref('produtos/PRF-X-0002').set(sku('ORC2', 'PRF-X-0002')), 'orçamento não aprovado não gera SKU');
+  await negado(comercial.ref('produtos/PRF-X-0003').set({sku: 'PRF-X-0003', origemCrm: {}}), 'SKU do CRM sem origem');
+  await comercial.ref().update({'produtos/PRF-X-0001': sku('ORC1', 'PRF-X-0001'), [T + '/sku_por_orcamento/ORC1__V1']: 'PRF-X-0001'});
+  await negado(comercial.ref(T + '/sku_por_orcamento/ORC1__V1').set('PRF-X-0009'), 'índice não troca de SKU');
+  await negado(comercial.ref('produtos/PRF-X-0001/descricao').set('outra'), 'SKU criada não é editada pelo Comercial');
+  await comercial.ref('produtos/PRF-X-0001/origemCrm').set({orcamentoId: 'ORC1', origem_contratual_status: 'cgi_assinado', cgiContratoId: 'C1'});
+
   console.log('run_pacote_20261022_rules_test: OK');
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });
