@@ -1,8 +1,12 @@
 # RFC-001 — Projeto e Kickoff correndo em paralelo
 
-Item ARQ-01 do `PROMPT_ENGENHARIA_PACOTE_20261021.md` · 22/10/2026 · **proposta,
-aguardando aprovação do usuário.** Nada implementado. Os itens da Fase 3 (KO-*) e o
-"desatualizado" do AMO-05 são construídos sobre o que for aprovado aqui.
+Item ARQ-01 do `PROMPT_ENGENHARIA_PACOTE_20261021.md` · 22/10/2026 · **APROVADO pelo
+usuário em 22/10/2026:**
+- **D-1** donos de bloco como na seção 5;
+- **D-2** opção A: o Kickoff nasce na criação do projeto;
+- **D-3** V1 + V4, sem V2.
+
+Os itens da Fase 3 (KO-*) e o "desatualizado" do AMO-05 são construídos sobre este modelo.
 
 ## 1. Problema
 

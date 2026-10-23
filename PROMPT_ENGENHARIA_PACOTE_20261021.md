@@ -16,7 +16,9 @@ item a item, conferida no código; a **Parte C**, o planejamento estrutural.
 | Q14 | O `tenant_id` dos usuários é corrigido pela **operação** (INF-03 entrega a lista e o passo a passo). |
 | Q11 + dólar | Sem congelamento. A taxa é gravada **como número** e **como texto** no histórico do cliente em cada etapa (log de auditoria), e o documento usa a taxa da sua etapa (COM-01). |
 | Q16 | Sem q.s.p. automático. Faltou %, abre popup vermelho e a correção é responsabilidade da Química (AMO-03). |
-| Q12 | Não respondida. Vale a premissa da opção A (cotação em nó próprio), a confirmar antes da Onda 4. |
+| Q12 | **Opção A (22/10):** cotação em registro próprio, ligada aos processos de cotação de Compras do PCP. |
+| RFC-001 | **Aprovado (22/10):** D-1 ok, D-2 opção A (Kickoff nasce com o projeto), D-3 V1 + V4. |
+| Regras do banco | **Publicar (22/10):** travas dos 100% (função no Render, plano gratuito), unicidade de material e data de aprovação, junto com as duas pendentes de 17 e 20/10. |
 | KO-09 (CGI) e PCP-01 (etiquetas) | Ficam **por último** (Onda 6), aguardando instruções. Ao terminar as Ondas 0–5, avisar o usuário de que faltam as instruções desses dois. |
 
 > **Como executar (Claude Code):** uma fase por vez. Em cada fase: (1) auditar e
@@ -740,7 +742,7 @@ imprime.
 | Q9 | Insumos na prontidão da OP | **Restrição:** só aviso até o Dia D | PCP-02 |
 | Q10 | Aprovação da cotação é do cliente ou interna? | **Aberta** | COM-02/04 |
 | Q11 | Câmbio | **Decidida:** sem congelamento; número + texto no histórico do cliente em cada etapa | COM-01 |
-| Q12 | Cotação em nó próprio ligado a `processos_cotacao` (A) ou dentro da proposta (B)? | **Aberta**; premissa A, confirmar antes da Onda 4 | COM-03..07 |
+| Q12 | Cotação em nó próprio ligado a `processos_cotacao` (A) ou dentro da proposta (B)? | **Decidida (22/10): A** | COM-03..07 |
 | Q13 | CGI-mãe por cliente + anexo por projeto: o jurídico aprova? | **Adiada (Fase 6)**: aguarda instruções | KO-09 |
 | Q14 | Quem corrige o `tenant_id` dos usuários? | **Decidida:** a operação (lista + passo a passo) | INF-03 |
 | Q15 | Commit da fonte React | **Autorizada:** a fonte vem para `crm-frontend/` neste repo | INF-01 |
