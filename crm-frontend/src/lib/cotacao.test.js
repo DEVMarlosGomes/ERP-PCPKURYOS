@@ -129,3 +129,17 @@ describe("mesclar o salvo com o Kickoff e a tabela", () => {
     expect(m).toMatchObject({ qtd_pedido: 3000, kg_por_unidade: 0.2, lotes: 1, insumos: [], servicos: [] });
   });
 });
+
+describe("quem fornece vem do Kickoff (KO-05/BOM-01)", () => {
+  test("linha do Kickoff com 'fornecido por' manda; sem o campo, vale o que a cotação marcou", () => {
+    const bom = [
+      { id: "frasco", tipo: "embalagem_primaria", nivel: "primaria", descricao: "Frasco", quantidade_por_unidade: 1, fornecido_por: "cliente" },
+      { id: "tampa", tipo: "tampa", descricao: "Tampa", quantidade_por_unidade: 1 },
+    ];
+    const base = { insumos: insumosDoBom(bom, []), servicos: [] };
+    expect(base.insumos.map((l) => l.fornecido_por)).toEqual(["cliente", ""]);
+    const salva = { insumos: [{ bom_id: "frasco", fornecido_por: "kuryos", preco: 1 }, { bom_id: "tampa", fornecido_por: "cliente", preco: 0.2 }], servicos: [] };
+    const m = mesclarComposicao(salva, base);
+    expect(m.insumos.map((l) => l.fornecido_por)).toEqual(["cliente", "cliente"]);
+  });
+});

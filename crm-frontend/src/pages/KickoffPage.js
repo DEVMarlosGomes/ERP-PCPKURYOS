@@ -309,52 +309,96 @@ export default function KickoffPage() {
         </TabsContent>
 
         <TabsContent value="bom">
-          <Card>
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between gap-3 mb-4">
-                <div>
-                  <h2 className="font-medium">BOM consolidado</h2>
-                  <p className="text-sm text-muted-foreground">Linhas calculadas a partir da formula e dos componentes do questionario.</p>
+          {/* BOM-01 (23/10/2026): dois documentos — ficha de manipulação (P&D) e BOM de embalagens por nível. */}
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <div>
+                    <h2 className="font-medium">BOM de embalagens</h2>
+                    <p className="text-sm text-muted-foreground">Uma linha por componente aplicável do questionário, com a quantidade do Kickoff. Terciária arredonda para cima.</p>
+                  </div>
+                  <Button variant="outline" onClick={loadKickoff}>Atualizar</Button>
                 </div>
-                <Button variant="outline" onClick={loadKickoff}>Atualizar</Button>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[820px] text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="py-2 pr-3">Codigo</th>
-                      <th className="py-2 pr-3">Descricao</th>
-                      <th className="py-2 pr-3">Tipo</th>
-                      <th className="py-2 pr-3">Fornecedor</th>
-                      <th className="py-2 pr-3">Qtd pedido</th>
-                      <th className="py-2">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(kickoff.bom || []).map((line) => (
-                      <tr key={line.id} className="border-b last:border-b-0">
-                        <td className="py-2 pr-3">{line.codigo_interno}</td>
-                        <td className="py-2 pr-3">{line.descricao}</td>
-                        <td className="py-2 pr-3">{line.tipo}</td>
-                        <td className="py-2 pr-3">{line?.fornecedor_principal?.nome || "-"}</td>
-                        <td className="py-2 pr-3">{line.quantidade_total_pedido}</td>
-                        <td className="py-2">
-                          <Badge variant={line.status_homologacao === "homologado" ? "outline" : "secondary"}>
-                            {line.status_homologacao}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
-                    {(kickoff.bom || []).length === 0 && (
-                      <tr>
-                        <td className="py-8 text-center text-sm text-muted-foreground" colSpan={6}>Nenhuma linha de BOM consolidada.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+                {["primaria", "secundaria", "terciaria", ""].map((nivel) => {
+                  const linhas = (kickoff.bom || []).filter((l) => (l.nivel || "") === nivel);
+                  if (!linhas.length) return null;
+                  return (
+                    <div key={nivel || "outros"} className="mb-4 overflow-x-auto">
+                      <h3 className="mb-1 text-sm font-semibold">{{ primaria: "Primária", secundaria: "Secundária", terciaria: "Terciária", "": "Outros" }[nivel]}</h3>
+                      <table className="w-full min-w-[900px] text-sm" data-testid={`bom-${nivel || "outros"}`}>
+                        <thead>
+                          <tr className="border-b text-left">
+                            <th className="py-2 pr-3">Código</th>
+                            <th className="py-2 pr-3">Item</th>
+                            <th className="py-2 pr-3">Especificação</th>
+                            <th className="py-2 pr-3">Fornecido por</th>
+                            <th className="py-2 pr-3">Fornecedor</th>
+                            <th className="py-2 pr-3">{nivel === "terciaria" ? "Unid./emb." : "Qtd/un"}</th>
+                            <th className="py-2 pr-3">Qtd pedido</th>
+                            <th className="py-2">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {linhas.map((line) => (
+                            <tr key={line.id} className="border-b last:border-b-0">
+                              <td className="py-2 pr-3 font-mono text-xs">{line.codigo_interno}</td>
+                              <td className="py-2 pr-3">{line.descricao}{line.definido === false && <Badge variant="secondary" className="ml-1">a definir</Badge>}{line.item_novo && <Badge variant="secondary" className="ml-1">item novo</Badge>}</td>
+                              <td className="py-2 pr-3 text-muted-foreground">{line.especificacao || "-"}</td>
+                              <td className="py-2 pr-3">{line.fornecido_por === "cliente" ? "Cliente" : line.fornecido_por === "kuryos" ? "Kuryos" : "-"}</td>
+                              <td className="py-2 pr-3">{line?.fornecedor_principal?.nome || "-"}</td>
+                              <td className="py-2 pr-3">{nivel === "terciaria" ? (line.unidades_por_embalagem ?? "-") : (line.quantidade_por_unidade ?? "-")}</td>
+                              <td className="py-2 pr-3">{line.quantidade_total_pedido ?? "-"}</td>
+                              <td className="py-2">
+                                <Badge variant={line.status_homologacao === "homologado" ? "outline" : "secondary"}>{line.status_homologacao}</Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })}
+                {(kickoff.bom || []).length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Nenhum componente aplicável no questionário ainda.</p>}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-5">
+                <h2 className="font-medium">Ficha de manipulação</h2>
+                <p className="mb-3 text-sm text-muted-foreground">
+                  Matérias-primas da fórmula do P&D{kickoff.bloco1?.formula_vinculada ? ` (${kickoff.bloco1.formula_vinculada})` : ""}. Documento separado do BOM de embalagens.
+                </p>
+                {(kickoff.ficha_manipulacao?.itens || []).length ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[700px] text-sm" data-testid="ficha-manipulacao">
+                      <thead>
+                        <tr className="border-b text-left">
+                          <th className="py-2 pr-3">Código</th>
+                          <th className="py-2 pr-3">MP</th>
+                          <th className="py-2 pr-3">Qtd/un</th>
+                          <th className="py-2 pr-3">Qtd pedido</th>
+                          <th className="py-2">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {kickoff.ficha_manipulacao.itens.map((line) => (
+                          <tr key={line.id} className="border-b last:border-b-0">
+                            <td className="py-2 pr-3 font-mono text-xs">{line.codigo_interno}</td>
+                            <td className="py-2 pr-3">{line.descricao}</td>
+                            <td className="py-2 pr-3">{line.quantidade_por_unidade} {line.unidade}</td>
+                            <td className="py-2 pr-3">{line.quantidade_total_pedido} {line.unidade}</td>
+                            <td className="py-2"><Badge variant={line.status_homologacao === "homologado" ? "outline" : "secondary"}>{line.status_homologacao}</Badge></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="py-4 text-sm text-muted-foreground">{kickoff.formula_id ? "Fórmula sem ingredientes." : "Aguardando o P&D registrar a fórmula."}</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="aprovacao">

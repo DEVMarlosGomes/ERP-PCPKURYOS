@@ -140,9 +140,11 @@ describe("fluxo comercial completo até a emissão de OP", () => {
     assert.equal(db(`${T}/crm_projects/${project.id}/kickoff_numero`), "KO-2026-001");
   });
 
-  test("necessidade de material sai do BOM do Kickoff (questionário vazio, BOM vazio)", async () => {
+  test("necessidade de material: MPs da ficha de manipulação já aparecem; sem embalagens ainda (BOM-01)", async () => {
     const before = (await api.get(`/crm/projects/${project.id}/material-requirements`)).data;
-    assert.deepEqual(before, {}, "questionário ainda sem embalagens: BOM vazio");
+    assert.deepEqual(before.materiais.map((m) => [m.descricao, m.tipo, m.pendente_info]), [
+      ["Álcool Etílico", "mp_formula", true], ["Fragrância Cítrica", "mp_formula", true],
+    ], "MPs da fórmula vinculada, pendentes até ter volume e cadastro");
   });
 
   test("CGI só nasce de Kickoff aprovado", async () => {
@@ -167,8 +169,10 @@ describe("fluxo comercial completo até a emissão de OP", () => {
     const filled = (await api.put(`/kickoff/${kickoff.id}/questionario-composicao`, { questionario: questionarioCompleto(kickoff) })).data;
     assert.equal(filled.status, "aguardando_aprovacao");
     assert.equal(filled.progress.percentual, 100);
-    assert.ok(filled.bom.some((line) => line.tipo === "mp_formula" && line.descricao === "Álcool Etílico"));
-    assert.ok(filled.bom.some((line) => line.tipo === "embalagem_primaria" && /Frasco PET 200 mL/.test(line.descricao)));
+    // BOM-01: MPs na ficha de manipulação (documento separado); o BOM tem só embalagens, com o nível.
+    assert.ok(filled.ficha_manipulacao.itens.some((line) => line.tipo === "mp_formula" && line.descricao === "Álcool Etílico"));
+    assert.ok(!filled.bom.some((line) => line.tipo === "mp_formula"));
+    assert.ok(filled.bom.some((line) => line.tipo === "embalagem_primaria" && line.nivel === "primaria" && /Frasco PET 200 mL/.test(line.especificacao)));
     assert.deepEqual(filled.bom.filter((line) => ["tampa", "rotulo", "emb_secundaria", "emb_terciaria"].includes(line.tipo)), [],
       "componente marcado como não aplicável não vira linha de BOM");
     // RFC-001: o dono valida o bloco pronto antes da etapa dele; alterar depois invalida (com registro).
@@ -223,7 +227,7 @@ describe("fluxo comercial completo até a emissão de OP", () => {
     assert.equal(epa.status, "em_revisao");
     assert.ok(approved.cadastro_bom.pendentes > 0, "itens do BOM sem cadastro ficam na fila");
     assert.ok(approved.aprovacoes.at(-1).requisitos_dispensados?.[0].includes("BOM"), "dispensa da Direção fica registrada");
-    assert.equal(approved.bom.find((l) => l.descricao === "Álcool Etílico").cadastro_status, "cadastrado");
+    assert.equal(approved.ficha_manipulacao.itens.find((l) => l.descricao === "Álcool Etílico").cadastro_status, "cadastrado");
     kickoff = approved;
   });
 

@@ -31,6 +31,7 @@ import { acrescentarHistorico } from "@/lib/historicoTimeline";
 import { normalizarLinhaComponente, pendenciasQuestionario, simNao } from "@/lib/kickoffPendencias";
 import { BLOCOS_DA_ETAPA, aguardaPd, assinaturaDoBloco, congelarTodos, estadoDosBlocos, validarBlocos } from "@/lib/kickoffBlocos";
 import { preencherVazios } from "@/lib/kickoffAutopreenchimento";
+import { insumosDoKickoff, linhasDeEmbalagem } from "@/lib/kickoffBom";
 
 export const NOT_HANDLED = Symbol("not-handled");
 
@@ -489,7 +490,8 @@ export function createCommercialRouter(h) {
       return { kickoff_id: null, numero_kickoff: "", insumos: null, servicos, servicos_erro: servicosErro, kg_por_unidade: 0,
         qtd_pedido: qtdProposta || Number(project.volume_estimado_pedido) || 0 };
     }
-    const bom = keepStoredBom(kickoff) ? (kickoff.bom || []) : ((await refreshBom(tenant, kickoff)).bom || []);
+    const atualizado = keepStoredBom(kickoff) ? kickoff : await refreshBom(tenant, kickoff);
+    const bom = insumosDoKickoff(atualizado);
     const itens = kickoff.formula_id ? await related(tenant, "pd_formula_items", "formula_id", kickoff.formula_id) : [];
     const b3 = kickoff.bloco3 || {};
     return {
@@ -697,7 +699,7 @@ export function createCommercialRouter(h) {
     const findMaterial = materialFinder(await masterAll("materiais"));
     const unit = String(bloco3.volume_peso_liquido_unidade || "mL").toLowerCase() === "ml" ? "L" : "kg";
     const volume = Number(bloco3.volume_peso_liquido_valor) || 0;
-    const lines = items.map((item) => {
+    const mps = items.map((item) => {
       const material = findMaterial(item.material_key, item.material_codigo, item.ingredient_name);
       const perUnit = Number((((Number(item.percentage) || 0) / 100) * (volume / 1000)).toFixed(6));
       return {
@@ -708,6 +710,18 @@ export function createCommercialRouter(h) {
         status_homologacao: material ? "homologado" : "pendente", quantidade_total_pedido: Number((perUnit * pedidoVolume).toFixed(4)),
       };
     });
+    // BOM-01 (23/10/2026): com questionário, uma linha por componente aplicável dos Blocos 2–4, com
+    // quantidade e nível; o item do Cadastros (KO-05) já vem homologado, o resto tenta pelo nome.
+    if (!EMPTY(kickoff.questionario_composicao)) {
+      const embalagens = linhasDeEmbalagem(kickoff.questionario_composicao, { numeroKickoff: kickoff.numero_kickoff, volumePedido: pedidoVolume })
+        .map((linha) => {
+          if (linha.material_codigo) return linha;
+          const material = findMaterial(linha.especificacao, linha.descricao);
+          return material ? { ...linha, codigo_interno: materialCode(material) || linha.codigo_interno, status_homologacao: "homologado" } : linha;
+        });
+      return { mps, embalagens };
+    }
+    const lines = [];
     // Cada embalagem só entra no BOM quando o tipo foi definido (no master entravam
     // mesmo vazias e viravam pendência de cadastro que travava a Direção).
     const packaging = [
@@ -731,30 +745,44 @@ export function createCommercialRouter(h) {
         status_homologacao: material ? "homologado" : "pendente", quantidade_total_pedido: Number(((qty || 0) * pedidoVolume).toFixed(4)),
       });
     }
-    return lines;
+    return { mps, embalagens: lines };
   }
 
   async function refreshBom(tenant, kickoff) {
-    if (EMPTY(Object.fromEntries(Object.entries(kickoff.bloco4 || {}).filter(([, v]) => !EMPTY(v))))) return { ...kickoff, bom: [] };
-    const previous = new Map((kickoff.bom || []).map((line) => [bomKey(line), line]));
-    const lines = (await buildBomLines(tenant, kickoff)).map((line) => {
+    // V4 (RFC-001): Kickoff aprovado não muda — o BOM gravado na aprovação é o que o CGI e o PCP usaram.
+    if (kickoff.status === "aprovado" && (kickoff.bom || []).length) return kickoff;
+    const semQuestionario = EMPTY(kickoff.questionario_composicao);
+    if (semQuestionario && EMPTY(Object.fromEntries(Object.entries(kickoff.bloco4 || {}).filter(([, v]) => !EMPTY(v))))) return { ...kickoff, bom: [] };
+    const previous = new Map(insumosDoKickoff(kickoff).map((line) => [bomKey(line), line]));
+    const manter = (line) => {
       const key = bomKey(line);
       const prior = previous.get(key) || {};
       const kept = Object.fromEntries(["cadastro_status", "cadastro_solicitacao_id", "material_id", "compras_item_id", "cadastro_concluido_em"]
         .filter((field) => !EMPTY(prior[field])).map((field) => [field, prior[field]]));
       return { ...line, cadastro_chave: key, ...kept };
-    });
-    if (JSON.stringify(lines) !== JSON.stringify(kickoff.bom || [])) {
-      await patch(tenant, "kickoffs", kickoff.id, { bom: lines });
+    };
+    const { mps, embalagens } = await buildBomLines(tenant, kickoff);
+    // Kickoff antigo (sem questionário) segue com tudo no BOM, como sempre foi.
+    const bom = (semQuestionario ? [...mps, ...embalagens] : embalagens).map(manter);
+    const ficha = semQuestionario ? (kickoff.ficha_manipulacao || null)
+      : { formula_id: kickoff.formula_id || null, itens: mps.map(manter), atualizado_em: kickoff.ficha_manipulacao?.atualizado_em || null };
+    const mudou = JSON.stringify(bom) !== JSON.stringify(kickoff.bom || [])
+      || JSON.stringify(ficha?.itens || []) !== JSON.stringify(kickoff.ficha_manipulacao?.itens || []);
+    if (mudou) {
+      const at = now();
+      await patch(tenant, "kickoffs", kickoff.id, { bom, ...(ficha ? { ficha_manipulacao: { ...ficha, atualizado_em: at } } : {}) });
+      return { ...kickoff, bom, ...(ficha ? { ficha_manipulacao: { ...ficha, atualizado_em: at } } : {}) };
     }
-    return { ...kickoff, bom: lines };
+    return { ...kickoff, bom, ...(ficha ? { ficha_manipulacao: ficha } : {}) };
   }
 
   // Fila de cadastro dos itens novos do BOM (_sync_bom_registration_requests).
   async function syncBomRegistration(tenant, kickoff, profile) {
     const findMaterial = materialFinder(await masterAll("materiais"));
     const requests = await related(tenant, "cadastro_bom_solicitacoes", "kickoff_id", kickoff.id);
-    const bom = clone(kickoff.bom || []);
+    const ficha = clone(kickoff.ficha_manipulacao?.itens || []);
+    const embalagens = clone(kickoff.bom || []);
+    const bom = [...ficha, ...embalagens];
     let created = 0;
     let reused = 0;
     let registered = 0;
@@ -792,8 +820,9 @@ export function createCommercialRouter(h) {
       status: pending === 0 ? "liberado_compras" : "aguardando_cadastros", total_bom: bom.length, cadastrados: registered,
       pendentes: pending, solicitacoes_criadas: created, solicitacoes_reutilizadas: reused, updated_at: now(),
     };
-    await patch(tenant, "kickoffs", kickoff.id, { bom, cadastro_bom: summary });
-    return { kickoff: { ...kickoff, bom, cadastro_bom: summary }, summary };
+    const fichaManipulacao = kickoff.ficha_manipulacao ? { ...kickoff.ficha_manipulacao, itens: ficha } : null;
+    await patch(tenant, "kickoffs", kickoff.id, { bom: embalagens, ...(fichaManipulacao ? { ficha_manipulacao: fichaManipulacao } : {}), cadastro_bom: summary });
+    return { kickoff: { ...kickoff, bom: embalagens, ...(fichaManipulacao ? { ficha_manipulacao: fichaManipulacao } : {}), cadastro_bom: summary }, summary };
   }
 
   // Kickoff importado do Mongo sem questionário: o BOM gravado lá vale como está.
@@ -1222,9 +1251,10 @@ export function createCommercialRouter(h) {
 
   async function exportBom(tenant, kickoffId) {
     const kickoff = await refreshBom(tenant, await getKickoff(tenant, kickoffId));
-    const header = ["codigo_interno", "descricao", "tipo", "fornecedor_principal", "unidade", "quantidade_por_unidade", "quantidade_total_pedido", "status_homologacao"];
+    const header = ["codigo_interno", "descricao", "tipo", "nivel", "fornecido_por", "fornecedor_principal", "unidade", "quantidade_por_unidade", "quantidade_total_pedido", "status_homologacao"];
     const cell = (value) => { const text = String(value ?? ""); return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text; };
-    const rows = (kickoff.bom || []).map((line) => [line.codigo_interno, line.descricao, line.tipo, line.fornecedor_principal?.nome, line.unidade,
+    const rows = insumosDoKickoff(kickoff).map((line) => [line.codigo_interno, line.descricao, line.tipo, line.nivel || (line.tipo === "mp_formula" ? "manipulacao" : ""),
+      line.fornecido_por || "", line.fornecedor_principal?.nome, line.unidade,
       line.quantidade_por_unidade, line.quantidade_total_pedido, line.status_homologacao].map(cell).join(","));
     return new Blob([[header.join(","), ...rows].join("\r\n") + "\r\n"], { type: "text/csv" });
   }
@@ -1839,7 +1869,7 @@ export function createCommercialRouter(h) {
         // (fórmula × volume do primeiro pedido + embalagens). Sem Kickoff, nada a mostrar.
         const kickoff = await kickoffVigente(tenant, m[1]);
         if (!kickoff) return {};
-        const bom = (await refreshBom(tenant, kickoff)).bom || [];
+        const bom = insumosDoKickoff(await refreshBom(tenant, kickoff));
         if (!bom.length) return {};
         const materiais = bom.map((line) => ({
           id: line.id, insumo_id: line.codigo_interno, codigo_material: line.cadastro_status === "cadastrado" || line.status_homologacao === "homologado" ? line.codigo_interno : "",

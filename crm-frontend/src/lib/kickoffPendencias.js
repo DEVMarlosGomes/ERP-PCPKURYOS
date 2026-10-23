@@ -73,6 +73,24 @@ export function normalizarLinhaComponente(linha) {
   return r;
 }
 
+const numeroPositivo = (v) => {
+  const n = Number(String(v ?? "").replace(",", "."));
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+/* Unidades do produto por embalagem terciária. Sem o número na linha, usa o Bloco 0:
+ * display = unidades por display; caixa master = unidades por display × displays por master
+ * (ou o campo "displays (ou unidades) por caixa master" quando não há display). */
+export function unidadesPorEmbalagem(linha, bloco0 = {}) {
+  const proprio = numeroPositivo(linha?.unidades_por_embalagem);
+  if (proprio) return proprio;
+  const porDisplay = numeroPositivo(bloco0.unidades_por_display);
+  const porMaster = numeroPositivo(bloco0.displays_ou_unidades_por_caixa_master);
+  if (linha?.id === "display_expositor_pdv") return porDisplay;
+  if (linha?.id === "caixa_master") return porDisplay && porMaster ? porDisplay * porMaster : porMaster;
+  return null;
+}
+
 // Quantidade da linha (BOM-01): primária/secundária = peças por unidade; terciária = unidades por embalagem.
 const QTD_DO_BLOCO = { bloco2: "qtd_por_unidade", bloco3: "qtd_por_unidade", bloco4: "unidades_por_embalagem" };
 const positivo = (v) => Number(String(v ?? "").replace(",", ".")) > 0;
@@ -81,7 +99,7 @@ const positivo = (v) => Number(String(v ?? "").replace(",", ".")) > 0;
  * Sim → Definido? obrigatório; Definido? Não = pronto (será definido depois, sem pendência);
  * Definido? Sim → fornecido por (Kuryos/Cliente) + o item (do Cadastros, ou "item novo" descrito, ou a
  * especificação escrita) + quantidade; na secundária também arte: quem cria/aprova + arte aprovada?. */
-export function pendenciasDaLinha(linha, comArte = false, bloco = comArte ? "bloco3" : "bloco2") {
+export function pendenciasDaLinha(linha, comArte = false, bloco = comArte ? "bloco3" : "bloco2", bloco0 = {}) {
   const r = normalizarLinhaComponente(linha);
   const aplicavel = simNao(r.aplicavel);
   if (aplicavel === "") return ["aplicavel"];
@@ -95,7 +113,9 @@ export function pendenciasDaLinha(linha, comArte = false, bloco = comArte ? "blo
     if (VAZIO(r.item_novo_descricao)) faltam.push("item_novo_descricao");
   } else if (VAZIO(r.material_codigo) && VAZIO(r.especificacao_fornecedor_codigo)) faltam.push("especificacao_fornecedor_codigo");
   const campoQtd = QTD_DO_BLOCO[bloco];
-  if (campoQtd && Object.prototype.hasOwnProperty.call(r, campoQtd) && !positivo(r[campoQtd])) faltam.push(campoQtd);
+  // Terciária: vale também a conta pelo Bloco 0 (unidades por display × displays por master).
+  const qtdOk = bloco === "bloco4" ? Boolean(unidadesPorEmbalagem(r, bloco0)) : positivo(r[campoQtd]);
+  if (campoQtd && Object.prototype.hasOwnProperty.call(r, campoQtd) && !qtdOk) faltam.push(campoQtd);
   if (comArte) {
     if (VAZIO(r.arte_cria_aprova)) faltam.push("arte_cria_aprova");
     if (simNao(r.arte_aprovada) === "") faltam.push("arte_aprovada");
@@ -121,7 +141,7 @@ export function pendenciasQuestionario(questionario) {
     }
     if (["bloco2", "bloco3", "bloco4"].includes(bloco)) {
       (dados.componentes || []).forEach((linha, i) => {
-        for (const campo of pendenciasDaLinha(linha, bloco === "bloco3", bloco)) {
+        for (const campo of pendenciasDaLinha(linha, bloco === "bloco3", bloco, q.bloco0 || {})) {
           pend.push({ campo: `componentes[${i}].${campo}`, rotulo: `${linha.componente || `Componente ${i + 1}`}: ${ROTULOS[campo] || campo}` });
         }
       });

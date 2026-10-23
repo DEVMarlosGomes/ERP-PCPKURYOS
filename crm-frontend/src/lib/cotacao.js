@@ -61,7 +61,10 @@ export function insumosDoBom(bom, itensFormula) {
       bom_id: l.id, codigo: l.codigo_interno || "", descricao: l.descricao || "", tipo: l.tipo || "",
       unidade: l.unidade || "un", qtd_por_unidade: num(l.quantidade_por_unidade) || 0,
       preco: preco.preco, moeda: preco.moeda, origem_preco: item && preco.preco !== null ? "formula" : "manual",
-      fornecido_por: "kuryos",
+      // KO-05/BOM-01: quem fornece vem do Kickoff (antes era sempre Kuryos e o item do cliente entrava no custo).
+      // Linha sem o campo (Kickoff antigo) fica "" e a cotação decide; com o campo, o Kickoff manda.
+      fornecido_por: ["cliente", "kuryos"].includes(l.fornecido_por) ? l.fornecido_por : "", nivel: l.nivel || (l.tipo === "mp_formula" ? "manipulacao" : ""),
+      especificacao: l.especificacao || "",
     };
   });
 }
@@ -87,7 +90,8 @@ export function mesclarComposicao(salva, base, { congelada = false } = {}) {
     if (!antes) return l;
     const manual = l.origem_preco !== "formula";
     return {
-      ...l, fornecido_por: antes.fornecido_por || "kuryos",
+      // O Kickoff é a fonte de quem fornece; o que estava salvo só vale se o Kickoff não disser.
+      ...l, fornecido_por: l.fornecido_por || antes.fornecido_por || "kuryos",
       ...(manual ? { preco: num(antes.preco), moeda: antes.moeda || "BRL" } : {}),
     };
   });
