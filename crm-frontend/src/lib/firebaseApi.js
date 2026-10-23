@@ -1154,7 +1154,7 @@ async function adminEditCard(tenantId, entity, cardId, values, profile) {
 
 // Orçamento → Kickoff → CGI → SKU → pedido no PCP (src/lib/firebaseCommercial.js).
 const commercial = createCommercialRouter({
-  all, one, save, patch, create, related, masterAll, masterOne, apiError, now, newId: id, auditCard, syncMasterClients,
+  all, one, save, patch, create, related, masterAll, masterOne, masterWrite, apiError, now, newId: id, auditCard, syncMasterClients,
   ensureNumeroProjeto, justificationRequired, lerCambio,
   // Chamada interna a outra rota do adaptador (ex.: gerar o EPA do P&D na aprovação do Kickoff).
   call: (method, url, data) => dispatch(method, url, data, {}),

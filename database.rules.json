@@ -38,8 +38,9 @@
           ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'vendedor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sales_ops' || root.child('usuarios').child(auth.uid).child('role').val() == 'comercial' || root.child('usuarios').child(auth.uid).child('role').val() == 'sucesso_cliente' || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true)",
           ".validate": "newData.isNumber() && (!data.exists() || newData.val() > data.val())"
         },
+        // COM-05 (23/10/2026): a cotação do CRM abre a SC ao ir para o Compras — o Comercial também numera.
         "solicitacaoCompra": {
-          ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('compras').val() == true)",
+          ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('compras').val() == true || root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'vendedor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sales_ops' || root.child('usuarios').child(auth.uid).child('role').val() == 'comercial' || root.child('usuarios').child(auth.uid).child('role').val() == 'sucesso_cliente' || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true)",
           ".validate": "newData.isNumber() && (!data.exists() || newData.val() > data.val())"
         },
         "processoCotacao": {

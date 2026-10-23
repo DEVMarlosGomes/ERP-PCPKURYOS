@@ -157,4 +157,36 @@ const incluir = extrai('adicionarCadastradoForaDaHomologacao', 'lista');
 assert.ok(!incluir.includes('materialSimilarPorItem'), 'inclusão fora da homologação não pode forjar material similar');
 assert.ok(incluir.includes('fornecedorKey: fKey'), 'precisa entrar como fornecedor cadastrado, não avulso');
 
+// ── COM-05: fixture do prompt de engenharia (21/10/2026), saída exata ──
+// Itens como chegam da cotação do CRM (SC → processo): nome, quantidade e unidade; a especificação
+// sai do cadastro. Única diferença do prompt: o marcador é "•" (o do ar), não "*", que no
+// WhatsApp abre negrito.
+const fixtura = [
+  ['FX-1', 'ALCOOL CETOESTEARILICO 30/70', 370.97, 'ALCOOL CETOESTEARILICO 30/70'], ['FX-2', 'MONOESTEARATO DE GLICERILA', 154.054],
+  ['FX-3', 'ALCOOL CETO ETOXILADO', 113.674], ['FX-4', 'LAURIL ETER SULFATO DE SODIO 70%', 93.177], ['FX-5', 'PEG 150', 33.544],
+  ['FX-6', 'SILICONE 245', 29.817], ['FX-7', 'BHT', 6.585], ['FX-8', 'VITAMINA E OLEOSA', 2.585],
+];
+const itensFx = {};
+fixtura.forEach(([cod, nome, qtd, espec], i) => {
+  allMateriais[cod] = { mpCodigo: cod, mpNome: nome, especificacoesTecnicas: espec || '', fornecedores: {} };
+  itensFx['i' + i] = { materialCodigo: cod, materialNome: nome, qtd, unidade: 'kg', origemSolicitacaoKey: 'SC-CRM' };
+});
+const textoFx = gerar({ numeroFormatado: 'COT-0042', itens: itensFx, fornecedoresConvidados: { cx: { fornecedorKey: 'fx' } } }, 'cx');
+assert.strictEqual(textoFx, [
+  'Olá! Somos da Kuryos e gostaríamos de solicitar uma cotação (COT-0042) para os itens abaixo:',
+  '',
+  '• ALCOOL CETOESTEARILICO 30/70 — 370,97 kg',
+  '  Espec.: ALCOOL CETOESTEARILICO 30/70',
+  '• MONOESTEARATO DE GLICERILA — 154,054 kg',
+  '• ALCOOL CETO ETOXILADO — 113,674 kg',
+  '• LAURIL ETER SULFATO DE SODIO 70% — 93,177 kg',
+  '• PEG 150 — 33,544 kg',
+  '• SILICONE 245 — 29,817 kg',
+  '• BHT — 6,585 kg',
+  '• VITAMINA E OLEOSA — 2,585 kg',
+  '',
+  'Por favor, nos informe preço unitário, prazo de entrega e condição de pagamento.',
+  'Fico no aguardo, obrigado(a)!',
+].join('\n'), 'texto ao fornecedor difere da fixture do COM-05');
+
 console.log('run_cotacao_texto_test: OK');

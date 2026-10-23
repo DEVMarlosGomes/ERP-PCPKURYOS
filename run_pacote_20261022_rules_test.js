@@ -96,6 +96,15 @@ const negado = (p, msg) => assert.rejects(p, /PERMISSION_DENIED|permission_denie
   await negado(adm.ref('config/tipos_componente/X').set({nome: 'x'}), 'tipo sem nível');
   await cad.ref('config/outra_chave').set(1); // o resto de config/ segue como antes
 
+  // ── COM-05 (23/10): o Comercial numera a SC que a cotação do CRM abre; produção não ──
+  await raiz.ref('usuarios/com').set({role: 'vendedor', modulos: {comercial: true}});
+  await raiz.ref('config/contadores/solicitacaoCompra').set(41);
+  const comercial = como('com');
+  await comercial.ref('config/contadores/solicitacaoCompra').transaction((n) => (n || 0) + 1);
+  assert.equal((await raiz.ref('config/contadores/solicitacaoCompra').get()).val(), 42);
+  await negado(comercial.ref('config/contadores/solicitacaoCompra').set(10), 'contador não volta');
+  await negado(emit.ref('config/contadores/solicitacaoCompra').set(43), 'produção não numera SC');
+
   console.log('run_pacote_20261022_rules_test: OK');
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

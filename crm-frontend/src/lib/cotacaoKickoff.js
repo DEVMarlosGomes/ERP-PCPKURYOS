@@ -98,3 +98,43 @@ export function precosDaCotacao(insumos, cotacao) {
     return l ? { ...i, preco: num(l.preco), moeda: l.moeda || "BRL", origem_preco: "cotacao", fonte_preco: l.fonte_preco || "cotacao", cotacao_numero: cotacao.numero } : i;
   });
 }
+
+/* COM-05: o que vai para o Compras como Solicitação de Compra — itens que a Kuryos compra, com
+ * código no Cadastros e quantidade. O resto volta como pendência (item novo/sem cadastro vai
+ * antes pelo cadastro; do cliente não se compra). */
+export function itensParaCompras(cotacao) {
+  const itens = [];
+  const fora = [];
+  for (const l of cotacao?.linhas || []) {
+    if (l.fornecido_por === "cliente") continue;
+    if (!l.material_codigo) { fora.push({ descricao: l.descricao, motivo: l.item_novo ? "item novo: cadastrar antes" : "sem cadastro" }); continue; }
+    if (!(num(l.qtd_total) > 0)) { fora.push({ descricao: l.descricao, motivo: "sem quantidade do pedido" }); continue; }
+    itens.push({ linha_id: l.linha_id, materialCodigo: l.material_codigo, materialNome: l.descricao, qtd: num(l.qtd_total), unidade: l.unidade || "un", obs: l.especificacao || "" });
+  }
+  return { itens, fora };
+}
+
+/* Preço que o Compras levantou nos processos de cotação abertos a partir das SCs desta cotação:
+ * vencedor do item → vencedor geral → menor preço respondido. → Map(materialCodigo → {preco, detalhe}). */
+export function precosDosProcessos(processos, scKeys, nomeFornecedor = () => "") {
+  const scs = new Set(scKeys || []);
+  const out = new Map();
+  for (const p of Object.values(processos || {})) {
+    for (const [itemKey, it] of Object.entries(p?.itens || {})) {
+      if (!scs.has(it?.origemSolicitacaoKey)) continue;
+      const convidados = p.fornecedoresConvidados || {};
+      const resp = (cKey) => num(convidados[cKey]?.respostaItens?.[itemKey]?.precoUnit);
+      let cKey = p.vencedoresPorItem?.[itemKey] || (resp(p.fornecedorVencedorConvidadoKey) > 0 ? p.fornecedorVencedorConvidadoKey : null);
+      let como = cKey ? "vencedor" : "menor resposta";
+      if (!cKey || !(resp(cKey) > 0)) {
+        cKey = Object.keys(convidados).filter((k) => resp(k) > 0).sort((a, b) => resp(a) - resp(b))[0] || null;
+        como = "menor resposta";
+      }
+      if (!cKey) continue;
+      const c = convidados[cKey];
+      const forn = c.nomeAvulso || nomeFornecedor(c.fornecedorKey) || "";
+      out.set(it.materialCodigo, { preco: resp(cKey), detalhe: [p.numeroFormatado, forn, como].filter(Boolean).join(" · ") });
+    }
+  }
+  return out;
+}

@@ -35,7 +35,9 @@ import { aplicarSobrescritas, coletorDeOrigem, preencherVazios, sobrescritasDaOr
 import { insumosDoKickoff, linhasDeEmbalagem } from "@/lib/kickoffBom";
 import { validarResponsavel } from "@/lib/responsaveisTecnicos";
 import { resolverDesatualizado, textoDesatualizado } from "@/lib/retrabalhoAprovada";
-import { STATUS_COTACAO, TRAVADAS, diffLinhas, linhasDaCotacao, mesclarLinhas, numeroCotacao, precosDaCotacao, resumoCotacao } from "@/lib/cotacaoKickoff";
+import {
+  STATUS_COTACAO, TRAVADAS, diffLinhas, itensParaCompras, linhasDaCotacao, mesclarLinhas, numeroCotacao, precosDaCotacao, precosDosProcessos, resumoCotacao,
+} from "@/lib/cotacaoKickoff";
 
 export const NOT_HANDLED = Symbol("not-handled");
 
@@ -401,7 +403,7 @@ const currentUid = () => firebaseAuth.currentUser?.uid || "";
 /* ── Rotas ────────────────────────────────────────────────────────────── */
 
 export function createCommercialRouter(h) {
-  const { all, one, save, patch, create, related, masterAll, masterOne, apiError, now, newId, auditCard, syncMasterClients, call } = h;
+  const { all, one, save, patch, create, related, masterAll, masterOne, masterWrite, apiError, now, newId, auditCard, syncMasterClients, call } = h;
   const ensureNumeroProjeto = h.ensureNumeroProjeto || (async (tenant, project) => project?.numero_projeto || "");
   const justificationRequired = h.justificationRequired || ((detail) => apiError(400, detail));
   const lerCambio = h.lerCambio || (async () => null);
@@ -522,7 +524,8 @@ export function createCommercialRouter(h) {
 
   async function listarCotacoes(tenant, projectId) {
     const todas = (await related(tenant, "cotacoes", "projeto_id", projectId)).sort((a, b) => Number(b.revisao || 0) - Number(a.revisao || 0));
-    const vigente = todas.find((c) => c.status !== "substituida") || null;
+    const achada = todas.find((c) => c.status !== "substituida") || null;
+    const vigente = achada ? await trazerPrecosDoCompras(tenant, achada) : null;
     return { vigente: vigente ? { ...vigente, resumo: resumoCotacao(vigente) } : null, revisoes: todas };
   }
 
@@ -589,8 +592,48 @@ export function createCommercialRouter(h) {
     if (!(PROXIMO_STATUS[atual.status] || []).includes(novo)) throw apiError(409, `Cotação ${STATUS_COTACAO[atual.status] || atual.status} não vai para ${STATUS_COTACAO[novo] || novo}.`);
     const r = resumoCotacao(atual);
     if (["precificada", "aprovada"].includes(novo) && r.sem_preco) throw apiError(422, `${r.sem_preco} item(ns) comprado(s) pela Kuryos ainda SEM PREÇO.`);
-    return patch(tenant, "cotacoes", atual.id, { status: novo,
+    // COM-05: ir para o Compras abre a Solicitação de Compra (uma por revisão); o Compras cota pelos
+    // processos de cotação que já existem (texto ao fornecedor, rascunho de e-mail).
+    const extra = novo === "em_cotacao_compras" && !atual.solicitacao_compra_id ? await abrirSolicitacaoCompra(tenant, atual, profile) : {};
+    return patch(tenant, "cotacoes", atual.id, { status: novo, ...extra,
       historico_status: [...(atual.historico_status || []), { status: novo, em: now(), por: currentUid(), por_nome: userName(profile) }] });
+  }
+
+  async function abrirSolicitacaoCompra(tenant, cotacao, profile) {
+    const { itens, fora } = itensParaCompras(cotacao);
+    if (!itens.length) return { solicitacao_compra_id: null, compras_fora: fora };
+    const materiais = await masterAll("materiais");
+    const chaveDo = new Map(materiais.map((mat) => [materialCode(mat), mat.id]));
+    const numero = await nextCounter("config/contadores/solicitacaoCompra");
+    const scKey = newId();
+    const project = await getProject(tenant, cotacao.projeto_id);
+    const sc = {
+      numero, numeroFormatado: `SC-${pad(numero)}`, status: "PENDENTE", criadoEm: now(), criadoPor: userName(profile), solicitante: userName(profile),
+      justificativa: `Cotação ${cotacao.numero} do projeto ${project.numero_projeto || ""} ${project.nome_projeto || ""}`.replace(/\s+/g, " ").trim(),
+      origemTela: "crm", origemModulo: "CRM",
+      itens: Object.fromEntries(itens.map((it) => [newId(), { materialKey: chaveDo.get(it.materialCodigo) || it.materialCodigo, materialCodigo: it.materialCodigo,
+        materialNome: it.materialNome, qtd: it.qtd, unidade: it.unidade, obs: it.obs, origemCotacaoLinhaId: it.linha_id }])),
+      origem: { tipo: "CRM_COTACAO", cotacaoId: cotacao.id, cotacaoNumero: cotacao.numero, projetoId: project.id, projeto: project.nome_projeto || "", cliente: project.cliente_nome || "" },
+    };
+    await masterWrite("solicitacoes_compra", scKey, sc);
+    return { solicitacao_compra_id: scKey, solicitacao_compra_numero: sc.numeroFormatado, compras_fora: fora };
+  }
+
+  // COM-05: preço que o Compras levantou volta para a linha (COTADO, com processo e fornecedor).
+  async function trazerPrecosDoCompras(tenant, cotacao) {
+    if (cotacao?.status !== "em_cotacao_compras" || !cotacao.solicitacao_compra_id) return cotacao;
+    const [processos, fornecedores] = await Promise.all([masterAll("processos_cotacao").catch(() => []), masterAll("fornecedores").catch(() => [])]);
+    const nome = new Map(fornecedores.map((f) => [f.id, f.nomeFantasia || f.razaoSocial || f.id]));
+    const precos = precosDosProcessos(Object.fromEntries(processos.map((p) => [p.id, p])), [cotacao.solicitacao_compra_id], (k) => nome.get(k));
+    if (!precos.size) return cotacao;
+    let mudou = false;
+    const linhas = (cotacao.linhas || []).map((l) => {
+      const p = precos.get(l.material_codigo);
+      if (!p || l.fornecido_por === "cliente" || (l.preco === p.preco && l.fonte_preco === "cotado_compras")) return l;
+      mudou = true;
+      return { ...l, preco: p.preco, moeda: "BRL", fonte_preco: "cotado_compras", fonte_detalhe: p.detalhe, preco_atualizado_em: now(), preco_atualizado_por: "Compras" };
+    });
+    return mudou ? patch(tenant, "cotacoes", cotacao.id, { linhas }) : cotacao;
   }
 
   async function precificarLinha(tenant, projectId, linhaId, data, profile) {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { diffLinhas, faltasDeParidade, linhasDaCotacao, mesclarLinhas, numeroCotacao, precosDaCotacao, resumoCotacao } from "./cotacaoKickoff";
+import { diffLinhas, faltasDeParidade, itensParaCompras, linhasDaCotacao, mesclarLinhas, numeroCotacao, precosDaCotacao, precosDosProcessos, resumoCotacao } from "./cotacaoKickoff";
 import { linhasDeEmbalagem } from "./kickoffBom";
 
 const comp = (id, extra = {}) => ({ id, componente: id, aplicavel: "sim", definido: "sim", fornecido_por: "kuryos", qtd_por_unidade: 1, ...extra });
@@ -45,5 +45,25 @@ describe("cotação em registro próprio (COM-03)", () => {
     const insumos = precosDaCotacao([{ bom_id: "I1", preco: 9.5, moeda: "BRL", origem_preco: "formula" }, { bom_id: "x", preco: null }], { numero: "COT-1-r1", linhas });
     expect(insumos[0]).toMatchObject({ preco: 11, origem_preco: "cotacao", cotacao_numero: "COT-1-r1" });
     expect(insumos[1].preco).toBeNull();
+  });
+});
+
+describe("ponte com o Compras (COM-05)", () => {
+  test("vai para a SC só o que a Kuryos compra, com código e quantidade", () => {
+    const { itens, fora } = itensParaCompras({ linhas: linhasDaCotacao(KICKOFF) });
+    expect(itens.map((i) => [i.materialCodigo, i.qtd])).toEqual([["MP0001", 160], ["EP-00089", 1000]]);
+    expect(fora.map((f) => f.motivo)).toEqual(["item novo: cadastrar antes", "sem cadastro", "sem cadastro", "sem cadastro"]);
+  });
+  test("preço do processo: vencedor do item → vencedor geral → menor resposta", () => {
+    const resp = (preco) => ({ respostaItens: { i1: { precoUnit: preco }, i2: { precoUnit: preco } } });
+    const processos = {
+      p1: { numeroFormatado: "COT-0042", itens: { i1: { materialCodigo: "EP-00089", origemSolicitacaoKey: "SC1" }, i2: { materialCodigo: "MP0001", origemSolicitacaoKey: "SC1" } },
+        vencedoresPorItem: { i1: "c2" }, fornecedoresConvidados: { c1: { fornecedorKey: "f1", ...resp(1.1) }, c2: { nomeAvulso: "Vidro Sul", ...resp(1.3) } } },
+      p2: { numeroFormatado: "COT-0050", itens: { i1: { materialCodigo: "ET-1", origemSolicitacaoKey: "OUTRA" } }, fornecedoresConvidados: { c1: resp(9) } },
+    };
+    const m = precosDosProcessos(processos, ["SC1"], (k) => ({ f1: "Plastsul" })[k]);
+    expect(m.get("EP-00089")).toEqual({ preco: 1.3, detalhe: "COT-0042 · Vidro Sul · vencedor" });
+    expect(m.get("MP0001")).toEqual({ preco: 1.1, detalhe: "COT-0042 · Plastsul · menor resposta" });
+    expect(m.has("ET-1")).toBe(false);
   });
 });

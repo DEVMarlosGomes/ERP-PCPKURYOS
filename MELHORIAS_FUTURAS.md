@@ -172,6 +172,12 @@ correção da lista, apesar de ser a mais fácil.
 
 ## Compras
 
+- **SC do P&D numerada por "maior número + 1" (achado em 23/10/2026, COM-05)** —
+  `POST /pd/requests/{id}/purchase-requests` (`crm-frontend/src/lib/firebaseApi.js`) calcula
+  `Math.max(numero) + 1` sobre `solicitacoes_compra`, enquanto o Compras e a cotação do CRM
+  (COM-05) reservam pelo contador `config/contadores/solicitacaoCompra`. Os dois podem dar o
+  mesmo SC-NNNN. Trocar pelo `nextCounter` (a regra do contador já aceita o Comercial; para o
+  P&D, incluir `lider_pd`/`formulador` na regra do contador e publicar).
 - **NCM no cadastro de material** — o NCM é o que determina as alíquotas de
   IPI e de ICMS-ST. Hoje o cadastro de material **não tem o campo** (grep em
   `cadastros.html`: nenhuma ocorrência), então na cotação alguém digita a

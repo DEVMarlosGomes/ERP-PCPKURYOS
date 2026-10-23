@@ -491,6 +491,19 @@ describe("fluxo comercial completo até a emissão de OP", () => {
     assert.deepEqual([base.insumos.find((i) => i.bom_id === frasco.linha_id).preco, base.insumos.find((i) => i.bom_id === frasco.linha_id).origem_preco], [1.35, "cotacao"]);
     // Status: precificar exige preço em tudo que a Kuryos compra.
     await api.post(`/crm/projects/${project.id}/cotacao/status`, { status: "em_cotacao_compras" });
+    // COM-05: ir para o Compras abre a SC (numerada pelo contador do Compras), com origem na cotação.
+    const emCompras = (await api.get(`/crm/projects/${project.id}/cotacao`)).data.vigente;
+    const sc = db(`solicitacoes_compra/${emCompras.solicitacao_compra_id}`);
+    assert.equal(sc.origem.tipo, "CRM_COTACAO");
+    assert.equal(sc.origem.cotacaoNumero, "COT-2026-001-r1");
+    assert.equal(sc.numeroFormatado, `SC-${String(db("config/contadores/solicitacaoCompra")).padStart(4, "0")}`);
+    const itemSc = Object.values(sc.itens).find((it) => it.materialCodigo === "EP0001");
+    assert.equal(itemSc.qtd, frasco.qtd_total);
+    // O Compras abre o processo a partir da SC e o fornecedor responde: o preço volta para a linha.
+    memory.write("processos_cotacao/P1", { numeroFormatado: "COT-0042", itens: { i1: { materialCodigo: "EP0001", qtd: itemSc.qtd, origemSolicitacaoKey: emCompras.solicitacao_compra_id } },
+      vencedoresPorItem: { i1: "c1" }, fornecedoresConvidados: { c1: { nomeAvulso: "Vidro Sul", respostaItens: { i1: { precoUnit: 1.27 } } } } });
+    const voltou = (await api.get(`/crm/projects/${project.id}/cotacao`)).data.vigente.linhas.find((l) => l.linha_id === frasco.linha_id);
+    assert.deepEqual([voltou.preco, voltou.fonte_preco, voltou.fonte_detalhe], [1.27, "cotado_compras", "COT-0042 · Vidro Sul · vencedor"]);
     const semPreco = (await api.get(`/crm/projects/${project.id}/cotacao`)).data.vigente.resumo.sem_preco;
     if (semPreco) await fails(api.post(`/crm/projects/${project.id}/cotacao/status`, { status: "precificada" }), 422, /SEM PREÇO/);
     for (const l of r1.linhas.filter((x) => x.fornecido_por !== "cliente")) await api.put(`/crm/projects/${project.id}/cotacao/linhas/${l.linha_id}`, { preco: 2 });

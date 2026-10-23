@@ -57,7 +57,15 @@ export default function CotacaoKickoffPanel({ projetoId, onAlterada }) {
           {c && (ACOES[c.status] || []).map(([s, r]) => <Button key={s} type="button" size="sm" disabled={ocupado} onClick={() => status(s)}>{r}</Button>)}
         </div>
       </div>
-      {c?.motivo_revisao && <p className="text-xs text-amber-700">Revisão {c.revisao}: {c.motivo_revisao}{c.diff?.length ? ` (${c.diff.length} mudança(s))` : ""}.</p>}
+      {c?.solicitacao_compra_numero && (
+        <p className="text-xs text-muted-foreground" data-testid="cotacao-sc">
+          {c.solicitacao_compra_numero} aberta no Compras (PCP › Compras): o preço que o fornecedor responder volta para as linhas.
+        </p>
+      )}
+      {(c?.compras_fora || []).length > 0 && (
+        <p className="text-xs text-amber-700">Fora da solicitação: {c.compras_fora.map((f) => `${f.descricao} (${f.motivo})`).join("; ")}.</p>
+      )}
+      {c?.motivo_revisao &&<p className="text-xs text-amber-700">Revisão {c.revisao}: {c.motivo_revisao}{c.diff?.length ? ` (${c.diff.length} mudança(s))` : ""}.</p>}
       {c && (
         <div className="overflow-x-auto rounded-md border">
           <table className="w-full min-w-[760px] text-xs">
