@@ -32,6 +32,7 @@ import { normalizarLinhaComponente, pendenciasQuestionario, simNao } from "@/lib
 import { BLOCOS_DA_ETAPA, aguardaPd, assinaturaDoBloco, congelarTodos, estadoDosBlocos, validarBlocos } from "@/lib/kickoffBlocos";
 import { preencherVazios } from "@/lib/kickoffAutopreenchimento";
 import { insumosDoKickoff, linhasDeEmbalagem } from "@/lib/kickoffBom";
+import { validarResponsavel } from "@/lib/responsaveisTecnicos";
 
 export const NOT_HANDLED = Symbol("not-handled");
 
@@ -1870,6 +1871,17 @@ export function createCommercialRouter(h) {
         return salva;
       }
       if (is("GET", /^\/crm\/projects\/([^/]+)\/cotacao-base$/)) return cotacaoBase(tenant, m[1]);
+      // KO-06: responsáveis técnicos (menu do Kickoff, com "+ cadastrar" ali mesmo).
+      if (is("GET", /^\/crm\/responsaveis-tecnicos$/)) {
+        return (await all(tenant, "responsaveis_tecnicos")).filter((r) => r.ativo !== false)
+          .sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || "")));
+      }
+      if (is("POST", /^\/crm\/responsaveis-tecnicos$/)) {
+        if (!isComercial(profile) && !hasAnyRole(profile, [...KICKOFF_EDIT_ROLES])) throw apiError(403, "Sem permissão para cadastrar responsável técnico.");
+        const v = validarResponsavel(data, await all(tenant, "responsaveis_tecnicos"));
+        if (!v.ok) throw apiError(v.duplicado ? 409 : 422, v.erros.join(" "));
+        return create(tenant, "responsaveis_tecnicos", { ...v.registro, criado_por: currentUid(), criado_por_nome: userName(profile) });
+      }
       if (is("POST", /^\/crm\/projects\/([^/]+)\/proposta\/decisao$/)) return decidirOrcamento(tenant, m[1], data, profile);
       if (is("GET", /^\/crm\/projects\/([^/]+)\/amostras-status$/)) return amostrasStatus(tenant, m[1]);
       if (is("GET", /^\/crm\/projects\/([^/]+)\/material-requirements$/)) {

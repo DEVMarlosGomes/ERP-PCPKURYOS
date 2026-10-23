@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 import CatalogoComponentesDialog from "@/components/CatalogoComponentesDialog";
+import ResponsavelTecnicoField from "@/components/ResponsavelTecnicoField";
 import { normalizarLinhaComponente, pendenciasQuestionario, simNao } from "@/lib/kickoffPendencias";
 import { CATALOGO_PADRAO, OUTRO, TIPO_OUTRO, escolherTipo, especificacaoDasCaracteristicas, tiposDaLinha, valorAtributo } from "@/lib/tiposComponente";
 
@@ -84,6 +85,7 @@ export function emptyKickoffQuestionnaire() {
       registro_notificacao_anvisa: "",
       detentor_registro: "",
       responsavel_tecnico: "",
+      responsavel_tecnico_id: "",
       modelo_servico: "",
       servicos_selecionados: [],
     },
@@ -597,7 +599,8 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
             { value: "a_providenciar", label: "A providenciar" },
           ]} />
           <Field label="Detentor do registro" value={q.bloco0.detentor_registro} onChange={(v) => update("bloco0", "detentor_registro", v)} />
-          <Field label="Responsavel Tecnico (RT)" value={q.bloco0.responsavel_tecnico} onChange={(v) => update("bloco0", "responsavel_tecnico", v)} />
+          <ResponsavelTecnicoField nome={q.bloco0.responsavel_tecnico} id={q.bloco0.responsavel_tecnico_id}
+            onChange={(campos) => onChange({ ...q, bloco0: { ...q.bloco0, ...campos } })} />
         </div>
         <ChoiceGroup label="Classificacao do projeto (modelo de servico)" value={q.bloco0.modelo_servico} onChange={(v) => update("bloco0", "modelo_servico", v)} options={[
           { value: "industrializacao_pura", label: "Industrializacao pura" },

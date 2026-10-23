@@ -422,6 +422,18 @@ describe("fluxo comercial completo até a emissão de OP", () => {
     await fails(api.post(`/contratos/${contrato.id}/assinar`, {}), 403);
   });
 
+  test("KO-06: responsável técnico cadastrado pelo Kickoff aparece no menu; produção não cadastra", async () => {
+    as("com");
+    const rt = { nome: "Ana Souza", cargo: "Química responsável", registro_profissional: "CRQ 04123456", vinculo: "kuryos" };
+    const criado = (await api.post("/crm/responsaveis-tecnicos", rt)).data;
+    assert.ok(criado.id);
+    await fails(api.post("/crm/responsaveis-tecnicos", { ...rt, nome: "ANA SOUZA" }), 409, /já está cadastrado/);
+    as("pd");
+    assert.deepEqual((await api.get("/crm/responsaveis-tecnicos")).data.map((r) => r.nome), ["Ana Souza"]);
+    as("prod");
+    await fails(api.post("/crm/responsaveis-tecnicos", { nome: "Pedro", vinculo: "kuryos" }), 403);
+  });
+
   test("KO-08: serviços escolhidos no Bloco 0 do Kickoff chegam à cotação", async () => {
     as("com");
     assert.deepEqual((await api.get("/cadastros/servicos")).data.map((sv) => sv.id), ["s1", "s2"], "só os ativos");
