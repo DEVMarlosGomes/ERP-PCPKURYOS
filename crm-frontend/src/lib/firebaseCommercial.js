@@ -1667,7 +1667,8 @@ export function createCommercialRouter(h) {
           obs: doOrcamento
             ? `Gerado pela aprovação do ${contrato.numero_contrato} (Kickoff ${contrato.numero_kickoff}). Aguardando a assinatura do CGI: sem pedido nem OP até lá. Complete kg/caixa, lote padrão, capacidade e o que faltar (validade, densidade).`
             : `Gerado pela assinatura do ${contrato.numero_contrato} (Kickoff ${contrato.numero_kickoff}). Complete kg/caixa, lote padrão, capacidade e o que faltar (validade, densidade) antes da OP.`,
-          origemCrm: { ...cgi, kickoffId: contrato.kickoff_id || null, projetoId: projectId, amostraId: sample.id, variacaoId: variation.id,
+          // PCP-02: a emissão de OP lê o status do Kickoff daqui (o PCP não lê erp/kuryos).
+          origemCrm: { ...cgi, kickoffId: contrato.kickoff_id || null, kickoffStatus: kickoff?.status || null, projetoId: projectId, amostraId: sample.id, variacaoId: variation.id,
             clienteCrmId: crmClient.id, descricaoAplicacao: variation.descricao_aplicacao || "" },
           criadoEm: now(), criadoPor: userName(profile),
         };

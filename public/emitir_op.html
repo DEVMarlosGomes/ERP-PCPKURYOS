@@ -12,6 +12,7 @@
   <script src="shared/utils.js"></script>
   <script src="shared/itens-cadastro.js"></script>
   <script src="shared/pendencias-setor.js"></script>
+  <script src="shared/prontidao-op.js"></script>
   <script src="shared/qrcode-lib.js"></script>
   <script src="shared/etiqueta-caixa.js"></script>
   <script src="auth_check.js"></script>
@@ -128,6 +129,7 @@
       <div style="font-weight:700;font-size:15px" id="produtoNomeLabel"></div>
       <div class="field-hint" id="produtoDetalheLabel"></div>
       <div id="formulaWarning" class="alert alert-warning" style="display:none;margin-top:10px"></div>
+      <div id="prontidaoOpBox" class="alert" style="display:none;margin-top:10px" data-testid="prontidao-op"></div>
       <div id="pendenciasEmissao" class="alert alert-danger" style="display:none;margin-top:10px" data-testid="pendencias-emissao"></div>
     </div>
   </div>
@@ -484,7 +486,8 @@ function selecionarProduto(key) {
     if ((bomEscolhido.status || 'RASCUNHO') !== 'APROVADA') faltando.push('BOM');
     if ((especEscolhida.status || 'RASCUNHO') !== 'APROVADA') faltando.push('Especificação');
     warnBox.style.display = 'block';
-    warnBox.textContent = '⚠️ Nenhuma versão com Fórmula + BOM + Especificação todas aprovadas pra este produto -- usando a versão mais recente (' + formulaEscolhida.versao + '), ainda falta aprovar: ' + faltando.join(', ') + '. Emitir mesmo assim é permitido, mas confira com os responsáveis antes de liberar o lote.';
+    warnBox.textContent = '⚠️ Nenhuma versão com Fórmula + BOM + Especificação todas aprovadas pra este produto -- usando a versão mais recente (' + formulaEscolhida.versao + '), ainda falta aprovar: ' + faltando.join(', ') + '. ' +
+      (p.origemCrm ? 'SKU do CRM: a emissão fica bloqueada até as três estarem aprovadas (PCP-02).' : 'Emitir mesmo assim é permitido, mas confira com os responsáveis antes de liberar o lote.');
   } else {
     warnBox.style.display = 'none';
   }
@@ -543,6 +546,7 @@ function limparResumoCalc() {
 function renderPendenciasEmissao() {
   var box = document.getElementById('pendenciasEmissao');
   if (!box) return;
+  renderProntidao();
   if (!produtoSelecionado || !formulaEscolhida) { box.style.display = 'none'; box.innerHTML = ''; return; }
   var p = produtoSelecionado, falta = [];
   var dim = dimensaoNominalDoProduto(p);
@@ -567,6 +571,34 @@ function renderPendenciasEmissao() {
   // Abre sozinho uma vez por produto quando há trava que não se resolve nesta tela
   // (densidade se digita no dimensionamento, então sozinha não abre o quadro).
   if (falta.length - (faltaDensidade ? 1 : 0) > 0 && completarAbertoPara !== p.key) { completarAbertoPara = p.key; setTimeout(abrirCompletar, 50); }
+}
+
+// PCP-02 (23/10/2026): prontidão única (shared/prontidao-op.js). SKU nascida no CRM só emite com
+// tudo pronto; legado segue com aviso. Insumos: só aviso até o Dia D.
+var prontidaoAtual = null;
+function calcularProntidao() {
+  if (!produtoSelecionado || !formulaEscolhida) { prontidaoAtual = null; return null; }
+  var key = produtoSelecionado.key;
+  prontidaoAtual = ProntidaoOp.prontidaoOp({
+    produto: produtoSelecionado, formula: formulaEscolhida, bom: bomEscolhido,
+    especificacao: allEspecificacoes[chaveVersao(key, formulaEscolhida.versao)] || null,
+    pendentesFormula: ItensCadastro.problemas((formulaEscolhida && formulaEscolhida.itens) || {}, allMateriais, 'mpCodigo').length,
+    pendentesBom: ItensCadastro.problemas((bomEscolhido && bomEscolhido.itens) || {}, allMateriais, 'materialCodigo').length
+  });
+  return prontidaoAtual;
+}
+function renderProntidao() {
+  var box = document.getElementById('prontidaoOpBox');
+  if (!box) return;
+  var r = calcularProntidao();
+  if (!r) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.className = 'alert ' + (!r.pode ? 'alert-danger' : r.aviso ? 'alert-warning' : 'alert-success');
+  box.style.display = 'block';
+  box.innerHTML = '<b>' + (r.crm ? (r.pode ? 'Pronto para emitir (SKU do CRM)' : 'OP bloqueada — SKU do CRM só emite com tudo pronto') :
+      (r.aviso ? 'Produto sem a prontidão completa — a emissão é permitida, confira antes de liberar o lote' : 'Pronto para emitir')) + '</b>' +
+    '<ul style="margin:6px 0 0 18px;padding:0">' + r.itens.filter(function(i) { return i.aplica; }).map(function(i) {
+      return '<li>' + (i.ok ? '✅ ' : '❌ ') + escapeHtml(i.rotulo) + (i.ok ? '' : ' — <span style="font-size:12px">' + escapeHtml(i.onde) + '</span>') + '</li>';
+    }).join('') + '<li>ℹ️ ' + escapeHtml(r.avisoInsumos) + '</li></ul>';
 }
 
 var allPendencias = {}, completarAbertoPara = null, completarItens = [];
@@ -1351,6 +1383,7 @@ function montarDadosOP(lote, janela) {
     arquivoPdf: '', arquivoXlsx: '',
     // Campos novos do ERP unificado (Fase 3)
     formulaVersao: formulaEscolhida ? formulaEscolhida.versao : null,
+    prontidaoNaEmissao: prontidaoAtual ? { crm: prontidaoAtual.crm, faltando: prontidaoAtual.faltando, em: new Date().toISOString() } : null,
     bomVersao: formulaEscolhida ? formulaEscolhida.versao : null,
     massaLoteKg: calc.massaLoteKg, volumeGranelL: calc.volumeGranelL,
     pesoTeoricoUnG: calc.pesoTeoricoUnG, volumeTeoricoUnMl: calc.volumeTeoricoUnMl,
@@ -1402,6 +1435,13 @@ function reservarLoteEEmitir(tentativasRestantes, janela) {
 function emitirOP() {
   if (!produtoSelecionado || !calc || calc.pecasPrevistas <= 0) {
     showAlert('Preencha o dimensionamento do lote antes de emitir.', 'danger');
+    return;
+  }
+  calcularProntidao();
+  if (prontidaoAtual && !prontidaoAtual.pode) {
+    showAlert('OP bloqueada: SKU do CRM só emite com tudo pronto. Falta: ' + prontidaoAtual.itens.filter(function(i) { return i.aplica && !i.ok; })
+      .map(function(i) { return i.rotulo + ' (' + i.onde + ')'; }).join('; ') + '.', 'danger');
+    renderProntidao();
     return;
   }
   // Pedido do usuário: "não pode ser possível emitir uma OP sem data de

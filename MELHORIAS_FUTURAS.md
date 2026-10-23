@@ -367,6 +367,18 @@ correção da lista, apesar de ser a mais fácil.
 
 ## Planejamento / PCP
 
+- **PCP-02: trava da OP na regra do banco ficou de fora (23/10/2026)** — o pacote previa
+  `.validate` na criação de `ops/$op` conferindo `formulas|bom|especificacoes/{SKU}__vN/status
+  = APROVADA` e CGI assinado. Não entrou porque pelo menos 8 telas gravam em `ops/{lote}` com
+  `update` (`form.html`, `ops.html`, `historico.html`, `manipulacao.html`...), e algumas podem
+  criar o nó (apontamento de lote sem OP): uma regra na criação pararia a produção. Hoje a trava
+  vive em `shared/prontidao-op.js` + `emitir_op.html` (SKU do CRM bloqueia; legado avisa) e a OP
+  guarda `prontidaoNaEmissao`. Para pôr no banco: fazer toda criação de OP passar por um único
+  ponto que grave `produtoKey`, e só então a regra (`!data.exists() && newData.child('produtoKey')`).
+- **PCP-02: legado ainda só com aviso** — produto sem `origemCrm` emite com Fórmula/BOM/
+  Especificação não aprovadas (decisão de 2026-09: nenhuma estava aprovada). Medir quantos
+  produtos ativos têm as três aprovadas antes de virar trava para todos.
+
 Trabalho ativo, roteiro completo em `PLANO_PLANEJAMENTO_PCP.md` (não
 duplicado aqui) — só os 2 itens que esse plano marcou como fora de
 escopo por enquanto:
