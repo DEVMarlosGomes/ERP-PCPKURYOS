@@ -140,6 +140,13 @@ async function abrir(browser, estadoInicial, pagina) {
     await page.fill('#fNome-mat', 'Glicerina vegetal USP');
     await page.dispatchEvent('#fNome-mat', 'input');
     await page.waitForFunction(() => /Parecido/.test(document.getElementById('dupMat-box').innerText));
+    // ...e o material novo nasce reservando a chave tipo+nome no índice (regra do banco), no mesmo update.
+    await page.click('#modalSaveBtn-mat');
+    await page.waitForFunction(() => Object.keys(window.__db.materiais).length === 2);
+    const db2 = await page.evaluate(() => window.__db);
+    const novoKey = Object.keys(db2.materiais).find((k) => k !== 'MPGR-00008');
+    assert.equal(db2.materiais[novoKey].chaveDuplicidade, 'MPGR|GLICERINA VEGETAL USP');
+    assert.equal(db2.materiais_chave['MPGR|GLICERINA VEGETAL USP'], novoKey);
 
     assert.deepEqual(errors, [], 'erros na tela: ' + errors.join(' | '));
     console.log('run_duplicidade_material_ui_test: OK');

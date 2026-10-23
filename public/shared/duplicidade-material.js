@@ -62,5 +62,44 @@
       vinculadoEm: agora, vinculadoPor: autor || '' };
   }
 
-  return { normalizar: normalizar, chaveMaterial: chaveMaterial, candidatos: candidatos, duplicataExata: duplicataExata, vinculo: vinculo };
+  /* Índice materiais_chave/{tipo|NOME} → material (regra do banco: uma chave, um dono).
+     anterior = material gravado (null ao criar); novo = dados a gravar; indice = materiais_chave.
+     Devolve { chave, updates: {chave: materialKey|null}, erro }. Criar sempre reserva a chave.
+     Duplicata antiga (dos 9 grupos medidos em 22/10) que não muda de nome segue salvando: só
+     não ganha a chave, que é do primeiro código. Inativar libera a chave; renomear troca. */
+  function mudancasDoIndice(anterior, novo, materialKey, indice) {
+    var ix = indice || {};
+    var tomada = function(ch) { return ch && ix[ch] && ix[ch] !== materialKey; };
+    var nova = chaveMaterial(novo.tipo, novo.mpNome);
+    if (!anterior) {
+      if (tomada(nova)) return { erro: 'Já existe ' + ix[nova] + ' com este tipo e nome.' };
+      var u0 = {}; u0[nova] = materialKey;
+      return { chave: nova, updates: u0 };
+    }
+    var desejada = novo.ativo === false ? null : nova;
+    var antiga = anterior.ativo === false ? null : (anterior.chaveDuplicidade || chaveMaterial(anterior.tipo, anterior.mpNome));
+    if (desejada === antiga) return { chave: ix[desejada] === materialKey ? desejada : (anterior.chaveDuplicidade || null), updates: {} };
+    var updates = {};
+    if (antiga && ix[antiga] === materialKey) updates[antiga] = null;
+    if (desejada) {
+      if (tomada(desejada)) return { erro: 'Já existe ' + ix[desejada] + ' com este tipo e nome.' };
+      updates[desejada] = materialKey;
+    }
+    return { chave: desejada, updates: updates };
+  }
+
+  // Backfill do índice a partir dos materiais ativos: o menor código de cada chave é o dono.
+  function indiceInicial(materiais) {
+    var donos = {};
+    Object.keys(materiais || {}).sort().forEach(function(key) {
+      var m = materiais[key];
+      if (!m || m.ativo === false || !normalizar(m.mpNome)) return;
+      var ch = chaveMaterial(m.tipo, m.mpNome);
+      if (!donos[ch]) donos[ch] = key;
+    });
+    return donos;
+  }
+
+  return { normalizar: normalizar, chaveMaterial: chaveMaterial, candidatos: candidatos, duplicataExata: duplicataExata, vinculo: vinculo,
+    mudancasDoIndice: mudancasDoIndice, indiceInicial: indiceInicial };
 });

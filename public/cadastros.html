@@ -1800,6 +1800,7 @@ document.addEventListener('DOMContentLoaded', function() {
      aqui como tarefa (solicitacoes_cadastro_material/). Cadastrar pela tarefa fecha
      a tarefa no mesmo update. Regras puras em shared/sku-entrada.js. */
   var solicitacoesMat = {};
+  var indiceMat = {}; // CAD-01: materiais_chave (tipo|NOME → material), regra do banco recusa duplicata
   var solicitacaoMatEmCurso = null;
 
   function renderSolicitacoesMat() {
@@ -2807,8 +2808,13 @@ document.addEventListener('DOMContentLoaded', function() {
     if (editingKey) {
       data.mpCodigo = allMateriais[editingKey] ? allMateriais[editingKey].mpCodigo : document.getElementById('fCodigo-mat').value;
 
+      // CAD-01: renomear/inativar mexe na chave do índice no mesmo update (caminhos planos).
+      var ixEd = DuplicidadeMaterial.mudancasDoIndice(allMateriais[editingKey] || null, data, editingKey, indiceMat);
+      if (ixEd.erro) { showAlert(ixEd.erro + ' Diferencie o nome (cor, fornecedor, medida).', 'danger'); document.getElementById('modalSaveBtn-mat').disabled = false; return; }
+      data.chaveDuplicidade = ixEd.chave || null;
       var updates = {};
       updates['materiais/' + editingKey] = data;
+      Object.keys(ixEd.updates).forEach(function(ch) { updates['materiais_chave/' + ch] = ixEd.updates[ch]; });
 
       // Log de alteração (ver diffParaHistorico, shared/utils.js) -- mesmo
       // update() atômico da gravação real, nunca loga sem salvar de fato.
@@ -2832,8 +2838,13 @@ document.addEventListener('DOMContentLoaded', function() {
     nextSequential(db, 'config/contadores/materiais/' + tipo, tipo, 5).then(function(r) {
       var key = sanitizeKey(r.formatado);
       data.mpCodigo = r.formatado;
+      // CAD-01: material novo reserva a chave tipo+nome no mesmo update (a regra do banco exige).
+      var ixNovo = DuplicidadeMaterial.mudancasDoIndice(null, data, key, indiceMat);
+      if (ixNovo.erro) return Promise.reject(new Error(ixNovo.erro));
+      data.chaveDuplicidade = ixNovo.chave;
       var updates = {};
       updates['materiais/' + key] = data;
+      Object.keys(ixNovo.updates).forEach(function(ch) { updates['materiais_chave/' + ch] = ixNovo.updates[ch]; });
       if (solicitacaoMatEmCurso) {
         var fecha = SkuEntrada.fechamento(key, r.formatado, currentUserNome(), new Date().toISOString());
         Object.keys(fecha).forEach(function(campo) { updates['solicitacoes_cadastro_material/' + solicitacaoMatEmCurso + '/' + campo] = fecha[campo]; });
@@ -2914,6 +2925,7 @@ document.addEventListener('DOMContentLoaded', function() {
       solicitacoesMat = snap.val() || {};
       renderSolicitacoesMat();
     });
+    dbOnValue(db.ref('materiais_chave'), function(snap) { indiceMat = snap.val() || {}; }, { onError: function() { indiceMat = {}; } });
     dbOnValue(db.ref('fornecedores'), function(snap) {
       allFornecedores = snap.val() || {};
       refreshFhFornecedorOptions();
