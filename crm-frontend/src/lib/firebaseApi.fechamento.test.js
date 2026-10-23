@@ -57,10 +57,26 @@ test("fórmula com 99,5% não vai para Em Testes (422, falta 0,5%) e o status n�
   expect(memory.read(`${T}/pd_formulas/F1/locked`)).toBeUndefined();
 });
 
-test("completou a fórmula: passa", async () => {
+test("completou a fórmula: o servidor libera (INF-04) e passa", async () => {
+  const { liberarEtapaPd } = await import("@/lib/servidor");
+  vi.mocked(liberarEtapaPd).mockClear();
   memory.write(`${T}/pd_formula_items/I2/percentage`, 20);
   await api.put("/pd/requests/R1/status", { new_status: "IN_TESTS" });
   expect(memory.read(`${T}/pd_requests/R1/status`)).toBe("IN_TESTS");
+  expect(vi.mocked(liberarEtapaPd)).toHaveBeenCalledWith("R1", "IN_TESTS", false);
+});
+
+test("servidor recusa (422 com as linhas): o status não muda", async () => {
+  const { liberarEtapaPd } = await import("@/lib/servidor");
+  const erro = Object.assign(new Error("A fórmula precisa fechar 100% para concluir."), {
+    response: { status: 422, data: { detail: { codigo: "FORMULA_NAO_FECHA_100", linhas: ["Fórmula v1: Soma 99% — falta 1%."] } } },
+  });
+  vi.mocked(liberarEtapaPd).mockRejectedValueOnce(erro);
+  memory.write(`${T}/pd_requests/R1/status`, "IN_PROGRESS");
+  const r = await detalhe(api.put("/pd/requests/R1/status", { new_status: "IN_TESTS" }));
+  expect(r.status).toBe(422);
+  expect(r.detail.codigo).toBe("FORMULA_NAO_FECHA_100");
+  expect(memory.read(`${T}/pd_requests/R1/status`)).toBe("IN_PROGRESS");
 });
 
 test("variante do lote fora de 100% não é entregue ao cliente", async () => {

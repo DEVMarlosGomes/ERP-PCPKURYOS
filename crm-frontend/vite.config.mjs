@@ -25,7 +25,7 @@ export default defineConfig({
     },
   },
   build: { outDir: "build" },
-  test: { globals: true },
+  test: { globals: true, setupFiles: ["./src/test/setup.js"] },
   server: { host: "0.0.0.0", port: 3000 },
   preview: { host: "0.0.0.0", port: 3000 },
 });

@@ -2287,6 +2287,49 @@ exports.rearranjarLinhas = onCall({timeoutSeconds:120,memory:'512MiB'}, async re
   return {ok:true,operacaoId:request.data.operacaoId};
 });
 
+// ── P&D: só o servidor libera "Em Testes" e "Aguardando Aprovação" (AMO-03 + INF-04, 22/10/2026) ──
+// A regra do banco (erp/$tenant/pd_requests/$req/status) só aceita esses dois status com uma
+// liberação válida em erp/$tenant/pd_liberacoes_status/$req, que o cliente não consegue gravar.
+// Aqui a fórmula vigente e cada variante dos lotes ativos são conferidas de novo (100%, sem
+// q.s.p.) com a mesma regra da tela (fechamento-formula.js). Retrocesso do ADM de Aprovado
+// para Aguardando não refaz a conta (a fórmula já passou por ela). O resto da transição
+// (travar fórmula, nascer a amostra, histórico) continua no adaptador do CRM.
+const FechamentoFormula = require("./fechamento-formula");
+exports.liberarEtapaPd = onCall({timeoutSeconds: 60, memory: "512MiB"}, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Faça login.");
+  const uid = request.auth.uid;
+  const user = (await db.ref("usuarios/" + uid).get()).val() || {};
+  const tenant = user.tenant_id || (user.role === "admin" ? "kuryos" : "");
+  if (!tenant) throw new HttpsError("permission-denied", "Seu usuário não tem acesso ao P&D (sem tenant).");
+  const {requestId, novoStatus, voltar} = request.data || {};
+  if (!requestId || !["IN_TESTS", "WAITING_APPROVAL"].includes(novoStatus)) throw new HttpsError("invalid-argument", "Informe a solicitação e o status (Em Testes ou Aguardando Aprovação).");
+  const base = "erp/" + tenant;
+  const req = (await db.ref(base + "/pd_requests/" + requestId).get()).val();
+  if (!req) throw new HttpsError("not-found", "Solicitação do P&D não encontrada.");
+  if (voltar) {
+    if (!(novoStatus === "WAITING_APPROVAL" && req.status === "APPROVED")) throw new HttpsError("failed-precondition", "Retrocesso não permitido.");
+  } else {
+    const lista = async (col) => Object.entries((await db.ref(base + "/" + col).get()).val() || {}).map(([id, v]) => ({id: (v && v.id) || id, ...(v || {})}));
+    const dev = (await lista("pd_developments")).find((d) => d.request_id === requestId || d.pd_request_id === requestId);
+    if (dev) {
+      const formulas = (await lista("pd_formulas")).filter((f) => f.development_id === dev.id);
+      const ids = new Set(formulas.map((f) => f.id));
+      const lotes = (await lista("pd_sample_batches")).filter((l) => l.development_id === dev.id);
+      lotes.forEach((l) => l.formula_base_id && ids.add(l.formula_base_id));
+      const itens = (await lista("pd_formula_items")).filter((i) => ids.has(i.formula_id));
+      const r = FechamentoFormula.conferirDesenvolvimento(formulas, itens, lotes);
+      if (!r.ok) {
+        throw new HttpsError("failed-precondition", "A fórmula precisa fechar 100% para concluir.", {
+          codigo: r.codigo, linhas: r.linhas, formula: r.formula, pendencias: r.pendencias,
+          responsavel: req.assigned_to_name || (r.vigente && r.vigente.created_by_name) || "",
+        });
+      }
+    }
+  }
+  await db.ref(base + "/pd_liberacoes_status/" + requestId).set({status: novoStatus, ate: Date.now() + 2 * 60 * 1000, por: uid, em: new Date().toISOString()});
+  return {ok: true};
+});
+
 exports.apontarRetrabalho = onCall({timeoutSeconds:120,memory:'512MiB'}, async request => {
   if(!request.auth) throw new HttpsError('unauthenticated','Faça login.');
   const uid=request.auth.uid;

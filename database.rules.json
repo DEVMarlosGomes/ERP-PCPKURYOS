@@ -103,7 +103,21 @@
     },
     "materiais": {
       ".read": "auth != null",
-      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))"
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))",
+      // CAD-01 (22/10/2026): material NOVO só nasce reservando a chave tipo+nome em materiais_chave
+      // no mesmo update (shared/duplicidade-material.js:chaveMaterial). Editar o que existe não muda.
+      "$material": {
+        ".validate": "data.exists() || (newData.child('chaveDuplicidade').isString() && newData.parent().parent().child('materiais_chave').child(newData.child('chaveDuplicidade').val()).val() == $material)"
+      }
+    },
+    // CAD-01: índice tipo+nome → material. Uma chave tem um dono só: segundo material com o mesmo
+    // tipo e nome é recusado pelo banco. Apagar (inativar/renomear) libera a chave.
+    "materiais_chave": {
+      ".read": "auth != null",
+      ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))",
+      "$chave": {
+        ".validate": "newData.isString() && (!data.exists() || data.val() == newData.val())"
+      }
     },
     "historico_materiais": {
       ".read": "auth != null",
@@ -469,7 +483,39 @@
       // ADM ou usuário do mesmo tenant_id (igual ao que o repo do ERP mesclava).
       "$tenant": {
         ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('tenant_id').val() == $tenant)",
-        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('tenant_id').val() == $tenant)"
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('tenant_id').val() == $tenant)",
+        // AMO-03 + INF-04 (22/10/2026): "Em Testes" e "Aguardando Aprovação" só com liberação do
+        // servidor (functions/index.js:liberarEtapaPd confere os 100%). Status que não muda passa.
+        "pd_requests": {
+          "$req": {
+            "status": {
+              ".validate": "newData.val() == data.val() || (newData.val() != 'IN_TESTS' && newData.val() != 'WAITING_APPROVAL') || (root.child('erp').child($tenant).child('pd_liberacoes_status').child($req).child('status').val() == newData.val() && root.child('erp').child($tenant).child('pd_liberacoes_status').child($req).child('ate').val() > now)"
+            }
+          }
+        },
+        // Só o servidor (Admin SDK, que não passa por regra) grava liberação.
+        "pd_liberacoes_status": {
+          ".validate": false
+        },
+        // COM-02: aprovação do cliente nunca no futuro (2 min de folga para relógio adiantado).
+        "crm_samples": {
+          "$amostra": {
+            "variacoes": {
+              "$v": {
+                "aprovacao_cliente": {
+                  "aprovado_em_ms": { ".validate": "newData.isNumber() && newData.val() <= now + 120000" }
+                }
+              }
+            }
+          }
+        },
+        "crm_propostas": {
+          "$proposta": {
+            "negociacao_aprovacao_cliente": {
+              "aprovado_em_ms": { ".validate": "newData.isNumber() && newData.val() <= now + 120000" }
+            }
+          }
+        }
       }
     },
     "retrabalhos_linhas": {

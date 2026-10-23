@@ -14,6 +14,7 @@ import { erroNaoFecha, fechamentoFormula, pendenciasDoLote } from "@/lib/fechame
 import { baseVigente, planoDaBase, substituicoesForaDaFragrancia } from "@/lib/formulacaoBase";
 import { contatosDoCliente, entradaHistoricoAprovacao, validarAprovacaoCliente } from "@/lib/aprovacaoCliente";
 import { acrescentarHistorico } from "@/lib/historicoTimeline";
+import { liberarEtapaPd } from "@/lib/servidor";
 import { cotacaoDaFormula, situacao as situacaoCambio, validarSpread } from "@/lib/cambio";
 import { validarLeitura } from "@/lib/estabilidade";
 import { TRECHO_AMOSTRA, etapaPelaAmostra, passosAte } from "@/lib/etapaPelaAmostra";
@@ -1830,7 +1831,9 @@ async function dispatch(e, t) {
     const s = (await all(_, "pd_developments")).find(e => e.request_id === t.id || e.pd_request_id === t.id) || null;
     // AMO-03: concluir a manipulação ou entregar ao cliente exige 100% na fórmula vigente e em
     // cada variante dos lotes (tolerância 0,001; antes ±0,5 só na fórmula). Popup na tela.
-    if (("IN_TESTS" === o || "WAITING_APPROVAL" === o) && s) await conferirFechamentoPd(_, t, s);
+    if (("IN_TESTS" === o || "WAITING_APPROVAL" === o) && s && !r.is_backward) await conferirFechamentoPd(_, t, s);
+    // INF-04: a regra do banco só aceita esses dois status com a liberação do servidor (que confere de novo).
+    if ("IN_TESTS" === o || "WAITING_APPROVAL" === o) await liberarEtapaPd(t.id, o, Boolean(r.is_backward));
     if ("IN_TESTS" === o) {
       if (!s) throw apiError(400, "Inicie o desenvolvimento antes de avançar para Em Testes.");
       const e = (await related(_, "pd_formulas", "development_id", s.id)).sort((e, t) => Number(t.version || 0) - Number(e.version || 0))[0];
