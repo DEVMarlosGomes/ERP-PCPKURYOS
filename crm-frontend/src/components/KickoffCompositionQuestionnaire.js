@@ -1,11 +1,13 @@
-import { Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Plus, RotateCcw, Settings2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
+import CatalogoComponentesDialog from "@/components/CatalogoComponentesDialog";
 import { normalizarLinhaComponente, pendenciasQuestionario, simNao } from "@/lib/kickoffPendencias";
+import { CATALOGO_PADRAO, OUTRO, TIPO_OUTRO, escolherTipo, especificacaoDasCaracteristicas, tiposDaLinha, valorAtributo } from "@/lib/tiposComponente";
 
 const BLOCO2_COMPONENTS = [
   ["frasco_pote_bisnaga", "Frasco / pote / bisnaga"],
@@ -271,11 +273,85 @@ function CheckboxGroup({ label, values = [], onChange, options }) {
   );
 }
 
+// KO-04: um atributo do tipo — menu com "Outro", texto ou número com unidade.
+function AtributoCampo({ def, linha, onChange }) {
+  const valor = linha.atributos?.[def.chave] ?? "";
+  const set = (campo, v) => onChange({ [campo]: { ...(linha[campo] || {}), [def.chave]: v } });
+  const vazio = def.obrigatorio !== false && !valorAtributo(linha, def);
+  const borda = vazio ? "border-amber-400 dark:border-amber-600" : "";
+  const rotulo = <Label className="text-[11px]">{def.nome}{def.obrigatorio !== false ? " *" : ""}</Label>;
+  if (def.tipo === "enum" && (def.opcoes || []).length) {
+    return (
+      <div className="space-y-1">
+        {rotulo}
+        <select className={`h-8 w-full rounded-md border bg-background px-2 text-xs ${borda}`} value={valor} onChange={(ev) => set("atributos", ev.target.value)}>
+          <option value="">Selecione…</option>
+          {def.opcoes.map((o) => <option key={o} value={o}>{o}</option>)}
+          <option value={OUTRO}>Outro…</option>
+        </select>
+        {valor === OUTRO && <Input className="h-8 text-xs" placeholder="Qual?" value={linha.atributos_outro?.[def.chave] || ""} onChange={(ev) => set("atributos_outro", ev.target.value)} />}
+      </div>
+    );
+  }
+  if (def.tipo === "numero_unidade") {
+    const unidades = def.unidades || [];
+    const un = linha.atributos_unidade?.[def.chave] || unidades[0] || "";
+    return (
+      <div className="space-y-1">
+        {rotulo}
+        <div className="flex gap-1">
+          <Input type="number" min="0" step="any" className={`h-8 text-xs ${borda}`} value={valor}
+            onChange={(ev) => onChange({ atributos: { ...(linha.atributos || {}), [def.chave]: ev.target.value }, atributos_unidade: { ...(linha.atributos_unidade || {}), [def.chave]: un } })} />
+          {unidades.length > 1 ? (
+            <select className="h-8 rounded-md border bg-background px-1 text-xs" value={un} onChange={(ev) => set("atributos_unidade", ev.target.value)}>
+              {unidades.map((u) => <option key={u} value={u}>{u}</option>)}
+            </select>
+          ) : <span className="self-center text-xs text-muted-foreground">{un}</span>}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-1">
+      {rotulo}
+      <Input className={`h-8 text-xs ${borda}`} value={valor} onChange={(ev) => set("atributos", ev.target.value)} />
+    </div>
+  );
+}
+
+// KO-04: características do tipo escolhido + "Especificação das características" montada, com complemento.
+function CaracteristicasDaLinha({ linha, catalogo, onChange }) {
+  const tp = catalogo.find((c) => c.codigo === linha.tipo_componente);
+  // Tipo que saiu do catálogo: os atributos gravados na linha continuam editáveis como texto.
+  const defs = tp ? tp.atributos : (linha.atributos_def || []).map((d) => ({ ...d, tipo: d.tipo === "enum" ? "texto" : d.tipo }));
+  const espec = especificacaoDasCaracteristicas(linha);
+  return (
+    <div className="space-y-2 rounded-md bg-muted/40 p-3" data-testid="caracteristicas-componente">
+      {defs.length > 0 && (
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {defs.map((def) => <AtributoCampo key={def.chave} def={def} linha={linha} onChange={onChange} />)}
+        </div>
+      )}
+      <div className="grid gap-2 lg:grid-cols-[1fr_320px]">
+        <div>
+          <Label className="text-[11px]">Especificação das características</Label>
+          <p className="min-h-8 rounded-md border bg-background px-2 py-1.5 text-xs" data-testid="especificacao-caracteristicas">{espec || "—"}</p>
+        </div>
+        <div>
+          <Label className="text-[11px]">Complemento</Label>
+          <Input className="h-8 text-xs" placeholder="O que o menu não cobre" value={linha.especificacao_complemento || ""}
+            onChange={(ev) => onChange({ especificacao_complemento: ev.target.value })} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // KO-05: tipo de material do Cadastros por bloco (primária EP, secundária ES, terciária ET).
 const TIPO_DO_BLOCO = { bloco2: "EP", bloco3: "ES", bloco4: "ET" };
 const rotuloMaterial = (m) => `${m.codigo_interno} — ${m.nome}`;
 
-function ComponentTable({ title, value, onChange, defaults, hasArt = false, bloco, materiais = [] }) {
+function ComponentTable({ title, value, onChange, defaults, hasArt = false, bloco, materiais = [], catalogo = [] }) {
   const list = value?.componentes || [];
   const terciaria = bloco === "bloco4";
   const campoQtd = terciaria ? "unidades_por_embalagem" : "qtd_por_unidade";
@@ -296,6 +372,11 @@ function ComponentTable({ title, value, onChange, defaults, hasArt = false, bloc
     } else {
       updateFields(index, { material_codigo: "", material_nome: "", especificacao_fornecedor_codigo: texto });
     }
+  };
+  const mudarTipo = (index, codigo) => {
+    const row = list[index] || {};
+    if (codigo === TIPO_OUTRO) updateFields(index, escolherTipo(row, TIPO_OUTRO));
+    else updateFields(index, escolherTipo(row, catalogo.find((c) => c.codigo === codigo) || null));
   };
   const removeRow = (index) => onChange({ componentes: list.filter((_, rowIndex) => rowIndex !== index) });
   const clearRow = (index) => {
@@ -355,9 +436,26 @@ function ComponentTable({ title, value, onChange, defaults, hasArt = false, bloc
               // KO-03: Aplicável? Não ou Definido? Não = linha resolvida; o resto só vale com os dois em Sim.
               const aplicavel = normalizeBinary(row.aplicavel) === "sim";
               const precisa = aplicavel && normalizeBinary(row.definido) === "sim";
+              const tipos = tiposDaLinha(catalogo, bloco, row.id);
+              const mostraCaracteristicas = precisa && !row.material_codigo && row.tipo_componente;
               return (
-              <tr key={row.id || index} className={normalizeBinary(row.aplicavel) === "nao" ? "opacity-60" : ""}>
-                <td className="px-2 py-2"><Input value={row.componente || ""} onChange={(event) => updateRow(index, "componente", event.target.value)} /></td>
+              <Fragment key={row.id || index}>
+              <tr className={normalizeBinary(row.aplicavel) === "nao" ? "opacity-60" : ""}>
+                <td className="px-2 py-2 space-y-1">
+                  <Input value={row.componente || ""} onChange={(event) => updateRow(index, "componente", event.target.value)} />
+                  {aplicavel && !row.material_codigo && (
+                    <select value={row.tipo_componente || ""} onChange={(event) => mudarTipo(index, event.target.value)} data-testid="tipo-componente"
+                      className={`h-8 w-full rounded-md border bg-background px-2 text-xs ${precisa && !row.tipo_componente && !row.especificacao_fornecedor_codigo && !row.item_novo ? "border-amber-400 dark:border-amber-600" : ""}`}>
+                      <option value="">Tipo…</option>
+                      {tipos.map((tp) => <option key={tp.codigo} value={tp.codigo}>{tp.nome}</option>)}
+                      <option value={TIPO_OUTRO}>Outro…</option>
+                    </select>
+                  )}
+                  {aplicavel && row.tipo_componente === TIPO_OUTRO && (
+                    <Input className="h-8 text-xs" placeholder="Qual tipo? Descreva" value={row.tipo_componente_outro || ""}
+                      onChange={(event) => updateRow(index, "tipo_componente_outro", event.target.value)} />
+                  )}
+                </td>
                 <td className="px-2 py-2"><YesNoToggle compact value={row.aplicavel} onChange={(next) => updateRow(index, "aplicavel", next)} /></td>
                 <td className="px-2 py-2">{aplicavel ? <YesNoToggle compact value={row.definido} onChange={(next) => updateRow(index, "definido", next)} /> : <span className="text-xs text-muted-foreground">—</span>}</td>
                 <td className="px-2 py-2">
@@ -411,6 +509,14 @@ function ComponentTable({ title, value, onChange, defaults, hasArt = false, bloc
                   </div>
                 </td>
               </tr>
+              {mostraCaracteristicas && (
+                <tr className="bg-muted/10">
+                  <td colSpan={hasArt ? 10 : 8} className="px-2 pb-3 pt-0">
+                    <CaracteristicasDaLinha linha={row} catalogo={catalogo} onChange={(fields) => updateFields(index, fields)} />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
               );
             })}
           </tbody>
@@ -423,12 +529,19 @@ function ComponentTable({ title, value, onChange, defaults, hasArt = false, bloc
   );
 }
 
-export default function KickoffCompositionQuestionnaire({ value, onChange, onSave, saving }) {
+const LINHAS_DO_NIVEL = { primaria: BLOCO2_COMPONENTS, secundaria: BLOCO3_COMPONENTS, terciaria: BLOCO4_COMPONENTS };
+
+export default function KickoffCompositionQuestionnaire({ value, onChange, onSave, saving, admin = false }) {
   const q = mergeQuestionnaire(value);
   const pend = pendenciasQuestionario(q).status;
   const [materiais, setMateriais] = useState([]);
+  const [catalogo, setCatalogo] = useState(CATALOGO_PADRAO);
+  const [catalogoAberto, setCatalogoAberto] = useState(false);
+  const carregarCatalogo = () => api.get("/config/tipos-componente")
+    .then(({ data }) => { if (Array.isArray(data) && data.length) setCatalogo(data); }).catch(() => {});
   useEffect(() => {
     api.get("/cadastros/materiais").then(({ data }) => setMateriais(Array.isArray(data) ? data : [])).catch(() => setMateriais([]));
+    carregarCatalogo();
   }, []);
   const update = (section, field, nextValue) => {
     onChange({ ...q, [section]: { ...(q[section] || {}), [field]: nextValue } });
@@ -436,6 +549,14 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
 
   return (
     <div className="space-y-4" data-testid="kickoff-composition-questionnaire">
+      {admin && (
+        <div className="flex justify-end">
+          <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setCatalogoAberto(true)}>
+            <Settings2 className="h-3.5 w-3.5" />Catálogo de componentes
+          </Button>
+          <CatalogoComponentesDialog open={catalogoAberto} onOpenChange={setCatalogoAberto} linhas={LINHAS_DO_NIVEL} onSalvo={carregarCatalogo} />
+        </div>
+      )}
       <Section title="Bloco 0 - Identificacao e comercial" pendencias={pend.bloco0.pendencias}>
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Cliente" value={q.bloco0.cliente} onChange={(v) => update("bloco0", "cliente", v)} />
@@ -507,15 +628,15 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
       </Section>
 
       <Section title="Bloco 2 - Embalagem primaria e sistema de fechamento" pendencias={pend.bloco2.pendencias}>
-        <ComponentTable title="Componentes" bloco="bloco2" materiais={materiais} value={q.bloco2} defaults={BLOCO2_COMPONENTS} onChange={(v) => update("bloco2", "componentes", v.componentes)} />
+        <ComponentTable title="Componentes" bloco="bloco2" materiais={materiais} catalogo={catalogo} value={q.bloco2} defaults={BLOCO2_COMPONENTS} onChange={(v) => update("bloco2", "componentes", v.componentes)} />
       </Section>
 
       <Section title="Bloco 3 - Embalagem secundaria e comunicacao" pendencias={pend.bloco3.pendencias}>
-        <ComponentTable title="Componentes graficos" bloco="bloco3" materiais={materiais} value={q.bloco3} defaults={BLOCO3_COMPONENTS} hasArt onChange={(v) => update("bloco3", "componentes", v.componentes)} />
+        <ComponentTable title="Componentes graficos" bloco="bloco3" materiais={materiais} catalogo={catalogo} value={q.bloco3} defaults={BLOCO3_COMPONENTS} hasArt onChange={(v) => update("bloco3", "componentes", v.componentes)} />
       </Section>
 
       <Section title="Bloco 4 - Embalagem terciaria e logistica" pendencias={pend.bloco4.pendencias}>
-        <ComponentTable title="Componentes logisticos" bloco="bloco4" materiais={materiais} value={q.bloco4} defaults={BLOCO4_COMPONENTS} onChange={(v) => update("bloco4", "componentes", v.componentes)} />
+        <ComponentTable title="Componentes logisticos" bloco="bloco4" materiais={materiais} catalogo={catalogo} value={q.bloco4} defaults={BLOCO4_COMPONENTS} onChange={(v) => update("bloco4", "componentes", v.componentes)} />
       </Section>
 
       <Section title="Bloco 5 - Qualidade de recebimento" pendencias={pend.bloco5.pendencias}>

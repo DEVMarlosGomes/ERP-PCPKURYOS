@@ -89,6 +89,13 @@ const negado = (p, msg) => assert.rejects(p, /PERMISSION_DENIED|permission_denie
   await negado(novo.ref('usuarios/novo').set({role: 'admin', email: 'novo@x.com'}), 'quem cria a própria conta não vira admin');
   await adm.ref('usuarios/novo/role').set('pd');
 
+  // ── KO-04 (23/10): catálogo de componentes do Kickoff, só o ADM grava ──
+  const estojo = {codigo: 'ESTOJO', nome: 'Estojo', nivel_embalagem: 'secundaria', atributos: [{chave: 'material', nome: 'Material', tipo: 'texto'}]};
+  await negado(cad.ref('config/tipos_componente/ESTOJO').set(estojo), 'PCP grava config/, mas não o catálogo');
+  await adm.ref('config/tipos_componente/ESTOJO').set(estojo);
+  await negado(adm.ref('config/tipos_componente/X').set({nome: 'x'}), 'tipo sem nível');
+  await cad.ref('config/outra_chave').set(1); // o resto de config/ segue como antes
+
   console.log('run_pacote_20261022_rules_test: OK');
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -10,6 +10,7 @@
  * Funções puras: nada aqui lê ou grava no banco. */
 
 import { normalizarLinhaComponente, simNao, unidadesPorEmbalagem } from "./kickoffPendencias";
+import { especificacaoDasCaracteristicas } from "./tiposComponente";
 
 export { unidadesPorEmbalagem };
 
@@ -42,11 +43,14 @@ export function linhasDeEmbalagem(questionario, { numeroKickoff = "", volumePedi
       const total = !volumePedido || porUnidade === null ? null
         : (terciaria ? Math.ceil(volumePedido / unidades) : Math.ceil(porUnidade * volumePedido));
       const tipo = tipoDaLinha(bloco, r.id);
+      // KO-04: sem item do Cadastros, a especificação é a montada pelo tipo e atributos escolhidos.
+      const peloTipo = !r.material_codigo && r.tipo_componente ? especificacaoDasCaracteristicas(r) : "";
       linhas.push({
         id: `${bloco}-${r.id}`, componente_id: r.id, tipo, nivel: NIVEL_DO_BLOCO[bloco],
         // O que Compras lê: o material do Cadastros; senão a especificação; senão o nome do componente.
-        descricao: r.material_nome || (r.item_novo ? r.item_novo_descricao : r.especificacao_fornecedor_codigo) || r.componente || "", componente: r.componente || "",
-        especificacao: r.item_novo ? r.item_novo_descricao || "" : r.especificacao_fornecedor_codigo || "",
+        descricao: r.material_nome || peloTipo || (r.item_novo ? r.item_novo_descricao : r.especificacao_fornecedor_codigo) || r.componente || "", componente: r.componente || "",
+        especificacao: peloTipo || (r.item_novo ? r.item_novo_descricao || "" : r.especificacao_fornecedor_codigo || ""),
+        tipo_componente: r.tipo_componente || "",
         codigo_interno: r.material_codigo || `${numeroKickoff}-${r.id}`, material_codigo: r.material_codigo || "",
         item_novo: Boolean(r.item_novo), definido: simNao(r.definido) === "sim",
         fornecido_por: r.fornecido_por || "", fornecedor_principal: { id: null, nome: r.fornecedor_nome || "" },

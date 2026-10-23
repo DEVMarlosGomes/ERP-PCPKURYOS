@@ -8,6 +8,8 @@
  * Pendência = obrigatório ∧ visível pela condição ∧ vazio (RFC-001 §9).
  * Funções puras: nada aqui lê ou grava no banco. */
 
+import { TIPO_OUTRO, atributosPendentes } from "./tiposComponente";
+
 const VAZIO = (v) => v === undefined || v === null || (typeof v === "string" && !v.trim()) || (Array.isArray(v) && !v.length);
 
 // Três estados. Valor antigo gravado como true/false continua valendo.
@@ -46,7 +48,7 @@ export const ROTULOS = {
   responsavel_kuryos: "Responsável Kuryos", responsavel_cliente: "Responsável cliente", data_preenchimento: "Data do preenchimento",
   aplicavel: "Aplicável?", definido: "Definido?", fornecido_por: "Fornecido por",
   especificacao_fornecedor_codigo: "Item do Cadastros ou especificação", arte_cria_aprova: "Arte: cria / aprova", arte_aprovada: "Arte aprovada?",
-  item_novo_descricao: "Descrição do item novo", qtd_por_unidade: "Quantidade por unidade", unidades_por_embalagem: "Unidades por embalagem",
+  item_novo_descricao: "Descrição do item novo", tipo_componente_outro: "Qual tipo (Outro)", qtd_por_unidade: "Quantidade por unidade", unidades_por_embalagem: "Unidades por embalagem",
 };
 
 /* KO-05 (23/10/2026): "Fornecido por" é Kuryos ou Cliente (menu). Medido em 22/10 nos 11 Kickoffs:
@@ -109,7 +111,13 @@ export function pendenciasDaLinha(linha, comArte = false, bloco = comArte ? "blo
   if (definido === "nao") return [];
   const faltam = [];
   if (VAZIO(r.fornecido_por)) faltam.push("fornecido_por");
-  if (r.item_novo) {
+  // KO-04: sem item do Cadastros, o tipo escolhido no menu especifica o componente — todos os
+  // atributos obrigatórios do tipo preenchidos. Item do Cadastros traz as características dele.
+  const peloTipo = VAZIO(r.material_codigo) && !VAZIO(r.tipo_componente);
+  if (peloTipo) {
+    if (r.tipo_componente === TIPO_OUTRO && VAZIO(r.tipo_componente_outro)) faltam.push("tipo_componente_outro");
+    for (const def of atributosPendentes(r)) faltam.push(`atributos.${def.chave}`);
+  } else if (r.item_novo) {
     if (VAZIO(r.item_novo_descricao)) faltam.push("item_novo_descricao");
   } else if (VAZIO(r.material_codigo) && VAZIO(r.especificacao_fornecedor_codigo)) faltam.push("especificacao_fornecedor_codigo");
   const campoQtd = QTD_DO_BLOCO[bloco];
@@ -142,7 +150,8 @@ export function pendenciasQuestionario(questionario) {
     if (["bloco2", "bloco3", "bloco4"].includes(bloco)) {
       (dados.componentes || []).forEach((linha, i) => {
         for (const campo of pendenciasDaLinha(linha, bloco === "bloco3", bloco, q.bloco0 || {})) {
-          pend.push({ campo: `componentes[${i}].${campo}`, rotulo: `${linha.componente || `Componente ${i + 1}`}: ${ROTULOS[campo] || campo}` });
+          const atributo = campo.startsWith("atributos.") && (linha.atributos_def || []).find((d) => `atributos.${d.chave}` === campo);
+          pend.push({ campo: `componentes[${i}].${campo}`, rotulo: `${linha.componente || `Componente ${i + 1}`}: ${atributo ? atributo.nome : ROTULOS[campo] || campo}` });
         }
       });
     }

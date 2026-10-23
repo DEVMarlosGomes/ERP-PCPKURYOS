@@ -17,6 +17,7 @@ import { acrescentarHistorico } from "@/lib/historicoTimeline";
 import { liberarEtapaPd } from "@/lib/servidor";
 import { cotacaoDaFormula, situacao as situacaoCambio, validarSpread } from "@/lib/cambio";
 import { validarLeitura } from "@/lib/estabilidade";
+import { CATALOGO_PADRAO, mesclarCatalogo, validarTipoComponente } from "@/lib/tiposComponente";
 import { TRECHO_AMOSTRA, etapaPelaAmostra, passosAte } from "@/lib/etapaPelaAmostra";
 import { bloqueioPdComCliente, cardParaSolicitacao, cardsVisiveis, rotaDeBancada, statusPeloRetornoDoCliente } from "@/lib/pdCards";
 import {
@@ -1989,6 +1990,21 @@ async function dispatch(e, t) {
     origem_integracao: "cadastro_produtos"
   })), i);
   if ("GET" === e && "/cadastros/materiais" === S) return response(await integratedMaterials(_), i);
+  // KO-04: catálogo de tipos de componente = padrão do código + config/tipos_componente (ADM edita, sem deploy).
+  if ("GET" === e && "/config/tipos-componente" === S) {
+    const doBanco = (await get(ref(firebaseDb, "config/tipos_componente")).catch(() => null))?.val() || {};
+    return response(mesclarCatalogo(CATALOGO_PADRAO, doBanco), i);
+  }
+  {
+    const tipoComp = S.match(/^\/config\/tipos-componente\/([A-Za-z0-9_]+)$/);
+    if ("PUT" === e && tipoComp) {
+      requireAdmin(u, "Editar o catálogo de componentes");
+      const v = validarTipoComponente({ ...r, codigo: tipoComp[1] });
+      if (!v.ok) throw apiError(422, v.erros.join(" "));
+      await set(ref(firebaseDb, `config/tipos_componente/${v.tipo.codigo}`), { ...v.tipo, atualizado_por: pdUserName(u), atualizado_em: now() });
+      return response(v.tipo, i);
+    }
+  }
   if ("GET" === e && "/cadastros/fragrancias" === S) return response(await all(_, "fragrancias"), i);
   if ("GET" === e && "/compras/fornecedores" === S) return response((await masterAll("fornecedores")).map(e => ({
     ...e,

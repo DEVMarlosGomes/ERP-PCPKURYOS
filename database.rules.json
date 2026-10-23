@@ -50,6 +50,13 @@
           ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('compras').val() == true)",
           ".validate": "newData.isNumber() && (!data.exists() || newData.val() > data.val())"
         }
+      },
+      // KO-04 (23/10/2026): catálogo de tipos de componente do Kickoff — só o ADM grava.
+      // .validate porque o .write de config/ (admin|pcp|módulo config) desce para os filhos.
+      "tipos_componente": {
+        "$codigo": {
+          ".validate": "root.child('usuarios').child(auth.uid).child('role').val() == 'admin' && newData.child('nome').isString() && newData.child('nivel_embalagem').isString()"
+        }
       }
     },
     "usuarios": {

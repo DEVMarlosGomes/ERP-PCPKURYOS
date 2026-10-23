@@ -573,4 +573,19 @@ describe("caminhos de exceção", () => {
     await fails(api.put("/crm/skus/PRF-LUMI-0001", { nome: "x" }), 409, /Cadastros > Produtos/);
     await fails(api.get("/crm/skus/PRF-LUMI-0001/saldo"), 409, /Dia D/);
   });
+  test("KO-04: catálogo de componentes — padrão + config, só o ADM grava, e aparece sem deploy", async () => {
+    as("com");
+    const antes = (await api.get("/config/tipos-componente")).data;
+    expect(antes.find((tp) => tp.codigo === "POTE").atributos.length).toBeGreaterThan(5);
+    const estojo = { nome: "Estojo", nivel_embalagem: "secundaria", linha: "cartucho", atributos: [{ nome: "Material", tipo: "enum", opcoes: ["Cartão", "Madeira"] }] };
+    await fails(api.put("/config/tipos-componente/ESTOJO", estojo), 403, /administrador/);
+    as("adm");
+    await fails(api.put("/config/tipos-componente/ESTOJO", { ...estojo, atributos: [] }), 422, /atributo/);
+    await api.put("/config/tipos-componente/ESTOJO", estojo);
+    expect(db("config/tipos_componente/ESTOJO")).toMatchObject({ codigo: "ESTOJO", nivel_embalagem: "secundaria", atualizado_por: "Ana ADM" });
+    as("com");
+    const depois = (await api.get("/config/tipos-componente")).data;
+    expect(depois.find((tp) => tp.codigo === "ESTOJO").atributos[0]).toMatchObject({ chave: "material", opcoes: ["Cartão", "Madeira"] });
+    expect(depois.length).toBe(antes.length + 1);
+  });
 });
