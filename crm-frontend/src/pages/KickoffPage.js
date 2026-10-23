@@ -240,7 +240,7 @@ export default function KickoffPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl sm:text-3xl font-heading font-semibold tracking-tight">{kickoff.numero_kickoff}</h1>
+            <h1 className="text-2xl sm:text-3xl font-heading font-semibold tracking-tight">{kickoff.titulo || kickoff.numero_kickoff}</h1>
             <Badge variant={STATUS_TONE[kickoff.status] || "secondary"}>{STATUS_LABEL[kickoff.status] || kickoff.status}</Badge>
             <Badge variant="outline">{kickoff.versao}</Badge>
           </div>

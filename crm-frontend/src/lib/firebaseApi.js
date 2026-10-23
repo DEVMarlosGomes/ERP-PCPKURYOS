@@ -1317,6 +1317,8 @@ async function dispatch(e, t) {
         updated_at: criadoEm
       }));
     }
+    // D-2 (RFC-001): o Kickoff nasce em rascunho junto com o projeto.
+    for (const projeto of t) await commercial.afterProjectCreate(_, projeto, u);
     return response({
       count: t.length,
       projects: t

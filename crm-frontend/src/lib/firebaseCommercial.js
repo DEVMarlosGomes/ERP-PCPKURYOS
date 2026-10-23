@@ -30,6 +30,7 @@ import { entradaHistoricoAprovacao, validarAprovacaoCliente } from "@/lib/aprova
 import { acrescentarHistorico } from "@/lib/historicoTimeline";
 import { pendenciasQuestionario, simNao } from "@/lib/kickoffPendencias";
 import { BLOCOS_DA_ETAPA, aguardaPd, assinaturaDoBloco, congelarTodos, estadoDosBlocos, validarBlocos } from "@/lib/kickoffBlocos";
+import { preencherVazios } from "@/lib/kickoffAutopreenchimento";
 
 export const NOT_HANDLED = Symbol("not-handled");
 
@@ -628,12 +629,23 @@ export function createCommercialRouter(h) {
   // Antes de fechar o pedido: sem fórmula registrada o Kickoff não abre. Checar
   // antes de mover evita projeto em "pedido fechado" sem Kickoff.
   async function assertKickoffPossible(tenant, projectId, profile) {
-    const existing = (await related(tenant, "kickoffs", "projeto_id", projectId)).some((k) => !["substituida", "arquivado"].includes(k.status));
+    const existing = (await related(tenant, "kickoffs", "projeto_id", projectId))
+      .some((k) => !["substituida", "arquivado"].includes(k.status) && (k.formula_id || (k.requisitos_dispensados || []).some((r) => /f[óo]rmula/i.test(String(r)))));
     if (existing) return [];
     const formula = await resolveRegisteredFormula(tenant, projectId);
     if (formula) return [];
     if (!isAdmin(profile)) throw apiError(409, NO_FORMULA);
-    return ["Fórmula registrada no Banco P&D"];
+    // D-2: o Kickoff já existe desde a criação do projeto; a dispensa do ADM fica registrada nele também.
+    const dispensa = "Fórmula registrada no Banco P&D";
+    for (const k of (await related(tenant, "kickoffs", "projeto_id", projectId)).filter((x) => !["substituida", "arquivado"].includes(x.status) && !x.formula_id)) {
+      if ((k.requisitos_dispensados || []).includes(dispensa)) continue;
+      await patch(tenant, "kickoffs", k.id, {
+        requisitos_dispensados: [...(k.requisitos_dispensados || []), dispensa],
+        log_auditoria: [...(k.log_auditoria || []), { campo: "requisitos_dispensados", valor_anterior: "", valor_novo: dispensa,
+          usuario_id: currentUid(), usuario_nome: userName(profile), datetime: now(), observacoes: "Dispensa do ADM ao mover o projeto sem fórmula registrada" }],
+      });
+    }
+    return [dispensa];
   }
 
   /* Tarefas (workflow_tasks) */
@@ -784,7 +796,11 @@ export function createCommercialRouter(h) {
   const keepStoredBom = (kickoff) => Boolean(kickoff.origem_migracao) && EMPTY(kickoff.questionario_composicao);
 
   async function decorateKickoff(tenant, kickoff) {
-    const decorated = keepStoredBom(kickoff) ? { ...kickoff, bom: kickoff.bom || [] } : await refreshBom(tenant, kickoff);
+    const base = keepStoredBom(kickoff) ? { ...kickoff, bom: kickoff.bom || [] } : await refreshBom(tenant, kickoff);
+    // KO-01: o código é fixo; o nome exibido acompanha o projeto (renomear o projeto muda o título).
+    const projeto = base.projeto_id ? await one(tenant, "crm_projects", base.projeto_id).catch(() => null) : null;
+    const nomeProjeto = projeto?.nome_projeto || base.bloco1?.projeto_vinculado || "";
+    const decorated = { ...base, titulo: nomeProjeto ? `${base.numero_kickoff} — ${nomeProjeto}` : base.numero_kickoff };
     const { legacy, ok, status } = kickoffReadiness(decorated);
     if (legacy) {
       const blocks = ["bloco2", "bloco3", "bloco4"].map((b) => status[b].completo);
@@ -811,6 +827,50 @@ export function createCommercialRouter(h) {
       aprovacoes: normalizarAprovacoes(decorated),
       aprovacao_pendente: currentApprovalStep(decorated),
     };
+  }
+
+  // D-2: Kickoff que nasceu sem fórmula ganha a fórmula registrada quando ela existir (com registro).
+  async function vincularFormula(tenant, kickoff, project, profile, explicitFormulaId) {
+    if (kickoff.formula_id || kickoff.status === "aprovado") return kickoff;
+    const ctx = await resolveRegisteredFormula(tenant, project.id, explicitFormulaId).catch(() => null);
+    if (!ctx?.formula?.id) return kickoff;
+    const f = ctx.formula;
+    const at = now();
+    return patch(tenant, "kickoffs", kickoff.id, {
+      formula_id: f.id,
+      bloco1: { ...(kickoff.bloco1 || {}), formula_vinculada: f.name || f.nome || "", formulador_responsavel: f.created_by_name || "" },
+      log_auditoria: [...(kickoff.log_auditoria || []), { campo: "formula_id", valor_anterior: "", valor_novo: f.id,
+        usuario_id: currentUid(), usuario_nome: userName(profile), datetime: at, observacoes: "Fórmula registrada no P&D vinculada ao Kickoff" }],
+    });
+  }
+
+  /* Kickoff vivo (RFC-001 §7.1): o que o projeto/cliente/amostra/fórmula ganharam depois preenche os
+   * campos ainda vazios, em bloco não validado. Nunca sobrescreve o que foi digitado. */
+  async function completarDaOrigem(tenant, kickoff, project, profile) {
+    if (!kickoff.questionario_composicao || kickoff.status === "aprovado") return kickoff;
+    const client = (await one(tenant, "crm_clients", project.cliente_id)) || {};
+    const formulaCtx = kickoff.formula_id ? await resolveRegisteredFormula(tenant, project.id, kickoff.formula_id).catch(() => null) : null;
+    const novo = await buildQuestionario(tenant, project, client, formulaCtx, kickoff.bloco1 || {});
+    const travados = Object.entries(kickoff.blocos_estado || {}).filter(([, e]) => ["validado", "congelado"].includes(e?.estado)).map(([b]) => b);
+    const { questionario, campos } = preencherVazios(kickoff.questionario_composicao, novo, travados);
+    if (!campos.length) return kickoff;
+    const at = now();
+    return patch(tenant, "kickoffs", kickoff.id, {
+      questionario_composicao: questionario, ...legacyBlocksFromQuestionario(questionario, kickoff),
+      log_auditoria: [...(kickoff.log_auditoria || []), ...campos.map((c) => ({ campo: `questionario_composicao.${c}`, valor_anterior: "",
+        valor_novo: "preenchido da origem", usuario_id: currentUid(), usuario_nome: userName(profile), datetime: at }))],
+    });
+  }
+
+  // D-2: todo projeto novo já nasce com o Kickoff em rascunho (falha aqui não impede criar o projeto).
+  async function afterProjectCreate(tenant, project, profile) {
+    try {
+      const k = await createKickoffForProject(tenant, project.id, profile);
+      return { kickoff_id: k.id, numero_kickoff: k.numero_kickoff };
+    } catch (error) {
+      console.error("[Kickoff] não abriu junto com o projeto:", project?.id, error);
+      return null;
+    }
   }
 
   async function syncProjectKickoffSummary(tenant, kickoff) {
@@ -911,23 +971,23 @@ export function createCommercialRouter(h) {
     return questionario;
   }
 
-  const KICKOFF_STAGES = new Set(["kickoff", "cotacao", "orcamento_completo", "em_negociacao", "pedido_aprovado"]);
-
+  /* D-2 (RFC-001, aprovado 22/10/2026): o Kickoff nasce em rascunho junto com o projeto. Sem fórmula
+   * registrada ele abre do mesmo jeito, com o bloco 1 "aguardando P&D"; a fórmula é vinculada quando
+   * a amostra for aprovada e registrada (vincularFormula). O que exige a fórmula é aprovar o bloco 1. */
   async function createKickoffForProject(tenant, projectId, profile, explicitFormulaId) {
     const project = await getProject(tenant, projectId);
-    if (!KICKOFF_STAGES.has(project.stage)) throw apiError(400, "O Kickoff é aberto quando a amostra é aprovada pelo cliente (etapa Kickoff do CRM2).");
+    if (project.stage === "projeto_arquivado") throw apiError(400, "Projeto arquivado não abre Kickoff.");
     const active = (await related(tenant, "kickoffs", "projeto_id", projectId))
       .filter((k) => ["em_preenchimento", "aguardando_aprovacao", "aprovado", "em_revisao"].includes(k.status))
       .sort((a, b) => Number(b.versao_numero || 0) - Number(a.versao_numero || 0))[0];
-    if (active) return decorateKickoff(tenant, active);
+    if (active) {
+      const comFormula = await vincularFormula(tenant, active, project, profile, explicitFormulaId);
+      return decorateKickoff(tenant, await completarDaOrigem(tenant, comFormula, project, profile));
+    }
     const client = (await one(tenant, "crm_clients", project.cliente_id)) || null;
     if (!client) throw apiError(404, "Cliente do projeto nao encontrado");
     const formulaCtx = await resolveRegisteredFormula(tenant, projectId, explicitFormulaId);
     const dispensados = [];
-    if (!formulaCtx) {
-      if (!isAdmin(profile)) throw apiError(400, NO_FORMULA);
-      dispensados.push("Fórmula registrada no Banco P&D");
-    }
     const formula = formulaCtx?.formula || {};
     const pdRequest = formulaCtx?.pd_request || {};
     const samples = (await all(tenant, "crm_samples")).filter((sample) => sample.projeto_id === projectId);
@@ -1729,6 +1789,7 @@ export function createCommercialRouter(h) {
   return {
     beforeProjectMove,
     afterProjectMove,
+    afterProjectCreate,
     async route({ method, path, query, data, profile, tenant }) {
       let m;
       const is = (verb, pattern) => method === verb && (m = path.match(pattern));

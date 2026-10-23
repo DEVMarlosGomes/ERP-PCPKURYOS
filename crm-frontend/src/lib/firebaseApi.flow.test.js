@@ -97,6 +97,13 @@ describe("fluxo comercial completo até a emissão de OP", () => {
   test("CRM2: projeto numerado → amostra solicitada → amostra numerada dentro do projeto e gerada no P&D", async () => {
     project = (await api.post("/crm/projects/batch", { cliente_id: client.id, projects: [{ nome_projeto: "Linha Verão" }] })).data.projects[0];
     assert.equal(project.numero_projeto, "2026-001");
+    // D-2 (RFC-001): o Kickoff já nasce em rascunho com o projeto, esperando o P&D; KO-01: título com o nome.
+    const rascunho = Object.values(db(`${T}/kickoffs`) || {}).find((k) => k.projeto_id === project.id);
+    assert.equal(rascunho.status, "em_preenchimento");
+    assert.equal(rascunho.formula_id, null);
+    const aberto = (await api.get(`/kickoff/${rascunho.id}`)).data;
+    assert.equal(aberto.titulo, "KO-2026-001 — Linha Verão");
+    assert.equal(aberto.blocos_estado.bloco1.aguardando, "pd");
     await api.put(`/crm/projects/${project.id}`, BRIEFING);
     await api.put(`/crm/projects/${project.id}/move`, { stage: "amostra_solicitada" });
     sample = (await api.post("/crm/samples/batch/v2", { projeto_id: project.id, samples: [{ nome_produto: "Body Splash Verão", categoria: "body_splash", variacoes: [{ descricao_aplicacao: "Cítrico" }] }] })).data.samples[0];

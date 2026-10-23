@@ -154,7 +154,7 @@ export default function KickoffsListPage() {
                           <ClipboardList className="h-4 w-4" />
                         </div>
                         <div>
-                          <p className="font-medium">{kickoff.numero_kickoff}</p>
+                          <p className="font-medium">{kickoff.numero_kickoff}{kickoff?.bloco1?.projeto_vinculado ? ` — ${kickoff.bloco1.projeto_vinculado}` : ""}</p>
                           <p className="text-sm text-muted-foreground">
                             {kickoff?.bloco1?.cliente || "-"} · {kickoff?.bloco1?.projeto_vinculado || "-"}
                           </p>

@@ -739,7 +739,7 @@ export default function CRM2Page() {
                                                                     </button>
                                                                 </div>
                                                             )}
-                                                            {project.stage === "kickoff" && project.kickoff_id && (
+                                                            {project.kickoff_id && !["projeto_arquivado"].includes(project.stage) && (
                                                                 <div className="mt-2 pt-2 border-t border-border">
                                                                     <Button
                                                                         size="sm"
@@ -748,6 +748,25 @@ export default function CRM2Page() {
                                                                         onClick={(e) => { e.stopPropagation(); navigate(`/kickoff/${project.kickoff_id}`); }}
                                                                     >
                                                                         Abrir Kickoff {project.kickoff_numero || ""}
+                                                                    </Button>
+                                                                </div>
+                                                            )}
+                                                            {/* D-2: projeto anterior a 23/10 sem Kickoff ganha o rascunho por aqui. */}
+                                                            {!project.kickoff_id && canManageCommercialFlow && !["projeto_arquivado"].includes(project.stage) && (
+                                                                <div className="mt-2 pt-2 border-t border-border">
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        className="w-full gap-1.5 text-xs text-indigo-700 border-indigo-300 hover:bg-indigo-50"
+                                                                        onClick={async (e) => {
+                                                                            e.stopPropagation();
+                                                                            try {
+                                                                                const { data } = await api.post("/kickoff", { projeto_id: project.id });
+                                                                                navigate(`/kickoff/${data.id}`);
+                                                                            } catch (error) { toast.error(formatApiError(error)); }
+                                                                        }}
+                                                                    >
+                                                                        Criar Kickoff (rascunho)
                                                                     </Button>
                                                                 </div>
                                                             )}
