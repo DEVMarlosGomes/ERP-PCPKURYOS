@@ -2,8 +2,8 @@ import { Plus, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { pendenciasQuestionario, simNao } from "@/lib/kickoffPendencias";
 
 const BLOCO2_COMPONENTS = [
   ["frasco_pote_bisnaga", "Frasco / pote / bisnaga"],
@@ -47,13 +47,9 @@ function rows(seed, hasArt = false) {
   }));
 }
 
-function normalizeBinary(value) {
-  if (value === true) return "sim";
-  if (value === false || value == null) return "nao";
-  const normalized = String(value).trim().toLowerCase();
-  if (["", "nao", "não", "n", "ñ", "false", "0", "off"].includes(normalized)) return "nao";
-  return "sim";
-}
+// KO-03 (23/10/2026): três estados — "" (não respondida) · "sim" · "nao". Antes o vazio virava
+// "nao" ao abrir e era gravado como resposta.
+const normalizeBinary = simNao;
 
 function normalizeComponentRows(items, hasArt = false) {
   return (items || []).map((item) => ({
@@ -89,7 +85,9 @@ export function emptyKickoffQuestionnaire() {
       formula: "",
       cliente_fornece: [],
       tem_cor: "",
+      cor_descricao: "",
       tem_brilho_mica_glitter: "",
+      brilho_descricao: "",
       viscosidade: "",
       densidade: "",
       fragrancia_essencia: "",
@@ -104,6 +102,7 @@ export function emptyKickoffQuestionnaire() {
       especificacoes_cq_anexos: [],
       testes_aprovacoes_obrigatorios: "",
       amostra_referencia_fornecida_cliente: "",
+      amostra_referencia_descricao: "",
     },
     fechamento: {
       data_prevista_inicio_producao: "",
@@ -167,10 +166,21 @@ export function questionnaireFromKickoff(kickoff) {
   return q;
 }
 
-function Section({ title, children }) {
+function Section({ title, pendencias, children }) {
+  const lista = pendencias || [];
   return (
     <section className="rounded-md border border-border bg-card p-4 space-y-4">
-      <h2 className="text-base font-semibold">{title}</h2>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-base font-semibold">{title}</h2>
+        {pendencias && (lista.length
+          ? <span className="text-xs font-medium text-amber-700 dark:text-amber-400" data-testid="pendencias-bloco">{lista.length} pendente(s)</span>
+          : <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">completo</span>)}
+      </div>
+      {lista.length > 0 && (
+        <p className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+          Falta: {lista.map((p) => p.rotulo).join(" · ")}
+        </p>
+      )}
       {children}
     </section>
   );
@@ -194,24 +204,21 @@ function TextField({ label, value, onChange, className = "", rows = 3 }) {
   );
 }
 
+// KO-03: Sim / Não sem nenhum marcado até alguém responder (borda âmbar = pendente).
 function YesNoToggle({ label, value, onChange, compact = false }) {
-  const checked = normalizeBinary(value) === "sim";
+  const v = normalizeBinary(value);
+  const botao = (opcao, rotulo, cor) => (
+    <button type="button" aria-pressed={v === opcao}
+      className={`px-3 py-1 text-xs font-bold transition-colors ${v === opcao ? cor : "text-muted-foreground hover:bg-accent"}`}
+      onClick={() => onChange(v === opcao ? "" : opcao)}>{rotulo}</button>
+  );
   return (
     <div className={compact ? "flex items-center" : "space-y-2"}>
       {label && <Label>{label}</Label>}
-      <div
-        className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 transition-colors ${checked
-          ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-          : "border-red-500/50 bg-red-500/10 text-red-600 dark:text-red-400"
-        }`}
-      >
-        <Switch
-          checked={checked}
-          onCheckedChange={(next) => onChange(next ? "sim" : "nao")}
-          aria-label={label || "Alternar entre sim e nao"}
-          className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-red-500"
-        />
-        <span className="min-w-8 text-xs font-bold">{checked ? "SIM" : "NÃO"}</span>
+      <div className={`inline-flex overflow-hidden rounded-full border ${v ? "border-border" : "border-amber-400 dark:border-amber-600"}`}
+        role="group" aria-label={label || "Sim ou não"} data-estado={v || "sem_resposta"}>
+        {botao("sim", "SIM", "bg-emerald-500 text-white")}
+        {botao("nao", "NÃO", "bg-red-500 text-white")}
       </div>
     </div>
   );
@@ -318,19 +325,24 @@ function ComponentTable({ title, value, onChange, defaults, hasArt = false }) {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {list.map((row, index) => (
-              <tr key={row.id || index}>
+            {list.map((row, index) => {
+              // KO-03: Aplicável? Não ou Definido? Não = linha resolvida; o resto só vale com os dois em Sim.
+              const aplicavel = normalizeBinary(row.aplicavel) === "sim";
+              const precisa = aplicavel && normalizeBinary(row.definido) === "sim";
+              return (
+              <tr key={row.id || index} className={normalizeBinary(row.aplicavel) === "nao" ? "opacity-60" : ""}>
                 <td className="px-2 py-2"><Input value={row.componente || ""} onChange={(event) => updateRow(index, "componente", event.target.value)} /></td>
                 <td className="px-2 py-2"><YesNoToggle compact value={row.aplicavel} onChange={(next) => updateRow(index, "aplicavel", next)} /></td>
-                <td className="px-2 py-2"><YesNoToggle compact value={row.definido} onChange={(next) => updateRow(index, "definido", next)} /></td>
-                <td className="px-2 py-2"><Input value={row.fornecido_por || ""} onChange={(event) => updateRow(index, "fornecido_por", event.target.value)} /></td>
+                <td className="px-2 py-2">{aplicavel ? <YesNoToggle compact value={row.definido} onChange={(next) => updateRow(index, "definido", next)} /> : <span className="text-xs text-muted-foreground">—</span>}</td>
+                <td className="px-2 py-2"><Input disabled={!precisa} value={row.fornecido_por || ""} onChange={(event) => updateRow(index, "fornecido_por", event.target.value)} /></td>
                 <td className="px-2 py-2">
                   <Input
+                    disabled={!precisa}
                     value={hasArt ? row.arte_cria_aprova || "" : row.especificacao_fornecedor_codigo || ""}
                     onChange={(event) => updateRow(index, hasArt ? "arte_cria_aprova" : "especificacao_fornecedor_codigo", event.target.value)}
                   />
                 </td>
-                {hasArt && <td className="px-2 py-2"><YesNoToggle compact value={row.arte_aprovada} onChange={(next) => updateRow(index, "arte_aprovada", next)} /></td>}
+                {hasArt && <td className="px-2 py-2">{precisa ? <YesNoToggle compact value={row.arte_aprovada} onChange={(next) => updateRow(index, "arte_aprovada", next)} /> : <span className="text-xs text-muted-foreground">—</span>}</td>}
                 <td className="px-2 py-2"><Input value={row.observacoes || ""} onChange={(event) => updateRow(index, "observacoes", event.target.value)} /></td>
                 <td className="px-2 py-2">
                   <div className="flex gap-1">
@@ -343,7 +355,8 @@ function ComponentTable({ title, value, onChange, defaults, hasArt = false }) {
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -353,13 +366,14 @@ function ComponentTable({ title, value, onChange, defaults, hasArt = false }) {
 
 export default function KickoffCompositionQuestionnaire({ value, onChange, onSave, saving }) {
   const q = mergeQuestionnaire(value);
+  const pend = pendenciasQuestionario(q).status;
   const update = (section, field, nextValue) => {
     onChange({ ...q, [section]: { ...(q[section] || {}), [field]: nextValue } });
   };
 
   return (
     <div className="space-y-4" data-testid="kickoff-composition-questionnaire">
-      <Section title="Bloco 0 - Identificacao e comercial">
+      <Section title="Bloco 0 - Identificacao e comercial" pendencias={pend.bloco0.pendencias}>
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Cliente" value={q.bloco0.cliente} onChange={(v) => update("bloco0", "cliente", v)} />
           <Field label="Nome do produto" value={q.bloco0.nome_produto} onChange={(v) => update("bloco0", "nome_produto", v)} />
@@ -405,7 +419,7 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
         ]} />
       </Section>
 
-      <Section title="Bloco 1 - Formulacao">
+      <Section title="Bloco 1 - Formulacao" pendencias={pend.bloco1.pendencias}>
         <div className="grid gap-4 md:grid-cols-2">
           <ChoiceGroup label="Formula" value={q.bloco1.formula} onChange={(v) => update("bloco1", "formula", v)} options={[
             { value: "do_cliente", label: "Do cliente" },
@@ -419,6 +433,8 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
           ]} />
           <YesNoToggle label="Tem Cor?" value={q.bloco1.tem_cor} onChange={(v) => update("bloco1", "tem_cor", v)} />
           <YesNoToggle label="Tem Brilho/mica/glitter?" value={q.bloco1.tem_brilho_mica_glitter} onChange={(v) => update("bloco1", "tem_brilho_mica_glitter", v)} />
+          {normalizeBinary(q.bloco1.tem_cor) === "sim" && <Field label="Qual cor (descrição / código)? *" value={q.bloco1.cor_descricao} onChange={(v) => update("bloco1", "cor_descricao", v)} />}
+          {normalizeBinary(q.bloco1.tem_brilho_mica_glitter) === "sim" && <Field label="Qual brilho / mica / glitter? *" value={q.bloco1.brilho_descricao} onChange={(v) => update("bloco1", "brilho_descricao", v)} />}
           <Field label="Qual a viscosidade?" value={q.bloco1.viscosidade} onChange={(v) => update("bloco1", "viscosidade", v)} />
           <Field label="Qual a densidade?" value={q.bloco1.densidade} onChange={(v) => update("bloco1", "densidade", v)} />
           <Field className="md:col-span-2" label="Fragrancia / essencia definida ou aprovada - casa de fragrancia e codigos" value={q.bloco1.fragrancia_essencia} onChange={(v) => update("bloco1", "fragrancia_essencia", v)} />
@@ -427,25 +443,26 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
         </div>
       </Section>
 
-      <Section title="Bloco 2 - Embalagem primaria e sistema de fechamento">
+      <Section title="Bloco 2 - Embalagem primaria e sistema de fechamento" pendencias={pend.bloco2.pendencias}>
         <ComponentTable title="Componentes" value={q.bloco2} defaults={BLOCO2_COMPONENTS} onChange={(v) => update("bloco2", "componentes", v.componentes)} />
       </Section>
 
-      <Section title="Bloco 3 - Embalagem secundaria e comunicacao">
+      <Section title="Bloco 3 - Embalagem secundaria e comunicacao" pendencias={pend.bloco3.pendencias}>
         <ComponentTable title="Componentes graficos" value={q.bloco3} defaults={BLOCO3_COMPONENTS} hasArt onChange={(v) => update("bloco3", "componentes", v.componentes)} />
       </Section>
 
-      <Section title="Bloco 4 - Embalagem terciaria e logistica">
+      <Section title="Bloco 4 - Embalagem terciaria e logistica" pendencias={pend.bloco4.pendencias}>
         <ComponentTable title="Componentes logisticos" value={q.bloco4} defaults={BLOCO4_COMPONENTS} onChange={(v) => update("bloco4", "componentes", v.componentes)} />
       </Section>
 
-      <Section title="Bloco 5 - Qualidade de recebimento">
+      <Section title="Bloco 5 - Qualidade de recebimento" pendencias={pend.bloco5.pendencias}>
         <TextField label="Especificacoes de CQ por componente (texto / anexos)" value={q.bloco5.especificacoes_cq_componentes} onChange={(v) => update("bloco5", "especificacoes_cq_componentes", v)} rows={4} />
         <TextField label="Testes / aprovacoes obrigatorios antes da producao" value={q.bloco5.testes_aprovacoes_obrigatorios} onChange={(v) => update("bloco5", "testes_aprovacoes_obrigatorios", v)} rows={4} />
         <YesNoToggle label="Amostra de referencia fornecida pelo cliente" value={q.bloco5.amostra_referencia_fornecida_cliente} onChange={(v) => update("bloco5", "amostra_referencia_fornecida_cliente", v)} />
+        {normalizeBinary(q.bloco5.amostra_referencia_fornecida_cliente) === "sim" && <TextField label="Descreva a amostra de referência (o que é, quem guarda) *" value={q.bloco5.amostra_referencia_descricao} onChange={(v) => update("bloco5", "amostra_referencia_descricao", v)} rows={2} />}
       </Section>
 
-      <Section title="Fechamento">
+      <Section title="Fechamento" pendencias={pend.fechamento.pendencias}>
         <div className="grid gap-4 md:grid-cols-2">
           <Field type="date" label="Data prevista de inicio de producao" value={q.fechamento.data_prevista_inicio_producao} onChange={(v) => update("fechamento", "data_prevista_inicio_producao", v)} />
           <Field label="Volume do primeiro lote" value={q.fechamento.volume_primeiro_lote} onChange={(v) => update("fechamento", "volume_primeiro_lote", v)} />

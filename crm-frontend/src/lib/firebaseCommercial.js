@@ -28,6 +28,7 @@ import { registroDeCambio, taxaDaCotacao, textoCambio } from "@/lib/cambio";
 import { calcularCotacao, insumosDoBom, mensagemDePendencias } from "@/lib/cotacao";
 import { entradaHistoricoAprovacao, validarAprovacaoCliente } from "@/lib/aprovacaoCliente";
 import { acrescentarHistorico } from "@/lib/historicoTimeline";
+import { pendenciasQuestionario, simNao } from "@/lib/kickoffPendencias";
 
 export const NOT_HANDLED = Symbol("not-handled");
 
@@ -153,38 +154,14 @@ export function mergeQuestionario(base, incoming) {
   return merged;
 }
 
-function rowReady(row, hasArt) {
-  const aplicavel = row?.aplicavel;
-  if (aplicavel === undefined || aplicavel === null || aplicavel === "") return false;
-  if (["nao", "false", "0"].includes(String(aplicavel).toLowerCase())) return true;
-  const required = ["definido", "fornecido_por", hasArt ? "arte_cria_aprova" : "especificacao_fornecedor_codigo"];
-  if (hasArt) required.push("arte_aprovada");
-  return required.every((field) => !EMPTY(row[field]));
-}
-
-const REQUIRED_BY_SECTION = {
-  bloco0: ["cliente", "nome_produto", "categoria", "forma_fisica", "volume_gramatura", "numero_skus_variacoes", "modelo_servico"],
-  bloco1: ["formula", "cliente_fornece", "tem_cor", "tem_brilho_mica_glitter", "viscosidade", "densidade", "compra_fragrancia_por"],
-  bloco5: ["especificacoes_cq_componentes", "testes_aprovacoes_obrigatorios", "amostra_referencia_fornecida_cliente"],
-  fechamento: ["data_prevista_inicio_producao", "volume_primeiro_lote", "responsavel_kuryos", "responsavel_cliente", "data_preenchimento"],
-};
-
-export function questionarioReady(questionario) {
-  const status = {};
-  for (const section of ["bloco0", "bloco1", "bloco2", "bloco3", "bloco4", "bloco5", "fechamento"]) {
-    const data = questionario?.[section] || {};
-    const missing = (REQUIRED_BY_SECTION[section] || []).filter((field) => EMPTY(data[field]));
-    if (["bloco2", "bloco3", "bloco4"].includes(section)) {
-      (data.componentes || []).forEach((row, index) => { if (!rowReady(row, section === "bloco3")) missing.push(`componentes[${index}]`); });
-    }
-    status[section] = { completo: missing.length === 0, campos_pendentes: missing };
-  }
-  return { ok: Object.values(status).every((item) => item.completo), status };
-}
+// KO-03 (23/10/2026): pendências em lib/kickoffPendencias.js — "Não" é resposta, "Sim" exige o
+// complemento, vazio é pendente. Antes "Definido? = Não" ainda exigia fornecedor e especificação e
+// a tela convertia pergunta não respondida em "Não".
+export const questionarioReady = pendenciasQuestionario;
 
 const findComponent = (questionario, section, id) => (questionario?.[section]?.componentes || []).find((row) => row.id === id) || {};
 // Componente "não aplicável" não alimenta o BOM (no master contava como respondido).
-const componentAnswered = (row) => !["nao", "false", "0"].includes(String(row?.aplicavel || "").toLowerCase())
+const componentAnswered = (row) => simNao(row?.aplicavel) !== "nao"
   && Object.entries(row || {}).some(([key, value]) => !["id", "componente"].includes(key) && !EMPTY(value));
 
 export function legacyBlocksFromQuestionario(questionario, kickoff) {

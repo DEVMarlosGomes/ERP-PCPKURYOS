@@ -70,7 +70,9 @@ function questionarioCompleto(kickoff) {
     q[section].componentes = q[section].componentes.map((row) => ({ ...row, aplicavel: "nao" }));
   }
   q.bloco2.componentes[0] = { ...q.bloco2.componentes[0], aplicavel: "sim", definido: "sim", fornecido_por: "kuryos", especificacao_fornecedor_codigo: "Frasco PET 200 mL" };
-  Object.assign(q.bloco5, { especificacoes_cq_componentes: "Padrão Kuryos", testes_aprovacoes_obrigatorios: "Estabilidade 90 dias", amostra_referencia_fornecida_cliente: "sim" });
+  // KO-03: "Sim" exige o complemento (sem ele o Kickoff fica pendente).
+  Object.assign(q.bloco5, { especificacoes_cq_componentes: "Padrão Kuryos", testes_aprovacoes_obrigatorios: "Estabilidade 90 dias", amostra_referencia_fornecida_cliente: "sim",
+    amostra_referencia_descricao: "Frasco de referência entregue pela Lumi, guardado na Qualidade" });
   Object.assign(q.fechamento, { data_prevista_inicio_producao: "2026-12-01", volume_primeiro_lote: "3000", responsavel_kuryos: "Carla", responsavel_cliente: "Lia" });
   return q;
 }
@@ -148,6 +150,12 @@ describe("fluxo comercial completo até a emissão de OP", () => {
     as("pd");
     await fails(api.post(`/kickoff/${kickoff.id}/aprovacao`, { etapa: "lider_pd", decisao: "aprovado" }), 400, /Questionario incompleto/);
     as("com");
+    // KO-03: "Sim" sem o complemento deixa pendente; "Não" não pende.
+    const semDescricao = questionarioCompleto(kickoff);
+    semDescricao.bloco5.amostra_referencia_descricao = "";
+    const pendente = (await api.put(`/kickoff/${kickoff.id}/questionario-composicao`, { questionario: semDescricao })).data;
+    assert.equal(pendente.status, "em_preenchimento");
+    assert.deepEqual(pendente.blocos_status.bloco5.campos_pendentes, ["amostra_referencia_descricao"]);
     const filled = (await api.put(`/kickoff/${kickoff.id}/questionario-composicao`, { questionario: questionarioCompleto(kickoff) })).data;
     assert.equal(filled.status, "aguardando_aprovacao");
     assert.equal(filled.progress.percentual, 100);
