@@ -114,7 +114,7 @@ async function abrir(browser, estadoInicial, pagina) {
     // Abrir a tarefa: aviso com Vincular; vincular fecha a tarefa sem criar material.
     await page.click('#solicitacoesCadastro-mat .btn-cadastrar-solic-mat');
     await page.waitForSelector('#dupMat-box .btn-vincular-mat');
-    assert.match(await page.locator('#dupMat-box').innerText(), /Já existe material com este nome e tipo/);
+    assert.match(await page.locator('#dupMat-box').innerText(), /Já existe material com este nome/);
     assert.equal(await page.inputValue('#fFuncaoFormula-mat'), 'UMECTANTE', 'AMO-04: função veio do P&D (campo em maiúsculas)');
     await page.click('#dupMat-box .btn-vincular-mat');
     await page.waitForFunction(() => window.__db.solicitacoes_cadastro_material.F1__I1.status === 'VINCULADO');
@@ -145,8 +145,8 @@ async function abrir(browser, estadoInicial, pagina) {
     await page.waitForFunction(() => Object.keys(window.__db.materiais).length === 2);
     const db2 = await page.evaluate(() => window.__db);
     const novoKey = Object.keys(db2.materiais).find((k) => k !== 'MPGR-00008');
-    assert.equal(db2.materiais[novoKey].chaveDuplicidade, 'MPGR|GLICERINA VEGETAL USP');
-    assert.equal(db2.materiais_chave['MPGR|GLICERINA VEGETAL USP'], novoKey);
+    assert.equal(db2.materiais[novoKey].chaveDuplicidade, 'GLICERINA VEGETAL USP');
+    assert.equal(db2.materiais_chave['GLICERINA VEGETAL USP'], novoKey);
 
     assert.deepEqual(errors, [], 'erros na tela: ' + errors.join(' | '));
     console.log('run_duplicidade_material_ui_test: OK');

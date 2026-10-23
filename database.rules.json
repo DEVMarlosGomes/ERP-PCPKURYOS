@@ -104,14 +104,14 @@
     "materiais": {
       ".read": "auth != null",
       ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))",
-      // CAD-01 (22/10/2026): material NOVO só nasce reservando a chave tipo+nome em materiais_chave
+      // CAD-01 (22/10/2026): material NOVO só nasce reservando a chave do nome em materiais_chave
       // no mesmo update (shared/duplicidade-material.js:chaveMaterial). Editar o que existe não muda.
       "$material": {
         ".validate": "data.exists() || (newData.child('chaveDuplicidade').isString() && newData.parent().parent().child('materiais_chave').child(newData.child('chaveDuplicidade').val()).val() == $material)"
       }
     },
-    // CAD-01: índice tipo+nome → material. Uma chave tem um dono só: segundo material com o mesmo
-    // tipo e nome é recusado pelo banco. Apagar (inativar/renomear) libera a chave.
+    // CAD-01: índice nome normalizado → material (desde 23/10 sem o tipo). Uma chave tem um dono só:
+    // segundo material com o mesmo nome é recusado pelo banco. Apagar (inativar/renomear) libera a chave.
     "materiais_chave": {
       ".read": "auth != null",
       ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))",

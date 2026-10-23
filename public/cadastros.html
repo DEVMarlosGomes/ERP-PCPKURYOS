@@ -1872,7 +1872,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   /* CAD-01 (22/10/2026): parecidos já cadastrados, regras em shared/duplicidade-material.js.
-     Mesmo tipo + mesmo nome bloqueia o cadastro (o caminho é vincular); o resto só avisa. */
+     Mesmo nome (em qualquer tipo) bloqueia o cadastro (o caminho é vincular); o resto só avisa. */
   function renderDuplicidadeMat() {
     var box = document.getElementById('dupMat-box');
     if (!box) return;
@@ -1884,7 +1884,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!cands.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
     box.style.display = 'block';
     box.innerHTML = '<b>' + (DuplicidadeMaterial.duplicataExata(cands)
-        ? '⛔ Já existe material com este nome e tipo — vincule em vez de cadastrar de novo:'
+        ? '⛔ Já existe material com este nome — vincule em vez de cadastrar de novo (se o tipo estiver errado, corrija o existente):'
         : '⚠ Parecido(s) já cadastrado(s) — confira antes de criar:') + '</b>' +
       cands.map(function(c) {
         return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px">' +
@@ -2764,10 +2764,10 @@ document.addEventListener('DOMContentLoaded', function() {
     var nome = document.getElementById('fNome-mat').value.trim();
     if (!nome) { showAlert('Nome / descrição é obrigatório.', 'danger'); return; }
     var tipo = document.getElementById('fTipo').value;
-    // CAD-01: mesmo tipo + mesmo nome de um material ativo não vira cadastro novo.
+    // CAD-01: mesmo nome de um material ativo (em qualquer tipo) não vira cadastro novo.
     var duplicata = DuplicidadeMaterial.duplicataExata(DuplicidadeMaterial.candidatos({ tipo: tipo, nome: nome }, allMateriais, editingKey));
     if (duplicata) {
-      showAlert('Já existe ' + duplicata.mpCodigo + ' (' + duplicata.mpNome + ') com este nome e tipo. ' +
+      showAlert('Já existe ' + duplicata.mpCodigo + ' (' + duplicata.mpNome + ') com este nome. ' +
         (solicitacaoMatEmCurso ? 'Use "Vincular" no aviso abaixo do nome.' : 'Edite o existente ou diferencie o nome (cor, fornecedor, medida).'), 'danger');
       return;
     }
@@ -2838,7 +2838,7 @@ document.addEventListener('DOMContentLoaded', function() {
     nextSequential(db, 'config/contadores/materiais/' + tipo, tipo, 5).then(function(r) {
       var key = sanitizeKey(r.formatado);
       data.mpCodigo = r.formatado;
-      // CAD-01: material novo reserva a chave tipo+nome no mesmo update (a regra do banco exige).
+      // CAD-01: material novo reserva a chave do nome no mesmo update (a regra do banco exige).
       var ixNovo = DuplicidadeMaterial.mudancasDoIndice(null, data, key, indiceMat);
       if (ixNovo.erro) return Promise.reject(new Error(ixNovo.erro));
       data.chaveDuplicidade = ixNovo.chave;

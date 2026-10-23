@@ -18,8 +18,13 @@ assert.equal(c1[0].mpCodigo, 'MPGR-00030');
 assert.equal(c1[0].motivo, 'mesmo nome');
 assert.equal(D.duplicataExata(c1).key, 'MPGR-00030');
 
-// Mesmo nome em OUTRO tipo não é duplicata (rótulo × MP podem ter nomes iguais).
-assert.equal(D.duplicataExata(D.candidatos({ tipo: 'ES', nome: 'Glicerina' }, materiais)), null);
+// Mesmo nome em OUTRO tipo também é duplicata (23/10: a válvula EP-00001 foi recadastrada como MPGR
+// no teste do usuário). O aviso diz o tipo em que ela já existe.
+const cruzado = D.duplicataExata(D.candidatos({ tipo: 'ES', nome: 'Glicerina' }, materiais));
+assert.equal(cruzado.mpCodigo, 'MPGR-00008');
+assert.equal(cruzado.motivo, 'mesmo nome, cadastrado como MPGR');
+const valvulas = { 'EP-00001': { mpCodigo: 'EP-00001', mpNome: 'VÁLVULA SPRAY R.24/410 BRUMA MATTE 120ML', tipo: 'EP' } };
+assert.equal(D.duplicataExata(D.candidatos({ tipo: 'MPGR', nome: 'VALVULA SPRAY R.24/410 BRUMA MATTE 120ML' }, valvulas)).mpCodigo, 'EP-00001');
 
 // Nome parecido sugere, mas não bloqueia; inativo fica de fora.
 const c2 = D.candidatos({ tipo: 'MPGR', nome: 'Glicerina vegetal' }, materiais);
@@ -41,27 +46,28 @@ assert.equal(D.duplicataExata(D.candidatos({ tipo: 'MPGR', nome: 'Glicerina' }, 
 // Vínculo fecha a tarefa apontando para o existente.
 assert.deepEqual(D.vinculo(materiais['MPGR-00008'], 'MPGR-00008', 'Ana', 't'),
   { status: 'VINCULADO', materialKey: 'MPGR-00008', mpCodigo: 'MPGR-00008', vinculadoEm: 't', vinculadoPor: 'Ana' });
-assert.equal(D.chaveMaterial('mpgr', ' Glicerina '), 'MPGR|GLICERINA');
+assert.equal(D.chaveMaterial('mpgr', ' Glicerina '), 'GLICERINA');
 
 // ── Índice materiais_chave (regra do banco) ──
 const ix = D.indiceInicial({
   'MPGR-00077': { mpNome: 'GLICERINA', tipo: 'MPGR' }, 'MPGR-00008': { mpNome: 'Glicerina', tipo: 'MPGR' },
-  'MPGR-00099': { mpNome: 'Glicerina', tipo: 'MPGR', ativo: false }, 'ES-00010': { mpNome: 'Glicerina', tipo: 'ES' },
+  'MPGR-00099': { mpNome: 'Glicerina', tipo: 'MPGR', ativo: false }, 'EP-00001': { mpNome: 'Válvula spray 120ml', tipo: 'EP' },
+  'MPGR-00142': { mpNome: 'VALVULA SPRAY 120ML', tipo: 'MPGR' },
 });
-assert.deepEqual(ix, { 'ES|GLICERINA': 'ES-00010', 'MPGR|GLICERINA': 'MPGR-00008' }, 'menor código é o dono; inativo fora');
+assert.deepEqual(ix, { 'GLICERINA': 'MPGR-00008', 'VALVULA SPRAY 120ML': 'EP-00001' }, 'menor código é o dono (em qualquer tipo); inativo fora');
 // Criar: reserva a chave; com dona, recusa.
-assert.deepEqual(D.mudancasDoIndice(null, { tipo: 'MPGR', mpNome: 'Ureia' }, 'MPGR-00200', ix), { chave: 'MPGR|UREIA', updates: { 'MPGR|UREIA': 'MPGR-00200' } });
-assert.equal(D.mudancasDoIndice(null, { tipo: 'MPGR', mpNome: 'glicerina' }, 'MPGR-00201', ix).erro, 'Já existe MPGR-00008 com este tipo e nome.');
+assert.deepEqual(D.mudancasDoIndice(null, { tipo: 'MPGR', mpNome: 'Ureia' }, 'MPGR-00200', ix), { chave: 'UREIA', updates: { 'UREIA': 'MPGR-00200' } });
+assert.equal(D.mudancasDoIndice(null, { tipo: 'MPGR', mpNome: 'glicerina' }, 'MPGR-00201', ix).erro, 'Já existe MPGR-00008 com este nome.');
 // Duplicata antiga que não muda de nome continua salvando, sem ganhar a chave.
 assert.deepEqual(D.mudancasDoIndice({ tipo: 'MPGR', mpNome: 'GLICERINA' }, { tipo: 'MPGR', mpNome: 'GLICERINA' }, 'MPGR-00077', ix), { chave: null, updates: {} });
 // Renomear a duplicata para um nome livre resolve: ganha a chave nova.
 assert.deepEqual(D.mudancasDoIndice({ tipo: 'MPGR', mpNome: 'GLICERINA' }, { tipo: 'MPGR', mpNome: 'GLICERINA USP' }, 'MPGR-00077', ix),
-  { chave: 'MPGR|GLICERINA USP', updates: { 'MPGR|GLICERINA USP': 'MPGR-00077' } });
+  { chave: 'GLICERINA USP', updates: { 'GLICERINA USP': 'MPGR-00077' } });
 // Dono renomeado libera a chave antiga; inativado libera sem pegar outra.
 assert.deepEqual(D.mudancasDoIndice({ tipo: 'MPGR', mpNome: 'Glicerina' }, { tipo: 'MPGR', mpNome: 'Glicerina bidestilada' }, 'MPGR-00008', ix).updates,
-  { 'MPGR|GLICERINA': null, 'MPGR|GLICERINA BIDESTILADA': 'MPGR-00008' });
+  { 'GLICERINA': null, 'GLICERINA BIDESTILADA': 'MPGR-00008' });
 assert.deepEqual(D.mudancasDoIndice({ tipo: 'MPGR', mpNome: 'Glicerina' }, { tipo: 'MPGR', mpNome: 'Glicerina', ativo: false }, 'MPGR-00008', ix),
-  { chave: null, updates: { 'MPGR|GLICERINA': null } });
+  { chave: null, updates: { 'GLICERINA': null } });
 // Renomear para nome que já tem dono: recusado.
 assert.match(D.mudancasDoIndice({ tipo: 'MPGR', mpNome: 'Ureia' }, { tipo: 'MPGR', mpNome: 'GLICERINA' }, 'MPGR-00200', ix).erro, /MPGR-00008/);
 

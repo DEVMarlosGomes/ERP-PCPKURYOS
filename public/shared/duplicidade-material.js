@@ -5,8 +5,9 @@
  * 9 grupos de nome repetido entre os ativos (ex.: GLICERINA MPGR-00008 × MPGR-00077), e o
  * INCI NÃO serve como chave — PARFUM aparece em 90 fragrâncias e nomes comerciais
  * diferentes têm o mesmo INCI de propósito (Cetiol CC = Carbonato de dicaprilila).
- * Por isso: bloqueio só por tipo + nome normalizado; INCI e código do fornecedor só
- * sugerem candidato. Funções puras, sem DOM nem banco. */
+ * Por isso: bloqueio por nome normalizado; INCI e código do fornecedor só sugerem candidato.
+ * 23/10/2026: o tipo saiu da chave — o teste do usuário cadastrou a mesma válvula como MPGR
+ * (EP-00001 × MPGR-00142); medido, era o único caso de mesmo nome em tipos diferentes. Funções puras, sem DOM nem banco. */
 (function(root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.DuplicidadeMaterial = factory();
@@ -17,7 +18,9 @@
     return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase()
       .replace(/[^A-Z0-9%]+/g, ' ').trim();
   }
-  function chaveMaterial(tipo, nome) { return String(tipo || '').toUpperCase() + '|' + normalizar(nome); }
+  // A chave é só o nome normalizado (o tipo não entra: mesmo nome em outro tipo é tipo errado).
+  // O 1º parâmetro fica para não mudar quem já chama chaveMaterial(tipo, nome).
+  function chaveMaterial(_tipo, nome) { return normalizar(nome); }
 
   function codigosFornecedor(m) {
     var out = [];
@@ -42,7 +45,7 @@
       if (!m || m.ativo === false || key === excluirKey) return;
       var nomeM = normalizar(m.mpNome);
       var motivo = null, forca = 0;
-      if (nome && nomeM && String(m.tipo || '').toUpperCase() === tipo && nomeM === nome) { motivo = 'mesmo nome'; forca = 3; }
+      if (nome && nomeM && nomeM === nome) { motivo = String(m.tipo || '').toUpperCase() === tipo ? 'mesmo nome' : 'mesmo nome, cadastrado como ' + (m.tipo || '?'); forca = 3; }
       else if (nome.length >= 6 && nomeM.length >= 6 && String(m.tipo || '').toUpperCase() === tipo && (nomeM.indexOf(nome) !== -1 || nome.indexOf(nomeM) !== -1)) { motivo = 'nome parecido'; forca = 2; }
       else if (codigo && codigosFornecedor(m).indexOf(codigo) !== -1) { motivo = 'mesmo código do fornecedor'; forca = 2; }
       else if (inci && !INCI_GENERICO[inci] && normalizar(m.inci) === inci) { motivo = 'mesmo INCI'; forca = 1; }
@@ -51,9 +54,9 @@
     return achados.sort(function(a, b) { return b.forca - a.forca || a.mpCodigo.localeCompare(b.mpCodigo); });
   }
 
-  // Duplicata exata (mesmo tipo e nome): criar outro é recusado; o caminho é vincular.
+  // Duplicata exata (mesmo nome, em qualquer tipo): criar outro é recusado; o caminho é vincular.
   function duplicataExata(lista) {
-    return (lista || []).filter(function(c) { return c.motivo === 'mesmo nome'; })[0] || null;
+    return (lista || []).filter(function(c) { return c.forca === 3; })[0] || null;
   }
 
   // Fecha a tarefa da fila do P&D apontando para o material que já existe.
@@ -62,7 +65,7 @@
       vinculadoEm: agora, vinculadoPor: autor || '' };
   }
 
-  /* Índice materiais_chave/{tipo|NOME} → material (regra do banco: uma chave, um dono).
+  /* Índice materiais_chave/{NOME normalizado} → material (regra do banco: uma chave, um dono).
      anterior = material gravado (null ao criar); novo = dados a gravar; indice = materiais_chave.
      Devolve { chave, updates: {chave: materialKey|null}, erro }. Criar sempre reserva a chave.
      Duplicata antiga (dos 9 grupos medidos em 22/10) que não muda de nome segue salvando: só
@@ -72,17 +75,17 @@
     var tomada = function(ch) { return ch && ix[ch] && ix[ch] !== materialKey; };
     var nova = chaveMaterial(novo.tipo, novo.mpNome);
     if (!anterior) {
-      if (tomada(nova)) return { erro: 'Já existe ' + ix[nova] + ' com este tipo e nome.' };
+      if (tomada(nova)) return { erro: 'Já existe ' + ix[nova] + ' com este nome.' };
       var u0 = {}; u0[nova] = materialKey;
       return { chave: nova, updates: u0 };
     }
     var desejada = novo.ativo === false ? null : nova;
-    var antiga = anterior.ativo === false ? null : (anterior.chaveDuplicidade || chaveMaterial(anterior.tipo, anterior.mpNome));
+    var antiga = anterior.ativo === false ? null : chaveMaterial(anterior.tipo, anterior.mpNome);
     if (desejada === antiga) return { chave: ix[desejada] === materialKey ? desejada : (anterior.chaveDuplicidade || null), updates: {} };
     var updates = {};
     if (antiga && ix[antiga] === materialKey) updates[antiga] = null;
     if (desejada) {
-      if (tomada(desejada)) return { erro: 'Já existe ' + ix[desejada] + ' com este tipo e nome.' };
+      if (tomada(desejada)) return { erro: 'Já existe ' + ix[desejada] + ' com este nome.' };
       updates[desejada] = materialKey;
     }
     return { chave: desejada, updates: updates };
