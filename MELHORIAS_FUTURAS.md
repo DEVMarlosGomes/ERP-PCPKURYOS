@@ -172,6 +172,12 @@ correção da lista, apesar de ser a mais fácil.
 
 ## Compras
 
+- **"Imprimir / salvar PDF" do pedido na tela de Orçamentos dá 404 (achado em 23/10/2026, COM-06)** —
+  `CommercialBudgetPage.js:openOrderPdf` abre `/api/orders/{id}/pdf`, rota do backend
+  Mongo/FastAPI abandonado; no Vercel volta 404. Trocar por um documento HTML gerado no
+  navegador (mesmo padrão do CGI, `firebaseCommercial.js`, "Salvar em PDF / imprimir").
+  Junto: o orçamento ao cliente ainda não tem documento próprio (o preço vai digitado); se
+  ganhar, sem custo nem margem (COM-06).
 - **SC do P&D numerada por "maior número + 1" (achado em 23/10/2026, COM-05)** —
   `POST /pd/requests/{id}/purchase-requests` (`crm-frontend/src/lib/firebaseApi.js`) calcula
   `Math.max(numero) + 1` sobre `solicitacoes_compra`, enquanto o Compras e a cotação do CRM

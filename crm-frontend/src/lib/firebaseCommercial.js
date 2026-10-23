@@ -1875,6 +1875,9 @@ export function createCommercialRouter(h) {
     let project = await getProject(tenant, projectId);
     const proposta = await findProposta(tenant, projectId);
     if (!proposta) throw apiError(409, "Salve o orçamento antes de registrar a decisão do cliente.");
+    if (decisao === "reprovado" && ["pedido_aprovado", "projeto_arquivado"].includes(project.stage)) {
+      throw apiError(409, project.stage === "pedido_aprovado" ? "Pedido já aprovado: o orçamento não volta a ser reprovado." : "Projeto arquivado.");
+    }
     // AMO-05: orçamento sobre amostra em retrabalho não é aprovado até ser revisado.
     if (decisao === "aprovado" && proposta.desatualizado) throw apiError(409, `Orçamento — ${textoDesatualizado(proposta.desatualizado)}. Revise o orçamento ou registre "revisado, sem impacto".`);
     const dispensados = [];
@@ -1898,9 +1901,17 @@ export function createCommercialRouter(h) {
     });
     let kickoff = null;
     let order = null;
-    if (decisao === "reprovado") {
+    let revisao = null;
+    if (decisao === "reprovado" && data?.cliente_desistiu === true) {
+      // "Cliente desistiu": arquiva o projeto e marca o cliente como perdido (como era antes do COM-06).
       project = await advanceProjectStage(tenant, projectId, "projeto_arquivado", profile, "orcamento_reprovado", { motivo_arquivamento: motivo });
       await mirrorClientStage(tenant, project, profile, "cliente_perdido", "espelho_crm2_projeto_arquivado", { motivo_perda: "outro" });
+    } else if (decisao === "reprovado") {
+      // COM-06: reprovado = renegociar. Projeto volta para Cotação, a cotação abre revisão (preços
+      // mantidos, para mexer no desconto e renegociar com Compras) e o orçamento também.
+      revisao = await revisarDepoisDaReprovacao(tenant, projectId, proposta, motivo, aprovacao.registro, profile);
+      project = await advanceProjectStage(tenant, projectId, "cotacao", profile, "orcamento_reprovado");
+      await mirrorClientStage(tenant, project, profile, "negociacao", "espelho_crm2_cotacao");
     } else {
       project = await advanceProjectStage(tenant, projectId, "pedido_aprovado", profile, "orcamento_aprovado");
       kickoff = await createKickoffForProject(tenant, projectId, profile);
@@ -1920,7 +1931,34 @@ export function createCommercialRouter(h) {
       entradaHistoricoAprovacao(aprovacao.registro, { oque: "Orçamento", resultado: decisao, documentoId: proposta.id }));
     if (cambioAprovacao) await registrarCambio(tenant, project, "orcamento_aprovado", profile, cambioAprovacao);
     await auditCard(tenant, "orcamento_decidido", "projeto", projectId, { stage: project?.stage }, { decisao, motivo, requisitos_dispensados: dispensados, aprovacao_cliente: aprovacao.registro }, profile);
-    return { decisao, project, kickoff, order };
+    return { decisao, project, kickoff, order, ...(revisao ? { revisao } : {}) };
+  }
+
+  async function revisarDepoisDaReprovacao(tenant, projectId, proposta, motivo, registroCliente, profile) {
+    const at = now();
+    const cot = await cotacaoVigente(tenant, projectId);
+    let novaCotacao = null;
+    if (cot) {
+      const r = Number(cot.revisao || 1) + 1;
+      const project = await getProject(tenant, projectId);
+      await patch(tenant, "cotacoes", cot.id, { status: "substituida", substituida_em: at });
+      const { id, created_at, updated_at, historico_status, solicitacao_compra_id, solicitacao_compra_numero, compras_fora, diff, ...base } = cot;
+      novaCotacao = await create(tenant, "cotacoes", { ...base, numero: numeroCotacao(project.numero_projeto, r), revisao: r, status: "rascunho",
+        revisao_anterior_id: cot.id, motivo_revisao: `Orçamento reprovado pelo cliente: ${motivo}`, diff: [],
+        historico_status: [{ status: "rascunho", em: at, por_nome: userName(profile) }], created_by: currentUid(), created_by_name: userName(profile) });
+    }
+    const revisaoOrcamento = Number(proposta.revisao_orcamento || 1);
+    const anterior = {
+      revisao: revisaoOrcamento, resultado: "reprovado", motivo, decidida_em: at, aprovacao_cliente: registroCliente,
+      preco_unitario: proposta.preco_unitario ?? null, items_pedido: proposta.items_pedido || [], condicoes_pagamento: proposta.condicoes_pagamento || "",
+      resumo: proposta.composicao?.resumo || null, cotacao_numero: proposta.cotacao_numero || "",
+    };
+    await patch(tenant, "crm_propostas", proposta.id, {
+      revisao_orcamento: revisaoOrcamento + 1, historico_revisoes: [...(proposta.historico_revisoes || []), anterior],
+      status: "rascunho", negociacao_status: "rascunho",
+      ...(novaCotacao ? { cotacao_id: novaCotacao.id, cotacao_numero: novaCotacao.numero, cotacao_revisao: novaCotacao.revisao } : {}),
+    });
+    return { orcamento: revisaoOrcamento + 1, cotacao: novaCotacao ? novaCotacao.numero : null };
   }
 
   /* Ganchos chamados pelo adaptador ao mover projeto no CRM2 */

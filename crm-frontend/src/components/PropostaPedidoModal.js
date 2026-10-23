@@ -106,7 +106,8 @@ export default function PropostaPedidoModal({ open, onOpenChange, projeto, onSav
 
     const [saving, setSaving] = useState(false);
     const [deciding, setDeciding] = useState(false);
-    const [decisaoPendente, setDecisaoPendente] = useState(null); // COM-02: "aprovado" | "reprovado" aguardando quem/canal/data
+    const [decisaoPendente, setDecisaoPendente] = useState(null);
+    const [clienteDesistiu, setClienteDesistiu] = useState(false); // COM-06: só assim reprovado arquiva // COM-02: "aprovado" | "reprovado" aguardando quem/canal/data
     const [decisionReason, setDecisionReason] = useState("");
 
     const projetoId = projeto?.id;
@@ -320,11 +321,14 @@ export default function PropostaPedidoModal({ open, onOpenChange, projeto, onSav
                 decisao: decision,
                 motivo: decisionReason.trim(),
                 aprovacao_cliente: aprovacaoCliente,
+                ...(decision === "reprovado" ? { cliente_desistiu: clienteDesistiu } : {}),
             });
             if (decision === "aprovado") {
                 toast.success("Orçamento aprovado. Pedido em rascunho e Kickoff criados.");
             } else {
-                toast.success("Orçamento reprovado e projeto arquivado.");
+                // COM-06: reprovado volta para a cotação em nova revisão; só "cliente desistiu" arquiva.
+                toast.success(clienteDesistiu ? "Orçamento reprovado e projeto arquivado (cliente desistiu)."
+                    : `Orçamento reprovado: revisão ${data?.revisao?.orcamento || ""} aberta${data?.revisao?.cotacao ? ` e cotação ${data.revisao.cotacao}` : ""}. Projeto voltou para Cotação.`);
             }
             onSaved?.(data);
             onOpenChange(false);
@@ -730,6 +734,10 @@ export default function PropostaPedidoModal({ open, onOpenChange, projeto, onSav
                                         placeholder="Motivo (obrigatório se reprovado)"
                                         className="sm:w-72"
                                     />
+                                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground" title="Sem marcar, o projeto volta para a Cotação em nova revisão para renegociar">
+                                        <input type="checkbox" checked={clienteDesistiu} onChange={(e) => setClienteDesistiu(e.target.checked)} data-testid="cliente-desistiu" />
+                                        Cliente desistiu (arquivar)
+                                    </label>
                                     <Button
                                         variant="destructive"
                                         disabled={saving || deciding}

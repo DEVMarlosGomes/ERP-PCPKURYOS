@@ -565,14 +565,38 @@ describe("numeração por projeto", () => {
 });
 
 describe("caminhos de exceção", () => {
-  test("orçamento reprovado arquiva o projeto e marca o cliente como perdido", async () => {
+  test("COM-06: orçamento reprovado reabre a cotação e o orçamento em nova revisão (sem arquivar)", async () => {
+    as("com");
+    const c = (await api.post("/crm/clients", { nome_empresa: "Zeta Renegocia Cosméticos", ...QUALIFIED })).data;
+    const p = (await api.post("/crm/projects/batch", { cliente_id: c.id, projects: [{ nome_projeto: "Sérum" }] })).data.projects[0];
+    await api.put(`/crm/projects/${p.id}`, { stage: "orcamento_completo" });
+    memory.write(`${T}/crm_projects/${p.id}/stage`, "orcamento_completo");
+    memory.write(`${T}/cotacoes/COTX`, { id: "COTX", projeto_id: p.id, numero: "COT-X-r1", revisao: 1, status: "precificada",
+      linhas: [{ linha_id: "L1", descricao: "Frasco", preco: 1.4, fonte_preco: "cotado_compras", fornecido_por: "kuryos" }] });
+    await api.post(`/crm/projects/${p.id}/proposta`, { tipo_produto: "Sérum", preco_unitario: 12.5 });
+    const r = (await api.post(`/crm/projects/${p.id}/proposta/decisao`, { decisao: "reprovado", motivo: "Preço acima do concorrente", aprovacao_cliente: APROVACAO })).data;
+    assert.equal(r.project.stage, "cotacao", "volta para a Cotação, não arquiva");
+    assert.equal(r.revisao.orcamento, 2);
+    assert.notEqual(db(`${T}/crm_clients/${c.id}/stage`), "cliente_perdido");
+    const cotacoes = Object.values(db(`${T}/cotacoes`)).filter((x) => x.projeto_id === p.id);
+    assert.equal(cotacoes.find((x) => x.id === "COTX").status, "substituida", "a anterior fica consultável");
+    const nova = cotacoes.find((x) => x.revisao === 2);
+    assert.deepEqual([nova.status, nova.linhas[0].preco, nova.revisao_anterior_id], ["rascunho", 1.4, "COTX"]);
+    assert.match(nova.motivo_revisao, /Preço acima do concorrente/);
+    const proposta = Object.values(db(`${T}/crm_propostas`)).find((x) => x.projeto_id === p.id);
+    assert.deepEqual([proposta.status, proposta.revisao_orcamento, proposta.historico_revisoes[0].motivo, proposta.historico_revisoes[0].preco_unitario],
+      ["rascunho", 2, "Preço acima do concorrente", 12.5]);
+    assert.equal(proposta.cotacao_id, nova.id);
+  });
+
+  test("orçamento reprovado com 'cliente desistiu' arquiva o projeto e marca o cliente como perdido", async () => {
     as("com");
     const c = (await api.post("/crm/clients", { nome_empresa: "Beta Cosméticos", ...QUALIFIED })).data;
     const p = (await api.post("/crm/projects/batch", { cliente_id: c.id, projects: [{ nome_projeto: "Shampoo" }] })).data.projects[0];
     await fails(api.post(`/crm/projects/${p.id}/proposta/decisao`, { decisao: "reprovado", motivo: "Preço", aprovacao_cliente: APROVACAO }), 409, /Salve o orçamento/);
     await api.post(`/crm/projects/${p.id}/proposta`, { tipo_produto: "Shampoo" });
     await fails(api.post(`/crm/projects/${p.id}/proposta/decisao`, { decisao: "reprovado" }), 422, /Motivo/);
-    const r = (await api.post(`/crm/projects/${p.id}/proposta/decisao`, { decisao: "reprovado", motivo: "Preço acima do mercado", aprovacao_cliente: APROVACAO })).data;
+    const r = (await api.post(`/crm/projects/${p.id}/proposta/decisao`, { decisao: "reprovado", motivo: "Preço acima do mercado", aprovacao_cliente: APROVACAO, cliente_desistiu: true })).data;
     assert.equal(r.project.stage, "projeto_arquivado");
     assert.equal(r.project.motivo_arquivamento, "Preço acima do mercado");
     assert.equal(db(`${T}/crm_clients/${c.id}/stage`), "cliente_perdido");
