@@ -115,6 +115,18 @@ antes de fechar.
   As regras se publicam **só** a partir de `database.rules.json` deste repo; a cópia da
   pasta antiga foi desativada porque apagaria nós em produção.
 
+- **Status "Em Testes" e "Aguardando Aprovação" do P&D só com liberação do servidor**
+  (desde 23/10/2026): a regra de `erp/$tenant/pd_requests/$req/status` exige
+  `pd_liberacoes_status/$req`, que só `liberarEtapaPd` (Render) grava depois de conferir os
+  100%. Código novo que mude esses status passa por `lib/servidor.js:liberarEtapaPd`.
+- **Material novo só nasce com a chave tipo+nome em `materiais_chave`** no mesmo update
+  (`shared/duplicidade-material.js:mudancasDoIndice`). Script ou importação que cria
+  material direto em `materiais/` é recusado pela regra.
+- **Emulador de regras:** rode com `--project demo-<nome>` igual ao `projectId` do teste.
+  Sem isso o emulador não aplica `database.rules.json` ao namespace e teste de negação
+  "passa" sem testar nada. Java portátil: Temurin 21 JRE (o PATH precisa do caminho em
+  formato `/c/...` no Git Bash).
+
 ## Armadilhas confirmadas (todas já custaram caro)
 
 - **`firebase database:update /nó` com objetos aninhados APAGA campos.** O RTDB trata
