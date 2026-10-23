@@ -467,6 +467,42 @@ describe("fluxo comercial completo até a emissão de OP", () => {
     assert.equal(k.desatualizado ?? null, null);
   });
 
+  test("COM-03: cotação em registro próprio, do Kickoff ao orçamento, com revisão quando o Kickoff muda", async () => {
+    as("com");
+    const { faltasDeParidade } = await import("@/lib/cotacaoKickoff");
+    const r1 = (await api.post(`/crm/projects/${project.id}/cotacao`, {})).data.vigente;
+    assert.equal(r1.numero, "COT-2026-001-r1");
+    assert.equal(r1.status, "rascunho");
+    const kickoffVig = Object.values(db(`${T}/kickoffs`)).filter((x) => x.projeto_id === project.id && !["substituida", "arquivado"].includes(x.status))
+      .sort((a, b) => Number(b.versao_numero || 0) - Number(a.versao_numero || 0))[0];
+    assert.deepEqual(faltasDeParidade(kickoffVig, r1), [], "todo item e quantidade do Kickoff está na cotação");
+    // Preço lançado na cotação chega ao orçamento como COTADO.
+    const frasco = r1.linhas.find((l) => l.nivel === "primaria");
+    await fails(api.put(`/crm/projects/${project.id}/cotacao/linhas/${frasco.linha_id}`, { preco: 0 }), 422, /maior que zero/);
+    await api.put(`/crm/projects/${project.id}/cotacao/linhas/${frasco.linha_id}`, { preco: 1.35 });
+    const base = (await api.get(`/crm/projects/${project.id}/cotacao-base`)).data;
+    assert.equal(base.cotacao.numero, "COT-2026-001-r1");
+    assert.deepEqual([base.insumos.find((i) => i.bom_id === frasco.linha_id).preco, base.insumos.find((i) => i.bom_id === frasco.linha_id).origem_preco], [1.35, "cotacao"]);
+    // Status: precificar exige preço em tudo que a Kuryos compra.
+    await api.post(`/crm/projects/${project.id}/cotacao/status`, { status: "em_cotacao_compras" });
+    const semPreco = (await api.get(`/crm/projects/${project.id}/cotacao`)).data.vigente.resumo.sem_preco;
+    if (semPreco) await fails(api.post(`/crm/projects/${project.id}/cotacao/status`, { status: "precificada" }), 422, /SEM PREÇO/);
+    for (const l of r1.linhas.filter((x) => x.fornecido_por !== "cliente")) await api.put(`/crm/projects/${project.id}/cotacao/linhas/${l.linha_id}`, { preco: 2 });
+    await api.post(`/crm/projects/${project.id}/cotacao/status`, { status: "precificada" });
+    await fails(api.put(`/crm/projects/${project.id}/cotacao/linhas/${frasco.linha_id}`, { preco: 3 }), 409, /abra uma revisão/);
+    // Kickoff muda depois que a cotação saiu do rascunho: revisão r2, r1 substituída, preço mantido.
+    const q = structuredClone(kickoffVig.questionario_composicao);
+    q.bloco2.componentes[0] = { ...q.bloco2.componentes[0], qtd_por_unidade: 2 };
+    await api.put(`/kickoff/${kickoffVig.id}/questionario-composicao`, { questionario: q, justificativa: "Cliente quer kit com dois frascos" });
+    const depois = (await api.post(`/crm/projects/${project.id}/cotacao`, {})).data;
+    assert.equal(depois.vigente.numero, "COT-2026-001-r2");
+    assert.equal(depois.revisoes.find((r) => r.numero === "COT-2026-001-r1").status, "substituida");
+    assert.ok(depois.vigente.diff.length >= 1);
+    // O orçamento salvo aponta para a revisão vigente.
+    await api.post(`/crm/projects/${project.id}/proposta`, { status: "rascunho" });
+    assert.equal(Object.values(db(`${T}/crm_propostas`))[0].cotacao_numero, "COT-2026-001-r2");
+  });
+
   test("KO-08: serviços escolhidos no Bloco 0 do Kickoff chegam à cotação", async () => {
     as("com");
     assert.deepEqual((await api.get("/cadastros/servicos")).data.map((sv) => sv.id), ["s1", "s2"], "só os ativos");

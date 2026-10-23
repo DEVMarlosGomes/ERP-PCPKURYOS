@@ -88,7 +88,8 @@ export function mesclarComposicao(salva, base, { congelada = false } = {}) {
   const insumos = (b.insumos || []).map((l) => {
     const antes = salvos.get(l.bom_id);
     if (!antes) return l;
-    const manual = l.origem_preco !== "formula";
+    // Preço da fórmula (P&D) ou da cotação (COM-03) acompanha a base; o digitado na tela fica.
+    const manual = !["formula", "cotacao"].includes(l.origem_preco);
     return {
       // O Kickoff é a fonte de quem fornece; o que estava salvo só vale se o Kickoff não disser.
       ...l, fornecido_por: l.fornecido_por || antes.fornecido_por || "kuryos",

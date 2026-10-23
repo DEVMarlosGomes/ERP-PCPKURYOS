@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import CambioPainel from "@/components/CambioPainel";
 import CotacaoComposicao from "@/components/CotacaoComposicao";
+import CotacaoKickoffPanel from "@/components/CotacaoKickoffPanel";
 import { calcularCotacao } from "@/lib/cotacao";
 import { useCambio } from "@/lib/useCambio";
 import { Plus, Trash2, X, AlertCircle, CheckCircle2, Clock, Paperclip, XCircle } from "lucide-react";
@@ -71,6 +72,7 @@ function modalCopyForProjectStage(stage) {
 
 export default function PropostaPedidoModal({ open, onOpenChange, projeto, onSaved, initialTab }) {
     const [tab, setTab] = useState("proposta");
+    const [versaoCotacao, setVersaoCotacao] = useState(0); // COM-03: preço lançado na cotação recarrega a composição
 
     // Bloco A
     const [tipoProduto, setTipoProduto] = useState("");
@@ -512,7 +514,13 @@ export default function PropostaPedidoModal({ open, onOpenChange, projeto, onSav
 
                             {propostaCarregada && (
                                 <div className="rounded-lg border p-4">
+                                    <CotacaoKickoffPanel projetoId={projetoId} onAlterada={() => setVersaoCotacao((n) => n + 1)} />
+                                </div>
+                            )}
+                            {propostaCarregada && (
+                                <div className="rounded-lg border p-4">
                                     <CotacaoComposicao
+                                        key={versaoCotacao}
                                         projetoId={projetoId}
                                         salva={composicao || composicaoSalva}
                                         congelada={Boolean(cambioAprovacao) && Boolean(composicaoSalva)}

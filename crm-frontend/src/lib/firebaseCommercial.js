@@ -34,6 +34,7 @@ import { aplicarSobrescritas, coletorDeOrigem, preencherVazios, sobrescritasDaOr
 import { insumosDoKickoff, linhasDeEmbalagem } from "@/lib/kickoffBom";
 import { validarResponsavel } from "@/lib/responsaveisTecnicos";
 import { resolverDesatualizado, textoDesatualizado } from "@/lib/retrabalhoAprovada";
+import { STATUS_COTACAO, TRAVADAS, diffLinhas, linhasDaCotacao, mesclarLinhas, numeroCotacao, precosDaCotacao, resumoCotacao } from "@/lib/cotacaoKickoff";
 
 export const NOT_HANDLED = Symbol("not-handled");
 
@@ -495,15 +496,95 @@ export function createCommercialRouter(h) {
     const atualizado = keepStoredBom(kickoff) ? kickoff : await refreshBom(tenant, kickoff);
     const bom = insumosDoKickoff(atualizado);
     const itens = kickoff.formula_id ? await related(tenant, "pd_formula_items", "formula_id", kickoff.formula_id) : [];
+    const cotacao = await cotacaoVigente(tenant, projectId);
     const b3 = kickoff.bloco3 || {};
     return {
       kickoff_id: kickoff.id, numero_kickoff: kickoff.numero_kickoff || "", kickoff_status: kickoff.status || "",
       qtd_pedido: Number(kickoff.bloco2?.volume_primeiro_pedido) || qtdProposta || Number(project.volume_estimado_pedido) || 0,
       kg_por_unidade: kgDaUnidade(b3.volume_peso_liquido_valor, b3.volume_peso_liquido_unidade),
-      insumos: insumosDoBom(bom, itens), servicos, servicos_erro: servicosErro,
+      insumos: precosDaCotacao(insumosDoBom(bom, itens), cotacao), servicos, servicos_erro: servicosErro,
       // KO-08: serviços que o Kickoff contratou (Bloco 0).
       servicos_selecionados: servicosDoKickoff(kickoff),
+      // COM-03: a cotação (registro próprio) que o orçamento usa.
+      cotacao: cotacao ? { id: cotacao.id, numero: cotacao.numero, revisao: cotacao.revisao, status: cotacao.status, resumo: resumoCotacao(cotacao) } : null,
     };
+  }
+
+  /* COM-03: cotação em registro próprio (erp/{t}/cotacoes), montada do Kickoff vigente. */
+  const cotacaoVigente = async (tenant, projectId) => (await related(tenant, "cotacoes", "projeto_id", projectId))
+    .filter((c) => c.status !== "substituida").sort((a, b) => Number(b.revisao || 0) - Number(a.revisao || 0))[0] || null;
+
+  async function referenciaDaCotacao(tenant, projectId) {
+    const c = await cotacaoVigente(tenant, projectId);
+    return c ? { cotacao_id: c.id, cotacao_numero: c.numero, cotacao_revisao: c.revisao } : {};
+  }
+
+  async function listarCotacoes(tenant, projectId) {
+    const todas = (await related(tenant, "cotacoes", "projeto_id", projectId)).sort((a, b) => Number(b.revisao || 0) - Number(a.revisao || 0));
+    const vigente = todas.find((c) => c.status !== "substituida") || null;
+    return { vigente: vigente ? { ...vigente, resumo: resumoCotacao(vigente) } : null, revisoes: todas };
+  }
+
+  // Gera a cotação do Kickoff; rascunho acompanha o Kickoff, cotação já em Compras abre revisão.
+  async function gerarCotacao(tenant, projectId, profile) {
+    requireComercial(profile, "Gerar a cotação");
+    const project = await getProject(tenant, projectId);
+    let kickoff = await kickoffVigente(tenant, projectId);
+    if (!kickoff) throw apiError(409, "O projeto ainda não tem Kickoff: a cotação nasce dele.");
+    if (!keepStoredBom(kickoff)) kickoff = await refreshBom(tenant, kickoff);
+    const novas = linhasDaCotacao(kickoff);
+    if (!novas.length) throw apiError(409, "O Kickoff não tem itens (ficha de manipulação e BOM de embalagens vazios).");
+    const atual = await cotacaoVigente(tenant, projectId);
+    const at = now();
+    const base = { projeto_id: projectId, numero_projeto: project.numero_projeto || "", kickoff_id: kickoff.id, kickoff_versao: kickoff.versao || "v1",
+      numero_kickoff: kickoff.numero_kickoff || "", qtd_pedido: Number(kickoff.bloco2?.volume_primeiro_pedido) || Number(kickoff.questionario_composicao?.fechamento?.volume_primeiro_lote) || null,
+      servicos_selecionados: servicosDoKickoff(kickoff), atualizado_em: at, atualizado_por_nome: userName(profile) };
+    if (!atual) {
+      return create(tenant, "cotacoes", { ...base, numero: numeroCotacao(project.numero_projeto, 1), revisao: 1, status: "rascunho",
+        linhas: novas, historico_status: [{ status: "rascunho", em: at, por_nome: userName(profile) }], created_by: currentUid(), created_by_name: userName(profile) });
+    }
+    const linhas = mesclarLinhas(novas, atual.linhas);
+    const diff = diffLinhas(atual.linhas, linhas);
+    if (!TRAVADAS.has(atual.status)) return patch(tenant, "cotacoes", atual.id, { ...base, linhas });
+    if (!diff.length && atual.kickoff_id === kickoff.id) return atual;
+    const revisao = Number(atual.revisao || 1) + 1;
+    await patch(tenant, "cotacoes", atual.id, { status: "substituida", substituida_em: at });
+    return create(tenant, "cotacoes", { ...base, numero: numeroCotacao(project.numero_projeto, revisao), revisao, status: "rascunho", linhas,
+      revisao_anterior_id: atual.id, motivo_revisao: `Kickoff ${kickoff.versao || "vigente"} mudou depois da cotação ${atual.numero}`, diff,
+      historico_status: [{ status: "rascunho", em: at, por_nome: userName(profile) }], created_by: currentUid(), created_by_name: userName(profile) });
+  }
+
+  const PROXIMO_STATUS = { rascunho: ["em_cotacao_compras"], em_cotacao_compras: ["precificada", "rascunho"], precificada: ["aprovada", "em_cotacao_compras"], aprovada: [] };
+
+  async function mudarStatusCotacao(tenant, projectId, data, profile) {
+    requireComercial(profile, "Mudar o status da cotação");
+    const atual = await cotacaoVigente(tenant, projectId);
+    if (!atual) throw apiError(404, "Projeto sem cotação.");
+    const novo = data?.status;
+    if (!(PROXIMO_STATUS[atual.status] || []).includes(novo)) throw apiError(409, `Cotação ${STATUS_COTACAO[atual.status] || atual.status} não vai para ${STATUS_COTACAO[novo] || novo}.`);
+    const r = resumoCotacao(atual);
+    if (["precificada", "aprovada"].includes(novo) && r.sem_preco) throw apiError(422, `${r.sem_preco} item(ns) comprado(s) pela Kuryos ainda SEM PREÇO.`);
+    return patch(tenant, "cotacoes", atual.id, { status: novo,
+      historico_status: [...(atual.historico_status || []), { status: novo, em: now(), por: currentUid(), por_nome: userName(profile) }] });
+  }
+
+  async function precificarLinha(tenant, projectId, linhaId, data, profile) {
+    if (!isComercial(profile) && !isAdmin(profile) && profile?.modulos?.compras !== true) throw apiError(403, "Preço da cotação é lançado pelo Comercial ou por Compras.");
+    const atual = await cotacaoVigente(tenant, projectId);
+    if (!atual) throw apiError(404, "Projeto sem cotação.");
+    if (!["rascunho", "em_cotacao_compras"].includes(atual.status)) throw apiError(409, `Cotação ${STATUS_COTACAO[atual.status]}: o preço não muda mais (abra uma revisão).`);
+    const preco = data?.preco === null || data?.preco === "" ? null : Number(data?.preco);
+    if (preco !== null && !(Number.isFinite(preco) && preco > 0)) throw apiError(422, "Preço deve ser maior que zero (sem preço = vazio, nunca zero).");
+    const moeda = data?.moeda === "USD" ? "USD" : "BRL";
+    let achou = false;
+    const linhas = (atual.linhas || []).map((l) => {
+      if (l.linha_id !== linhaId) return l;
+      achou = true;
+      return { ...l, preco, moeda, fonte_preco: preco === null ? null : (data?.fonte_preco || "cotado_compras"), fonte_detalhe: String(data?.fonte_detalhe || "").trim(),
+        preco_atualizado_em: now(), preco_atualizado_por: userName(profile) };
+    });
+    if (!achou) throw apiError(404, "Linha não encontrada na cotação.");
+    return patch(tenant, "cotacoes", atual.id, { linhas });
   }
 
   async function upsertProposta(tenant, projectId, data, profile) {
@@ -524,6 +605,8 @@ export function createCommercialRouter(h) {
       throw apiError(409, `Orçamento — ${textoDesatualizado(existing.desatualizado)}. Revise ou registre "revisado, sem impacto" antes de enviar.`);
     }
     await conferirComposicao(payload, existing);
+    // COM-03: o orçamento aponta para a revisão da cotação que usou.
+    Object.assign(payload, await referenciaDaCotacao(tenant, projectId));
     // COM-01: enviar ao cliente registra a taxa do momento no histórico (não congela nada).
     const registrarEnvio = payload.status === "enviado" && existing?.status !== "enviado";
     if (existing) {
@@ -1942,6 +2025,11 @@ export function createCommercialRouter(h) {
         return salva;
       }
       if (is("GET", /^\/crm\/projects\/([^/]+)\/cotacao-base$/)) return cotacaoBase(tenant, m[1]);
+      // COM-03: cotação em registro próprio (vigente + revisões), gerada do Kickoff.
+      if (is("GET", /^\/crm\/projects\/([^/]+)\/cotacao$/)) { await getProject(tenant, m[1]); return listarCotacoes(tenant, m[1]); }
+      if (is("POST", /^\/crm\/projects\/([^/]+)\/cotacao$/)) { await gerarCotacao(tenant, m[1], profile); return listarCotacoes(tenant, m[1]); }
+      if (is("POST", /^\/crm\/projects\/([^/]+)\/cotacao\/status$/)) { await mudarStatusCotacao(tenant, m[1], data, profile); return listarCotacoes(tenant, m[1]); }
+      if (is("PUT", /^\/crm\/projects\/([^/]+)\/cotacao\/linhas\/([^/]+)$/)) { await precificarLinha(tenant, m[1], decodeURIComponent(m[2]), data, profile); return listarCotacoes(tenant, m[1]); }
       // KO-06: responsáveis técnicos (menu do Kickoff, com "+ cadastrar" ali mesmo).
       if (is("GET", /^\/crm\/responsaveis-tecnicos$/)) {
         return (await all(tenant, "responsaveis_tecnicos")).filter((r) => r.ativo !== false)
