@@ -45,14 +45,44 @@ export const ROTULOS = {
   data_prevista_inicio_producao: "Data prevista de início", volume_primeiro_lote: "Volume do primeiro lote",
   responsavel_kuryos: "Responsável Kuryos", responsavel_cliente: "Responsável cliente", data_preenchimento: "Data do preenchimento",
   aplicavel: "Aplicável?", definido: "Definido?", fornecido_por: "Fornecido por",
-  especificacao_fornecedor_codigo: "Especificação / fornecedor / código", arte_cria_aprova: "Arte: cria / aprova", arte_aprovada: "Arte aprovada?",
+  especificacao_fornecedor_codigo: "Item do Cadastros ou especificação", arte_cria_aprova: "Arte: cria / aprova", arte_aprovada: "Arte aprovada?",
+  item_novo_descricao: "Descrição do item novo", qtd_por_unidade: "Quantidade por unidade", unidades_por_embalagem: "Unidades por embalagem",
 };
+
+/* KO-05 (23/10/2026): "Fornecido por" é Kuryos ou Cliente (menu). Medido em 22/10 nos 11 Kickoffs:
+ * o texto livre tinha "ok" ×11, "KURYOS" ×5 e NOMES DE FORNECEDOR no lugar (PLASTSUL, VALVSPRAY,
+ * GRÁFICA X…). Conversão: Kuryos/Cliente ficam; nome de fornecedor → Kuryos + fornecedor preenchido
+ * (Compras confere); "ok" e afins → vazio (pendência visível). */
+export function normalizarFornecidoPor(v) {
+  const s = String(v ?? "").trim();
+  const n = s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  if (!n || ["ok", "sim", "s", "x", "-", "nao", "n"].includes(n)) return { fornecido_por: "" };
+  if (n === "kuryos" || n === "kuryos beauty") return { fornecido_por: "kuryos" };
+  if (n === "cliente") return { fornecido_por: "cliente" };
+  return { fornecido_por: "kuryos", fornecedor_nome: s };
+}
+
+// Linha gravada antes do KO-05 (fornecido_por em texto livre) no formato novo; a nova passa igual.
+export function normalizarLinhaComponente(linha) {
+  const r = { ...(linha || {}) };
+  if (r.fornecido_por !== "kuryos" && r.fornecido_por !== "cliente") {
+    const conv = normalizarFornecidoPor(r.fornecido_por);
+    r.fornecido_por = conv.fornecido_por;
+    if (conv.fornecedor_nome && !r.fornecedor_nome) r.fornecedor_nome = conv.fornecedor_nome;
+  }
+  return r;
+}
+
+// Quantidade da linha (BOM-01): primária/secundária = peças por unidade; terciária = unidades por embalagem.
+const QTD_DO_BLOCO = { bloco2: "qtd_por_unidade", bloco3: "qtd_por_unidade", bloco4: "unidades_por_embalagem" };
+const positivo = (v) => Number(String(v ?? "").replace(",", ".")) > 0;
 
 /* Linha de componente: Aplicável? vazio = pendente; Não = pronto (não entra no BOM);
  * Sim → Definido? obrigatório; Definido? Não = pronto (será definido depois, sem pendência);
- * Definido? Sim → fornecido por + especificação (ou arte: quem cria/aprova + arte aprovada?). */
-export function pendenciasDaLinha(linha, comArte = false) {
-  const r = linha || {};
+ * Definido? Sim → fornecido por (Kuryos/Cliente) + o item (do Cadastros, ou "item novo" descrito, ou a
+ * especificação escrita) + quantidade; na secundária também arte: quem cria/aprova + arte aprovada?. */
+export function pendenciasDaLinha(linha, comArte = false, bloco = comArte ? "bloco3" : "bloco2") {
+  const r = normalizarLinhaComponente(linha);
   const aplicavel = simNao(r.aplicavel);
   if (aplicavel === "") return ["aplicavel"];
   if (aplicavel === "nao") return [];
@@ -61,10 +91,15 @@ export function pendenciasDaLinha(linha, comArte = false) {
   if (definido === "nao") return [];
   const faltam = [];
   if (VAZIO(r.fornecido_por)) faltam.push("fornecido_por");
+  if (r.item_novo) {
+    if (VAZIO(r.item_novo_descricao)) faltam.push("item_novo_descricao");
+  } else if (VAZIO(r.material_codigo) && VAZIO(r.especificacao_fornecedor_codigo)) faltam.push("especificacao_fornecedor_codigo");
+  const campoQtd = QTD_DO_BLOCO[bloco];
+  if (campoQtd && Object.prototype.hasOwnProperty.call(r, campoQtd) && !positivo(r[campoQtd])) faltam.push(campoQtd);
   if (comArte) {
     if (VAZIO(r.arte_cria_aprova)) faltam.push("arte_cria_aprova");
     if (simNao(r.arte_aprovada) === "") faltam.push("arte_aprovada");
-  } else if (VAZIO(r.especificacao_fornecedor_codigo)) faltam.push("especificacao_fornecedor_codigo");
+  }
   return faltam;
 }
 
@@ -86,7 +121,7 @@ export function pendenciasQuestionario(questionario) {
     }
     if (["bloco2", "bloco3", "bloco4"].includes(bloco)) {
       (dados.componentes || []).forEach((linha, i) => {
-        for (const campo of pendenciasDaLinha(linha, bloco === "bloco3")) {
+        for (const campo of pendenciasDaLinha(linha, bloco === "bloco3", bloco)) {
           pend.push({ campo: `componentes[${i}].${campo}`, rotulo: `${linha.componente || `Componente ${i + 1}`}: ${ROTULOS[campo] || campo}` });
         }
       });

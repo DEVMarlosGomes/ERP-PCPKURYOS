@@ -28,7 +28,7 @@ import { registroDeCambio, taxaDaCotacao, textoCambio } from "@/lib/cambio";
 import { calcularCotacao, insumosDoBom, mensagemDePendencias } from "@/lib/cotacao";
 import { entradaHistoricoAprovacao, validarAprovacaoCliente } from "@/lib/aprovacaoCliente";
 import { acrescentarHistorico } from "@/lib/historicoTimeline";
-import { pendenciasQuestionario, simNao } from "@/lib/kickoffPendencias";
+import { normalizarLinhaComponente, pendenciasQuestionario, simNao } from "@/lib/kickoffPendencias";
 import { BLOCOS_DA_ETAPA, aguardaPd, assinaturaDoBloco, congelarTodos, estadoDosBlocos, validarBlocos } from "@/lib/kickoffBlocos";
 import { preencherVazios } from "@/lib/kickoffAutopreenchimento";
 
@@ -107,10 +107,12 @@ function toFloatOrNull(value) {
   return Number.isFinite(number) ? number : null;
 }
 
-function componentRows(rows, hasArt = false) {
+// BOM-01/KO-05: primária e secundária nascem com 1 peça por unidade; a terciária pede unidades por embalagem.
+function componentRows(rows, hasArt = false, terciaria = false) {
   return rows.map(([id, componente]) => ({
-    id, componente, aplicavel: "", definido: "", fornecido_por: "", observacoes: "",
-    ...(hasArt ? { arte_cria_aprova: "", arte_aprovada: "" } : { especificacao_fornecedor_codigo: "" }),
+    id, componente, aplicavel: "", definido: "", fornecido_por: "", observacoes: "", especificacao_fornecedor_codigo: "",
+    ...(terciaria ? { unidades_por_embalagem: "" } : { qtd_por_unidade: 1 }),
+    ...(hasArt ? { arte_cria_aprova: "", arte_aprovada: "" } : {}),
   }));
 }
 
@@ -129,7 +131,7 @@ export function questionarioTemplate() {
     },
     bloco2: { componentes: componentRows(BLOCO2_COMPONENTS) },
     bloco3: { componentes: componentRows(BLOCO3_COMPONENTS, true) },
-    bloco4: { componentes: componentRows(BLOCO4_COMPONENTS) },
+    bloco4: { componentes: componentRows(BLOCO4_COMPONENTS, false, true) },
     bloco5: {
       especificacoes_cq_componentes: "", especificacoes_cq_anexos: [], testes_aprovacoes_obrigatorios: "",
       amostra_referencia_fornecida_cliente: "",
@@ -147,7 +149,8 @@ export function mergeQuestionario(base, incoming) {
   for (const [key, value] of Object.entries(incoming || {})) {
     if (["bloco2", "bloco3", "bloco4"].includes(key) && value && typeof value === "object" && !Array.isArray(value)) {
       const current = merged[key] || (merged[key] = {});
-      if (Array.isArray(value.componentes)) current.componentes = clone(value.componentes);
+      // KO-05: linha antiga (fornecido por em texto livre) é gravada no formato novo.
+      if (Array.isArray(value.componentes)) current.componentes = clone(value.componentes).map(normalizarLinhaComponente);
       for (const [subKey, subValue] of Object.entries(value)) if (subKey !== "componentes") current[subKey] = clone(subValue);
     } else if (value && typeof value === "object" && !Array.isArray(value) && merged[key] && typeof merged[key] === "object" && !Array.isArray(merged[key])) {
       merged[key] = { ...merged[key], ...clone(value) };
@@ -166,8 +169,9 @@ export const questionarioReady = pendenciasQuestionario;
 
 const findComponent = (questionario, section, id) => (questionario?.[section]?.componentes || []).find((row) => row.id === id) || {};
 // Componente "não aplicável" não alimenta o BOM (no master contava como respondido).
-const componentAnswered = (row) => simNao(row?.aplicavel) !== "nao"
-  && Object.entries(row || {}).some(([key, value]) => !["id", "componente"].includes(key) && !EMPTY(value));
+// KO-03/05: só componente com "Aplicável?" = Sim e algo além do nome e da quantidade padrão.
+const componentAnswered = (row) => simNao(row?.aplicavel) === "sim"
+  && Object.entries(row || {}).some(([key, value]) => !["id", "componente", "aplicavel", "qtd_por_unidade", "unidades_por_embalagem"].includes(key) && !EMPTY(value));
 
 export function legacyBlocksFromQuestionario(questionario, kickoff) {
   const b0 = questionario.bloco0 || {};
@@ -214,14 +218,14 @@ export function legacyBlocksFromQuestionario(questionario, kickoff) {
       ...old4,
       embalagem_primaria_tipo: firstValue(primary.componente, old4.embalagem_primaria_tipo),
       embalagem_primaria_material: firstValue(primary.especificacao_fornecedor_codigo, old4.embalagem_primaria_material),
-      embalagem_primaria_fornecedor_id: firstValue(primary.fornecido_por, old4.embalagem_primaria_fornecedor_id),
+      embalagem_primaria_fornecedor_id: firstValue(primary.fornecedor_nome, old4.embalagem_primaria_fornecedor_id),
       fechamento_tipo: firstValue(tampa.componente, old4.fechamento_tipo),
-      fechamento_fornecedor_id: firstValue(tampa.fornecido_por, old4.fechamento_fornecedor_id),
+      fechamento_fornecedor_id: firstValue(tampa.fornecedor_nome, old4.fechamento_fornecedor_id),
       caixa_master_tipo: firstValue(caixa.especificacao_fornecedor_codigo, caixa.componente, old4.caixa_master_tipo),
       caixa_master_unidades: toFloatOrNull(b0.displays_ou_unidades_por_caixa_master) || old4.caixa_master_unidades || null,
       configuracao_palete: firstValue(palete.especificacao_fornecedor_codigo, old4.configuracao_palete),
       tipo_rotulagem: firstValue(rotulo.componente, old4.tipo_rotulagem),
-      rotulo_fornecedor_id: firstValue(rotulo.fornecido_por, old4.rotulo_fornecedor_id),
+      rotulo_fornecedor_id: firstValue(rotulo.fornecedor_nome, old4.rotulo_fornecedor_id),
       rotulo_arte_aprovador: firstValue(rotulo.arte_cria_aprova, old4.rotulo_arte_aprovador),
     },
   };
