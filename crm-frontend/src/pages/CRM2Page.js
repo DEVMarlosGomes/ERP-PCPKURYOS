@@ -15,6 +15,7 @@ import {
 } from "@/lib/masks";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
+import LiberacoesDiretoriaPanel from "@/components/LiberacoesDiretoriaPanel";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -623,6 +624,8 @@ export default function CRM2Page() {
                 onConfirm={enviarResultadoCliente}
             />
             <CRMSubNav active="projects" />
+            {/* Liberação antecipada do P&D (24/10/2026): a diretoria (ADM) aprova aqui. */}
+            {isAdmin && <LiberacoesDiretoriaPanel nomeDoAprovador={authUser?.name || authUser?.email || ""} onDecidido={loadProjects} />}
             <div className="flex items-center justify-between mb-4">
                 <div>
                     <h1 className="text-3xl font-heading font-semibold tracking-tight">Pipeline de Projetos</h1>

@@ -116,6 +116,19 @@ const negado = (p, msg) => assert.rejects(p, /PERMISSION_DENIED|permission_denie
   await negado(comercial.ref('produtos/PRF-X-0001/descricao').set('outra'), 'SKU criada não é editada pelo Comercial');
   await comercial.ref('produtos/PRF-X-0001/origemCrm').set({orcamentoId: 'ORC1', origem_contratual_status: 'cgi_assinado', cgiContratoId: 'C1'});
 
+  // ── Liberação antecipada (24/10): P&D pede; só o ADM decide, sem data no futuro ──
+  await raiz.ref(T + '/pd_requests/R9').set({id: 'R9', status: 'IN_TESTS'});
+  const L = T + '/pd_requests/R9/liberacao_antecipada';
+  await pd.ref(L).set({status: 'aguardando_diretoria', motivo: 'Cliente quer ver antes do D48h'});
+  await negado(pd.ref(L + '/status').set('aprovada'), 'P&D não aprova a própria liberação');
+  await negado(pd.ref(L + '/decisao').set({decidida_por: 'pd', decidida_em_ms: Date.now()}), 'P&D não grava decisão');
+  await negado(adm.ref(L + '/decisao').set({decidida_por: 'adm', decidida_em_ms: Date.now() + 3600e3}), 'decisão no futuro');
+  await negado(adm.ref(L + '/decisao').set({decidida_por: 'outro', decidida_em_ms: Date.now()}), 'decisão em nome de outro');
+  await adm.ref(L).update({status: 'aprovada', decisao: {decidida_por: 'adm', decidida_em_ms: Date.now() - 60000, justificativa: 'Cliente com feira'}});
+  // Regravar o documento inteiro (o adaptador faz set) com a decisão igual continua valendo.
+  const r9 = (await raiz.ref(T + '/pd_requests/R9').get()).val();
+  await pd.ref(T + '/pd_requests/R9').set({...r9, obs: 'regravado pelo P&D'});
+
   console.log('run_pacote_20261022_rules_test: OK');
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

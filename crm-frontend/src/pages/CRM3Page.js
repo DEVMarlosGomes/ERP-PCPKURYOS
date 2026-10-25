@@ -965,6 +965,12 @@ export default function CRM3Page() {
                                                         />
                                                     </div>
                                                 </div>
+                                                {/* Liberação antecipada (24/10/2026): saiu do P&D antes do D48h, com aprovação da diretoria. */}
+                                                {v.liberacao_antecipada && (
+                                                    <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200" data-testid="variacao-liberacao-antecipada">
+                                                        Entregue antes do D48h (estabilidade no envio: {(v.liberacao_antecipada.estabilidade_no_envio || []).join(", ") || "—"}) — liberada por {v.liberacao_antecipada.aprovada_por_nome} em {v.liberacao_antecipada.aprovada_em ? new Date(v.liberacao_antecipada.aprovada_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—"}: {v.liberacao_antecipada.justificativa}
+                                                    </p>
+                                                )}
                                                 {/* AMO-05: amostra aprovada pode voltar ao P&D, com o que mudar e quem pediu. */}
                                                 {aprovadaPeloCliente(v) && (
                                                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 dark:border-emerald-900 dark:bg-emerald-950/20">

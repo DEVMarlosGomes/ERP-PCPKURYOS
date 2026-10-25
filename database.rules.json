@@ -499,6 +499,21 @@
           "$req": {
             "status": {
               ".validate": "newData.val() == data.val() || (newData.val() != 'IN_TESTS' && newData.val() != 'WAITING_APPROVAL') || (root.child('erp').child($tenant).child('pd_liberacoes_status').child($req).child('status').val() == newData.val() && root.child('erp').child($tenant).child('pd_liberacoes_status').child($req).child('ate').val() > now)"
+            },
+            // Liberação antecipada (24/10/2026): o P&D só pede ("aguardando_diretoria"); aprovar ou
+            // recusar é do ADM, com data/hora que nunca está no futuro. Regravar igual passa.
+            "liberacao_antecipada": {
+              "status": {
+                ".validate": "newData.val() == data.val() || newData.val() == 'aguardando_diretoria' || root.child('usuarios').child(auth.uid).child('role').val() == 'admin'"
+              },
+              "decisao": {
+                "decidida_por": {
+                  ".validate": "newData.val() == data.val() || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' && newData.val() == auth.uid)"
+                },
+                "decidida_em_ms": {
+                  ".validate": "newData.val() == data.val() || (newData.isNumber() && newData.val() <= now + 120000)"
+                }
+              }
             }
           }
         },

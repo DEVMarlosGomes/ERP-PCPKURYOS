@@ -5,6 +5,7 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import api from "@/lib/api";
+import LiberacaoAntecipadaPD from "@/components/LiberacaoAntecipadaPD";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -733,6 +734,9 @@ export default function PDDetail() {
                 cliente registrado no CRM (Amostras); o status chega aqui sozinho (pdReconcileStatusMirrors). */}
           </div>
         </div>
+
+          {/* Liberação antecipada (24/10/2026): entregar antes do D48h com aprovação da diretoria. */}
+          <LiberacaoAntecipadaPD req={req} podeEditar={Boolean(canEdit)} onFeito={fetchData} />
 
           {/* Banner: aguardando aprovação comercial */}
           {req.status === "WAITING_APPROVAL" && (

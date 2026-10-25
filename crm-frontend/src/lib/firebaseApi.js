@@ -2,7 +2,7 @@ import { get, push, ref, remove, runTransaction, set, update } from "firebase/da
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { firebaseAuth, firebaseDb, firebaseStorage } from "@/lib/firebase";
 import {
-  findDuplicateClient, findDuplicateProject, findDuplicateSample, isAdmin, isComercial, movementEntry,
+  findDuplicateClient, findDuplicateProject, findDuplicateSample, hasAnyRole, isAdmin, isComercial, movementEntry,
   formulaRegistrada, normalizeName, planMove, stageLabel, stageRequirements,
 } from "@/lib/crmRules";
 import { askJustification, isJustificationRequired } from "@/lib/justificationPrompt";
@@ -18,6 +18,7 @@ import { liberarEtapaPd } from "@/lib/servidor";
 import { cotacaoDaFormula, situacao as situacaoCambio, validarSpread } from "@/lib/cambio";
 import { validarLeitura } from "@/lib/estabilidade";
 import { CATALOGO_PADRAO, mesclarCatalogo, validarTipoComponente } from "@/lib/tiposComponente";
+import { aplicarDecisao, novaSolicitacao, podeSolicitar, textoDecisao, validarDecisao } from "@/lib/liberacaoAntecipada";
 import {
   EVENTO_RETRABALHO, PD_FECHADO, SOLICITANTES, entradaRetrabalhos, marcaDesatualizado, validarPedidoRetrabalho, variacaoEmRetrabalho,
 } from "@/lib/retrabalhoAprovada";
@@ -1867,6 +1868,64 @@ async function dispatch(e, t) {
       deleted: !0
     }, i);
   }
+  // Liberação antecipada (24/10/2026): P&D pede com o D24h; ADM decide no CRM (Projetos).
+  if (O = j(/^\/pd\/requests\/([^/]+)\/liberacao-antecipada$/), "POST" === e && O) {
+    if (!hasAnyRole(u, ["pd", "lider_pd", "formulador", "engenharia_produto"])) throw apiError(403, "A liberação antecipada é pedida pelo P&D.");
+    const t = await one(_, "pd_requests", O[1]);
+    if (!t) throw apiError(404, "Solicitação P&D não encontrada.");
+    const estudo = (await all(_, "pd_stability_studies")).find((x) => x.request_id === t.id || x.pd_card_id === t.id);
+    const leituras = estudo ? await related(_, "pd_stability_readings", "study_id", estudo.id) : [];
+    const pode = podeSolicitar({ status: t.status, leituras, liberacao: t.liberacao_antecipada });
+    if (!pode.ok) throw apiError(409, pode.motivo);
+    const nova = novaSolicitacao({ motivo: r.motivo, por: firebaseAuth.currentUser.uid, porNome: pdUserName(u), em: now(), leituras });
+    if (!nova.ok) throw apiError(422, nova.erro);
+    const registro = { ...nova.registro, historico: t.liberacao_antecipada?.historico || [] };
+    await patch(_, "pd_requests", t.id, { liberacao_antecipada: registro });
+    await save(_, "pd_request_status_history", id(), { request_id: t.id, pd_request_id: t.id, from_status: t.status, to_status: t.status,
+      comment: `Liberação antecipada pedida à diretoria (${registro.leituras_no_pedido.join(", ")}): ${registro.motivo}`,
+      changed_by: firebaseAuth.currentUser.uid, changed_by_name: pdUserName(u), created_at: now(), user_id: firebaseAuth.currentUser.uid });
+    return response({ ...t, liberacao_antecipada: registro }, i);
+  }
+  if ("GET" === e && "/crm/liberacoes-antecipadas" === S) {
+    if (!isAdmin(u)) return response([], i);
+    const [reqs, projetos] = await Promise.all([all(_, "pd_requests"), all(_, "crm_projects")]);
+    const proj = new Map(projetos.map((p) => [p.id, p]));
+    return response(reqs.filter((x) => x.liberacao_antecipada?.status === "aguardando_diretoria").map((x) => {
+      const p = proj.get(x.crm_project_id) || {};
+      return { request_id: x.id, titulo: x.title || x.project_name || "", projeto_id: x.crm_project_id || null, numero_projeto: p.numero_projeto || "",
+        nome_projeto: p.nome_projeto || x.project_name || "", cliente_nome: p.cliente_nome || x.client_name || "", status: x.status, liberacao: x.liberacao_antecipada };
+    }).sort((a, b) => String(a.liberacao.solicitada_em).localeCompare(String(b.liberacao.solicitada_em))), i);
+  }
+  if (O = j(/^\/pd\/requests\/([^/]+)\/liberacao-antecipada\/decisao$/), "POST" === e && O) {
+    if (!isAdmin(u)) throw apiError(403, "A liberação antecipada é aprovada pela diretoria (administrador).");
+    const t = await one(_, "pd_requests", O[1]);
+    if (!t) throw apiError(404, "Solicitação P&D não encontrada.");
+    if (t.liberacao_antecipada?.status !== "aguardando_diretoria") throw apiError(409, "Não há pedido de liberação antecipada aguardando a diretoria.");
+    const v = validarDecisao({ decisao: r.decisao, justificativa: r.justificativa, dataHora: r.data_hora, agoraMs: Date.now(), por: firebaseAuth.currentUser.uid, porNome: pdUserName(u) });
+    if (!v.ok) throw apiError(422, v.erros.join(" "));
+    const liberacao = aplicarDecisao(t.liberacao_antecipada, v.registro);
+    await patch(_, "pd_requests", t.id, { liberacao_antecipada: liberacao });
+    if (v.registro.decisao === "aprovada") {
+      // Segue o caminho normal (100% conferido no servidor, histórico, espelho no CRM), sem o D48h.
+      try {
+        await dispatch("PUT", `/pd/requests/${t.id}/status`, { new_status: "WAITING_APPROVAL",
+          comment: `Entregue ao Comercial por liberação antecipada — ${textoDecisao(liberacao)}` }, {});
+      } catch (error) {
+        await patch(_, "pd_requests", t.id, { liberacao_antecipada: { ...liberacao, status: "aguardando_diretoria", decisao: null, historico: t.liberacao_antecipada.historico || [] } });
+        throw error;
+      }
+      // O Comercial vê na amostra que ela saiu antes do D48h, com quem aprovou.
+      const amostraId = t.crm_sample_id || t.linked_amostra_id, variacaoId = t.crm_variacao_id || t.linked_variacao_id;
+      const amostra = amostraId ? await one(_, "crm_samples", amostraId) : null;
+      if (amostra && variacaoId) {
+        await patch(_, "crm_samples", amostra.id, { variacoes: (amostra.variacoes || []).map((x) => (x.id === variacaoId
+          ? { ...x, liberacao_antecipada: { aprovada_por_nome: v.registro.decidida_por_nome, aprovada_em: v.registro.decidida_em, justificativa: v.registro.justificativa,
+            estabilidade_no_envio: liberacao.leituras_no_pedido || [] } } : x)) });
+      }
+    }
+    await auditCard(_, "liberacao_antecipada_" + v.registro.decisao, "pd_request", t.id, { status: "aguardando_diretoria" }, v.registro, u);
+    return response({ ...(await one(_, "pd_requests", t.id)) }, i);
+  }
   if (O = j(/^\/pd\/requests\/([^/]+)\/status$/), "PUT" === e && O) {
     const t = await one(_, "pd_requests", O[1]);
     if (!t) throw apiError(404, "Solicitação P&D não encontrada.");
@@ -1910,10 +1969,11 @@ async function dispatch(e, t) {
         created_by_name: pdUserName(u)
       });
     }
-    if ("WAITING_APPROVAL" === o) {
+    // Liberação antecipada aprovada pela diretoria (24/10/2026) dispensa o D48h; o resto vale igual.
+    if ("WAITING_APPROVAL" === o && t.liberacao_antecipada?.status !== "aprovada") {
       const e = (await all(_, "pd_stability_studies")).find(e => e.request_id === t.id || e.pd_card_id === t.id),
         a = e ? await related(_, "pd_stability_readings", "study_id", e.id) : [];
-      if (!e || !a.some(e => 2 === Number(e.day_offset))) throw apiError(400, "Nenhuma leitura D48h (48 horas) registrada. Conclua o checkpoint D48h antes de entregar ao Comercial.");
+      if (!e || !a.some(e => 2 === Number(e.day_offset))) throw apiError(400, "Nenhuma leitura D48h (48 horas) registrada. Conclua o checkpoint D48h antes de entregar ao Comercial — ou peça a liberação antecipada à diretoria (já com o D24h).");
     }
     if ("APPROVED" === o && s) {
       const e = await related(_, "pd_tests", "development_id", s.id);

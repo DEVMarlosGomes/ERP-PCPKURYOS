@@ -577,6 +577,50 @@ describe("numeração por projeto", () => {
 });
 
 describe("caminhos de exceção", () => {
+  test("liberação antecipada: P&D pede com o D24h, ADM aprova com quem/data/justificativa e a amostra segue para o Comercial", async () => {
+    memory.write(`${T}/crm_samples/SLA`, { id: "SLA", nome_produto: "Body Mist", variacoes: [{ id: "VLA", codigo: "2026-099-A1-a", status: "em_elaboracao" }] });
+    memory.write(`${T}/pd_requests/RLA`, { id: "RLA", status: "IN_TESTS", title: "Body Mist", crm_sample_id: "SLA", crm_variacao_id: "VLA" });
+    memory.write(`${T}/pd_stability_studies/ELA`, { id: "ELA", request_id: "RLA" });
+    as("pd");
+    await fails(api.post("/pd/requests/RLA/liberacao-antecipada", { motivo: "Cliente quer ver na feira" }), 409, /D24h/);
+    memory.write(`${T}/pd_stability_readings/L1`, { id: "L1", study_id: "ELA", day_offset: 1 });
+    await fails(api.put("/pd/requests/RLA/status", { new_status: "WAITING_APPROVAL" }), 400, /D48h.*liberação antecipada/);
+    await fails(api.post("/pd/requests/RLA/liberacao-antecipada", { motivo: "curto" }), 422, /D48h/);
+    await api.post("/pd/requests/RLA/liberacao-antecipada", { motivo: "Cliente apresenta a linha na feira de sexta" });
+    assert.equal(db(`${T}/pd_requests/RLA/liberacao_antecipada/status`), "aguardando_diretoria");
+    await fails(api.post("/pd/requests/RLA/liberacao-antecipada", { motivo: "Cliente apresenta a linha na feira de sexta" }), 409, /aguardando/);
+    await fails(api.post("/pd/requests/RLA/liberacao-antecipada/decisao", { decisao: "aprovada", justificativa: "Pode ir para a feira", data_hora: new Date().toISOString() }), 403, /diretoria/);
+    as("com");
+    assert.deepEqual((await api.get("/crm/liberacoes-antecipadas")).data, [], "a fila é só do ADM");
+    as("adm");
+    const fila = (await api.get("/crm/liberacoes-antecipadas")).data;
+    assert.deepEqual(fila.map((x) => x.request_id), ["RLA"]);
+    await fails(api.post("/pd/requests/RLA/liberacao-antecipada/decisao", { decisao: "aprovada", justificativa: "D24h estável e feira na sexta", data_hora: new Date(Date.now() + 3600e3).toISOString() }), 422, /futuro/);
+    const quando = new Date(Date.now() - 10 * 60e3).toISOString();
+    const r = (await api.post("/pd/requests/RLA/liberacao-antecipada/decisao", { decisao: "aprovada", justificativa: "D24h estável e feira na sexta", data_hora: quando })).data;
+    assert.equal(r.status, "WAITING_APPROVAL", "segue o caminho normal, sem o D48h");
+    assert.deepEqual([r.liberacao_antecipada.status, r.liberacao_antecipada.decisao.decidida_por_nome, r.liberacao_antecipada.decisao.decidida_em, r.liberacao_antecipada.decisao.justificativa],
+      ["aprovada", "Ana ADM", quando, "D24h estável e feira na sexta"]);
+    const hist = Object.values(db(`${T}/pd_request_status_history`)).filter((h) => h.request_id === "RLA");
+    assert.ok(hist.some((h) => h.to_status === "WAITING_APPROVAL" && /liberação antecipada/.test(h.comment)));
+    assert.deepEqual([db(`${T}/crm_samples/SLA`).variacoes[0].liberacao_antecipada.aprovada_por_nome, db(`${T}/crm_samples/SLA`).variacoes[0].liberacao_antecipada.estabilidade_no_envio], ["Ana ADM", ["D24h"]]);
+    assert.deepEqual((await api.get("/crm/liberacoes-antecipadas")).data, []);
+  });
+
+  test("liberação antecipada recusada: continua Em Testes, com o motivo", async () => {
+    memory.write(`${T}/pd_requests/RLB`, { id: "RLB", status: "IN_TESTS", title: "Gel" });
+    memory.write(`${T}/pd_stability_studies/ELB`, { id: "ELB", request_id: "RLB" });
+    memory.write(`${T}/pd_stability_readings/L2`, { id: "L2", study_id: "ELB", day_offset: 1 });
+    as("pd");
+    await api.post("/pd/requests/RLB/liberacao-antecipada", { motivo: "Cliente pediu com urgência" });
+    as("adm");
+    const r = (await api.post("/pd/requests/RLB/liberacao-antecipada/decisao", { decisao: "recusada", justificativa: "Gel com histórico de separação: esperar o D48h", data_hora: new Date().toISOString() })).data;
+    assert.deepEqual([r.status, r.liberacao_antecipada.status], ["IN_TESTS", "recusada"]);
+    as("pd");
+    await api.post("/pd/requests/RLB/liberacao-antecipada", { motivo: "D24h refeito sem separação" });
+    assert.equal(db(`${T}/pd_requests/RLB/liberacao_antecipada/historico`).length, 1, "a recusa fica no histórico");
+  });
+
   test("COM-06: orçamento reprovado reabre a cotação e o orçamento em nova revisão (sem arquivar)", async () => {
     as("com");
     const c = (await api.post("/crm/clients", { nome_empresa: "Zeta Renegocia Cosméticos", ...QUALIFIED })).data;
