@@ -6,7 +6,8 @@ const path = require('path');
 const { prontidaoOp } = require('./public/shared/prontidao-op.js');
 
 const ok = { status: 'APROVADA' };
-const tudo = (produto, extra = {}) => prontidaoOp({ produto, formula: ok, bom: ok, especificacao: ok, ...extra });
+const COMPLETO = { volume: 200, unidadeVolume: 'ml', prazoValidadeMeses: 24, densidadeGranel: 1, unCx: 24, kgCaixa: 5.2 };
+const tudo = (produto, extra = {}) => prontidaoOp({ produto: { ...COMPLETO, ...produto }, formula: ok, bom: ok, especificacao: ok, ...extra });
 
 // Legado (sem origemCrm): itens do CRM não se aplicam; o que falta vira aviso, não trava.
 let r = tudo({ sku: 'WKBM0001' });
@@ -30,6 +31,13 @@ assert.deepEqual([r.pode, r.faltando], [true, []]);
 r = tudo({ origemCrm: { cgiContratoId: 'C1', origem_contratual_status: 'cgi_assinado' } }, { especificacao: { status: 'RASCUNHO' }, pendentesFormula: 1 });
 assert.deepEqual([r.pode, r.faltando], [false, ['cadastro', 'aprovacoes']]);
 assert.match(r.avisoInsumos, /Dia D/);
+
+// KO-09: SKU do CRM só vai para produção com o cadastro completo; legado não muda.
+r = tudo({ origemCrm: { cgiContratoId: 'C1', origem_contratual_status: 'cgi_assinado' }, densidadeGranel: null, kgCaixa: 0 });
+assert.deepEqual([r.pode, r.faltando], [false, ['sku']]);
+assert.match(r.itens.find((i) => i.chave === 'sku').rotulo, /falta: densidade, kg\/caixa/);
+r = prontidaoOp({ produto: { sku: 'LEG' }, formula: ok, bom: ok, especificacao: ok });
+assert.deepEqual([r.pode, r.aviso], [true, false], 'legado sem cadastro completo segue como antes');
 
 // Ligação na tela (o defeito costuma estar na ligação, não na função).
 const html = fs.readFileSync(path.join(__dirname, 'public', 'emitir_op.html'), 'utf8');

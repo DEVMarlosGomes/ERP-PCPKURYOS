@@ -1471,6 +1471,14 @@ export function createCommercialRouter(h) {
     const existing = (await related(tenant, "contratos", "kickoff_id", kickoff.id)).find((c) => Number(c.version) === version && c.ativo !== false);
     if (existing) return { ...existing, reutilizado: true };
     const project = kickoff.projeto_id ? await one(tenant, "crm_projects", kickoff.projeto_id) : null;
+    // KO-09 (25/10/2026): o CGI é do cliente e é gerado uma vez só. Projeto novo de cliente que já
+    // tem CGI só se vincula a ele; assinado, o pedido do projeto é liberado ali mesmo.
+    const doCliente = await cgiDoCliente(tenant, kickoff.cliente_id || project?.cliente_id);
+    if (doCliente) {
+      const vinculado = await vincularProjetoAoCgi(tenant, doCliente, kickoff, profile);
+      if (["assinado", "vigente"].includes(vinculado.status)) return { ...(await assinarContrato(tenant, vinculado.id, {}, profile)), reutilizado: true, cgi_do_cliente: true };
+      return { ...vinculado, reutilizado: true, cgi_do_cliente: true };
+    }
     // Caso JOHN (17/10/2026): CGI assinado antes da cotação gerou o pedido sem quantidade nem preço.
     // O CGI leva as condições do orçamento aprovado, então só nasce depois dele.
     if (project && project.stage !== "pedido_aprovado") {
@@ -1502,6 +1510,26 @@ export function createCommercialRouter(h) {
     return contrato;
   }
 
+  // KO-09: CGI ativo do cliente (o assinado vence o só gerado).
+  async function cgiDoCliente(tenant, clienteId) {
+    if (!clienteId) return null;
+    const lista = (await all(tenant, "contratos")).filter((c) => (c.cliente_id || c.client_id) === clienteId && c.ativo !== false && c.status !== "cancelado");
+    return lista.find((c) => ["assinado", "vigente"].includes(c.status)) || lista.sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))[0] || null;
+  }
+
+  async function vincularProjetoAoCgi(tenant, contrato, kickoff, profile) {
+    const ja = (contrato.projetos_vinculados || []).some((v) => v.projeto_id === kickoff.projeto_id) || contrato.projeto_id === kickoff.projeto_id;
+    if (ja) return contrato;
+    return patch(tenant, "contratos", contrato.id, {
+      projetos_vinculados: [...(contrato.projetos_vinculados || []), { projeto_id: kickoff.projeto_id || null, kickoff_id: kickoff.id, numero_kickoff: kickoff.numero_kickoff || "",
+        vinculado_em: now(), vinculado_por: userName(profile) }],
+    });
+  }
+
+  // Projetos que o CGI cobre: o de origem e os vinculados depois (cada um com o seu Kickoff).
+  const projetosDoCgi = (contrato) => [{ projeto_id: contrato.projeto_id, kickoff_id: contrato.kickoff_id, numero_kickoff: contrato.numero_kickoff },
+    ...(contrato.projetos_vinculados || [])].filter((x, i, arr) => x.projeto_id && arr.findIndex((y) => y.projeto_id === x.projeto_id) === i);
+
   async function assinarContrato(tenant, contratoId, data, profile) {
     if (!canWriteContrato(profile)) throw apiError(403, "Assinar CGI: permissão exclusiva do Comercial, Compras ou administrador.");
     let contrato = await one(tenant, "contratos", contratoId);
@@ -1518,19 +1546,34 @@ export function createCommercialRouter(h) {
         status_history: [...(contrato.status_history || []), { from: current, to: "assinado", at, by: currentUid(), by_name: userName(profile), observacoes: data?.observacoes || "" }],
       });
     }
-    const skus = contrato.projeto_id ? await generateSkusForProject(tenant, contrato.projeto_id, profile, contrato) : [];
-    const successful = skus.filter((item) => item.sku && !item.sku.blocked);
-    const bloqueios = skus.filter((item) => item.sku?.blocked).map((item) => item.sku.reason || "Falha desconhecida ao gerar SKU.");
-    if (!successful.length && !bloqueios.length) bloqueios.push("Nenhuma amostra aprovada foi encontrada para gerar o SKU.");
+    // KO-09: um CGI por cliente — cada projeto coberto ganha as SKUs e o pedido liberado. Projeto
+    // vinculado sem orçamento aprovado ainda fica para quando for aprovado.
+    const skus = [];
+    const bloqueios = [];
+    const pedidos = [];
     let pedido = null;
-    if (!bloqueios.length) {
-      const release = await releaseOrderToPcp(tenant, contrato, successful, profile);
-      pedido = release.pedido;
-      bloqueios.push(...release.bloqueios);
+    for (const alvo of projetosDoCgi(contrato)) {
+      const proj = await one(tenant, "crm_projects", alvo.projeto_id);
+      if (!proj || (alvo.projeto_id !== contrato.projeto_id && proj.stage !== "pedido_aprovado")) continue;
+      const doProjeto = { ...contrato, projeto_id: alvo.projeto_id, kickoff_id: alvo.kickoff_id, numero_kickoff: alvo.numero_kickoff || contrato.numero_kickoff };
+      const skusProj = await generateSkusForProject(tenant, alvo.projeto_id, profile, doProjeto);
+      skus.push(...skusProj.map((x) => ({ ...x, projeto_id: alvo.projeto_id })));
+      const ok = skusProj.filter((item) => item.sku && !item.sku.blocked);
+      const blq = skusProj.filter((item) => item.sku?.blocked).map((item) => item.sku.reason || "Falha desconhecida ao gerar SKU.");
+      if (!ok.length && !blq.length) blq.push(`Nenhuma amostra aprovada foi encontrada para gerar o SKU (${proj.nome_projeto || alvo.projeto_id}).`);
+      if (!blq.length) {
+        const release = await releaseOrderToPcp(tenant, doProjeto, ok, profile);
+        if (alvo.projeto_id === contrato.projeto_id || !pedido) pedido = release.pedido;
+        if (release.pedido) pedidos.push({ projeto_id: alvo.projeto_id, pedido_id: release.pedido.id, numero: release.pedido.numeroFormatado || release.pedido.id, status: release.pedido.status });
+        blq.push(...release.bloqueios);
+      }
+      bloqueios.push(...blq);
     }
+    const successful = skus.filter((item) => item.sku && !item.sku.blocked);
+    if (!skus.length && !bloqueios.length) bloqueios.push("Nenhuma amostra aprovada foi encontrada para gerar o SKU.");
     const liberado = Boolean(successful.length) && !bloqueios.length;
     const updated = await patch(tenant, "contratos", contratoId, {
-      pedido_liberado_para_emissao: liberado, skus_gerados_cgi: skus, sku_bloqueios: bloqueios, sku_processado_em: at,
+      pedido_liberado_para_emissao: liberado, skus_gerados_cgi: skus, sku_bloqueios: bloqueios, sku_processado_em: at, pedidos_liberados: pedidos,
       pedido_id: pedido?.id || contrato.pedido_id || null, numero_pedido: pedido?.numeroFormatado || contrato.numero_pedido || null,
     });
     await auditCard(tenant, alreadySigned ? "contrato_sku_reconciliado" : "contrato_assinado", "contrato_cgi", contratoId, { status: current },
@@ -1942,9 +1985,10 @@ export function createCommercialRouter(h) {
       await patch(tenant, "crm_propostas", proposta.id, { skus_gerados: skusOrcamento, skus_gerados_em: now() });
       order = await createOrReuseOrderDraft(tenant, project, proposta, kickoff, profile);
       order = await atualizarRascunhoDoPedido(tenant, order, proposta, projectId, profile);
-      // CGI já assinado antes (fluxo antigo): reprocessa a assinatura para liberar o pedido com o orçamento.
-      const assinado = (await related(tenant, "contratos", "projeto_id", projectId))
-        .find((c) => ["assinado", "vigente"].includes(c.status) && c.ativo !== false);
+      // KO-09: cliente com CGI assinado (de qualquer projeto) — o projeto se vincula e o pedido libera já.
+      const cgiCliente = await cgiDoCliente(tenant, project.cliente_id);
+      const assinado = cgiCliente && ["assinado", "vigente"].includes(cgiCliente.status)
+        ? await vincularProjetoAoCgi(tenant, cgiCliente, kickoff, profile) : null;
       if (assinado && order?.status !== "LIBERADO_PCP") {
         await assinarContrato(tenant, assinado.id, {}, profile);
         order = (await findCrmOrder(projectId)) || order;

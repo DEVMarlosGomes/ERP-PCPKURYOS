@@ -30,6 +30,16 @@
     item('cgi', 'SKU gerada e CGI assinado', !crm || oc.origem_contratual_status === 'cgi_assinado', 'CRM › Contratos (assinar o CGI)', true);
     // CGI só é gerado com Kickoff aprovado; SKU nascida no orçamento grava o status do Kickoff.
     item('kickoff', 'Kickoff aprovado (congelado)', !crm || oc.kickoffStatus === 'aprovado' || !!oc.cgiContratoId, 'CRM › Kickoff', true);
+    // KO-09 (25/10/2026): "ir para produção com SKU completo" — o cadastro da SKU nascida no CRM
+    // precisa dos dados que a OP e a expedição usam.
+    var faltaSku = [];
+    if (!(parseFloat(p.volume) > 0) || !p.unidadeVolume) faltaSku.push('volume e unidade');
+    if (!(parseInt(p.prazoValidadeMeses, 10) > 0)) faltaSku.push('validade');
+    if (!(parseFloat(p.densidadeGranel) > 0)) faltaSku.push('densidade');
+    if (!(parseInt(p.unCx, 10) > 0)) faltaSku.push('Un./Cx');
+    if (!(parseFloat(p.kgCaixa) > 0)) faltaSku.push('kg/caixa');
+    item('sku', 'Cadastro da SKU completo' + (faltaSku.length ? ' (falta: ' + faltaSku.join(', ') + ')' : ''), !crm || !faltaSku.length,
+      'Cadastros › Produtos (Identificação, Parâmetros de Lote e Embalagem)', true);
     var pend = (c.pendentesFormula || 0) + (c.pendentesBom || 0);
     item('cadastro', 'Fórmula e BOM sem item pendente de cadastro' + (pend ? ' (' + pend + ' pendente' + (pend > 1 ? 's' : '') + ')' : ''), !pend,
       'Cadastros › Fórmulas / BOM (escolher o material do item pendente)');

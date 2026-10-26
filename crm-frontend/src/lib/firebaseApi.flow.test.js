@@ -534,6 +534,21 @@ describe("fluxo comercial completo até a emissão de OP", () => {
     assert.equal(Object.values(db(`${T}/crm_propostas`))[0].cotacao_numero, "COT-2026-001-r2");
   });
 
+  test("KO-09: CGI é do cliente e gerado uma vez só — projeto novo se vincula ao CGI assinado", async () => {
+    as("com");
+    const antes = Object.keys(db(`${T}/contratos`)).length;
+    memory.write(`${T}/crm_projects/P2`, { id: "P2", nome_projeto: "Linha 2", cliente_id: client.id, cliente_nome: "Lumi", stage: "pedido_aprovado", numero_projeto: "2026-777" });
+    memory.write(`${T}/kickoffs/K2`, { id: "K2", projeto_id: "P2", cliente_id: client.id, numero_kickoff: "KO-2026-777", versao: "v1", status: "aprovado" });
+    const r = (await api.post("/contratos/gerar", { kickoff_id: "K2" })).data;
+    assert.equal(r.id, contrato.id, "o mesmo CGI do cliente");
+    assert.equal(r.cgi_do_cliente, true);
+    assert.equal(Object.keys(db(`${T}/contratos`)).length, antes, "nenhum CGI novo");
+    assert.deepEqual(db(`${T}/contratos/${contrato.id}`).projetos_vinculados.map((v) => v.projeto_id), ["P2"]);
+    // Assinado: a assinatura passa pelos dois projetos; sem amostra aprovada no novo, ele fica registrado como pendente.
+    assert.ok(r.sku_bloqueios.some((b) => /Linha 2|P2/.test(b)));
+    assert.equal(db("pedidos_comerciais/PED-0042").status, "LIBERADO_PCP", "o pedido do primeiro projeto segue liberado");
+  });
+
   test("KO-08: serviços escolhidos no Bloco 0 do Kickoff chegam à cotação", async () => {
     as("com");
     assert.deepEqual((await api.get("/cadastros/servicos")).data.map((sv) => sv.id), ["s1", "s2"], "só os ativos");
