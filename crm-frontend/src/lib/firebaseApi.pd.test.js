@@ -96,6 +96,22 @@ describe("cards do P&D seguem o retorno do cliente no CRM3", () => {
     expect(Object.keys(memory.read(`${T}/pd_request_status_history`) || {}).length).toBe(antes);
   });
 
+  test("status comercial da variação no CRM3 segue o P&D; aprovada pelo cliente não é tocada", async () => {
+    const vars = () => Object.fromEntries((memory.read(`${T}/crm_samples/S1/variacoes`) || []).map((v) => [v.id, v]));
+    expect(vars().VA.status).toBe("aprovada");
+    expect(vars().VB.status).toBe("retrabalho");
+    // Variação divergente (como 2026-1003-h na base em 26/10): P&D entregou, CRM3 parado em elaboração.
+    const lista = memory.read(`${T}/crm_samples/S1/variacoes`);
+    lista[2] = { ...lista[2], status: "em_elaboracao" };
+    memory.write(`${T}/crm_samples/S1/variacoes`, lista);
+    await api.get("/crm/samples");
+    expect(vars().VC).toMatchObject({ status: "enviada", status_pd_raw: "aguardando_aprovacao" });
+    expect(vars().VC.historico_status.at(-1)).toMatchObject({ de: "em_elaboracao", para: "enviada", sincronizado_pd: true });
+    const tamanho = vars().VC.historico_status.length;
+    await api.get("/crm/samples");
+    expect(vars().VC.historico_status).toHaveLength(tamanho);
+  });
+
   test("amostra refeita depois do retrabalho espera o NOVO retorno do cliente (o retrabalho antigo não vale)", async () => {
     // RB voltou para Retrabalho; o P&D refaz e reenvia (Em Testes → Aguardando Aprovação).
     await api.put("/pd/requests/RB/status", { new_status: "IN_PROGRESS" });
@@ -103,6 +119,10 @@ describe("cards do P&D seguem o retorno do cliente no CRM3", () => {
     memory.write(`${T}/pd_stability_studies/EB`, { id: "EB", request_id: "RB" });
     memory.write(`${T}/pd_stability_readings/LB`, { id: "LB", study_id: "EB", condition_code: "ambient", day_offset: 2 });
     await api.put("/pd/requests/RB/status", { new_status: "WAITING_APPROVAL" });
+    // A variação no CRM3 acompanha o reenvio (26/10): retrabalho → enviada, com histórico.
+    const vb = (memory.read(`${T}/crm_samples/S1/variacoes`) || []).find((v) => v.id === "VB");
+    expect(vb.status).toBe("enviada");
+    expect(vb.historico_status.at(-1)).toMatchObject({ para: "enviada", sincronizado_pd: true, label_pd: "Aguardando Aprovação" });
     await api.get("/crm/pd/cards");
     expect(memory.read(`${T}/pd_requests/RB/status`)).toBe("WAITING_APPROVAL");
     // O cliente responde de novo no CRM3: agora vale.

@@ -23,7 +23,7 @@ import {
   EVENTO_RETRABALHO, PD_FECHADO, SOLICITANTES, entradaRetrabalhos, marcaDesatualizado, validarPedidoRetrabalho, variacaoEmRetrabalho,
 } from "@/lib/retrabalhoAprovada";
 import { TRECHO_AMOSTRA, etapaPelaAmostra, passosAte } from "@/lib/etapaPelaAmostra";
-import { bloqueioPdComCliente, cardParaSolicitacao, cardsVisiveis, rotaDeBancada, statusPeloRetornoDoCliente } from "@/lib/pdCards";
+import { bloqueioPdComCliente, cardParaSolicitacao, cardsVisiveis, entradaHistoricoSync, rotaDeBancada, statusComercialPeloPd, statusPeloRetornoDoCliente } from "@/lib/pdCards";
 import {
   anoDe, caminhoContadorProjeto, codigoVariacao, formatarNumeroProjeto, numeroAmostra, proximoIndiceAmostra, sequenciaDoNumero,
 } from "@/lib/numeracaoProjeto";
@@ -549,8 +549,20 @@ async function pdDeleteRequestCascade(e, t) {
   await erase(e, "pd_requests", t);
 }
 
+// Status comercial da variação (CRM3) que acompanha o status do P&D, com a entrada no
+// histórico; {} quando não muda (pdCards.statusComercialPeloPd).
+function statusComercialDaVariacao(variacao, statusPd, cardStatus, label, em) {
+  const status = statusComercialPeloPd(variacao.status, statusPd);
+  if (!status) return {};
+  return {
+    status,
+    historico_status: [...(variacao.historico_status || []), entradaHistoricoSync(variacao.status, status, cardStatus, label, em)],
+  };
+}
+
 async function pdSyncRequestStatus(e, t, a) {
-  const r = PD_STATUS_TO_CARD[a] || "solicitado",
+  const d0 = a,
+    r = PD_STATUS_TO_CARD[a] || "solicitado",
     i = PD_STATUS_LABELS[a] || a,
     o = (await all(e, "pd_cards")).filter(e => e.pd_request_id === t.id),
     s = new Map();
@@ -580,6 +592,7 @@ async function pdSyncRequestStatus(e, t, a) {
     if (o && Array.isArray(o.variacoes)) {
       const t = o.variacoes.map(e => e.id === a ? {
         ...e,
+        ...statusComercialDaVariacao(e, d0, r, i, now()),
         status_pd_raw: r,
         status_pd_label: i,
         updated_at: now()
@@ -682,8 +695,14 @@ async function pdReconcileStatusMirrors(tenantId) {
       const index = sample && Array.isArray(sample.variacoes) ? sample.variacoes.findIndex((v) => v && v.id === vid) : -1;
       if (index < 0) continue;
       const variation = sample.variacoes[index];
-      if (variation.status_pd_raw === cardStatus && variation.status_pd_label === label) continue;
+      // O retorno do cliente processado acima já entra aqui (retrabalho → REJECTED → retrabalho).
+      const comercial = statusComercialDaVariacao(variation, status, cardStatus, label, at);
+      if (variation.status_pd_raw === cardStatus && variation.status_pd_label === label && !comercial.status) continue;
       const base = `${collectionPath(tenantId, "crm_samples")}/${sid}/variacoes/${index}`;
+      if (comercial.status) {
+        updates[`${base}/status`] = comercial.status;
+        updates[`${base}/historico_status`] = comercial.historico_status;
+      }
       updates[`${base}/status_pd_raw`] = cardStatus;
       updates[`${base}/status_pd_label`] = label;
       updates[`${base}/updated_at`] = at;

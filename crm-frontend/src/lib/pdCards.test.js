@@ -1,4 +1,4 @@
-import { bloqueioPdComCliente, rotaDeBancada, cardParaSolicitacao, cardsVisiveis, idCardDaSolicitacao, statusPeloRetornoDoCliente } from "./pdCards";
+import { bloqueioPdComCliente, rotaDeBancada, cardParaSolicitacao, cardsVisiveis, idCardDaSolicitacao, statusComercialPeloPd, statusPeloRetornoDoCliente } from "./pdCards";
 
 describe("retorno do cliente no CRM3 atualiza o P&D", () => {
   test("esperando o cliente: aprovou → Aprovado; retrabalho/reprovou → Retrabalho", () => {
@@ -16,6 +16,25 @@ describe("retorno do cliente no CRM3 atualiza o P&D", () => {
     expect(statusPeloRetornoDoCliente("IN_PROGRESS", "aprovada")).toBeNull();
     expect(statusPeloRetornoDoCliente("APPROVED", "retrabalho")).toBeNull();
     expect(statusPeloRetornoDoCliente(undefined, "aprovada")).toBeNull();
+  });
+});
+
+describe("status comercial da variação (CRM3) acompanha o P&D", () => {
+  test("mapa do sistema antigo: aberto, elaboração, enviada, retrabalho", () => {
+    expect(statusComercialPeloPd("solicitada", "IN_PROGRESS")).toBe("em_elaboracao");
+    expect(statusComercialPeloPd("em_elaboracao", "IN_TESTS")).toBeNull();
+    expect(statusComercialPeloPd("em_elaboracao", "WAITING_APPROVAL")).toBe("enviada");
+    expect(statusComercialPeloPd("enviada", "REJECTED")).toBe("retrabalho");
+    expect(statusComercialPeloPd("retrabalho", "IN_PROGRESS")).toBe("em_elaboracao");
+    expect(statusComercialPeloPd("em_elaboracao", "OPEN")).toBe("solicitada");
+    expect(statusComercialPeloPd(undefined, undefined)).toBe("solicitada");
+  });
+  test("aprovação só pelo retorno do cliente; decisão do cliente e aguardando informação ficam", () => {
+    expect(statusComercialPeloPd("em_elaboracao", "APPROVED")).toBeNull();
+    expect(statusComercialPeloPd("solicitada", "COMPLETED")).toBeNull();
+    for (const s of ["aprovada", "reprovada", "cancelada", "plano_futuro"]) expect(statusComercialPeloPd(s, "IN_PROGRESS")).toBeNull();
+    expect(statusComercialPeloPd("aguardando_informacao", "WAITING_APPROVAL")).toBeNull();
+    expect(statusComercialPeloPd("aguardando_informação", "WAITING_APPROVAL")).toBeNull();
   });
 });
 

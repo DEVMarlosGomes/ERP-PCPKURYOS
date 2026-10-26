@@ -23,6 +23,32 @@ export function statusPeloRetornoDoCliente(statusSolicitacao, statusVariacao, { 
   return null;
 }
 
+// Status comercial da variação (CRM3) acompanha o P&D (26/10/2026). O sistema antigo
+// gravava isso a cada movimento (histórico "sincronizado_pd", até 20/10); no Firebase só
+// o status_pd_raw seguia, e a variação ficava "em_elaboracao" com a amostra já entregue.
+// Aprovação nunca vem daqui: só pelo retorno do cliente com quem/canal/data (COM-02).
+const STATUS_COMERCIAL_PELO_PD = {
+  OPEN: "solicitada",
+  IN_PROGRESS: "em_elaboracao",
+  IN_TESTS: "em_elaboracao",
+  WAITING_APPROVAL: "enviada",
+  REJECTED: "retrabalho",
+};
+const DECIDIDO_PELO_CLIENTE = new Set(["aprovada", "reprovada", "cancelada", "plano_futuro"]);
+
+export function statusComercialPeloPd(statusVariacao, statusSolicitacao) {
+  if (DECIDIDO_PELO_CLIENTE.has(statusVariacao)) return null;
+  const novo = STATUS_COMERCIAL_PELO_PD[statusSolicitacao || "OPEN"];
+  if (!novo || novo === statusVariacao) return null;
+  // Esperando o cliente, "aguardando informação" é o Comercial falando com ele: fica.
+  if (novo === "enviada" && String(statusVariacao || "").startsWith("aguardando_informa")) return null;
+  return novo;
+}
+
+export function entradaHistoricoSync(de, para, statusPd, labelPd, em) {
+  return { data: em, de: de || "", para, label_pd: labelPd, status_pd: statusPd, sincronizado_pd: true, usuario: "Sincronização P&D", usuario_id: "sistema" };
+}
+
 // Fase 2.1: P&D envia a amostra, o Comercial leva ao cliente e o P&D não mexe
 // até o retorno. Retrabalho (REJECTED → Em Desenvolvimento) destrava e abre a
 // próxima versão; aprovada segue para o Kickoff sem voltar à bancada.
