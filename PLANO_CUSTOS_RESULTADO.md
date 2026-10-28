@@ -210,6 +210,13 @@ O placar usa o LP padrão e pode começar com os SKUs que já tiverem custo comp
 6. Placar calculado no servidor; TV com login que só lê totais.
 7. Fases 0 e 1 começam agora no `erpkuryos`; 2 a 5 depois da virada da fábrica.
 
+## Estado da implementação (28/10/2026)
+
+Fases 0–6 construídas, testadas e auditadas — ver `AUDITORIA_CUSTOS_20261028.md`. Telas: `custos.html`
+(diretoria = ADM ou módulo Custos) e `placar.html` (TV, papel `tv`). Servidor no Render: custo no lote,
+razão append-only, placar a cada 5 min, tabela congelada no 1º do mês, fechamento. O que falta é dado e
+decisão (seção 7 da auditoria), não código. Financeiro + controladoria: `PROMPT_FINANCEIRO_CONTROLADORIA.md`.
+
 ## 11. Em aberto
 
 - **Virada da fábrica para o `erpkuryos`** e importação do histórico desde 21/09 (sem isso não há

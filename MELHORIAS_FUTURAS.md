@@ -1390,3 +1390,14 @@ Passo PCP (emissão de OP). Contexto no `AGENT_STATUS.md` (17/10).
 
 - **Só 1 dos 14 usuários ativos tem `tenant_id = kuryos`.** As regras de `erp/{tenant}/*` (CRM, P&D, Kickoff, Contratos) liberam leitura e escrita só para ADM ou para quem tem o tenant. Hoje os usuários de PCP, Qualidade, Produção etc. não abrem o CRM/P&D — o que bate com o uso atual (só ADM opera lá). Quem receber a função Comercial ou P&D em Usuários ganha o tenant ao salvar. Se alguém de PCP/Cadastros precisar ver o P&D, salvar o usuário de novo em Usuários com a função certa. Retomar: decidir se as regras de `erp/` passam a aceitar módulos (`modulos/pd`, `modulos/comercial`) em vez de só o tenant.
 - **Rodar `run_crm_fluxo_rules_test.js` e `run_clientes_criacao_rules_test.js` no emulador** antes da próxima mudança de regra: as regras foram publicadas em 15/10 sem esse teste (sem Java nesta máquina); a conferência foi por diferença exata contra o que estava no ar.
+
+## Custos e Resultado — o que ficou de fora (28/10/2026)
+
+Contexto: módulo construído e auditado (`AUDITORIA_CUSTOS_20261028.md`).
+
+- **Regras `custos/` e `resultado/` não publicadas.** Sem elas a tela de Custos e o placar dão "sem permissão" em produção. Testadas no emulador (`run_custos_resultado_rules_test.js`). Publicar com `npx firebase-tools deploy --only database --project erpkuryos`, com backup das regras no ar antes.
+- **Custo não é copiado na separação/transferência de lote** (`utils.js` copia dono, destino e lote interno). O motor de realizado contorna pelo lote irmão de mesmo lote interno. Se um dia o lote interno se perder numa cópia, o consumo cai no preço vigente (declarado).
+- **SKU sem fórmula** (envase de granel do cliente) nunca fecha ficha: falta um marcador "granel do cliente" no produto. Hoje a pendência aparece como "sem fórmula".
+- **Programa do dia** é digitado em Custos › Resultado até as telas de planejamento existirem (`PLANO_PLANEJAMENTO_PCP.md`).
+- **Manual operacional** (`manuais.html`) ainda não tem a seção de Custos e do placar.
+- **Testes de tela (`*_ui_test.js`) não rodam nesta máquina**: o pacote `playwright` não está no repo (falham igual no HEAD). Instalar como devDependency ou documentar o caminho do Chromium.
