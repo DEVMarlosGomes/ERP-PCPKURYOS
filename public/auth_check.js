@@ -250,7 +250,13 @@ const KURYOS_MODULOS = {
                   paginas: ['custos.html'] },
   // Placar da fábrica: só totais de pontos × meta, sem R$, sem produto, sem nomes.
   placar:       { rotulo: 'Placar da fábrica',     desc: 'Pontos do dia × meta, para a TV e para a fábrica (só totais)',
-                  paginas: ['placar.html'] }
+                  paginas: ['placar.html'] },
+  // Financeiro e Controladoria (28/10/2026, PROMPT_FINANCEIRO.md e PROMPT_CONTROLADORIA.md):
+  // padrão só do ADM; o ADM marca para quem opera. As regras do banco leem estes módulos.
+  financeiro:   { rotulo: 'Financeiro',            desc: 'Contas a pagar e a receber, bancos, conciliação e fluxo de caixa (dado sensível)',
+                  paginas: ['financeiro.html'] },
+  controladoria:{ rotulo: 'Controladoria',         desc: 'Razão gerencial, DRE, rentabilidade, orçamento e fechamento do mês (dado sensível)',
+                  paginas: ['controladoria.html'] }
 };
 
 // Padrão por papel. Reproduz EXATAMENTE o alcance que cada papel tinha antes
@@ -372,7 +378,7 @@ function podeAbrirPagina(user, pagina) {
 // (que ele também não acessa) trocaria um Acesso Negado por outro, em loop.
 const ORDEM_HOME = ['dashboard_executivo.html', 'dashboard.html', 'form.html', 'qualidade.html', 'manipulacao.html', 'planejamento.html',
                     'logistica.html', 'comercial.html', 'pd.html', 'compras.html', 'cadastros.html', 'pedidos.html',
-                    'rh_dashboard.html', 'rh_avaliacao.html', 'placar.html'];
+                    'rh_dashboard.html', 'rh_avaliacao.html', 'placar.html', 'financeiro.html', 'controladoria.html'];
 function homeDoUsuario(user) {
   for (var i = 0; i < ORDEM_HOME.length; i++) {
     if (podeAbrirPagina(user, ORDEM_HOME[i])) return ORDEM_HOME[i];
@@ -742,7 +748,10 @@ const ktIcons = {
   book: '<path d="M12 6.5S10 4.5 3.5 4.5v13C10 17.5 12 19.5 12 19.5s2-2 8.5-2v-13C14 4.5 12 6.5 12 6.5Z"/><path d="M12 6.5v13"/>',
   // Qualidade -- erlenmeyer (fila de inspeção) e triângulo de atenção (RNC).
   flask: '<path d="M9.5 3v6.2L4.2 18a2 2 0 0 0 1.7 3h12.2a2 2 0 0 0 1.7-3l-5.3-8.8V3"/><path d="M8 3h8"/><path d="M7.2 14h9.6"/>',
-  alert: '<path d="M10.3 3.9 2.5 17.4A2 2 0 0 0 4.2 20.5h15.6a2 2 0 0 0 1.7-3.1L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4.5"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/>'
+  alert: '<path d="M10.3 3.9 2.5 17.4A2 2 0 0 0 4.2 20.5h15.6a2 2 0 0 0 1.7-3.1L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4.5"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/>',
+  // Financeiro -- fachada de banco; Controladoria -- balança (razão e resultado).
+  bank: '<path d="M3 9.5 12 4l9 5.5"/><path d="M5 10v7M9.5 10v7M14.5 10v7M19 10v7"/><path d="M3.5 20h17"/>',
+  scale: '<path d="M12 4v16M7 20h10"/><path d="M5 8h14"/><path d="M5 8l-2.5 6a2.5 2.5 0 0 0 5 0Z"/><path d="M19 8l-2.5 6a2.5 2.5 0 0 0 5 0Z"/>'
 };
 function ktIcon(name) {
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + ktIcons[name] + '</svg>';
@@ -810,6 +819,7 @@ function renderUnifiedNavbar(user) {
     if (/log.stica/i.test(titulo)) return 'truck';
     if (/qualidade/i.test(titulo)) return 'flask';
     if (/opera..o|pcp/i.test(titulo)) return 'gear';
+    if (/financeiro/i.test(titulo)) return 'bank';
     if (/adm|rh/i.test(titulo)) return 'people';
     if (/ajuda/i.test(titulo)) return 'book';
     return 'list';
@@ -995,6 +1005,11 @@ function renderUnifiedNavbar(user) {
     !setores.producao && !setores.rotulagem && temMod('planejamento') && ktLink('historico.html', 'history', 'Histórico de Apontamentos', activePage)
   ]);
 
+  const financeiroGroup = grupo('Financeiro', [
+    temMod('financeiro') && ktLink('financeiro.html', 'bank', 'Financeiro', activePage),
+    temMod('controladoria') && ktLink('controladoria.html', 'scale', 'Controladoria', activePage)
+  ]);
+
   const usersGroup = grupo('ADM', [
     temMod('usuarios') && ktLink('usuarios.html', 'people', 'Usuários', activePage)
   ]);
@@ -1047,7 +1062,7 @@ function renderUnifiedNavbar(user) {
   sidebar.innerHTML =
     '<button type="button" class="kt-brand" aria-label="Kuryos — página inicial" onclick="window.location.href=\'' + brandHome + '\'"><span class="kuryos-brand-mark" aria-hidden="true">K</span><img class="kt-brand-logo" src="kuryos-logo.svg" alt="Kuryos"></button>' +
     '<nav class="kuryos-sidebar-nav" aria-label="Navegação principal">' +
-    analisesGroup + geralGroup + comercialGroup + comprasGroup + pcpGroup + logisticaGroup + qualidadeGroup + producaoGroup + usersGroup + rhGroup + manuaisGroup +
+    analisesGroup + geralGroup + comercialGroup + comprasGroup + pcpGroup + logisticaGroup + qualidadeGroup + producaoGroup + financeiroGroup + usersGroup + rhGroup + manuaisGroup +
     '</nav>' +
     '<div class="kt-sidebar-foot">' +
       '<span class="kt-avatar">' + initials + '</span>' +

@@ -161,6 +161,57 @@
         }
       }
     },
+    // Financeiro (PROMPT_FINANCEIRO.md, 28/10/2026): ADM ou módulo Financeiro; a Controladoria
+    // lê para reconciliar. Títulos, abatimentos, baixas e conciliações só o servidor grava
+    // (callables): append-only, com estorno. A tela grava só o que é dela.
+    "fin": {
+      ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('financeiro').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('controladoria').val() == true)",
+      // Conta bancária não se apaga: o saldo inicial dela é lançamento de abertura.
+      "contas_bancarias": { "$conta": {
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('financeiro').val() == true) && newData.exists()",
+        ".validate": "(newData.child('nome').isString() && newData.child('saldoInicialCentavos').isNumber() && newData.child('dataSaldoInicial').val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/))"
+      } },
+      "parametros": { ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('financeiro').val() == true)" },
+      // Condição/vencimento informado para título que nasceu sem (complemento resolvido aqui).
+      "condicoes": { "$titulo": {
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('financeiro').val() == true) && root.child('fin').child('titulos').child($titulo).exists()",
+        ".validate": "!newData.exists() || ((newData.child('condicao').isString() || newData.child('vencimento').val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)) && newData.child('por').isString())"
+      } },
+      "bloqueios": { "$titulo": {
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('financeiro').val() == true) && root.child('fin').child('titulos').child($titulo).exists()",
+        ".validate": "!newData.exists() || (newData.child('motivo').isString() && newData.child('motivo').val().length >= 5)"
+      } },
+      // Lote nasce na tela (aguardando, em nome de quem cria); aprovar/recusar é do servidor.
+      "lotes_pagamento": { "$lote": {
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('financeiro').val() == true) && !data.exists() && newData.child('criadoPorUid').val() == auth.uid && newData.child('status').val() == 'AGUARDANDO'"
+      } },
+      // Conciliar linha do extrato com baixa que já existe: só cria, nunca troca.
+      "conciliacoes": { "$k": {
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('financeiro').val() == true) && !data.exists() && root.child('fin').child('baixas').child(newData.child('baixa').val()).exists()",
+        ".validate": "newData.child('baixa').isString() && newData.child('fitid').isString() && newData.child('conta').isString()"
+      } },
+      // Extrato importado: linha nunca é sobrescrita (FITID é a chave).
+      "extratos": { "$conta": { "$fitid": {
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('financeiro').val() == true) && !data.exists()",
+        ".validate": "newData.child('valorCentavos').isNumber() && newData.child('data').val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)"
+      } } }
+    },
+    // Controladoria (PROMPT_CONTROLADORIA.md, 28/10/2026): ADM ou módulo Controladoria.
+    // Lançamentos, derivados, fechamentos e painel só o servidor grava.
+    "ctl": {
+      ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('controladoria').val() == true)",
+      // O Financeiro precisa saber quais meses estão fechados.
+      "fechamentos": { ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('financeiro').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('controladoria').val() == true)" },
+      // Conta não se apaga (só se inativa): o histórico de lançamentos aponta para ela.
+      // (.validate não roda em exclusão: a trava fica no .write.)
+      "plano_contas": { "$conta": { ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('controladoria').val() == true) && newData.exists()" } },
+      "centros_custo": { "$cc": { ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('controladoria').val() == true) && newData.exists()" } },
+      "parametros": { ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('controladoria').val() == true)" },
+      "orcamento": { "$ano": {
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('controladoria').val() == true)",
+        ".validate": "$ano.matches(/^20[0-9]{2}$/)"
+      } }
+    },
     "clientes": {
       ".read": "auth != null",
       "$clienteKey": {

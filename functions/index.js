@@ -2515,3 +2515,131 @@ exports.recalcularPlacar = onCall({timeoutSeconds: 120, memory: "512MiB"}, async
   await db.ref().update(p.updates);
   return {ok: true, dias: p.dias};
 });
+
+// ── Financeiro e Controladoria (PROMPT_FINANCEIRO.md, PROMPT_CONTROLADORIA.md, 28/10/2026) ──
+// Módulos novos que LEEM os fatos dos módulos existentes (compras, recebimento,
+// faturamento, custos, resultado) e nunca escrevem neles. Escutas persistentes,
+// como no Custos: depois da primeira leitura o SDK só baixa a diferença.
+const FinanceiroSrv = require("./financeiro_servidor");
+const ControladoriaSrv = require("./controladoria_servidor");
+
+const CAMINHOS_FIN = ["pedidos_compra", "processos_cotacao", "fornecedores", "clientes", "estoque_lotes", "pedidos_comerciais",
+  "agendamentos_expedicao", "custos/operacao", "resultado/fechamentos", "fin/titulos", "fin/abatimentos", "fin/baixas", "fin/condicoes",
+  "fin/bloqueios", "fin/contas_bancarias", "fin/parametros", "fin/lotes_pagamento", "fin/conciliacoes", "ctl/fechamentos"];
+const CAMINHOS_CTL = ["ops", "custos/razao", "custos/razao_ops", "custos/fichas", "custos/taxas", "custos/parametros",
+  "ctl/derivados", "ctl/plano_contas", "ctl/lancamentos"];
+const _cacheGestao = {valores: {}, escutas: {}};
+function escutarGestao(caminho) {
+  if (!_cacheGestao.escutas[caminho]) {
+    _cacheGestao.escutas[caminho] = new Promise((resolve, reject) => {
+      db.ref(caminho).on("value", (snap) => { _cacheGestao.valores[caminho] = snap.val(); resolve(); }, reject);
+    });
+  }
+  return _cacheGestao.escutas[caminho];
+}
+async function baseGestao(comCtl) {
+  const caminhos = comCtl ? CAMINHOS_FIN.concat(CAMINHOS_CTL) : CAMINHOS_FIN;
+  await Promise.all(caminhos.map(escutarGestao));
+  const v = _cacheGestao.valores;
+  return {
+    pedidos_compra: v.pedidos_compra, processos_cotacao: v.processos_cotacao, fornecedores: v.fornecedores, clientes: v.clientes,
+    estoque_lotes: v.estoque_lotes, pedidos_comerciais: v.pedidos_comerciais, agendamentos_expedicao: v.agendamentos_expedicao, ops: v.ops,
+    custos: {operacao: v["custos/operacao"], razao: v["custos/razao"], razao_ops: v["custos/razao_ops"], fichas: v["custos/fichas"],
+      taxas: v["custos/taxas"], parametros: v["custos/parametros"]},
+    resultado: {fechamentos: v["resultado/fechamentos"]},
+    fin: {titulos: v["fin/titulos"], abatimentos: v["fin/abatimentos"], baixas: v["fin/baixas"], condicoes: v["fin/condicoes"],
+      bloqueios: v["fin/bloqueios"], contas_bancarias: v["fin/contas_bancarias"], parametros: v["fin/parametros"],
+      lotes_pagamento: v["fin/lotes_pagamento"], conciliacoes: v["fin/conciliacoes"]},
+    ctl: {fechamentos: v["ctl/fechamentos"], derivados: v["ctl/derivados"], plano_contas: v["ctl/plano_contas"], lancamentos: v["ctl/lancamentos"]},
+  };
+}
+async function perfilDe(request) {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Faça login.");
+  const perfil = (await db.ref("usuarios/" + request.auth.uid).get()).val() || {};
+  return {uid: request.auth.uid, nome: perfil.nome || perfil.name || perfil.email || request.auth.uid, role: perfil.role || null, perfil};
+}
+async function exigirFinanceiro(request) {
+  const q = await perfilDe(request);
+  if (!FinanceiroSrv.ehFinanceiro(q.perfil)) throw new HttpsError("permission-denied", "O Financeiro é do ADM ou de quem tem o módulo Financeiro.");
+  return q;
+}
+async function exigirControladoria(request) {
+  const q = await perfilDe(request);
+  if (!ControladoriaSrv.ehControladoria(q.perfil)) throw new HttpsError("permission-denied", "A Controladoria é do ADM ou de quem tem o módulo Controladoria.");
+  return q;
+}
+// Erro de negócio do motor ({code, message}) vira HttpsError com a mesma mensagem.
+function comoHttps(fn) {
+  return async (request) => {
+    try { return await fn(request); } catch (e) {
+      if (e instanceof HttpsError) throw e;
+      if (e && e.code && /^[a-z-]+$/.test(e.code)) throw new HttpsError(e.code, e.message);
+      console.error(e);
+      throw new HttpsError("internal", "Erro interno no Financeiro/Controladoria.");
+    }
+  };
+}
+
+// A cada 5 min: títulos/abatimentos novos dos fatos, depois os lançamentos da Controladoria.
+exports.derivarGestaoFinanceira = onSchedule(
+  {schedule: "every 5 minutes", timeZone: "America/Sao_Paulo", timeoutSeconds: 300, memory: "512MiB"},
+  async () => {
+    const agora = new Date().toISOString();
+    const f = FinanceiroSrv.prepararDerivacao(await baseGestao(false), agora);
+    if (Object.keys(f.updates).length) await db.ref().update(f.updates);
+    const c = ControladoriaSrv.prepararDerivacao(await baseGestao(true), agora);
+    if (Object.keys(c.updates).length) await db.ref().update(c.updates);
+    // Checklist e reconciliação prontos para a tela (ela não lê custos/, que é da diretoria).
+    await db.ref().update(ControladoriaSrv.prepararPainel(await baseGestao(true), agora).updates);
+  },
+);
+
+exports.finBaixar = onCall({timeoutSeconds: 60, memory: "512MiB"}, comoHttps(async (request) => {
+  const quem = await exigirFinanceiro(request);
+  const r = FinanceiroSrv.prepararBaixa(await baseGestao(false), request.data, quem, new Date().toISOString());
+  if (Object.keys(r.updates).length) await db.ref().update(r.updates);
+  return {ok: true, id: r.id, repetida: r.repetida};
+}));
+exports.finEstornarBaixa = onCall({timeoutSeconds: 60, memory: "512MiB"}, comoHttps(async (request) => {
+  const quem = await exigirFinanceiro(request);
+  const r = FinanceiroSrv.prepararEstorno(await baseGestao(false), request.data, quem, new Date().toISOString());
+  await db.ref().update(r.updates);
+  return {ok: true};
+}));
+exports.finLancarTitulos = onCall({timeoutSeconds: 120, memory: "512MiB"}, comoHttps(async (request) => {
+  const quem = await exigirFinanceiro(request);
+  const r = FinanceiroSrv.prepararTitulos(await baseGestao(false), request.data, quem, new Date().toISOString());
+  if (Object.keys(r.updates).length) await db.ref().update(r.updates);
+  return {ok: true, criados: r.criados, repetidos: r.repetidos, erros: r.erros};
+}));
+exports.finDecidirLote = onCall({timeoutSeconds: 120, memory: "512MiB"}, comoHttps(async (request) => {
+  const quem = await exigirFinanceiro(request);
+  const r = FinanceiroSrv.prepararDecisaoLote(await baseGestao(false), request.data, quem, new Date().toISOString());
+  await db.ref().update(r.updates);
+  return {ok: true, baixas: r.baixas || 0};
+}));
+
+exports.ctlLancarAjuste = onCall({timeoutSeconds: 60, memory: "512MiB"}, comoHttps(async (request) => {
+  const quem = await exigirControladoria(request);
+  const r = ControladoriaSrv.prepararAjuste(await baseGestao(true), request.data, quem, new Date().toISOString());
+  if (Object.keys(r.updates).length) await db.ref().update(r.updates);
+  return {ok: true};
+}));
+exports.ctlEstornarAjuste = onCall({timeoutSeconds: 60, memory: "512MiB"}, comoHttps(async (request) => {
+  const quem = await exigirControladoria(request);
+  const r = ControladoriaSrv.prepararEstornoAjuste(await baseGestao(true), request.data, quem, new Date().toISOString());
+  await db.ref().update(r.updates);
+  return {ok: true};
+}));
+exports.ctlFecharMes = onCall({timeoutSeconds: 120, memory: "512MiB"}, comoHttps(async (request) => {
+  const quem = await exigirControladoria(request);
+  const r = ControladoriaSrv.prepararFechamento(await baseGestao(true), request.data, quem, new Date().toISOString());
+  await db.ref().update(r.updates);
+  return {ok: true};
+}));
+exports.ctlReabrirMes = onCall({timeoutSeconds: 60, memory: "512MiB"}, comoHttps(async (request) => {
+  const quem = await exigirControladoria(request);
+  const r = ControladoriaSrv.prepararReabertura(await baseGestao(true), request.data, quem, new Date().toISOString());
+  await db.ref().update(r.updates);
+  return {ok: true};
+}));
