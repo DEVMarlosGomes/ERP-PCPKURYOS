@@ -242,7 +242,15 @@ const KURYOS_MODULOS = {
   rh:           { rotulo: 'RH — Pessoas',          desc: 'Colaboradores, avaliação de desempenho e férias',
                   paginas: ['rh_cadastros.html', 'rh_avaliacao.html', 'rh_ferias.html'] },
   rh_dashboard: { rotulo: 'RH — Dashboard',        desc: 'Indicadores de RH (dado sensível)',
-                  paginas: ['rh_dashboard.html'] }
+                  paginas: ['rh_dashboard.html'] },
+  // Custos e Resultado (26/10/2026, PLANO_CUSTOS_RESULTADO.md): R$ e LP só a
+  // diretoria. Padrão só do ADM; o ADM pode marcar para quem for diretoria (não
+  // existe papel Diretoria -- as regras do banco leem este mesmo módulo).
+  custos:       { rotulo: 'Custos e Resultado',    desc: 'LP, custo padrão e realizado, pontos e bônus (dado sensível: diretoria)',
+                  paginas: ['custos.html'] },
+  // Placar da fábrica: só totais de pontos × meta, sem R$, sem produto, sem nomes.
+  placar:       { rotulo: 'Placar da fábrica',     desc: 'Pontos do dia × meta, para a TV e para a fábrica (só totais)',
+                  paginas: ['placar.html'] }
 };
 
 // Padrão por papel. Reproduz EXATAMENTE o alcance que cada papel tinha antes
@@ -251,11 +259,13 @@ const KURYOS_MODULOS = {
 const MODULOS_POR_PAPEL = {
   admin: '*',
   pcp: ['analytics', 'apontamento', 'manipulacao', 'rotulagem', 'planejamento', 'emitir_op', 'comercial', 'pedidos', 'cadastros',
-        'compras', 'logistica', 'qualidade', 'config', 'usuarios'],
-  production: ['analytics', 'apontamento', 'manipulacao', 'rotulagem', 'planejamento'],
-  rotulagem: ['rotulagem'],
-  logistica: ['logistica'],
-  qualidade: ['qualidade', 'conferencia_pesagem'],
+        'compras', 'logistica', 'qualidade', 'config', 'usuarios', 'placar'],
+  production: ['analytics', 'apontamento', 'manipulacao', 'rotulagem', 'planejamento', 'placar'],
+  rotulagem: ['rotulagem', 'placar'],
+  logistica: ['logistica', 'placar'],
+  qualidade: ['qualidade', 'conferencia_pesagem', 'placar'],
+  // TV da fábrica (26/10/2026): login próprio que só abre o placar.
+  tv: ['placar'],
   rh: ['rh', 'rh_dashboard'],
   gestor: ['rh'],
   comercial: ['comercial'],
@@ -362,7 +372,7 @@ function podeAbrirPagina(user, pagina) {
 // (que ele também não acessa) trocaria um Acesso Negado por outro, em loop.
 const ORDEM_HOME = ['dashboard_executivo.html', 'dashboard.html', 'form.html', 'qualidade.html', 'manipulacao.html', 'planejamento.html',
                     'logistica.html', 'comercial.html', 'pd.html', 'compras.html', 'cadastros.html', 'pedidos.html',
-                    'rh_dashboard.html', 'rh_avaliacao.html'];
+                    'rh_dashboard.html', 'rh_avaliacao.html', 'placar.html'];
 function homeDoUsuario(user) {
   for (var i = 0; i < ORDEM_HOME.length; i++) {
     if (podeAbrirPagina(user, ORDEM_HOME[i])) return ORDEM_HOME[i];
@@ -787,7 +797,7 @@ function renderUnifiedNavbar(user) {
   // aparece, a página abre.
   const temMod = function(m) { return usuarioTemModulo(user, m); };
   const ROTULO_FUNCAO = { admin: 'Administrador', pcp: 'PCP', rh: 'RH Central', gestor: 'Gestor de Linha', qualidade: 'Qualidade',
-    rotulagem: 'Rotulagem', logistica: 'Logística', comercial: 'Comercial', pd: 'P&D', production: 'Produção' };
+    rotulagem: 'Rotulagem', logistica: 'Logística', comercial: 'Comercial', pd: 'P&D', production: 'Produção', tv: 'TV (placar)' };
   const roleLabel = funcoesDoUsuario(user).map(function(f) { return ROTULO_FUNCAO[f] || f; }).join(' · ') || 'Produção';
   // Um grupo inteiro some quando nenhum link dentro dele sobrevive -- senão
   // sobra uma legenda flutuando sem nada embaixo (defeito já visto aqui
@@ -826,7 +836,9 @@ function renderUnifiedNavbar(user) {
     temMod('analytics') && ktLink('dashboard_executivo.html', 'dashboard', 'Visão Executiva 360°', activePage),
     temMod('analytics') && ktLink('dashboard_setorial.html', 'chart', 'Indicadores Setoriais', activePage),
     temMod('analytics') && ktLink('dashboard.html', 'dashboard', 'Dashboard Diário', activePage),
-    temMod('analytics') && ktLink('dashboard_analise.html', 'history', 'Dashboard Geral', activePage)
+    temMod('analytics') && ktLink('dashboard_analise.html', 'history', 'Dashboard Geral', activePage),
+    temMod('custos') && ktLink('custos.html', 'chart', 'Custos e Resultado', activePage),
+    temMod('placar') && ktLink('placar.html', 'dashboard', 'Placar da fábrica', activePage)
   ]);
 
   // "Cadastros" -- bloco de DADO MESTRE puro (o que as coisas são:

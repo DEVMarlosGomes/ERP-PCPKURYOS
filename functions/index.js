@@ -1755,6 +1755,12 @@ exports.registrarRecebimento = onCall(async (request) => {
       const linhaKey = `L${String(indice + 1).padStart(3, "0")}`;
       const loteKey = sanitizeKey(loteInterno);
       const donoDestino = PropriedadeEstoque.camposDoLote(pedido, (pedido.itens || {})[linha.itemKey]);
+      // Custo no lote (Fase 0 de PLANO_CUSTOS_RESULTADO.md): por unidade de ESTOQUE, do item
+      // do PC. Material do cliente custa zero para a Kuryos e entra carimbado, nunca "sem custo".
+      const doCliente = donoDestino.propriedade.tipo === PropriedadeEstoque.CLIENTE;
+      const custoLote = doCliente
+        ? {campos: {custoUnitario: 0, custoFonte: "CLIENTE", custoRef: pedidoKey + "/" + linha.itemKey}, lancamento: null}
+        : CustosResultadoSrv.custoDoLoteRecebido(pedido, linha.itemKey, linha.qtdRecebida, pedidoKey + "/" + linha.itemKey);
       const recebimento = {
         tipoMaterial: linha.tipoMaterial, identificacaoMaterial: linha.identificacaoMaterial,
         skuInterno: materialCodigo, skuFornecedor: linha.skuFornecedor,
@@ -1781,7 +1787,13 @@ exports.registrarRecebimento = onCall(async (request) => {
         recebimentoLinhaKey: linhaKey, pedidoItemKey: linha.itemKey, recebimento,
         propriedade: donoDestino.propriedade, destino: donoDestino.destino,
         status: "QUARENTENA", criadoPor: identidade.autor, criadoEm: agora, atualizadoEm: agora,
+        ...custoLote.campos,
       };
+      if (custoLote.lancamento) {
+        updates[`custos/razao/${entrada.data.slice(0, 7)}/${recKey}_${linhaKey}`] = {
+          ...custoLote.lancamento, objeto: {tipo: "MATERIAL", id: materialKey}, loteKey, criadoEm: agora, criadoPor: identidade.autor,
+        };
+      }
       updates[`lotes_internos/${loteKey}`] = {loteInterno, materialKey, loteKey, pedidoKey, recebimentoKey: recKey,
         criadoEm: agora, criadoPor: identidade.autor};
       const movKey = db.ref(`movimentos_estoque/${materialKey}`).push().key;
@@ -1790,6 +1802,8 @@ exports.registrarRecebimento = onCall(async (request) => {
         ref: pedidoKey, loteKey, enderecoKey: linha.enderecoKey, itemTipo: "material",
         itemCodigo: materialCodigo, itemNome: materialNome, unidade, autor: identidade.autor, em: agora,
         propriedade: donoDestino.propriedade,
+        custoUnitario: custoLote.campos.custoUnitario,
+        custoTotal: custoLote.campos.custoUnitario == null ? null : Math.round(custoLote.campos.custoUnitario * linha.qtdRecebida * 100) / 100,
       };
       estoqueSomado[materialKey] = estoqueSomado[materialKey] || {qtd: 0, materialCodigo, materialNome, unidade, porCliente: {}};
       estoqueSomado[materialKey].qtd += linha.qtdRecebida;
@@ -1858,7 +1872,8 @@ exports.cancelarRecebimento = onCall(async (request) => {
       await lockRef.transaction((atual) => atual && atual.token === token ? null : atual, undefined, false);
       return {ok: true, jaCancelado: true};
     }
-    const linhas = Object.values(recebimento.itensRecebidos || {});
+    const linhaKeys = Object.keys(recebimento.itensRecebidos || {});
+    const linhas = linhaKeys.map((k) => recebimento.itensRecebidos[k]);
     const lotes = await Promise.all(linhas.map((linha) => db.ref(`estoque_lotes/${sanitizeKey(linha.materialCodigo)}/${linha.loteKey}`).once("value")));
     lotes.forEach((snap, i) => {
       const lote = snap.val();
@@ -1896,6 +1911,17 @@ exports.cancelarRecebimento = onCall(async (request) => {
       updates[`movimentos_estoque/${materialKey}/${movKey}`] = {tipo: "cancelamento_recebimento", motivo: "CANCELAMENTO DE RECEBIMENTO", qtd: -qtd,
         saldoApos: null, ref: pedidoKey, loteKey: linha.loteKey, itemTipo: "material", itemCodigo: linha.materialCodigo,
         itemNome: linha.materialNome || null, unidade: linha.unidade || null, autor: identidade.autor, observacao: motivo, em: agora};
+      // Razão de custos é append-only: a entrada valorizada é ESTORNADA, nunca apagada.
+      const loteVal = lotes[i].val() || {};
+      const linhaKey = linhaKeys[i];
+      if (loteVal.custoFonte === "PAGO" && Number(loteVal.custoUnitario) > 0 && linhaKey) {
+        const mes = String(recebimento.data || agora).slice(0, 7);
+        updates[`custos/razao/${agora.slice(0, 7)}/${recebimentoKey}_${linhaKey}_estorno`] = {
+          tipo: "ESTORNO", estornaId: `${mes}/${recebimentoKey}_${linhaKey}`, objeto: {tipo: "MATERIAL", id: materialKey}, loteKey: linha.loteKey,
+          quantidade: -qtd, valorUnitario: Number(loteVal.custoUnitario), valorTotal: -Math.round(Number(loteVal.custoUnitario) * qtd * 100) / 100,
+          procedencia: "PAGO", origemId: `${pedidoKey}/${linha.itemKey}`, motivo, criadoEm: agora, criadoPor: identidade.autor,
+        };
+      }
     });
     Object.entries(estoqueCancelado).forEach(([materialKey, qtd]) => {
       updates[`estoque/${materialKey}/saldoAtual`] = admin.database.ServerValue.increment(-qtd);
@@ -1974,6 +2000,15 @@ exports.registrarDevolucaoRecebimento = onCall(async (request) => {
       itemNome: linha.materialNome || itemAtual.materialNome || null, unidade: linha.unidade || itemAtual.unidade || null,
       autor: identidade.autor, observacao: motivo, em: agora};
     const resultado = {ok: true, saldoLote: novoSaldo, statusPedido: apos.status};
+    // Razão de custos (append-only): a devolução estorna a parte devolvida da entrada valorizada.
+    if (lote.custoFonte === "PAGO" && Number(lote.custoUnitario) > 0) {
+      updates[`custos/razao/${agora.slice(0, 7)}/${recebimentoKey}_${linhaKey}_dev_${eventoKey}`] = {
+        tipo: "ESTORNO", estornaId: `${String(recebimento.data || agora).slice(0, 7)}/${recebimentoKey}_${linhaKey}`, parcial: true,
+        objeto: {tipo: "MATERIAL", id: materialKey}, loteKey: linha.loteKey, quantidade: -qtd, valorUnitario: Number(lote.custoUnitario),
+        valorTotal: -Math.round(Number(lote.custoUnitario) * qtd * 100) / 100, procedencia: "PAGO", origemId: `${pedidoKey}/${linha.itemKey}`,
+        motivo, criadoEm: agora, criadoPor: identidade.autor,
+      };
+    }
     updates[`devolucoes_operacoes/${identidade.uid}/${idempotencyKey}`] = {status: "CONCLUIDO", concluidoEm: agora, resultado};
     updates[`recebimentos_locks/${pedidoKey}`] = null;
     await db.ref().update(updates);
@@ -2348,4 +2383,133 @@ exports.apontarRetrabalho = onCall({timeoutSeconds:120,memory:'512MiB'}, async r
   if(falha) throw new HttpsError('failed-precondition',falha.message);
   if(!result.committed || !rt) throw new HttpsError('aborted','Registro alterado. Reabra o retrabalho.');
   return {ok:true,retrabalhoId:rt.id,revisao:rt.revisao};
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Custos e Resultado (PLANO_CUSTOS_RESULTADO.md, 26/10/2026). O placar da TV é
+// calculado aqui e grava só totais em resultado/placar; LP e custo por produto
+// ficam em custos/ (leitura só da diretoria). Motores puros em custos.js,
+// custos-realizado.js e resultado-pontos.js (cópias byte a byte de public/shared).
+// ─────────────────────────────────────────────────────────────────────────────
+const CustosResultadoSrv = require("./custos_resultado");
+
+// Escutas persistentes: depois da primeira leitura o SDK só baixa a diferença.
+// Reler ops (766 KB) + registros + cadastros a cada 5 min daria ~26 GB/mês de
+// download no RTDB; com a escuta, só o que muda. `sujo` diz se o placar precisa
+// ser refeito.
+const CAMINHOS_PLACAR = ["registros", "ops", "produtos", "perdas", "retrabalhos", "estoque_lotes", "conferencias_pa",
+  "config", "custos/parametros", "resultado/tabelas", "resultado/programa", "resultado/fechamentos", "resultado/portoes"];
+const CAMINHOS_CUSTO = ["materiais", "formulas", "bom", "especificacoes", "pedidos_compra", "processos_cotacao", "custos_precos",
+  "precos_venda", "movimentos_estoque", "custos/operacao", "custos/depara_pd", "custos/material_cliente", "custos/razao_ops",
+  "erp/kuryos/pd_formula_items", "erp/kuryos/crm_propostas"];
+const _cacheCustos = {valores: {}, escutas: {}, sujo: true};
+function escutar(caminho) {
+  if (!_cacheCustos.escutas[caminho]) {
+    _cacheCustos.escutas[caminho] = new Promise((resolve, reject) => {
+      db.ref(caminho).on("value", (snap) => {
+        _cacheCustos.valores[caminho] = snap.val();
+        if (CAMINHOS_PLACAR.includes(caminho)) _cacheCustos.sujo = true;
+        resolve();
+      }, reject);
+    });
+  }
+  return _cacheCustos.escutas[caminho];
+}
+async function baseCustos(comCusto) {
+  const caminhos = comCusto ? CAMINHOS_PLACAR.concat(CAMINHOS_CUSTO) : CAMINHOS_PLACAR;
+  await Promise.all(caminhos.map(escutar));
+  const v = _cacheCustos.valores;
+  return {
+    registros: v.registros, ops: v.ops, produtos: v.produtos, perdas: v.perdas, retrabalhos: v.retrabalhos,
+    estoque_lotes: v.estoque_lotes, conferencias_pa: v.conferencias_pa, config: v.config,
+    materiais: v.materiais, formulas: v.formulas, bom: v.bom, especificacoes: v.especificacoes,
+    pedidos_compra: v.pedidos_compra, processos_cotacao: v.processos_cotacao, custos_precos: v.custos_precos,
+    precos_venda: v.precos_venda, movimentos_estoque: v.movimentos_estoque,
+    pd_formula_items: v["erp/kuryos/pd_formula_items"], propostas: v["erp/kuryos/crm_propostas"],
+    custos: {parametros: v["custos/parametros"], operacao: v["custos/operacao"], depara_pd: v["custos/depara_pd"],
+      material_cliente: v["custos/material_cliente"], razao_ops: v["custos/razao_ops"]},
+    resultado: {tabelas: v["resultado/tabelas"], programa: v["resultado/programa"], fechamentos: v["resultado/fechamentos"],
+      portoes: v["resultado/portoes"], placar: {dias: _cacheCustos.diasPlacar || {}}},
+  };
+}
+
+async function exigirDiretoria(request) {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Faça login.");
+  const perfil = (await db.ref("usuarios/" + request.auth.uid).get()).val() || {};
+  if (!CustosResultadoSrv.ehDiretoria(perfil)) throw new HttpsError("permission-denied", "Custos e Resultado são da diretoria (ADM ou módulo Custos).");
+  return {uid: request.auth.uid, nome: perfil.nome || perfil.name || perfil.email || request.auth.uid};
+}
+
+let _ultimaRazao = 0;
+exports.calcularResultado = onSchedule(
+  {schedule: "every 5 minutes", timeZone: "America/Sao_Paulo", timeoutSeconds: 300, memory: "512MiB"},
+  async () => {
+    const agora = new Date().toISOString();
+    const hoje = CustosResultadoSrv.diaSP(agora);
+    const comp = hoje.slice(0, 7);
+    let base = await baseCustos(false);
+    const params = (base.custos && base.custos.parametros) || {};
+    // Primeira rodada do mês: congela a tabela de pontos sozinha (decisão 4 do plano).
+    if (!((base.resultado.tabelas || {})[comp]) && Number(params.fatorPontos) > 0 && params.congelarAutomatico !== false) {
+      base = await baseCustos(true);
+      const c = CustosResultadoSrv.prepararCongelamento(base, comp, {agora, por: "automático (1º dia do mês)"});
+      if (c.ok) { await db.ref().update(c.updates); _cacheCustos.sujo = true; }
+      else console.warn("[resultado] congelamento automático de " + comp + ": " + c.motivo);
+    }
+    if (_cacheCustos.sujo || _cacheCustos.diaPlacar !== hoje) {
+      _cacheCustos.sujo = false;
+      _cacheCustos.diaPlacar = hoje;
+      const p = CustosResultadoSrv.prepararPlacar(await baseCustos(false), agora);
+      Object.entries(p.updates).forEach(([k, d]) => {
+        if (k.startsWith("resultado/placar/dias/")) (_cacheCustos.diasPlacar = _cacheCustos.diasPlacar || {})[k.slice(22)] = d;
+      });
+      await db.ref().update(p.updates);
+    }
+    // Razão das OPs concluídas: de hora em hora basta.
+    if (Date.now() - _ultimaRazao > 55 * 60 * 1000) {
+      _ultimaRazao = Date.now();
+      const b = await baseCustos(true);
+      const desde = String((b.custos.parametros || {}).razaoDesde || CustosResultadoSrv.mesAnterior(comp) + "-01");
+      const r = CustosResultadoSrv.prepararRazaoOps(b, agora, {desde});
+      if (Object.keys(r.updates).length) await db.ref().update(r.updates);
+    }
+  },
+);
+
+exports.congelarTabelaPontos = onCall({timeoutSeconds: 300, memory: "512MiB"}, async (request) => {
+  const quem = await exigirDiretoria(request);
+  const d = request.data || {};
+  const competencia = String(d.competencia || "");
+  if (!/^\d{4}-\d{2}$/.test(competencia)) throw new HttpsError("invalid-argument", "Competência no formato AAAA-MM.");
+  const base = await baseCustos(true);
+  const c = CustosResultadoSrv.prepararCongelamento(base, competencia, {agora: new Date().toISOString(), por: quem.nome,
+    substituir: d.substituir === true, motivo: d.motivo});
+  if (!c.ok) throw new HttpsError("failed-precondition", c.motivo);
+  await db.ref().update(c.updates);
+  _cacheCustos.sujo = true;
+  return {ok: true, ...c.resumo};
+});
+
+exports.fecharMesResultado = onCall({timeoutSeconds: 120, memory: "512MiB"}, async (request) => {
+  const quem = await exigirDiretoria(request);
+  const competencia = String((request.data || {}).competencia || "");
+  if (!/^\d{4}-\d{2}$/.test(competencia)) throw new HttpsError("invalid-argument", "Competência no formato AAAA-MM.");
+  const agora = new Date().toISOString();
+  // Placar do mês recalculado na hora, antes de fechar.
+  const p = CustosResultadoSrv.prepararPlacar(await baseCustos(false), agora);
+  await db.ref().update(p.updates);
+  const dias = (await db.ref("resultado/placar/dias").orderByKey().startAt(competencia + "-01").endAt(competencia + "-31").get()).val() || {};
+  const base = await baseCustos(false);
+  base.resultado.placar = {dias};
+  const f = CustosResultadoSrv.prepararFechamento(base, competencia, {agora, por: quem.nome});
+  if (!f.ok) throw new HttpsError("failed-precondition", f.motivo);
+  await db.ref().update(f.updates);
+  return {ok: true, ...f.updates[`resultado/fechamentos/${competencia}`]};
+});
+
+exports.recalcularPlacar = onCall({timeoutSeconds: 120, memory: "512MiB"}, async (request) => {
+  await exigirDiretoria(request);
+  const p = CustosResultadoSrv.prepararPlacar(await baseCustos(false), new Date().toISOString());
+  await db.ref().update(p.updates);
+  return {ok: true, dias: p.dias};
 });

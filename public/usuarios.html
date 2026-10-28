@@ -558,7 +558,7 @@
         
         const dateStr = u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '-';
         
-        const badgeClasses = { 'pending': 'pending', 'production': 'production', 'admin': 'admin', 'pcp': 'pcp', 'rotulagem': 'rotulagem', 'logistica': 'pcp', 'rh': 'rh', 'gestor': 'gestor', 'qualidade': 'qualidade', 'comercial': 'comercial', 'pd': 'pd' };
+        const badgeClasses = { 'pending': 'pending', 'production': 'production', 'admin': 'admin', 'pcp': 'pcp', 'rotulagem': 'rotulagem', 'logistica': 'pcp', 'rh': 'rh', 'gestor': 'gestor', 'qualidade': 'qualidade', 'comercial': 'comercial', 'pd': 'pd', 'tv': 'pending' };
         
         const funcoesU = funcoesAtivas(u);
         const badgesHtml = u.desativado
@@ -731,7 +731,7 @@
      ══════════════════════════════════════════════════════════════════ */
   var FUNCOES = [
     { id: 'admin', rot: 'Administrador', dsc: 'Vê tudo, sem exceção' },
-    { id: 'pcp', rot: 'PCP', dsc: 'Vê tudo, menos RH' },
+    { id: 'pcp', rot: 'PCP', dsc: 'Vê tudo, menos RH e Custos' },
     { id: 'comercial', rot: 'Comercial', dsc: 'CRM 1/2/3, orçamentos, pedidos, Kickoffs e contratos CGI' },
     { id: 'pd', rot: 'P&D', dsc: 'Pipeline de desenvolvimento, fórmulas, homologação e aprovação do Kickoff' },
     { id: 'qualidade', rot: 'Qualidade', dsc: 'Módulo de CQ e aprovação do CQ no Kickoff' },
@@ -739,7 +739,8 @@
     { id: 'production', rot: 'Produção', dsc: 'Apontamento, manipulação, rotulagem e planejamento' },
     { id: 'rotulagem', rot: 'Rotulagem', dsc: 'Sala de rótulos' },
     { id: 'rh', rot: 'RH Central', dsc: 'Colaboradores, avaliações e férias' },
-    { id: 'gestor', rot: 'Gestor de Linha (RH)', dsc: 'Avaliação da equipe da linha' }
+    { id: 'gestor', rot: 'Gestor de Linha (RH)', dsc: 'Avaliação da equipe da linha' },
+    { id: 'tv', rot: 'TV da fábrica', dsc: 'Só o placar de pontos × meta (sem R$ nem produto)' }
   ];
   var PRIORIDADE = FUNCOES.map(function(f) { return f.id; });
   var funcUidAtual = null;

@@ -703,6 +703,9 @@
       window.location.href = 'crm1';
     } else if (role === 'pd') {
       window.location.href = 'pd';
+    } else if (role === 'tv') {
+      // TV da fábrica (26/10/2026): só o placar, em tela cheia.
+      window.location.href = 'placar?tv=1';
     } else {
       showFeedback('error', 'Perfil desconhecido no sistema.');
     }

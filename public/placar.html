@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Placar da fábrica</title>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://erpkuryos-default-rtdb.firebaseio.com">
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+<script src="shared/utils.js"></script>
+<script src="auth_check.js"></script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="shared/theme.css">
+<style>
+/* Placar da TV (PLANO_CUSTOS_RESULTADO.md §8): pontos × meta, sem R$, sem
+   produto, sem nomes. Lê só resultado/placar, que o servidor grava. */
+:root{--tv-bg:#0d1420;--tv-panel:#152033;--tv-line:#24324a;--tv-ink:#f3f6fb;--tv-soft:#9fb0c8;--tv-ok:#34d27b;--tv-warn:#ffbf3c;--tv-bad:#ff6b6b;--tv-acc:#5b9cff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--tv-bg);color:var(--tv-ink);font-family:var(--font-ui);min-height:100vh}
+/* O tema global força cor de texto e fundo claro: na TV o painel é escuro sempre,
+   então as cores daqui vencem (senão o número grande some no painel). */
+html,body.kuryos-theme{background:var(--tv-bg)!important}
+body.kuryos-theme .pg,body.kuryos-theme .pg *{color:var(--tv-ink)}
+body.kuryos-theme .top .d,body.kuryos-theme .rot,body.kuryos-theme .meta,body.kuryos-theme .nota{color:var(--tv-soft)!important}
+body.kuryos-theme .meta b,body.kuryos-theme .grande,body.kuryos-theme .mini .v,body.kuryos-theme .lin .n,body.kuryos-theme .top h1,body.kuryos-theme .relogio{color:var(--tv-ink)!important}
+body.kuryos-theme .status.ok{color:var(--tv-ok)!important}body.kuryos-theme .status.warn{color:var(--tv-warn)!important}
+body.kuryos-theme .dias span{color:var(--tv-soft)!important}body.kuryos-theme .dias span.ok{color:#06210f!important}body.kuryos-theme .dias span.nao{color:var(--tv-bad)!important}
+body.tv #unified-navbar,body.tv .kt-sidebar{display:none!important}
+body.tv{padding-left:0!important}
+.pg{max-width:1600px;margin:0 auto;padding:clamp(14px,2.2vw,32px)}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:clamp(12px,2vw,24px)}
+.top h1{margin:0;font-size:clamp(24px,3vw,44px);letter-spacing:-.02em}
+.top .d{color:var(--tv-soft);font-size:clamp(14px,1.4vw,20px);margin-top:4px}
+.relogio{font-size:clamp(28px,4vw,60px);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.grade{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:clamp(12px,1.6vw,22px)}
+@media(max-width:900px){.grade{grid-template-columns:1fr}}
+.p{background:var(--tv-panel);border:1px solid var(--tv-line);border-radius:18px;padding:clamp(16px,2vw,28px)}
+.rot{color:var(--tv-soft);font-size:clamp(14px,1.3vw,19px);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.grande{font-size:clamp(56px,9vw,150px);font-weight:900;line-height:1;letter-spacing:-.04em;font-variant-numeric:tabular-nums;margin:10px 0 6px}
+.meta{font-size:clamp(18px,2vw,30px);color:var(--tv-soft);font-variant-numeric:tabular-nums}
+.meta b{color:var(--tv-ink)}
+.barra{height:clamp(18px,2.2vw,34px);border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin:16px 0 10px;position:relative}
+.barra span{display:block;height:100%;border-radius:999px;background:var(--tv-acc);transition:width .8s ease}
+.barra.ok span{background:var(--tv-ok)}.barra.warn span{background:var(--tv-warn)}
+.barra i{position:absolute;top:-4px;bottom:-4px;width:3px;background:#fff;opacity:.7}
+.status{font-size:clamp(20px,2.4vw,38px);font-weight:800}
+.status.ok{color:var(--tv-ok)}.status.warn{color:var(--tv-warn)}
+.linhas{display:grid;gap:14px;margin-top:6px}
+.lin .n{display:flex;justify-content:space-between;font-size:clamp(16px,1.6vw,24px);font-weight:700;font-variant-numeric:tabular-nums}
+.lin .barra{margin:8px 0 0;height:clamp(12px,1.4vw,20px)}
+.mini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(12px,1.6vw,22px);margin-top:clamp(12px,1.6vw,22px)}
+@media(max-width:900px){.mini{grid-template-columns:1fr}}
+.mini .v{font-size:clamp(30px,4vw,62px);font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.dias{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.dias span{width:clamp(28px,2.6vw,42px);height:clamp(28px,2.6vw,42px);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:clamp(12px,1vw,15px);background:rgba(255,255,255,.08);color:var(--tv-soft)}
+.dias span.ok{background:var(--tv-ok);color:#06210f}.dias span.nao{background:rgba(255,107,107,.25);color:var(--tv-bad)}
+.nota{color:var(--tv-soft);font-size:clamp(12px,1.1vw,16px);margin-top:14px;line-height:1.5}
+.vazio{text-align:center;padding:60px 20px;color:var(--tv-soft);font-size:clamp(18px,2vw,28px)}
+.btn-tc{position:fixed;right:14px;bottom:14px;background:var(--tv-panel);color:var(--tv-soft);border:1px solid var(--tv-line);border-radius:10px;padding:8px 12px;font:inherit;font-size:13px;cursor:pointer}
+body.tv .btn-tc{opacity:.25}
+</style>
+</head>
+<body class="kuryos-theme" data-ui-placar="">
+<main class="pg">
+  <div class="top" data-ui="page-header">
+    <div><h1>Placar da fábrica</h1><div class="d" id="dTxt">Conectando…</div></div>
+    <div class="relogio" id="relogio">--:--</div>
+  </div>
+  <div id="conteudo"><div class="vazio">Carregando o placar…</div></div>
+</main>
+<button class="btn-tc" id="btnTela" type="button">Tela cheia</button>
+<script>var firebaseConfig={apiKey:'AIzaSyBvASzcbKyv3uW7NBzDFDyLsKls3An3UUs',authDomain:'erpkuryos.firebaseapp.com',databaseURL:kuryosDatabaseURL('https://erpkuryos-default-rtdb.firebaseio.com'),projectId:'erpkuryos',storageBucket:'erpkuryos.firebasestorage.app',messagingSenderId:'272752392739',appId:'1:272752392739:web:047a6c4aa60145d77f4f96'};firebase.initializeApp(firebaseConfig);kuryosConnectEmulatorsIfLocal();</script>
+<script>
+(function() {
+  'use strict';
+  if (/[?&]tv=1/.test(location.search)) document.body.classList.add('tv');
+  var placar = null;
+  function el(id) { return document.getElementById(id); }
+  function n(v) { return v == null || !isFinite(v) ? '—' : Math.round(v).toLocaleString('pt-BR'); }
+  function pct(v) { return v == null || !isFinite(v) ? '—' : Math.round(v) + '%'; }
+  function hojeSP() { return new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10); }
+  function dataLonga(d) {
+    try { return new Date(d + 'T12:00:00Z').toLocaleDateString('pt-BR', {weekday: 'long', day: '2-digit', month: 'long', timeZone: 'UTC'}); } catch (e) { return d; }
+  }
+  function barra(pontos, meta, cls) {
+    var w = meta > 0 ? Math.min(100, pontos / meta * 100) : 0;
+    return '<div class="barra ' + (cls || '') + '"><span style="width:' + w.toFixed(1) + '%"></span></div>';
+  }
+  function semanaISO(d) { var x = new Date(d + 'T12:00:00Z'), dow = (x.getUTCDay() + 6) % 7; x.setUTCDate(x.getUTCDate() - dow + 3); var a = x.getUTCFullYear(), p = new Date(Date.UTC(a, 0, 4)); var s = 1 + Math.round(((x - p) / 864e5 - 3 + ((p.getUTCDay() + 6) % 7)) / 7); return a + '-W' + (s < 10 ? '0' : '') + s; }
+  function render() {
+    var hoje = hojeSP();
+    el('dTxt').textContent = dataLonga(hoje).replace(/^./, function(c) { return c.toUpperCase(); }) +
+      (placar && placar.hoje && placar.hoje.atualizadoEm ? ' · atualizado às ' + new Date(placar.hoje.atualizadoEm).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'}) : '');
+    if (!placar || !placar.dias) { el('conteudo').innerHTML = '<div class="vazio">Ainda não há placar. Ele aparece quando a fábrica aponta e a diretoria congela a tabela de pontos do mês.</div>'; return; }
+    var dia = placar.dias[hoje] || null;
+    var sem = (placar.semanas || {})[semanaISO(hoje)] || null;
+    var mes = (placar.meses || {})[hoje.slice(0, 7)] || null;
+    var h = '<div class="grade"><div class="p"><div class="rot">Pontos de hoje</div>';
+    if (dia && dia.meta > 0) {
+      var falta = dia.meta - dia.pontos;
+      var cls = dia.pontos >= dia.meta ? 'ok' : dia.pct >= 80 ? 'warn' : '';
+      h += '<div class="grande">' + n(dia.pontos) + '</div><div class="meta">meta <b>' + n(dia.meta) + '</b> · ' + pct(dia.pct) + '</div>' + barra(dia.pontos, dia.meta, cls) +
+        '<div class="status ' + (falta <= 0 ? 'ok' : 'warn') + '">' + (falta <= 0 ? 'Meta do dia batida!' : 'Faltam ' + n(falta) + ' pontos') + '</div>' +
+        '<div class="nota">' + n(dia.unidades) + ' unidades boas hoje' + (dia.descontos && dia.descontos.total ? ' · ' + n(dia.descontos.total) + ' pontos descontados (perdas e retrabalho)' : '') +
+        (dia.coberturaPct != null && dia.coberturaPct < 100 ? ' · ' + pct(dia.coberturaPct) + ' do volume conta pontos' : '') + '</div>';
+    } else {
+      h += '<div class="grande">' + n(dia ? dia.pontos : 0) + '</div><div class="meta">' + (dia ? 'sem meta para o mix de hoje' : 'sem apontamento hoje ainda') + '</div>';
+    }
+    h += '</div><div class="p"><div class="rot">Linhas</div><div class="linhas">';
+    var linhas = dia && dia.porLinha ? Object.keys(dia.porLinha).sort() : [];
+    h += linhas.length ? linhas.map(function(l) {
+      var x = dia.porLinha[l];
+      // Linha que só rodou produto sem custo não tem meta nem pontos: diz isso, não "0 / 0".
+      if (!(x.meta > 0) && !(x.pontos > 0)) return '<div class="lin"><div class="n"><span>' + escapeHtml(l) + '</span><span style="color:var(--tv-soft);font-weight:600">produto fora do placar</span></div></div>';
+      return '<div class="lin"><div class="n"><span>' + escapeHtml(l) + '</span><span>' + n(x.pontos) + ' / ' + n(x.meta) + '</span></div>' + barra(x.pontos, x.meta, x.meta > 0 && x.pontos >= x.meta ? 'ok' : '') + '</div>';
+    }).join('') : '<div class="nota">Nenhuma linha apontou hoje.</div>';
+    h += '</div></div></div><div class="mini">';
+    h += '<div class="p"><div class="rot">Semana</div><div class="mini-v v">' + pct(sem && sem.pct) + '</div><div class="meta">' + (sem ? n(sem.pontos) + ' de ' + n(sem.meta) : '—') + '</div>' + barra(sem ? sem.pontos : 0, sem ? sem.meta : 0, sem && sem.batida ? 'ok' : '') + '</div>';
+    h += '<div class="p"><div class="rot">Mês</div><div class="v">' + pct(mes && mes.pct) + '</div><div class="meta">' + (mes ? n(mes.pontos) + ' de ' + n(mes.meta) : '—') + '</div>' + barra(mes ? mes.pontos : 0, mes ? mes.meta : 0, mes && mes.batida ? 'ok' : '') + '</div>';
+    var ult = Object.keys(placar.dias).filter(function(k) { return k.slice(0, 7) === hoje.slice(0, 7) && placar.dias[k].meta > 0; }).sort();
+    h += '<div class="p"><div class="rot">Dias batidos no mês</div><div class="v">' + (mes ? mes.diasBatidos + ' de ' + mes.dias : '—') + '</div><div class="dias">' +
+      ult.map(function(k) { var x = placar.dias[k]; return '<span class="' + (x.batida ? 'ok' : 'nao') + '" title="' + k + '">' + Number(k.slice(8, 10)) + '</span>'; }).join('') + '</div></div>';
+    h += '</div><div class="nota">A semana soma os dias: um dia ruim se compensa com um bom. Perdas e retrabalho descontam pontos; paradas não (já reduzem a produção).</div>';
+    el('conteudo').innerHTML = h;
+  }
+  function relogio() { el('relogio').textContent = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'}); }
+  relogio(); setInterval(relogio, 15000);
+  setInterval(render, 60000); // vira o dia e o "atualizado" sem depender de mudança no banco
+  el('btnTela').addEventListener('click', function() {
+    document.body.classList.add('tv');
+    var d = document.documentElement;
+    if (d.requestFullscreen) d.requestFullscreen().catch(function() {});
+  });
+  function iniciar() { dbOnValue(firebase.database().ref('resultado/placar'), function(s) { placar = s.val(); render(); }); }
+  if (window.currentUser) iniciar(); else window.addEventListener('kuryos-auth-pronto', iniciar, {once: true});
+})();
+</script>
+</body>
+</html>

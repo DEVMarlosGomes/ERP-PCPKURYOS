@@ -104,6 +104,63 @@
       ".read": "auth != null",
       ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('compras').val() == true)) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('pedidos').val() == true))"
     },
+    // Custos e Resultado (PLANO_CUSTOS_RESULTADO.md §8, 26/10/2026): R$ e LP só a
+    // diretoria = ADM ou quem o ADM marcou com o módulo Custos (só o ADM grava
+    // modulos). Razão, fichas congeladas e taxas só o servidor grava (append-only).
+    "custos": {
+      ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('custos').val() == true)",
+      "parametros": {
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('custos').val() == true)",
+        "fatorPontos": { ".validate": "newData.isNumber() && newData.val() > 0" },
+        "metaAlvoPct": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 200" },
+        "impostosPct": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 100" }
+      },
+      "operacao": {
+        "$competencia": {
+          ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('custos').val() == true)",
+          ".validate": "$competencia.matches(/^[0-9]{4}-[0-9]{2}$/)"
+        }
+      },
+      "depara_pd": {
+        "$ingrediente": {
+          ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('custos').val() == true)"
+        }
+      },
+      "material_cliente": {
+        "$sku": {
+          ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('custos').val() == true)"
+        }
+      }
+    },
+    "resultado": {
+      // A diretoria lê o nó inteiro (a tela de Custos escuta resultado/); os demais, só o que cada filho libera.
+      ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('custos').val() == true)",
+      // Totais do placar: a fábrica e a TV leem; ninguém grava (só o servidor).
+      "placar": { ".read": "auth != null" },
+      "tabelas": { ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('custos').val() == true)" },
+      "tabelas_historico": { ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('custos').val() == true)" },
+      // Fechamento leva o bônus em R$: só a diretoria (a fábrica vê o mês em placar/meses).
+      "fechamentos": { ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('custos').val() == true)" },
+      // Horas programadas por linha no dia (até as telas de planejamento existirem): PCP e diretoria.
+      "programa": {
+        ".read": "auth != null",
+        "$dia": {
+          ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('modulos').child('custos').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('planejamento').val() == true)",
+          ".validate": "$dia.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)",
+          "$linha": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 24" }
+        }
+      },
+      // Portões do bônus: reclamação pela diretoria; acidente pelo RH ou diretoria.
+      "portoes": {
+        ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'rh' || root.child('usuarios').child(auth.uid).child('modulos').child('custos').val() == true)",
+        "$competencia": {
+          "$id": {
+            ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('custos').val() == true || (root.child('usuarios').child(auth.uid).child('role').val() == 'rh' && ((newData.exists() && newData.child('tipo').val() == 'ACIDENTE') || (!newData.exists() && data.child('tipo').val() == 'ACIDENTE'))))",
+            ".validate": "!newData.exists() || ((newData.child('tipo').val() == 'ACIDENTE' || newData.child('tipo').val() == 'RECLAMACAO') && newData.child('data').isString() && newData.child('data').val().beginsWith($competencia) && !root.child('resultado').child('fechamentos').child($competencia).child('fechadoEm').exists())"
+          }
+        }
+      }
+    },
     "clientes": {
       ".read": "auth != null",
       "$clienteKey": {
