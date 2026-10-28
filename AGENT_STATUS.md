@@ -5,6 +5,13 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Financeiro e Controladoria (28/10/2026)
+
+- **Pedido:** "todos os módulos se interligam; não mexa nos módulos já criados; Financeiro e Controladoria podem ser criados com base em SAP/TOTVS" — construir `PROMPT_FINANCEIRO.md` e `PROMPT_CONTROLADORIA.md`.
+- **Arquivos ativos (novos):** `public/financeiro.html`, `public/controladoria.html`, `public/shared/financeiro.js`, `public/shared/financeiro-tela.js`, `public/shared/controladoria.js`, `public/shared/controladoria-tela.js`, `public/shared/gestao-financeira.css`, `functions/financeiro.js`, `functions/controladoria.js`, `functions/financeiro_servidor.js`, `functions/controladoria_servidor.js`, testes `run_financeiro*_test.js` e `run_controladoria*_test.js`.
+- **Estado (28/10):** construído e testado — motores (81 + 59 asserções), servidor (11 casos), regras (47 no emulador `demo-gestao`; Custos 42 e pacote seguem passando), e2e com a base real (47/0), contrato do Render 35 funções.
+- **Encanamento (só acréscimo):** `functions/index.js` (escutas, agenda e callables novos), `database.rules.json` (nós `fin/` e `ctl/`), `public/auth_check.js` (módulos `financeiro` e `controladoria` + links no menu; a linha da versão do shell é de outra sessão e fica fora do meu commit). Nenhum módulo existente muda.
+
 ### Claude — Custos e Resultado: LP, LPD, metas e bônus (26/10/2026)
 
 - **Pedido:** "rode o prompt completo de custos, crie tudo" — `PLANO_CUSTOS_RESULTADO.md` (Fases 0–6) com o motor/regras de `PROMPT_CUSTOS_ERP.md`.

@@ -65,7 +65,8 @@ código do Kuryos ERP — lá só dá para verificar pelo navegador.
 | Qualidade Fase 2 (`qualidade.html`, papel `qualidade`) | no ar; Fases 3-4 bloqueadas por Ordem de Manipulação, anexo de arquivo e Tarefas Pendentes, que não existem |
 | Planejamento/apontamento (`PLANO_PLANEJAMENTO_PCP.md`) | plano fechado, **nada implementado** |
 | MRP (aba em `insumos.html`) | motor completo em produção desde 2026-09-13; **parâmetros de planejamento vazios nos 906 materiais** |
-| Custos e Resultado (`custos.html`, `placar.html`) | construído e auditado em 26–28/10 (`AUDITORIA_CUSTOS_20261028.md`); LP em 0 SKUs até haver preço, impostos e custo da operação; realizado e placar param na última OP (21/09). Regras `custos/` e `resultado/` publicadas em 28/10. Próximos temas: `PROMPT_FINANCEIRO.md` e `PROMPT_CONTROLADORIA.md` |
+| Custos e Resultado (`custos.html`, `placar.html`) | construído e auditado em 26–28/10 (`AUDITORIA_CUSTOS_20261028.md`); LP em 0 SKUs até haver preço, impostos e custo da operação; realizado e placar param na última OP (21/09). Regras `custos/` e `resultado/` publicadas em 28/10. |
+| Financeiro (`financeiro.html`) e Controladoria (`controladoria.html`) | construídos em 28/10 (`PROMPT_FINANCEIRO.md` §15, `PROMPT_CONTROLADORIA.md` §15); módulos `financeiro` e `controladoria` marcados pelo ADM; só LEEM os outros módulos (títulos dos recebimentos/NFs/operação; lançamentos do razão de custos/NFs/baixas). Títulos, baixas, lançamentos e fechamento só o servidor grava; nada se apaga (estorno). Base sem NF de saída e sem banco até a operação cadastrar |
 | Estoque | ver "Dia D" abaixo |
 
 **O saldo de estoque ainda não serve para decidir.** Dos 906 materiais cadastrados, só 37

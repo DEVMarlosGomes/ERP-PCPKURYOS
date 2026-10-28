@@ -201,4 +201,4 @@ Segunda passada (28/10, contra o plano):
 - Financeiro: `PROMPT_FINANCEIRO.md`.
 - Controladoria: `PROMPT_CONTROLADORIA.md`.
 
-Os dois são independentes e não exigem função nova em outro módulo.
+Os dois foram construídos em 28/10/2026, interligados com os demais só por leitura, sem função nova nos módulos existentes.

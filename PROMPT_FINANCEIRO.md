@@ -3,7 +3,9 @@
 > Instrução de construção para um dev sênior full stack ou agente de código; pode ser colada inteira
 > como prompt. Escrita em 28/10/2026, depois da entrega e da auditoria do módulo Custos e Resultado.
 > Todo número foi **medido na base real de `erpkuryos`** (somente leitura) nessa data.
-> Módulo irmão: `PROMPT_CONTROLADORIA.md`. Os dois são independentes e se falam só pelo contrato da seção 6.
+> Módulo irmão: `PROMPT_CONTROLADORIA.md`. Todos os módulos se interligam **por leitura**: o Financeiro lê
+> Compras, Recebimento, Faturamento e Custos; a Controladoria lê tudo isso e o Financeiro (contrato da
+> seção 6). Nenhum módulo escreve no outro. **Construído em 28/10/2026** — ver a seção 15.
 
 ---
 
@@ -313,3 +315,31 @@ Cada linha é uma função pura testada; o servidor só aplica o que ela devolve
   depois.
 - Folha individual: entra o total do mês.
 - Multiempresa e multimoeda funcional.
+
+---
+
+## 15. Estado da implementação (28/10/2026)
+
+Fases F0–F4 construídas, testadas e no ar. Nenhum módulo existente mudou: os acréscimos foram só o
+módulo no menu (`auth_check.js`), a ligação no servidor (`functions/index.js`) e as regras `fin/`.
+
+| Peça | Arquivo |
+|---|---|
+| Motor puro | `public/shared/financeiro.js` (cópia em `functions/`) |
+| Servidor | `functions/financeiro_servidor.js`; agenda `derivarGestaoFinanceira` (5 min) e callables `finBaixar`, `finEstornarBaixa`, `finLancarTitulos`, `finDecidirLote` |
+| Tela | `public/financeiro.html` + `shared/financeiro-tela.js` (8 abas: Painel, A pagar, A receber, Lote, Conciliação, Fluxo, Complementos, Cadastros) |
+| Testes | `run_financeiro_test.js` (81), `run_gestao_servidor_test.js` (11), `run_gestao_rules_test.js` (47 no emulador `demo-gestao`), e2e com a base real (47) |
+
+Decisões tomadas na construção:
+
+- **Um título por fato, com parcelas derivadas na leitura** (como o documento com parcelas do SAP), em
+  vez de um título por parcela (TOTVS SE1/SE2). Assim o título nunca muda: a condição que falta é
+  informada à parte (`fin/condicoes/{título}`) e as parcelas aparecem.
+- **NF = valor da nota.** A diferença entre o pedido e a nota (`percentualNF` < 100) vira complemento
+  `DIFERENCA_FISCAL`, e quem decide se ela é recebível é o Financeiro (título manual).
+- **Recorrente corrigido** (folha ou fixo alterado depois no Custos): nasce título de ajuste (a mais)
+  ou abatimento (a menos), com a chave pelo valor novo.
+- **Mês fechado na Controladoria** recusa baixa e título manual com data nele.
+- Na base real de 28/10: 3 títulos a pagar dos recebimentos e 2 recebimentos sem preço (complementos).
+  Só 1 dos 3 títulos tem condição de pagamento (PC-0002, "28"); os outros 2 aparecem em
+  Complementos como "sem prazo".

@@ -1403,3 +1403,14 @@ Contexto: módulo construído e auditado (`AUDITORIA_CUSTOS_20261028.md`).
 - **Programa do dia** é digitado em Custos › Resultado até as telas de planejamento existirem (`PLANO_PLANEJAMENTO_PCP.md`).
 - **Manual operacional** (`manuais.html`) ainda não tem a seção de Custos e do placar.
 - **Testes de tela (`*_ui_test.js`) não rodam nesta máquina**: o pacote `playwright` não está no repo (falham igual no HEAD). Instalar como devDependency ou documentar o caminho do Chromium.
+
+## Financeiro e Controladoria — o que ficou de fora (28/10/2026)
+
+Contexto: módulos construídos a partir de `PROMPT_FINANCEIRO.md` e `PROMPT_CONTROLADORIA.md` (ver §15 de cada).
+
+- **Vínculo pedido comercial ↔ carga faturada.** A carteira a receber (compromisso) abate o já faturado pelo `pedidoId` dos itens da solicitação de faturamento. Se esse id não for a chave de `pedidos_comerciais`, a carteira aparece bruta. Conferir quando o faturamento operar no `erpkuryos` (`financeiro.js:compromissos`).
+- **Imposto real da nota.** A NF registrada não traz imposto destacado; a dedução da DRE usa o % de Custos › Parâmetros (marcado ESTIMADO). Resolver com o XML da NF-e ou com a apuração do contador (`controladoria.js:documentosEsperados`, bloco NF).
+- **Integração bancária por API, boleto e PIX automático.** Hoje a conciliação é por OFX (grátis). Reavaliar quando o volume de baixas justificar.
+- **CPV pela ficha padrão sem OP de origem** credita o estoque de PA que nenhuma OP debitou: o PA pode ficar negativo no balancete. Some quando as OPs vendidas tiverem custo completo no Custos.
+- **Conta referencial (ECD)** do plano de contas em branco: o contador informa em Controladoria › Plano de contas antes do primeiro export.
+- **Manual operacional** (`manuais.html`) ainda sem as seções de Financeiro e Controladoria.

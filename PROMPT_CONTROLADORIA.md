@@ -3,8 +3,9 @@
 > Instrução de construção para um dev sênior full stack ou agente de código; pode ser colada inteira
 > como prompt. Escrita em 28/10/2026, depois da entrega e da auditoria do módulo Custos e Resultado.
 > Todo número foi **medido na base real de `erpkuryos`** (somente leitura) nessa data.
-> Módulo irmão: `PROMPT_FINANCEIRO.md`. Os dois são independentes; a Controladoria lê o que o
-> Financeiro grava, nunca o contrário.
+> Módulo irmão: `PROMPT_FINANCEIRO.md`. Todos os módulos se interligam **por leitura**: a Controladoria
+> lê Custos, Faturamento, Resultado e o Financeiro; nenhum módulo escreve no outro.
+> **Construído em 28/10/2026** — ver a seção 15.
 
 ---
 
@@ -323,3 +324,31 @@ Cada linha é uma função pura testada; o servidor só aplica o que ela devolve
 - Contas a pagar e a receber, baixas, bancos e conciliação bancária (Financeiro).
 - Reprecificar OP ou ficha (é do módulo de Custos).
 - Consolidação societária e multimoeda funcional.
+
+---
+
+## 15. Estado da implementação (28/10/2026)
+
+Fases C0–C4 construídas, testadas e no ar. Nenhum módulo existente mudou (os acréscimos foram o módulo
+no menu, a ligação no servidor e as regras `ctl/`).
+
+| Peça | Arquivo |
+|---|---|
+| Motor puro | `public/shared/controladoria.js` (cópia em `functions/`) |
+| Servidor | `functions/controladoria_servidor.js`; a mesma agenda de 5 min deriva os lançamentos e monta `ctl/painel/{mês}` (checklist, reconciliação, ociosidade); callables `ctlLancarAjuste`, `ctlEstornarAjuste`, `ctlFecharMes`, `ctlReabrirMes` |
+| Tela | `public/controladoria.html` + `shared/controladoria-tela.js` (7 abas: DRE, Rentabilidade, Centros de custo, Orçamento × real, Razão e balancete, Fechamento, Plano de contas) |
+| Testes | `run_controladoria_test.js` (59), `run_gestao_servidor_test.js`, `run_gestao_rules_test.js`, e2e (112 lançamentos reais + fictícios, todos balanceados) |
+
+Desvios deste prompt, com o motivo:
+
+- **Módulo próprio `controladoria`** em vez do módulo `custos`. A Controladoria é página própria e o ADM
+  marca quem a usa. Ela **não** lê `custos/`, que é restrito: o servidor monta o checklist, a
+  reconciliação e a memória de ociosidade em `ctl/painel`.
+- **Margem × LP**: a DRE e o LP realizado não "batem" por construção. A nota usa o preço faturado e a
+  quantidade vendida; o LP usa o preço vigente e a quantidade produzida. A Rentabilidade mostra os dois
+  lado a lado, e a diferença é explicada por preço e quantidade.
+- **CPV padrão** credita o estoque de PA mesmo sem a OP ter debitado. O PA pode ficar negativo no
+  balancete, e isso é visível de propósito.
+- **Fechamento com pendência** só pelo ADM, com justificativa gravada; reabertura idem, com histórico.
+- Plano de contas semeado com 25 contas; a **conta referencial (ECD)** fica em branco para o contador
+  preencher, porque inventar código daria um export preciso e falso.
