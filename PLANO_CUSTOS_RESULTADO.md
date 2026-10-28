@@ -215,7 +215,7 @@ O placar usa o LP padrão e pode começar com os SKUs que já tiverem custo comp
 Fases 0–6 construídas, testadas e auditadas — ver `AUDITORIA_CUSTOS_20261028.md`. Telas: `custos.html`
 (diretoria = ADM ou módulo Custos) e `placar.html` (TV, papel `tv`). Servidor no Render: custo no lote,
 razão append-only, placar a cada 5 min, tabela congelada no 1º do mês, fechamento. O que falta é dado e
-decisão (seção 7 da auditoria), não código. Financeiro + controladoria: `PROMPT_FINANCEIRO_CONTROLADORIA.md`.
+decisão (seção 7 da auditoria), não código. Próximos módulos: `PROMPT_FINANCEIRO.md` e `PROMPT_CONTROLADORIA.md`.
 
 ## 11. Em aberto
 

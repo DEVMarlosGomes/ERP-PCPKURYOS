@@ -1395,7 +1395,9 @@ Passo PCP (emissão de OP). Contexto no `AGENT_STATUS.md` (17/10).
 
 Contexto: módulo construído e auditado (`AUDITORIA_CUSTOS_20261028.md`).
 
-- **Regras `custos/` e `resultado/` não publicadas.** Sem elas a tela de Custos e o placar dão "sem permissão" em produção. Testadas no emulador (`run_custos_resultado_rules_test.js`). Publicar com `npx firebase-tools deploy --only database --project erpkuryos`, com backup das regras no ar antes.
+- ~~Regras `custos/` e `resultado/` não publicadas~~ — publicadas em 28/10 (backup das anteriores; a diferença era só o acréscimo).
+- **Conferência de consumo dos pontos desligada** (`resultado-pontos.js:conferenciaConsumo`, plano §7). O envase baixa a embalagem pela ficha (BOM × apontado), então só o material **entregue à linha** mede perda escondida: separação por OP (`ops/{op}/separacaoConcluida.itens`) menos a sobra devolvida (`ops/{op}/sobraDevolvida.itens`, campo que o motor já lê e que **nenhuma tela grava**). Para ligar: (1) a fábrica separar por OP; (2) o passo de devolução da sobra (item "Devolução da sobra ao endereço depois da pesagem", acima) gravar `sobraDevolvida.itens`; (3) a diretoria marcar em Custos › Parâmetros. Sem a devolução, material que voltou ao estoque contaria como perda escondida.
+- **Imposto realizado pelo % do parâmetro**, não pela nota: a NF registrada em `faturamento/nfs` não traz imposto destacado. Resolver junto com a Controladoria (`PROMPT_CONTROLADORIA.md`) ou com o XML da NF-e, se um dia for importado.
 - **Custo não é copiado na separação/transferência de lote** (`utils.js` copia dono, destino e lote interno). O motor de realizado contorna pelo lote irmão de mesmo lote interno. Se um dia o lote interno se perder numa cópia, o consumo cai no preço vigente (declarado).
 - **SKU sem fórmula** (envase de granel do cliente) nunca fecha ficha: falta um marcador "granel do cliente" no produto. Hoje a pendência aparece como "sem fórmula".
 - **Programa do dia** é digitado em Custos › Resultado até as telas de planejamento existirem (`PLANO_PLANEJAMENTO_PCP.md`).

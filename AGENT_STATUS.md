@@ -8,7 +8,7 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 ### Claude — Custos e Resultado: LP, LPD, metas e bônus (26/10/2026)
 
 - **Pedido:** "rode o prompt completo de custos, crie tudo" — `PLANO_CUSTOS_RESULTADO.md` (Fases 0–6) com o motor/regras de `PROMPT_CUSTOS_ERP.md`.
-- **Estado (28/10):** construído, testado (113+116+89 asserções, 16 casos de servidor, 42 regras no emulador, e2e 38/0) e auditado (`AUDITORIA_CUSTOS_20261028.md`, 9 defeitos achados e corrigidos). Prompt do próximo tema: `PROMPT_FINANCEIRO_CONTROLADORIA.md`. Regras `custos/`/`resultado/` aguardam publicação pelo usuário.
+- **Estado (28/10):** construído, testado (113+121+112 asserções, 16 casos de servidor, 42 regras no emulador, e2e 40/0) e auditado duas vezes contra `PLANO_CUSTOS_RESULTADO.md` (`AUDITORIA_CUSTOS_20261028.md`, 14 defeitos achados e corrigidos). Regras `custos/`/`resultado/` publicadas em 28/10. Prompts dos próximos módulos: `PROMPT_FINANCEIRO.md` e `PROMPT_CONTROLADORIA.md`.
 - **Arquivos ativos:** `public/shared/custos.js`, `public/shared/custos-realizado.js` (novo), `public/shared/resultado-pontos.js` (novo) e as cópias em `functions/`; `functions/index.js` (recebimento com custo no lote, razão, placar, tabela de pontos, fechamento); `public/custos.html` e `public/placar.html` (novas); `public/auth_check.js` (só módulos `custos`/`placar` e papel `tv`; a troca de versão do shell, linha ~1805, é de outra sessão e fica fora do meu commit); `public/login.html`, `public/usuarios.html`; `database.rules.json` (nós `custos/` e `resultado/`); testes `run_custos*_test.js`, `run_resultado_*_test.js`.
 
 ### Claude — Plano Amostra → Kickoff → Cotação → OP (21/10/2026)
