@@ -22,6 +22,14 @@ se for um gap que o modelo não tem, acrescente-o lá também.
 
 ---
 
+## Expedição — complemento do desmembramento de palete (2026-10-31)
+
+- **Unir paletes e desmembrar ainda na Conferência de PA.** A entrega PORT-10
+  permite desmembrar na tela *Montar carga*, onde a divergência física costuma
+  aparecer. Ficaram fora a operação inversa (unir) e a divisão antes de o PA
+  entrar no estoque. Fluxo LOG/Expedição; referência:
+  `public/shared/desmembrar-palete.js`.
+
 ## Sequência por setor / Próximas Ordens — o que ficou para depois (2026-09-29)
 
 Entregue: o PCP ordena a fila de cada setor no Planejamento (aba *Sequência por
