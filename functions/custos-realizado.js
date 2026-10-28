@@ -135,28 +135,38 @@
 
     // Material: consumo apontado valorizado, ou teórico.
     var material = null, materialFonte = null, variacaoPreco = null, variacaoConsumo = null, semValor = [];
+    // Plano §6: em cada nível, quanto do custo de material é PAGO, COTADO, ESTIMADO P&D...
+    var porProcedencia = {};
+    function somaProc(f, v) { if (v > 0) porProcedencia[f || 'SEM_FONTE'] = (porProcedencia[f || 'SEM_FONTE'] || 0) + v; }
     var consumos = x.consumos || [];
     if (consumos.length) {
       var total = 0, padraoQtdPreco = 0, realQtdPadraoPreco = 0;
       consumos.forEach(function(c) {
         var cod = norm(c.itemCodigo), achado = (x.idx || {})[cod];
         var precoPadrao = achado && x.precos && x.precos[achado.key] ? x.precos[achado.key].valor : null;
-        var unit = num(c.custoUnitario) > 0 ? num(c.custoUnitario) : precoPadrao;
+        var doLote = num(c.custoUnitario) > 0;
+        var unit = doLote ? num(c.custoUnitario) : precoPadrao;
         if (unit == null) { semValor.push(cod); return; }
         total += num(c.qtd) * unit;
+        somaProc(doLote ? (c.custoFonte || 'PAGO') : x.precos[achado.key].fonte, num(c.qtd) * unit);
         if (precoPadrao != null) realQtdPadraoPreco += num(c.qtd) * precoPadrao;
       });
       material = semValor.length ? null : total;
       materialFonte = 'CONSUMO_APONTADO';
+      // Baixa pela ficha (envase) repete a BOM: o desvio de consumo não é medido -- null, não zero.
+      var porFicha = consumos.some(function(c) { return c.medido === false; });
+      if (porFicha) avisos.push('Embalagem baixada pela ficha (BOM × apontado): variação de consumo não medida.');
       if (material != null && ficha && ficha.custoMaterial != null) {
         padraoQtdPreco = ficha.custoMaterial * produzido;
         variacaoPreco = total - realQtdPadraoPreco;            // pagou diferente do padrão
-        variacaoConsumo = realQtdPadraoPreco - padraoQtdPreco; // usou diferente do padrão
+        variacaoConsumo = porFicha ? null : realQtdPadraoPreco - padraoQtdPreco; // usou diferente do padrão
       }
       if (semValor.length) avisos.push('Consumo sem custo: ' + semValor.join(', ') + '.');
     } else if (ficha && ficha.custoMaterial != null) {
       material = ficha.custoMaterial * produzido;
       materialFonte = 'TEORICO';
+      var comp = ficha.composicaoProcedencia || {};
+      Object.keys(comp).forEach(function(f) { somaProc(f, material * num(comp[f]) / 100); });
       avisos.push('Consumo não apontado: material pelo teórico (ficha × produzido); variação de consumo não medida.');
     }
 
@@ -194,7 +204,8 @@
       pedido: pedidoDaOp(op), dia: String(op.dataFimReal || op.dataInicioReal || '').slice(0, 10) || null,
       produzido: produzido,
       horas: horas, horasFonte: horasFonte, horasPadrao: horasPadrao,
-      custo: { material: material, materialFonte: materialFonte, perdas: perdas, operacao: operacao, total: custoTotal },
+      custo: { material: material, materialFonte: materialFonte, perdas: perdas, operacao: operacao, total: custoTotal,
+        materialPorProcedencia: material != null ? porProcedencia : null },
       padrao: padrao,
       variacoes: { preco: variacaoPreco, consumo: variacaoConsumo, perda: variacaoPerda, eficiencia: variacaoEficiencia },
       receita: receita, receitaLiquida: receitaLiquida, lp: lp, lpUnitario: lp != null && produzido > 0 ? lp / produzido : null,
@@ -204,35 +215,61 @@
     };
   }
 
-  /* Consumos de um lote de produção: movimentos_estoque/{item}/{mov} com tipo
-     "consumo" e ref = lote da OP (form.html e manipulacao.html baixam com o lote
-     como referência). A saída é gravada NEGATIVA; aqui volta positiva. O custo
-     unitário vem do lote de estoque de onde saiu (custoUnitario, gravado no
-     recebimento) quando existir. */
+  /* Consumos de um lote de produção. O apontamento grava a saída em DUAS
+     razões (shared/kardex.js): `consumo_producao`/`consumo_manipulacao` no saldo
+     do ITEM -- a quantidade, sempre presente -- e `consumo` na baixa FEFO do
+     LOTE de estoque -- só quando há lote, e é de onde vem o custo (custoUnitario
+     gravado no recebimento). Somar as duas contaria a saída duas vezes; na base
+     de 28/10 só existe a do item (estoque_lotes vazio), e ler só `consumo`
+     deixava o realizado sem consumo nenhum.
+     A quantidade vem do item; o custo, da média dos lotes baixados com custo.
+     `medido`: a pesagem (consumo_manipulacao) é medida; o envase baixa pela
+     ficha (BOM × apontado), então seu consumo NÃO mede desvio. Sem movimento de
+     item, vale a baixa de lote (legado). A saída negativa volta positiva. */
   function consumosDoLote(movimentos, estoqueLotes, lote) {
     var alvo = String(lote || '').trim(), out = [];
     if (!alvo) return out;
     Object.keys(movimentos || {}).forEach(function(itemKey) {
       var porItem = movimentos[itemKey] || {};
+      var lotesItem = (estoqueLotes && estoqueLotes[itemKey]) || {};
+      var doItem = { consumo_producao: 0, consumo_manipulacao: 0 }, codigo = null;
+      var deLote = [], custoQtd = 0, custoValor = 0;
       Object.keys(porItem).forEach(function(mk) {
         var m = porItem[mk];
-        if (!m || m.tipo !== 'consumo' || String(m.ref || '').trim() !== alvo) return;
-        var lotesItem = (estoqueLotes && estoqueLotes[itemKey]) || {};
-        var origem = m.loteKey ? lotesItem[m.loteKey] : null;
-        var custo = origem && num(origem.custoUnitario) > 0 ? num(origem.custoUnitario) : null;
-        // Lote nascido de separação/transferência copia dono e lote interno, não o custo:
-        // vale o custo do irmão com o MESMO lote interno (a mesma entrada do fornecedor).
-        if (custo == null && origem && origem.loteInterno) {
-          Object.keys(lotesItem).some(function(k) {
-            var l = lotesItem[k];
-            if (l && l.loteInterno === origem.loteInterno && num(l.custoUnitario) > 0) { custo = num(l.custoUnitario); return true; }
-            return false;
-          });
+        if (!m || String(m.ref || '').trim() !== alvo) return;
+        if (m.tipo === 'consumo_producao' || m.tipo === 'consumo_manipulacao') {
+          doItem[m.tipo] += Math.abs(num(m.qtd)); codigo = codigo || m.itemCodigo; return;
         }
-        out.push({ itemCodigo: m.itemCodigo, qtd: Math.abs(num(m.qtd)), custoUnitario: custo });
+        if (m.tipo !== 'consumo') return;
+        var c = custoDoLoteDeEstoque(lotesItem, m.loteKey);
+        deLote.push({ itemCodigo: m.itemCodigo, qtd: Math.abs(num(m.qtd)), custoUnitario: c });
+        if (c != null) { custoQtd += Math.abs(num(m.qtd)); custoValor += Math.abs(num(m.qtd)) * c; }
       });
+      if (doItem.consumo_producao > 0 || doItem.consumo_manipulacao > 0) {
+        var medio = custoQtd > 0 ? custoValor / custoQtd : null;
+        var cod = codigo || (deLote[0] && deLote[0].itemCodigo) || itemKey;
+        if (doItem.consumo_manipulacao > 0) out.push({ itemCodigo: cod, qtd: doItem.consumo_manipulacao, custoUnitario: medio, custoFonte: medio != null ? 'PAGO' : null, medido: true });
+        if (doItem.consumo_producao > 0) out.push({ itemCodigo: cod, qtd: doItem.consumo_producao, custoUnitario: medio, custoFonte: medio != null ? 'PAGO' : null, medido: false });
+      } else {
+        deLote.forEach(function(d) { out.push(d); });
+      }
     });
     return out;
+  }
+  /* Custo unitário de um lote de estoque. Lote nascido de separação/transferência
+     copia dono e lote interno, não o custo: vale o irmão com o MESMO lote interno
+     (a mesma entrada do fornecedor). */
+  function custoDoLoteDeEstoque(lotesItem, loteKey) {
+    var origem = loteKey ? lotesItem[loteKey] : null;
+    if (!origem) return null;
+    if (num(origem.custoUnitario) > 0) return num(origem.custoUnitario);
+    var custo = null;
+    if (origem.loteInterno) Object.keys(lotesItem).some(function(k) {
+      var l = lotesItem[k];
+      if (l && l.loteInterno === origem.loteInterno && num(l.custoUnitario) > 0) { custo = num(l.custoUnitario); return true; }
+      return false;
+    });
+    return custo;
   }
 
   // Pedido global de uma OP: "0006__MRARBS05" -> "0006".
@@ -260,13 +297,16 @@
       var k = chave(r), g = grupos[k];
       if (!g) g = grupos[k] = { chave: k, ops: 0, produzido: 0, produzidoComCusto: 0, receita: 0, receitaLiquida: 0,
         material: 0, perdas: 0, operacao: 0, custo: 0, lp: 0, padrao: 0,
-        variacoes: { preco: 0, consumo: 0, perda: 0, eficiencia: 0 }, incompletas: 0 };
+        variacoes: { preco: 0, consumo: 0, perda: 0, eficiencia: 0 }, medidas: { preco: 0, consumo: 0, perda: 0, eficiencia: 0 },
+        incompletas: 0, materialPorProcedencia: {} };
       g.ops++; g.produzido += r.produzido;
       if (r.completo) {
         g.produzidoComCusto += r.produzido; g.receita += r.receita; g.receitaLiquida += r.receitaLiquida;
         g.material += r.custo.material; g.perdas += r.custo.perdas; g.operacao += r.custo.operacao;
         g.custo += r.custo.total; g.lp += r.lp; if (r.padrao) g.padrao += r.padrao.total;
-        Object.keys(g.variacoes).forEach(function(v) { if (r.variacoes[v] != null) g.variacoes[v] += r.variacoes[v]; });
+        Object.keys(g.variacoes).forEach(function(v) { if (r.variacoes[v] != null) { g.variacoes[v] += r.variacoes[v]; g.medidas[v]++; } });
+        var mp = r.custo.materialPorProcedencia || {};
+        Object.keys(mp).forEach(function(f) { g.materialPorProcedencia[f] = (g.materialPorProcedencia[f] || 0) + mp[f]; });
       } else g.incompletas++;
     });
     return Object.keys(grupos).map(function(k) {
@@ -274,6 +314,11 @@
       g.coberturaPct = g.produzido > 0 ? g.produzidoComCusto / g.produzido * 100 : 0;
       g.completo = g.incompletas === 0 && g.ops > 0;
       g.lpUnitario = g.produzidoComCusto > 0 ? g.lp / g.produzidoComCusto : null;
+      // Variação que nenhuma OP do grupo mediu é null, não zero (zero parece medição).
+      Object.keys(g.variacoes).forEach(function(v) { if (!g.medidas[v]) g.variacoes[v] = null; });
+      var totMat = Object.keys(g.materialPorProcedencia).reduce(function(s, f) { return s + g.materialPorProcedencia[f]; }, 0);
+      g.procedenciaPct = {};
+      Object.keys(g.materialPorProcedencia).forEach(function(f) { g.procedenciaPct[f] = totMat > 0 ? Math.round(g.materialPorProcedencia[f] / totMat * 1000) / 10 : 0; });
       if (!g.produzidoComCusto) { g.lp = null; g.custo = null; g.receita = null; g.receitaLiquida = null; }
       return g;
     }).sort(function(a, b) { return String(a.chave).localeCompare(String(b.chave)); });

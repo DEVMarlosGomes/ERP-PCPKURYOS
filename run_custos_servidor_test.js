@@ -247,6 +247,7 @@ function fakeDb(dados) {
     assert.ok(p.updates['resultado/placar/semanas/2026-W41'], 'semana');
     assert.ok(p.updates['resultado/placar/meses/2026-10'], 'mês');
     assert.equal(p.updates['resultado/placar/hoje'].dia, '2026-10-06');
+    assert.deepEqual(p.updates['resultado/placar/hoje'].turno, {inicio: '07:00', fim: '17:00'}, 'TV recebe o turno de hoje para a contagem');
   });
 
   t('placar: mês fechado não é regravado', () => {

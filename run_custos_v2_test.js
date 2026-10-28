@@ -129,6 +129,15 @@ eq(C.horasDoDia(config, '2026-09-11'), 8, 'sexta: até as 16');
 eq(C.horasDoDia(config, '2026-09-12'), 0, 'sábado');
 eq(C.horasDoDia(config, '2026-09-07'), 0, 'feriado');
 eq(C.horasDoDia({}, '2026-09-08'), null, 'sem turno configurado: null, não zero');
+const tu = C.turnoDoDia(config, '2026-09-11');
+ok(tu && tu.inicioTxt && tu.fimTxt === '16:00', 'turno da sexta: fim às 16:00 para a contagem da TV');
+ok(C.turnoDoDia(config, '2026-09-12').folga === true, 'sábado: folga, sem contagem');
+eq(C.turnoDoDia({}, '2026-09-08'), null, 'sem turno: null');
+const bomDe = C.bomAprovadaDoSku({ p1: { sku: 'X1', perdaLinhaPct: 3 }, p2: { sku: 'X2' } }, {},
+  { 'X1__1': { codProduto: 'X1', versao: '1', status: 'APROVADA', itens: { a: { materialCodigo: 'FR-1', qtdPorPeca: 1 } } },
+    'X2__1': { codProduto: 'X2', versao: '1', status: 'RASCUNHO', itens: { a: { materialCodigo: 'FR-1', qtdPorPeca: 1 } } } }, {});
+ok(bomDe('x1') && bomDe('x1').perdaLinhaPct === 3 && bomDe('X1').itens.a.materialCodigo === 'FR-1', 'BOM aprovada com a perda de linha do cadastro');
+eq(bomDe('X2'), null, 'BOM em rascunho não confere consumo');
 const set = C.horasUteisDoMes(config, '2026-09');
 eq(set.diasUteis, 21, 'setembro/2026: 22 dias de semana menos o feriado');
 eq(set.horasUteis, 21 * 9 - 4, '17 dias de 9 h + 4 sextas de 8 h');

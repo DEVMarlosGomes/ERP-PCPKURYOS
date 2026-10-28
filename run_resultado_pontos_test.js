@@ -206,4 +206,65 @@ eq(sim.dias, 2, 'simulação: dias com meta');
 ok(sim.meses.length === 1 && sim.bonus.length === 1, 'simulação: mês e bônus');
 eq(P.resumoSimulacao([], {}).diasBatidosPct, null, 'simulação vazia: sem %');
 
-console.log(`OK resultado: ${n} asserções — realizado por horas apontadas (nunca duração de OP), perdas pelo maior tipo, consumo valorizado e variações, consolidação, tabela de pontos, meta ajustada ao mix, descontos por dia, semana/mês e bônus em faixas com portões.`);
+// ── 11. Conferência de consumo (plano §7: perda escondida desconta em dobro) ──
+const bomCC = { itens: { f: { materialCodigo: 'FR-1', qtdPorPeca: 1 }, r: { materialCodigo: 'ROT-1', qtdPorPeca: 2 } }, perdaLinhaPct: 0 };
+let cc = P.conferenciaConsumo({ bom: bomCC, consumos: [{ itemCodigo: 'fr-1', qtd: 1100 }, { itemCodigo: 'ROT-1', qtd: 2300 }], boas: 1000, perdidas: 20 });
+eq(cc.escondidas, 1100 - Math.ceil(1020 * 1.02), 'menor item explica 1100; 1020 apontadas + 2% de tolerância');
+cc = P.conferenciaConsumo({ bom: bomCC, consumos: [{ itemCodigo: 'FR-1', qtd: 1100 }, { itemCodigo: 'ROT-1', qtd: 2000 }], boas: 1000, perdidas: 0 });
+eq(cc.escondidas, 0, 'um item só a mais (rótulo bate) não basta: todos os itens têm de concordar');
+cc = P.conferenciaConsumo({ bom: bomCC, consumos: [], boas: 1000 });
+ok(!cc.medida && cc.escondidas === 0, 'sem consumo apontado: não medida, não zero de desconto inventado');
+ok(!P.conferenciaConsumo({ bom: null, consumos: [{ itemCodigo: 'FR-1', qtd: 9 }], boas: 1 }).medida, 'sem BOM aprovada não confere');
+eq(P.conferenciaConsumo({ bom: Object.assign({}, bomCC, { perdaLinhaPct: 10 }), consumos: [{ itemCodigo: 'FR-1', qtd: 1100 }, { itemCodigo: 'ROT-1', qtd: 2200 }], boas: 1000 }).escondidas, 0,
+  'perda de linha do cadastro maior que 2% vira a tolerância');
+const regCC = { '2026-09-03': { a: { linha: 'Linha 1', lote: 'LC', quantidade: 1000 } } };
+const opsCC = { opc: { lote: 'LC', sku: 'A', status: 'Concluído', produzido: 1000,
+  separacaoConcluida: { itens: { 'FR-1': 1150, 'ROT-1': 2400 } }, sobraDevolvida: { itens: { 'FR-1': 50 } } } };
+eq(P.entregueALinha(opsCC.opc).find((x) => x.itemCodigo === 'FR-1').qtd, 1100, 'entregue à linha = separado − sobra devolvida');
+const tabCC = { '2026-09': { porSku: { A: { pontos: 30 } } } };
+const baseCC = { registros: regCC, ops: opsCC, produtos: {}, tabelas: tabCC, ritmos: { A: { valor: 600 } }, alvoPct: 100, horasDoDia: () => 2, bomDoSku: () => bomCC };
+eq(P.placarDoPeriodo(baseCC)[0].descontos.consumoEscondido, 0, 'padrão: desligado até haver separação por OP e devolução da sobra');
+const pcc = P.placarDoPeriodo(Object.assign({}, baseCC, { descontosAtivos: { consumoEscondido: true } }));
+eq(pcc[0].descontos.consumoEscondido, 2 * (1100 - 1020) * 30, 'ligado: 80 unidades escondidas × 2 × 30 pontos no último dia do lote');
+eq(pcc[0].pontos, 1000 * 30 - 2 * 80 * 30, 'desconto sai dos pontos do dia');
+const pccAberta = P.placarDoPeriodo(Object.assign({}, baseCC, { descontosAtivos: { consumoEscondido: true },
+  ops: { opc: Object.assign({}, opsCC.opc, { status: 'Em produção' }) } }));
+eq(pccAberta[0].descontos.consumoEscondido, 0, 'OP em andamento não confere');
+// A baixa do envase (BOM × apontado) nunca entra na conferência: sem separação, não mede.
+const opsSemSep = { opc: { lote: 'LC', sku: 'A', status: 'Concluído', produzido: 1000 } };
+eq(P.placarDoPeriodo(Object.assign({}, baseCC, { ops: opsSemSep, descontosAtivos: { consumoEscondido: true } }))[0].descontos.consumoEscondido, 0,
+  'sem separação por OP: não mede (a baixa pela ficha sempre fecharia)');
+
+// ── 12. Consumo real da base: duas razões (kardex) — quantidade do item, custo do lote ──
+const movReal = {
+  ep5: { a: { tipo: 'consumo_producao', ref: '26254/01', itemCodigo: 'EP-00005', qtd: -2400 }, b: { tipo: 'consumo_producao', ref: '26254/01', itemCodigo: 'EP-00005', qtd: -1890 },
+    c: { tipo: 'consumo', ref: '26254/01', itemCodigo: 'EP-00005', qtd: -4000, loteKey: 'l1' } },
+  mp1: { d: { tipo: 'consumo_manipulacao', ref: '26254/01', itemCodigo: 'MP-1', qtd: -12.5 } }
+};
+const consReal = R.consumosDoLote(movReal, { ep5: { l1: { custoUnitario: 0.3 } } }, '26254/01');
+const ep = consReal.find((x) => x.itemCodigo === 'EP-00005');
+eq(consReal.length, 2, 'uma linha por item: saldo do item e baixa do lote não somam duas vezes');
+eq(ep.qtd, 4290, 'quantidade vem de consumo_producao (razão do item)');
+eq(ep.custoUnitario, 0.3, 'custo vem da baixa FEFO do lote');
+eq(ep.medido, false, 'envase baixa pela ficha: não medido');
+eq(consReal.find((x) => x.itemCodigo === 'MP-1').medido, true, 'pesagem do granel é medida');
+const resFicha = R.custoRealizadoOp({ opKey: 'op1', op: ops.op1, ficha, apontamentos: apsL1, perdasPorTipo: {},
+  consumos: [{ itemCodigo: 'X', qtd: 1500, custoUnitario: 2, medido: false }], taxa, precoVenda: { valor: 5 }, impostosPct: 10 });
+eq(resFicha.variacoes.consumo, null, 'consumo pela ficha: variação de consumo null, não zero');
+ok(resFicha.avisos.some((a) => /pela ficha/.test(a)), 'aviso da baixa pela ficha');
+
+// ── 13. Procedência do custo em cada nível (plano §6) ──────────────────────
+const fichaProc = Object.assign({}, ficha, { composicaoProcedencia: { PAGO: 25, ESTIMADO_PD: 75 } });
+const rTeo = R.custoRealizadoOp({ opKey: 'op1', op: ops.op1, ficha: fichaProc, apontamentos: apsL1, perdasPorTipo: {}, consumos: [], taxa, precoVenda: { valor: 5 }, impostosPct: 10 });
+perto(rTeo.custo.materialPorProcedencia.ESTIMADO_PD, 3000 * 0.75, 'teórico: material repartido pela composição da ficha');
+const rCons = R.custoRealizadoOp({ opKey: 'op1', op: ops.op1, ficha: fichaProc, apontamentos: apsL1, perdasPorTipo: {},
+  consumos: [{ itemCodigo: 'FR', qtd: 100, custoUnitario: 2, custoFonte: 'PAGO' }, { itemCodigo: 'RT', qtd: 100 }],
+  idx: { RT: { key: 'rt' } }, precos: { rt: { valor: 1, fonte: 'COTADO' } }, taxa, precoVenda: { valor: 5 }, impostosPct: 10 });
+eq(rCons.custo.materialPorProcedencia.PAGO, 200, 'consumo com custo do lote: PAGO');
+eq(rCons.custo.materialPorProcedencia.COTADO, 100, 'consumo sem custo de lote: origem do preço vigente');
+const gProc = R.consolidar([rTeo, Object.assign({}, rTeo, { opKey: 'op2' })], 'cliente')[0];
+eq(gProc.procedenciaPct.PAGO, 25, 'consolidado: % do material por procedência');
+
+eq(R.consolidar([resFicha], 'cliente')[0].variacoes.consumo, null, 'consolidado: variação que nenhuma OP mediu fica null, não R$ 0');
+
+console.log(`OK resultado: ${n} asserções — realizado por horas apontadas (nunca duração de OP), perdas pelo maior tipo, consumo valorizado e variações, consolidação, tabela de pontos, meta ajustada ao mix, descontos por dia, conferência de consumo, semana/mês e bônus em faixas com portões.`);

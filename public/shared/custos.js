@@ -612,6 +612,23 @@
     };
   }
 
+  /* BOM APROVADA de cada SKU, para a conferência de consumo dos pontos
+     (resultado-pontos.js:conferenciaConsumo). BOM em rascunho não confere --
+     a quantidade por peça ainda pode mudar. Leva a perda de linha do cadastro
+     como tolerância. Devolve sku -> {itens, perdaLinhaPct} ou null. */
+  function bomAprovadaDoSku(produtos, formulas, bom, especificacoes) {
+    var porSku = {}, cache = {};
+    Object.keys(produtos || {}).forEach(function(k) { var p = produtos[k]; if (p && p.sku) porSku[norm(p.sku)] = p; });
+    return function(sku) {
+      var s = norm(sku);
+      if (!(s in cache)) {
+        var vs = versaoParaCusto(s, formulas, bom, especificacoes);
+        cache[s] = vs.aprovada.bom ? { itens: vs.bom.itens || {}, perdaLinhaPct: num((porSku[s] || {}).perdaLinhaPct) } : null;
+      }
+      return cache[s];
+    };
+  }
+
   /* Custo por UNIDADE DE ESTOQUE de um item de Pedido de Compra. O PC guarda o
      preço na unidade COTADA (ex.: R$ 60/kg de celofane) e a quantidade na unidade
      de estoque (3 rolos). Multiplicar um pelo outro é o erro de 11,67x do motor de
@@ -813,21 +830,31 @@
      sexta, pausa) e do calendário do planejamento (dias da semana, feriados).
      Medido em 14/09: 9 h por dia, 8 h na sexta. Sem turno configurado -> null. */
   function horasDoDia(config, dataISO) {
+    var t = turnoDoDia(config, dataISO);
+    if (!t) return null;
+    return t.folga ? 0 : t.fim - t.inicio - t.pausa;
+  }
+
+  /* Turno de um dia: {inicio, fim, pausa} em horas decimais e o texto "HH:MM"
+     (a TV mostra quanto falta), {folga: true} em dia sem expediente, null sem
+     turno configurado. */
+  function turnoDoDia(config, dataISO) {
     var c = config || {}, turno = c.turnoFixoNome || Object.keys(c.turnoHorarios || {})[0];
     if (!turno) return null;
     var d = new Date(dataISO + 'T12:00:00Z'), dow = d.getUTCDay();
     var plan = c.planejamento || {};
     var dias = Array.isArray(plan.diasSemana) && plan.diasSemana.length ? plan.diasSemana : [1, 2, 3, 4, 5];
-    if (dias.indexOf(dow) < 0) return 0;
+    if (dias.indexOf(dow) < 0) return { folga: true };
     var feriados = plan.feriados || [];
     var listaFer = Array.isArray(feriados) ? feriados : Object.keys(feriados).map(function(k) { return feriados[k]; });
-    if (listaFer.some(function(f) { return String((f && (f.data || f.date)) || f).slice(0, 10) === dataISO; })) return 0;
-    var ini = hhmm((c.turnoHorarios || {})[turno]);
-    var fim = hhmm(dow === 5 && (c.turnoHorariosFimSexta || {})[turno] ? c.turnoHorariosFimSexta[turno] : (c.turnoHorariosFim || {})[turno]);
+    if (listaFer.some(function(f) { return String((f && (f.data || f.date)) || f).slice(0, 10) === dataISO; })) return { folga: true };
+    var iniTxt = (c.turnoHorarios || {})[turno];
+    var fimTxt = dow === 5 && (c.turnoHorariosFimSexta || {})[turno] ? c.turnoHorariosFimSexta[turno] : (c.turnoHorariosFim || {})[turno];
+    var ini = hhmm(iniTxt), fim = hhmm(fimTxt);
     if (ini == null || fim == null || fim <= ini) return null;
     var pausa = (c.turnoPausas || {})[turno];
     var p = pausa ? Math.max(0, (hhmm(pausa.fim) || 0) - (hhmm(pausa.inicio) || 0)) : 0;
-    return fim - ini - p;
+    return { folga: false, inicio: ini, fim: fim, pausa: p, inicioTxt: String(iniTxt).slice(0, 5), fimTxt: String(fimTxt).slice(0, 5) };
   }
 
   function horasUteisDoMes(config, competencia) {
@@ -1235,6 +1262,7 @@
     depKey: depKey,
     densidadeDaEspecificacao: densidadeDaEspecificacao,
     versaoParaCusto: versaoParaCusto,
+    bomAprovadaDoSku: bomAprovadaDoSku,
     custoUnitarioItemPC: custoUnitarioItemPC,
     custoUnitarioRespostaCotacao: custoUnitarioRespostaCotacao,
     fontesDePreco: fontesDePreco,
@@ -1243,6 +1271,7 @@
     mediana: mediana,
     ritmosPorSku: ritmosPorSku,
     horasDoDia: horasDoDia,
+    turnoDoDia: turnoDoDia,
     horasUteisDoMes: horasUteisDoMes,
     taxasDaCompetencia: taxasDaCompetencia,
     horasPadraoPorMes: horasPadraoPorMes,

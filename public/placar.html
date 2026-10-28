@@ -23,7 +23,7 @@ body{margin:0;background:var(--tv-bg);color:var(--tv-ink);font-family:var(--font
    então as cores daqui vencem (senão o número grande some no painel). */
 html,body.kuryos-theme{background:var(--tv-bg)!important}
 body.kuryos-theme .pg,body.kuryos-theme .pg *{color:var(--tv-ink)}
-body.kuryos-theme .top .d,body.kuryos-theme .rot,body.kuryos-theme .meta,body.kuryos-theme .nota{color:var(--tv-soft)!important}
+body.kuryos-theme .top .d,body.kuryos-theme #turnoTxt,body.kuryos-theme .rot,body.kuryos-theme .meta,body.kuryos-theme .nota{color:var(--tv-soft)!important}
 body.kuryos-theme .meta b,body.kuryos-theme .grande,body.kuryos-theme .mini .v,body.kuryos-theme .lin .n,body.kuryos-theme .top h1,body.kuryos-theme .relogio{color:var(--tv-ink)!important}
 body.kuryos-theme .status.ok{color:var(--tv-ok)!important}body.kuryos-theme .status.warn{color:var(--tv-warn)!important}
 body.kuryos-theme .dias span{color:var(--tv-soft)!important}body.kuryos-theme .dias span.ok{color:#06210f!important}body.kuryos-theme .dias span.nao{color:var(--tv-bad)!important}
@@ -66,7 +66,7 @@ body.tv .btn-tc{opacity:.25}
 <main class="pg">
   <div class="top" data-ui="page-header">
     <div><h1>Placar da fábrica</h1><div class="d" id="dTxt">Conectando…</div></div>
-    <div class="relogio" id="relogio">--:--</div>
+    <div style="text-align:right"><div class="relogio" id="relogio">--:--</div><div class="d" id="turnoTxt"></div></div>
   </div>
   <div id="conteudo"><div class="vazio">Carregando o placar…</div></div>
 </main>
@@ -103,7 +103,7 @@ body.tv .btn-tc{opacity:.25}
       var cls = dia.pontos >= dia.meta ? 'ok' : dia.pct >= 80 ? 'warn' : '';
       h += '<div class="grande">' + n(dia.pontos) + '</div><div class="meta">meta <b>' + n(dia.meta) + '</b> · ' + pct(dia.pct) + '</div>' + barra(dia.pontos, dia.meta, cls) +
         '<div class="status ' + (falta <= 0 ? 'ok' : 'warn') + '">' + (falta <= 0 ? 'Meta do dia batida!' : 'Faltam ' + n(falta) + ' pontos') + '</div>' +
-        '<div class="nota">' + n(dia.unidades) + ' unidades boas hoje' + (dia.descontos && dia.descontos.total ? ' · ' + n(dia.descontos.total) + ' pontos descontados (perdas e retrabalho)' : '') +
+        '<div class="nota">' + n(dia.unidades) + ' unidades boas hoje' + (dia.descontos && dia.descontos.total ? ' · ' + n(dia.descontos.total) + ' pontos descontados (perdas, retrabalho e consumo)' : '') +
         (dia.coberturaPct != null && dia.coberturaPct < 100 ? ' · ' + pct(dia.coberturaPct) + ' do volume conta pontos' : '') + '</div>';
     } else {
       h += '<div class="grande">' + n(dia ? dia.pontos : 0) + '</div><div class="meta">' + (dia ? 'sem meta para o mix de hoje' : 'sem apontamento hoje ainda') + '</div>';
@@ -122,10 +122,23 @@ body.tv .btn-tc{opacity:.25}
     var ult = Object.keys(placar.dias).filter(function(k) { return k.slice(0, 7) === hoje.slice(0, 7) && placar.dias[k].meta > 0; }).sort();
     h += '<div class="p"><div class="rot">Dias batidos no mês</div><div class="v">' + (mes ? mes.diasBatidos + ' de ' + mes.dias : '—') + '</div><div class="dias">' +
       ult.map(function(k) { var x = placar.dias[k]; return '<span class="' + (x.batida ? 'ok' : 'nao') + '" title="' + k + '">' + Number(k.slice(8, 10)) + '</span>'; }).join('') + '</div></div>';
-    h += '</div><div class="nota">A semana soma os dias: um dia ruim se compensa com um bom. Perdas e retrabalho descontam pontos; paradas não (já reduzem a produção).</div>';
+    h += '</div><div class="nota">A semana soma os dias: um dia ruim se compensa com um bom. Perdas e retrabalho descontam pontos; material gasto sem apontamento de perda desconta em dobro; paradas não descontam (já reduzem a produção).</div>';
     el('conteudo').innerHTML = h;
   }
-  function relogio() { el('relogio').textContent = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'}); }
+  // Contagem do turno (plano §8): o servidor grava o horário de hoje em placar/hoje.turno.
+  function minutos(t) { var m = String(t || '').match(/^(\d{1,2}):(\d{2})/); return m ? Number(m[1]) * 60 + Number(m[2]) : null; }
+  function turnoTxt() {
+    var t = placar && placar.hoje && placar.hoje.dia === hojeSP() ? placar.hoje.turno : null;
+    if (!t) return '';
+    var agora = new Date(Date.now() - 3 * 3600e3), m = agora.getUTCHours() * 60 + agora.getUTCMinutes();
+    var ini = minutos(t.inicio), fim = minutos(t.fim);
+    if (ini == null || fim == null) return '';
+    if (m < ini) return 'turno começa às ' + t.inicio;
+    if (m >= fim) return 'turno encerrado às ' + t.fim;
+    var f = fim - m;
+    return 'faltam ' + (f >= 60 ? Math.floor(f / 60) + 'h' + String(f % 60).padStart(2, '0') : f + ' min') + ' de turno (até ' + t.fim + ')';
+  }
+  function relogio() { el('relogio').textContent = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'}); el('turnoTxt').textContent = turnoTxt(); }
   relogio(); setInterval(relogio, 15000);
   setInterval(render, 60000); // vira o dia e o "atualizado" sem depender de mudança no banco
   el('btnTela').addEventListener('click', function() {
@@ -133,7 +146,7 @@ body.tv .btn-tc{opacity:.25}
     var d = document.documentElement;
     if (d.requestFullscreen) d.requestFullscreen().catch(function() {});
   });
-  function iniciar() { dbOnValue(firebase.database().ref('resultado/placar'), function(s) { placar = s.val(); render(); }); }
+  function iniciar() { dbOnValue(firebase.database().ref('resultado/placar'), function(s) { placar = s.val(); render(); relogio(); }); }
   if (window.currentUser) iniciar(); else window.addEventListener('kuryos-auth-pronto', iniciar, {once: true});
 })();
 </script>

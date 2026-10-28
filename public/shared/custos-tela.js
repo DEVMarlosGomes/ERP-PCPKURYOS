@@ -389,14 +389,14 @@
       '<select class="sel" id="fNivel">' + [['mes', 'Por mês'], ['cliente', 'Por cliente'], ['pedido', 'Por pedido'], ['pedidoSku', 'Por pedido × SKU'], ['sku', 'Por SKU'], ['linha', 'Por linha'], ['op', 'OP a OP']]
         .map(function(o) { return '<option value="' + o[0] + '"' + (S.nivel === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
       '<span class="pill">' + lista.length + ' OPs · ' + inteiro(tot ? tot.produzido : 0) + ' un</span></div>';
-    h += '<div class="alerta info"><div>Material pelo <b>consumo baixado no apontamento</b>, valorizado pelo custo do lote (gravado no recebimento desde 26/10) ou pelo preço vigente; sem consumo apontado, pelo teórico da ficha (' + teoricas + ' de ' + lista.length + ' OPs). ' +
+    h += '<div class="alerta info"><div>Material pelo <b>consumo baixado no apontamento</b>, valorizado pelo custo do lote (gravado no recebimento desde 26/10) ou pelo preço vigente; sem consumo apontado, pelo teórico da ficha (' + teoricas + ' de ' + lista.length + ' OPs). O envase baixa a embalagem <b>pela ficha</b> (BOM × apontado): a variação de consumo só aparece onde há pesagem medida. ' +
       'Operação pelas <b>horas trabalhadas apontadas</b>, nunca pela duração da OP; sem horas apontadas, pelas horas-padrão (' + semHoras + ' OPs — eficiência não medida nelas).</div></div>';
     if (tot) {
       h += '<div class="kpis">' + kpi(tot.coberturaPct >= 60 ? 'ok' : 'warn', 'Unidades com custo completo', pct(tot.coberturaPct), inteiro(tot.produzidoComCusto) + ' de ' + inteiro(tot.produzido)) +
         kpi('info', 'Receita líquida (com custo)', brl(tot.receitaLiquida, 0), 'preço vigente na data da OP, menos impostos') +
         kpi(tot.lp != null && tot.lp >= 0 ? 'ok' : 'bad', 'LP realizado', brl(tot.lp, 0), tot.lpUnitario != null ? brl(tot.lpUnitario) + ' por unidade' : '') +
-        kpi('warn', 'Variações (real − padrão)', brl(tot.variacoes.preco + tot.variacoes.consumo + tot.variacoes.perda + tot.variacoes.eficiencia, 0),
-          'preço ' + brl(tot.variacoes.preco, 0) + ' · consumo ' + brl(tot.variacoes.consumo, 0) + ' · perda ' + brl(tot.variacoes.perda, 0) + ' · eficiência ' + brl(tot.variacoes.eficiencia, 0)) + '</div>';
+        kpi('warn', 'Variações (real − padrão)', brl(somaMedidas(tot.variacoes), 0),
+          'preço ' + brl(tot.variacoes.preco, 0) + ' · consumo ' + (tot.variacoes.consumo == null ? 'não medido' : brl(tot.variacoes.consumo, 0)) + ' · perda ' + brl(tot.variacoes.perda, 0) + ' · eficiência ' + brl(tot.variacoes.eficiencia, 0)) + '</div>';
     }
     if (S.nivel === 'op') {
       h += '<div class="tw"><table><thead><tr><th>OP / lote</th><th>SKU</th><th>Linha</th><th>Fim</th><th class="n">Produzido</th><th class="n">Horas</th><th class="n">Material</th><th class="n">Perdas</th><th class="n">Operação</th><th class="n">LP</th><th class="n">LP/un</th><th class="n">Padrão/un</th><th>Avisos</th></tr></thead><tbody>' +
@@ -408,14 +408,26 @@
         }).join('') + '</tbody></table></div><div class="mut" style="margin-top:6px">p = horas-padrão (sem horas apontadas) · t = material teórico (sem consumo apontado)</div>';
     } else {
       h += '<div class="tw"><table><thead><tr><th>' + e({mes: 'Mês', cliente: 'Cliente', pedido: 'Pedido', pedidoSku: 'Pedido × SKU', sku: 'SKU', linha: 'Linha'}[S.nivel]) + '</th><th class="n">OPs</th><th class="n">Produzido</th><th class="n">Cobertura</th>' +
-        '<th class="n">Receita líq.</th><th class="n">Material</th><th class="n">Perdas</th><th class="n">Operação</th><th class="n">LP</th><th class="n">LP/un</th><th class="n">Var. preço</th><th class="n">Var. consumo</th><th class="n">Var. perda</th><th class="n">Var. eficiência</th></tr></thead><tbody>' +
+        '<th class="n">Receita líq.</th><th class="n">Material</th><th class="n">Perdas</th><th class="n">Operação</th><th class="n">LP</th><th class="n">LP/un</th><th class="n">Var. preço</th><th class="n">Var. consumo</th><th class="n">Var. perda</th><th class="n">Var. eficiência</th><th>Origem do material</th></tr></thead><tbody>' +
         grupos.map(function(g) {
           return '<tr><td>' + e(S.nivel === 'mes' ? mesBR(g.chave) : g.chave) + '</td><td class="n">' + g.ops + '</td><td class="n">' + inteiro(g.produzido) + '</td><td class="n">' + pct(g.coberturaPct, 0) +
             '</td><td class="n">' + brl(g.receitaLiquida, 0) + '</td><td class="n">' + brl(g.produzidoComCusto ? g.material : null, 0) + '</td><td class="n">' + brl(g.produzidoComCusto ? g.perdas : null, 0) + '</td><td class="n">' + brl(g.produzidoComCusto ? g.operacao : null, 0) +
-            '</td><td class="n">' + brl(g.lp, 0) + '</td><td class="n">' + brl(g.lpUnitario) + '</td><td class="n">' + brl(g.variacoes.preco, 0) + '</td><td class="n">' + brl(g.variacoes.consumo, 0) + '</td><td class="n">' + brl(g.variacoes.perda, 0) + '</td><td class="n">' + brl(g.variacoes.eficiencia, 0) + '</td></tr>';
-        }).join('') + (grupos.length ? '' : '<tr><td colspan="14"><div class="vazio"><b>Sem OP concluída no período.</b></div></td></tr>') + '</tbody></table></div>';
+            '</td><td class="n">' + brl(g.lp, 0) + '</td><td class="n">' + brl(g.lpUnitario) + '</td><td class="n">' + brl(g.variacoes.preco, 0) + '</td><td class="n">' + brl(g.variacoes.consumo, 0) + '</td><td class="n">' + brl(g.variacoes.perda, 0) + '</td><td class="n">' + brl(g.variacoes.eficiencia, 0) + '</td><td class="mut">' + origemTxt(g.procedenciaPct) + '</td></tr>';
+        }).join('') + (grupos.length ? '' : '<tr><td colspan="15"><div class="vazio"><b>Sem OP concluída no período.</b></div></td></tr>') + '</tbody></table></div>';
     }
     return h + '</div>';
+  }
+
+  // Soma só as variações medidas; nenhuma medida -> null.
+  function somaMedidas(v) {
+    var ks = Object.keys(v || {}).filter(function(k) { return v[k] != null; });
+    return ks.length ? ks.reduce(function(s, k) { return s + v[k]; }, 0) : null;
+  }
+
+  // Plano §6: quanto do custo de material de cada nível é PAGO, COTADO, ESTIMADO P&D...
+  function origemTxt(pcts) {
+    var ks = Object.keys(pcts || {}).filter(function(f) { return pcts[f] > 0; }).sort(function(a, b) { return pcts[b] - pcts[a]; });
+    return ks.length ? ks.map(function(f) { return e(ROT_FONTE[f] || f) + ' ' + pct(pcts[f], 0); }).join(' · ') : '—';
   }
 
   /* Pendências ─────────────────────────────────────────────────────────── */
@@ -541,10 +553,10 @@
       '<p class="mut">Sem dia com meta no mês.</p>') + kv('Atualizado pelo servidor', placar.hoje ? dataBR(placar.hoje.atualizadoEm) + ' ' + String(placar.hoje.atualizadoEm || '').slice(11, 16) : '—') +
       '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-recalcular="1">Recalcular agora</button><a class="btn sm" href="placar.html" target="_blank" rel="noopener">Abrir o placar da TV</a></div></div></div>';
     var ld = Object.keys(dias).sort().reverse().slice(0, 31);
-    h += '<div class="card"><h3>Dias</h3><div class="tw"><table><thead><tr><th>Dia</th><th class="n">Pontos</th><th class="n">Meta</th><th class="n">%</th><th>Batida</th><th class="n">Unidades</th><th class="n">Cobertura</th><th class="n">Desc. perdas</th><th class="n">Desc. retrabalho</th><th class="n">Lote reprovado</th><th class="n">Divergência PA</th></tr></thead><tbody>' +
+    h += '<div class="card"><h3>Dias</h3><div class="tw"><table><thead><tr><th>Dia</th><th class="n">Pontos</th><th class="n">Meta</th><th class="n">%</th><th>Batida</th><th class="n">Unidades</th><th class="n">Cobertura</th><th class="n">Desc. perdas</th><th class="n">Desc. retrabalho</th><th class="n">Lote reprovado</th><th class="n">Divergência PA</th><th class="n">Consumo escondido</th></tr></thead><tbody>' +
       (ld.length ? ld.map(function(k) { var d = dias[k], ds = d.descontos || {};
         return '<tr><td>' + dataBR(k) + '</td><td class="n">' + inteiro(d.pontos) + '</td><td class="n">' + inteiro(d.meta) + '</td><td class="n">' + pct(d.pct) + '</td><td>' + (d.meta > 0 ? (d.batida ? '<span class="tg ok">sim</span>' : '<span class="tg warn">não</span>') : '<span class="mut">sem meta</span>') +
-          '</td><td class="n">' + inteiro(d.unidades) + '</td><td class="n">' + pct(d.coberturaPct, 0) + '</td><td class="n">' + inteiro(ds.perdas) + '</td><td class="n">' + inteiro(ds.retrabalho) + '</td><td class="n">' + inteiro(ds.loteReprovado) + '</td><td class="n">' + inteiro(ds.divergenciaPA) + '</td></tr>'; }).join('')
+          '</td><td class="n">' + inteiro(d.unidades) + '</td><td class="n">' + pct(d.coberturaPct, 0) + '</td><td class="n">' + inteiro(ds.perdas) + '</td><td class="n">' + inteiro(ds.retrabalho) + '</td><td class="n">' + inteiro(ds.loteReprovado) + '</td><td class="n">' + inteiro(ds.divergenciaPA) + '</td><td class="n">' + inteiro(ds.consumoEscondido) + '</td></tr>'; }).join('')
         : '<tr><td colspan="11"><div class="vazio"><b>Nenhum dia no placar.</b>O servidor grava a cada 5 minutos quando há apontamento e tabela de pontos congelada.</div></td></tr>') + '</tbody></table></div></div>';
     // Programa do dia
     var hojeProg = (res.programa || {})[S.diaProg || M.hoje] || {};
@@ -610,6 +622,7 @@
     var placares = P.placarDoPeriodo({registros: D.registros, ops: D.ops, produtos: D.produtos, tabelas: tabelas, ritmos: M.ritmos, alvoPct: s.alvo,
       horasDoDia: function(d) { return C.horasDoDia(D.config || {}, d); }, perdas: D.perdas, retrabalhos: D.retrabalhos, estoqueLotes: D.estoque_lotes,
       conferenciasPa: D.conferencias_pa, programa: (D.resultado || {}).programa, descontosAtivos: params.descontos || null,
+      bomDoSku: C.bomAprovadaDoSku(D.produtos, D.formulas, D.bom, D.especificacoes),
       desde: s.desde + '-01', ate: s.ate + '-31'});
     s.r = P.resumoSimulacao(placares, {bonusBase: s.base, faixas: lerFaixas(s.faixasTxt), tetoPct: params.tetoBonusPct});
     s.skus = Object.keys(tab.porSku).length;
@@ -645,7 +658,7 @@
       chk('pInf', 'Usar o LP digitado no Cadastros onde a ficha não fecha', p.usarLpInformado) + chk('pAuto', 'Congelar a tabela sozinho no 1º dia do mês', p.congelarAutomatico !== false) +
       chk('pValendo', 'Bônus valendo (desligado = piloto, só calcula)', p.bonusValendo) + '</div>' +
       '<h3 style="margin-top:12px">Descontos dos pontos</h3><div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px">' +
-      chk('dPerdas', 'Perdas apontadas (decidido)', desc.perdas) + chk('dRetr', 'Retrabalho (decidido)', desc.retrabalho) + chk('dRep', 'Lote reprovado pela Qualidade (proposto)', desc.loteReprovado) + chk('dDiv', 'Divergência na conferência do PA (proposto)', desc.divergenciaPA) + '</div>' +
+      chk('dPerdas', 'Perdas apontadas (decidido)', desc.perdas) + chk('dRetr', 'Retrabalho (decidido)', desc.retrabalho) + chk('dRep', 'Lote reprovado pela Qualidade (proposto)', desc.loteReprovado) + chk('dDiv', 'Divergência na conferência do PA (proposto)', desc.divergenciaPA) + chk('dCons', 'Conferência de consumo: perda escondida desconta 2× (proposto; exige separação por OP e devolução da sobra)', desc.consumoEscondido) + '</div>' +
       '<div class="dica">Paradas não descontam (já reduzem a produção). First article e assepsia só registram: descontar ensinaria a esconder.</div>' +
       '<div style="margin-top:12px"><button class="btn pri" id="btnSalvarPts">Salvar pontos e bônus</button></div></div>';
     return h;
@@ -754,7 +767,7 @@
         'custos/parametros/linhasAtivas': numOuNull('pLinhas'), 'custos/parametros/usarLpInformado': el('pInf').checked,
         'custos/parametros/congelarAutomatico': el('pAuto').checked, 'custos/parametros/bonusValendo': el('pValendo').checked,
         'custos/parametros/descontos/perdas': el('dPerdas').checked, 'custos/parametros/descontos/retrabalho': el('dRetr').checked,
-        'custos/parametros/descontos/loteReprovado': el('dRep').checked, 'custos/parametros/descontos/divergenciaPA': el('dDiv').checked};
+        'custos/parametros/descontos/loteReprovado': el('dRep').checked, 'custos/parametros/descontos/divergenciaPA': el('dDiv').checked, 'custos/parametros/descontos/consumoEscondido': el('dCons').checked};
       var fator = numOuNull('pFator');
       if (fator != null) u['custos/parametros/fatorPontos'] = fator;
       return db.ref().update(u).then(function() { toast('Parâmetros salvos.'); recalcularModelo(); }, function(err) { toast(erroMsg(err)); });

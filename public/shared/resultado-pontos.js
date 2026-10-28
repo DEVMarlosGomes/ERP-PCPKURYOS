@@ -22,13 +22,19 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function(R) {
   'use strict';
 
-  var VERSAO = 'pontos-v1-20261026';
+  var VERSAO = 'pontos-v2-20261028';
 
   function num(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
   function norm(c) { return String(c == null ? '' : c).trim().toUpperCase(); }
 
   // Descontos e portões: decididos (perdas, retrabalho) ligados; propostos desligados até a diretoria aprovar.
-  var DESCONTOS_PADRAO = { perdas: true, retrabalho: true, loteReprovado: false, divergenciaPA: false };
+  // A conferência de consumo é a defesa do "não punir quem aponta" (plano §7): perda
+  // escondida aparece como material a mais e desconta em DOBRO. Desligada até a fábrica
+  // separar por OP e devolver a sobra: sem a devolução, material que voltou ao
+  // estoque contaria como perda escondida e puniria a linha.
+  var DESCONTOS_PADRAO = { perdas: true, retrabalho: true, loteReprovado: false, divergenciaPA: false, consumoEscondido: false };
+  var TIPOS_DESCONTO = ['perdas', 'retrabalho', 'loteReprovado', 'divergenciaPA', 'consumoEscondido'];
+  var TOLERANCIA_CONSUMO_PCT = 2;
 
   /* Tabela de pontos de um mês, congelada a partir das fichas padrão.
      coberturaMinimaPct (opcional): % mínimo do custo que precisa ser PAGO/COTADO
@@ -109,13 +115,14 @@
     });
     unidades += prod.semSku;
     var d = x.descontos || {};
-    var totalDesc = ['perdas', 'retrabalho', 'loteReprovado', 'divergenciaPA'].reduce(function(s, k) { return s + num(d[k]); }, 0);
+    var totalDesc = TIPOS_DESCONTO.reduce(function(s, k) { return s + num(d[k]); }, 0);
     var pontos = Math.round(pontosBrutos - totalDesc);
     var meta = Math.round(programa * alvo);
     return {
       dia: x.dia || null, pontosBrutos: Math.round(pontosBrutos), descontos: {
         perdas: Math.round(num(d.perdas)), retrabalho: Math.round(num(d.retrabalho)),
-        loteReprovado: Math.round(num(d.loteReprovado)), divergenciaPA: Math.round(num(d.divergenciaPA)), total: Math.round(totalDesc) },
+        loteReprovado: Math.round(num(d.loteReprovado)), divergenciaPA: Math.round(num(d.divergenciaPA)),
+        consumoEscondido: Math.round(num(d.consumoEscondido)), total: Math.round(totalDesc) },
       pontos: pontos, meta: meta, pct: meta > 0 ? Math.round(pontos / meta * 1000) / 10 : null, batida: meta > 0 ? pontos >= meta : null,
       unidades: Math.round(unidades), unidadesComPontos: Math.round(unidadesComPontos),
       coberturaPct: unidades > 0 ? Math.round(unidadesComPontos / unidades * 1000) / 10 : null,
@@ -130,7 +137,16 @@
    *   loteReprovado: lote de PA REPROVADO pela Qualidade -> sai dos dias em que
    *                  as unidades do lote foram contadas
    *   divergenciaPA: conferencias_pa/{op}.divergencia < 0 (apontado acima do
-   *                  contado) -> sai no último dia de apontamento do lote */
+   *                  contado) -> sai no último dia de apontamento do lote
+   *   consumoEscondido: OP concluída de SKU com BOM APROVADA e separação por OP
+   *                  (ops/{op}/separacaoConcluida.itens, o que foi À LINHA, menos a
+   *                  sobra devolvida em sobraDevolvida.itens quando houver). NUNCA a
+   *                  baixa do envase: ela é BOM × apontado e sempre "fecharia".
+   *                  Unidades que o material entregue explica = o MENOR consumo ÷
+   *                  qtd por peça entre os itens da BOM (todos têm de concordar);
+   *                  o que passar de boas + perdidas + tolerância (perda de linha
+   *                  do cadastro, mínimo 2%) é perda escondida e desconta 2× no
+   *                  último dia do lote. Sem separação não mede (não é zero). */
   function descontosPorDia(a) {
     var x = a || {}, ativos = Object.assign({}, DESCONTOS_PADRAO, x.ativos || {});
     var tabelaDoDia = x.tabelaDoDia || function() { return null; };
@@ -138,7 +154,7 @@
     var out = {};
     function add(dia, tipo, pts) {
       if (!dia || !(pts > 0)) return;
-      out[dia] = out[dia] || { perdas: 0, retrabalho: 0, loteReprovado: 0, divergenciaPA: 0 };
+      out[dia] = out[dia] || { perdas: 0, retrabalho: 0, loteReprovado: 0, divergenciaPA: 0, consumoEscondido: 0 };
       out[dia][tipo] += pts;
     }
     if (ativos.perdas) Object.keys(x.perdas || {}).forEach(function(lk) {
@@ -196,7 +212,51 @@
       var pt = pontosDe(tabelaDoDia(ultimo), op.sku);
       if (pt != null) add(ultimo, 'divergenciaPA', -num(c.divergencia) * pt);
     });
+    if (ativos.consumoEscondido && x.bomDoSku) Object.keys(x.ops || {}).forEach(function(opKey) {
+      var op = x.ops[opKey];
+      if (!op || op.status !== 'Concluído' || !op.sku || !op.lote) return;
+      var c = conferenciaConsumo({ bom: x.bomDoSku(op.sku), consumos: entregueALinha(op),
+        boas: Object.keys(porLoteDia[String(op.lote).trim()] || {}).reduce(function(s, d) { return s + porLoteDia[String(op.lote).trim()][d]; }, 0),
+        perdidas: R.unidadesPerdidas(R.perdasDoLote((x.perdas || {})[R.loteKey(op.lote)], op)) });
+      if (!(c.escondidas > 0)) return;
+      var dias = Object.keys(porLoteDia[String(op.lote).trim()] || {}).sort();
+      var ultimo = dias[dias.length - 1]; if (!ultimo) return;
+      var pt = pontosDe(tabelaDoDia(ultimo), op.sku);
+      if (pt != null) add(ultimo, 'consumoEscondido', 2 * c.escondidas * pt);
+    });
     return out;
+  }
+
+  /* Material entregue à linha de uma OP: separado − sobra devolvida, por item. */
+  function entregueALinha(op) {
+    var sep = ((op || {}).separacaoConcluida || {}).itens || {}, sobra = ((op || {}).sobraDevolvida || {}).itens || {};
+    return Object.keys(sep).map(function(cod) { return { itemCodigo: cod, qtd: Math.max(0, num(sep[cod]) - num(sobra[cod])) }; });
+  }
+
+  /* Conferência de consumo de um lote: o material baixado comparado com o que a
+     BOM manda gastar pelo que foi apontado (boas + perdidas). Puro, para teste.
+     O consumo tem de ser MEDIDO (entregue à linha), nunca a baixa pela ficha.
+     a: { bom: {itens: {k: {materialCodigo, qtdPorPeca}}, perdaLinhaPct?}, consumos:
+          [{itemCodigo, qtd}], boas, perdidas, toleranciaPct? } */
+  function conferenciaConsumo(a) {
+    var x = a || {};
+    var itens = Object.keys(((x.bom || {}).itens) || {}).map(function(k) { return x.bom.itens[k]; })
+      .filter(function(it) { return it && it.materialCodigo && num(it.qtdPorPeca) > 0; });
+    if (!itens.length) return { medida: false, motivo: 'sem BOM aprovada', escondidas: 0 };
+    var porItem = {};
+    (x.consumos || []).forEach(function(c) { if (c && c.itemCodigo) porItem[norm(c.itemCodigo)] = (porItem[norm(c.itemCodigo)] || 0) + num(c.qtd); });
+    var explicadas = null;
+    itens.forEach(function(it) {
+      var q = porItem[norm(it.materialCodigo)];
+      if (!(q > 0)) return;
+      var u = q / num(it.qtdPorPeca);
+      explicadas = explicadas == null ? u : Math.min(explicadas, u);
+    });
+    if (explicadas == null) return { medida: false, motivo: 'sem material entregue à linha registrado', escondidas: 0 };
+    var apontadas = num(x.boas) + num(x.perdidas);
+    var tol = Math.max(x.toleranciaPct != null ? num(x.toleranciaPct) : TOLERANCIA_CONSUMO_PCT, num((x.bom || {}).perdaLinhaPct));
+    var escondidas = Math.floor(explicadas - apontadas * (1 + tol / 100));
+    return { medida: true, explicadas: Math.round(explicadas), apontadas: Math.round(apontadas), toleranciaPct: tol, escondidas: Math.max(0, escondidas) };
   }
 
   // Semana ISO (segunda a domingo): "2026-W39".
@@ -260,7 +320,8 @@
     var tabelas = x.tabelas || {};
     function tabelaDoDia(d) { return tabelas[String(d || '').slice(0, 7)] || null; }
     var desc = descontosPorDia({ ativos: x.descontosAtivos, tabelaDoDia: tabelaDoDia, idxOps: idxOps, perdas: x.perdas,
-      retrabalhos: x.retrabalhos, apontamentos: aps, estoqueLotes: x.estoqueLotes, conferenciasPa: x.conferenciasPa, ops: x.ops });
+      retrabalhos: x.retrabalhos, apontamentos: aps, estoqueLotes: x.estoqueLotes, conferenciasPa: x.conferenciasPa, ops: x.ops,
+      bomDoSku: x.bomDoSku });
     var porDia = {};
     aps.forEach(function(r) { (porDia[r.dia] = porDia[r.dia] || []).push(r); });
     var horasDoDia = x.horasDoDia || function() { return null; };
@@ -308,6 +369,8 @@
     producaoDoDia: producaoDoDia,
     placarDoDia: placarDoDia,
     descontosPorDia: descontosPorDia,
+    conferenciaConsumo: conferenciaConsumo,
+    entregueALinha: entregueALinha,
     semanaISO: semanaISO,
     acumular: acumular,
     bonusDoMes: bonusDoMes,

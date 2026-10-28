@@ -104,6 +104,7 @@ function prepararPlacar(base, agora) {
     alvoPct: params.metaAlvoPct, horasDoDia: (d) => Custos.horasDoDia(config, d),
     perdas: base.perdas, retrabalhos: base.retrabalhos, estoqueLotes: base.estoque_lotes, conferenciasPa: base.conferencias_pa,
     programa: res.programa || {}, descontosAtivos: params.descontos || null, desde, ate: hoje,
+    bomDoSku: Custos.bomAprovadaDoSku(base.produtos, base.formulas, base.bom, base.especificacoes),
   });
   const updates = {};
   const validos = dias.filter((d) => !fechados[competenciaDe(d.dia)] || !fechados[competenciaDe(d.dia)].fechadoEm);
@@ -111,7 +112,10 @@ function prepararPlacar(base, agora) {
   Pontos.acumular(validos, "semana").forEach((s) => { updates[`resultado/placar/semanas/${s.chave}`] = Object.assign({}, s, { atualizadoEm: agora }); });
   Pontos.acumular(validos, "mes").forEach((m) => { updates[`resultado/placar/meses/${m.chave}`] = Object.assign({}, m, { atualizadoEm: agora }); });
   const doDia = dias.find((d) => d.dia === hoje) || null;
-  updates["resultado/placar/hoje"] = { dia: hoje, semana: Pontos.semanaISO(hoje), mes: comp, temProducao: !!doDia, atualizadoEm: agora };
+  // Turno de hoje para a contagem da TV (a TV não lê config/: só resultado/placar).
+  const turno = Custos.turnoDoDia(config, hoje);
+  updates["resultado/placar/hoje"] = { dia: hoje, semana: Pontos.semanaISO(hoje), mes: comp, temProducao: !!doDia, atualizadoEm: agora,
+    turno: turno && !turno.folga ? { inicio: turno.inicioTxt, fim: turno.fimTxt } : null };
   return { updates, dias: validos.length };
 }
 

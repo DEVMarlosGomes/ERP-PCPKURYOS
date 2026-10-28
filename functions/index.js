@@ -2397,9 +2397,11 @@ const CustosResultadoSrv = require("./custos_resultado");
 // Reler ops (766 KB) + registros + cadastros a cada 5 min daria ~26 GB/mês de
 // download no RTDB; com a escuta, só o que muda. `sujo` diz se o placar precisa
 // ser refeito.
+// formulas/bom/especificacoes entram no placar pela conferência de consumo (BOM aprovada).
 const CAMINHOS_PLACAR = ["registros", "ops", "produtos", "perdas", "retrabalhos", "estoque_lotes", "conferencias_pa",
-  "config", "custos/parametros", "resultado/tabelas", "resultado/programa", "resultado/fechamentos", "resultado/portoes"];
-const CAMINHOS_CUSTO = ["materiais", "formulas", "bom", "especificacoes", "pedidos_compra", "processos_cotacao", "custos_precos",
+  "config", "custos/parametros", "resultado/tabelas", "resultado/programa", "resultado/fechamentos", "resultado/portoes",
+  "formulas", "bom", "especificacoes"];
+const CAMINHOS_CUSTO = ["materiais", "pedidos_compra", "processos_cotacao", "custos_precos",
   "precos_venda", "movimentos_estoque", "custos/operacao", "custos/depara_pd", "custos/material_cliente", "custos/razao_ops",
   "erp/kuryos/pd_formula_items", "erp/kuryos/crm_propostas"];
 const _cacheCustos = {valores: {}, escutas: {}, sujo: true};
