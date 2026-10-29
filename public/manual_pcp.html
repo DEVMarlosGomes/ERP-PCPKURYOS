@@ -70,7 +70,12 @@
     <li class="step-item"><div class="step-number">3</div><div class="step-content">
       <strong>Emitir OP</strong>
       <p>Cria a ordem. A partir daqui ela aparece no Controle de OPs e na Separação de Materiais, e
-      o material calculado fica <b>empenhado</b> — reservado, sem sair do estoque.</p></div></li>
+      o material calculado fica <b>empenhado</b> — reservado, sem sair do estoque.</p>
+      <p><b>Trava de saldo</b> (Ajustes / Config › Emissão de OP: saldo de insumo; desligada até o
+      Dia D). Ligada, a OP não sai se algum insumo com controle de estoque tiver saldo menor que o
+      consumo — o saldo que a OP pode usar é o geral da Kuryos mais a parte do cliente do produto;
+      material de outro cliente não conta. A tela lista item, necessário e saldo. Só o administrador
+      libera a emissão mesmo assim, escrevendo o motivo, que fica gravado na OP.</p></div></li>
     <li class="step-item"><div class="step-number">4</div><div class="step-content">
       <strong>🖨 Documento para impressão · 🏷️ Etiquetas de caixa</strong>
       <p>Ficha da OP para o chão de fábrica.</p>

@@ -13,6 +13,8 @@
   <script src="shared/itens-cadastro.js"></script>
   <script src="shared/pendencias-setor.js"></script>
   <script src="shared/prontidao-op.js"></script>
+  <script src="shared/propriedade-estoque.js"></script>
+  <script src="shared/saldo-emissao-op.js"></script>
   <script src="shared/qrcode-lib.js"></script>
   <script src="shared/etiqueta-caixa.js"></script>
   <script src="auth_check.js"></script>
@@ -190,7 +192,7 @@
       <thead><tr><th>Material</th><th>Origem</th><th class="num">%</th><th class="num">Quantidade</th><th class="num">Estoque atual</th><th></th></tr></thead>
       <tbody id="materiaisBody"></tbody>
     </table>
-    <div class="field-hint" style="margin-top:8px">"Substituir" troca só o consumo dessa OP -- não altera a fórmula/BOM cadastrada. O estoque é uma referência visual e não bloqueia a emissão.</div>
+    <div class="field-hint" style="margin-top:8px">"Substituir" troca só o consumo dessa OP -- não altera a fórmula/BOM cadastrada. <span id="hintSaldoEmissao"></span></div>
   </div>
 
   <!-- 4. Emissão -->
@@ -206,6 +208,8 @@
         <input type="text" id="fEmitidoPor" readonly>
       </div>
     </div>
+    <!-- OP-01 (28/10): faltas de insumo com a trava ligada; o ADM libera com motivo. -->
+    <div id="saldoBloqueio" class="alert alert-danger" style="display:none;margin-top:14px" data-testid="saldo-bloqueio"></div>
     <div style="margin-top:16px;display:flex;gap:10px">
       <button class="btn btn-green" id="btnEmitir">Emitir OP</button>
     </div>
@@ -292,6 +296,7 @@ var db = firebase.database();
 
 var allProdutos = {}, allMateriais = {}, allFormulas = {}, allBom = {}, allEspecificacoes = {}, allEstoque = {}, configData = {};
 var allAlocacoes = {}, allOps = {}, allPedidos = {}, configPlanejamento = {diasSemana:[1,2,3,4,5], feriados:{}};
+var configEmitirOp = {};       // config/emitirOp -- bloquearSemSaldo desligado por padrão (Dia D)
 var produtoSelecionado = null; // {key, ...campos}
 var formulaEscolhida = null;   // registro de formulas/ escolhido (APROVADA de preferência)
 var bomEscolhido = null;
@@ -962,24 +967,36 @@ function fmtBomHint(it) {
   return ' <span class="field-hint">(1 a cada ' + fmtNum(n) + ' peças)</span>' + semControle;
 }
 
-// A OP não decide nem trava pelo saldo (o inventário de abertura ainda está
-// em consolidação), mas mostrá-lo ao lado do consumo calculado evita que o
-// PCP precise sair da tela para comparar opções ao substituir um material.
+// OP-01 (28/10, D-03): a OP só trava pelo saldo com a chave
+// config/emitirOp/bloquearSemSaldo ligada (Ajustes / Config) -- desligada por
+// padrão até o Dia D, quando o saldo passa a servir para decidir. Ligada ou
+// não, o saldo mostrado é o que ESTA OP pode usar: o geral da Kuryos mais a
+// parte do cliente do SKU (shared/saldo-emissao-op.js). Mostrá-lo ao lado do
+// consumo evita sair da tela para comparar opções ao substituir um material.
 function saldoEstoqueDoMaterial(codigo) {
-  var chave = sanitizeKey(codigo || '');
-  return allEstoque[chave] || Object.values(allEstoque).find(function(e) {
-    return e && (e.materialCodigo === codigo || e.mpCodigo === codigo);
-  }) || null;
+  return SaldoEmissaoOp.registroEstoque(codigo, allEstoque);
 }
+function bloquearSemSaldo() { return configEmitirOp.bloquearSemSaldo === true; }
+// Cliente da OP pelo SKU (estoque tem dono), nunca pelo nome.
+function clienteKeyDaOp() {
+  if (!produtoSelecionado) return null;
+  return PropriedadeEstoque.clienteKeyDoSku(produtoSelecionado.sku || produtoSelecionado.key, allProdutos, {}, produtoSelecionado.cliente) || null;
+}
+function saldoParaEstaOp(codigo) {
+  return SaldoEmissaoOp.saldoParaOp(saldoEstoqueDoMaterial(codigo), clienteKeyDaOp());
+}
+function tituloSaldo(s) {
+  return 'Total ' + fmtNum(s.total) + ' · geral Kuryos ' + fmtNum(s.geral) + (s.parteCliente ? ' · do cliente ' + fmtNum(s.parteCliente) : '');
+}
+var AVISO_DIA_D = 'Saldo ainda não confiável (Dia D): referência visual, não bloqueia a emissão.';
 
 function estoqueAtualHtml(it) {
-  var estoque = saldoEstoqueDoMaterial(it.mpCodigo);
-  var saldo = estoque && Number(estoque.saldoAtual);
-  if (!estoque || !isFinite(saldo)) return '<span class="field-hint">Sem saldo registrado</span>';
-  var insuficiente = saldo < (Number(it.quantidade) || 0);
-  var unidade = estoque.unidade || it.unidade || '';
-  return '<span' + (insuficiente ? ' style="color:var(--danger);font-weight:700" title="Saldo menor que o consumo desta OP"' : '') + '>' +
-    fmtNum(saldo) + ' ' + escapeHtml(unidade) + '</span>';
+  var s = saldoParaEstaOp(it.mpCodigo);
+  if (!s.registrado) return '<span class="field-hint">Sem saldo registrado</span>';
+  var insuficiente = s.disponivel < (Number(it.quantidade) || 0) && !materialSemControleEstoque(it.mpCodigo, allMateriais);
+  var unidade = s.unidade || it.unidade || '';
+  return '<span title="' + escapeAttr(tituloSaldo(s)) + '"' + (insuficiente ? ' style="color:var(--danger);font-weight:700"' : '') + '>' +
+    fmtNum(s.disponivel) + ' ' + escapeHtml(unidade) + '</span>';
 }
 
 function renderMateriaisTable() {
@@ -1016,6 +1033,14 @@ function renderMateriaisTable() {
   tbody.querySelectorAll('.subst-btn').forEach(function(btn) {
     btn.addEventListener('click', function() { abrirSubstituicao(btn.getAttribute('data-key')); });
   });
+  renderHintSaldo();
+}
+function renderHintSaldo() {
+  var el = document.getElementById('hintSaldoEmissao');
+  if (!el) return;
+  el.textContent = bloquearSemSaldo()
+    ? 'Trava de saldo LIGADA (Ajustes / Config): a OP não sai se faltar insumo no saldo que ela pode usar (geral da Kuryos + o do cliente); só o administrador libera, com motivo.'
+    : AVISO_DIA_D;
 }
 
 // Achado real ao investigar o pedido do usuário: essa checagem nunca
@@ -1398,7 +1423,9 @@ function montarDadosOP(lote, janela) {
     ean13: produtoSelecionado.ean13 || '',
     densidadeGranelUsada: calc.densidadeGranelUsada, overfillPctUsado: calc.overfillPctUsado,
     perdaProcessoPctUsado: calc.perdaProcessoPctUsado, validade: calc.validade,
-    materiaisConsumo: materiaisConsumo
+    materiaisConsumo: materiaisConsumo,
+    // OP-01: emissão sem saldo liberada pelo ADM (motivo, quem, quando e o que faltava).
+    liberacaoSemSaldo: liberacaoSemSaldoAtual
   };
 }
 // Achado do Auditor: enquanto o Gerador de OPs (VBA/planilha) continuar
@@ -1431,8 +1458,41 @@ function reservarLoteEEmitir(tentativasRestantes, janela) {
   });
 }
 
+/* ── Saldo de insumo na emissão (OP-01) ── */
+var liberacaoSemSaldoAtual = null; // {motivo, por, porUid, em, faltas} -- só quando o ADM libera
+function decidirSaldoEmissao(motivo) {
+  var verificacao = SaldoEmissaoOp.verificarSaldoEmissao({itens: Object.values(materiaisConsumo), estoque: allEstoque,
+    materiais: allMateriais, clienteKey: clienteKeyDaOp()});
+  return SaldoEmissaoOp.decidirEmissao({bloquear: bloquearSemSaldo(), verificacao: verificacao,
+    ehAdm: !!(window.currentUser && window.currentUser.role === 'admin'), motivo: motivo});
+}
+function renderBloqueioSaldo(dec) {
+  var box = document.getElementById('saldoBloqueio');
+  if (!dec) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  var linhas = dec.faltas.map(function(f) {
+    return '<tr><td>' + escapeHtml(f.mpCodigo) + (f.mpNome ? ' — ' + escapeHtml(f.mpNome) : '') + '</td><td class="num">' + fmtNum(f.necessario) + ' ' + escapeHtml(f.unidade) +
+      '</td><td class="num">' + fmtNum(f.saldo) + ' ' + escapeHtml(f.unidade) + (f.registrado ? '' : ' <span class="field-hint">(sem registro)</span>') + '</td></tr>';
+  }).join('');
+  var h = '<b>Sem saldo de insumo para emitir esta OP.</b> A trava está ligada em Ajustes / Config.' +
+    '<table style="margin-top:8px"><thead><tr><th>Item</th><th class="num">Necessário</th><th class="num">Saldo</th></tr></thead><tbody>' + linhas + '</tbody></table>';
+  if (dec.precisaMotivo) {
+    h += '<div class="form-group" style="margin-top:10px"><label for="motivoLiberacaoSaldo">Liberar mesmo assim (administrador): motivo, fica gravado na OP</label>' +
+      '<textarea id="motivoLiberacaoSaldo" rows="2" style="width:100%" placeholder="Ex.: material chega amanhã cedo (NF 123); separação começa depois"></textarea>' +
+      (dec.mensagem && /mínimo/.test(dec.mensagem) ? '<div class="field-hint" style="color:var(--danger)">' + escapeHtml(dec.mensagem) + '</div>' : '') + '</div>' +
+      '<button type="button" class="btn btn-primary btn-sm" id="btnLiberarEmitir">Liberar e emitir a OP</button>';
+  } else {
+    h += '<div style="margin-top:8px">Reponha o estoque, use "Substituir" na tabela de materiais, ou peça a um administrador para liberar com motivo.</div>';
+  }
+  box.innerHTML = h;
+  box.style.display = 'block';
+  var btn = document.getElementById('btnLiberarEmitir');
+  if (btn) btn.addEventListener('click', function() { emitirOP(document.getElementById('motivoLiberacaoSaldo').value); });
+}
+
 /* ── Emissão ── */
-function emitirOP() {
+// motivoLiberacao: só vem do botão "Liberar e emitir a OP" (ADM, trava de saldo ligada).
+function emitirOP(motivoLiberacao) {
+  if (typeof motivoLiberacao !== 'string') motivoLiberacao = null;
   if (!produtoSelecionado || !calc || calc.pecasPrevistas <= 0) {
     showAlert('Preencha o dimensionamento do lote antes de emitir.', 'danger');
     return;
@@ -1479,6 +1539,16 @@ function emitirOP() {
   }
   var erroMateriais = validarMateriaisConsumo();
   if (erroMateriais) { showAlert(erroMateriais, 'danger'); return; }
+  // OP-01 (D-03): com a trava ligada, sem saldo do dono certo a OP não sai;
+  // o ADM libera com motivo (gravado na OP). Desligada: como sempre foi.
+  var decisaoSaldo = decidirSaldoEmissao(motivoLiberacao);
+  if (!decisaoSaldo.pode) { renderBloqueioSaldo(decisaoSaldo); showAlert(decisaoSaldo.mensagem, 'danger'); return; }
+  renderBloqueioSaldo(null);
+  liberacaoSemSaldoAtual = decisaoSaldo.liberacao ? {
+    motivo: decisaoSaldo.liberacao.motivo, por: currentUserNome(), porUid: (firebase.auth().currentUser || {}).uid || null,
+    em: new Date().toISOString(),
+    faltas: decisaoSaldo.liberacao.faltas.map(function(f) { return {mpCodigo: f.mpCodigo, necessario: f.necessario, saldo: f.saldo, unidade: f.unidade || ''}; })
+  } : null;
   // Achado do usuário: emitir sem vincular tem que ser exceção de
   // verdade, não o padrão silencioso -- se existe pedido ativo com saldo
   // pra esse produto e mesmo assim ninguém foi selecionado (ou o próprio
@@ -1605,7 +1675,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById(id).addEventListener('input', recalcular);
   });
 
-  document.getElementById('btnEmitir').addEventListener('click', emitirOP);
+  document.getElementById('btnEmitir').addEventListener('click', function() { emitirOP(null); });
   document.getElementById('btnImprimir').addEventListener('click', function() {
     var sel = fichasSelecionadasAtuais();
     if (!Object.values(sel).some(Boolean)) { showAlert('Marque pelo menos uma ficha pra imprimir.', 'danger'); return; }
@@ -1636,6 +1706,15 @@ document.addEventListener('DOMContentLoaded', function() {
       if (Object.keys(materiaisConsumo).length) renderMateriaisTable();
     });
     dbOnValue(db.ref('formulas'), function(snap) { allFormulas = snap.val() || {}; });
+    dbOnValue(db.ref('config/emitirOp'), function(snap) {
+      configEmitirOp = snap.val() || {};
+      if (Object.keys(materiaisConsumo).length) renderMateriaisTable();
+    }, { onError: function(err) {
+      // Sem ler a chave, vale o padrão (desligada) -- e a tela diz por quê.
+      configEmitirOp = {};
+      console.error('config/emitirOp não carregou:', err);
+      showAlert('Não foi possível ler a trava de saldo (config/emitirOp): vale o padrão, desligada. ' + (err && err.message || ''), 'danger');
+    } });
     dbOnValue(db.ref('pendencias_setor'), function(snap) { allPendencias = snap.val() || {}; if (produtoSelecionado) renderPendenciasEmissao(); }, { onError: function() { allPendencias = {}; } });
     document.getElementById('completarClose').addEventListener('click', fecharCompletar);
     document.getElementById('completarCancelar').addEventListener('click', fecharCompletar);

@@ -344,6 +344,22 @@
     <div class="section-note" id="conferenciaPesagemStatus" style="margin-top:6px"></div>
   </div>
 
+  <!-- EMISSÃO DE OP: TRAVA DE SALDO DE INSUMO (OP-01, 28/10/2026) -->
+  <div class="card" data-ui="surface">
+    <div class="card-title" data-ui="surface-head">Emissão de OP: saldo de insumo</div>
+    <div class="section-note">
+      Ligada, a OP não é emitida se algum insumo com controle de estoque tiver saldo menor que o consumo — o saldo
+      que a OP pode usar: o geral da Kuryos mais a parte do cliente do produto. Só um administrador libera a emissão
+      mesmo assim, informando o motivo, que fica gravado na OP. <b>Deixe desligada até o Dia D</b> (inventário de
+      abertura): antes dele o saldo não serve para decidir e a trava pararia a fábrica. Só o administrador muda esta chave.
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-top:6px">
+      <input type="checkbox" id="iBloquearSemSaldo">
+      <span id="lblBloquearSemSaldo">Trava de saldo desligada</span>
+    </label>
+    <div class="section-note" id="bloquearSemSaldoStatus" style="margin-top:6px"></div>
+  </div>
+
   <!-- ZONA FIXA (CONGELAMENTO AUTOMÁTICO ROLANTE) -->
   <div class="card" data-ui="surface">
     <div class="card-title" data-ui="surface-head">Zona Fixa do Planejamento</div>
@@ -748,6 +764,37 @@ document.getElementById('iConferenciaPesagem').addEventListener('change', functi
     })
     .catch(function(err) {
       renderConferenciaPesagem();
+      showAlert('Não foi possível salvar — a chave continua como estava. ' + err.message, 'danger');
+    });
+});
+
+/* Trava de saldo na emissão de OP (OP-01): nó próprio config/emitirOp, gravado
+   direto (como a Conferência de Pesagem). A regra do banco aceita só o ADM. */
+var emitirOpCfg = {};
+function renderBloquearSemSaldo() {
+  var ligada = emitirOpCfg.bloquearSemSaldo === true;
+  var ehAdm = !!(window.currentUser && window.currentUser.role === 'admin');
+  var chk = document.getElementById('iBloquearSemSaldo');
+  chk.checked = ligada;
+  chk.disabled = !ehAdm;
+  document.getElementById('lblBloquearSemSaldo').textContent = ligada ? 'Trava de saldo LIGADA' : 'Trava de saldo desligada (padrão até o Dia D)';
+  document.getElementById('bloquearSemSaldoStatus').textContent = (ligada ? 'Ligada' : 'Desligada') +
+    (emitirOpCfg.alteradoPor ? ' por ' + emitirOpCfg.alteradoPor : '') +
+    (emitirOpCfg.alteradoEm ? ' em ' + new Date(emitirOpCfg.alteradoEm).toLocaleString('pt-BR') : '') + '.' +
+    (ehAdm ? '' : ' Só o administrador altera esta chave.');
+}
+window.addEventListener('kuryos-auth-pronto', renderBloquearSemSaldo);
+document.getElementById('iBloquearSemSaldo').addEventListener('change', function() {
+  var ligada = this.checked;
+  var quem = (window.currentUser && window.currentUser.nome) || 'ADM';
+  // Caminhos planos: não regrava o nó inteiro.
+  db.ref('config/emitirOp').update({bloquearSemSaldo: ligada, alteradoPor: quem, alteradoEm: new Date().toISOString()})
+    .then(function() {
+      showAlert(ligada ? 'Trava de saldo ligada: OP sem insumo só sai com liberação do administrador.'
+        : 'Trava de saldo desligada: o saldo volta a ser só referência na emissão.', 'success');
+    })
+    .catch(function(err) {
+      renderBloquearSemSaldo();
       showAlert('Não foi possível salvar — a chave continua como estava. ' + err.message, 'danger');
     });
 });
@@ -1285,6 +1332,8 @@ try {
     var val = snap.val() || {};
     confPesagemCfg = val.conferenciaPesagem || {};
     renderConferenciaPesagem();
+    emitirOpCfg = val.emitirOp || {};
+    renderBloquearSemSaldo();
     configData.meta = val.meta || {};
     configData.metasPorLinha = val.metasPorLinha || {};
     configData.metasMatriz = val.metasMatriz || {};
