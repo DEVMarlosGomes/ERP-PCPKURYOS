@@ -11,7 +11,7 @@ import { categoriasAtivas } from "@/lib/categoriasProduto";
 import { sugestoesCli4 } from "@/lib/cli4";
 import { amostraDaVersaoFaltando, precoUsd, volumeEmKg } from "@/lib/pdAmostra";
 import { eventoMpNova, htmlFichaTecnica, montarFichaTecnica, validarMpNova } from "@/lib/fichaTecnica";
-import { solicitacoesDeMpsNovas } from "@/lib/filaCadastroMp";
+import { chaveSolicitacaoMp, chaveSolicitacaoPorNome, daSolicitacaoPd, normalizarNomeMp, planoDaFila, retiradaDoItem } from "@/lib/filaCadastroMp";
 import { filtrarMateriaisPd, tiposDoFiltro } from "@/lib/materiaPrimaPd";
 import { PARAMETROS_VARIACAO, camposPreenchidos, parametroDe } from "@/lib/parametroVariacao";
 import { filtrarOpcoes, opcoesParaPuxar } from "@/lib/especificacoesCadastro";
@@ -538,6 +538,8 @@ function pdSampleBatch(e, t, a) {
 }
 
 async function pdDeleteRequestCascade(e, t) {
+  // PD-03: amostra descartada cancela (não apaga) as solicitações de MP nova que só ela usava.
+  await descartarMpsNovasDaSolicitacao(e, t, "Amostra descartada: solicitação do P&D excluída");
   const a = (await all(e, "pd_developments")).filter(e => e.request_id === t || e.pd_request_id === t),
     r = new Set(a.map(e => e.id)),
     i = (await all(e, "pd_formulas")).filter(e => r.has(e.development_id)),
@@ -959,7 +961,10 @@ async function ensureNumeroProjeto(tenantId, project) {
 }
 
 // Fase 4: cliente aprovou → cada MP nova da fórmula aprovada vira tarefa no Cadastros do PCP
-// (solicitacoes_cadastro_material/, raiz do banco). Só grava a que ainda não existe.
+// (solicitacoes_cadastro_material/, raiz do banco).
+// PD-03: a solicitação já nasce ao salvar o ingrediente (chave pelo nome); aqui ela só passa de
+// "amostra em desenvolvimento" a "aprovada pelo cliente" (ou nasce, se o item é de antes do PD-03).
+// Tarefa antiga com chave fórmula__item (antes do PD-03) continua valendo e não ganha outra.
 async function enfileirarMpsNovas(tenantId, requestId, autor) {
   const request = await one(tenantId, "pd_requests", requestId);
   const dev = request ? (await all(tenantId, "pd_developments")).find((d) => d.request_id === requestId || d.pd_request_id === requestId) : null;
@@ -969,13 +974,79 @@ async function enfileirarMpsNovas(tenantId, requestId, autor) {
   if (!itens.some((i) => i.mp_nova)) return 0;
   const projetoId = request.crm_project_id || request.linked_projeto_id;
   const projeto = projetoId ? await one(tenantId, "crm_projects", projetoId) : null;
-  const fila = solicitacoesDeMpsNovas({ request, formula, itens, projeto, agora: now(), autor });
-  const updates = {};
-  for (const [chave, tarefa] of Object.entries(fila)) {
-    if (!(await masterOne("solicitacoes_cadastro_material", chave))) updates[`solicitacoes_cadastro_material/${chave}`] = tarefa;
+  const aprovar = [];
+  for (const item of itens.filter((i) => i.mp_nova && i.id)) {
+    if (await masterOne("solicitacoes_cadastro_material", chaveSolicitacaoMp(formula.id, item.id))) continue;
+    aprovar.push({ item, formula, request, projeto });
   }
+  return aplicarPlanoDaFila({ aprovar }, autor);
+}
+
+// PD-03: lê as solicitações tocadas, monta o plano (lib/filaCadastroMp.planoDaFila) e grava num update só.
+async function aplicarPlanoDaFila({ registrar = [], aprovar = [], retirar = [] }, autor) {
+  const chaves = new Set([...registrar, ...aprovar].map((r) => chaveSolicitacaoPorNome(r.item?.mp_nova?.nome)).concat(retirar.map((r) => r?.chave)).filter(Boolean));
+  if (!chaves.size) return 0;
+  const existentes = {};
+  for (const chave of chaves) existentes[chave] = (await get(ref(firebaseDb, `solicitacoes_cadastro_material/${chave}`))).val();
+  const updates = planoDaFila({ existentes, registrar, aprovar, retirar: retirar.filter(Boolean), agora: now(), autor });
   if (Object.keys(updates).length) await update(ref(firebaseDb), updates);
   return Object.keys(updates).length;
+}
+
+async function contextoDaFormula(tenantId, formula) {
+  const dev = formula?.development_id ? await one(tenantId, "pd_developments", formula.development_id) : null;
+  const requestId = dev ? dev.request_id || dev.pd_request_id : null;
+  const request = requestId ? await one(tenantId, "pd_requests", requestId) : null;
+  const projetoId = request ? request.crm_project_id || request.linked_projeto_id : null;
+  return { request, projeto: projetoId ? await one(tenantId, "crm_projects", projetoId) : null };
+}
+
+/* PD-03: item salvo/copiado/removido → fila do Cadastros. A fórmula já foi gravada: falha aqui não
+ * desfaz o item; volta como aviso para a tela e fica no console (a aprovação do cliente cria depois). */
+async function sincronizarFilaMpNova(tenantId, { formula, registrar = [], retirar = [] }, profile) {
+  try {
+    const comMp = registrar.filter((item) => item?.mp_nova);
+    const ctx = comMp.length || retirar.length ? await contextoDaFormula(tenantId, formula) : {};
+    await aplicarPlanoDaFila({ registrar: comMp.map((item) => ({ item, formula, ...ctx })), retirar }, pdUserName(profile));
+    return null;
+  } catch (error) {
+    console.error("[Fila de cadastro] MP nova salva na fórmula, mas a fila do Cadastros não foi atualizada:", error);
+    return `A fórmula foi salva, mas a MP nova não chegou à fila do Cadastros (${error?.message || error}). Ela entra quando o cliente aprovar a amostra; se persistir, avise o ADM (permissão em solicitacoes_cadastro_material).`;
+  }
+}
+
+/* PD-03: MP nova com o nome de um material que já existe no Cadastros (materiais_chave) ou que a
+ * fila já cadastrou: oferece o vínculo (409) em vez de pedir outra. */
+async function conflitoMpNova(mp) {
+  const n = normalizarNomeMp(mp?.nome);
+  if (!n) return null;
+  const dono = (await get(ref(firebaseDb, `materiais_chave/${n}`))).val();
+  if (dono) {
+    const m = (await get(ref(firebaseDb, `materiais/${dono}`))).val() || {};
+    return { materialKey: dono, mpCodigo: m.mpCodigo || dono, mpNome: m.mpNome || mp.nome };
+  }
+  const s = (await get(ref(firebaseDb, `solicitacoes_cadastro_material/${chaveSolicitacaoPorNome(mp.nome)}`))).val();
+  if (s && ["CADASTRADO", "VINCULADO"].includes(s.status) && s.materialKey) return { materialKey: s.materialKey, mpCodigo: s.mpCodigo || s.materialKey, mpNome: s.nome || mp.nome };
+  return null;
+}
+
+async function exigirMpNovaInedita(mp) {
+  const c = await conflitoMpNova(mp);
+  if (c) throw apiError(409, { code: "MP_JA_CADASTRADA", ...c,
+    message: `Já existe ${c.mpCodigo} — ${c.mpNome} no Cadastros. Vincule o ingrediente a ela em vez de pedir MP nova.` });
+}
+
+// PD-03: amostra descartada (solicitação do P&D excluída ou reprovada pelo cliente) cancela as MPs novas dela.
+async function descartarMpsNovasDaSolicitacao(tenantId, requestId, motivo) {
+  try {
+    const devs = new Set((await all(tenantId, "pd_developments")).filter((d) => d.request_id === requestId || d.pd_request_id === requestId).map((d) => d.id));
+    if (!devs.size) return;
+    const formulas = new Set((await all(tenantId, "pd_formulas")).filter((f) => devs.has(f.development_id)).map((f) => f.id));
+    const itens = (await all(tenantId, "pd_formula_items")).filter((i) => formulas.has(i.formula_id) && i.mp_nova);
+    await aplicarPlanoDaFila({ retirar: itens.map((i) => retiradaDoItem(i, motivo)) });
+  } catch (error) {
+    console.error(`[Fila de cadastro] MPs novas da solicitação ${requestId} não foram canceladas:`, error);
+  }
 }
 
 // A aprovação do cliente não pode falhar por causa da fila; o erro fica visível no console
@@ -1575,6 +1646,8 @@ async function dispatch(e, t) {
         resultado_em: now()
       } : e);
     await patch(_, "crm_samples", O[1], { variacoes: t });
+    // PD-03: amostra reprovada pelo cliente é descartada; as MPs novas só dela saem da fila do Cadastros.
+    if ("reprovada" === r.resultado && variacao?.pd_request_id) await descartarMpsNovasDaSolicitacao(_, variacao.pd_request_id, `Amostra ${variacao.codigo || ""} reprovada pelo cliente`.replace("  ", " "));
     try { if (e?.projeto_id) await parearEtapasPelaAmostra(_, u, e.projeto_id); } catch (error) { console.error("[CRM2] pareamento com a amostra falhou:", error); }
     // Depois do pareamento: a mudança de etapa ainda regrava o histórico inteiro do projeto.
     if (e?.projeto_id && await one(_, "crm_projects", e.projeto_id)) {
@@ -2266,9 +2339,12 @@ async function dispatch(e, t) {
       };
     const erroMp = validarMpNova(t.mp_nova);
     if (erroMp) throw apiError(422, erroMp);
+    if (t.mp_nova) await exigirMpNovaInedita(t.mp_nova);
     const criado = await create(_, "pd_formula_items", t);
     await logMpNova(_, null, criado, e, u);
-    return response(criado, i);
+    // PD-03 (D-08): a MP nova vai para a fila do Cadastros ao salvar.
+    const avisoFila = criado.mp_nova ? await sincronizarFilaMpNova(_, { formula: e, registrar: [criado] }, u) : null;
+    return response(avisoFila ? { ...criado, fila_cadastro_aviso: avisoFila } : criado, i);
   }
   if (O = j(/^\/pd\/formula-items\/([^/]+)$/), "PUT" === e && O) {
     const e = await one(_, "pd_formula_items", O[1]);
@@ -2298,9 +2374,16 @@ async function dispatch(e, t) {
       };
     const erroMp = validarMpNova(o.mp_nova === undefined ? e.mp_nova : o.mp_nova);
     if (erroMp) throw apiError(422, erroMp);
+    // PD-03: só confere duplicidade quando a MP nova é marcada agora ou troca de nome.
+    const mpNovaNova = o.mp_nova && (!e.mp_nova || chaveSolicitacaoPorNome(e.mp_nova.nome) !== chaveSolicitacaoPorNome(o.mp_nova.nome));
+    if (mpNovaNova) await exigirMpNovaInedita(o.mp_nova);
     const atualizado = await patch(_, "pd_formula_items", O[1], o);
     await logMpNova(_, e, atualizado, t, u);
-    return response(atualizado, i);
+    const mesmaMp = e.mp_nova && atualizado.mp_nova && chaveSolicitacaoPorNome(e.mp_nova.nome) === chaveSolicitacaoPorNome(atualizado.mp_nova.nome);
+    const avisoFila = e.mp_nova || atualizado.mp_nova ? await sincronizarFilaMpNova(_, { formula: t,
+      registrar: atualizado.mp_nova ? [atualizado] : [],
+      retirar: e.mp_nova && !mesmaMp ? [retiradaDoItem(e, atualizado.mp_nova ? `MP trocada por ${atualizado.mp_nova.nome}` : "Ingrediente deixou de ser MP nova (vinculado ao cadastro)")] : [] }, u) : null;
+    return response(avisoFila ? { ...atualizado, fila_cadastro_aviso: avisoFila } : atualizado, i);
   }
   if ("DELETE" === e && O) {
     const e = await one(_, "pd_formula_items", O[1]),
@@ -2308,8 +2391,10 @@ async function dispatch(e, t) {
     if (null !== t && void 0 !== t && t.locked) throw apiError(409, `Fórmula v${t.version || 1} está registrada e bloqueada. Crie uma nova versão para editar.`);
     await erase(_, "pd_formula_items", O[1]);
     if (e) await logMpNova(_, e, null, t, u);
+    const avisoFila = e?.mp_nova ? await sincronizarFilaMpNova(_, { formula: t, retirar: [retiradaDoItem(e, "Ingrediente removido da fórmula")] }, u) : null;
     return response({
-      deleted: !0
+      deleted: !0,
+      ...(avisoFila ? { fila_cadastro_aviso: avisoFila } : {})
     }, i);
   }
   if (O = j(/^\/pd\/formulas\/([^/]+)\/(duplicate|new-version)$/), "POST" === e && O) {
@@ -2335,11 +2420,19 @@ async function dispatch(e, t) {
         created_by_name: pdUserName(u),
         status: "DRAFT"
       });
-    for (const a of await related(_, "pd_formula_items", "formula_id", O[1])) await create(_, "pd_formula_items", {
+    const itensDaOrigem = await related(_, "pd_formula_items", "formula_id", O[1]),
+      copias = [];
+    for (const a of itensDaOrigem) copias.push(await create(_, "pd_formula_items", {
       ...a,
       id: void 0,
       formula_id: t.id
-    });
+    }));
+    // PD-03: a cópia passa a usar a MP nova; na nova versão a anterior é substituída (sai da conta).
+    if (copias.some((c) => c.mp_nova)) {
+      const aviso = await sincronizarFilaMpNova(_, { formula: t, registrar: copias,
+        retirar: "new-version" === O[2] ? itensDaOrigem.map((a) => retiradaDoItem(a, `Versão v${e.version || 1} substituída pela v${t.version}`)) : [] }, u);
+      if (aviso) t.fila_cadastro_aviso = aviso;
+    }
     // Fase 3: o passo a passo (fases da receita) acompanha a nova versão.
     for (const fase of await related(_, "pd_formula_phases", "formula_id", O[1])) await create(_, "pd_formula_phases", {
       ...fase,
@@ -2375,11 +2468,17 @@ async function dispatch(e, t) {
         created_by_name: pdUserName(u),
         status: "DRAFT"
       });
-    for (const a of await related(_, "pd_formula_items", "formula_id", O[1])) await create(_, "pd_formula_items", {
+    const copiasImportadas = [];
+    for (const a of await related(_, "pd_formula_items", "formula_id", O[1])) copiasImportadas.push(await create(_, "pd_formula_items", {
       ...a,
       id: void 0,
       formula_id: t.id
-    });
+    }));
+    // PD-03: a fórmula importada também usa as MPs novas da origem.
+    if (copiasImportadas.some((c) => c.mp_nova)) {
+      const aviso = await sincronizarFilaMpNova(_, { formula: t, registrar: copiasImportadas }, u);
+      if (aviso) t.fila_cadastro_aviso = aviso;
+    }
     // Fase 3: o passo a passo (fases da receita) acompanha a nova versão.
     for (const fase of await related(_, "pd_formula_phases", "formula_id", O[1])) await create(_, "pd_formula_phases", {
       ...fase,
@@ -3127,7 +3226,8 @@ async function dispatch(e, t) {
   if (O = j(/^\/pd\/developments\/([^/]+)\/mp-novas-fila$/), "GET" === e && O) {
     const dev = await one(_, "pd_developments", O[1]);
     const requestId = dev && (dev.request_id || dev.pd_request_id);
-    return response(requestId ? (await masterAll("solicitacoes_cadastro_material")).filter((x) => x.origem?.pdRequestId === requestId) : [], i);
+    // PD-03: a solicitação pelo nome pode servir a várias amostras; vale qualquer origem desta.
+    return response(requestId ? (await masterAll("solicitacoes_cadastro_material")).filter((x) => daSolicitacaoPd(x, requestId)) : [], i);
   }
   if (O = j(/^\/pd\/developments\/([^/]+)\/mp-novas$/), "GET" === e && O) {
     return response((await related(_, "pd_mp_novas_log", "development_id", O[1])).sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || ""))), i);

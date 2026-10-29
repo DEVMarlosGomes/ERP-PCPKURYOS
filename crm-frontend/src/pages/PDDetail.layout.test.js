@@ -20,6 +20,20 @@ describe("PDDetail — ordem das seções (AMO-01)", () => {
   });
 });
 
+// PD-03 (reunião 28/10/2026): "MP nova" sem caixas extras — nome do ingrediente e tipo num chip.
+describe("PDDetail — MP nova sem caixa de texto (PD-03)", () => {
+  it("não pede nome por extenso nem abre select de tipo", () => {
+    expect(fonte).not.toContain("Nome por extenso");
+    expect(fonte).not.toMatch(/mp_nova_tipo: e\.target\.value/);
+    expect(fonte.split("<ChipTipoMpNova ").length - 1).toBe(2); // linha nova e linha em edição
+  });
+  it("salvar usa o nome do ingrediente e oferece vincular MP já cadastrada", () => {
+    expect(fonte).toContain("mp_nova: newItem.mp_nova_on ? { nome: newItem.ingredient_name.trim(), tipo: tipoMpNovaDoForm(newItem) } : null");
+    expect(fonte).toContain('data-testid="vincular-mp-existente"');
+    expect(fonte).toContain('d?.code !== "MP_JA_CADASTRADA"');
+  });
+});
+
 // PD-01 (reunião 28/10/2026): editar/excluir não podem sumir atrás da rolagem horizontal.
 describe("PDDetail — tabela da manipulação (PD-01)", () => {
   const tabela = fonte.slice(fonte.indexOf('testId="tabela-manipulacao"'), fonte.indexOf("</RolagemHorizontalDupla>"));

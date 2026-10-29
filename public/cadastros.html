@@ -1812,13 +1812,15 @@ document.addEventListener('DOMContentLoaded', function() {
     box.innerHTML =
       '<div class="recalc-bar" style="margin:12px 0;background:#fff7e6;border-color:#f0c36d">' +
         '<b>🧪 ' + pend.length + ' MP(s) nova(s) do P&D aguardando cadastro</b>' +
-        '<div style="font-size:12px;color:var(--muted);margin:4px 0 8px">Aprovadas pelo cliente na amostra. Cadastrar aqui gera o código interno e fecha a tarefa. Fragrância (MPES) precisa do SKU de aprovação agora e do SKU final no lote de compra.</div>' +
+        '<div style="font-size:12px;color:var(--muted);margin:4px 0 8px">Chegam quando o P&D salva o ingrediente marcado como MP nova (amostra em desenvolvimento) e ficam marcadas quando o cliente aprova. Cadastrar aqui gera o código interno e fecha a tarefa. Fragrância (MPES) precisa do SKU de aprovação agora e do SKU final no lote de compra.</div>' +
         pend.map(function(e) {
           var t = e[1], o = t.origem || {};
           return '<div style="display:flex;gap:10px;align-items:center;padding:5px 0;flex-wrap:wrap">' +
             '<button class="btn btn-primary btn-sm btn-cadastrar-solic-mat" data-solic="' + escapeAttr(e[0]) + '">Cadastrar</button>' +
             '<span class="badge">' + escapeHtml(t.tipo || '') + '</span>' +
             '<b>' + escapeHtml(t.nome || t.ingrediente || '(sem nome)') + '</b>' +
+            // PD-03 (28/10/2026): solicitação nasce no P&D ao salvar; a marca diz em que pé está a amostra.
+            (t.marca ? '<span class="badge" style="background:' + (t.amostra_em_desenvolvimento ? '#fef3c7;color:#92400e' : '#dcfce7;color:#166534') + '">' + escapeHtml(t.marca) + '</span>' : '') +
             '<span style="color:var(--muted)">' + escapeHtml([o.projetoNumero, o.projeto].filter(Boolean).join(' ') || '—') +
               (o.amostra ? ' · amostra ' + escapeHtml(o.amostra) : '') + (o.cliente ? ' · ' + escapeHtml(o.cliente) : '') +
               (t.fornecedor ? ' · fornecedor ' + escapeHtml(t.fornecedor) : '') + '</span>' +

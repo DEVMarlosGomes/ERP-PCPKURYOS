@@ -9,6 +9,7 @@ import LiberacaoAntecipadaPD from "@/components/LiberacaoAntecipadaPD";
 import RolagemHorizontalDupla from "@/components/RolagemHorizontalDupla";
 import { TIPOS_MP_PD, ingredienteEhEmbalagem } from "@/lib/materiaPrimaPd";
 import { filtrarOpcoes, mesclarEspecificacoes, rotuloOrigem } from "@/lib/especificacoesCadastro";
+import { normalizarNomeMp, tipoMpNovaPeloContexto } from "@/lib/filaCadastroMp";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -1965,6 +1966,43 @@ function ImportFormulaDialog({ open, onOpenChange, devId, onImported }) {
   );
 }
 
+// PD-03 (D-08): "MP nova" usa o nome do ingrediente; o tipo vem do chip ou do contexto (fragrância → MPES).
+const ITEM_VAZIO = { ingredient_name: "", percentage: "", price_per_kg: "", price_usd: "", price_currency: "BRL", fornecedor: "", phase: "", function: "", catalog_id: "", inci: "", mp_nova_on: false, mp_nova_nome: "", mp_nova_tipo: "" };
+const tipoMpNovaDoForm = (f) => (TIPOS_MP_NOVA[f?.mp_nova_tipo] ? f.mp_nova_tipo : tipoMpNovaPeloContexto(f));
+// Edição: sem trocar o nome do ingrediente, a MP nova antiga (nome por extenso) fica como estava.
+const nomeMpNovaNaEdicao = (f) => (f.mp_nova_nome && f.ingredient_name === f.ingrediente_original ? f.mp_nova_nome : f.ingredient_name).trim();
+
+/* MP com o mesmo nome já cadastrada (409 MP_JA_CADASTRADA): oferece vincular ao material existente
+ * em vez de pedir outra ao Cadastros. Recusar a oferta não salva nada. */
+async function comOfertaDeVinculo(enviar, payload) {
+  try {
+    return await enviar(payload);
+  } catch (err) {
+    const d = err?.response?.data?.detail;
+    if (err?.response?.status !== 409 || d?.code !== "MP_JA_CADASTRADA") throw err;
+    if (!window.confirm(`${d.message}
+
+Vincular o ingrediente a ${d.mpCodigo} — ${d.mpNome}?`)) throw Object.assign(new Error("Vínculo recusado"), { cancelado: true });
+    return enviar({ ...payload, catalog_id: d.materialKey, mp_nova: null });
+  }
+}
+
+function avisarFila(salvo, ok) {
+  if (salvo?.fila_cadastro_aviso) toast.warning(salvo.fila_cadastro_aviso);
+  else if (salvo?.mp_nova) toast.success(`${ok} MP nova enviada ao Cadastros (aguardando cadastro).`);
+  else toast.success(ok);
+}
+
+function ChipTipoMpNova({ tipo, onTrocar, compacto = false }) {
+  return (
+    <button type="button" onClick={onTrocar} title="Trocar o tipo da MP nova (MPGR ↔ MPES)" aria-label={`Tipo da MP nova: ${tipo}. Clique para trocar.`}
+      className={`inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200 ${compacto ? "h-5 px-1.5 text-[10px]" : "h-7 px-2.5 text-xs"}`}
+      data-testid="chip-tipo-mp-nova">
+      {tipo}{compacto ? "" : ` · ${TIPOS_MP_NOVA[tipo]}`} <RefreshCw className="h-2.5 w-2.5" />
+    </button>
+  );
+}
+
 // PD-01: coluna de ações presa à direita (com fundo opaco nos dois temas) e alvo de 32 px.
 const ACOES_FIXAS = "sticky right-0 z-10 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.25)]";
 const BOTAO_ACAO = "inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -1984,7 +2022,7 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
   const versoesElaboracao = [...formulas].sort((a, b) => Number(b.version || 0) - Number(a.version || 0));
   const [elaboracaoId, setElaboracaoId] = useState(null);
   const formulaElaboracao = versoesElaboracao.find((x) => x.id === elaboracaoId) || versoesElaboracao[0] || null;
-  const [newItem, setNewItem] = useState({ ingredient_name: "", percentage: "", price_per_kg: "", price_usd: "", price_currency: "BRL", fornecedor: "", phase: "", function: "", catalog_id: "", inci: "", mp_nova_on: false, mp_nova_nome: "", mp_nova_tipo: "MPGR" });
+  const [newItem, setNewItem] = useState(ITEM_VAZIO);
   const [editingConfig, setEditingConfig] = useState(null);
   const [configForm, setConfigForm] = useState({});
   const [editingItemId, setEditingItemId] = useState(null);
@@ -2002,6 +2040,13 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
         (item.codigo_interno && item.codigo_interno.toLowerCase().includes(newItem.ingredient_name.toLowerCase())),
       )
     : ingredientOptions;
+
+  // PD-03: MP nova com nome de material já cadastrado → oferece vincular em vez de pedir outra.
+  const mpNovaJaCadastrada = useMemo(() => {
+    const alvo = normalizarNomeMp(newItem.ingredient_name);
+    if (!newItem.mp_nova_on || !alvo) return null;
+    return ingredientOptions.find((o) => o.codigo_interno && normalizarNomeMp(o.nome) === alvo) || null;
+  }, [newItem.mp_nova_on, newItem.ingredient_name, ingredientOptions]);
 
   const newItemSuppliers = useMemo(
     () => getSuppliersForIngredient(newItem.ingredient_name),
@@ -2044,7 +2089,7 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
         function: newItem.function,
         catalog_id: cat.catalog_id || "",
         inci: cat.inci || "",
-        mp_nova_on: false, mp_nova_nome: "", mp_nova_tipo: "MPGR",
+        mp_nova_on: false, mp_nova_nome: "", mp_nova_tipo: "",
       });
       setPendingCatalogItem(null);
     }
@@ -2106,7 +2151,7 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
     try {
       const formula = formulas.find(f => f.id === formulaId);
       const priceInBRL = precoBrlKg(newItem, formula?.cotacao_usd || COTACAO_USD_PADRAO);
-      await api.post(`/pd/formulas/${formulaId}/items`, {
+      const { data: salvo } = await comOfertaDeVinculo((payload) => api.post(`/pd/formulas/${formulaId}/items`, payload), {
         ingredient_name: newItem.ingredient_name,
         percentage: parseFloat(newItem.percentage),
         price_per_kg: priceInBRL,
@@ -2116,19 +2161,24 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
         inci: (newItem.inci || "").trim(),
         function: newItem.function,
         catalog_id: newItem.catalog_id || null,
-        mp_nova: newItem.mp_nova_on ? { nome: (newItem.mp_nova_nome || newItem.ingredient_name).trim(), tipo: newItem.mp_nova_tipo } : null,
+        // PD-03: o nome é o do ingrediente; o tipo vem do chip (ou do contexto).
+        mp_nova: newItem.mp_nova_on ? { nome: newItem.ingredient_name.trim(), tipo: tipoMpNovaDoForm(newItem) } : null,
       });
-      toast.success("Ingrediente adicionado!");
-      setNewItem({ ingredient_name: "", percentage: "", price_per_kg: "", price_usd: "", price_currency: "BRL", fornecedor: "", phase: "", function: "", catalog_id: "", inci: "", mp_nova_on: false, mp_nova_nome: "", mp_nova_tipo: "MPGR" });
+      avisarFila(salvo, "Ingrediente adicionado!");
+      setNewItem(ITEM_VAZIO);
       setPendingCatalogItem(null);
       setShowSuggestions(false);
       onRefresh();
-    } catch (err) { toast.error(formatApiError(err) || "Erro ao adicionar"); }
+    } catch (err) { if (!err?.cancelado) toast.error(formatApiError(err) || "Erro ao adicionar"); }
   };
 
   const deleteItem = async (itemId) => {
-    try { await api.delete(`/pd/formula-items/${itemId}`); onRefresh(); }
-    catch (err) { toast.error("Erro ao remover"); }
+    try {
+      const { data } = await api.delete(`/pd/formula-items/${itemId}`);
+      if (data?.fila_cadastro_aviso) toast.warning(data.fila_cadastro_aviso);
+      onRefresh();
+    }
+    catch (err) { toast.error(formatApiError(err) || "Erro ao remover"); }
   };
 
   const startEditItem = (item) => {
@@ -2140,7 +2190,8 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
       inci: item.inci || "",
       mp_nova_on: Boolean(item.mp_nova),
       mp_nova_nome: item.mp_nova?.nome || "",
-      mp_nova_tipo: item.mp_nova?.tipo || "MPGR",
+      mp_nova_tipo: item.mp_nova?.tipo || "",
+      ingrediente_original: item.ingredient_name || "",
       percentage: String(item.percentage || ""),
       price_per_kg: String(item.price_per_kg || ""),
       price_usd: String(item.price_usd ?? ""),
@@ -2154,21 +2205,21 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
     try {
       const formula = formulas.find(f => f.id === formulaId);
       const priceInBRL = precoBrlKg(editItemForm, formula?.cotacao_usd || COTACAO_USD_PADRAO);
-      await api.put(`/pd/formula-items/${editingItemId}`, {
+      const { data: salvo } = await comOfertaDeVinculo((payload) => api.put(`/pd/formula-items/${editingItemId}`, payload), {
         ingredient_name: editItemForm.ingredient_name,
         fornecedor: editItemForm.fornecedor || "",
         phase: nomeFase(editItemForm.phase),
         inci: (editItemForm.inci || "").trim(),
-        mp_nova: editItemForm.mp_nova_on ? { nome: (editItemForm.mp_nova_nome || editItemForm.ingredient_name).trim(), tipo: editItemForm.mp_nova_tipo } : null,
+        mp_nova: editItemForm.mp_nova_on ? { nome: nomeMpNovaNaEdicao(editItemForm), tipo: tipoMpNovaDoForm(editItemForm) } : null,
         percentage: parseFloat(editItemForm.percentage) || 0,
         price_per_kg: priceInBRL,
         price_usd: precoUsd(editItemForm),
       });
-      toast.success("Item atualizado!");
+      avisarFila(salvo, "Item atualizado!");
       cancelEditItem();
       onRefresh();
     } catch (err) {
-      toast.error(formatApiError(err) || "Erro ao atualizar");
+      if (!err?.cancelado) toast.error(formatApiError(err) || "Erro ao atualizar");
     }
   };
 
@@ -2469,9 +2520,7 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
                                   <input type="checkbox" checked={Boolean(editItemForm.mp_nova_on)} onChange={e => setEditItemForm(p => ({ ...p, mp_nova_on: e.target.checked }))} />
                                   MP nova
                                   {editItemForm.mp_nova_on && (
-                                    <select value={editItemForm.mp_nova_tipo} onChange={e => setEditItemForm(p => ({ ...p, mp_nova_tipo: e.target.value }))} className="h-5 rounded border bg-background px-1 text-[10px]">
-                                      {Object.keys(TIPOS_MP_NOVA).map(t => <option key={t} value={t}>{t}</option>)}
-                                    </select>
+                                    <ChipTipoMpNova compacto tipo={tipoMpNovaDoForm(editItemForm)} onTrocar={() => setEditItemForm(p => ({ ...p, mp_nova_tipo: tipoMpNovaDoForm(p) === "MPES" ? "MPGR" : "MPES" }))} />
                                   )}
                                 </label>
                               </td>
@@ -2755,11 +2804,17 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
                       </label>
                       {newItem.mp_nova_on && (
                         <>
-                          <Input value={newItem.mp_nova_nome} onChange={e => setNewItem(p => ({ ...p, mp_nova_nome: e.target.value }))} placeholder="Nome por extenso (ex.: Manteiga de Quinoa LH0348)" className="h-7 text-xs w-72" />
-                          <select value={newItem.mp_nova_tipo} onChange={e => setNewItem(p => ({ ...p, mp_nova_tipo: e.target.value }))} className="h-7 rounded border bg-background px-2 text-xs">
-                            {Object.entries(TIPOS_MP_NOVA).map(([t, label]) => <option key={t} value={t}>{t} — {label}</option>)}
-                          </select>
-                          <span className="text-[10px] text-muted-foreground">Vai para o Cadastros só depois da aprovação do cliente.</span>
+                          {/* PD-03: sem caixa de texto — o nome é o do ingrediente; o tipo, um chip trocável. */}
+                          <ChipTipoMpNova tipo={tipoMpNovaDoForm(newItem)} onTrocar={() => setNewItem(p => ({ ...p, mp_nova_tipo: tipoMpNovaDoForm(p) === "MPES" ? "MPGR" : "MPES" }))} />
+                          <span className="text-[10px] text-muted-foreground">
+                            Ao salvar, vai para a fila do Cadastros como “{newItem.ingredient_name.trim() || "nome do ingrediente"}” (amostra em desenvolvimento).
+                          </span>
+                          {mpNovaJaCadastrada && (
+                            <button type="button" onClick={() => pickFromCatalog(mpNovaJaCadastrada)} data-testid="vincular-mp-existente"
+                              className="inline-flex h-7 items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 text-xs font-medium text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+                              Já existe {mpNovaJaCadastrada.codigo_interno} — vincular
+                            </button>
+                          )}
                         </>
                       )}
                     </div>
@@ -6137,7 +6192,10 @@ function MpNovasHistorico({ devId, refreshKey }) {
               : t.status === "VINCULADO"
                 // CAD-01: o Cadastros achou o material já cadastrado e vinculou, sem criar outro.
                 ? <span className="text-emerald-700">vinculada ao cadastro existente <b className="font-mono">{t.mpCodigo}</b>{t.vinculadoPor ? ` por ${t.vinculadoPor}` : ""}</span>
-                : <span className="text-amber-700">aguardando cadastro no PCP</span>}
+                : t.status === "CANCELADO"
+                  // PD-03: nenhuma amostra usa mais a MP (removida, trocada, versão nova, descartada); fica registrada.
+                  ? <span className="text-muted-foreground line-through decoration-muted-foreground/40" title={t.motivoCancelamento || ""}>solicitação cancelada{t.motivoCancelamento ? ` — ${t.motivoCancelamento}` : ""}</span>
+                  : <span className="text-amber-700">aguardando cadastro no PCP{t.marca ? ` (${t.marca})` : ""}</span>}
           </div>
         ))}
         {log.map((l) => (

@@ -229,16 +229,18 @@ describe("manipulação no modelo das fichas (Fase 3)", () => {
     memory.write(`${T}/pd_requests/RM/crm_project_id`, "PM");
     await api.post("/pd/developments/DM/approval", { approved_by_client: true, notes: "Cliente aprovou a v2" });
     const fila = memory.read("solicitacoes_cadastro_material") || {};
-    const tarefas = Object.values(fila);
-    expect(tarefas).toHaveLength(1);
-    expect(tarefas[0]).toMatchObject({
-      status: "PENDENTE_CADASTRO", tipo: "MPES", nome: "Fragrância Shower Butter II",
+    // PD-03: a I nasceu ao salvar na v1 e foi cancelada quando a v2 trocou a MP (não some).
+    const pendentes = Object.values(fila).filter((t) => t.status === "PENDENTE_CADASTRO");
+    expect(pendentes).toHaveLength(1);
+    expect(pendentes[0]).toMatchObject({
+      status: "PENDENTE_CADASTRO", tipo: "MPES", nome: "Fragrância Shower Butter II", marca: "aprovada pelo cliente", amostra_em_desenvolvimento: false,
       origem: { pdRequestId: "RM", formulaVersao: 2, projetoNumero: "2026-031", amostra: "2026-031-A1-a", cliente: "Lumi" },
     });
+    expect(fila.NOME__FRAGRANCIA_SHOWER_BUTTER_I).toMatchObject({ status: "CANCELADO", motivoCancelamento: "MP trocada por Fragrância Shower Butter II" });
     await api.post("/pd/developments/DM/approval", { approved_by_client: true });
-    expect(Object.keys(memory.read("solicitacoes_cadastro_material"))).toHaveLength(1);
+    expect(Object.keys(memory.read("solicitacoes_cadastro_material"))).toHaveLength(2);
     const { data: vista } = await api.get("/pd/developments/DM/mp-novas-fila");
-    expect(vista.map((x) => x.nome)).toEqual(["Fragrância Shower Butter II"]);
+    expect(vista.map((x) => [x.nome, x.status])).toEqual([["Fragrância Shower Butter I", "CANCELADO"], ["Fragrância Shower Butter II", "PENDENTE_CADASTRO"]]);
   });
 
   test("fila que falhou é tentada de novo ao abrir o quadro do P&D", async () => {
@@ -362,6 +364,64 @@ test("fórmula registrada só com a aprovação do cliente", async () => {
   memory.write(`${T}/pd_approvals/A1`, { id: "A1", development_id: "D1", approved_by_client: true, approved_by_internal: false });
   const { data } = await api.get("/pd/formulas/bank");
   expect(data.find((x) => x.id === "F1").is_registered).toBe(true);
+});
+
+describe("PD-03: MP nova vai à fila do Cadastros ao salvar (D-08)", () => {
+  const fila = () => memory.read("solicitacoes_cadastro_material") || {};
+  const CHAVE = "NOME__MANTEIGA_DE_QUINOA_LH0348";
+  beforeAll(() => {
+    memory.write("solicitacoes_cadastro_material", null);
+    for (const [r, d, f, codigo] of [["RQ", "DQ", "FQ", "2026-040-A1-a"], ["RQ2", "DQ2", "FQ2", "2026-040-A2-a"]]) {
+      memory.write(`${T}/pd_requests/${r}`, { id: r, status: "IN_PROGRESS", title: "Manteiga", internal_code: codigo, client_name: "Lumi" });
+      memory.write(`${T}/pd_developments/${d}`, { id: d, request_id: r });
+      memory.write(`${T}/pd_formulas/${f}`, { id: f, development_id: d, version: 1, name: "Manteiga", volume: 60, volume_unit: "g", cotacao_usd: 5 });
+    }
+    memory.write("materiais/mGLI", { mpCodigo: "MPGR-00008", mpNome: "GLICERINA BI DESTILADA", tipo: "MPGR" });
+    memory.write("materiais_chave/GLICERINA BI DESTILADA", "mGLI");
+    memory.setUser("pd");
+  });
+
+  test("marcar → salvar → aparece na fila; salvar de novo e outra amostra com a mesma MP não duplicam", async () => {
+    const { data: item } = await api.post("/pd/formulas/FQ/items", { ingredient_name: "Manteiga de Quinoa LH0348", inci: "Chenopodium Quinoa Seed Oil", percentage: 5, mp_nova: { nome: "Manteiga de Quinoa LH0348", tipo: "MPGR" } });
+    expect(Object.keys(fila())).toEqual([CHAVE]);
+    expect(fila()[CHAVE]).toMatchObject({ status: "PENDENTE_CADASTRO", marca: "amostra em desenvolvimento", amostra_em_desenvolvimento: true, tipo: "MPGR",
+      nome: "Manteiga de Quinoa LH0348", inci: "Chenopodium Quinoa Seed Oil", origem: { pdRequestId: "RQ", amostra: "2026-040-A1-a" } });
+    await api.put(`/pd/formula-items/${item.id}`, { percentage: 6, mp_nova: { nome: "Manteiga de Quinoa LH0348", tipo: "MPGR" } });
+    await api.post("/pd/formulas/FQ2/items", { ingredient_name: "Manteiga de quinoa lh0348", percentage: 3, mp_nova: { nome: "Manteiga de quinoa lh0348", tipo: "MPGR" } });
+    expect(Object.keys(fila())).toEqual([CHAVE]);
+    expect(Object.values(fila()[CHAVE].origens).map((o) => [o.pdRequestId, o.ativa])).toEqual([["RQ", true], ["RQ2", true]]);
+    const { data: vista } = await api.get("/pd/developments/DQ2/mp-novas-fila");
+    expect(vista.map((x) => x.id)).toEqual([CHAVE]);
+  });
+
+  test("nome que já existe no Cadastros: 409 oferecendo o vínculo; vincular grava o material, sem MP nova", async () => {
+    const erro = await api.post("/pd/formulas/FQ/items", { ingredient_name: "Glicerina bi-destilada", percentage: 2, mp_nova: { nome: "Glicerina bi-destilada", tipo: "MPGR" } }).catch((e) => e);
+    expect(erro.response.status).toBe(409);
+    expect(erro.response.data.detail).toMatchObject({ code: "MP_JA_CADASTRADA", materialKey: "mGLI", mpCodigo: "MPGR-00008" });
+    expect(fila()["NOME__GLICERINA_BI_DESTILADA"]).toBeUndefined();
+    const { data } = await api.post("/pd/formulas/FQ/items", { ingredient_name: "Glicerina bi-destilada", percentage: 2, catalog_id: "mGLI", mp_nova: null });
+    expect(data).toMatchObject({ material_code: "MPGR-00008", mp_nova: null });
+  });
+
+  test("tirar a MP de uma amostra mantém a da outra; amostra descartada (excluída) cancela, sem apagar", async () => {
+    const itemQ = Object.values(memory.read(`${T}/pd_formula_items`)).find((i) => i.formula_id === "FQ" && i.mp_nova);
+    await api.delete(`/pd/formula-items/${itemQ.id}`);
+    expect(fila()[CHAVE].status).toBe("PENDENTE_CADASTRO"); // a RQ2 ainda usa
+    await api.delete("/pd/requests/RQ2");
+    expect(fila()[CHAVE]).toMatchObject({ status: "CANCELADO", motivoCancelamento: "Amostra descartada: solicitação do P&D excluída", amostra_em_desenvolvimento: false });
+    // Marcar de novo reabre a mesma solicitação.
+    await api.post("/pd/formulas/FQ/items", { ingredient_name: "Manteiga de Quinoa LH0348", percentage: 5, mp_nova: { nome: "Manteiga de Quinoa LH0348", tipo: "MPGR" } });
+    expect(fila()[CHAVE]).toMatchObject({ status: "PENDENTE_CADASTRO", marca: "amostra em desenvolvimento" });
+    expect(Object.keys(fila()).filter((k) => k.startsWith("NOME__MANTEIGA"))).toEqual([CHAVE]);
+  });
+
+  test("amostra reprovada pelo cliente cancela as MPs novas dela", async () => {
+    memory.write(`${T}/crm_samples/SQ`, { id: "SQ", nome_produto: "Manteiga", variacoes: [{ id: "VQ", codigo: "2026-040-A1-a", status: "enviada", pd_request_id: "RQ" }] });
+    memory.setUser("adm");
+    await api.post("/crm/samples/SQ/variacoes/VQ/resultado-cliente", { resultado: "reprovada", aprovacao_cliente: APROVACAO });
+    memory.setUser("pd");
+    expect(fila()[CHAVE]).toMatchObject({ status: "CANCELADO", motivoCancelamento: "Amostra 2026-040-A1-a reprovada pelo cliente" });
+  });
 });
 
 describe("PD-06: especificações do Cadastros na Ficha Técnica", () => {
