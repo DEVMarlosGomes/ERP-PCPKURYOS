@@ -33,8 +33,8 @@ import {
     fmtVolumeDisplay,
     parsePriceInput,
     parseVolumeInput,
-    seedPriceDisplay,
-    seedVolumeDisplay,
+    mascaraMilhar,
+    mascaraMoeda,
 } from "@/lib/masks";
 import { Cli4Field } from "@/components/Cli4Field";
 import { nomeDaCategoria, opcoesDeCategoria } from "@/lib/categoriasProduto";
@@ -1598,25 +1598,13 @@ export default function CRM1Page() {
                                         <div className="space-y-2">
                                             <Label>Faixa de preço de venda (R$)</Label>
                                             <Input type="text" inputMode="decimal" placeholder={DEFAULT_PRICE_DISPLAY} value={proj.faixa_preco_venda}
-                                                onChange={(e) => { const p = [...batchProjects]; p[idx] = { ...p[idx], faixa_preco_venda: e.target.value }; setBatchProjects(p); }}
-                                                onFocus={() => {
-                                                    if (proj.faixa_preco_venda) return;
-                                                    const p = [...batchProjects];
-                                                    p[idx] = { ...p[idx], faixa_preco_venda: seedPriceDisplay(proj.faixa_preco_venda) };
-                                                    setBatchProjects(p);
-                                                }}
+                                                onChange={(e) => { const p = [...batchProjects]; p[idx] = { ...p[idx], faixa_preco_venda: mascaraMoeda(e.target.value) }; setBatchProjects(p); }}
                                                 onBlur={() => { const fmt = fmtPriceDisplay(proj.faixa_preco_venda); if (fmt !== "" && fmt !== String(proj.faixa_preco_venda)) { const p = [...batchProjects]; p[idx] = { ...p[idx], faixa_preco_venda: fmt }; setBatchProjects(p); } }} />
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Volume estimado por pedido *</Label>
                                             <Input type="text" inputMode="numeric" placeholder={DEFAULT_VOLUME_DISPLAY} value={proj.volume_estimado_pedido}
-                                                onChange={(e) => { const p = [...batchProjects]; p[idx] = { ...p[idx], volume_estimado_pedido: e.target.value }; setBatchProjects(p); }}
-                                                onFocus={() => {
-                                                    if (proj.volume_estimado_pedido) return;
-                                                    const p = [...batchProjects];
-                                                    p[idx] = { ...p[idx], volume_estimado_pedido: seedVolumeDisplay(proj.volume_estimado_pedido) };
-                                                    setBatchProjects(p);
-                                                }}
+                                                onChange={(e) => { const p = [...batchProjects]; p[idx] = { ...p[idx], volume_estimado_pedido: mascaraMilhar(e.target.value) }; setBatchProjects(p); }}
                                                 onBlur={() => { const fmt = fmtVolumeDisplay(proj.volume_estimado_pedido); if (fmt !== "" && fmt !== String(proj.volume_estimado_pedido)) { const p = [...batchProjects]; p[idx] = { ...p[idx], volume_estimado_pedido: fmt }; setBatchProjects(p); } }} />
                                         </div>
                                         <div className="space-y-2">

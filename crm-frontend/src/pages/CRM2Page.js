@@ -10,8 +10,8 @@ import {
     fmtVolumeDisplay,
     parsePriceInput,
     parseVolumeInput,
-    seedPriceDisplay,
-    seedVolumeDisplay,
+    mascaraMilhar,
+    mascaraMoeda,
 } from "@/lib/masks";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
@@ -306,8 +306,9 @@ export default function CRM2Page() {
         publico_alvo: proj?.publico_alvo || "",
         posicionamento: proj?.posicionamento || "",
         tipo_servico: proj?.tipo_servico || "",
-        faixa_preco_venda: proj?.faixa_preco_venda ?? "",
-        volume_estimado_pedido: proj?.volume_estimado_pedido ?? "",
+        // CRM-03: o valor salvo é número; abre já formatado (15.5 → "15,50"), nunca cru.
+        faixa_preco_venda: fmtPriceDisplay(proj?.faixa_preco_venda ?? ""),
+        volume_estimado_pedido: fmtVolumeDisplay(proj?.volume_estimado_pedido ?? ""),
         prazo_desejado_amostra: proj?.prazo_desejado_amostra || "",
         sensorial_desejado: proj?.sensorial_desejado || "",
         claims_desejados: proj?.claims_desejados || "",
@@ -965,8 +966,7 @@ export default function CRM2Page() {
                                                 inputMode="decimal"
                                                 placeholder={DEFAULT_PRICE_DISPLAY}
                                                 value={faixaPrecoDisplay}
-                                                onChange={(event) => setFaixaPrecoDisplay(event.target.value)}
-                                                onFocus={() => setFaixaPrecoDisplay((current) => seedPriceDisplay(current))}
+                                                onChange={(event) => setFaixaPrecoDisplay(mascaraMoeda(event.target.value))}
                                                 onBlur={(event) => {
                                                     const formatted = fmtPriceDisplay(event.target.value);
                                                     setFaixaPrecoDisplay(formatted);
@@ -981,8 +981,7 @@ export default function CRM2Page() {
                                                 inputMode="numeric"
                                                 placeholder={DEFAULT_VOLUME_DISPLAY}
                                                 value={volumeEstimadoDisplay}
-                                                onChange={(event) => setVolumeEstimadoDisplay(event.target.value)}
-                                                onFocus={() => setVolumeEstimadoDisplay((current) => seedVolumeDisplay(current))}
+                                                onChange={(event) => setVolumeEstimadoDisplay(mascaraMilhar(event.target.value))}
                                                 onBlur={(event) => {
                                                     const formatted = fmtVolumeDisplay(event.target.value);
                                                     setVolumeEstimadoDisplay(formatted);

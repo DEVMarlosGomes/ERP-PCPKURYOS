@@ -13,8 +13,8 @@ import {
     DEFAULT_VOLUME_DISPLAY,
     fmtPriceDisplay,
     fmtVolumeDisplay,
-    seedPriceDisplay,
-    seedVolumeDisplay,
+    mascaraMilhar,
+    mascaraMoeda,
 } from "@/lib/masks";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { opcoesDeCategoria } from "@/lib/categoriasProduto";
@@ -204,8 +204,7 @@ export default function SampleBatchModal({
                                                     type="text"
                                                     inputMode="decimal"
                                                     value={projetoData.faixa_preco_venda ?? ""}
-                                                    onChange={(e) => updateProjeto("faixa_preco_venda", e.target.value)}
-                                                    onFocus={() => updateProjeto("faixa_preco_venda", seedPriceDisplay(projetoData.faixa_preco_venda))}
+                                                    onChange={(e) => updateProjeto("faixa_preco_venda", mascaraMoeda(e.target.value))}
                                                     onBlur={(e) => updateProjeto("faixa_preco_venda", fmtPriceDisplay(e.target.value))}
                                                     placeholder={DEFAULT_PRICE_DISPLAY}
                                                 />
@@ -216,8 +215,7 @@ export default function SampleBatchModal({
                                                     type="text"
                                                     inputMode="numeric"
                                                     value={projetoData.volume_estimado_pedido ?? ""}
-                                                    onChange={(e) => updateProjeto("volume_estimado_pedido", e.target.value)}
-                                                    onFocus={() => updateProjeto("volume_estimado_pedido", seedVolumeDisplay(projetoData.volume_estimado_pedido))}
+                                                    onChange={(e) => updateProjeto("volume_estimado_pedido", mascaraMilhar(e.target.value))}
                                                     onBlur={(e) => updateProjeto("volume_estimado_pedido", fmtVolumeDisplay(e.target.value))}
                                                     placeholder={DEFAULT_VOLUME_DISPLAY}
                                                 />
