@@ -107,16 +107,16 @@
     h += '<div class="card"><div class="barra"><input class="busca" id="qTit" placeholder="Buscar documento, ' + (tipo === 'PAGAR' ? 'fornecedor' : 'cliente') + ', PC…" value="' + e(S.q) + '">' +
       '<select class="sel" id="fFiltro">' + [['abertos', 'Em aberto'], ['vencidos', 'Vencidos'], ['semvenc', 'Sem vencimento'], ['todos', 'Todos']].map(function(o) { return '<option value="' + o[0] + '"' + (S.filtro === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
       '<button class="btn sm" data-manual="' + tipo + '">+ Título manual</button></div>';
-    h += '<div class="tw"><table><thead><tr><th>Documento</th><th>' + (tipo === 'PAGAR' ? 'Fornecedor' : 'Cliente') + '</th><th>Origem</th><th>Emissão</th><th>Próx. vencimento</th><th class="n">Valor</th><th class="n">Saldo</th><th>Situação</th><th></th></tr></thead><tbody>' +
+    h += '<div class="tw"><table><thead><tr><th>Documento</th><th>' + (tipo === 'PAGAR' ? 'Fornecedor' : 'Cliente') + '</th><th>Origem</th><th>Emissão</th><th>Próx. vencimento</th><th>Parcelas</th><th class="n">Valor</th><th class="n">Saldo</th><th>Situação</th><th></th></tr></thead><tbody>' +
       (lista.length ? lista.map(function(s) {
         var t = s.titulo, p = s.abertas[0], st = ROT_STATUS[s.status] || ['mute', s.status];
         var vencido = p && p.vencimento < hoje;
         return '<tr><td><a href="#" data-det="' + e(s.id) + '">' + e(t.documento || s.id) + '</a></td><td>' + e(t.parceiro && t.parceiro.nome) + '</td><td>' + e(ROT_ORIGEM[t.origem && t.origem.tipo] || (t.origem && t.origem.tipo)) + (t.origem && t.origem.pc ? ' <span class="mut">' + e(t.origem.pc) + '</span>' : '') + '</td>' +
           '<td>' + dataBR(t.emissao) + '</td><td>' + (s.semVencimento ? '<span class="tg warn">sem prazo</span>' : p ? '<span class="' + (vencido ? 'neg' : '') + '">' + dataBR(p.vencimento) + '</span>' + (p.de > 1 ? ' <span class="mut">' + p.n + '/' + p.de + '</span>' : '') : '—') + '</td>' +
-          '<td class="n">' + brl(t.valorCentavos) + '</td><td class="n">' + brl(s.saldoCentavos) + '</td><td><span class="tg ' + st[0] + '">' + st[1] + '</span>' + (s.bloqueio ? ' <span class="tg bad">bloqueado</span>' : '') + '</td>' +
+          '<td>' + e(F.resumoParcelas(s)) + '</td><td class="n">' + brl(t.valorCentavos) + '</td><td class="n">' + brl(s.saldoCentavos) + '</td><td><span class="tg ' + st[0] + '">' + st[1] + '</span>' + (s.bloqueio ? ' <span class="tg bad">bloqueado</span>' : '') + '</td>' +
           '<td class="mini-acoes">' + (s.saldoCentavos > 0 ? '<button class="btn sm pri" data-baixar="' + e(s.id) + '">' + (tipo === 'PAGAR' ? 'Pagar' : 'Receber') + '</button>' : '') +
           (tipo === 'PAGAR' && s.saldoCentavos > 0 ? '<button class="btn sm" data-bloq="' + e(s.id) + '">' + (s.bloqueio ? 'Desbloquear' : 'Bloquear') + '</button>' : '') + '</td></tr>';
-      }).join('') : '<tr><td colspan="9"><div class="vazio"><b>Nenhum título ' + (S.filtro === 'abertos' ? 'em aberto' : 'neste filtro') + '.</b>' + (tipo === 'PAGAR' ? 'Títulos a pagar nascem dos recebimentos contra pedido de compra.' : 'Títulos a receber nascem das notas registradas nas cargas (Faturamento) — o faturamento ainda não opera neste banco.') + '</div></td></tr>') +
+      }).join('') : '<tr><td colspan="10"><div class="vazio"><b>Nenhum título ' + (S.filtro === 'abertos' ? 'em aberto' : 'neste filtro') + '.</b>' + (tipo === 'PAGAR' ? 'Títulos a pagar nascem dos recebimentos contra pedido de compra.' : 'Títulos a receber nascem das notas registradas nas cargas (Faturamento) — o faturamento ainda não opera neste banco.') + '</div></td></tr>') +
       '</tbody></table></div></div>';
     return h;
   }
@@ -260,12 +260,30 @@
   function formManual(tipo) {
     var h = '<div class="form"><div><label for="mParc">' + (tipo === 'PAGAR' ? 'Fornecedor' : 'Cliente') + '</label><input class="inp" id="mParc"></div><div><label for="mCnpj">CNPJ</label><input class="inp" id="mCnpj"></div>' +
       '<div><label for="mDoc">Documento</label><input class="inp" id="mDoc" placeholder="NF 123"></div><div><label for="mValor">Valor (R$)</label><input class="inp" id="mValor"></div>' +
-      '<div><label for="mEmi">Emissão</label><input class="inp" type="date" id="mEmi" value="' + hojeISO() + '"></div><div><label for="mVenc">Vencimento</label><input class="inp" type="date" id="mVenc"></div>' +
-      '<div><label for="mCond">ou condição</label><input class="inp" id="mCond" placeholder="30/60"></div>' +
+      '<div><label for="mEmi">Emissão</label><input class="inp" type="date" id="mEmi" value="' + hojeISO() + '"></div><div><label for="mVenc">Vencimento único</label><input class="inp" type="date" id="mVenc"><div class="dica">Preenchido, vale ele e o parcelamento é ignorado.</div></div>' +
+      '<div><label for="mNParc">Nº de parcelas</label><input class="inp" type="number" inputmode="numeric" min="1" max="60" id="mNParc" placeholder="2"></div>' +
+      '<div><label for="mPrim">1º vencimento (dias)</label><input class="inp" type="number" inputmode="numeric" min="0" max="365" id="mPrim" value="30"></div>' +
+      '<div><label for="mInt">Intervalo (dias)</label><input class="inp" type="number" inputmode="numeric" min="1" max="365" id="mInt" value="30"></div>' +
+      '<div><label for="mCond">Condição</label><input class="inp" id="mCond" placeholder="30/60 ou 2x 30/60"><div class="dica">Montada pelos campos ao lado, ou digite (ex.: 2x 30/60, 3x, 20% à vista, 30/45).</div></div>' +
+      '<div style="grid-column:1/-1" id="mPrev" aria-live="polite"></div>' +
       '<div><label for="mNat">Natureza</label><select class="sel" id="mNat">' + F.NATUREZAS.map(function(n) { return '<option' + ((tipo === 'RECEBER' ? 'RECEITA_VENDA' : 'OUTROS') === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select></div>' +
       '<div style="grid-column:1/-1"><label for="mHist">Histórico</label><input class="inp" id="mHist"></div></div>' +
       '<div style="margin-top:12px"><button class="btn pri" id="mOk" data-tipo="' + tipo + '">Lançar</button> <span class="dica">Título manual vira lançamento na Controladoria pela natureza.</span></div>';
     abrir('Título ' + (tipo === 'PAGAR' ? 'a pagar' : 'a receber') + ' manual', h);
+    previaManual();
+  }
+  function linhaManual(tipo) {
+    return {tipo: tipo, parceiro: el('mParc').value, cnpj: el('mCnpj').value, documento: el('mDoc').value, valor: el('mValor').value, emissao: el('mEmi').value,
+      vencimento: el('mVenc').value || null, condicao: el('mCond').value, natureza: el('mNat').value, historico: el('mHist').value};
+  }
+  // Prévia das parcelas (n/de, vencimento, valor) pelo mesmo motor que o servidor usa.
+  function previaManual() {
+    var alvo = el('mPrev'); if (!alvo) return;
+    var p = F.previaParcelas(linhaManual(''));
+    if (!p.ok) { alvo.innerHTML = '<div class="alerta info"><div><b>Prévia das parcelas:</b> ' + e(p.motivo) + '</div></div>'; return; }
+    alvo.innerHTML = '<h3 style="margin:4px 0 6px">Prévia das parcelas</h3><div class="tw"><table><thead><tr><th>Parcela</th><th>Vencimento</th><th class="n">Valor</th></tr></thead><tbody>' +
+      p.parcelas.map(function(x) { return '<tr><td>' + x.n + '/' + x.de + (x.tipo !== 'PRAZO' ? ' <span class="mut">' + e(x.tipo === 'A_VISTA' ? 'à vista' : x.tipo) + '</span>' : '') + '</td><td>' + dataBR(x.vencimento) + '</td><td class="n">' + brl(x.valorCentavos) + '</td></tr>'; }).join('') +
+      '</tbody></table></div>' + (p.avisos.length ? '<div class="dica">' + p.avisos.map(e).join(' ') + '</div>' : '');
   }
 
   /* ── Diálogo ───────────────────────────────────────────────────────────── */
@@ -357,8 +375,7 @@
       return;
     }
     if (t.id === 'mOk') {
-      var linha = {tipo: d.tipo, parceiro: el('mParc').value, cnpj: el('mCnpj').value, documento: el('mDoc').value, valor: el('mValor').value, emissao: el('mEmi').value,
-        vencimento: el('mVenc').value || null, condicao: el('mCond').value, natureza: el('mNat').value, historico: el('mHist').value};
+      var linha = linhaManual(d.tipo);
       var v = F.validarTituloManual(linha, 'MANUAL'); if (!v.ok) { toast(v.motivo); return; }
       travar(t, chamar('finLancarTitulos', {origem: 'MANUAL', titulos: [linha]})).then(function(res) { fechar(); toast(res.criados ? 'Título lançado.' : 'Já existia um título igual.'); });
       return;
@@ -385,7 +402,20 @@
   });
   var tBusca = null;
   document.addEventListener('input', function(ev) {
-    if (ev.target.id !== 'qTit') return;
+    var id = ev.target.id;
+    if (id === 'mNParc' || id === 'mPrim' || id === 'mInt') {
+      // Nº de parcelas + 1º vencimento + intervalo montam a condição canônica.
+      if (String(el('mNParc').value).trim() !== '') {
+        var mc = F.montarCondicao({nParcelas: el('mNParc').value, primeiroPrazoDias: el('mPrim').value, intervaloDias: el('mInt').value});
+        el('mCond').value = mc.ok ? mc.condicao : '';
+        if (!mc.ok) { el('mPrev').innerHTML = '<div class="alerta warn"><div><b>Parcelamento:</b> ' + e(mc.motivo) + '</div></div>'; return; }
+      }
+      previaManual(); return;
+    }
+    // Condição digitada à mão manda: o Nº de parcelas deixa de valer (não fica contradizendo).
+    if (id === 'mCond') el('mNParc').value = '';
+    if (/^m(Valor|Emi|Venc|Cond)$/.test(id)) { previaManual(); return; }
+    if (id !== 'qTit') return;
     clearTimeout(tBusca);
     var t = ev.target;
     tBusca = setTimeout(function() { S.q = t.value; var pos = t.selectionStart; render(); var n = el('qTit'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (x) { /* ok */ } } }, 250);

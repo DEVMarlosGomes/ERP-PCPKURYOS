@@ -58,12 +58,40 @@
      se entende ("ST a vista, restante 30/45/60") NÃO é adivinhado: ok=false. */
   var PALAVRAS_DIA0 = { 'A VISTA': 'A_VISTA', 'AVISTA': 'A_VISTA', 'VISTA': 'A_VISTA', 'ENTREGA': 'ENTREGA', 'NA ENTREGA': 'ENTREGA',
     'SINAL': 'SINAL', 'PEDIDO': 'SINAL', 'NO PEDIDO': 'SINAL', 'ENTRADA': 'SINAL', 'ANTECIPADO': 'SINAL' };
+  /* Parcelamento "Nx" (FIN-01, 28/10). Regra: N parcelas IGUAIS; os prazos são
+     os informados depois do "x" ou, quando vem um prazo só (ou nenhum), o
+     primeiro prazo (padrão 30) e os seguintes de 30 em 30 dias:
+       "2x 30/60" = "2x30-60" = "30/60"   ·   "3x" = "3 x 30" = "30/60/90"   ·   "2x 28" = "28/58".
+     Também vale "N vezes". Com mais de um prazo, eles têm que ser N. Volta
+     null quando o texto não começa por "Nx" (segue a leitura normal). */
+  var INTERVALO_PADRAO_DIAS = 30, MAX_PARCELAS = 60;
+  function expandirParcelamento(t, bruto) {
+    var m = t.match(/^(\d{1,3})\s*(?:X|VEZES)(?![A-Z])\s*(.*)$/);
+    if (!m) return null;
+    var n = Number(m[1]);
+    if (!(n >= 1 && n <= MAX_PARCELAS)) return { ok: false, motivo: 'número de parcelas deve ser de 1 a ' + MAX_PARCELAS + ': "' + bruto + '"' };
+    var lista = m[2].split(/[\/\-\s]+/).filter(Boolean);
+    if (lista.some(function(s) { return !/^\d{1,3}$/.test(s); })) return { ok: false, motivo: 'condição não reconhecida: "' + bruto + '"' };
+    var dias = lista.map(Number);
+    if (dias.length <= 1) {
+      var primeiro = dias.length ? dias[0] : INTERVALO_PADRAO_DIAS;
+      dias = [];
+      for (var i = 0; i < n; i++) dias.push(primeiro + i * INTERVALO_PADRAO_DIAS);
+    } else if (dias.length !== n) return { ok: false, motivo: '"' + bruto + '" tem ' + dias.length + ' prazos para ' + n + ' parcelas' };
+    return { ok: true, texto: dias.join('/') };
+  }
+  function normalizarTexto(bruto) {
+    return bruto.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/\bDIAS?\b|\bDDL\b|\bDD\b/g, ' ').replace(/\s+/g, ' ').trim();
+  }
   function lerCondicao(txt) {
     var bruto = String(txt == null ? '' : txt).trim();
     if (!bruto) return { ok: false, motivo: 'sem condição de pagamento' };
-    var t = bruto.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-      .replace(/\bDIAS?\b|\bDDL\b|\bDD\b/g, ' ').replace(/\s+/g, ' ').trim();
-    if (PALAVRAS_DIA0[t]) return { ok: true, partes: [{ dias: 0, pct: 100, tipo: PALAVRAS_DIA0[t] }], avisos: [] };
+    var t = normalizarTexto(bruto);
+    var nx = expandirParcelamento(t, bruto);
+    if (nx && !nx.ok) return nx;
+    if (nx) t = nx.texto;
+    if (PALAVRAS_DIA0[t])return { ok: true, partes: [{ dias: 0, pct: 100, tipo: PALAVRAS_DIA0[t] }], avisos: [] };
     var segs = t.split(/[,;\/]|\bE\b/).map(function(s) { return s.trim(); }).filter(Boolean);
     var partes = [], soltas = [], avisos = [];
     for (var i = 0; i < segs.length; i++) {
@@ -103,6 +131,60 @@
       return { n: i + 1, de: arr.length, vencimento: addDias(baseISO, p.dias), valorCentavos: valor, tipo: p.tipo };
     });
     return { ok: true, parcelas: ps, avisos: c.avisos || [] };
+  }
+
+  /* Forma GRAVADA de uma condição: o "Nx" vira a lista de prazos ("2x 30/60" ->
+     "30/60"); o resto fica como veio. Inválida -> null. O formato no banco não
+     muda: continua uma string que lerCondicao entende. */
+  function normalizarCondicao(txt) {
+    var bruto = String(txt == null ? '' : txt).trim();
+    if (!bruto || !lerCondicao(bruto).ok) return null;
+    var nx = expandirParcelamento(normalizarTexto(bruto), bruto);
+    return nx ? nx.texto : bruto;
+  }
+  /* Os campos do formulário -> condição canônica. Campo vazio = 30 dias (1º prazo
+     e intervalo). 1 parcela no dia 0 = "À VISTA". Volta {ok, condicao} ou {ok:false, motivo}. */
+  function montarCondicao(o) {
+    var x = o || {};
+    function inteiro(v, padrao) { return v == null || String(v).trim() === '' ? padrao : Number(String(v).trim()); }
+    var n = inteiro(x.nParcelas, NaN), p = inteiro(x.primeiroPrazoDias, INTERVALO_PADRAO_DIAS), iv = inteiro(x.intervaloDias, INTERVALO_PADRAO_DIAS);
+    if (!(Number.isInteger(n) && n >= 1 && n <= MAX_PARCELAS)) return { ok: false, motivo: 'Nº de parcelas deve ser um inteiro de 1 a ' + MAX_PARCELAS + '.' };
+    if (!(Number.isInteger(p) && p >= 0 && p <= 365)) return { ok: false, motivo: '1º vencimento deve ser de 0 a 365 dias.' };
+    if (n > 1 && !(Number.isInteger(iv) && iv >= 1 && iv <= 365)) return { ok: false, motivo: 'Intervalo entre parcelas deve ser de 1 a 365 dias.' };
+    var ultimo = p + (n - 1) * iv;
+    if (ultimo > 365) return { ok: false, motivo: 'A última parcela venceria em ' + ultimo + ' dias; o limite é 365.' };
+    if (n === 1 && p === 0) return { ok: true, condicao: 'À VISTA' };
+    var dias = [];
+    for (var i = 0; i < n; i++) dias.push(p + i * iv);
+    return { ok: true, condicao: dias.join('/') };
+  }
+  /* Prévia das parcelas de um lançamento manual, antes de lançar. Mesmo caminho
+     da leitura (situacao): vencimento fixo = parcela única; senão a condição a
+     partir da emissão. [{n, de, vencimento, valorCentavos, tipo}], a última absorve o centavo. */
+  function previaParcelas(l) {
+    var x = l || {};
+    var v = typeof x.valorCentavos === 'number' ? Math.round(x.valorCentavos) : centavos(x.valor);
+    if (!(v > 0)) return { ok: false, motivo: 'Valor inválido.' };
+    var emissao = String(x.emissao || '').slice(0, 10);
+    if (!dataOk(emissao)) return { ok: false, motivo: 'Data de emissão inválida (AAAA-MM-DD).' };
+    if (x.vencimento) {
+      if (!dataOk(x.vencimento)) return { ok: false, motivo: 'Vencimento inválido (AAAA-MM-DD).' };
+      return { ok: true, parcelas: [{ n: 1, de: 1, vencimento: String(x.vencimento).slice(0, 10), valorCentavos: v, tipo: 'PRAZO' }], avisos: [] };
+    }
+    if (!String(x.condicao || '').trim()) return { ok: false, motivo: 'Sem vencimento nem condição: o título entra sem prazo e vai para Complementos.' };
+    var c = lerCondicao(x.condicao);
+    if (!c.ok) return { ok: false, motivo: 'Condição de pagamento: ' + c.motivo };
+    return parcelas(c, emissao, v);
+  }
+  /* Coluna "Parcelas" das listas: "1/2 paga", "0/3 recebidas", "+ parcial". */
+  function resumoParcelas(sit) {
+    var s = sit || {}, ps = s.parcelas || [];
+    if (!ps.length) return '—';
+    var abertas = {}, parcial = false;
+    (s.abertas || []).forEach(function(a) { abertas[a.n] = true; if (a.abertoCentavos < a.valorCentavos) parcial = true; });
+    var quitadas = ps.filter(function(p) { return !abertas[p.n]; }).length;
+    var verbo = s.titulo && s.titulo.tipo === 'RECEBER' ? 'recebida' : 'paga';
+    return quitadas + '/' + ps.length + ' ' + verbo + (quitadas === 1 ? '' : 's') + (parcial ? ' + parcial' : '');
   }
 
   /* ── Derivação: fato -> título ───────────────────────────────────────── */
@@ -407,9 +489,15 @@
     if (x.vencimento && !dataOk(x.vencimento)) return { ok: false, motivo: 'Vencimento inválido (AAAA-MM-DD).' };
     var nat = String(x.natureza || (tipo === 'RECEBER' ? 'RECEITA_VENDA' : 'OUTROS')).toUpperCase();
     if (NATUREZAS.indexOf(nat) < 0) return { ok: false, motivo: 'Natureza desconhecida: ' + nat + '.' };
+    // Condição informada (sem vencimento): tem que ser entendida e é gravada na forma canônica.
+    var cond = null;
+    if (!x.vencimento && String(x.condicao || '').trim()) {
+      cond = normalizarCondicao(x.condicao);
+      if (!cond) return { ok: false, motivo: 'Condição de pagamento: ' + lerCondicao(x.condicao).motivo };
+    }
     return { ok: true, titulo: { tipo: tipo, origem: { tipo: origemTipo || 'MANUAL', ref: null }, parceiro: { tipo: tipo === 'PAGAR' ? 'FORNECEDOR' : 'CLIENTE', key: x.parceiroKey || null, nome: nome.slice(0, 120), cnpj: String(x.cnpj || '').trim() || null },
       documento: String(x.documento || '').trim().slice(0, 60) || null, emissao: emissao, competencia: emissao.slice(0, 7), valorCentavos: v, moeda: 'BRL',
-      natureza: nat, porNatureza: null, centroCusto: x.centroCusto || null, condicao: x.vencimento ? null : (String(x.condicao || '').trim() || null),
+      natureza: nat, porNatureza: null, centroCusto: x.centroCusto || null, condicao: cond,
       vencimentoFixo: x.vencimento ? String(x.vencimento).slice(0, 10) : null, baseVencimento: emissao, historico: String(x.historico || '').slice(0, 300) || null, versao: VERSAO } };
   }
   /* Planilha de títulos em aberto (colar do Excel): tipo;parceiro;cnpj;documento;emissao;vencimento;valor;natureza
@@ -596,6 +684,7 @@
   return {
     VERSAO: VERSAO, NATUREZAS: NATUREZAS,
     centavos: centavos, lerCondicao: lerCondicao, parcelas: parcelas, addDias: addDias,
+    normalizarCondicao: normalizarCondicao, montarCondicao: montarCondicao, previaParcelas: previaParcelas, resumoParcelas: resumoParcelas,
     condicaoDoPc: condicaoDoPc, derivarRecebimentos: derivarRecebimentos, derivarNfs: derivarNfs, derivarRecorrentes: derivarRecorrentes, derivar: derivar,
     itensDaNf: itensDaNf, movimentosPorTitulo: movimentosPorTitulo, situacao: situacao, carteira: carteira, complementos: complementos,
     validarBaixa: validarBaixa, validarEstorno: validarEstorno, validarAprovacaoLote: validarAprovacaoLote,

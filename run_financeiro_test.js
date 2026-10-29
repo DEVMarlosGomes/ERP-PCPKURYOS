@@ -34,6 +34,63 @@ eq(F.centavos('1234.56'), 123456, 'valor com ponto decimal');
 eq(F.centavos(12.345), 1235, 'número arredonda ao centavo');
 eq(F.centavos(''), null, 'vazio é null, não zero');
 
+// ── 2b. FIN-01: parcelas num lançamento ("2x 30/60") ──────────────────────
+deq(F.lerCondicao('2x 30/60'), F.lerCondicao('30/60'), '"2x 30/60" é igual a "30/60"');
+deq(F.lerCondicao('2x30-60'), F.lerCondicao('30/60'), '"2x30-60" (hífen) é igual a "30/60"');
+deq(F.lerCondicao('3x'), F.lerCondicao('30/60/90'), '"3x" sozinho = 30/60/90');
+deq(F.lerCondicao('3 x 30'), F.lerCondicao('30/60/90'), '"3 x 30" = 30/60/90 (intervalo de 30 a partir do 1º prazo)');
+deq(F.lerCondicao('2X 28'), F.lerCondicao('28/58'), '"2X 28" = 28/58');
+deq(F.lerCondicao('2 vezes 30/60'), F.lerCondicao('30/60'), '"2 vezes" = "2x"');
+deq(F.lerCondicao('à vista'), F.lerCondicao('A VISTA'), 'à vista não muda');
+eq(dias('30/60'), '30:50:PRAZO 60:50:PRAZO', '"30/60" não muda');
+eq(dias('à vista'), '0:100:A_VISTA', '"à vista" não muda');
+eq(F.lerCondicao('2x 30/60/90').motivo, '"2x 30/60/90" tem 3 prazos para 2 parcelas', 'nº de prazos diferente do nº de parcelas: mensagem clara');
+eq(F.lerCondicao('0x').motivo, 'número de parcelas deve ser de 1 a 60: "0x"', 'zero parcelas: mensagem clara');
+eq(F.lerCondicao('2x abc').motivo, 'condição não reconhecida: "2x abc"', 'texto depois do 2x: mensagem clara');
+eq(F.lerCondicao('13x 30').motivo, 'prazo acima de 365 dias: "13x 30"', 'último prazo acima de 365: mensagem clara');
+eq(F.normalizarCondicao('2x 30/60'), '30/60', 'gravado na forma canônica');
+eq(F.normalizarCondicao('3 x 30'), '30/60/90', 'gravado na forma canônica (3 x 30)');
+eq(F.normalizarCondicao('20% A VISTA, 30/45'), '20% A VISTA, 30/45', 'condição sem "Nx" é gravada como veio');
+eq(F.normalizarCondicao('2x abc'), null, 'condição inválida não tem forma canônica');
+// montarCondicao: os três campos do formulário -> string canônica.
+deq(F.montarCondicao({ nParcelas: 2, primeiroPrazoDias: 30, intervaloDias: 30 }), { ok: true, condicao: '30/60' }, '2× a partir de 30 = 30/60');
+deq(F.montarCondicao({ nParcelas: 3, primeiroPrazoDias: 0, intervaloDias: 30 }), { ok: true, condicao: '0/30/60' }, 'entrada + 2');
+deq(F.montarCondicao({ nParcelas: 1, primeiroPrazoDias: 0 }), { ok: true, condicao: 'À VISTA' }, '1× no dia 0 = à vista');
+deq(F.montarCondicao({ nParcelas: 4, primeiroPrazoDias: 28, intervaloDias: 14 }), { ok: true, condicao: '28/42/56/70' }, 'intervalo informado');
+deq(F.montarCondicao({ nParcelas: '2', primeiroPrazoDias: '', intervaloDias: '' }), { ok: true, condicao: '30/60' }, 'vazio = 1º prazo 30 e intervalo 30');
+eq(F.montarCondicao({ nParcelas: 0 }).motivo, 'Nº de parcelas deve ser um inteiro de 1 a 60.', 'zero parcelas recusado');
+eq(F.montarCondicao({ nParcelas: 2.5 }).motivo, 'Nº de parcelas deve ser um inteiro de 1 a 60.', 'parcela fracionada recusada');
+eq(F.montarCondicao({ nParcelas: 2, primeiroPrazoDias: -1 }).motivo, '1º vencimento deve ser de 0 a 365 dias.', 'prazo negativo recusado');
+eq(F.montarCondicao({ nParcelas: 2, intervaloDias: 0 }).motivo, 'Intervalo entre parcelas deve ser de 1 a 365 dias.', 'intervalo zero recusado');
+eq(F.montarCondicao({ nParcelas: 13, primeiroPrazoDias: 30, intervaloDias: 30 }).motivo, 'A última parcela venceria em 390 dias; o limite é 365.', 'prazo final acima de 365 recusado');
+ok(F.montarCondicao({ nParcelas: 12, primeiroPrazoDias: 30, intervaloDias: 30 }).ok, '12× até 360 dias passa');
+// Prévia: [{n, de, vencimento, valorCentavos}], a última absorve o centavo.
+const pv2 = F.previaParcelas({ condicao: '2x 30/60', emissao: '2026-10-01', valor: '1.000,00' });
+deq(pv2.parcelas.map((p) => [p.n, p.de, p.vencimento, p.valorCentavos]), [[1, 2, '2026-10-31', 50000], [2, 2, '2026-11-30', 50000]], '2× 30/60: duas metades');
+const pv3 = F.previaParcelas({ condicao: F.montarCondicao({ nParcelas: 3, primeiroPrazoDias: 30 }).condicao, emissao: '2026-10-01', valor: '100,00' });
+deq(pv3.parcelas.map((p) => p.valorCentavos), [3333, 3333, 3334], '3× de R$ 100,00 = 33,33 + 33,33 + 33,34');
+eq(pv3.parcelas.reduce((s, p) => s + p.valorCentavos, 0), 10000, '3×: a soma fecha o valor');
+const pvv = F.previaParcelas({ condicao: 'à vista', emissao: '2026-10-01', valor: '99,99' });
+deq(pvv.parcelas.map((p) => [p.n, p.de, p.vencimento, p.valorCentavos]), [[1, 1, '2026-10-01', 9999]], 'à vista: uma parcela no dia da emissão');
+const pvf = F.previaParcelas({ vencimento: '2026-11-15', emissao: '2026-10-01', valor: '10' });
+deq(pvf.parcelas.map((p) => [p.n, p.de, p.vencimento, p.valorCentavos]), [[1, 1, '2026-11-15', 1000]], 'vencimento fixo: parcela única nele');
+eq(F.previaParcelas({ condicao: '2x 30/60/90', emissao: '2026-10-01', valor: '10' }).motivo, 'Condição de pagamento: "2x 30/60/90" tem 3 prazos para 2 parcelas', 'prévia de condição inválida: mensagem clara');
+// Título manual: grava a condição canônica; o mesmo lançamento em "2x 30/60" ou "30/60" tem a mesma chave.
+const tm2 = F.validarTituloManual({ tipo: 'RECEBER', parceiro: 'Cliente A', emissao: '2026-10-01', valor: '100', condicao: '2x 30/60' }, 'MANUAL');
+eq(tm2.titulo.condicao, '30/60', 'título manual grava "30/60" (formato não muda)');
+eq(F.chaveManual(tm2.titulo), F.chaveManual(F.validarTituloManual({ tipo: 'RECEBER', parceiro: 'Cliente A', emissao: '2026-10-01', valor: '100', condicao: '30/60' }, 'MANUAL').titulo), '"2x 30/60" e "30/60" não duplicam');
+deq(F.situacao('X', tm2.titulo, null, null).parcelas.map((p) => p.vencimento), ['2026-10-31', '2026-11-30'], 'as parcelas derivadas na leitura = a prévia');
+eq(F.validarTituloManual({ tipo: 'PAGAR', parceiro: 'A', emissao: '2026-10-01', valor: '10', condicao: '2x 30/60/90' }).motivo, 'Condição de pagamento: "2x 30/60/90" tem 3 prazos para 2 parcelas', 'título manual com condição inválida é recusado com motivo');
+ok(F.validarTituloManual({ tipo: 'PAGAR', parceiro: 'A', emissao: '2026-10-01', valor: '10' }).ok, 'sem condição nem vencimento continua aceito (vira complemento)');
+// Coluna "Parcelas" das listas.
+const sitP = (baixas) => F.situacao('T', { tipo: 'PAGAR', valorCentavos: 10000, condicao: '30/60', baseVencimento: '2026-10-01' }, { baixas: [], abatimentos: [], pago: baixas, abatido: 0 }, null);
+eq(F.resumoParcelas(sitP(0)), '0/2 pagas', 'nenhuma paga');
+eq(F.resumoParcelas(sitP(5000)), '1/2 paga', '1/2 paga');
+eq(F.resumoParcelas(sitP(7000)), '1/2 paga + parcial', 'segunda parcial');
+eq(F.resumoParcelas(sitP(10000)), '2/2 pagas', 'todas pagas');
+eq(F.resumoParcelas(F.situacao('R', { tipo: 'RECEBER', valorCentavos: 100, condicao: '30/60', baseVencimento: '2026-10-01' }, { baixas: [], abatimentos: [], pago: 50, abatido: 0 }, null)), '1/2 recebida', 'a receber: recebida');
+eq(F.resumoParcelas(F.situacao('S', { tipo: 'PAGAR', valorCentavos: 100, condicao: null, baseVencimento: '2026-10-01' }, null, null)), '—', 'sem condição: travessão');
+
 // ── 3. Recebimentos -> títulos a pagar ────────────────────────────────────
 const pcs = {
   pcK: { numeroFormatado: 'PC-0001', fornecedorKey: 'f1', fornecedorNome: 'Forn Um', condicaoPagamento: '28', prazoPagamentoParcelas: [28, 42], status: 'RECEBIDO_TOTAL',

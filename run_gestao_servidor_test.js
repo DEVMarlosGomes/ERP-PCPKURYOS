@@ -77,6 +77,19 @@ caso('título manual em mês fechado é recusado; importação de abertura não'
   recusa(() => FS.prepararTitulos(base(), { titulos: [linha] }, adm, AG), /fechado/);
   assert.equal(FS.prepararTitulos(base(), { origem: 'IMPORTACAO', titulos: [linha] }, adm, AG).criados, 1);
 });
+caso('FIN-01: "2x 30/60" aceito com o mesmo resultado do cliente; condição inválida e mês fechado recusados', () => {
+  const F = require('./functions/financeiro');
+  const linha = { tipo: 'RECEBER', parceiro: 'Cliente A', documento: 'NF 7', emissao: '2026-10-10', valor: '100,00', condicao: '2x 30/60', natureza: 'RECEITA_VENDA' };
+  const r = FS.prepararTitulos(base(), { titulos: [linha] }, adm, AG);
+  assert.equal(r.criados, 1);
+  const [k, t] = Object.entries(r.updates)[0];
+  assert.equal(t.condicao, '30/60', 'formato gravado não muda: string canônica');
+  assert.equal(k, 'fin/titulos/' + F.chaveManual(F.validarTituloManual(linha, 'MANUAL').titulo), 'mesma chave que o cliente calcula');
+  assert.deepEqual(F.situacao('x', t, null, null).parcelas.map((p) => [p.n, p.de, p.vencimento, p.valorCentavos]),
+    F.previaParcelas(linha).parcelas.map((p) => [p.n, p.de, p.vencimento, p.valorCentavos]), 'parcelas gravadas = prévia da tela');
+  recusa(() => FS.prepararTitulos(base(), { titulos: [Object.assign({}, linha, { condicao: '2x 30/60/90' })] }, adm, AG), /3 prazos para 2 parcelas/);
+  recusa(() => FS.prepararTitulos(base(), { titulos: [Object.assign({}, linha, { emissao: '2026-09-10' })] }, adm, AG), /fechado/);
+});
 caso('acesso: Financeiro = ADM ou módulo financeiro; Controladoria = ADM ou módulo controladoria', () => {
   assert.equal(FS.ehFinanceiro({ role: 'pcp' }), false);
   assert.equal(FS.ehFinanceiro({ role: 'pcp', modulos: { financeiro: true } }), true);
