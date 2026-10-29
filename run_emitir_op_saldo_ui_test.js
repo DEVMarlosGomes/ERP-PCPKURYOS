@@ -1,8 +1,9 @@
 'use strict';
-/* OP-01 (reunião 28/10), telas de verdade:
+/* OP-01 e OP-02 (reunião 28/10), telas de verdade:
    - chave config/emitirOp/bloquearSemSaldo DESLIGADA: emite como hoje, mesmo faltando insumo;
    - LIGADA: o PCP é barrado com item, necessário e saldo; o ADM libera com motivo gravado na OP;
    - material de cliente: o saldo de um cliente não serve à OP de outro (dono pelo SKU);
+   - "Substituir material" mostra o saldo de cada opção, com o aviso do Dia D quando desligada;
    - Ajustes / Config: só o ADM liga a chave.
    Firebase simulado em memória (mesmo desenho do run_fluxo_ponta_a_ponta_test.js).
    Prints em scripts/artifacts/fin-op/. */
@@ -130,6 +131,18 @@ const ops = (page) => page.evaluate(() => Object.values(window.__db.ops || {}));
     ok(/Dia D/.test(await page.locator('#hintSaldoEmissao').innerText()), 'desligada: a tabela avisa que o saldo não é confiável (Dia D)');
     const linhaFrasco = await page.locator('#materiaisBody tr', {hasText: 'EP-00106'}).innerText();
     ok(/1\.500 un/.test(linhaFrasco), 'coluna Estoque: frasco 1.500 un (geral 300 + 1.200 da MISS RÔSE, cliente do SKU)');
+    // OP-02: modal Substituir com o saldo de cada opção.
+    await page.locator('#materiaisBody tr', {hasText: 'EP-00200'}).locator('.subst-btn').click();
+    await page.waitForSelector('#substModalBg.open');
+    const optPreta = await page.locator('#substLista .subst-opt[data-codigo="EP-00201"]').innerText();
+    const optBranca = await page.locator('#substLista .subst-opt[data-codigo="EP-00202"]').innerText();
+    const optAtual = await page.locator('#substLista .subst-opt[data-codigo="EP-00200"]').innerText();
+    ok(/Saldo: 0 un/.test(optPreta), 'Substituir: tampa preta mostra 0 un (os 5.000 são de OUTRO cliente)');
+    ok(/Saldo: 3\.000 un/.test(optBranca), 'Substituir: tampa branca mostra 3.000 un');
+    ok(/Saldo: 200 un/.test(optAtual), 'Substituir: a atual mostra 200 un');
+    ok(await page.locator('[data-testid="subst-aviso-dia-d"]').count() === 1, 'Substituir com a chave desligada: aviso "saldo ainda não confiável (Dia D)"');
+    await page.screenshot({path: path.join(ART, 'op02-substituir-saldo-desktop-claro.png')});
+    await page.click('#substModalCancelBtn');
     await page.click('#btnEmitir');
     await page.waitForFunction(() => Object.keys(window.__db.ops || {}).length > 0, null, {timeout: 8000});
     const op1 = (await ops(page))[0];
@@ -222,6 +235,10 @@ const ops = (page) => page.evaluate(() => Object.values(window.__db.ops || {}));
       await dimensionar(page);
       // A tabela de materiais (6 colunas, já existia) é mais larga que 390 px; medida antes do que é novo.
       const antes = await page.evaluate(() => document.documentElement.scrollWidth);
+      await page.locator('#materiaisBody tr', {hasText: 'EP-00200'}).locator('.subst-btn').click();
+      await page.waitForSelector('#substModalBg.open');
+      await page.screenshot({path: path.join(ART, 'op02-substituir-saldo-' + nome + '.png')});
+      await page.click('#substModalCancelBtn');
       await page.evaluate(() => { configEmitirOp = {bloquearSemSaldo: true}; renderMateriaisTable(); });
       await page.click('#btnEmitir');
       await page.waitForSelector('[data-testid="saldo-bloqueio"]', {state: 'visible'});
@@ -229,7 +246,7 @@ const ops = (page) => page.evaluate(() => Object.values(window.__db.ops || {}));
       await page.screenshot({path: path.join(ART, 'op01-bloqueio-pcp-' + nome + '.png')});
       const largura = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
       console.log('     ' + nome + ': largura da página ' + largura[0] + ' / janela ' + largura[1] + ' (antes do quadro novo: ' + antes + ')');
-      ok(largura[0] === antes, nome + ': o quadro de saldo não alarga a página');
+      ok(largura[0] === antes, nome + ': o quadro de saldo e o modal não alargam a página');
       ok(await page.evaluate(() => document.getElementById('saldoBloqueio').scrollWidth <= document.getElementById('saldoBloqueio').clientWidth + 1), nome + ': o quadro de saldo cabe na largura');
       semErro(erros, nome);
       await page.close();

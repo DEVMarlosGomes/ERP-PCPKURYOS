@@ -1110,8 +1110,11 @@ function renderSubstResultados(query) {
   var it = materiaisConsumo[substKeyAtual];
   var q = normalizeSearch(query);
   var filtrados = !q ? substOpcoes : substOpcoes.filter(function(m) { return haystackSubstMaterial(m).indexOf(q) !== -1; });
-  document.getElementById('substContagem').textContent =
-    filtrados.length + ' de ' + substOpcoes.length + ' materiais compatíveis' + (q ? ' (filtrado pela busca)' : '');
+  // OP-02: o saldo de cada opção é o mesmo cálculo da emissão (saldo que esta OP pode usar).
+  document.getElementById('substContagem').innerHTML = escapeHtml(
+    filtrados.length + ' de ' + substOpcoes.length + ' materiais compatíveis' + (q ? ' (filtrado pela busca)' : '')) +
+    '<br>Saldo de cada opção = o que esta OP pode usar (geral da Kuryos + o do cliente do produto).' +
+    (bloquearSemSaldo() ? '' : ' <b data-testid="subst-aviso-dia-d">' + escapeHtml(AVISO_DIA_D) + '</b>');
   if (!filtrados.length) {
     box.innerHTML = '<div class="empty-state">Nenhum material encontrado com esse termo -- confira o cadastro em Cadastros.</div>';
     return;
@@ -1122,12 +1125,17 @@ function renderSubstResultados(query) {
   box.innerHTML = filtrados.slice(0, 60).map(function(m) {
     var ehAtual = it && norm(m.mpCodigo) === norm(it.mpCodigo);
     var det = detalhesSubstMaterial(m);
+    var sd = saldoParaEstaOp(m.mpCodigo), un = sd.unidade || m.unidade || '';
+    var semCtl = materialSemControleEstoque(m.mpCodigo, allMateriais);
+    var curto = sd.disponivel < (Number(it && it.quantidade) || 0) && !semCtl;
+    var saldoTxt = semCtl ? 'sem controle de estoque' : !sd.registrado ? 'Saldo: sem registro' : 'Saldo: ' + fmtNum(sd.disponivel) + ' ' + un;
     return '<button type="button" class="subst-opt' + (ehAtual ? ' subst-atual' : '') + '" data-codigo="' + escapeAttr(m.mpCodigo) + '">' +
       '<span class="subst-opt-info"><b>' + escapeHtml(m.mpCodigo) + '</b> — ' + escapeHtml(m.mpNome || '') +
         (ehAtual ? ' <span class="badge badge-green">atual</span>' : '') +
         (det ? '<div class="subst-opt-det">' + escapeHtml(det) + '</div>' : '') +
       '</span>' +
-      '<span class="subst-opt-un">' + escapeHtml(m.unidade || '') + '</span>' +
+      '<span class="subst-opt-un" data-testid="subst-saldo"' + (sd.registrado ? ' title="' + escapeAttr(tituloSaldo(sd)) + '"' : '') +
+        (curto ? ' style="color:var(--danger);font-weight:700"' : '') + '>' + escapeHtml(saldoTxt) + (sd.registrado && !semCtl ? '' : '<br>' + escapeHtml(m.unidade || '')) + '</span>' +
     '</button>';
   }).join('');
   box.querySelectorAll('.subst-opt').forEach(function(btn) {
