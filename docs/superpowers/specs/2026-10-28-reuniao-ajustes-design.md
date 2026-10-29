@@ -75,6 +75,16 @@ O Marlos respondeu "ok prossiga": **D-01…D-16 valem pelo padrão recomendado.*
 
 Cada fase termina no **Portão B** (prints desktop/390 px, claro/escuro, testes) e nada vai para o `main` sem o **Portão C**.
 
+### 4.1 Distribuição entre os 3 devs (29/10/2026, pedido do Marlos: "3 agentes dev fullstack nas demais etapas")
+
+| Dev | Agora | Em seguida |
+|---|---|---|
+| Dev 1 (worktree `reuniao-20261028/menu`) | Fase 1 — MENU-01..04 | Fase 8 — PORT-01..10, cada porte já registrado no `navegacao.js` |
+| Dev 2 (`reuniao-20261028/pd`) | Fase 3 — PD-01..06 | Fase 4 — KO-10..13, BOM-02..04 (frames aprovados no Figma), depois Fase 5 — COT-01..04 e SKU-01 (c) |
+| Dev 3 (`reuniao-20261028/fin-op`) | FIN-01, OP-01, OP-02 | Fase 6 — FEFO-01 e PLAN-01 (com ensaio na base antes de ligar) |
+
+Fases 4 e 5 ficam com o mesmo dev porque mexem nos mesmos arquivos do CRM (`firebaseCommercial.js`, Kickoff). Frames da Fase 4 no Figma: nó `3:2` de <https://www.figma.com/design/50S5daaTQrDleQLrT0jiwx>.
+
 ## 5. Matriz de lacunas do repositório do Gustavo (F0-4)
 
 Detalhe completo, com commits e arquivos dos dois lados: [`2026-10-28-matriz-lacunas-gustavo.md`](2026-10-28-matriz-lacunas-gustavo.md).
