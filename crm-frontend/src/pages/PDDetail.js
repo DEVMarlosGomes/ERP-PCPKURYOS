@@ -6,6 +6,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import api from "@/lib/api";
 import LiberacaoAntecipadaPD from "@/components/LiberacaoAntecipadaPD";
+import RolagemHorizontalDupla from "@/components/RolagemHorizontalDupla";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -1967,6 +1968,10 @@ function ImportFormulaDialog({ open, onOpenChange, devId, onImported }) {
   );
 }
 
+// PD-01: coluna de ações presa à direita (com fundo opaco nos dois temas) e alvo de 32 px.
+const ACOES_FIXAS = "sticky right-0 z-10 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.25)]";
+const BOTAO_ACAO = "inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
 function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
   const { ingredientOptions, getSuppliersForIngredient } = usePdMaterialLibrary();
   const [showCreate, setShowCreate] = useState(false);
@@ -2417,8 +2422,9 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
 
                 {/* A descrição de elaboração (fases + passo a passo) fica abaixo das fórmulas e acima dos Lotes de Amostras (AMO-01). */}
 
-                {/* Spreadsheet-like table with cost columns — rola na horizontal em tela estreita (17/10). */}
-                <div className="border rounded-md overflow-x-auto" data-testid="tabela-manipulacao">
+                {/* Spreadsheet-like table with cost columns — rola na horizontal em tela estreita (17/10).
+                    PD-01: barra grossa embaixo e no topo; editar/excluir fixos à direita. */}
+                <RolagemHorizontalDupla className="border rounded-md" testId="tabela-manipulacao">
                   <table className="w-full min-w-[1180px] text-sm">
                     <thead>
                       <tr className="bg-[#0A0A0B] text-white text-xs">
@@ -2434,7 +2440,7 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
                         <th className="text-right p-2 font-medium w-24">Custo R$</th>
                         <th className="text-right p-2 font-medium w-28">Custo Kg/U$</th>
                         <th className="text-right p-2 font-medium w-24">% de Custo</th>
-                        <th className="w-16"></th>
+                        <th className={`w-20 bg-[#0A0A0B] ${ACOES_FIXAS}`}><span className="sr-only">Ações</span></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2504,10 +2510,10 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
                               <td className="p-2 text-xs text-muted-foreground text-right">—</td>
                               <td className="p-2 text-xs text-muted-foreground text-right">—</td>
                               <td className="p-2 text-xs text-muted-foreground text-right">—</td>
-                              <td className="p-1.5">
-                                <div className="flex gap-1.5 justify-center">
-                                  <button onClick={() => saveEditItem(f.id)} className="text-green-600 hover:text-green-700 transition-colors" title="Salvar"><Save className="h-3.5 w-3.5" /></button>
-                                  <button onClick={cancelEditItem} className="text-muted-foreground hover:text-red-500 transition-colors" title="Cancelar"><X className="h-3.5 w-3.5" /></button>
+                              <td className={`p-1 bg-blue-50 dark:bg-blue-950 ${ACOES_FIXAS}`}>
+                                <div className="flex gap-1 justify-center">
+                                  <button type="button" onClick={() => saveEditItem(f.id)} className={`${BOTAO_ACAO} text-green-600 hover:text-green-700`} title="Salvar" aria-label="Salvar ingrediente"><Save className="h-4 w-4" /></button>
+                                  <button type="button" onClick={cancelEditItem} className={`${BOTAO_ACAO} text-muted-foreground hover:text-red-500`} title="Cancelar" aria-label="Cancelar edição"><X className="h-4 w-4" /></button>
                                 </div>
                               </td>
                             </tr>
@@ -2515,7 +2521,7 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
                         }
 
                         return (
-                          <tr key={item.id} className="border-t hover:bg-muted/30">
+                          <tr key={item.id} className="group border-t hover:bg-muted/30">
                             <td className="p-2 text-center font-mono text-xs font-semibold">{nomeFase(item.phase) || "—"}</td>
                             <td className="p-2 font-medium">
                               {item.ingredient_name}
@@ -2539,11 +2545,11 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
                             <td className="p-2 text-right font-mono text-xs">{(item.cost_brl || 0).toFixed(2)}</td>
                             <td className="p-2 text-right font-mono text-xs">{(item.cost_kg_usd || 0).toFixed(2)}</td>
                             <td className="p-2 text-right font-mono text-xs">{costPct.toFixed(2)}%</td>
-                            <td className="p-2 text-center">
+                            <td className={`p-1 text-center bg-card group-hover:bg-muted ${ACOES_FIXAS}`}>
                               {canEdit && (
-                                <div className="flex gap-1.5 justify-center">
-                                  <button onClick={() => startEditItem(item)} className="text-muted-foreground hover:text-blue-500 transition-colors" title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
-                                  <button onClick={() => deleteItem(item.id)} className="text-muted-foreground hover:text-red-500 transition-colors" title="Remover"><Trash2 className="h-3.5 w-3.5" /></button>
+                                <div className="flex gap-1 justify-center">
+                                  <button type="button" onClick={() => startEditItem(item)} className={`${BOTAO_ACAO} text-muted-foreground hover:text-blue-500`} title="Editar" aria-label={`Editar ${item.ingredient_name || "ingrediente"}`} data-testid="editar-ingrediente"><Pencil className="h-4 w-4" /></button>
+                                  <button type="button" onClick={() => deleteItem(item.id)} className={`${BOTAO_ACAO} text-muted-foreground hover:text-red-500`} title="Remover" aria-label={`Remover ${item.ingredient_name || "ingrediente"}`} data-testid="remover-ingrediente"><Trash2 className="h-4 w-4" /></button>
                                 </div>
                               )}
                             </td>
@@ -2570,7 +2576,7 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
                         </td>
                         <td className="p-2"></td>
                         <td className="p-2 text-right font-mono text-xs">100,00%</td>
-                        <td className="p-2"></td>
+                        <td className={`p-2 bg-muted ${ACOES_FIXAS}`}></td>
                       </tr>
                       {indicePerdas > 0 && (
                         <tr className="bg-muted/20">
@@ -2583,7 +2589,7 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
                       )}
                     </tfoot>
                   </table>
-                </div>
+                </RolagemHorizontalDupla>
 
                 {/* Add ingredient row */}
                 {canEdit && (

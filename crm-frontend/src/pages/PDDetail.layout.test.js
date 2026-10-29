@@ -19,3 +19,24 @@ describe("PDDetail — ordem das seções (AMO-01)", () => {
     expect(fonte.split("<SampleBatchSection ").length - 1).toBe(1);
   });
 });
+
+// PD-01 (reunião 28/10/2026): editar/excluir não podem sumir atrás da rolagem horizontal.
+describe("PDDetail — tabela da manipulação (PD-01)", () => {
+  const tabela = fonte.slice(fonte.indexOf('testId="tabela-manipulacao"'), fonte.indexOf("</RolagemHorizontalDupla>"));
+  it("rola com barra no topo e embaixo (RolagemHorizontalDupla)", () => {
+    expect(tabela.length).toBeGreaterThan(0);
+    expect(fonte).toContain('import RolagemHorizontalDupla from "@/components/RolagemHorizontalDupla"');
+  });
+  it("coluna de ações presa à direita, com fundo opaco, no cabeçalho, nas linhas e no rodapé", () => {
+    expect(fonte).toMatch(/const ACOES_FIXAS = "sticky right-0 z-10/);
+    expect(tabela.split("${ACOES_FIXAS}").length - 1).toBe(4); // cabeçalho, linha em edição, linha normal, rodapé
+    expect(tabela).toContain("bg-[#0A0A0B] ${ACOES_FIXAS}");
+    expect(tabela).toContain("bg-card group-hover:bg-muted ${ACOES_FIXAS}");
+    expect(tabela).toContain("bg-blue-50 dark:bg-blue-950 ${ACOES_FIXAS}");
+  });
+  it("editar e remover com alvo de 32 px e rótulo acessível", () => {
+    expect(fonte).toMatch(/const BOTAO_ACAO = "inline-flex h-8 w-8 /);
+    expect(tabela).toContain('data-testid="editar-ingrediente"');
+    expect(tabela).toContain("aria-label={`Remover ");
+  });
+});
