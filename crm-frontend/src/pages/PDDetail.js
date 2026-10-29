@@ -8,6 +8,7 @@ import api from "@/lib/api";
 import LiberacaoAntecipadaPD from "@/components/LiberacaoAntecipadaPD";
 import RolagemHorizontalDupla from "@/components/RolagemHorizontalDupla";
 import { TIPOS_MP_PD, ingredienteEhEmbalagem } from "@/lib/materiaPrimaPd";
+import { filtrarOpcoes, mesclarEspecificacoes, rotuloOrigem } from "@/lib/especificacoesCadastro";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -4116,7 +4117,8 @@ function FichaTecnicaTab({ reqId, formulas, req, dev, canEdit, labResults }) {
   // (versão anterior da ficha). O backend exige objeto {especificacao, resultado, pa} —
   // sem essa normalização, salvar reenvia a string e o backend rejeita com 422.
   const normalizeParam = useCallback((val) => {
-    if (val && typeof val === "object") return { especificacao: val.especificacao || "", resultado: val.resultado || "", pa: val.pa || "" };
+    if (val && typeof val === "object") return { especificacao: val.especificacao || "", resultado: val.resultado || "", pa: val.pa || "",
+      ...(val.especificacao_origem ? { especificacao_origem: val.especificacao_origem } : {}) };
     if (typeof val === "string" && val.trim()) return { especificacao: "", resultado: val, pa: "" };
     return { especificacao: "", resultado: "", pa: "" };
   }, []);
@@ -4167,13 +4169,46 @@ function FichaTecnicaTab({ reqId, formulas, req, dev, canEdit, labResults }) {
         odor: normalizeParam(a.odor),
         ph: normalizeParam(a.ph),
         teor_alcool: normalizeParam(a.teor_alcool),
+        ...(a.especificacoes_origem ? { especificacoes_origem: a.especificacoes_origem } : {}),
       });
     }).catch(() => {}).finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reqId, req.project_name, labResults, parseElaboracao, normalizeParam]);
 
   const setParam = (key, field, val) => {
-    setForm(prev => ({ ...prev, [key]: { ...prev[key], [field]: val } }));
+    setForm(prev => {
+      const atual = prev[key] || {};
+      // PD-06: especificação puxada do Cadastros continua editável; a origem fica, marcada como editada.
+      const origem = field === "especificacao" && atual.especificacao_origem ? { especificacao_origem: { ...atual.especificacao_origem, editado: true } } : {};
+      return { ...prev, [key]: { ...atual, [field]: val, ...origem } };
+    });
+  };
+
+  // PD-06 (D-07): puxar as especificações do Cadastros por SKU ou produto de referência.
+  const [puxarAberto, setPuxarAberto] = useState(false);
+  const [buscaEspec, setBuscaEspec] = useState("");
+  const [opcoesEspec, setOpcoesEspec] = useState(null);
+  const abrirPuxarCadastros = async () => {
+    setPuxarAberto(true);
+    if (opcoesEspec) return;
+    try {
+      const { data } = await api.get("/pd/especificacoes-cadastro");
+      setOpcoesEspec(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setOpcoesEspec([]);
+      toast.error(formatApiError(err) || "Não foi possível ler as especificações do Cadastros.");
+    }
+  };
+  const puxarEspecificacao = (opcao) => {
+    const r = mesclarEspecificacoes(form, opcao, { em: new Date().toISOString() });
+    setForm(r.form);
+    setPuxarAberto(false);
+    const partes = [];
+    if (r.preenchidos.length) partes.push(`${r.preenchidos.length} especificação(ões) preenchida(s)`);
+    if (r.mantidos.length) partes.push(`${r.mantidos.length} já tinham valor e foram mantidas`);
+    if (r.semCorrespondencia.length) partes.push(`sem linha na ficha: ${r.semCorrespondencia.join(", ")}`);
+    const texto = `${opcao.sku} v${opcao.versao}: ${partes.join("; ") || "nada a preencher"}. Salve a ficha para gravar.`;
+    if (r.preenchidos.length) toast.success(texto); else toast.info(texto);
   };
 
   const handleSave = async () => {
@@ -4277,7 +4312,19 @@ function FichaTecnicaTab({ reqId, formulas, req, dev, canEdit, labResults }) {
       {/* Tabela de Análise do Produto Fabricado */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Análise do Produto Fabricado</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Análise do Produto Fabricado</CardTitle>
+            {canEdit && (
+              <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={abrirPuxarCadastros} data-testid="ft-puxar-cadastros">
+                <RefreshCw className="h-3 w-3" /> Puxar do Cadastros
+              </Button>
+            )}
+          </div>
+          {form.especificacoes_origem?.fonte === "cadastros" && (
+            <p className="text-[11px] text-muted-foreground" data-testid="ft-origem-especificacoes">
+              Especificações puxadas de {form.especificacoes_origem.sku} — {form.especificacoes_origem.produto} (versão {form.especificacoes_origem.versao}{form.especificacoes_origem.status ? `, ${form.especificacoes_origem.status.toLowerCase()}` : ""}).
+            </p>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           <div className="border rounded-b-md overflow-hidden">
@@ -4310,6 +4357,11 @@ function FichaTecnicaTab({ reqId, formulas, req, dev, canEdit, labResults }) {
                         disabled={!canEdit}
                         data-testid={`ft-${key}-especificacao`}
                       />
+                      {form[key]?.especificacao_origem && (
+                        <span className="block px-1 text-[9px] text-emerald-700 dark:text-emerald-400" title={form[key].especificacao_origem.editado ? "Puxada do Cadastros e editada no P&D" : "Puxada do Cadastros"}>
+                          {rotuloOrigem(form[key].especificacao_origem)}{form[key].especificacao_origem.editado ? " · editada" : ""}
+                        </span>
+                      )}
                     </td>
                     <td className="p-2">
                       <Input
@@ -4722,6 +4774,39 @@ function FichaTecnicaTab({ reqId, formulas, req, dev, canEdit, labResults }) {
           </div>
         </CardContent>
       </Card>
+
+      {/* PD-06: escolher de qual SKU / produto de referência puxar as especificações. */}
+      <Dialog open={puxarAberto} onOpenChange={setPuxarAberto}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Puxar especificações do Cadastros</DialogTitle>
+            <DialogDescription>
+              Escolha a SKU ou o produto de referência. Só as especificações vazias da ficha são preenchidas; tudo continua editável e a origem fica gravada.
+            </DialogDescription>
+          </DialogHeader>
+          <Input value={buscaEspec} onChange={(e) => setBuscaEspec(e.target.value)} placeholder="SKU ou nome do produto de referência" className="h-9" data-testid="ft-busca-especificacoes" />
+          <div className="max-h-72 overflow-y-auto rounded-md border">
+            {opcoesEspec === null ? (
+              <div className="flex items-center justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+            ) : filtrarOpcoes(opcoesEspec, buscaEspec).length === 0 ? (
+              <p className="p-4 text-center text-xs text-muted-foreground">Nenhum produto com especificação cadastrada{buscaEspec ? " para essa busca" : ""}.</p>
+            ) : (
+              filtrarOpcoes(opcoesEspec, buscaEspec).slice(0, 50).map((o) => (
+                <button key={o.chave} type="button" onClick={() => puxarEspecificacao(o)} className="flex w-full items-start justify-between gap-3 border-b px-3 py-2 text-left last:border-0 hover:bg-muted" data-testid="ft-opcao-especificacao">
+                  <span className="min-w-0">
+                    <span className="block font-mono text-xs font-semibold">{o.sku}</span>
+                    <span className="block break-words text-xs text-muted-foreground">{o.produto}{o.cliente ? ` · ${o.cliente}` : ""}</span>
+                  </span>
+                  <span className="shrink-0 text-[11px] text-muted-foreground">v{o.versao}{o.status ? ` · ${o.status.toLowerCase()}` : ""} · {Object.keys(o.itens || {}).length} ensaio(s)</span>
+                </button>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPuxarAberto(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

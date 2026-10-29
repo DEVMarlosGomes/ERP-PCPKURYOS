@@ -14,6 +14,7 @@ import { eventoMpNova, htmlFichaTecnica, montarFichaTecnica, validarMpNova } fro
 import { solicitacoesDeMpsNovas } from "@/lib/filaCadastroMp";
 import { filtrarMateriaisPd, tiposDoFiltro } from "@/lib/materiaPrimaPd";
 import { PARAMETROS_VARIACAO, camposPreenchidos, parametroDe } from "@/lib/parametroVariacao";
+import { filtrarOpcoes, opcoesParaPuxar } from "@/lib/especificacoesCadastro";
 import { erroNaoFecha, fechamentoFormula, pendenciasDoLote } from "@/lib/fechamentoFormula";
 import { baseVigente, planoDaBase, substituicoesForaDaFragrancia } from "@/lib/formulacaoBase";
 import { contatosDoCliente, entradaHistoricoAprovacao, validarAprovacaoCliente } from "@/lib/aprovacaoCliente";
@@ -2937,6 +2938,11 @@ async function dispatch(e, t) {
   if (O && "DELETE" === e) return await erase(_, "updates" === O[1] ? "pd_updates" : "pd_pending_items", O[2]), response({
     deleted: !0
   }, i);
+  // PD-06: especificações do Cadastros (especificacoes/{produto}__v{n}) que o P&D pode puxar para a Ficha Técnica.
+  if ("GET" === e && "/pd/especificacoes-cadastro" === S) {
+    const [produtos, especificacoes] = await Promise.all([get(ref(firebaseDb, "produtos")), get(ref(firebaseDb, "especificacoes"))]);
+    return response(filtrarOpcoes(opcoesParaPuxar(produtos.val() || {}, especificacoes.val() || {}), q.busca || q.q || ""), i);
+  }
   if (O = j(/^\/pd\/requests\/([^/]+)\/ficha-tecnica-ui$/), "GET" === e && O) {
     const e = await one(_, "pd_requests", O[1]);
     if (!e) throw apiError(404, "Solicitação P&D não encontrada.");
@@ -2965,7 +2971,9 @@ async function dispatch(e, t) {
       d[e] = {
         especificacao: a.especificacao || "",
         resultado: a.resultado || t || "",
-        pa: a.pa || ""
+        pa: a.pa || "",
+        // PD-06: especificação puxada do Cadastros guarda a origem (produto, SKU, versão).
+        ...(a.especificacao_origem ? { especificacao_origem: a.especificacao_origem } : {})
       };
     }
     return response({

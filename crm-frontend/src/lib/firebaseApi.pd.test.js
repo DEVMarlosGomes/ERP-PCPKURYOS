@@ -364,6 +364,20 @@ test("fórmula registrada só com a aprovação do cliente", async () => {
   expect(data.find((x) => x.id === "F1").is_registered).toBe(true);
 });
 
+describe("PD-06: especificações do Cadastros na Ficha Técnica", () => {
+  test("lista por SKU/produto e a origem gravada volta na ficha", async () => {
+    memory.write("produtos/P1", { sku: "PRF-JOHN-0001", descricao: "Body Splash Johns Wood" });
+    memory.write("especificacoes/P1__v1", { codProduto: "P1", versao: 1, status: "APROVADA", itens: { a: { ensaio: "PH", minimo: "5", maximo: "6" } } });
+    const { data } = await api.get("/pd/especificacoes-cadastro", { params: { busca: "johns" } });
+    expect(data.map((o) => [o.sku, o.versao, o.chave])).toEqual([["PRF-JOHN-0001", 1, "P1__v1"]]);
+    const origem = { fonte: "cadastros", sku: "PRF-JOHN-0001", versao: 1, chave: "P1__v1" };
+    await api.put("/pd/requests/R1/ficha-tecnica-ui", { ph: { especificacao: "5 a 6", resultado: "", pa: "", especificacao_origem: origem }, especificacoes_origem: { ...origem, campos: ["ph"] } });
+    const { data: ficha } = await api.get("/pd/requests/R1/ficha-tecnica-ui");
+    expect(ficha.analise.ph).toMatchObject({ especificacao: "5 a 6", especificacao_origem: origem });
+    expect(ficha.analise.especificacoes_origem).toMatchObject({ sku: "PRF-JOHN-0001", campos: ["ph"] });
+  });
+});
+
 describe("PD-02: rotas de materiais com o filtro do P&D", () => {
   beforeAll(() => {
     memory.write("materiais", {
