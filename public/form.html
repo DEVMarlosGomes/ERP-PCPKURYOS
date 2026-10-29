@@ -3078,9 +3078,13 @@ function updateOpRecordOnApontamento(lote, qtd, novaMedia, tsIso, tipo, tsFimIso
 // de promise, então QUALQUER erro -- inclusive o de função inexistente --
 // vira rejeição e é capturado pelo `.catch()` abaixo. Nunca rejeita, nunca
 // lança: no pior caso devolve null e loga.
-function baixaWmsSegura(itemTipo, codigo, qtd, motivo, autor, ref, clienteKey) {
+// FEFO-01 (28/10): `separadoPara` (lote da OP) faz a baixa sair primeiro do
+// pedaço que a Separação levou para esta OP -- o lote que o FEFO indicou ou o
+// que o separador escolheu com motivo. Sem isso o livro baixava outro lote do
+// que saiu fisicamente (a pesagem da manipulação já fazia assim).
+function baixaWmsSegura(itemTipo, codigo, qtd, motivo, autor, ref, clienteKey, separadoPara) {
   return Promise.resolve()
-    .then(function() { return baixarLotesFefo(db, itemTipo, codigo, qtd, motivo, autor, ref, { clienteKey: clienteKey || null }); })
+    .then(function() { return baixarLotesFefo(db, itemTipo, codigo, qtd, motivo, autor, ref, { clienteKey: clienteKey || null, separadoPara: separadoPara || null }); })
     .then(function(r) {
       if (r && r.faltante > 0) {
         // Enquanto o WMS não estiver populado (antes do "Dia D") isso é o
@@ -3184,7 +3188,7 @@ function baixarEstoqueConsumo(op, qtdReal, tipoMovimentacao, ref) {
       // SEMPRE via baixaWmsSegura (ver a função). Ordem e invólucro não são
       // estilo: são o que garante que nada aqui possa afetar as duas baixas
       // acima, que são as que realmente contam pro controle de estoque.
-      baixaWmsSegura('material', it.mpCodigo, it.quantidade, 'CONSUMO DE PRODUÇÃO', autorConsumo, ref, clienteConsumo)
+      baixaWmsSegura('material', it.mpCodigo, it.quantidade, 'CONSUMO DE PRODUÇÃO', autorConsumo, ref, clienteConsumo, op.lote || ref)
     ]);
   }));
 }
@@ -4311,7 +4315,7 @@ function baixarEstoquePerdas(perdas, ref) {
     // (medido em revisão: 0 de 2 chamadas).
     return Promise.all([
       ajustarEstoque(db, p.materialCodigo, -p.quantidade, 'perda', ref, { materialNome: p.materialNome, clienteKeyConsumidor: clientePerda }),
-      baixaWmsSegura('material', p.materialCodigo, p.quantidade, 'PERDA DE PRODUÇÃO', autorPerda, ref, clientePerda)
+      baixaWmsSegura('material', p.materialCodigo, p.quantidade, 'PERDA DE PRODUÇÃO', autorPerda, ref, clientePerda, ref)
     ]).then(function(rs) { return rs[0]; });
   })).catch(function(err) { console.error('Falha ao dar baixa de estoque por perda:', err); });
 }

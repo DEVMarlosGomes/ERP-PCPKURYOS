@@ -12,6 +12,7 @@
   <script src="shared/utils.js"></script>
   <script src="shared/propriedade-estoque.js"></script>
   <script src="shared/separacao-consolidada.js"></script>
+  <script src="shared/fefo-embalagem.js"></script>
   <script src="auth_check.js"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="shared/theme.css">
@@ -332,18 +333,40 @@ function opcoesEnderecoSelect() {
 // data-mp-codigo/data-lote-key no <tr>, lidos na hora de confirmar.
 // Material de cliente só é separado para OP desse cliente, e vem antes do
 // estoque geral da Kuryos (sugerirAlocacaoFefo, shared/utils.js).
+// FEFO-01 (28/10): a origem indicada é o FEFO (o primeiro a vencer; o do
+// cliente antes do geral). O separador pode trocar por outro lote liberado --
+// "+ Usar outro lote" --, mas aí precisa dizer por quê, como na pesagem da
+// manipulação (shared/fefo-embalagem.js). O motivo fica na OP.
+var sepContexto = {};   // mpCodigo -> {lotesDoItem, clienteKey}
+function clienteKeySep(op) {
+  return (typeof PropriedadeEstoque !== 'undefined') ? PropriedadeEstoque.clienteKeyDoSku(op.sku, allProdutosSep, null, op.cliente) : null;
+}
+function linhaLoteSep(mpCodigo, a, loteReal, qtd, extra) {
+  return '<tr data-mp-codigo="' + escapeAttr(mpCodigo) + '" data-lote-key="' + escapeAttr(a.loteKey) + '"' + (extra ? ' data-extra="1"' : '') + '>' +
+    '<td>📍 ' + escapeHtml(a.enderecoCodigo || '—') + (loteReal.loteInterno ? ' <span class="field-hint">lote ' + escapeHtml(loteReal.loteInterno) + '</span>' : '') +
+      (a.ordem === 1 ? ' <span class="badge badge-green" title="Primeiro a vencer">FEFO</span>' : '') +
+      (extra ? ' <span class="badge badge-orange">outro lote</span>' : '') +
+      (a.doCliente ? ' <span title="Material de propriedade do cliente desta OP" style="display:inline-block;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:600;background:#ede9fe;color:#6d28d9">do cliente</span>' : '') + '</td>' +
+    '<td>' + fmtData(a.dataValidade) + '</td>' +
+    '<td><input type="number" class="sep-qtd" data-mp="' + escapeAttr(mpCodigo) + '" min="0" step="any" max="' + (loteReal.saldoLote || a.saldo || qtd) + '" value="' + qtd + '"></td>' +
+  '</tr>';
+}
 function renderPainelSeparacaoMateriais(op) {
-  var clienteOp = (typeof PropriedadeEstoque !== 'undefined')
-    ? PropriedadeEstoque.clienteKeyDoSku(op.sku, allProdutosSep, null, op.cliente) : null;
+  var clienteOp = clienteKeySep(op);
+  sepContexto = {};
   var materiaisBom = Object.entries(op.materiaisConsumo || {}).filter(function(entry) { return entry[1].origem === 'bom'; });
   var html = materiaisBom.map(function(entry) {
     var it = entry[1];
     var itemKey = sanitizeKey(it.mpCodigo);
     var lotesDoItem = allEstoqueLotes[itemKey] || {};
+    sepContexto[it.mpCodigo] = {lotesDoItem: lotesDoItem, clienteKey: clienteOp};
     // O que uma separação consolidada já levou para esta OP sai da conta.
     var jaLevado = (!op.separacaoConcluida && op.separacaoParcial && op.separacaoParcial.itens && Number(op.separacaoParcial.itens[it.mpCodigo])) || 0;
     var qtdPedir = Math.max(0, Math.round(((Number(it.quantidade) || 0) - jaLevado) * 1000) / 1000);
     var sugestao = sugerirAlocacaoFefo(it.mpCodigo, qtdPedir, lotesDoItem, enderecosBloqueadosMap(), { clienteKey: clienteOp });
+    var elegiveis = FefoEmbalagem.lotesElegiveis(it.mpCodigo, lotesDoItem, enderecosBloqueadosMap(), clienteOp, sugerirAlocacaoFefo);
+    var ordem = {};
+    elegiveis.forEach(function(e) { ordem[e.loteKey] = e.ordem; });
     var cabecalho = '<tr class="sep-material-header"><td colspan="3">' + escapeHtml(it.mpCodigo) + ' — ' + escapeHtml(it.mpNome) +
       ' <span style="font-weight:400;color:var(--muted)">· necessário: ' + fmtNum(it.quantidade) + ' ' + escapeHtml(it.unidade || '') +
       (jaLevado > 0 ? ' · já separado na consolidada: ' + fmtNum(jaLevado) : '') + '</span>' +
@@ -353,17 +376,62 @@ function renderPainelSeparacaoMateriais(op) {
       if (qtdPedir <= 0) return cabecalho + '<tr><td colspan="3" class="no-data" style="padding:8px">Já separado.</td></tr>';
       return cabecalho + '<tr><td colspan="3" class="no-data" style="padding:8px">Nenhum lote liberado endereçado pra este material ainda.</td></tr>';
     }
+    var sugeridos = {};
     var linhas = sugestao.alocacoes.map(function(a) {
-      var loteReal = lotesDoItem[a.loteKey] || {};
-      return '<tr data-mp-codigo="' + escapeAttr(it.mpCodigo) + '" data-lote-key="' + escapeAttr(a.loteKey) + '">' +
-        '<td>📍 ' + escapeHtml(a.enderecoCodigo || '—') + (a.doCliente ? ' <span title="Material de propriedade do cliente desta OP" style="display:inline-block;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:600;background:#ede9fe;color:#6d28d9">do cliente</span>' : '') + '</td>' +
-        '<td>' + fmtData(a.dataValidade) + '</td>' +
-        '<td><input type="number" class="sep-qtd" min="0" step="any" max="' + (loteReal.saldoLote || a.qtdSugerida) + '" value="' + a.qtdSugerida + '"></td>' +
-      '</tr>';
+      sugeridos[a.loteKey] = 1;
+      return linhaLoteSep(it.mpCodigo, Object.assign({}, a, {ordem: ordem[a.loteKey]}), lotesDoItem[a.loteKey] || {}, a.qtdSugerida, false);
     }).join('');
-    return cabecalho + linhas;
+    var outros = elegiveis.filter(function(e) { return !sugeridos[e.loteKey]; });
+    var seletor = outros.length
+      ? '<tr class="sep-outro" data-mp-outro="' + escapeAttr(it.mpCodigo) + '"><td colspan="3"><select class="sep-outro-sel" style="max-width:calc(100vw - 72px)" data-mp="' + escapeAttr(it.mpCodigo) + '" aria-label="Usar outro lote de ' + escapeAttr(it.mpCodigo) + '">' +
+          '<option value="">+ Usar outro lote (exige motivo)…</option>' +
+          outros.map(function(e) {
+            return '<option value="' + escapeAttr(e.loteKey) + '">' + escapeHtml((e.loteInterno || e.loteKey) + ' · ' + (e.enderecoCodigo || '—') + ' · vence ' + fmtData(e.dataValidade) + ' · saldo ' + fmtNum(e.saldo)) + '</option>';
+          }).join('') + '</select></td></tr>'
+      : '';
+    var motivo = '<tr class="sep-fora" data-mp-fora="' + escapeAttr(it.mpCodigo) + '" style="display:none"><td colspan="3">' +
+      '<div class="field-hint" style="color:var(--tint-orange-fg);font-weight:700;max-width:calc(100vw - 72px)" data-fora-texto></div>' +
+      '<input type="text" class="sep-motivo" data-mp="' + escapeAttr(it.mpCodigo) + '" autocomplete="off" aria-label="Motivo para sair do FEFO" placeholder="Motivo para sair do FEFO (ex.: lote indicado atrás de paletes)" style="width:100%;max-width:calc(100vw - 72px);margin-top:4px">' +
+      '</td></tr>';
+    return cabecalho + linhas + seletor + motivo;
   }).join('');
   document.getElementById('sepMateriaisBody').innerHTML = html || '<tr><td colspan="3" class="no-data">Esta OP não tem itens de embalagem no BOM.</td></tr>';
+}
+function linhasDoMaterial(seletor, atributo, mpCodigo) {
+  return Array.prototype.slice.call(document.querySelectorAll('#sepMateriaisBody ' + seletor)).filter(function(x) { return x.getAttribute(atributo) === mpCodigo; });
+}
+function escolhasDoMaterial(mpCodigo) {
+  return linhasDoMaterial('tr[data-lote-key]', 'data-mp-codigo', mpCodigo)
+    .map(function(tr) { return {loteKey: tr.getAttribute('data-lote-key'), qtd: parseFloat(tr.querySelector('.sep-qtd').value) || 0}; });
+}
+function avaliarMaterialSep(mpCodigo) {
+  var c = sepContexto[mpCodigo] || {};
+  return FefoEmbalagem.avaliarEscolha({itemCodigo: mpCodigo, escolhas: escolhasDoMaterial(mpCodigo), lotesDoItem: c.lotesDoItem || {},
+    bloqueados: enderecosBloqueadosMap(), clienteKey: c.clienteKey || null, sugerir: sugerirAlocacaoFefo});
+}
+function atualizarForaFefo(mpCodigo) {
+  var tr = linhasDoMaterial('tr[data-mp-fora]', 'data-mp-fora', mpCodigo)[0];
+  if (!tr) return;
+  var a = avaliarMaterialSep(mpCodigo);
+  tr.style.display = a.foraFefo || a.erros.length ? '' : 'none';
+  tr.querySelector('[data-fora-texto]').textContent = a.erros.length ? a.erros.join(' ')
+    : 'Fora do FEFO: o FEFO indica ' + a.fefo.map(function(f) { return (f.loteInterno || f.loteKey) + ' (' + fmtNum(f.qtd) + ')'; }).join(', ') + '. Informe o motivo para usar outro lote.';
+}
+function adicionarOutroLote(sel) {
+  var mp = sel.getAttribute('data-mp'), loteKey = sel.value;
+  if (!loteKey) return;
+  var c = sepContexto[mp] || {};
+  var e = FefoEmbalagem.lotesElegiveis(mp, c.lotesDoItem || {}, enderecosBloqueadosMap(), c.clienteKey || null, sugerirAlocacaoFefo)
+    .filter(function(x) { return x.loteKey === loteKey; })[0];
+  if (!e) return;
+  var linhaSel = sel.closest('tr');
+  linhaSel.insertAdjacentHTML('beforebegin', linhaLoteSep(mp, e, (c.lotesDoItem || {})[loteKey] || {}, 0, true));
+  Array.prototype.slice.call(sel.options).forEach(function(o) { if (o.value === loteKey) o.remove(); });
+  sel.value = '';
+  if (sel.options.length <= 1) linhaSel.style.display = 'none';
+  var novo = linhaSel.previousElementSibling.querySelector('.sep-qtd');
+  if (novo) novo.focus();
+  atualizarForaFefo(mp);
 }
 
 function confirmarSeparacao() {
@@ -380,6 +448,19 @@ function confirmarSeparacao() {
     operacoes.push({ mpCodigo: tr.getAttribute('data-mp-codigo'), loteKey: tr.getAttribute('data-lote-key'), qtd: qtd });
   });
   if (!operacoes.length) { showAlert('Nenhuma quantidade informada pra separar.', 'danger'); return; }
+  // FEFO-01: fora do FEFO só com motivo; lote que a OP não pode usar, nunca.
+  var foraFefo = {}, materiais = {}, erroFefo = null;
+  operacoes.forEach(function(o) { materiais[o.mpCodigo] = 1; });
+  Object.keys(materiais).some(function(mp) {
+    var a = avaliarMaterialSep(mp);
+    var campo = linhasDoMaterial('.sep-motivo', 'data-mp', mp)[0];
+    var motivo = campo ? campo.value : '';
+    var v = FefoEmbalagem.validarSeparacao(a, motivo);
+    if (!v.ok) { erroFefo = mp + ': ' + v.erro; atualizarForaFefo(mp); if (campo) campo.focus(); return true; }
+    if (a.foraFefo) foraFefo[sanitizeKey(mp)] = FefoEmbalagem.registroForaFefo(a, motivo, escolhasDoMaterial(mp));
+    return false;
+  });
+  if (erroFefo) { showAlert(erroFefo, 'danger'); return; }
 
   var opLote = sepOpAtual.op.lote || sepOpAtual.opKey;
   var opKeyAtual = sepOpAtual.opKey;
@@ -391,9 +472,11 @@ function confirmarSeparacao() {
   })).then(function(resultados) {
     var itensResumo = {};
     resultados.forEach(function(r) { itensResumo[r.mpCodigo] = Math.round(((itensResumo[r.mpCodigo] || 0) + r.qtd) * 1000) / 1000; });
-    return db.ref('ops/' + opKeyAtual + '/separacaoConcluida').set({ em: new Date().toISOString(), por: autor, itens: itensResumo });
+    var registro = { em: new Date().toISOString(), por: autor, itens: itensResumo };
+    if (Object.keys(foraFefo).length) registro.foraFefo = foraFefo;
+    return db.ref('ops/' + opKeyAtual + '/separacaoConcluida').set(registro);
   }).then(function() {
-    showAlert('Separação confirmada!', 'success');
+    showAlert(Object.keys(foraFefo).length ? 'Separação confirmada (fora do FEFO, motivo registrado na OP).' : 'Separação confirmada!', 'success');
     fecharPainelSeparacao();
   }).catch(function(err) {
     showAlert('Erro ao confirmar separação: ' + err.message, 'danger');
@@ -586,6 +669,13 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('opSearch').addEventListener('input', renderListaOps);
   document.getElementById('opFiltro').addEventListener('change', renderListaOps);
   document.getElementById('btnConfirmarSeparacao').addEventListener('click', confirmarSeparacao);
+  // FEFO-01: trocar quantidade ou lote reavalia o FEFO daquele material.
+  document.getElementById('sepMateriaisBody').addEventListener('input', function(e) {
+    if (e.target.classList.contains('sep-qtd')) atualizarForaFefo(e.target.getAttribute('data-mp'));
+  });
+  document.getElementById('sepMateriaisBody').addEventListener('change', function(e) {
+    if (e.target.classList.contains('sep-outro-sel')) adicionarOutroLote(e.target);
+  });
   document.getElementById('btnFecharPainel').addEventListener('click', fecharPainelSeparacao);
 
   try {
