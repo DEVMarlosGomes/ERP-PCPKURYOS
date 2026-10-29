@@ -414,6 +414,22 @@ function urlLimpa(href) {
 }
 window.urlLimpa = urlLimpa;
 
+// Registro único de telas do menu (shared/navegacao.js, 29/10/2026). Carregado
+// em sincronia durante o parse (todas as páginas trazem o auth_check.js sem
+// defer), para o menu já nascer com ele; se este arquivo chegar depois do
+// parse, entra por <script> e o menu espera o load (renderUnifiedNavbar).
+(function() {
+  if (typeof window.KuryosNav !== 'undefined') return;
+  var src = 'shared/navegacao.js?v=20261029-1';
+  try {
+    if (document.readyState === 'loading') { document.write('<script src="' + src + '" data-kuryos-nav></script>'); return; }
+  } catch (e) { /* document.write bloqueado: segue para o <script> */ }
+  var s = document.createElement('script');
+  s.src = src;
+  s.setAttribute('data-kuryos-nav', '');
+  document.head.appendChild(s);
+})();
+
 window.currentUser = null;
 
 (function() {
@@ -756,14 +772,16 @@ const ktIcons = {
 function ktIcon(name) {
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + ktIcons[name] + '</svg>';
 }
-function ktLink(href, icon, label, activePage) {
+function ktLink(href, icon, label, activePage, fam) {
   // Compara só o nome do arquivo, ignorando ?query -- necessário desde que
   // uma mesma página passou a ter mais de um link de menu apontando pra
   // abas diferentes dela (ex: "Estoque" e "WMS" -> estoque.html?tab=X) --
   // sem isso, NENHUM dos dois nunca ficava marcado como ativo, porque
   // activePage (só o nome do arquivo) nunca batia com href+query.
+  // `fam`: telas encadeadas que respondem pelo mesmo link (as três etapas
+  // da Expedição de Vendas, ver shared/navegacao.js).
   var hrefPage = href.split('?')[0];
-  var ativo = activePage === hrefPage;
+  var ativo = activePage === hrefPage || !!(fam && fam.indexOf(activePage) !== -1);
   // Operação (23/09): os três "Estoque do setor" são a mesma página com
   // ?setor=; sem isto os três ficavam marcados ao mesmo tempo.
   var setorLink = (href.match(/[?&]setor=([^&]+)/) || [])[1];
@@ -772,7 +790,7 @@ function ktLink(href, icon, label, activePage) {
     ativo = !setorAqui || setorAqui === setorLink;
   }
   var cls = 'kt-nav-link' + (ativo ? ' active' : '');
-  return '<a class="' + cls + '" href="' + urlLimpa(href) + '">' + ktIcon(icon) + '<span>' + label + '</span></a>';
+  return '<a class="' + cls + '" href="' + urlLimpa(href) + '"' + (ativo ? ' aria-current="page"' : '') + '>' + ktIcon(icon) + '<span>' + label + '</span></a>';
 }
 
 // Renderiza a sidebar de navegação (linguagem visual Apple, aprovada 2026-07-19)
@@ -794,6 +812,17 @@ function renderUnifiedNavbar(user) {
   // Se já existir a sidebar, não renderiza de novo
   if (document.getElementById('unified-navbar')) return;
 
+  // O registro de telas ainda não chegou (só no caminho de reserva, quando o
+  // auth_check.js foi injetado depois do parse): monta quando ele carregar.
+  if (!window.KuryosNav) {
+    var navScript = document.querySelector('script[data-kuryos-nav]');
+    if (navScript && !navScript.__kuryosEspera) {
+      navScript.__kuryosEspera = true;
+      navScript.addEventListener('load', function() { renderUnifiedNavbar(user); });
+      return;
+    }
+  }
+
   const sidebar = document.createElement('aside');
   sidebar.id = 'unified-navbar';
   sidebar.className = 'kt-sidebar';
@@ -808,251 +837,37 @@ function renderUnifiedNavbar(user) {
   const ROTULO_FUNCAO = { admin: 'Administrador', pcp: 'PCP', rh: 'RH Central', gestor: 'Gestor de Linha', qualidade: 'Qualidade',
     rotulagem: 'Rotulagem', logistica: 'Logística', comercial: 'Comercial', pd: 'P&D', production: 'Produção', tv: 'TV (placar)' };
   const roleLabel = funcoesDoUsuario(user).map(function(f) { return ROTULO_FUNCAO[f] || f; }).join(' · ') || 'Produção';
-  // Um grupo inteiro some quando nenhum link dentro dele sobrevive -- senão
-  // sobra uma legenda flutuando sem nada embaixo (defeito já visto aqui
-  // antes, ao testar com o papel 'production').
-  const grupoIcone = function(titulo) {
-    if (/analytics/i.test(titulo)) return 'dashboard';
-    if (/cadastros/i.test(titulo)) return 'tag';
-    if (/comercial/i.test(titulo)) return 'chart';
-    if (/compras/i.test(titulo)) return 'cart';
-    if (/log.stica/i.test(titulo)) return 'truck';
-    if (/qualidade/i.test(titulo)) return 'flask';
-    if (/opera..o|pcp/i.test(titulo)) return 'gear';
-    if (/financeiro/i.test(titulo)) return 'bank';
-    if (/adm|rh/i.test(titulo)) return 'people';
-    if (/ajuda/i.test(titulo)) return 'book';
-    return 'list';
-  };
-  const grupo = function(titulo, links) {
-    const itens = links.filter(Boolean);
-    const corpo = itens.join('');
+  // Blocos e links vêm do registro único (shared/navegacao.js, MENU-01 de
+  // 29/10/2026): cada tela mora em UM bloco e só aparece para quem consegue
+  // abri-la (podeAbrirPagina) -- a mesma regra que valida a página. Um bloco
+  // sem nenhum link some (senão sobra uma legenda sem nada embaixo).
+  const grupo = function(titulo, visual, corpo) {
     if (!corpo) return '';
     const n = (corpo.match(/class="kt-nav-link/g) || []).length;
-    return '<div class="kt-nav-group" data-grupo="' + titulo + '">' +
-      '<button type="button" class="kt-nav-cap" aria-expanded="true"><span class="kt-cap-icon" aria-hidden="true">' + ktIcon(grupoIcone(titulo)) + '</span><span class="kt-cap-txt">' + titulo + '</span>' +
+    const icone = (visual && visual[0]) || 'list';
+    const tom = (visual && visual[1]) || 'neutro';
+    return '<div class="kt-nav-group" data-grupo="' + titulo + '" data-tom="' + tom + '">' +
+      '<button type="button" class="kt-nav-cap" aria-expanded="true"><span class="kt-cap-icon" aria-hidden="true">' + ktIcon(icone) + '</span><span class="kt-cap-txt">' + titulo + '</span>' +
       '<span class="kt-cap-n">' + n + '</span>' +
-      '<svg class="kt-cap-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>' +
+      '<svg class="kt-cap-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>' +
       '</button><div class="kt-nav-body">' + corpo + '</div></div>';
   };
   const initials = (user.nome || '?').trim().split(/\s+/).slice(0, 2).map(function(s) { return s[0]; }).join('').toUpperCase();
-
-  // Blocos: Analytics/Cadastros/Compras/PCP/Logística/Qualidade/Produção/
-  // ADM/RH/Ajuda -- agrupamento definido pelo usuário. O "depois vou
-  // delinear os acessos, qual perfil vê o que e faz o que" que ficou
-  // pendente naquela rodada é exatamente o que os módulos abaixo resolvem.
-
-  const analisesGroup = grupo('Analytics', [
-    temMod('analytics') && ktLink('dashboard_executivo.html', 'dashboard', 'Visão Executiva 360°', activePage),
-    temMod('analytics') && ktLink('dashboard_setorial.html', 'chart', 'Indicadores Setoriais', activePage),
-    temMod('analytics') && ktLink('dashboard.html', 'dashboard', 'Dashboard Diário', activePage),
-    temMod('analytics') && ktLink('dashboard_analise.html', 'history', 'Dashboard Geral', activePage),
-    temMod('custos') && ktLink('custos.html', 'chart', 'Custos e Resultado', activePage),
-    temMod('placar') && ktLink('placar.html', 'dashboard', 'Placar da fábrica', activePage)
-  ]);
-
-  // "Cadastros" -- bloco de DADO MESTRE puro (o que as coisas são:
-  // material, produto, cliente, fornecedor, fórmula/BOM). Antes se chamava
-  // "Geral" e tinha Estoque junto; Estoque é dado TRANSACIONAL (saldo,
-  // movimento, posição) e desceu pro bloco Logística, ao lado do WMS --
-  // que, aliás, é literalmente a mesma página (estoque.html), só com
-  // landing em aba diferente. Separar mestre de transacional é a divisão
-  // que todo ERP faz (TOTVS/SAP) e deixa explícito onde se cria dado
-  // mestre -- que é onde os problemas de cadastro precisam ser atacados.
-  const geralGroup = grupo('Cadastros', [
-    temMod('cadastros') && ktLink('cadastros.html', 'tag', 'Cadastros', activePage)
-  ]);
-
-  const comprasGroup = grupo('Compras', [
-    temMod('compras') && ktLink('compras.html', 'cart', 'Compras', activePage),
-    temMod('compras') && !temMod('pedidos') && !temMod('planejamento') && ktLink('o_que_comprar.html', 'cart', 'O que comprar', activePage),
-    temMod('compras') && !temMod('logistica') && !temMod('pedidos') && !temMod('planejamento') && ktLink('consulta_estoque.html', 'warehouse', 'Consulta de Estoque', activePage)
-  ]);
-
-  const comercialGroup = grupo('Comercial', [
-    temMod('comercial') && ktLink('comercial.html', 'list', 'Pedidos e Orçamentos', activePage),
-    temMod('comercial') && ktLink('gestao_comercial.html', 'chart', 'Gestão Comercial', activePage),
-    temMod('comercial') && ktLink('crm1.html', 'people', 'CRM 1 · Clientes', activePage),
-    temMod('comercial') && ktLink('crm2.html', 'list', 'CRM 2 · Projetos', activePage),
-    temMod('comercial') && ktLink('crm3.html', 'flask', 'CRM 3 · Amostras', activePage),
-    (temMod('comercial') || temMod('pd')) && ktLink('pd.html', 'gear', 'P&D', activePage),
-    // Orçamento aprovado no CRM2 -> Kickoff -> CGI assinado -> SKU e pedido
-    // liberado ao PCP (14/10/2026). O CQ (papel qualidade) aprova uma etapa do Kickoff.
-    (temMod('comercial') || temMod('pd') || user.role === 'qualidade') && ktLink('kickoffs.html', 'clipboard', 'Kickoffs', activePage),
-    temMod('comercial') && ktLink('contratos.html', 'document', 'Contratos CGI', activePage),
-    // Painel do ADM para corrigir/remover cards do funil (13/10/2026).
-    user.role === 'admin' && ktLink('crm-admin.html', 'people', 'Gerenciar cards do CRM', activePage),
-    // Devolução de cliente (GAP-02): o Comercial autoriza, a Logística recebe
-    // e a Qualidade acompanha o destino -- a mesma tela nos três blocos.
-    temMod('comercial') && ktLink('devolucoes.html', 'history', 'Devoluções de Cliente', activePage),
-    // Relatório de Pedido: PCP e Comercial acompanham o mesmo pedido; quem
-    // tem os dois módulos vê o link só no PCP.
-    temMod('comercial') && !temMod('pedidos') && ktLink('relatorio_pedido.html', 'chart', 'Relatório de Pedido', activePage)
-  ]);
-
-  const pcpGroup = grupo('PCP', [
-    temMod('planejamento') && ktLink('planejamento.html', 'calendar', 'Planejamento', activePage),
-    // horizonte.html tirado do menu a pedido do usuário -- "não é usado
-    // pra nada hoje" (o botão de congelar, que era a única mecânica ativa
-    // da tela, nunca pegou uso real -- alocacoes_planejamento ficou vazio
-    // o tempo todo). Página continua existindo (histórico/dados não
-    // apagados), só não é mais oferecida como parte do fluxo ativo.
-    temMod('planejamento') && ktLink('ops.html', 'gear', 'Controle de OPs', activePage),
-    temMod('emitir_op') && ktLink('emitir_op.html', 'pencil', 'Emitir OP', activePage),
-    temMod('emitir_op') && ktLink('dossie_lote.html', 'history', 'Dossiê do Lote', activePage),
-    temMod('pedidos') && ktLink('pedidos.html', 'list', 'Pedidos', activePage),
-    temMod('pedidos') && ktLink('relatorio_pedido.html', 'chart', 'Relatório de Pedido', activePage),
-    // "Matriz de Insumos > MRP" -- por ora só o rótulo muda (confirmado
-    // pelo usuário: "a princípio só renomear"); uma funcionalidade de MRP
-    // de verdade fica pra quando o Estoque/Compras (Agendamentos) já
-    // estiverem rodando -- registrado em MELHORIAS_FUTURAS.md.
-    temMod('pedidos') && ktLink('insumos.html', 'box', 'Matriz de Insumos (MRP)', activePage),
-    // O que comprar (01/10): escolhe pedidos e vê, material a material, o que falta comprar.
-    (temMod('pedidos') || temMod('planejamento')) && ktLink('o_que_comprar.html', 'cart', 'O que comprar', activePage),
-    // Quem não tem Logística também precisa consultar o estoque (PCP).
-    (temMod('pedidos') || temMod('planejamento')) && !temMod('logistica') && ktLink('consulta_estoque.html', 'warehouse', 'Consulta de Estoque', activePage),
-    temMod('config') && ktLink('admin.html', 'sliders', 'Ajustes / Config', activePage),
-    // Histórico de Apontamentos aparece TAMBÉM aqui, além de Produção
-    // (confirmado pelo usuário: "aparece nos 2 blocos mesmo") -- PCP e
-    // Produção são times diferentes que precisam do mesmo histórico.
-    // Aqui ele é oferecido só a quem tem Planejamento junto de outro módulo
-    // de gestão; quem só aponta vê o mesmo link no bloco Produção.
-    temMod('planejamento') && temMod('cadastros') && ktLink('historico.html', 'history', 'Histórico de Apontamentos', activePage)
-  ]);
-
-  // "Logística" -- pedido do usuário: separa do bloco PCP. "Logística" (a
-  // página) vira "Agendamentos" no menu -- rótulo só, logistica.html
-  // continua sendo a mesma página/funcionalidade.
-  // "Estoque" e "WMS" são a MESMA página (estoque.html), dois pontos de
-  // entrada: Estoque pousa na aba de saldo agregado ("de fato os
-  // estoques", palavras do usuário), WMS pousa em posições/endereçamento
-  // ("organização do estoque"). Estoque estava no bloco "Geral" e desceu
-  // pra cá -- os dois links que apontam pro mesmo arquivo agora ficam
-  // lado a lado, e "Cadastros" fica só com dado mestre (ver acima).
-  const logisticaGroup = grupo('Logística', [
-    temMod('logistica') && ktLink('logistica.html', 'truck', 'Agendamentos', activePage),
-    // Expedição de vendas em três telas (29/09): montar carga → faturamento →
-    // acompanhamento (NF, carregamento e saída).
-    temMod('logistica') && ktLink('expedicao.html', 'truck', 'Expedição — Montar carga', activePage),
-    temMod('logistica') && ktLink('faturamento.html', 'clipboard', 'Expedição — Faturamento', activePage),
-    temMod('logistica') && ktLink('cargas.html', 'truck', 'Expedição — Acompanhamento', activePage),
-    temMod('logistica') && ktLink('relatorio_expedicao.html', 'clipboard', 'Relatório de Expedição', activePage),
-    // Consulta de Estoque (01/10): busca rápida + intermediários x embalagens, só leitura.
-    temMod('logistica') && ktLink('consulta_estoque.html', 'warehouse', 'Consulta de Estoque', activePage),
-    temMod('logistica') && ktLink('estoque.html?tab=agregado', 'warehouse', 'Estoque', activePage),
-    temMod('logistica') && ktLink('estoque.html?tab=posicoes', 'warehouse', 'WMS', activePage),
-    temMod('logistica') && ktLink('kardex.html', 'list', 'Kardex', activePage),
-    // Movimentar (29/09): de onde → o quê → para onde, para o celular.
-    temMod('logistica') && ktLink('movimentar.html', 'truck', 'Movimentar material', activePage),
-    temMod('logistica') && ktLink('estoque.html?tab=conferenciapa', 'clipboard', 'Conferência de PA', activePage),
-    // Próximas Ordens (29/09): a fila da Separação na ordem do PCP.
-    temMod('logistica') && ktLink('proximas_ordens.html?setor=separacao', 'list', 'Próximas Separações', activePage),
-    temMod('logistica') && ktLink('separacao_materiais.html', 'clipboard', 'Separação de Materiais', activePage),
-    temMod('logistica') && ktLink('descarte.html', 'clipboard', 'Descarte e Reversa', activePage),
-    temMod('logistica') && !temMod('comercial') && ktLink('devolucoes.html', 'history', 'Devoluções de Cliente', activePage)
-  ]);
-
-  // "Qualidade" -- bloco próprio, não uma aba dentro de Estoque. A decisão
-  // de liberar ou não um lote é de outro time, e fica lado a lado com o
-  // estoque no fluxo mas separada dele na navegação.
-  const qualidadeGroup = grupo('Qualidade', [
-    temMod('qualidade') && ktLink('qualidade.html?tab=fila', 'flask', 'Fila de Inspeção', activePage),
-    temMod('qualidade') && ktLink('qualidade.html?tab=rnc', 'alert', 'Não Conformidades', activePage),
-    // Histórico de análises + indicadores (29/09): consulta de todo laudo e KPIs.
-    temMod('qualidade') && ktLink('qualidade_historico.html', 'chart', 'Histórico e Indicadores', activePage),
-    temMod('qualidade') && ktLink('retrabalhos.html', 'history', 'Retrabalhos', activePage),
-    temMod('qualidade') && !temMod('comercial') && !temMod('logistica') && ktLink('devolucoes.html', 'history', 'Devoluções de Cliente', activePage),
-    // Dossiê do lote (18/09): auditoria de tudo o que aconteceu com um lote.
-    // É ferramenta de gestão -- Qualidade e PCP, nunca o operador (o papel
-    // `production` tem `planejamento`, por isso o acesso é por `emitir_op`).
-    temMod('qualidade') && !temMod('emitir_op') && ktLink('dossie_lote.html', 'history', 'Dossiê do Lote', activePage)
-  ]);
-
-  // "Operação" (23/09): Produção, Manipulação e Rotulagem, cada setor com a
-  // sua tela de trabalho, o seu histórico e o estoque da sua área. O
-  // Apontamento e o Histórico são as mesmas páginas para os dois setores:
-  // cada página mostra só os setores da pessoa (setoresOperacao), então
-  // quem tem Produção e Rotulagem vê tudo num link só, como sempre foi.
-  const setores = setoresOperacao(user);
-  const sub = function(titulo, links) {
-    const corpo = links.filter(Boolean).join('');
-    return corpo ? '<div class="kt-nav-sub">' + titulo + '</div>' + corpo : '';
+  const navCtx = {
+    podeAbrir: function(pg) { return podeAbrirPagina(user, pg); },
+    temMod: temMod,
+    role: user.role,
+    setores: setoresOperacao(user)
   };
-  const apontaEm = setores.producao ? 'Produção' : 'Rotulagem';
-  const producaoGroup = grupo('Operação', [
-    // Próximas Ordens (29/09): a fila de cada setor, na ordem do PCP.
-    sub('Produção', [
-      setores.producao && ktLink('proximas_ordens.html?setor=envase', 'list', 'Próximas Ordens', activePage),
-      setores.producao && ktLink('form.html', 'pencil', 'Apontamento', activePage),
-      setores.producao && ktLink('historico.html', 'history', 'Histórico de Apontamentos', activePage),
-      setores.producao && ktLink('estoque_setor.html?setor=producao', 'warehouse', 'Estoque da Fábrica', activePage)
-    ]),
-    sub('Manipulação', [
-      setores.manipulacao && ktLink('proximas_ordens.html?setor=manipulacao', 'list', 'Próximas Ordens', activePage),
-      (setores.manipulacao || temMod('conferencia_pesagem')) && ktLink('manipulacao.html', 'flask', setores.manipulacao ? 'Pesagem e Manipulação' : 'Conferência de Pesagem', activePage),
-      setores.manipulacao && ktLink('estoque_setor.html?setor=manipulacao', 'warehouse', 'Estoque da Manipulação', activePage)
-    ]),
-    sub('Rotulagem', [
-      setores.rotulagem && ktLink('proximas_ordens.html?setor=rotulagem', 'list', 'Próximas Ordens', activePage),
-      // Com Produção junto, o apontamento/histórico já estão no link acima.
-      setores.rotulagem && apontaEm === 'Rotulagem' && ktLink('form.html', 'pencil', 'Apontamento', activePage),
-      setores.rotulagem && apontaEm === 'Rotulagem' && ktLink('historico.html', 'history', 'Histórico de Apontamentos', activePage),
-      setores.rotulagem && ktLink('estoque_setor.html?setor=rotulagem', 'warehouse', 'Estoque dos Rótulos', activePage)
-    ]),
-    // Material em Processo (01/10): bulk em bombona e sobras. Quem opera, quem guarda e quem libera.
-    (setores.producao || setores.manipulacao || setores.rotulagem || temMod('logistica') || temMod('qualidade') || temMod('planejamento')) && ktLink('material_processo.html', 'warehouse', 'Material em Processo', activePage),
-    // Gestão sem nenhum setor marcado continua achando o histórico aqui.
-    !setores.producao && !setores.rotulagem && temMod('planejamento') && ktLink('historico.html', 'history', 'Histórico de Apontamentos', activePage)
-  ]);
-
-  const financeiroGroup = grupo('Financeiro', [
-    temMod('financeiro') && ktLink('financeiro.html', 'bank', 'Financeiro', activePage),
-    temMod('controladoria') && ktLink('controladoria.html', 'scale', 'Controladoria', activePage)
-  ]);
-
-  const usersGroup = grupo('ADM', [
-    temMod('usuarios') && ktLink('usuarios.html', 'people', 'Usuários', activePage)
-  ]);
-
-  // RH (Fase 1-3b): Colaboradores/Cargos, Avaliação, Férias -- Documentos
-  // etc. entram em fases futuras (ver plano do módulo).
-  const rhGroup = grupo('RH', [
-    temMod('rh_dashboard') && ktLink('rh_dashboard.html', 'dashboard', 'Dash', activePage),
-    temMod('rh') && ktLink('rh_cadastros.html', 'people', 'Colaboradores', activePage),
-    temMod('rh') && ktLink('rh_avaliacao.html', 'pencil', 'Avaliação de Desempenho', activePage),
-    temMod('rh') && ktLink('rh_ferias.html', 'calendar', 'Férias', activePage)
-  ]);
-
-  // "Ajuda" -- os 3 manuais existiam publicados e funcionando desde sempre,
-  // mas NENHUMA página do sistema linkava pra eles: só chegava quem soubesse
-  // a URL de cor (achado da auditoria geral). Ficam DE FORA de
-  // KURYOS_MODULOS de propósito -- material de treinamento abre pra
-  // qualquer autenticado, sem precisar de módulo; o que os módulos decidem
-  // aqui é só QUAL manual oferecer, pra não empilhar 3 links iguais pra
-  // todo mundo.
-  // Agora há UM manual por operação, e o índice (manuais.html) é o ponto de
-  // entrada -- sem ele cada manual seria um beco sem saída, e a pessoa
-  // precisaria saber a URL do próximo de cor (foi assim que os 3 manuais
-  // antigos ficaram invisíveis até a auditoria). O menu oferece o índice
-  // sempre, mais os manuais das operações que a pessoa de fato executa: uma
-  // lista com os 9 seria ruído pra todo mundo.
-  const manuaisGroup = grupo('Ajuda', [
-    ktLink('manuais.html', 'book', 'Manuais de Operação', activePage),
-    (temMod('apontamento') || temMod('rotulagem') || temMod('manipulacao')) && ktLink('manual_apontamento.html', 'book', 'Apontamento', activePage),
-    temMod('planejamento') && ktLink('manual_pcp.html', 'book', 'Planejamento e OPs', activePage),
-    (temMod('pedidos') || temMod('comercial')) && ktLink('manual_comercial.html', 'book', 'Pedidos e MRP', activePage),
-    temMod('compras') && ktLink('manual_compras.html', 'book', 'Compras', activePage),
-    temMod('logistica') && ktLink('manual_logistica.html', 'book', 'Recebimento', activePage),
-    temMod('logistica') && ktLink('manual_estoque.html', 'book', 'Estoque e WMS', activePage),
-    temMod('qualidade') && ktLink('manual_qualidade.html', 'book', 'Qualidade', activePage),
-    temMod('cadastros') && ktLink('manual_cadastros.html', 'book', 'Cadastros', activePage),
-    temMod('usuarios') && ktLink('manual_admin.html', 'book', 'Administração', activePage),
-    // Referência completa: única sem gate de módulo, porque é o documento
-    // que descreve o sistema INTEIRO -- inclusive as partes que a pessoa
-    // não acessa, que é justamente o que ela precisa ler pra saber o que
-    // pedir ao ADM. Os outros são material de rotina por operação.
-    ktLink('manual_referencia.html', 'book', 'Referência do Sistema', activePage)
-  ]);
+  const gruposHtml = (window.KuryosNav ? window.KuryosNav.blocos(navCtx) : []).map(function(bl) {
+    var subAtual = null;
+    var corpo = bl.itens.map(function(it) {
+      var cab = '';
+      if (it.s !== subAtual) { subAtual = it.s; if (it.s) cab = '<div class="kt-nav-sub">' + it.s + '</div>'; }
+      return cab + ktLink(it.h, it.i, it.r, activePage, it.fam);
+    }).join('');
+    return grupo(bl.nome, bl.visual, corpo);
+  }).join('');
 
   // A home segue os módulos que a pessoa tem, na mesma ordem de preferência
   // usada quando um Acesso Negado precisa redirecionar -- uma regra só, em
@@ -1062,7 +877,7 @@ function renderUnifiedNavbar(user) {
   sidebar.innerHTML =
     '<button type="button" class="kt-brand" aria-label="Kuryos — página inicial" onclick="window.location.href=\'' + brandHome + '\'"><span class="kuryos-brand-mark" aria-hidden="true">K</span><img class="kt-brand-logo" src="kuryos-logo.svg" alt="Kuryos"></button>' +
     '<nav class="kuryos-sidebar-nav" aria-label="Navegação principal">' +
-    analisesGroup + geralGroup + comercialGroup + comprasGroup + pcpGroup + logisticaGroup + qualidadeGroup + producaoGroup + financeiroGroup + usersGroup + rhGroup + manuaisGroup +
+    gruposHtml +
     '</nav>' +
     '<div class="kt-sidebar-foot">' +
       '<span class="kt-avatar">' + initials + '</span>' +

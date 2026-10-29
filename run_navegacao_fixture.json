@@ -1,0 +1,3075 @@
+{
+ "admin": [
+  {
+   "grupo": "Analytics",
+   "href": "dashboard_executivo",
+   "rotulo": "Visão Executiva 360°"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "dashboard_setorial",
+   "rotulo": "Indicadores Setoriais"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "dashboard",
+   "rotulo": "Dashboard Diário"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "dashboard_analise",
+   "rotulo": "Dashboard Geral"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "custos",
+   "rotulo": "Custos e Resultado"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "placar",
+   "rotulo": "Placar da fábrica"
+  },
+  {
+   "grupo": "Cadastros",
+   "href": "cadastros",
+   "rotulo": "Cadastros"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "comercial",
+   "rotulo": "Pedidos e Orçamentos"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "gestao_comercial",
+   "rotulo": "Gestão Comercial"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm1",
+   "rotulo": "CRM 1 · Clientes"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm2",
+   "rotulo": "CRM 2 · Projetos"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm3",
+   "rotulo": "CRM 3 · Amostras"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "pd",
+   "rotulo": "P&D"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "kickoffs",
+   "rotulo": "Kickoffs"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "contratos",
+   "rotulo": "Contratos CGI"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm-admin",
+   "rotulo": "Gerenciar cards do CRM"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "devolucoes",
+   "rotulo": "Devoluções de Cliente"
+  },
+  {
+   "grupo": "Compras",
+   "href": "compras",
+   "rotulo": "Compras"
+  },
+  {
+   "grupo": "PCP",
+   "href": "planejamento",
+   "rotulo": "Planejamento"
+  },
+  {
+   "grupo": "PCP",
+   "href": "ops",
+   "rotulo": "Controle de OPs"
+  },
+  {
+   "grupo": "PCP",
+   "href": "emitir_op",
+   "rotulo": "Emitir OP"
+  },
+  {
+   "grupo": "PCP",
+   "href": "dossie_lote",
+   "rotulo": "Dossiê do Lote"
+  },
+  {
+   "grupo": "PCP",
+   "href": "pedidos",
+   "rotulo": "Pedidos"
+  },
+  {
+   "grupo": "PCP",
+   "href": "relatorio_pedido",
+   "rotulo": "Relatório de Pedido"
+  },
+  {
+   "grupo": "PCP",
+   "href": "insumos",
+   "rotulo": "Matriz de Insumos (MRP)"
+  },
+  {
+   "grupo": "PCP",
+   "href": "o_que_comprar",
+   "rotulo": "O que comprar"
+  },
+  {
+   "grupo": "PCP",
+   "href": "admin",
+   "rotulo": "Ajustes / Config"
+  },
+  {
+   "grupo": "PCP",
+   "href": "historico",
+   "rotulo": "Histórico de Apontamentos"
+  },
+  {
+   "grupo": "Logística",
+   "href": "logistica",
+   "rotulo": "Agendamentos"
+  },
+  {
+   "grupo": "Logística",
+   "href": "expedicao",
+   "rotulo": "Expedição — Montar carga"
+  },
+  {
+   "grupo": "Logística",
+   "href": "faturamento",
+   "rotulo": "Expedição — Faturamento"
+  },
+  {
+   "grupo": "Logística",
+   "href": "cargas",
+   "rotulo": "Expedição — Acompanhamento"
+  },
+  {
+   "grupo": "Logística",
+   "href": "relatorio_expedicao",
+   "rotulo": "Relatório de Expedição"
+  },
+  {
+   "grupo": "Logística",
+   "href": "consulta_estoque",
+   "rotulo": "Consulta de Estoque"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=agregado",
+   "rotulo": "Estoque"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=posicoes",
+   "rotulo": "WMS"
+  },
+  {
+   "grupo": "Logística",
+   "href": "kardex",
+   "rotulo": "Kardex"
+  },
+  {
+   "grupo": "Logística",
+   "href": "movimentar",
+   "rotulo": "Movimentar material"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=conferenciapa",
+   "rotulo": "Conferência de PA"
+  },
+  {
+   "grupo": "Logística",
+   "href": "proximas_ordens?setor=separacao",
+   "rotulo": "Próximas Separações"
+  },
+  {
+   "grupo": "Logística",
+   "href": "separacao_materiais",
+   "rotulo": "Separação de Materiais"
+  },
+  {
+   "grupo": "Logística",
+   "href": "descarte",
+   "rotulo": "Descarte e Reversa"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade?tab=fila",
+   "rotulo": "Fila de Inspeção"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade?tab=rnc",
+   "rotulo": "Não Conformidades"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade_historico",
+   "rotulo": "Histórico e Indicadores"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "retrabalhos",
+   "rotulo": "Retrabalhos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=envase",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "form",
+   "rotulo": "Apontamento"
+  },
+  {
+   "grupo": "Operação",
+   "href": "historico",
+   "rotulo": "Histórico de Apontamentos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=producao",
+   "rotulo": "Estoque da Fábrica"
+  },
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=manipulacao",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "manipulacao",
+   "rotulo": "Pesagem e Manipulação"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=manipulacao",
+   "rotulo": "Estoque da Manipulação"
+  },
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=rotulagem",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=rotulagem",
+   "rotulo": "Estoque dos Rótulos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "Financeiro",
+   "href": "financeiro",
+   "rotulo": "Financeiro"
+  },
+  {
+   "grupo": "Financeiro",
+   "href": "controladoria",
+   "rotulo": "Controladoria"
+  },
+  {
+   "grupo": "ADM",
+   "href": "usuarios",
+   "rotulo": "Usuários"
+  },
+  {
+   "grupo": "RH",
+   "href": "rh_dashboard",
+   "rotulo": "Dash"
+  },
+  {
+   "grupo": "RH",
+   "href": "rh_cadastros",
+   "rotulo": "Colaboradores"
+  },
+  {
+   "grupo": "RH",
+   "href": "rh_avaliacao",
+   "rotulo": "Avaliação de Desempenho"
+  },
+  {
+   "grupo": "RH",
+   "href": "rh_ferias",
+   "rotulo": "Férias"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_apontamento",
+   "rotulo": "Apontamento"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_pcp",
+   "rotulo": "Planejamento e OPs"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_comercial",
+   "rotulo": "Pedidos e MRP"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_compras",
+   "rotulo": "Compras"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_logistica",
+   "rotulo": "Recebimento"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_estoque",
+   "rotulo": "Estoque e WMS"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_qualidade",
+   "rotulo": "Qualidade"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_cadastros",
+   "rotulo": "Cadastros"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_admin",
+   "rotulo": "Administração"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "pcp": [
+  {
+   "grupo": "Analytics",
+   "href": "dashboard_executivo",
+   "rotulo": "Visão Executiva 360°"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "dashboard_setorial",
+   "rotulo": "Indicadores Setoriais"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "dashboard",
+   "rotulo": "Dashboard Diário"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "dashboard_analise",
+   "rotulo": "Dashboard Geral"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "placar",
+   "rotulo": "Placar da fábrica"
+  },
+  {
+   "grupo": "Cadastros",
+   "href": "cadastros",
+   "rotulo": "Cadastros"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "comercial",
+   "rotulo": "Pedidos e Orçamentos"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "gestao_comercial",
+   "rotulo": "Gestão Comercial"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm1",
+   "rotulo": "CRM 1 · Clientes"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm2",
+   "rotulo": "CRM 2 · Projetos"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm3",
+   "rotulo": "CRM 3 · Amostras"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "pd",
+   "rotulo": "P&D"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "kickoffs",
+   "rotulo": "Kickoffs"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "contratos",
+   "rotulo": "Contratos CGI"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "devolucoes",
+   "rotulo": "Devoluções de Cliente"
+  },
+  {
+   "grupo": "Compras",
+   "href": "compras",
+   "rotulo": "Compras"
+  },
+  {
+   "grupo": "PCP",
+   "href": "planejamento",
+   "rotulo": "Planejamento"
+  },
+  {
+   "grupo": "PCP",
+   "href": "ops",
+   "rotulo": "Controle de OPs"
+  },
+  {
+   "grupo": "PCP",
+   "href": "emitir_op",
+   "rotulo": "Emitir OP"
+  },
+  {
+   "grupo": "PCP",
+   "href": "dossie_lote",
+   "rotulo": "Dossiê do Lote"
+  },
+  {
+   "grupo": "PCP",
+   "href": "pedidos",
+   "rotulo": "Pedidos"
+  },
+  {
+   "grupo": "PCP",
+   "href": "relatorio_pedido",
+   "rotulo": "Relatório de Pedido"
+  },
+  {
+   "grupo": "PCP",
+   "href": "insumos",
+   "rotulo": "Matriz de Insumos (MRP)"
+  },
+  {
+   "grupo": "PCP",
+   "href": "o_que_comprar",
+   "rotulo": "O que comprar"
+  },
+  {
+   "grupo": "PCP",
+   "href": "admin",
+   "rotulo": "Ajustes / Config"
+  },
+  {
+   "grupo": "PCP",
+   "href": "historico",
+   "rotulo": "Histórico de Apontamentos"
+  },
+  {
+   "grupo": "Logística",
+   "href": "logistica",
+   "rotulo": "Agendamentos"
+  },
+  {
+   "grupo": "Logística",
+   "href": "expedicao",
+   "rotulo": "Expedição — Montar carga"
+  },
+  {
+   "grupo": "Logística",
+   "href": "faturamento",
+   "rotulo": "Expedição — Faturamento"
+  },
+  {
+   "grupo": "Logística",
+   "href": "cargas",
+   "rotulo": "Expedição — Acompanhamento"
+  },
+  {
+   "grupo": "Logística",
+   "href": "relatorio_expedicao",
+   "rotulo": "Relatório de Expedição"
+  },
+  {
+   "grupo": "Logística",
+   "href": "consulta_estoque",
+   "rotulo": "Consulta de Estoque"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=agregado",
+   "rotulo": "Estoque"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=posicoes",
+   "rotulo": "WMS"
+  },
+  {
+   "grupo": "Logística",
+   "href": "kardex",
+   "rotulo": "Kardex"
+  },
+  {
+   "grupo": "Logística",
+   "href": "movimentar",
+   "rotulo": "Movimentar material"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=conferenciapa",
+   "rotulo": "Conferência de PA"
+  },
+  {
+   "grupo": "Logística",
+   "href": "proximas_ordens?setor=separacao",
+   "rotulo": "Próximas Separações"
+  },
+  {
+   "grupo": "Logística",
+   "href": "separacao_materiais",
+   "rotulo": "Separação de Materiais"
+  },
+  {
+   "grupo": "Logística",
+   "href": "descarte",
+   "rotulo": "Descarte e Reversa"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade?tab=fila",
+   "rotulo": "Fila de Inspeção"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade?tab=rnc",
+   "rotulo": "Não Conformidades"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade_historico",
+   "rotulo": "Histórico e Indicadores"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "retrabalhos",
+   "rotulo": "Retrabalhos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=envase",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "form",
+   "rotulo": "Apontamento"
+  },
+  {
+   "grupo": "Operação",
+   "href": "historico",
+   "rotulo": "Histórico de Apontamentos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=producao",
+   "rotulo": "Estoque da Fábrica"
+  },
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=manipulacao",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "manipulacao",
+   "rotulo": "Pesagem e Manipulação"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=manipulacao",
+   "rotulo": "Estoque da Manipulação"
+  },
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=rotulagem",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=rotulagem",
+   "rotulo": "Estoque dos Rótulos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "ADM",
+   "href": "usuarios",
+   "rotulo": "Usuários"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_apontamento",
+   "rotulo": "Apontamento"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_pcp",
+   "rotulo": "Planejamento e OPs"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_comercial",
+   "rotulo": "Pedidos e MRP"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_compras",
+   "rotulo": "Compras"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_logistica",
+   "rotulo": "Recebimento"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_estoque",
+   "rotulo": "Estoque e WMS"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_qualidade",
+   "rotulo": "Qualidade"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_cadastros",
+   "rotulo": "Cadastros"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_admin",
+   "rotulo": "Administração"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "gestor": [
+  {
+   "grupo": "RH",
+   "href": "rh_cadastros",
+   "rotulo": "Colaboradores"
+  },
+  {
+   "grupo": "RH",
+   "href": "rh_avaliacao",
+   "rotulo": "Avaliação de Desempenho"
+  },
+  {
+   "grupo": "RH",
+   "href": "rh_ferias",
+   "rotulo": "Férias"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "qualidade": [
+  {
+   "grupo": "Analytics",
+   "href": "placar",
+   "rotulo": "Placar da fábrica"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "kickoffs",
+   "rotulo": "Kickoffs"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade?tab=fila",
+   "rotulo": "Fila de Inspeção"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade?tab=rnc",
+   "rotulo": "Não Conformidades"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade_historico",
+   "rotulo": "Histórico e Indicadores"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "retrabalhos",
+   "rotulo": "Retrabalhos"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "devolucoes",
+   "rotulo": "Devoluções de Cliente"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "dossie_lote",
+   "rotulo": "Dossiê do Lote"
+  },
+  {
+   "grupo": "Operação",
+   "href": "manipulacao",
+   "rotulo": "Conferência de Pesagem"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_qualidade",
+   "rotulo": "Qualidade"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "rotulagem": [
+  {
+   "grupo": "Analytics",
+   "href": "placar",
+   "rotulo": "Placar da fábrica"
+  },
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=rotulagem",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "form",
+   "rotulo": "Apontamento"
+  },
+  {
+   "grupo": "Operação",
+   "href": "historico",
+   "rotulo": "Histórico de Apontamentos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=rotulagem",
+   "rotulo": "Estoque dos Rótulos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_apontamento",
+   "rotulo": "Apontamento"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "logistica": [
+  {
+   "grupo": "Analytics",
+   "href": "placar",
+   "rotulo": "Placar da fábrica"
+  },
+  {
+   "grupo": "Logística",
+   "href": "logistica",
+   "rotulo": "Agendamentos"
+  },
+  {
+   "grupo": "Logística",
+   "href": "expedicao",
+   "rotulo": "Expedição — Montar carga"
+  },
+  {
+   "grupo": "Logística",
+   "href": "faturamento",
+   "rotulo": "Expedição — Faturamento"
+  },
+  {
+   "grupo": "Logística",
+   "href": "cargas",
+   "rotulo": "Expedição — Acompanhamento"
+  },
+  {
+   "grupo": "Logística",
+   "href": "relatorio_expedicao",
+   "rotulo": "Relatório de Expedição"
+  },
+  {
+   "grupo": "Logística",
+   "href": "consulta_estoque",
+   "rotulo": "Consulta de Estoque"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=agregado",
+   "rotulo": "Estoque"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=posicoes",
+   "rotulo": "WMS"
+  },
+  {
+   "grupo": "Logística",
+   "href": "kardex",
+   "rotulo": "Kardex"
+  },
+  {
+   "grupo": "Logística",
+   "href": "movimentar",
+   "rotulo": "Movimentar material"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=conferenciapa",
+   "rotulo": "Conferência de PA"
+  },
+  {
+   "grupo": "Logística",
+   "href": "proximas_ordens?setor=separacao",
+   "rotulo": "Próximas Separações"
+  },
+  {
+   "grupo": "Logística",
+   "href": "separacao_materiais",
+   "rotulo": "Separação de Materiais"
+  },
+  {
+   "grupo": "Logística",
+   "href": "descarte",
+   "rotulo": "Descarte e Reversa"
+  },
+  {
+   "grupo": "Logística",
+   "href": "devolucoes",
+   "rotulo": "Devoluções de Cliente"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_logistica",
+   "rotulo": "Recebimento"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_estoque",
+   "rotulo": "Estoque e WMS"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "comercial": [
+  {
+   "grupo": "Comercial",
+   "href": "comercial",
+   "rotulo": "Pedidos e Orçamentos"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "gestao_comercial",
+   "rotulo": "Gestão Comercial"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm1",
+   "rotulo": "CRM 1 · Clientes"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm2",
+   "rotulo": "CRM 2 · Projetos"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm3",
+   "rotulo": "CRM 3 · Amostras"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "pd",
+   "rotulo": "P&D"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "kickoffs",
+   "rotulo": "Kickoffs"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "contratos",
+   "rotulo": "Contratos CGI"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "devolucoes",
+   "rotulo": "Devoluções de Cliente"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "relatorio_pedido",
+   "rotulo": "Relatório de Pedido"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_comercial",
+   "rotulo": "Pedidos e MRP"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "pd": [
+  {
+   "grupo": "Comercial",
+   "href": "pd",
+   "rotulo": "P&D"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "kickoffs",
+   "rotulo": "Kickoffs"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "production": [
+  {
+   "grupo": "Analytics",
+   "href": "dashboard_executivo",
+   "rotulo": "Visão Executiva 360°"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "dashboard_setorial",
+   "rotulo": "Indicadores Setoriais"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "dashboard",
+   "rotulo": "Dashboard Diário"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "dashboard_analise",
+   "rotulo": "Dashboard Geral"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "placar",
+   "rotulo": "Placar da fábrica"
+  },
+  {
+   "grupo": "PCP",
+   "href": "planejamento",
+   "rotulo": "Planejamento"
+  },
+  {
+   "grupo": "PCP",
+   "href": "ops",
+   "rotulo": "Controle de OPs"
+  },
+  {
+   "grupo": "PCP",
+   "href": "o_que_comprar",
+   "rotulo": "O que comprar"
+  },
+  {
+   "grupo": "PCP",
+   "href": "consulta_estoque",
+   "rotulo": "Consulta de Estoque"
+  },
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=envase",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "form",
+   "rotulo": "Apontamento"
+  },
+  {
+   "grupo": "Operação",
+   "href": "historico",
+   "rotulo": "Histórico de Apontamentos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=producao",
+   "rotulo": "Estoque da Fábrica"
+  },
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=manipulacao",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "manipulacao",
+   "rotulo": "Pesagem e Manipulação"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=manipulacao",
+   "rotulo": "Estoque da Manipulação"
+  },
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=rotulagem",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=rotulagem",
+   "rotulo": "Estoque dos Rótulos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_apontamento",
+   "rotulo": "Apontamento"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_pcp",
+   "rotulo": "Planejamento e OPs"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "rh": [
+  {
+   "grupo": "RH",
+   "href": "rh_dashboard",
+   "rotulo": "Dash"
+  },
+  {
+   "grupo": "RH",
+   "href": "rh_cadastros",
+   "rotulo": "Colaboradores"
+  },
+  {
+   "grupo": "RH",
+   "href": "rh_avaliacao",
+   "rotulo": "Avaliação de Desempenho"
+  },
+  {
+   "grupo": "RH",
+   "href": "rh_ferias",
+   "rotulo": "Férias"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "tv": [
+  {
+   "grupo": "Analytics",
+   "href": "placar",
+   "rotulo": "Placar da fábrica"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "pending": [
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "financeiro": [
+  {
+   "grupo": "Financeiro",
+   "href": "financeiro",
+   "rotulo": "Financeiro"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "controladoria": [
+  {
+   "grupo": "Financeiro",
+   "href": "controladoria",
+   "rotulo": "Controladoria"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "financeiroControladoria": [
+  {
+   "grupo": "Financeiro",
+   "href": "financeiro",
+   "rotulo": "Financeiro"
+  },
+  {
+   "grupo": "Financeiro",
+   "href": "controladoria",
+   "rotulo": "Controladoria"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "diretoria": [
+  {
+   "grupo": "Analytics",
+   "href": "dashboard_executivo",
+   "rotulo": "Visão Executiva 360°"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "dashboard_setorial",
+   "rotulo": "Indicadores Setoriais"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "dashboard",
+   "rotulo": "Dashboard Diário"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "dashboard_analise",
+   "rotulo": "Dashboard Geral"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "custos",
+   "rotulo": "Custos e Resultado"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "placar",
+   "rotulo": "Placar da fábrica"
+  },
+  {
+   "grupo": "Financeiro",
+   "href": "financeiro",
+   "rotulo": "Financeiro"
+  },
+  {
+   "grupo": "Financeiro",
+   "href": "controladoria",
+   "rotulo": "Controladoria"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "soManipulacao": [
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=manipulacao",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "manipulacao",
+   "rotulo": "Pesagem e Manipulação"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=manipulacao",
+   "rotulo": "Estoque da Manipulação"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_apontamento",
+   "rotulo": "Apontamento"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "soConferencia": [
+  {
+   "grupo": "Operação",
+   "href": "manipulacao",
+   "rotulo": "Conferência de Pesagem"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "soCompras": [
+  {
+   "grupo": "Compras",
+   "href": "compras",
+   "rotulo": "Compras"
+  },
+  {
+   "grupo": "Compras",
+   "href": "o_que_comprar",
+   "rotulo": "O que comprar"
+  },
+  {
+   "grupo": "Compras",
+   "href": "consulta_estoque",
+   "rotulo": "Consulta de Estoque"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_compras",
+   "rotulo": "Compras"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "comprasLogistica": [
+  {
+   "grupo": "Compras",
+   "href": "compras",
+   "rotulo": "Compras"
+  },
+  {
+   "grupo": "Compras",
+   "href": "o_que_comprar",
+   "rotulo": "O que comprar"
+  },
+  {
+   "grupo": "Logística",
+   "href": "logistica",
+   "rotulo": "Agendamentos"
+  },
+  {
+   "grupo": "Logística",
+   "href": "expedicao",
+   "rotulo": "Expedição — Montar carga"
+  },
+  {
+   "grupo": "Logística",
+   "href": "faturamento",
+   "rotulo": "Expedição — Faturamento"
+  },
+  {
+   "grupo": "Logística",
+   "href": "cargas",
+   "rotulo": "Expedição — Acompanhamento"
+  },
+  {
+   "grupo": "Logística",
+   "href": "relatorio_expedicao",
+   "rotulo": "Relatório de Expedição"
+  },
+  {
+   "grupo": "Logística",
+   "href": "consulta_estoque",
+   "rotulo": "Consulta de Estoque"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=agregado",
+   "rotulo": "Estoque"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=posicoes",
+   "rotulo": "WMS"
+  },
+  {
+   "grupo": "Logística",
+   "href": "kardex",
+   "rotulo": "Kardex"
+  },
+  {
+   "grupo": "Logística",
+   "href": "movimentar",
+   "rotulo": "Movimentar material"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=conferenciapa",
+   "rotulo": "Conferência de PA"
+  },
+  {
+   "grupo": "Logística",
+   "href": "proximas_ordens?setor=separacao",
+   "rotulo": "Próximas Separações"
+  },
+  {
+   "grupo": "Logística",
+   "href": "separacao_materiais",
+   "rotulo": "Separação de Materiais"
+  },
+  {
+   "grupo": "Logística",
+   "href": "descarte",
+   "rotulo": "Descarte e Reversa"
+  },
+  {
+   "grupo": "Logística",
+   "href": "devolucoes",
+   "rotulo": "Devoluções de Cliente"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_compras",
+   "rotulo": "Compras"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_logistica",
+   "rotulo": "Recebimento"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_estoque",
+   "rotulo": "Estoque e WMS"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "soPedidos": [
+  {
+   "grupo": "PCP",
+   "href": "pedidos",
+   "rotulo": "Pedidos"
+  },
+  {
+   "grupo": "PCP",
+   "href": "relatorio_pedido",
+   "rotulo": "Relatório de Pedido"
+  },
+  {
+   "grupo": "PCP",
+   "href": "insumos",
+   "rotulo": "Matriz de Insumos (MRP)"
+  },
+  {
+   "grupo": "PCP",
+   "href": "o_que_comprar",
+   "rotulo": "O que comprar"
+  },
+  {
+   "grupo": "PCP",
+   "href": "consulta_estoque",
+   "rotulo": "Consulta de Estoque"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_comercial",
+   "rotulo": "Pedidos e MRP"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "comercialPedidos": [
+  {
+   "grupo": "Comercial",
+   "href": "comercial",
+   "rotulo": "Pedidos e Orçamentos"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "gestao_comercial",
+   "rotulo": "Gestão Comercial"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm1",
+   "rotulo": "CRM 1 · Clientes"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm2",
+   "rotulo": "CRM 2 · Projetos"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm3",
+   "rotulo": "CRM 3 · Amostras"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "pd",
+   "rotulo": "P&D"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "kickoffs",
+   "rotulo": "Kickoffs"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "contratos",
+   "rotulo": "Contratos CGI"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "devolucoes",
+   "rotulo": "Devoluções de Cliente"
+  },
+  {
+   "grupo": "PCP",
+   "href": "pedidos",
+   "rotulo": "Pedidos"
+  },
+  {
+   "grupo": "PCP",
+   "href": "relatorio_pedido",
+   "rotulo": "Relatório de Pedido"
+  },
+  {
+   "grupo": "PCP",
+   "href": "insumos",
+   "rotulo": "Matriz de Insumos (MRP)"
+  },
+  {
+   "grupo": "PCP",
+   "href": "o_que_comprar",
+   "rotulo": "O que comprar"
+  },
+  {
+   "grupo": "PCP",
+   "href": "consulta_estoque",
+   "rotulo": "Consulta de Estoque"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_comercial",
+   "rotulo": "Pedidos e MRP"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "comercialPd": [
+  {
+   "grupo": "Comercial",
+   "href": "comercial",
+   "rotulo": "Pedidos e Orçamentos"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "gestao_comercial",
+   "rotulo": "Gestão Comercial"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm1",
+   "rotulo": "CRM 1 · Clientes"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm2",
+   "rotulo": "CRM 2 · Projetos"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm3",
+   "rotulo": "CRM 3 · Amostras"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "pd",
+   "rotulo": "P&D"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "kickoffs",
+   "rotulo": "Kickoffs"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "contratos",
+   "rotulo": "Contratos CGI"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "devolucoes",
+   "rotulo": "Devoluções de Cliente"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "relatorio_pedido",
+   "rotulo": "Relatório de Pedido"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_comercial",
+   "rotulo": "Pedidos e MRP"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "comercialLogistica": [
+  {
+   "grupo": "Comercial",
+   "href": "comercial",
+   "rotulo": "Pedidos e Orçamentos"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "gestao_comercial",
+   "rotulo": "Gestão Comercial"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm1",
+   "rotulo": "CRM 1 · Clientes"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm2",
+   "rotulo": "CRM 2 · Projetos"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm3",
+   "rotulo": "CRM 3 · Amostras"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "pd",
+   "rotulo": "P&D"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "kickoffs",
+   "rotulo": "Kickoffs"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "contratos",
+   "rotulo": "Contratos CGI"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "devolucoes",
+   "rotulo": "Devoluções de Cliente"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "relatorio_pedido",
+   "rotulo": "Relatório de Pedido"
+  },
+  {
+   "grupo": "Logística",
+   "href": "logistica",
+   "rotulo": "Agendamentos"
+  },
+  {
+   "grupo": "Logística",
+   "href": "expedicao",
+   "rotulo": "Expedição — Montar carga"
+  },
+  {
+   "grupo": "Logística",
+   "href": "faturamento",
+   "rotulo": "Expedição — Faturamento"
+  },
+  {
+   "grupo": "Logística",
+   "href": "cargas",
+   "rotulo": "Expedição — Acompanhamento"
+  },
+  {
+   "grupo": "Logística",
+   "href": "relatorio_expedicao",
+   "rotulo": "Relatório de Expedição"
+  },
+  {
+   "grupo": "Logística",
+   "href": "consulta_estoque",
+   "rotulo": "Consulta de Estoque"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=agregado",
+   "rotulo": "Estoque"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=posicoes",
+   "rotulo": "WMS"
+  },
+  {
+   "grupo": "Logística",
+   "href": "kardex",
+   "rotulo": "Kardex"
+  },
+  {
+   "grupo": "Logística",
+   "href": "movimentar",
+   "rotulo": "Movimentar material"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=conferenciapa",
+   "rotulo": "Conferência de PA"
+  },
+  {
+   "grupo": "Logística",
+   "href": "proximas_ordens?setor=separacao",
+   "rotulo": "Próximas Separações"
+  },
+  {
+   "grupo": "Logística",
+   "href": "separacao_materiais",
+   "rotulo": "Separação de Materiais"
+  },
+  {
+   "grupo": "Logística",
+   "href": "descarte",
+   "rotulo": "Descarte e Reversa"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_comercial",
+   "rotulo": "Pedidos e MRP"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_logistica",
+   "rotulo": "Recebimento"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_estoque",
+   "rotulo": "Estoque e WMS"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "qualidadeLogistica": [
+  {
+   "grupo": "Logística",
+   "href": "logistica",
+   "rotulo": "Agendamentos"
+  },
+  {
+   "grupo": "Logística",
+   "href": "expedicao",
+   "rotulo": "Expedição — Montar carga"
+  },
+  {
+   "grupo": "Logística",
+   "href": "faturamento",
+   "rotulo": "Expedição — Faturamento"
+  },
+  {
+   "grupo": "Logística",
+   "href": "cargas",
+   "rotulo": "Expedição — Acompanhamento"
+  },
+  {
+   "grupo": "Logística",
+   "href": "relatorio_expedicao",
+   "rotulo": "Relatório de Expedição"
+  },
+  {
+   "grupo": "Logística",
+   "href": "consulta_estoque",
+   "rotulo": "Consulta de Estoque"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=agregado",
+   "rotulo": "Estoque"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=posicoes",
+   "rotulo": "WMS"
+  },
+  {
+   "grupo": "Logística",
+   "href": "kardex",
+   "rotulo": "Kardex"
+  },
+  {
+   "grupo": "Logística",
+   "href": "movimentar",
+   "rotulo": "Movimentar material"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=conferenciapa",
+   "rotulo": "Conferência de PA"
+  },
+  {
+   "grupo": "Logística",
+   "href": "proximas_ordens?setor=separacao",
+   "rotulo": "Próximas Separações"
+  },
+  {
+   "grupo": "Logística",
+   "href": "separacao_materiais",
+   "rotulo": "Separação de Materiais"
+  },
+  {
+   "grupo": "Logística",
+   "href": "descarte",
+   "rotulo": "Descarte e Reversa"
+  },
+  {
+   "grupo": "Logística",
+   "href": "devolucoes",
+   "rotulo": "Devoluções de Cliente"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade?tab=fila",
+   "rotulo": "Fila de Inspeção"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade?tab=rnc",
+   "rotulo": "Não Conformidades"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade_historico",
+   "rotulo": "Histórico e Indicadores"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "retrabalhos",
+   "rotulo": "Retrabalhos"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "dossie_lote",
+   "rotulo": "Dossiê do Lote"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_logistica",
+   "rotulo": "Recebimento"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_estoque",
+   "rotulo": "Estoque e WMS"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_qualidade",
+   "rotulo": "Qualidade"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "qualidadeEmitirOp": [
+  {
+   "grupo": "PCP",
+   "href": "emitir_op",
+   "rotulo": "Emitir OP"
+  },
+  {
+   "grupo": "PCP",
+   "href": "dossie_lote",
+   "rotulo": "Dossiê do Lote"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade?tab=fila",
+   "rotulo": "Fila de Inspeção"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade?tab=rnc",
+   "rotulo": "Não Conformidades"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade_historico",
+   "rotulo": "Histórico e Indicadores"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "retrabalhos",
+   "rotulo": "Retrabalhos"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "devolucoes",
+   "rotulo": "Devoluções de Cliente"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_qualidade",
+   "rotulo": "Qualidade"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "qualidadeMarcada": [
+  {
+   "grupo": "Comercial",
+   "href": "kickoffs",
+   "rotulo": "Kickoffs"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade?tab=fila",
+   "rotulo": "Fila de Inspeção"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade?tab=rnc",
+   "rotulo": "Não Conformidades"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade_historico",
+   "rotulo": "Histórico e Indicadores"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "retrabalhos",
+   "rotulo": "Retrabalhos"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "devolucoes",
+   "rotulo": "Devoluções de Cliente"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "dossie_lote",
+   "rotulo": "Dossiê do Lote"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_qualidade",
+   "rotulo": "Qualidade"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "soPlanejamento": [
+  {
+   "grupo": "PCP",
+   "href": "planejamento",
+   "rotulo": "Planejamento"
+  },
+  {
+   "grupo": "PCP",
+   "href": "ops",
+   "rotulo": "Controle de OPs"
+  },
+  {
+   "grupo": "PCP",
+   "href": "o_que_comprar",
+   "rotulo": "O que comprar"
+  },
+  {
+   "grupo": "PCP",
+   "href": "consulta_estoque",
+   "rotulo": "Consulta de Estoque"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "Operação",
+   "href": "historico",
+   "rotulo": "Histórico de Apontamentos"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_pcp",
+   "rotulo": "Planejamento e OPs"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "planejamentoCadastros": [
+  {
+   "grupo": "Cadastros",
+   "href": "cadastros",
+   "rotulo": "Cadastros"
+  },
+  {
+   "grupo": "PCP",
+   "href": "planejamento",
+   "rotulo": "Planejamento"
+  },
+  {
+   "grupo": "PCP",
+   "href": "ops",
+   "rotulo": "Controle de OPs"
+  },
+  {
+   "grupo": "PCP",
+   "href": "o_que_comprar",
+   "rotulo": "O que comprar"
+  },
+  {
+   "grupo": "PCP",
+   "href": "consulta_estoque",
+   "rotulo": "Consulta de Estoque"
+  },
+  {
+   "grupo": "PCP",
+   "href": "historico",
+   "rotulo": "Histórico de Apontamentos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "Operação",
+   "href": "historico",
+   "rotulo": "Histórico de Apontamentos"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_pcp",
+   "rotulo": "Planejamento e OPs"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_cadastros",
+   "rotulo": "Cadastros"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "apontamentoLegado": [
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=envase",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "form",
+   "rotulo": "Apontamento"
+  },
+  {
+   "grupo": "Operação",
+   "href": "historico",
+   "rotulo": "Histórico de Apontamentos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=producao",
+   "rotulo": "Estoque da Fábrica"
+  },
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=manipulacao",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "manipulacao",
+   "rotulo": "Pesagem e Manipulação"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=manipulacao",
+   "rotulo": "Estoque da Manipulação"
+  },
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=rotulagem",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=rotulagem",
+   "rotulo": "Estoque dos Rótulos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_apontamento",
+   "rotulo": "Apontamento"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "apontamentoSemManip": [
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=envase",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "form",
+   "rotulo": "Apontamento"
+  },
+  {
+   "grupo": "Operação",
+   "href": "historico",
+   "rotulo": "Histórico de Apontamentos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=producao",
+   "rotulo": "Estoque da Fábrica"
+  },
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=rotulagem",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=rotulagem",
+   "rotulo": "Estoque dos Rótulos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_apontamento",
+   "rotulo": "Apontamento"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "rotulagemPlanejamento": [
+  {
+   "grupo": "PCP",
+   "href": "planejamento",
+   "rotulo": "Planejamento"
+  },
+  {
+   "grupo": "PCP",
+   "href": "ops",
+   "rotulo": "Controle de OPs"
+  },
+  {
+   "grupo": "PCP",
+   "href": "o_que_comprar",
+   "rotulo": "O que comprar"
+  },
+  {
+   "grupo": "PCP",
+   "href": "consulta_estoque",
+   "rotulo": "Consulta de Estoque"
+  },
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=rotulagem",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "form",
+   "rotulo": "Apontamento"
+  },
+  {
+   "grupo": "Operação",
+   "href": "historico",
+   "rotulo": "Histórico de Apontamentos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=rotulagem",
+   "rotulo": "Estoque dos Rótulos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_apontamento",
+   "rotulo": "Apontamento"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_pcp",
+   "rotulo": "Planejamento e OPs"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "producaoRotulagem": [
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=envase",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "form",
+   "rotulo": "Apontamento"
+  },
+  {
+   "grupo": "Operação",
+   "href": "historico",
+   "rotulo": "Histórico de Apontamentos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=producao",
+   "rotulo": "Estoque da Fábrica"
+  },
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=rotulagem",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=rotulagem",
+   "rotulo": "Estoque dos Rótulos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_apontamento",
+   "rotulo": "Apontamento"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "configUsuarios": [
+  {
+   "grupo": "PCP",
+   "href": "admin",
+   "rotulo": "Ajustes / Config"
+  },
+  {
+   "grupo": "ADM",
+   "href": "usuarios",
+   "rotulo": "Usuários"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_admin",
+   "rotulo": "Administração"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "rhDash": [
+  {
+   "grupo": "RH",
+   "href": "rh_dashboard",
+   "rotulo": "Dash"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "nadaMarcado": [
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "pcpComFuncaoComercial": [
+  {
+   "grupo": "Analytics",
+   "href": "dashboard_executivo",
+   "rotulo": "Visão Executiva 360°"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "dashboard_setorial",
+   "rotulo": "Indicadores Setoriais"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "dashboard",
+   "rotulo": "Dashboard Diário"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "dashboard_analise",
+   "rotulo": "Dashboard Geral"
+  },
+  {
+   "grupo": "Analytics",
+   "href": "placar",
+   "rotulo": "Placar da fábrica"
+  },
+  {
+   "grupo": "Cadastros",
+   "href": "cadastros",
+   "rotulo": "Cadastros"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "comercial",
+   "rotulo": "Pedidos e Orçamentos"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "gestao_comercial",
+   "rotulo": "Gestão Comercial"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm1",
+   "rotulo": "CRM 1 · Clientes"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm2",
+   "rotulo": "CRM 2 · Projetos"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "crm3",
+   "rotulo": "CRM 3 · Amostras"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "pd",
+   "rotulo": "P&D"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "kickoffs",
+   "rotulo": "Kickoffs"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "contratos",
+   "rotulo": "Contratos CGI"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "devolucoes",
+   "rotulo": "Devoluções de Cliente"
+  },
+  {
+   "grupo": "Compras",
+   "href": "compras",
+   "rotulo": "Compras"
+  },
+  {
+   "grupo": "PCP",
+   "href": "planejamento",
+   "rotulo": "Planejamento"
+  },
+  {
+   "grupo": "PCP",
+   "href": "ops",
+   "rotulo": "Controle de OPs"
+  },
+  {
+   "grupo": "PCP",
+   "href": "emitir_op",
+   "rotulo": "Emitir OP"
+  },
+  {
+   "grupo": "PCP",
+   "href": "dossie_lote",
+   "rotulo": "Dossiê do Lote"
+  },
+  {
+   "grupo": "PCP",
+   "href": "pedidos",
+   "rotulo": "Pedidos"
+  },
+  {
+   "grupo": "PCP",
+   "href": "relatorio_pedido",
+   "rotulo": "Relatório de Pedido"
+  },
+  {
+   "grupo": "PCP",
+   "href": "insumos",
+   "rotulo": "Matriz de Insumos (MRP)"
+  },
+  {
+   "grupo": "PCP",
+   "href": "o_que_comprar",
+   "rotulo": "O que comprar"
+  },
+  {
+   "grupo": "PCP",
+   "href": "admin",
+   "rotulo": "Ajustes / Config"
+  },
+  {
+   "grupo": "PCP",
+   "href": "historico",
+   "rotulo": "Histórico de Apontamentos"
+  },
+  {
+   "grupo": "Logística",
+   "href": "logistica",
+   "rotulo": "Agendamentos"
+  },
+  {
+   "grupo": "Logística",
+   "href": "expedicao",
+   "rotulo": "Expedição — Montar carga"
+  },
+  {
+   "grupo": "Logística",
+   "href": "faturamento",
+   "rotulo": "Expedição — Faturamento"
+  },
+  {
+   "grupo": "Logística",
+   "href": "cargas",
+   "rotulo": "Expedição — Acompanhamento"
+  },
+  {
+   "grupo": "Logística",
+   "href": "relatorio_expedicao",
+   "rotulo": "Relatório de Expedição"
+  },
+  {
+   "grupo": "Logística",
+   "href": "consulta_estoque",
+   "rotulo": "Consulta de Estoque"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=agregado",
+   "rotulo": "Estoque"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=posicoes",
+   "rotulo": "WMS"
+  },
+  {
+   "grupo": "Logística",
+   "href": "kardex",
+   "rotulo": "Kardex"
+  },
+  {
+   "grupo": "Logística",
+   "href": "movimentar",
+   "rotulo": "Movimentar material"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=conferenciapa",
+   "rotulo": "Conferência de PA"
+  },
+  {
+   "grupo": "Logística",
+   "href": "proximas_ordens?setor=separacao",
+   "rotulo": "Próximas Separações"
+  },
+  {
+   "grupo": "Logística",
+   "href": "separacao_materiais",
+   "rotulo": "Separação de Materiais"
+  },
+  {
+   "grupo": "Logística",
+   "href": "descarte",
+   "rotulo": "Descarte e Reversa"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade?tab=fila",
+   "rotulo": "Fila de Inspeção"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade?tab=rnc",
+   "rotulo": "Não Conformidades"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade_historico",
+   "rotulo": "Histórico e Indicadores"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "retrabalhos",
+   "rotulo": "Retrabalhos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=envase",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "form",
+   "rotulo": "Apontamento"
+  },
+  {
+   "grupo": "Operação",
+   "href": "historico",
+   "rotulo": "Histórico de Apontamentos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=producao",
+   "rotulo": "Estoque da Fábrica"
+  },
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=manipulacao",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "manipulacao",
+   "rotulo": "Pesagem e Manipulação"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=manipulacao",
+   "rotulo": "Estoque da Manipulação"
+  },
+  {
+   "grupo": "Operação",
+   "href": "proximas_ordens?setor=rotulagem",
+   "rotulo": "Próximas Ordens"
+  },
+  {
+   "grupo": "Operação",
+   "href": "estoque_setor?setor=rotulagem",
+   "rotulo": "Estoque dos Rótulos"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "ADM",
+   "href": "usuarios",
+   "rotulo": "Usuários"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_apontamento",
+   "rotulo": "Apontamento"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_pcp",
+   "rotulo": "Planejamento e OPs"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_comercial",
+   "rotulo": "Pedidos e MRP"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_compras",
+   "rotulo": "Compras"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_logistica",
+   "rotulo": "Recebimento"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_estoque",
+   "rotulo": "Estoque e WMS"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_qualidade",
+   "rotulo": "Qualidade"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_cadastros",
+   "rotulo": "Cadastros"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_admin",
+   "rotulo": "Administração"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "pdComFuncaoQualidade": [
+  {
+   "grupo": "Analytics",
+   "href": "placar",
+   "rotulo": "Placar da fábrica"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "pd",
+   "rotulo": "P&D"
+  },
+  {
+   "grupo": "Comercial",
+   "href": "kickoffs",
+   "rotulo": "Kickoffs"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade?tab=fila",
+   "rotulo": "Fila de Inspeção"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade?tab=rnc",
+   "rotulo": "Não Conformidades"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade_historico",
+   "rotulo": "Histórico e Indicadores"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "retrabalhos",
+   "rotulo": "Retrabalhos"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "devolucoes",
+   "rotulo": "Devoluções de Cliente"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "dossie_lote",
+   "rotulo": "Dossiê do Lote"
+  },
+  {
+   "grupo": "Operação",
+   "href": "manipulacao",
+   "rotulo": "Conferência de Pesagem"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_qualidade",
+   "rotulo": "Qualidade"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ],
+ "funcoesRecalculadas": [
+  {
+   "grupo": "Analytics",
+   "href": "placar",
+   "rotulo": "Placar da fábrica"
+  },
+  {
+   "grupo": "Logística",
+   "href": "logistica",
+   "rotulo": "Agendamentos"
+  },
+  {
+   "grupo": "Logística",
+   "href": "expedicao",
+   "rotulo": "Expedição — Montar carga"
+  },
+  {
+   "grupo": "Logística",
+   "href": "faturamento",
+   "rotulo": "Expedição — Faturamento"
+  },
+  {
+   "grupo": "Logística",
+   "href": "cargas",
+   "rotulo": "Expedição — Acompanhamento"
+  },
+  {
+   "grupo": "Logística",
+   "href": "relatorio_expedicao",
+   "rotulo": "Relatório de Expedição"
+  },
+  {
+   "grupo": "Logística",
+   "href": "consulta_estoque",
+   "rotulo": "Consulta de Estoque"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=agregado",
+   "rotulo": "Estoque"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=posicoes",
+   "rotulo": "WMS"
+  },
+  {
+   "grupo": "Logística",
+   "href": "kardex",
+   "rotulo": "Kardex"
+  },
+  {
+   "grupo": "Logística",
+   "href": "movimentar",
+   "rotulo": "Movimentar material"
+  },
+  {
+   "grupo": "Logística",
+   "href": "estoque?tab=conferenciapa",
+   "rotulo": "Conferência de PA"
+  },
+  {
+   "grupo": "Logística",
+   "href": "proximas_ordens?setor=separacao",
+   "rotulo": "Próximas Separações"
+  },
+  {
+   "grupo": "Logística",
+   "href": "separacao_materiais",
+   "rotulo": "Separação de Materiais"
+  },
+  {
+   "grupo": "Logística",
+   "href": "descarte",
+   "rotulo": "Descarte e Reversa"
+  },
+  {
+   "grupo": "Logística",
+   "href": "devolucoes",
+   "rotulo": "Devoluções de Cliente"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade?tab=fila",
+   "rotulo": "Fila de Inspeção"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade?tab=rnc",
+   "rotulo": "Não Conformidades"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "qualidade_historico",
+   "rotulo": "Histórico e Indicadores"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "retrabalhos",
+   "rotulo": "Retrabalhos"
+  },
+  {
+   "grupo": "Qualidade",
+   "href": "dossie_lote",
+   "rotulo": "Dossiê do Lote"
+  },
+  {
+   "grupo": "Operação",
+   "href": "manipulacao",
+   "rotulo": "Conferência de Pesagem"
+  },
+  {
+   "grupo": "Operação",
+   "href": "material_processo",
+   "rotulo": "Material em Processo"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manuais",
+   "rotulo": "Manuais de Operação"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_logistica",
+   "rotulo": "Recebimento"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_estoque",
+   "rotulo": "Estoque e WMS"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_qualidade",
+   "rotulo": "Qualidade"
+  },
+  {
+   "grupo": "Ajuda",
+   "href": "manual_referencia",
+   "rotulo": "Referência do Sistema"
+  }
+ ]
+}

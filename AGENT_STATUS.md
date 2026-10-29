@@ -11,6 +11,12 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 - **Estado (29/10, noite):** Portão A aprovado (D-01…D-16 pelo padrão; D-15 = só código). **Fase 2 (CRM) concluída em commits locais** `2df7b1d` CRM-01, `71fedd7` CRM-02, `1ae6341`/`36257dc` CRM-03/04, `7c72bc4` build — sem push (Portão C). Migração das categorias antigas: plano pronto (106 campos), aplica depois do deploy. Em execução por 3 devs em worktrees: `reuniao-20261028/menu` (Fase 1), `reuniao-20261028/pd` (Fase 3), `reuniao-20261028/fin-op` (FIN-01, OP-01/02).
 - **Arquivos ativos:** `docs/superpowers/specs/2026-10-28-reuniao-ajustes-design.md` e `docs/superpowers/specs/2026-10-28-matriz-lacunas-gustavo.md` (novos). Código só depois do Portão A. MENU-01/02 tocam `auth_check.js` e o shell, que têm alterações abertas de outra sessão (D-12).
 
+### Claude (Dev Sênior 1) — Reunião 28/10: menu lateral do Gustavo (29/10/2026)
+
+- **Pedido:** Fase 1 de `docs/superpowers/specs/PROMPT_REUNIAO_20261028.md` (MENU-01 registro único, MENU-02 identidade, MENU-04 CRM no shell, MENU-03 Início), em worktree própria, branch `reuniao-20261028/menu`; integra o tech lead (Agente 1). Sem push.
+- **MENU-01:** `public/shared/navegacao.js` (registro único, UMD) + montagem do menu por ele em `public/auth_check.js`; Logística virou Armazém (Estoque/Fluxo) + Expedição (um link com `fam` para as três etapas). `PAGINA_MODULOS`, `KURYOS_MODULOS` e `podeAbrirPagina` intocados. Regressão em `run_navegacao_test.js` contra `run_navegacao_fixture.json` (menu antigo de `087dfd7`, 39 perfis, gerado por `run_navegacao_menu.js --fixture`).
+- **Arquivos ativos:** `public/auth_check.js` (só o menu), `public/shared/navegacao.js`, `public/shared/kuryos-ui-layout.css` (só a barra lateral), `public/shared/crm-pd-shell-bridge.js`, `public/crm-app.html`, `public/inicio.html`, `run_navegacao_*`, `run_menu_sanfona_ui_test.js`, `run_inicio_ui_test.js`.
+
 ### Claude — Financeiro e Controladoria (28/10/2026)
 
 - **Pedido:** "todos os módulos se interligam; não mexa nos módulos já criados; Financeiro e Controladoria podem ser criados com base em SAP/TOTVS" — construir `PROMPT_FINANCEIRO.md` e `PROMPT_CONTROLADORIA.md`.
