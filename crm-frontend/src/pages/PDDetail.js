@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import api from "@/lib/api";
 import LiberacaoAntecipadaPD from "@/components/LiberacaoAntecipadaPD";
 import RolagemHorizontalDupla from "@/components/RolagemHorizontalDupla";
+import { TIPOS_MP_PD, ingredienteEhEmbalagem } from "@/lib/materiaPrimaPd";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -400,7 +401,6 @@ function findSupplierByName(suppliers = [], value = "") {
 
 function usePdMaterialLibrary() {
   const [catalog, setCatalog] = useState([]);
-  const [materiais, setMateriais] = useState([]);
   const [homologacaoMps, setHomologacaoMps] = useState([]);
   const [fornecedores, setFornecedores] = useState([]);
 
@@ -408,9 +408,10 @@ function usePdMaterialLibrary() {
     let active = true;
 
     (async () => {
-      const [catalogResult, materiaisResult, homologacaoResult, fornecedoresResult] = await Promise.allSettled([
-        api.get("/pd/catalog"),
-        api.get("/cadastros/materiais", { params: { tipo2: "MP", status: "ativo" } }),
+      // PD-02: ingrediente é só MPES/MPGR. O /pd/catalog já é o cadastro integrado inteiro; a 2ª
+      // leitura de /cadastros/materiais repetia as mesmas 5 coleções e era descartada (lia data.materiais).
+      const [catalogResult, homologacaoResult, fornecedoresResult] = await Promise.allSettled([
+        api.get("/pd/catalog", { params: { tipo_material: TIPOS_MP_PD.join(",") } }),
         api.get("/pd/homologacao/mps", { params: { tipo_mp: "FORMULACAO" } }),
         api.get("/compras/fornecedores", { params: { limit: 500 } }),
       ]);
@@ -420,11 +421,6 @@ function usePdMaterialLibrary() {
       setCatalog(
         catalogResult.status === "fulfilled" && Array.isArray(catalogResult.value?.data)
           ? catalogResult.value.data
-          : [],
-      );
-      setMateriais(
-        materiaisResult.status === "fulfilled" && Array.isArray(materiaisResult.value?.data?.materiais)
-          ? materiaisResult.value.data.materiais
           : [],
       );
       setHomologacaoMps(
@@ -446,8 +442,8 @@ function usePdMaterialLibrary() {
 
   const supplierOptions = useMemo(() => buildSupplierDirectoryOptions(fornecedores), [fornecedores]);
   const ingredientOptions = useMemo(
-    () => buildPdIngredientOptions({ catalog, materiais, homologacaoMps, fornecedores }),
-    [catalog, materiais, homologacaoMps, fornecedores],
+    () => buildPdIngredientOptions({ catalog, homologacaoMps, fornecedores }),
+    [catalog, homologacaoMps, fornecedores],
   );
 
   const getIngredientOption = useCallback(
@@ -2528,6 +2524,12 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
                               {item.mp_nova && (
                                 <Badge className="ml-1.5 text-[9px] h-4 px-1 bg-amber-100 text-amber-800 border-amber-300" title={`MP nova não cadastrada: ${item.mp_nova.nome}`}>
                                   MP nova · {item.mp_nova.tipo}
+                                </Badge>
+                              )}
+                              {ingredienteEhEmbalagem(item) && (
+                                // PD-02: gravado antes do filtro; não some, mas avisa para trocar pela MP.
+                                <Badge className="ml-1.5 text-[9px] h-4 px-1 bg-red-100 text-red-800 border-red-300" title={`${item.material_code || ""} é embalagem no Cadastros, não matéria-prima (MPES/MPGR). Troque pelo ingrediente certo.`} data-testid="aviso-embalagem">
+                                  Embalagem · não é MP
                                 </Badge>
                               )}
                             </td>

@@ -12,6 +12,7 @@ import { sugestoesCli4 } from "@/lib/cli4";
 import { amostraDaVersaoFaltando, precoUsd, volumeEmKg } from "@/lib/pdAmostra";
 import { eventoMpNova, htmlFichaTecnica, montarFichaTecnica, validarMpNova } from "@/lib/fichaTecnica";
 import { solicitacoesDeMpsNovas } from "@/lib/filaCadastroMp";
+import { filtrarMateriaisPd, tiposDoFiltro } from "@/lib/materiaPrimaPd";
 import { erroNaoFecha, fechamentoFormula, pendenciasDoLote } from "@/lib/fechamentoFormula";
 import { baseVigente, planoDaBase, substituicoesForaDaFragrancia } from "@/lib/formulacaoBase";
 import { contatosDoCliente, entradaHistoricoAprovacao, validarAprovacaoCliente } from "@/lib/aprovacaoCliente";
@@ -2123,7 +2124,11 @@ async function dispatch(e, t) {
     unidade_volume: e.unidadeVolume || null,
     origem_integracao: "cadastro_produtos"
   })), i);
-  if ("GET" === e && "/cadastros/materiais" === S) return response(await integratedMaterials(_), i);
+  // PD-02: tipo2=MP (o que o P&D pede) traz só MPES/MPGR; sem filtro (Kickoff) traz tudo, embalagens incluídas.
+  if ("GET" === e && "/cadastros/materiais" === S) {
+    const materiais = await integratedMaterials(_);
+    return response(String(q.tipo2 || "").toUpperCase() === "MP" ? filtrarMateriaisPd(materiais) : materiais, i);
+  }
   // KO-04: catálogo de tipos de componente = padrão do código + config/tipos_componente (ADM edita, sem deploy).
   if ("GET" === e && "/config/tipos-componente" === S) {
     const doBanco = (await get(ref(firebaseDb, "config/tipos_componente")).catch(() => null))?.val() || {};
@@ -2607,6 +2612,9 @@ async function dispatch(e, t) {
   }
   if ("/pd/catalog" === S && "GET" === e) {
     let e = await integratedMaterials(_);
+    // PD-02: a manipulação pede tipo_material=MPES,MPGR; o Banco de Custos segue sem filtro.
+    const tiposPd = tiposDoFiltro(q.tipo_material);
+    tiposPd && (e = filtrarMateriaisPd(e, tiposPd));
     return q.q && (e = e.filter(e => contains(e, q.q, ["nome", "inci", "codigo_interno", "fornecedor", "fornecedores"]))), q.categoria && (e = e.filter(e => e.categoria === q.categoria)), response(e.sort((e, t) => String(e.nome || "").localeCompare(String(t.nome || ""))), i);
   }
   if ("/pd/catalog" === S && "POST" === e) return response(await create(_, "pd_catalog", {

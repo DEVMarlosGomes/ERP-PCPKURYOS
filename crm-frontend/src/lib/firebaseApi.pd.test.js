@@ -363,3 +363,33 @@ test("fórmula registrada só com a aprovação do cliente", async () => {
   const { data } = await api.get("/pd/formulas/bank");
   expect(data.find((x) => x.id === "F1").is_registered).toBe(true);
 });
+
+describe("PD-02: rotas de materiais com o filtro do P&D", () => {
+  beforeAll(() => {
+    memory.write("materiais", {
+      m1: { mpCodigo: "MPGR-00008", mpNome: "GLICERINA", tipo: "MPGR" },
+      m2: { mpCodigo: "MPES-00010", mpNome: "FRAGRANCIA FLORAL", tipo: "MPES" },
+      m3: { mpCodigo: "EP-00001", mpNome: "FRASCO PET 120ML", tipo: "EP" },
+      m4: { mpCodigo: "ES-00004", mpNome: "CAIXA DISPLAY FRASCO", tipo: "ES" },
+      m5: { mpCodigo: "ET-00012", mpNome: "ETIQUETA FRASCO", tipo: "ET" },
+      m6: { mpCodigo: "MPGR-00099", mpNome: "INATIVA", tipo: "MPGR", ativo: false },
+    });
+  });
+  const codigos = (lista) => lista.map((m) => m.codigo_interno).filter((c) => /^(MP|E)/.test(c)).sort();
+
+  test("/pd/catalog com tipo_material=MPES,MPGR traz só MP; buscar 'frasco' não traz nada", async () => {
+    const { data } = await api.get("/pd/catalog", { params: { tipo_material: "MPES,MPGR" } });
+    expect(codigos(data)).toEqual(["MPES-00010", "MPGR-00008"]);
+    const { data: frasco } = await api.get("/pd/catalog", { params: { tipo_material: "MPES,MPGR", q: "frasco" } });
+    expect(frasco).toEqual([]);
+  });
+
+  test("/cadastros/materiais com tipo2=MP (P&D) filtra; sem filtro (Kickoff, Banco de Custos) segue com as embalagens", async () => {
+    const { data: pd } = await api.get("/cadastros/materiais", { params: { tipo2: "MP" } });
+    expect(codigos(pd)).toEqual(["MPES-00010", "MPGR-00008"]);
+    const { data: kickoff } = await api.get("/cadastros/materiais");
+    expect(codigos(kickoff)).toEqual(["EP-00001", "ES-00004", "ET-00012", "MPES-00010", "MPGR-00008"]);
+    const { data: banco } = await api.get("/pd/catalog", { params: { q: "frasco" } });
+    expect(codigos(banco)).toEqual(["EP-00001", "ES-00004", "ET-00012"]);
+  });
+});
