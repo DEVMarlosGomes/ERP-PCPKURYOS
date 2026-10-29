@@ -8,6 +8,7 @@ import {
 import { askJustification, isJustificationRequired } from "@/lib/justificationPrompt";
 import { createCommercialRouter, NOT_HANDLED } from "@/lib/firebaseCommercial";
 import { categoriasAtivas } from "@/lib/categoriasProduto";
+import { sugestoesCli4 } from "@/lib/cli4";
 import { amostraDaVersaoFaltando, precoUsd, volumeEmKg } from "@/lib/pdAmostra";
 import { eventoMpNova, htmlFichaTecnica, montarFichaTecnica, validarMpNova } from "@/lib/fichaTecnica";
 import { solicitacoesDeMpsNovas } from "@/lib/filaCadastroMp";
@@ -1306,6 +1307,13 @@ async function dispatch(e, t) {
       trigger_batch_projects: "projeto_em_discussao" === moved.to
     }, i);
   }
+  // CRM-02: a rota vivia DEPOIS de /crm/clients/:id, que a capturava (id "suggest-cli4" → null) e o
+  // campo engolia o erro. Fica antes, e devolve { sugestoes } livres. Só leitura (sem sync).
+  if ("GET" === e && "/crm/clients/suggest-cli4" === S) {
+    const [mestres, crm] = await Promise.all([masterAll("clientes"), all(_, "crm_clients")]);
+    const taken = new Set([...mestres.flatMap(c => [c.codigo, c.id]), ...crm.filter(c => c.id !== q.cliente_id).map(c => c.cli4)].filter(Boolean).map(c => String(c).toUpperCase()));
+    return response({ sugestoes: sugestoesCli4(q.nome || "", taken).map(cli4 => ({ cli4, disponivel: true })) }, i);
+  }
   if (O = j(/^\/crm\/clients\/([^/]+)$/), O && "GET" === e) return response(await one(_, "crm_clients", O[1]), i);
   if (O && "DELETE" === e) return response(await deleteCard(_, "client", O[1], u, ["1", "true"].includes(String(q.cascade))), i);
   if (O && "PUT" === e) return response(await patch(_, "crm_clients", O[1], r), i);
@@ -2096,7 +2104,7 @@ async function dispatch(e, t) {
     return q.origem && (e = e.filter(e => e.origin_type === q.origem)), "true" === String(q.somente_registradas) && (e = e.filter(e => e.is_registered)), q.q && (e = e.filter(e => contains(e, q.q, ["name", "nome", "project_name", "client_name", "origin_label", "created_by_name", "items"]))), response(e.sort((e, t) => String(t.created_at || "").localeCompare(String(e.created_at || ""))), i);
   }
   if (O = j(/^\/pd\/pd-cards\/([^/]+)\/executor$/), "PUT" === e && O) return response(await patch(_, "pd_cards", O[1], r), i);
-  if ("GET" === e && ["/pd/clients/search", "/crm/clients/suggest-cli4"].includes(S)) {
+  if ("GET" === e && "/pd/clients/search" === S) {
     const e = q.q || q.nome || "";
     return response((await syncMasterClients(_)).filter(t => contains(t, e, ["nome_empresa", "nome_fantasia", "cnpj"])).slice(0, Number(q.limit) || 20), i);
   }

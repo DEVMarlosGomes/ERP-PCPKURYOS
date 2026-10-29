@@ -23,6 +23,7 @@ import { get, ref, runTransaction, set, update } from "firebase/database";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { firebaseAuth, firebaseDb, firebaseStorage } from "@/lib/firebase";
 import { categoriasAtivas, codigoDaCategoria } from "@/lib/categoriasProduto";
+import { cli4For, cli4Valido } from "@/lib/cli4";
 import { MIN_JUSTIFICATIVA, PROJECT_STAGES, PROJECT_TRANSITIONS, formulaRegistrada, hasAnyRole, isAdmin, isComercial, movementEntry, normalizeName } from "@/lib/crmRules";
 import { numeroKickoff } from "@/lib/numeracaoProjeto";
 import { registroDeCambio, taxaDaCotacao, textoCambio } from "@/lib/cambio";
@@ -1603,18 +1604,6 @@ export function createCommercialRouter(h) {
     return null;
   }
 
-  // CLI4 a partir do nome, único entre os códigos do cadastro mestre.
-  function cli4For(name, taken) {
-    const letters = normalizeName(name).toUpperCase().replace(/[^A-Z0-9]/g, "");
-    const base = (letters.slice(0, 4) || "CLIX").padEnd(4, "X");
-    if (!taken.has(base)) return base;
-    for (const ch of "23456789ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
-      const code = base.slice(0, 3) + ch;
-      if (!taken.has(code)) return code;
-    }
-    throw apiError(409, `Não foi possível gerar um código de cliente livre para ${name}.`);
-  }
-
   // Cliente do cadastro mestre (clientes/) ligado ao card do CRM. Cliente que
   // só existe no funil é criado com origemCrmClienteId (regra do banco).
   async function ensureMasterClient(tenant, crmClient, contrato) {
@@ -1630,7 +1619,11 @@ export function createCommercialRouter(h) {
       await patch(tenant, "crm_clients", crmClient.id, { cadastro_cliente_id: match.id });
       return match;
     }
-    const codigo = cli4For(crmClient.nome_empresa || crmClient.nome || "", new Set(masters.flatMap((m) => [m.codigo, m.id]).filter(Boolean)));
+    // CRM-02: o CLI4 escolhido no CRM vale, se for válido e estiver livre; senão, o primeiro livre pelo nome.
+    const taken = new Set(masters.flatMap((m) => [m.codigo, m.id]).filter(Boolean));
+    const escolhido = String(crmClient.cli4 || "").toUpperCase();
+    const codigo = cli4Valido(escolhido) && !taken.has(escolhido) ? escolhido : cli4For(crmClient.nome_empresa || crmClient.nome || "", taken);
+    if (!codigo) throw apiError(409, `Não foi possível gerar um código de cliente livre para ${crmClient.nome_empresa || crmClient.nome}.`);
     const record = {
       nome: crmClient.nome_empresa || crmClient.nome || codigo, codigo, cnpj: crmClient.cnpj || "", cidade: crmClient.cidade || "",
       uf: crmClient.uf || crmClient.estado || "", ativo: true, origemCrmClienteId: crmClient.id,

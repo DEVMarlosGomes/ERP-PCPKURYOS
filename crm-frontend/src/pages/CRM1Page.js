@@ -1831,6 +1831,7 @@ function ClientDetailSheet({ client, constants, isAdmin = false, canEdit = false
                                         value={val("cli4") ?? data?.cli4}
                                         onChange={(v) => setVal("cli4", v)}
                                         nomeEmpresa={val("nome_empresa") ?? data?.nome_empresa}
+                                        clienteId={data?.id || null}
                                         frozen={Boolean(data?.cli4_congelado)}
                                     />
                                     <div><Label className="text-xs">Contato — Nome</Label><Input value={val("contato_principal")?.nome || data.contato_principal?.nome || ""} onChange={(e) => setVal("contato_principal", { ...(data.contato_principal || {}), ...(editing.contato_principal || {}), nome: e.target.value })} /></div>

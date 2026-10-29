@@ -4,22 +4,26 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Lock, Sparkles } from "lucide-react";
 import api from "@/lib/api";
+import { formatApiError } from "@/lib/formatError";
 
 /**
  * Campo CLI4 (4 letras usadas no SKU atual CAT3-CLI4-SEQ4, build_sku_code_v2).
  */
-export function Cli4Field({ value, onChange, nomeEmpresa, frozen = false, disabled = false }) {
+export function Cli4Field({ value, onChange, nomeEmpresa, clienteId = null, frozen = false, disabled = false }) {
     const [suggestions, setSuggestions] = useState(null);
     const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+    const [erro, setErro] = useState("");
 
     const fetchSuggestions = async () => {
         if (!nomeEmpresa?.trim()) return;
         setLoadingSuggestions(true);
+        setErro("");
         try {
-            const { data } = await api.get("/crm/clients/suggest-cli4", { params: { nome: nomeEmpresa } });
-            setSuggestions(data.sugestoes || []);
-        } catch {
-            setSuggestions([]);
+            const { data } = await api.get("/crm/clients/suggest-cli4", { params: { nome: nomeEmpresa, cliente_id: clienteId } });
+            setSuggestions(Array.isArray(data?.sugestoes) ? data.sugestoes : []);
+        } catch (error) {
+            setSuggestions(null);
+            setErro(formatApiError(error) || "Não foi possível buscar sugestões.");
         } finally {
             setLoadingSuggestions(false);
         }
@@ -62,6 +66,7 @@ export function Cli4Field({ value, onChange, nomeEmpresa, frozen = false, disabl
             {value && value.length > 0 && value.length < 4 && (
                 <p className="text-[10px] text-amber-600">Precisa de exatamente 4 letras. Se vazio, o backend sugere automaticamente a partir do nome da empresa.</p>
             )}
+            {erro && <p className="text-[10px] text-destructive" role="alert">{erro}</p>}
             {Array.isArray(suggestions) && (
                 <div className="flex flex-wrap gap-1.5 pt-1">
                     {suggestions.length === 0 && <span className="text-[10px] text-muted-foreground">Nenhuma sugestao disponivel.</span>}

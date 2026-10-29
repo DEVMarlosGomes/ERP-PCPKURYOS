@@ -737,6 +737,15 @@ describe("caminhos de exceção", () => {
     assert.match(signed.sku_bloqueios[0], /Categoria 'maquiagem' não possui código ativo/);
   });
 
+  test("CRM-02: Sugerir CLI4 devolve só códigos livres", async () => {
+    as("com");
+    const { sugestoes } = (await api.get("/crm/clients/suggest-cli4", { params: { nome: "Miss Rose Beauty" } })).data;
+    const codes = sugestoes.map((x) => x.cli4);
+    assert.ok(codes.length >= 3 && codes.length <= 5, codes.join(","));
+    assert.ok(!codes.includes("MISS"), "MISS já é do cadastro mestre");
+    assert.ok(codes.every((c) => /^[A-Z]{4}$/.test(c)));
+  });
+
   test("CRM-01: constantes trazem as categorias ativas do Cadastros e a lista fixa sumiu", async () => {
     as("com");
     memory.write("config/categoriasProduto/2", { codigo: "UNH", nome: "Unhas", ativo: false });
@@ -750,7 +759,7 @@ describe("caminhos de exceção", () => {
 
   test("CRM-01: projeto com a categoria gravada como código gera o SKU daquela categoria", async () => {
     as("adm");
-    const c = (await api.post("/crm/clients", { nome_empresa: "Sigma Hair" })).data;
+    const c = (await api.post("/crm/clients", { nome_empresa: "Sigma Hair", cli4: "SGHR" })).data;
     const p = (await api.post("/crm/projects/batch", { cliente_id: c.id, projects: [{ nome_projeto: "Sigma Shampoo", categoria: "CAB" }] })).data.projects[0];
     assert.equal(db(`${T}/crm_projects/${p.id}/categoria`), "CAB");
     const s = (await api.post("/crm/samples/batch/v2", { projeto_id: p.id, samples: [{ nome_produto: "Shampoo", variacoes: [{ descricao_aplicacao: "Neutro" }] }] })).data.samples[0];
@@ -763,7 +772,7 @@ describe("caminhos de exceção", () => {
     const signed = (await api.post(`/contratos/${cg.id}/assinar`, {})).data;
     const sku = signed.skus_gerados[0].sku;
     assert.ok(!sku.blocked, sku.reason);
-    assert.match(sku.codigo_interno, /^CAB-SIGM-\d{4}$/);
+    assert.equal(sku.codigo_interno, "CAB-SGHR-0001", "CRM-02: o CLI4 escolhido no CRM vale no SKU");
     assert.equal(db(`produtos/${sku.codigo_interno}`).categoriaCodigo, "CAB");
   });
 
