@@ -8,7 +8,7 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 ### Claude — Reunião 28/10: menu do Gustavo + ajustes CRM · P&D · Kickoff · BOM · Compras · PCP · Financeiro
 
 - **Pedido:** executar `PROMPT_REUNIAO_20261028.md` (Agente 1 tech lead + Agente 2 dev). Referência: `prod-kuryos.web.app` (só leitura) e `gcallegaro-kur/PCP-Kuryos`.
-- **Estado (29/10):** Portão A aprovado (D-01…D-16 pelo padrão; D-15 = só código, sem dados do `prod-kuryos`). Em execução: Fase 1 (menu, worktree `reuniao-20261028/menu`), Fase 2 (CRM, worktree `reuniao-20261028/crm`) e SKU-01 (b), SKU das aprovações anteriores a 23/10.
+- **Estado (29/10, noite):** Portão A aprovado (D-01…D-16 pelo padrão; D-15 = só código). **Fase 2 (CRM) concluída em commits locais** `2df7b1d` CRM-01, `71fedd7` CRM-02, `1ae6341`/`36257dc` CRM-03/04, `7c72bc4` build — sem push (Portão C). Migração das categorias antigas: plano pronto (106 campos), aplica depois do deploy. Em execução por 3 devs em worktrees: `reuniao-20261028/menu` (Fase 1), `reuniao-20261028/pd` (Fase 3), `reuniao-20261028/fin-op` (FIN-01, OP-01/02).
 - **Arquivos ativos:** `docs/superpowers/specs/2026-10-28-reuniao-ajustes-design.md` e `docs/superpowers/specs/2026-10-28-matriz-lacunas-gustavo.md` (novos). Código só depois do Portão A. MENU-01/02 tocam `auth_check.js` e o shell, que têm alterações abertas de outra sessão (D-12).
 
 ### Claude — Financeiro e Controladoria (28/10/2026)
