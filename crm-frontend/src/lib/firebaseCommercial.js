@@ -22,6 +22,7 @@
 import { get, ref, runTransaction, set, update } from "firebase/database";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { firebaseAuth, firebaseDb, firebaseStorage } from "@/lib/firebase";
+import { categoriasAtivas, codigoDaCategoria } from "@/lib/categoriasProduto";
 import { MIN_JUSTIFICATIVA, PROJECT_STAGES, PROJECT_TRANSITIONS, formulaRegistrada, hasAnyRole, isAdmin, isComercial, movementEntry, normalizeName } from "@/lib/crmRules";
 import { numeroKickoff } from "@/lib/numeracaoProjeto";
 import { registroDeCambio, taxaDaCotacao, textoCambio } from "@/lib/cambio";
@@ -1129,10 +1130,14 @@ export function createCommercialRouter(h) {
     const { de, origem } = coletorDeOrigem(now());
     const PROJ = "Projeto (CRM)", CLI = "Cliente (CRM)", PROP = "Proposta", AMO = "Amostra", FORM = "Fórmula (P&D)";
     const variacao = variacaoEntreSkus(approved, project.categoria);
+    const categoriasCadastro = await categoriasDoCadastro();
     Object.assign(questionario.bloco0, {
       cliente: de("bloco0", "cliente", [project.cliente_nome, PROJ], [client.nome_empresa, CLI]),
       nome_produto: de("bloco0", "nome_produto", [proposta.tipo_produto, PROP], [firstItem.item, PROP], [firstSample.nome_produto, AMO], [project.nome_projeto, PROJ]),
-      categoria: mapCategoria(de("bloco0", "categoria", [project.categoria, PROJ], [firstSample.categoria, AMO])),
+      categoria: (() => {
+        const valor = de("bloco0", "categoria", [project.categoria, PROJ], [firstSample.categoria, AMO]);
+        return codigoDaCategoria(valor, categoriasCadastro) || mapCategoria(valor);
+      })(),
       forma_fisica: de("bloco0", "forma_fisica", [firstSample.textura_esperada, AMO], [project.forma_fisica, PROJ]),
       volume_gramatura: de("bloco0", "volume_gramatura", [firstItem.volume_gramatura, PROP], [formulaVolume, FORM], [project.volume_gramatura, PROJ]),
       // Nº de SKUs = variações aprovadas pelo cliente; sem amostra aprovada, a proposta e o projeto.
@@ -1583,27 +1588,17 @@ export function createCommercialRouter(h) {
 
   /* SKU no cadastro mestre do PCP */
 
-  // Categoria do CRM → código de categoria do PCP (config/categoriasProduto).
-  const CATEGORIA_PCP = [
-    [/sabonete|gel_de_banho|higiene/, "HIG"],
-    [/protetor_solar|solar/, "SOL"],
-    [/shampoo|condicionador|capilar|cabelo|mascara_capilar|finalizador|tonico/, "CAB"],
-    [/perfum|body_splash|colonia|extrato|fragr/, "PRF"],
-    [/hidratante|oleo_corporal|corporal|facial|serum|creme|pele|skin/, "PEL"],
-    [/maquiagem|batom/, "MAQ"],
-    [/desodorante/, "DES"],
-  ];
+  // Categoria do CRM → categoria do Cadastros (config/categoriasProduto). Desde o CRM-01 o CRM
+  // grava o código; texto antigo se traduz por CATEGORIA_LEGADA (lib/categoriasProduto).
+  async function categoriasDoCadastro() {
+    return categoriasAtivas((await get(ref(firebaseDb, "config/categoriasProduto"))).val());
+  }
 
   async function resolveCategoria(values) {
-    const raw = (await get(ref(firebaseDb, "config/categoriasProduto"))).val() || [];
-    const categorias = (Array.isArray(raw) ? raw : Object.values(raw)).filter((c) => c && c.ativo !== false);
+    const categorias = await categoriasDoCadastro();
     for (const value of values.flat().filter(Boolean)) {
-      const key = normalizeName(value).replace(/\s+/g, "_");
-      const direct = categorias.find((c) => normalizeName(c.codigo) === normalizeName(value) || normalizeName(c.nome) === normalizeName(value));
-      if (direct) return direct;
-      const mapped = CATEGORIA_PCP.find(([pattern]) => pattern.test(key));
-      const found = mapped && categorias.find((c) => c.codigo === mapped[1]);
-      if (found) return found;
+      const codigo = codigoDaCategoria(value, categorias);
+      if (codigo) return categorias.find((c) => c.codigo === codigo);
     }
     return null;
   }

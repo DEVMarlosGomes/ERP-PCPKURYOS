@@ -737,6 +737,36 @@ describe("caminhos de exceção", () => {
     assert.match(signed.sku_bloqueios[0], /Categoria 'maquiagem' não possui código ativo/);
   });
 
+  test("CRM-01: constantes trazem as categorias ativas do Cadastros e a lista fixa sumiu", async () => {
+    as("com");
+    memory.write("config/categoriasProduto/2", { codigo: "UNH", nome: "Unhas", ativo: false });
+    memory.write("config/categoriasProduto/3", { codigo: "BAR", nome: "Barba", ativo: true, exemplos: "pós-barba" });
+    const k = (await api.get("/crm/constants")).data;
+    assert.deepEqual(k.categorias_produto.map((c) => c.codigo), ["BAR", "CAB", "PRF"]);
+    assert.equal(k.categoria_interesse, undefined);
+    memory.write("config/categoriasProduto/3", null);
+    memory.write("config/categoriasProduto/2", null);
+  });
+
+  test("CRM-01: projeto com a categoria gravada como código gera o SKU daquela categoria", async () => {
+    as("adm");
+    const c = (await api.post("/crm/clients", { nome_empresa: "Sigma Hair" })).data;
+    const p = (await api.post("/crm/projects/batch", { cliente_id: c.id, projects: [{ nome_projeto: "Sigma Shampoo", categoria: "CAB" }] })).data.projects[0];
+    assert.equal(db(`${T}/crm_projects/${p.id}/categoria`), "CAB");
+    const s = (await api.post("/crm/samples/batch/v2", { projeto_id: p.id, samples: [{ nome_produto: "Shampoo", variacoes: [{ descricao_aplicacao: "Neutro" }] }] })).data.samples[0];
+    await api.post(`/crm/samples/${s.id}/variacoes/${s.variacoes[0].id}/resultado-cliente`, { resultado: "aprovada", aprovacao_cliente: APROVACAO });
+    const k = (await api.put(`/crm/projects/${p.id}/move`, { stage: "pedido_aprovado" })).data.kickoff_criado;
+    const kickoff = db(`${T}/kickoffs/${k.kickoff_id}`);
+    assert.equal(kickoff.questionario_composicao.bloco0.categoria, "CAB", "Bloco 0 do Kickoff recebe o código");
+    memory.write(`${T}/kickoffs/${k.kickoff_id}/status`, "aprovado");
+    const cg = (await api.post("/contratos/gerar", { kickoff_id: k.kickoff_id })).data;
+    const signed = (await api.post(`/contratos/${cg.id}/assinar`, {})).data;
+    const sku = signed.skus_gerados[0].sku;
+    assert.ok(!sku.blocked, sku.reason);
+    assert.match(sku.codigo_interno, /^CAB-SIGM-\d{4}$/);
+    assert.equal(db(`produtos/${sku.codigo_interno}`).categoriaCodigo, "CAB");
+  });
+
   test("Pedido Direto: cliente e SKU já cadastrados pulam o funil e vão direto ao PCP", async () => {
     as("com");
     const lumi = Object.values(db(`${T}/crm_clients`)).find((c) => c.cadastro_cliente_id === "LUMI");

@@ -7,6 +7,7 @@ import {
 } from "@/lib/crmRules";
 import { askJustification, isJustificationRequired } from "@/lib/justificationPrompt";
 import { createCommercialRouter, NOT_HANDLED } from "@/lib/firebaseCommercial";
+import { categoriasAtivas } from "@/lib/categoriasProduto";
 import { amostraDaVersaoFaltando, precoUsd, volumeEmKg } from "@/lib/pdAmostra";
 import { eventoMpNova, htmlFichaTecnica, montarFichaTecnica, validarMpNova } from "@/lib/fichaTecnica";
 import { solicitacoesDeMpsNovas } from "@/lib/filaCadastroMp";
@@ -39,12 +40,6 @@ import {
 const ROOT = "erp";
 
 const CRM_CONSTANTS = {
-  categoria_interesse: {
-    perfumaria: ["perfume", "body_splash", "colonia"],
-    corporal: ["hidratante", "oleo_corporal", "sabonete"],
-    capilar: ["shampoo", "condicionador", "mascara_capilar", "finalizador"],
-    facial: ["serum", "creme_facial", "limpeza_facial", "protetor_solar"],
-  },
   canal_origem: ["indicacao", "instagram", "site", "evento", "prospeccao_ativa", "cliente_recorrente", "outro"],
   canal_origem_grupos: {
     prospeccao_ativa_digital: ["linkedin", "instagram", "email", "whatsapp"],
@@ -1256,7 +1251,11 @@ async function dispatch(e, t) {
       };
     });
   }(), i);
-  if ("GET" === e && "/crm/constants" === S) return response(CRM_CONSTANTS, i);
+  // CRM-01: categorias de interesse = Cadastros › Categorias de produto, lidas a cada chamada
+  // (categoria nova no Cadastros aparece no CRM sem deploy).
+  if ("GET" === e && "/crm/constants" === S) return response({
+    ...CRM_CONSTANTS, categorias_produto: categoriasAtivas((await get(ref(firebaseDb, "config/categoriasProduto"))).val()),
+  }, i);
   if ("GET" === e && "/crm/clients" === S) {
     let e = await syncMasterClients(_);
     return q.search && (e = e.filter(e => contains(e, q.search, ["nome_empresa", "cnpj", "contato_principal.nome", "contato_principal.email"]))), response(e.sort((e, t) => String(t.updated_at || t.created_at).localeCompare(String(e.updated_at || e.created_at))), i);

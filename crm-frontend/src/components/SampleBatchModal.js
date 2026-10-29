@@ -17,6 +17,7 @@ import {
     seedVolumeDisplay,
 } from "@/lib/masks";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
+import { opcoesDeCategoria } from "@/lib/categoriasProduto";
 
 function formatSlugLabel(value) {
     if (!value) return "";
@@ -47,13 +48,8 @@ export default function SampleBatchModal({
 
     const sampleTypes = constants?.sample_tipos || [];
     const variationParams = constants?.sample_parametros_variacao || [];
-    // A4/A5: mesma fonte de verdade do CRM (categoria_interesse / project_tipo_servico) —
-    // sem input livre divergente.
-    const categoriaOptions = Array.from(new Map(
-        Object.entries(constants?.categoria_interesse || {}).flatMap(([group, values]) =>
-            (values || []).map((value) => [value, { value, group, label: formatSlugLabel(value) }])
-        )
-    ).values());
+    // CRM-01: categorias = Cadastros › Categorias de produto (código gravado; antigo marcado).
+    const categoriaOptions = opcoesDeCategoria(constants?.categorias_produto || [], projetoData?.categoria || []);
     const tipoServicoOptions = constants?.project_tipo_servico || [];
 
     const updateSample = (index, field, value) => {

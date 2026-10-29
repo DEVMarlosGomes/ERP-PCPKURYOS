@@ -7,6 +7,7 @@ import { Fragment, createContext, useContext, useEffect, useMemo, useState } fro
 import api from "@/lib/api";
 import CatalogoComponentesDialog from "@/components/CatalogoComponentesDialog";
 import ResponsavelTecnicoField from "@/components/ResponsavelTecnicoField";
+import { opcoesDeCategoria } from "@/lib/categoriasProduto";
 import { normalizarLinhaComponente, pendenciasQuestionario, simNao } from "@/lib/kickoffPendencias";
 import { CATALOGO_PADRAO, OUTRO, TIPO_OUTRO, escolherTipo, especificacaoDasCaracteristicas, tiposDaLinha, valorAtributo } from "@/lib/tiposComponente";
 
@@ -574,12 +575,16 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
   const [servicos, setServicos] = useState(null);
   const [catalogo, setCatalogo] = useState(CATALOGO_PADRAO);
   const [catalogoAberto, setCatalogoAberto] = useState(false);
+  // CRM-01: categoria do Bloco 0 = Cadastros › Categorias de produto (a mesma do CRM e do SKU).
+  const [categorias, setCategorias] = useState([]);
   const carregarCatalogo = () => api.get("/config/tipos-componente")
     .then(({ data }) => { if (Array.isArray(data) && data.length) setCatalogo(data); }).catch(() => {});
   useEffect(() => {
     api.get("/cadastros/materiais").then(({ data }) => setMateriais(Array.isArray(data) ? data : [])).catch(() => setMateriais([]));
     carregarCatalogo();
     api.get("/cadastros/servicos").then(({ data }) => setServicos(Array.isArray(data) ? data : [])).catch(() => setServicos([]));
+    api.get("/crm/constants").then(({ data }) => setCategorias(data?.categorias_produto || []))
+      .catch((error) => console.error("Kickoff: categorias do Cadastros indisponíveis", error));
   }, []);
   const update = (section, field, nextValue) => {
     onChange({ ...q, [section]: { ...(q[section] || {}), [field]: nextValue } });
@@ -601,14 +606,8 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
         <div className="grid gap-4 md:grid-cols-2">
           <Field o="bloco0.cliente" label="Cliente" value={q.bloco0.cliente} onChange={(v) => update("bloco0", "cliente", v)} />
           <Field o="bloco0.nome_produto" label="Nome do produto" value={q.bloco0.nome_produto} onChange={(v) => update("bloco0", "nome_produto", v)} />
-          <ChoiceGroup o="bloco0.categoria" label="Categoria" value={q.bloco0.categoria} onChange={(v) => update("bloco0", "categoria", v)} options={[
-            { value: "perfumaria", label: "Perfumaria" },
-            { value: "capilar", label: "Capilar" },
-            { value: "skin_care", label: "Skin care" },
-            { value: "maquiagem", label: "Maquiagem" },
-            { value: "home_care", label: "Home care" },
-            { value: "outro", label: "Outro" },
-          ]} />
+          <ChoiceGroup o="bloco0.categoria" label="Categoria" value={q.bloco0.categoria} onChange={(v) => update("bloco0", "categoria", v)} options={opcoesDeCategoria(categorias, q.bloco0.categoria)
+            .map((o) => ({ value: o.value, label: o.antigo ? o.label : `${o.curto} (${o.value})` }))} />
           <ChoiceGroup o="bloco0.forma_fisica" label="Forma fisica" value={q.bloco0.forma_fisica} onChange={(v) => update("bloco0", "forma_fisica", v)} options={[
             { value: "liquido", label: "Liquido" },
             { value: "creme_gel", label: "Creme / gel" },

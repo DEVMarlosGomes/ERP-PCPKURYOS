@@ -37,6 +37,7 @@ import {
     seedVolumeDisplay,
 } from "@/lib/masks";
 import { Cli4Field } from "@/components/Cli4Field";
+import { nomeDaCategoria, opcoesDeCategoria } from "@/lib/categoriasProduto";
 
 function CRMSubNav({ active }) {
     const navigate = useNavigate();
@@ -358,16 +359,13 @@ export default function CRM1Page() {
         ));
     }, [user]);
 
-    const categoryGroups = useMemo(() => crmConstants?.categoria_interesse || {}, [crmConstants]);
+    // CRM-01: categorias = Cadastros › Categorias de produto (código gravado; antigo marcado).
+    const categorias = useMemo(() => crmConstants?.categorias_produto || [], [crmConstants]);
     const channelGroups = useMemo(() => crmConstants?.canal_origem_grupos || {}, [crmConstants]);
     const channelOptions = useMemo(
         () => flattenUniqueOptions(channelGroups, crmConstants?.canal_origem || []),
         [channelGroups, crmConstants]
     );
-    // A4: fonte única de categorias é /crm/constants (categoria_interesse) — sem fallback
-    // hardcoded. Enquanto as constants carregam, o grupo fica vazio (nunca com uma lista
-    // divergente/desatualizada da real).
-    const effectiveCategoryGroups = categoryGroups;
     const effectiveChannelGroups = useMemo(
         () => (Object.keys(channelGroups).length ? channelGroups : (channelOptions.length ? { outros: channelOptions } : {})),
         [channelGroups, channelOptions]
@@ -381,10 +379,12 @@ export default function CRM1Page() {
     const projectServiceOptions = crmConstants?.project_tipo_servico || [];
     const projectRestrictionOptions = crmConstants?.project_restricoes_tecnicas || [];
     const projectCategoryOptions = useMemo(
-        () => Object.entries(effectiveCategoryGroups).flatMap(([group, values]) =>
-            values.map((value) => ({ value, group, label: formatSlugLabel(value) }))
-        ),
-        [effectiveCategoryGroups]
+        () => opcoesDeCategoria(categorias, qualificationDraft?.categoria_interesse || []),
+        [categorias, qualificationDraft]
+    );
+    const newClientCategoryOptions = useMemo(
+        () => opcoesDeCategoria(categorias, newClient?.categoria_interesse || []),
+        [categorias, newClient]
     );
     const qualificationMissingFields = useMemo(
         () => (qualificationDraft ? getMissingProjectGateFields(qualificationDraft) : []),
@@ -443,7 +443,7 @@ export default function CRM1Page() {
             type: "multi",
             label: "Categoria",
             options: Array.from(new Set(clients.flatMap((c) => c.categoria_interesse || []).filter(Boolean)))
-                .map((v) => ({ value: v, label: formatSlugLabel(v) })),
+                .map((v) => ({ value: v, label: nomeDaCategoria(v, categorias) })),
             getter: (c) => c.categoria_interesse || [],
         },
         {
@@ -872,7 +872,7 @@ export default function CRM1Page() {
                                                             )}
                                                             {(client.categoria_interesse || []).slice(0, 2).map(cat => (
                                                                 <span key={cat} className="inline-block px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">
-                                                                    {formatSlugLabel(cat)}
+                                                                    {nomeDaCategoria(cat, categorias)}
                                                                 </span>
                                                             ))}
                                                         </div>
@@ -919,7 +919,7 @@ export default function CRM1Page() {
                         { key: "temperatura_lead", label: "Temperatura",
                           render: (c) => c.temperatura_lead ? formatSlugLabel(c.temperatura_lead) : "—" },
                         { key: "categoria_interesse", label: "Categorias",
-                          render: (c) => (c.categoria_interesse || []).slice(0, 3).map(formatSlugLabel).join(", ") || "—" },
+                          render: (c) => (c.categoria_interesse || []).slice(0, 3).map((cat) => nomeDaCategoria(cat, categorias)).join(", ") || "—" },
                         { key: "responsavel_comercial", label: "Responsável",
                           render: (c) => userNameById[c.responsavel_comercial] || "—" },
                         { key: "created_at", label: "Criado em",
@@ -1153,29 +1153,27 @@ export default function CRM1Page() {
                             <div className="space-y-2">
                                 <Label>Categorias de Interesse <span className="text-xs text-muted-foreground font-normal">(para qualificar)</span></Label>
                                 <div className="space-y-3 rounded-lg border border-border p-3">
-                                    {Object.entries(effectiveCategoryGroups).map(([group, values]) => (
-                                        <div key={group} className="space-y-2">
-                                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                                {formatSlugLabel(group)}
-                                            </p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {values.map((value) => (
-                                                    <button
-                                                        key={value}
-                                                        type="button"
-                                                        onClick={() => toggleCategoria(value)}
-                                                        className={`px-3 py-1 rounded-md text-xs font-medium border transition-colors ${
-                                                            (newClient.categoria_interesse || []).includes(value)
-                                                                ? "bg-primary text-primary-foreground border-primary"
-                                                                : "bg-muted text-muted-foreground border-border hover:bg-accent"
-                                                        }`}
-                                                    >
-                                                        {formatSlugLabel(value)}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
+                                    {newClientCategoryOptions.length === 0 && (
+                                        <p className="text-xs text-muted-foreground">Nenhuma categoria ativa em Cadastros › Categorias de produto.</p>
+                                    )}
+                                    <div className="flex flex-wrap gap-2">
+                                        {newClientCategoryOptions.map((option) => (
+                                            <button
+                                                key={option.value}
+                                                type="button"
+                                                title={option.label}
+                                                aria-pressed={(newClient.categoria_interesse || []).includes(option.value)}
+                                                onClick={() => toggleCategoria(option.value)}
+                                                className={`px-3 py-1 rounded-md text-xs font-medium border transition-colors ${
+                                                    (newClient.categoria_interesse || []).includes(option.value)
+                                                        ? "bg-primary text-primary-foreground border-primary"
+                                                        : "bg-muted text-muted-foreground border-border hover:bg-accent"
+                                                }`}
+                                            >
+                                                {option.curto} <span className="opacity-70">({option.antigo ? "antigo" : option.value})</span>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                                 {(newClient.categoria_interesse || []).length === 0 && (
                                     <p className="text-xs text-destructive">Selecione ao menos uma categoria de interesse.</p>
@@ -1356,12 +1354,14 @@ export default function CRM1Page() {
                                             const active = (qualificationDraft.categoria_interesse || []).includes(option.value);
                                             return (
                                                 <button
-                                                    key={`${option.group}-${option.value}`}
+                                                    key={option.value}
+                                                    title={option.label}
+                                                    aria-pressed={active}
                                                     type="button"
                                                     className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${active ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground"}`}
                                                     onClick={() => toggleQualificationCategory(option.value)}
                                                 >
-                                                    {option.label}
+                                                    {option.curto} <span className="opacity-70">({option.antigo ? "antigo" : option.value})</span>
                                                 </button>
                                             );
                                         })}
@@ -2024,7 +2024,7 @@ function ClientDetailSheet({ client, constants, isAdmin = false, canEdit = false
                                         <p className="font-medium text-sm">{proj.nome_projeto}</p>
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <Badge variant="outline" className="text-[10px]">{proj.stage}</Badge>
-                                            {proj.categoria && <Badge variant="secondary" className="text-[10px]">{proj.categoria}</Badge>}
+                                            {proj.categoria && <Badge variant="secondary" className="text-[10px]">{nomeDaCategoria(proj.categoria, categorias)}</Badge>}
                                         </div>
                                         {proj.created_at && <p className="text-[10px] text-muted-foreground">{new Date(proj.created_at).toLocaleDateString("pt-BR")}</p>}
                                     </div>

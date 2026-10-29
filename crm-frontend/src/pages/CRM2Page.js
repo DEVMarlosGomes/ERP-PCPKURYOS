@@ -35,6 +35,7 @@ import FilterBar, { applyFilters } from "@/components/FilterBar";
 import ListView from "@/components/ListView";
 import AprovacaoClienteModal from "@/components/AprovacaoClienteModal";
 import { useAuth } from "@/contexts/AuthContext";
+import { nomeDaCategoria, opcoesDeCategoria } from "@/lib/categoriasProduto";
 
 function CRMSubNav({ active }) {
     const navigate = useNavigate();
@@ -238,12 +239,12 @@ export default function CRM2Page() {
     const projectServiceOptions = useMemo(() => constants?.project_tipo_servico || [], [constants]);
     const projectRestrictionOptions = useMemo(() => constants?.project_restricoes_tecnicas || [], [constants]);
     const sampleConstants = useMemo(() => constants || {}, [constants]);
-    // A4: mesma fonte de verdade do cliente (categoria_interesse) — sem lista própria.
-    const projectCategoryOptions = useMemo(() => (
-        Object.entries(constants?.categoria_interesse || {}).flatMap(([group, values]) =>
-            (values || []).map((value) => ({ value, group, label: formatSlugLabel(value) }))
-        )
-    ), [constants]);
+    // CRM-01: categorias = Cadastros › Categorias de produto (código gravado; antigo marcado).
+    const categorias = useMemo(() => constants?.categorias_produto || [], [constants]);
+    const projectCategoryOptions = useMemo(
+        () => opcoesDeCategoria(categorias, selectedProjectData?.project?.categoria || projects.find((p) => p.id === selectedProjectId)?.categoria || []),
+        [categorias, selectedProjectData, projects, selectedProjectId]
+    );
 
     // === Filter configuration ===
     const filterFields = useMemo(() => ([
@@ -270,7 +271,7 @@ export default function CRM2Page() {
             type: "select",
             label: "Categoria",
             options: Array.from(new Set(projects.map((p) => p.categoria).filter(Boolean)))
-                .map((v) => ({ value: v, label: formatSlugLabel(v) })),
+                .map((v) => ({ value: v, label: nomeDaCategoria(v, categorias) })),
             getter: (p) => p.categoria,
         },
         {
@@ -714,7 +715,7 @@ export default function CRM2Page() {
                                                             <div className="mt-2 flex flex-wrap items-center gap-2">
                                                                 {project.categoria && (
                                                                     <Badge variant="outline" className="text-[10px]">
-                                                                        {formatSlugLabel(project.categoria)}
+                                                                        {nomeDaCategoria(project.categoria, categorias)}
                                                                     </Badge>
                                                                 )}
                                                                 {project.posicionamento && (
@@ -821,7 +822,7 @@ export default function CRM2Page() {
                           render: (p) => <span className="font-medium">{p.nome_projeto}</span> },
                         { key: "cliente_nome", label: "Cliente" },
                         { key: "categoria", label: "Categoria",
-                          render: (p) => p.categoria ? formatSlugLabel(p.categoria) : "—" },
+                          render: (p) => p.categoria ? nomeDaCategoria(p.categoria, categorias) : "—" },
                         { key: "tipo_servico", label: "Tipo de serviço",
                           render: (p) => p.tipo_servico ? formatSlugLabel(p.tipo_servico) : "—" },
                         { key: "stage", label: "Fase",
@@ -863,7 +864,7 @@ export default function CRM2Page() {
                                     <Badge>{stageLabelMap[selectedProject.stage] || selectedProject.stage}</Badge>
                                     <KickoffBadge project={selectedProject} />
                                     {selectedProject.categoria && (
-                                        <Badge variant="secondary">{formatSlugLabel(selectedProject.categoria)}</Badge>
+                                        <Badge variant="secondary">{nomeDaCategoria(selectedProject.categoria, categorias)}</Badge>
                                     )}
                                 </div>
                             </SheetHeader>
