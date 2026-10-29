@@ -83,7 +83,7 @@ Cada fase termina no **Portão B** (prints desktop/390 px, claro/escuro, testes)
 | Dev 2 (`reuniao-20261028/pd`) | Fase 3 — PD-01..06 | Fase 4 — KO-10..13, BOM-02..04 (frames aprovados no Figma), depois Fase 5 — COT-01..04 e SKU-01 (c) |
 | Dev 3 (`reuniao-20261028/fin-op`) | FIN-01, OP-01, OP-02 | Fase 6 — FEFO-01 e PLAN-01 (com ensaio na base antes de ligar) |
 
-Fases 4 e 5 ficam com o mesmo dev porque mexem nos mesmos arquivos do CRM (`firebaseCommercial.js`, Kickoff). Frames da Fase 4 no Figma: nó `3:2` de <https://www.figma.com/design/50S5daaTQrDleQLrT0jiwx>.
+Fases 4 e 5 ficam com o mesmo dev porque mexem nos mesmos arquivos do CRM (`firebaseCommercial.js`, Kickoff). Frames da Fase 4 no Figma: nó `3:2` de <https://www.figma.com/design/50S5daaTQrDleQLrT0jiwx>. **Aprovados pelo Marlos em 29/10/2026 ("prossiga")** — KO-11, KO-12, KO-13 e BOM-03 podem ir para o código.
 
 ## 5. Matriz de lacunas do repositório do Gustavo (F0-4)
 
