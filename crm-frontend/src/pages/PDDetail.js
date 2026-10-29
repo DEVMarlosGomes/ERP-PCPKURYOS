@@ -2225,6 +2225,15 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
             </p>
           </CardHeader>
           <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs pt-0">
+            {/* PD-04: o que o Comercial digitou na variação, pelo parâmetro (fragrância, cor, volume...). */}
+            {(clientInfo._variacao_campos || []).length > 0 && (
+              <div className="col-span-2 md:col-span-4" data-testid="variacao-parametro-pd">
+                <span className="text-muted-foreground">Variação{clientInfo._parametro_variacao ? ` (${clientInfo._parametro_variacao})` : ""}:</span>{" "}
+                {clientInfo._variacao_campos.map((c, i) => (
+                  <span key={c.rotulo} className="font-medium">{i > 0 ? " · " : ""}{c.rotulo} {c.valor}</span>
+                ))}
+              </div>
+            )}
             {req?.volume && (
               <div><span className="text-muted-foreground">Volume alvo:</span> <span className="font-medium">{req.volume}</span></div>
             )}

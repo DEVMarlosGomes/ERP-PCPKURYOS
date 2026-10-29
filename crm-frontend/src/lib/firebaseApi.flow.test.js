@@ -751,6 +751,19 @@ describe("caminhos de exceção", () => {
     assert.equal(req.deadline, "2026-11-10");
   });
 
+  test("PD-04: parâmetro de variação na lista do CRM e o que foi digitado chega ao P&D", async () => {
+    as("adm");
+    assert.deepEqual((await api.get("/crm/constants")).data.sample_parametros_variacao, ["fragrancia", "cor", "volume", "versao", "concentracao"]);
+    const c = (await api.post("/crm/clients", { nome_empresa: "Cor Certa" })).data;
+    const p = (await api.post("/crm/projects/batch", { cliente_id: c.id, projects: [{ nome_projeto: "Batons" }] })).data.projects[0];
+    const s = (await api.post("/crm/samples/batch/v2", { projeto_id: p.id, samples: [{ nome_produto: "Batom", parametro_variacao: "cor",
+      variacoes: [{ descricao_aplicacao: "Rosa", pigmento: "Óxido vermelho", cor: "Pantone 7621 C" }, { descricao_aplicacao: "Nude", pigmento: "Óxido marrom", cor: "Pantone 4685 C" }] }] })).data.samples[0];
+    assert.equal(db(`${T}/crm_samples/${s.id}`).variacoes[1].cor, "Pantone 4685 C");
+    const { data } = await api.get(`/pd/requests/${s.variacoes[0].pd_request_id}/full`);
+    assert.equal(data.client_info._parametro_variacao, "Cor");
+    assert.deepEqual(data.client_info._variacao_campos, [{ rotulo: "Pigmento", valor: "Óxido vermelho" }, { rotulo: "Código da cor", valor: "Pantone 7621 C" }]);
+  });
+
   test("CRM-02: Sugerir CLI4 devolve só códigos livres", async () => {
     as("com");
     const { sugestoes } = (await api.get("/crm/clients/suggest-cli4", { params: { nome: "Miss Rose Beauty" } })).data;

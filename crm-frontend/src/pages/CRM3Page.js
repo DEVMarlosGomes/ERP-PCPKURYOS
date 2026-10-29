@@ -26,6 +26,7 @@ import ListView from "@/components/ListView";
 import AprovacaoClienteModal from "@/components/AprovacaoClienteModal";
 import RetrabalhoAprovadaModal from "@/components/RetrabalhoAprovadaModal";
 import { aprovadaPeloCliente } from "@/lib/retrabalhoAprovada";
+import { parametroDe, resumoDaVariacao } from "@/lib/parametroVariacao";
 
 function CRMSubNav({ active }) {
     const navigate = useNavigate();
@@ -625,6 +626,13 @@ export default function CRM3Page() {
                                                             {String(variacao.descricao_aplicacao)}
                                                         </p>
                                                     )}
+                                                    {/* PD-04: o que foi digitado pelo parâmetro de variação (cor, volume, versão...). */}
+                                                    {resumoDaVariacao(variacao.sample_completa?.parametro_variacao, variacao) && (
+                                                        <p className="text-[11px] text-muted-foreground mt-0.5 truncate" data-testid={`variacao-parametro-${variacao.id}`}
+                                                           title={resumoDaVariacao(variacao.sample_completa?.parametro_variacao, variacao)}>
+                                                            {resumoDaVariacao(variacao.sample_completa?.parametro_variacao, variacao)}
+                                                        </p>
+                                                    )}
                                                     <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                                                         <FlaskConical className="h-3 w-3" />
                                                         {String(variacao.projeto_nome || '')}
@@ -896,6 +904,12 @@ export default function CRM3Page() {
                                                     </Button>
                                                     )}
                                                 </div>
+                                                {/* PD-04: parâmetro diferente de fragrância mostra o que foi digitado no lote. */}
+                                                {parametroDe(selectedSample.parametro_variacao) && parametroDe(selectedSample.parametro_variacao).valor !== "fragrancia" && resumoDaVariacao(selectedSample.parametro_variacao, v) && (
+                                                    <p className="text-xs rounded-md border border-emerald-200 bg-emerald-50/60 px-2 py-1 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300" data-testid={`variacao-parametro-detalhe-${v.id}`}>
+                                                        {resumoDaVariacao(selectedSample.parametro_variacao, v)}
+                                                    </p>
+                                                )}
                                                 <div className="grid grid-cols-2 gap-2">
                                                     <div className="space-y-1 col-span-2">
                                                         <Label className="text-[10px] text-muted-foreground">Descrição da Aplicação</Label>

@@ -19,6 +19,56 @@ import {
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { opcoesDeCategoria } from "@/lib/categoriasProduto";
 import { editarPrazo, herdarPrazo, propagarPrazoDoProjeto } from "@/lib/prazoAmostra";
+import { PARAMETROS_VARIACAO, aceitaVariasVariacoes, camposDoParametro, parametroDe, trocarParametro } from "@/lib/parametroVariacao";
+
+// PD-04: os campos de cada variação seguem o parâmetro (fragrância, cor, volume, versão, concentração).
+export function CamposDaVariacao({ parametro, variacao, onChange }) {
+    const campos = camposDoParametro(parametro);
+    if (!campos.length) return null;
+    return (
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-3" data-testid={`campos-variacao-${parametroDe(parametro)?.valor}`}>
+            {campos.map((c) => {
+                if (c.tipo === "moeda") {
+                    return (
+                        <CurrencyInput
+                            key={c.campo}
+                            value={variacao[c.campo] || ""}
+                            currency={variacao[c.campoMoeda] || "USD"}
+                            onValueChange={(value) => onChange(c.campo, value)}
+                            onCurrencyChange={(currency) => onChange(c.campoMoeda, currency)}
+                            showHint={false}
+                            size="sm"
+                        />
+                    );
+                }
+                if (c.tipo === "opcao") {
+                    return (
+                        <select
+                            key={c.campo}
+                            aria-label={c.rotulo}
+                            value={variacao[c.campo] || ""}
+                            onChange={(event) => onChange(c.campo, event.target.value)}
+                            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                        >
+                            <option value="">{c.rotulo}</option>
+                            {c.opcoes.map((o) => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                    );
+                }
+                return (
+                    <Input
+                        key={c.campo}
+                        type={c.tipo === "numero" ? "number" : "text"}
+                        aria-label={c.rotulo}
+                        placeholder={c.placeholder || c.rotulo}
+                        value={variacao[c.campo] || ""}
+                        onChange={(event) => onChange(c.campo, event.target.value)}
+                    />
+                );
+            })}
+        </div>
+    );
+}
 
 function formatSlugLabel(value) {
     if (!value) return "";
@@ -48,7 +98,6 @@ export default function SampleBatchModal({
     const [restricaoInput, setRestricaoInput] = useState("");
 
     const sampleTypes = constants?.sample_tipos || [];
-    const variationParams = constants?.sample_parametros_variacao || [];
     // CRM-01: categorias = Cadastros › Categorias de produto (código gravado; antigo marcado).
     const categoriaOptions = opcoesDeCategoria(constants?.categorias_produto || [], projetoData?.categoria || []);
     const tipoServicoOptions = constants?.project_tipo_servico || [];
@@ -335,14 +384,18 @@ export default function SampleBatchModal({
                                     <div className="space-y-2">
                                         <Label><FieldHint hint="Define o critério que diferencia cada variação de amostra: fragrância, cor, concentração, etc.">Parâmetro de variação</FieldHint></Label>
                                         <Select
-                                            value={sample.parametro_variacao || "nenhuma"}
-                                            onValueChange={(value) => updateSample(sampleIndex, "parametro_variacao", value === "nenhuma" ? "" : value)}
+                                            value={parametroDe(sample.parametro_variacao)?.valor || "nenhuma"}
+                                            onValueChange={(value) => {
+                                                const next = [...batchSamples];
+                                                next[sampleIndex] = trocarParametro(next[sampleIndex], value === "nenhuma" ? "" : value);
+                                                setBatchSamples(next);
+                                            }}
                                         >
-                                            <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                                            <SelectTrigger data-testid="parametro-variacao"><SelectValue placeholder="Selecionar" /></SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="nenhuma">Nenhuma</SelectItem>
-                                                {variationParams.map((option) => (
-                                                    <SelectItem key={option} value={option}>{formatSlugLabel(option)}</SelectItem>
+                                                <SelectItem value="nenhuma">Nenhuma (uma variação só)</SelectItem>
+                                                {PARAMETROS_VARIACAO.map((option) => (
+                                                    <SelectItem key={option.valor} value={option.valor}>{option.rotulo}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -401,9 +454,13 @@ export default function SampleBatchModal({
                                                 Códigos previstos: {generateVariacaoLetters(sample.variacoes?.length || 0).map((letter) => `/${letter}`).join(" ")}
                                             </p>
                                         </div>
-                                        <Button variant="outline" size="sm" onClick={() => addVariacao(sampleIndex)}>
-                                            <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar variação
-                                        </Button>
+                                        {aceitaVariasVariacoes(sample.parametro_variacao) ? (
+                                            <Button variant="outline" size="sm" onClick={() => addVariacao(sampleIndex)}>
+                                                <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar variação
+                                            </Button>
+                                        ) : (
+                                            <span className="text-xs text-emerald-700/80">Sem parâmetro de variação: uma variação só.</span>
+                                        )}
                                     </div>
 
                                     <div className="space-y-3">
@@ -424,27 +481,11 @@ export default function SampleBatchModal({
                                                     value={variacao.descricao_aplicacao || ""}
                                                     onChange={(event) => updateVariacao(sampleIndex, variacaoIndex, "descricao_aplicacao", event.target.value)}
                                                 />
-                                                <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                                                    <Input
-                                                        type="number"
-                                                        placeholder="% fragrância"
-                                                        value={variacao.percentual_fragrancia || ""}
-                                                        onChange={(event) => updateVariacao(sampleIndex, variacaoIndex, "percentual_fragrancia", event.target.value)}
-                                                    />
-                                                    <Input
-                                                        placeholder="Ref. fragrância"
-                                                        value={variacao.referencia_fragrancia || ""}
-                                                        onChange={(event) => updateVariacao(sampleIndex, variacaoIndex, "referencia_fragrancia", event.target.value)}
-                                                    />
-                                                    <CurrencyInput
-                                                        value={variacao.custo_fragrancia || ""}
-                                                        currency={variacao.custo_fragrancia_currency || "USD"}
-                                                        onValueChange={(value) => updateVariacao(sampleIndex, variacaoIndex, "custo_fragrancia", value)}
-                                                        onCurrencyChange={(currency) => updateVariacao(sampleIndex, variacaoIndex, "custo_fragrancia_currency", currency)}
-                                                        showHint={false}
-                                                        size="sm"
-                                                    />
-                                                </div>
+                                                <CamposDaVariacao
+                                                    parametro={sample.parametro_variacao}
+                                                    variacao={variacao}
+                                                    onChange={(campo, value) => updateVariacao(sampleIndex, variacaoIndex, campo, value)}
+                                                />
                                                 <Textarea
                                                     rows={2}
                                                     placeholder="Observações específicas"

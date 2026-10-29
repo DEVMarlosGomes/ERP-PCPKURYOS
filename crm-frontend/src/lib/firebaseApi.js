@@ -13,6 +13,7 @@ import { amostraDaVersaoFaltando, precoUsd, volumeEmKg } from "@/lib/pdAmostra";
 import { eventoMpNova, htmlFichaTecnica, montarFichaTecnica, validarMpNova } from "@/lib/fichaTecnica";
 import { solicitacoesDeMpsNovas } from "@/lib/filaCadastroMp";
 import { filtrarMateriaisPd, tiposDoFiltro } from "@/lib/materiaPrimaPd";
+import { PARAMETROS_VARIACAO, camposPreenchidos, parametroDe } from "@/lib/parametroVariacao";
 import { erroNaoFecha, fechamentoFormula, pendenciasDoLote } from "@/lib/fechamentoFormula";
 import { baseVigente, planoDaBase, substituicoesForaDaFragrancia } from "@/lib/formulacaoBase";
 import { contatosDoCliente, entradaHistoricoAprovacao, validarAprovacaoCliente } from "@/lib/aprovacaoCliente";
@@ -58,6 +59,8 @@ const CRM_CONSTANTS = {
   project_tipo_servico: ["desenvolvimento_completo", "adaptacao_formula", "industrializacao", "private_label"],
   project_restricoes_tecnicas: ["vegano", "natural", "sem_parabenos", "sem_sulfatos", "hipoalergenico"],
   sample_tipos: ["nova_formula", "adaptacao_de_formula", "benchmark", "ajuste"],
+  // PD-04: parâmetro de variação do lote de amostras (lib/parametroVariacao.js; "" = nenhuma).
+  sample_parametros_variacao: PARAMETROS_VARIACAO.map((p) => p.valor),
   sample_unidades: ["g", "ml", "un"],
   stage_labels: {
     prospeccao: "Prospecção", qualificado: "Qualificado", projeto_em_discussao: "Projeto em Discussão",
@@ -732,6 +735,9 @@ async function pdFullDetail(e, t) {
       _amostra_id: g.id,
       _variacao_id: null === P || void 0 === P ? void 0 : P.id,
       _variacao_codigo: null === P || void 0 === P ? void 0 : P.codigo,
+      // PD-04: parâmetro de variação e o que foi digitado na variação (cor, volume, versão...).
+      _parametro_variacao: parametroDe(g.parametro_variacao)?.rotulo || "",
+      _variacao_campos: P ? camposPreenchidos(g.parametro_variacao, P) : [],
       nome_cliente: g.cliente_nome || t.client_name || "",
       nome_projeto: g.projeto_nome || t.project_name || "",
       produto: g.produto || g.nome_produto || t.project_name || "",
