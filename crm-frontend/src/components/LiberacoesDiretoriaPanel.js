@@ -8,7 +8,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import api from "@/lib/api";
 import { formatApiError } from "@/lib/formatError";
-import { MIN_TEXTO } from "@/lib/liberacaoAntecipada";
+import { MIN_TEXTO, SEM_LEITURA, textoEstabilidade } from "@/lib/liberacaoAntecipada";
+
+// PD-05 (D-09): pedido feito logo após a manipulação, sem nenhuma leitura — a diretoria decide sabendo.
+function SeloSemLeitura() {
+  return (
+    <span className="mt-1 inline-flex items-center rounded-md border border-red-300 bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200" data-testid="selo-sem-leitura">
+      {SEM_LEITURA}
+    </span>
+  );
+}
 
 /* CRM › Projetos, só para ADM (diretoria): amostras que o P&D quer entregar antes do D48h.
  * O modal mostra e grava quem aprova, data/hora e justificativa. */
@@ -55,7 +64,8 @@ export default function LiberacoesDiretoriaPanel({ nomeDoAprovador, onDecidido }
           <div key={item.request_id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-background p-2 text-xs">
             <div className="min-w-0">
               <p className="font-medium">{[item.numero_projeto, item.nome_projeto].filter(Boolean).join(" — ") || item.titulo} · {item.cliente_nome}</p>
-              <p className="text-muted-foreground">Pedido por {item.liberacao.solicitada_por_nome} em {quando(item.liberacao.solicitada_em)} com {(item.liberacao.leituras_no_pedido || []).join(", ")}: {item.liberacao.motivo}</p>
+              <p className="text-muted-foreground">Pedido por {item.liberacao.solicitada_por_nome} em {quando(item.liberacao.solicitada_em)} ({textoEstabilidade(item.liberacao)}): {item.liberacao.motivo}</p>
+              {!(item.liberacao.leituras_no_pedido || []).length && <SeloSemLeitura />}
             </div>
             <Button size="sm" className="h-7 text-xs" onClick={() => abrir(item)}>Decidir</Button>
           </div>
@@ -74,7 +84,8 @@ export default function LiberacoesDiretoriaPanel({ nomeDoAprovador, onDecidido }
             <div className="space-y-3 text-sm">
               <div className="rounded-md bg-muted/50 p-2 text-xs">
                 <p><b>Pedido do P&D:</b> {atual.liberacao.motivo}</p>
-                <p className="mt-1 text-muted-foreground">{atual.liberacao.solicitada_por_nome} · {quando(atual.liberacao.solicitada_em)} · estabilidade registrada: {(atual.liberacao.leituras_no_pedido || []).join(", ")}</p>
+                <p className="mt-1 text-muted-foreground">{atual.liberacao.solicitada_por_nome} · {quando(atual.liberacao.solicitada_em)} · estabilidade registrada: {textoEstabilidade(atual.liberacao)}</p>
+                {!(atual.liberacao.leituras_no_pedido || []).length && <SeloSemLeitura />}
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div><Label>Quem aprova</Label><Input value={nomeDoAprovador || ""} disabled data-testid="liberacao-quem" /></div>

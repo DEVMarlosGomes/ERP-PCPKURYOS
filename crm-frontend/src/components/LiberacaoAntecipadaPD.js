@@ -7,10 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import api from "@/lib/api";
 import { formatApiError } from "@/lib/formatError";
-import { MIN_TEXTO, STATUS_LIBERACAO, textoDecisao } from "@/lib/liberacaoAntecipada";
+import { MIN_TEXTO, STATUS_LIBERACAO, textoDecisao, textoEstabilidade } from "@/lib/liberacaoAntecipada";
 
-/* P&D: pedir à diretoria para entregar a amostra ao Comercial antes do D48h (já com o D24h) e ver
- * a situação do pedido — aguardando, aprovada (quem, quando, por quê) ou recusada. */
+/* P&D: pedir à diretoria para entregar a amostra ao Comercial antes do D48h e ver a situação do
+ * pedido — aguardando, aprovada (quem, quando, por quê) ou recusada. PD-05: já com a manipulação
+ * registrada (Em Testes), sem precisar de leitura de estabilidade. */
 export default function LiberacaoAntecipadaPD({ req, podeEditar, onFeito }) {
   const [aberto, setAberto] = useState(false);
   const [motivo, setMotivo] = useState("");
@@ -47,7 +48,7 @@ export default function LiberacaoAntecipadaPD({ req, podeEditar, onFeito }) {
           <Icone className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="min-w-0 flex-1 text-sm">
             <p className="font-medium">{STATUS_LIBERACAO[lib.status] || lib.status}</p>
-            <p className="mt-0.5 text-xs">Pedido por {lib.solicitada_por_nome} com {(lib.leituras_no_pedido || []).join(", ") || "—"}: {lib.motivo}</p>
+            <p className="mt-0.5 text-xs">Pedido por {lib.solicitada_por_nome} ({textoEstabilidade(lib)}): {lib.motivo}</p>
             {lib.decisao && <p className="mt-0.5 text-xs font-medium">{textoDecisao(lib)}</p>}
           </div>
         </div>
@@ -55,7 +56,7 @@ export default function LiberacaoAntecipadaPD({ req, podeEditar, onFeito }) {
       {podePedir && (
         <div className="mt-3">
           <Button size="sm" variant="outline" className="gap-1.5 border-amber-300 text-amber-800 hover:bg-amber-50" onClick={() => setAberto(true)} data-testid="pedir-liberacao">
-            <Send className="h-3.5 w-3.5" /> Enviar ao Comercial antes do D48h (aprovação da diretoria)
+            <Send className="h-3.5 w-3.5" /> Enviar à diretoria para liberar ao Comercial antes da estabilidade
           </Button>
         </div>
       )}
@@ -64,11 +65,11 @@ export default function LiberacaoAntecipadaPD({ req, podeEditar, onFeito }) {
           <DialogHeader>
             <DialogTitle>Liberação antecipada para o Comercial</DialogTitle>
             <DialogDescription>
-              Com o D24h registrado, a amostra pode ir ao Comercial antes do D48h se a diretoria aprovar. O estudo de estabilidade continua normalmente.
+              Com a manipulação registrada, a amostra pode ir ao Comercial antes do D48h se a diretoria aprovar — mesmo sem nenhuma leitura de estabilidade (a diretoria vê isso no pedido). O estudo de estabilidade continua normalmente.
             </DialogDescription>
           </DialogHeader>
           <div>
-            <Label>Por que enviar antes do D48h? *</Label>
+            <Label>Por que enviar antes da estabilidade? *</Label>
             <Textarea rows={4} value={motivo} onChange={(ev) => setMotivo(ev.target.value)} placeholder="Ex.: cliente apresenta a linha na feira de sexta; D24h sem alteração de aspecto, cor, odor e pH" />
           </div>
           <DialogFooter>

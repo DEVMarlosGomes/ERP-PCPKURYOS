@@ -598,10 +598,9 @@ describe("caminhos de exceção", () => {
     memory.write(`${T}/pd_requests/RLA`, { id: "RLA", status: "IN_TESTS", title: "Body Mist", crm_sample_id: "SLA", crm_variacao_id: "VLA" });
     memory.write(`${T}/pd_stability_studies/ELA`, { id: "ELA", request_id: "RLA" });
     as("pd");
-    await fails(api.post("/pd/requests/RLA/liberacao-antecipada", { motivo: "Cliente quer ver na feira" }), 409, /D24h/);
     memory.write(`${T}/pd_stability_readings/L1`, { id: "L1", study_id: "ELA", day_offset: 1 });
     await fails(api.put("/pd/requests/RLA/status", { new_status: "WAITING_APPROVAL" }), 400, /D48h.*liberação antecipada/);
-    await fails(api.post("/pd/requests/RLA/liberacao-antecipada", { motivo: "curto" }), 422, /D48h/);
+    await fails(api.post("/pd/requests/RLA/liberacao-antecipada", { motivo: "curto" }), 422, /estabilidade/);
     await api.post("/pd/requests/RLA/liberacao-antecipada", { motivo: "Cliente apresenta a linha na feira de sexta" });
     assert.equal(db(`${T}/pd_requests/RLA/liberacao_antecipada/status`), "aguardando_diretoria");
     await fails(api.post("/pd/requests/RLA/liberacao-antecipada", { motivo: "Cliente apresenta a linha na feira de sexta" }), 409, /aguardando/);
@@ -621,6 +620,34 @@ describe("caminhos de exceção", () => {
     assert.ok(hist.some((h) => h.to_status === "WAITING_APPROVAL" && /liberação antecipada/.test(h.comment)));
     assert.deepEqual([db(`${T}/crm_samples/SLA`).variacoes[0].liberacao_antecipada.aprovada_por_nome, db(`${T}/crm_samples/SLA`).variacoes[0].liberacao_antecipada.estabilidade_no_envio], ["Ana ADM", ["D24h"]]);
     assert.deepEqual((await api.get("/crm/liberacoes-antecipadas")).data, []);
+  });
+
+  test("PD-05: logo após a manipulação, sem leitura — diretoria vê o selo e a trava dos 100% continua", async () => {
+    memory.write(`${T}/crm_samples/SLC`, { id: "SLC", nome_produto: "Sérum", variacoes: [{ id: "VLC", codigo: "2026-098-A1-a", status: "em_elaboracao" }] });
+    memory.write(`${T}/pd_requests/RLC`, { id: "RLC", status: "IN_PROGRESS", title: "Sérum", crm_sample_id: "SLC", crm_variacao_id: "VLC" });
+    memory.write(`${T}/pd_developments/DLC`, { id: "DLC", request_id: "RLC" });
+    memory.write(`${T}/pd_formulas/FLC`, { id: "FLC", development_id: "DLC", version: 1, name: "Sérum v1", volume: 30, volume_unit: "mL", cotacao_usd: 5 });
+    memory.write(`${T}/pd_formula_items/ILC`, { id: "ILC", formula_id: "FLC", ingredient_name: "Água", percentage: 100, price_per_kg: 1 });
+    as("pd");
+    await fails(api.post("/pd/requests/RLC/liberacao-antecipada", { motivo: "Cliente apresenta na reunião de amanhã" }), 409, /Finalize a manipulação/);
+    await api.put("/pd/requests/RLC/status", { new_status: "IN_TESTS" }); // manipulação registrada: fórmula travada
+    assert.equal(db(`${T}/pd_formulas/FLC/locked`), true);
+    await api.post("/pd/requests/RLC/liberacao-antecipada", { motivo: "Cliente apresenta na reunião de amanhã" });
+    const pedido = db(`${T}/pd_requests/RLC/liberacao_antecipada`);
+    assert.deepEqual([pedido.status, pedido.leituras_no_pedido || [], pedido.sem_leitura], ["aguardando_diretoria", [], true]);
+    const hist = Object.values(db(`${T}/pd_request_status_history`)).filter((h) => h.request_id === "RLC");
+    assert.ok(hist.some((h) => /sem leitura de estabilidade/.test(h.comment)));
+    as("adm");
+    const fila = (await api.get("/crm/liberacoes-antecipadas")).data;
+    assert.equal(fila.find((x) => x.request_id === "RLC").liberacao.sem_leitura, true);
+    // A trava dos 100% continua: fórmula que não fecha não sai, mesmo aprovada pela diretoria.
+    memory.write(`${T}/pd_formula_items/ILC/percentage`, 90);
+    await fails(api.post("/pd/requests/RLC/liberacao-antecipada/decisao", { decisao: "aprovada", justificativa: "Pode ir para a reunião", data_hora: new Date().toISOString() }), 422, /100/);
+    assert.equal(db(`${T}/pd_requests/RLC/status`), "IN_TESTS");
+    assert.equal(db(`${T}/pd_requests/RLC/liberacao_antecipada/status`), "aguardando_diretoria", "a decisão é desfeita");
+    memory.write(`${T}/pd_formula_items/ILC/percentage`, 100);
+    const r = (await api.post("/pd/requests/RLC/liberacao-antecipada/decisao", { decisao: "aprovada", justificativa: "Pode ir para a reunião", data_hora: new Date().toISOString() })).data;
+    assert.equal(r.status, "WAITING_APPROVAL");
   });
 
   test("liberação antecipada recusada: continua Em Testes, com o motivo", async () => {

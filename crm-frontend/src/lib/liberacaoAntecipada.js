@@ -13,27 +13,38 @@ export const STATUS_LIBERACAO = {
   aprovada: "Liberação antecipada aprovada",
   recusada: "Liberação antecipada recusada",
 };
-const D24H = 1;
 const D48H = 2;
 const FOLGA_MS = 2 * 60 * 1000; // relógio adiantado
+export const SEM_LEITURA = "sem leitura de estabilidade";
 
 const temLeitura = (leituras, dia) => (leituras || []).some((l) => Number(l.day_offset) === dia);
 
-// Pode pedir? { ok, motivo } — Em Testes, D24h feito, D48h não (com D48h é a entrega normal).
+/* Pode pedir? { ok, motivo }.
+ * PD-05 (reunião 28/10/2026, D-09): basta a manipulação registrada — finalizar a manipulação
+ * (Em Desenvolvimento → Em Testes) registra a fórmula vigente (locked) e cria a amostra V1; o
+ * status Em Testes é essa marca. Nenhuma leitura é exigida: a diretoria decide vendo
+ * "sem leitura de estabilidade", e o estudo continua correndo. Com o D48h é a entrega normal.
+ * A trava dos 100% segue no servidor (liberarEtapaPd) quando a decisão leva a Aguardando Aprovação. */
 export function podeSolicitar({ status, leituras, liberacao }) {
-  if (status !== "IN_TESTS") return { ok: false, motivo: "A liberação antecipada é pedida com a solicitação Em Testes." };
+  if (status !== "IN_TESTS") return { ok: false, motivo: "Finalize a manipulação (a solicitação vai para Em Testes) antes de pedir a liberação antecipada." };
   if (liberacao?.status === "aguardando_diretoria") return { ok: false, motivo: "Já existe um pedido aguardando a diretoria." };
   if (temLeitura(leituras, D48H)) return { ok: false, motivo: "O D48h já foi registrado: use \"Entregar ao Comercial\"." };
-  if (!temLeitura(leituras, D24H)) return { ok: false, motivo: "Registre a leitura D24h (primeiros testes) antes de pedir a liberação antecipada." };
   return { ok: true, motivo: "" };
 }
 
 export function novaSolicitacao({ motivo, por, porNome, em, leituras }) {
   const m = String(motivo || "").trim();
-  if (m.length < MIN_TEXTO) return { ok: false, erro: `Explique por que enviar antes do D48h (mínimo ${MIN_TEXTO} caracteres).` };
+  if (m.length < MIN_TEXTO) return { ok: false, erro: `Explique por que enviar antes do fim da estabilidade (mínimo ${MIN_TEXTO} caracteres).` };
   const feitas = [...new Set((leituras || []).map((l) => Number(l.day_offset)))].sort((a, b) => a - b)
     .map((d) => (d === 1 ? "D24h" : d === 2 ? "D48h" : `D${d}`));
-  return { ok: true, registro: { status: "aguardando_diretoria", motivo: m, solicitada_por: por, solicitada_por_nome: porNome, solicitada_em: em, leituras_no_pedido: feitas, decisao: null } };
+  return { ok: true, registro: { status: "aguardando_diretoria", motivo: m, solicitada_por: por, solicitada_por_nome: porNome, solicitada_em: em,
+    leituras_no_pedido: feitas, sem_leitura: feitas.length === 0, decisao: null } };
+}
+
+// "D24h" ou o selo "sem leitura de estabilidade" (pedido sem nenhuma leitura feita).
+export function textoEstabilidade(liberacao) {
+  const feitas = liberacao?.leituras_no_pedido || [];
+  return feitas.length ? feitas.join(", ") : SEM_LEITURA;
 }
 
 /* Decisão da diretoria (ADM). dataHora = ISO escolhida no modal (padrão: agora); nunca no futuro. */

@@ -22,7 +22,7 @@ import { liberarEtapaPd } from "@/lib/servidor";
 import { cotacaoDaFormula, situacao as situacaoCambio, validarSpread } from "@/lib/cambio";
 import { validarLeitura } from "@/lib/estabilidade";
 import { CATALOGO_PADRAO, mesclarCatalogo, validarTipoComponente } from "@/lib/tiposComponente";
-import { aplicarDecisao, novaSolicitacao, podeSolicitar, textoDecisao, validarDecisao } from "@/lib/liberacaoAntecipada";
+import { aplicarDecisao, novaSolicitacao, podeSolicitar, textoDecisao, textoEstabilidade, validarDecisao } from "@/lib/liberacaoAntecipada";
 import {
   EVENTO_RETRABALHO, PD_FECHADO, SOLICITANTES, entradaRetrabalhos, marcaDesatualizado, validarPedidoRetrabalho, variacaoEmRetrabalho,
 } from "@/lib/retrabalhoAprovada";
@@ -1901,7 +1901,7 @@ async function dispatch(e, t) {
       deleted: !0
     }, i);
   }
-  // Liberação antecipada (24/10/2026): P&D pede com o D24h; ADM decide no CRM (Projetos).
+  // Liberação antecipada (24/10/2026): P&D pede com a manipulação registrada (PD-05: sem exigir leitura); ADM decide no CRM (Projetos).
   if (O = j(/^\/pd\/requests\/([^/]+)\/liberacao-antecipada$/), "POST" === e && O) {
     if (!hasAnyRole(u, ["pd", "lider_pd", "formulador", "engenharia_produto"])) throw apiError(403, "A liberação antecipada é pedida pelo P&D.");
     const t = await one(_, "pd_requests", O[1]);
@@ -1915,7 +1915,7 @@ async function dispatch(e, t) {
     const registro = { ...nova.registro, historico: t.liberacao_antecipada?.historico || [] };
     await patch(_, "pd_requests", t.id, { liberacao_antecipada: registro });
     await save(_, "pd_request_status_history", id(), { request_id: t.id, pd_request_id: t.id, from_status: t.status, to_status: t.status,
-      comment: `Liberação antecipada pedida à diretoria (${registro.leituras_no_pedido.join(", ")}): ${registro.motivo}`,
+      comment: `Liberação antecipada pedida à diretoria (${textoEstabilidade(registro)}): ${registro.motivo}`,
       changed_by: firebaseAuth.currentUser.uid, changed_by_name: pdUserName(u), created_at: now(), user_id: firebaseAuth.currentUser.uid });
     return response({ ...t, liberacao_antecipada: registro }, i);
   }
