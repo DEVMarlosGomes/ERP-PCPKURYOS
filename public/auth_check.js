@@ -789,6 +789,14 @@ function ktLink(href, icon, label, activePage, fam) {
     var setorAqui = (window.location.search.match(/[?&]setor=([^&]+)/) || [])[1];
     ativo = !setorAqui || setorAqui === setorLink;
   }
+  // Mesma regra para as abas (Estoque × WMS × Conferência de PA são
+  // estoque.html?tab=): com a aba na URL, só o link dela fica ativo -- senão
+  // os três apareciam marcados e com aria-current ao mesmo tempo.
+  var abaLink = (href.match(/[?&]tab=([^&]+)/) || [])[1];
+  if (ativo && abaLink) {
+    var abaAqui = (window.location.search.match(/[?&]tab=([^&]+)/) || [])[1];
+    ativo = !abaAqui || abaAqui === abaLink;
+  }
   var cls = 'kt-nav-link' + (ativo ? ' active' : '');
   return '<a class="' + cls + '" href="' + urlLimpa(href) + '"' + (ativo ? ' aria-current="page"' : '') + '>' + ktIcon(icon) + '<span>' + label + '</span></a>';
 }
@@ -875,7 +883,7 @@ function renderUnifiedNavbar(user) {
   // papel novo (foi assim que 'pcp' e 'qualidade' foram esquecidos antes).
   var brandHome = homeDoUsuario(user);
   sidebar.innerHTML =
-    '<button type="button" class="kt-brand" aria-label="Kuryos — página inicial" onclick="window.location.href=\'' + brandHome + '\'"><span class="kuryos-brand-mark" aria-hidden="true">K</span><img class="kt-brand-logo" src="kuryos-logo.svg" alt="Kuryos"></button>' +
+    '<button type="button" class="kt-brand" aria-label="Kuryos — página inicial" onclick="window.location.href=\'' + brandHome + '\'"><span class="kuryos-brand-mark" aria-hidden="true">K</span><img class="kt-brand-logo" src="kuryos-logo.svg" alt="Kuryos"><span class="kt-brand-sub">Sistema de Produção</span></button>' +
     '<nav class="kuryos-sidebar-nav" aria-label="Navegação principal">' +
     gruposHtml +
     '</nav>' +
@@ -925,6 +933,21 @@ function renderUnifiedNavbar(user) {
   body.insertBefore(backdrop, body.firstChild);
   body.insertBefore(sidebar, body.firstChild);
   body.insertBefore(hamburger, body.firstChild);
+
+  // Menu longo (ADM, PCP): o item da tela atual pode nascer abaixo da dobra.
+  // Rola só a lista do menu -- nunca a página -- para deixá-lo à vista.
+  // Repete quando as folhas de estilo do shell terminam de carregar (é só
+  // então que a lista vira a área que rola).
+  function rolarAteAtivo() {
+    var nav = sidebar.querySelector('.kuryos-sidebar-nav');
+    var atual = sidebar.querySelector('.kt-nav-link.active');
+    if (!nav || !atual || !nav.getBoundingClientRect) return;
+    var n = nav.getBoundingClientRect(), a = atual.getBoundingClientRect();
+    if (a.bottom > n.bottom || a.top < n.top) nav.scrollTop += (a.top - n.top) - (n.height - a.height) / 2;
+  }
+  rolarAteAtivo();
+  if (window.requestAnimationFrame) requestAnimationFrame(function() { requestAnimationFrame(rolarAteAtivo); });
+  if (document.readyState !== 'complete') window.addEventListener('load', rolarAteAtivo, { once: true });
 
   // Remove cabeçalhos duplicados/antigos se existirem na página para manter o design clean
   if (oldHeader && oldHeader !== sidebar) {
@@ -1641,7 +1664,7 @@ function _autoAjustarPlanejamentoInterno(db, pedidoKey) {
   if (!document.querySelector('link[data-kuryos-repo-visual]')) {
     var referenceStyle = document.createElement('link');
     referenceStyle.rel = 'stylesheet';
-    referenceStyle.href = 'shared/kuryos-repo-visual.css?v=20261013-apple2';
+    referenceStyle.href = 'shared/kuryos-repo-visual.css?v=20261029-menu';
     referenceStyle.setAttribute('data-kuryos-repo-visual', '');
     document.head.appendChild(referenceStyle);
   }

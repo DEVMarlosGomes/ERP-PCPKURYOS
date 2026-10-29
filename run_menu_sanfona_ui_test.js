@@ -151,6 +151,31 @@ const estado = (page) => page.$$eval('.kt-nav-group', (gs) => gs.map((g) => [g.g
     await page.waitForSelector('.kt-nav-group');
     e = await estado(page);
     assert.deepEqual(e.filter(([n, a]) => a && fixos.indexOf(n) < 0).map(([n]) => n).sort(), ['Armazém', 'Operação'], 'lembra o último aberto');
+    // Identidade (MENU-02): marca em cartão com o nome do sistema, cor por bloco,
+    // subtítulos em caixa alta, trilho na cor do bloco, um único item ativo.
+    assert.equal((await page.locator('.kt-brand-sub').innerText()).toUpperCase(), 'SISTEMA DE PRODUÇÃO');
+    const vis = await page.evaluate(() => {
+      const g = document.querySelector('.kt-nav-group[data-grupo="Armazém"]');
+      const sub = g.querySelector('.kt-nav-sub');
+      return {tom: g.getAttribute('data-tom'), subs: [...g.querySelectorAll('.kt-nav-sub')].map((s) => s.textContent),
+        caixa: getComputedStyle(sub).textTransform, trilho: getComputedStyle(g.querySelector('.kt-nav-body')).borderLeftStyle,
+        brandBg: getComputedStyle(document.querySelector('.kt-brand')).backgroundImage,
+        ativos: [...document.querySelectorAll('.kt-nav-link.active')].map((a) => a.getAttribute('href') + '|' + a.getAttribute('aria-current')),
+        tons: [...document.querySelectorAll('.kt-nav-group')].map((x) => x.getAttribute('data-grupo') + ':' + x.getAttribute('data-tom'))};
+    });
+    assert.equal(vis.tom, 's3', 'Armazém no verde do chão de fábrica');
+    assert.deepEqual(vis.subs, ['Estoque', 'Fluxo']);
+    assert.equal(vis.caixa, 'uppercase');
+    assert.equal(vis.trilho, 'solid', 'trilho vertical no bloco aberto');
+    assert.match(vis.brandBg, /gradient/, 'marca em cartão azul-marinho');
+    assert.deepEqual(vis.ativos, ['proximas_ordens?setor=envase|page'], 'um item ativo, com aria-current');
+    assert.ok(vis.tons.includes('Ajuda:neutro') && vis.tons.includes('Compras:s2') && vis.tons.includes('PCP:s1'), vis.tons.join(' '));
+    // Ctrl/Cmd+K continua abrindo a busca de telas, com os links do menu novo.
+    await page.keyboard.press('Control+k');
+    await page.waitForSelector('.kuryos-command-search:not([hidden]) .kuryos-search-result');
+    await page.keyboard.type('separa');
+    assert.match(await page.locator('.kuryos-search-results').innerText(), /Próximas Separações/);
+    await page.keyboard.press('Escape');
     assert.deepEqual(errors, []);
     await page.close();
 
