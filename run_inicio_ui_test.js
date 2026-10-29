@@ -77,8 +77,10 @@ async function abrir(browser, uid, viewport, tema) {
     assert.deepEqual(lidos, ['agendamentos_expedicao', 'devolucoes_cliente', 'ops', 'solicitacoes_descarte'], 'logística lê só o que os seus cartões usam: ' + lidos);
     // Celular: sem rolagem horizontal e alvos de toque de 44 px.
     await page.setViewportSize({width: 390, height: 844});
-    await page.waitForTimeout(200);
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, 'sem rolagem horizontal no celular');
+    // A gaveta do menu desliza para fora ao encolher a janela (transição do shell): espera assentar.
+    await page.waitForFunction(() => document.documentElement.scrollWidth <= window.innerWidth + 1, null, {timeout: 3000}).catch(() => {});
+    const largura = await page.evaluate(() => ({sw: document.documentElement.scrollWidth, iw: window.innerWidth, largos: [...document.querySelectorAll('body *')].filter((e) => e.getBoundingClientRect().right > window.innerWidth + 1 && getComputedStyle(e).position !== 'fixed' && !e.closest('#unified-navbar')).slice(0, 5).map((e) => e.tagName + '.' + e.className + ':' + Math.round(e.getBoundingClientRect().right))}));
+    assert.ok(largura.sw <= largura.iw + 1, 'sem rolagem horizontal no celular: ' + JSON.stringify(largura));
     const alt = await page.$$eval('#areas a, #pend .cartao', (els) => els.map((x) => x.getBoundingClientRect().height));
     assert.ok(alt.every((h) => h >= 44), 'alvos de toque >= 44 px: ' + alt.filter((h) => h < 44));
     assert.deepEqual(erros, []);
