@@ -236,5 +236,134 @@
     });
   }
 
-  return {BLOCOS: BLOCOS, VISUAL: VISUAL, TELAS: TELAS, EXPEDICAO: EXPEDICAO, ROTAS_CRM: ROTAS_CRM, blocos: blocos};
+  /* ── Tela Início (MENU-03): o que está esperando por esta pessoa ──
+     Cada cartão declara de quais nós do banco precisa (fontes), quem o vê (a
+     página de destino precisa abrir + condição extra) e como contar. Quem não
+     vê o cartão também não gera a leitura dos dados dele (fontesNecessarias).
+     Portados do registro do Gustavo só os cartões cujas fontes existem aqui;
+     ficaram de fora "Inspeção total de PA" (inspecao_total.html e
+     shared/inspecao-total-pa.js não existem neste repo) e "Pesagens para
+     cobrar" (pesagens.html e shared/pesagens-dia.js idem). Entram junto com
+     a tela, quando ela for portada (Fase 8). */
+  function contar(no, status) {
+    var n = 0;
+    Object.keys(no || {}).forEach(function(k) { if ((no[k] || {}).status === status) n++; });
+    return n;
+  }
+
+  /* Cartão da fila de um setor: quantas OPs esperam e quantas já estão rodando.
+     A regra de "está na fila" é a da própria tela Próximas Ordens (SequenciaSetor.etapa). */
+  function cartaoFila(id, setor, titulo, icone, q) {
+    return {id: id, i: icone, titulo: titulo, pagina: 'proximas_ordens.html', href: 'proximas_ordens.html?setor=' + setor, fontes: ['ops'], q: q,
+      calcular: function(d, lib) {
+        if (!lib.SequenciaSetor) return null;
+        var ctx = {temRotulagem: lib.PerdasEtapa ? function(op) {
+          return lib.PerdasEtapa.embalagensDaOp(op, null, null).some(function(i) { return i.tipo === 'Rótulos'; });
+        } : null};
+        var n = 0, andamento = 0;
+        Object.keys(d.ops || {}).forEach(function(k) {
+          var e = lib.SequenciaSetor.etapa(setor, d.ops[k], ctx);
+          if (!e) return;
+          n++;
+          if (e.emAndamento) andamento++;
+        });
+        if (!n) return null;
+        return {n: n, tom: 'aviso', texto: andamento ? andamento + ' em andamento · ' + (n - andamento) + ' aguardando' : 'nenhuma iniciada'};
+      }};
+  }
+
+  var CARTOES = [
+    // ── Expedição (shared/cargas-pa.js: a mesma contagem da faixa de etapas)
+    {id: 'cargas_faturar', i: 'clipboard', titulo: 'Cargas a faturar', pagina: 'faturamento.html', fontes: ['agendamentos_expedicao'],
+      calcular: function(d, lib) {
+        if (!lib.CargasPA) return null;
+        var c = lib.CargasPA.contagem(d.agendamentos_expedicao);
+        var n = (c.AGENDADA || 0) + (c.FATURAMENTO_SOLICITADO || 0);
+        return n ? {n: n, tom: 'aviso', texto: 'agendadas ou com faturamento solicitado'} : null;
+      }},
+    {id: 'cargas_carregar', i: 'truck', titulo: 'Cargas para carregar', pagina: 'cargas.html', fontes: ['agendamentos_expedicao'],
+      calcular: function(d, lib) {
+        if (!lib.CargasPA) return null;
+        var c = lib.CargasPA.contagem(d.agendamentos_expedicao);
+        var n = (c.FATURADA || 0) + (c.AGUARDANDO_EMBARQUE || 0);
+        return n ? {n: n, tom: 'aviso', texto: 'faturadas, aguardando carregamento e saída'} : null;
+      }},
+    // ── Qualidade
+    {id: 'rnc_abertas', i: 'alert', titulo: 'Não conformidades abertas', pagina: 'qualidade.html', href: 'qualidade.html?tab=rnc', fontes: ['nao_conformidades'],
+      q: function(c) { return c.temMod('qualidade'); },
+      calcular: function(d) {
+        var n = contar(d.nao_conformidades, 'ABERTA');
+        return n ? {n: n, tom: 'aviso', texto: 'aguardando alguém assumir'} : null;
+      }},
+
+    // ── Fila de cada setor (as mesmas "Próximas Ordens", contadas por SequenciaSetor.etapa)
+    cartaoFila('fila_separacao', 'separacao', 'OPs para separar', 'list',
+      function(c) { return c.temMod('logistica'); }),
+    cartaoFila('fila_envase', 'envase', 'OPs na fila do envase', 'list',
+      function(c) { return c.setores.producao; }),
+    cartaoFila('fila_manipulacao', 'manipulacao', 'Lotes na fila da manipulação', 'flask',
+      function(c) { return c.setores.manipulacao; }),
+    cartaoFila('fila_rotulagem', 'rotulagem', 'OPs na fila da rotulagem', 'list',
+      function(c) { return c.setores.rotulagem; }),
+
+    // ── Compras
+    {id: 'sc_aprovar', i: 'cart', titulo: 'Solicitações de compra para aprovar', pagina: 'compras.html', fontes: ['solicitacoes_compra'],
+      q: function(c) { return c.temMod('compras'); },
+      calcular: function(d) { var n = contar(d.solicitacoes_compra, 'PENDENTE'); return n ? {n: n, tom: 'aviso', texto: 'aguardando aprovação'} : null; }},
+    {id: 'sc_cotar', i: 'cart', titulo: 'Solicitações aprovadas para cotar', pagina: 'compras.html', fontes: ['solicitacoes_compra'],
+      q: function(c) { return c.temMod('compras'); },
+      calcular: function(d) { var n = contar(d.solicitacoes_compra, 'APROVADA'); return n ? {n: n, tom: 'aviso', texto: 'prontas para virar cotação'} : null; }},
+    {id: 'pc_enviar', i: 'cart', titulo: 'Pedidos de compra para enviar', pagina: 'compras.html', fontes: ['pedidos_compra'],
+      q: function(c) { return c.temMod('compras'); },
+      calcular: function(d) { var n = contar(d.pedidos_compra, 'ABERTO'); return n ? {n: n, tom: 'aviso', texto: 'emitidos, ainda não enviados ao fornecedor'} : null; }},
+    {id: 'pc_atrasados', i: 'alert', titulo: 'Entregas de compra atrasadas', pagina: 'compras.html', fontes: ['pedidos_compra'],
+      q: function(c) { return c.temMod('compras'); },
+      calcular: function(d, lib) {
+        var n = 0;
+        Object.keys(d.pedidos_compra || {}).forEach(function(k) {
+          var p = d.pedidos_compra[k] || {}, prev = String(p.dataPrevistaEntrega || '').slice(0, 10);
+          if ((p.status === 'ENVIADO' || p.status === 'RECEBIDO_PARCIAL') && prev && prev < lib.hoje) n++;
+        });
+        return n ? {n: n, tom: 'alerta', texto: 'passaram da data prevista de entrega'} : null;
+      }},
+
+    // ── Armazém
+    {id: 'devolucoes_receber', i: 'history', titulo: 'Devoluções para receber', pagina: 'devolucoes.html', fontes: ['devolucoes_cliente'],
+      q: function(c) { return c.temMod('logistica'); },
+      calcular: function(d) { var n = contar(d.devolucoes_cliente, 'AUTORIZADA'); return n ? {n: n, tom: 'aviso', texto: 'autorizadas, aguardando chegada'} : null; }},
+    {id: 'descartes', i: 'clipboard', titulo: 'Descartes aguardando decisão', pagina: 'descarte.html', fontes: ['solicitacoes_descarte'],
+      calcular: function(d) { var n = contar(d.solicitacoes_descarte, 'SOLICITADO'); return n ? {n: n, tom: 'aviso', texto: 'solicitados, sem decisão'} : null; }}
+  ];
+
+  /* Cartões que esta pessoa pode ver (a página de destino abre e a condição extra vale). */
+  function cartoesVisiveis(ctx) {
+    return CARTOES.filter(function(c) { return ctx.podeAbrir(c.pagina) && (!c.q || c.q(ctx)); });
+  }
+
+  /* Nós do banco que os cartões visíveis precisam ler, sem repetir. */
+  function fontesNecessarias(cartoes) {
+    var vistos = {}, out = [];
+    cartoes.forEach(function(c) { c.fontes.forEach(function(f) { if (!vistos[f]) { vistos[f] = true; out.push(f); } }); });
+    return out;
+  }
+
+  /* Calcula cada cartão; o que não tem pendência não aparece. Um cartão que
+     falha também some, sem derrubar a tela -- mas o erro vai para o console
+     (nada de catch silencioso). */
+  function pendencias(cartoes, dados, lib) {
+    var out = [];
+    cartoes.forEach(function(c) {
+      var r = null;
+      try { r = c.calcular(dados, lib || {}); } catch (e) {
+        r = null;
+        if (typeof console !== 'undefined' && console.error) console.error('Início: o cartão "' + c.titulo + '" falhou ao calcular', e);
+      }
+      if (r && r.n) out.push({id: c.id, i: c.i, titulo: c.titulo, href: c.href || c.pagina, n: r.n, tom: r.tom, texto: r.texto});
+    });
+    out.sort(function(a, b) { return (a.tom === 'alerta' ? 0 : 1) - (b.tom === 'alerta' ? 0 : 1); });
+    return out;
+  }
+
+  return {BLOCOS: BLOCOS, VISUAL: VISUAL, TELAS: TELAS, EXPEDICAO: EXPEDICAO, ROTAS_CRM: ROTAS_CRM, CARTOES: CARTOES, blocos: blocos,
+    cartoesVisiveis: cartoesVisiveis, fontesNecessarias: fontesNecessarias, pendencias: pendencias};
 });

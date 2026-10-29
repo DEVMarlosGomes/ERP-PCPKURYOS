@@ -681,31 +681,16 @@
     // papéis 'pcp'/'rh'/'gestor' foram criados -- só reconhecia
     // 'admin'/'production'/'rotulagem'. Mesmo destino de página que
     // auth_check.js já usa pra cada papel (isPcpAdmin, rhHome).
-    if (role === 'admin' || role === 'pcp') {
-      window.location.href = 'dashboard';
-    } else if (role === 'production' || role === 'rotulagem') {
-      window.location.href = 'form';
-    } else if (role === 'logistica') {
-      window.location.href = 'logistica';
-    } else if (role === 'rh') {
-      window.location.href = 'rh_dashboard';
-    } else if (role === 'gestor') {
-      window.location.href = 'rh_avaliacao';
-    } else if (role === 'qualidade') {
-      // Módulo de Qualidade: pousa na fila de inspeção, sua tela de
-      // trabalho. Adicionado JUNTO com a criação do papel, de propósito --
-      // foi exatamente esta função que deixou o perfil 'pcp' de fora quando
-      // ele nasceu, e o usuário caiu em "Perfil desconhecido" ao logar.
-      window.location.href = 'qualidade?tab=fila';
-    } else if (role === 'comercial') {
-      // Comercial e P&D (14/10/2026): criadas junto com a seleção de várias
-      // funções em usuarios.html. Quem tem mais de uma cai na da função principal.
-      window.location.href = 'crm1';
-    } else if (role === 'pd') {
-      window.location.href = 'pd';
-    } else if (role === 'tv') {
-      // TV da fábrica (26/10/2026): só o placar, em tela cheia.
+    // Início (29/10/2026, D-02): todo papel conhecido entra pela tela Início,
+    // que mostra o que espera pela pessoa e as áreas dela (o mesmo registro do
+    // menu). A TV da fábrica segue direto para o placar em tela cheia. Papel
+    // fora da lista continua barrado com aviso -- foi esta função que deixou
+    // 'pcp' de fora quando ele nasceu; papel novo entra aqui também.
+    var PAPEIS_COM_INICIO = ['admin', 'pcp', 'production', 'rotulagem', 'logistica', 'rh', 'gestor', 'qualidade', 'comercial', 'pd'];
+    if (role === 'tv') {
       window.location.href = 'placar?tv=1';
+    } else if (PAPEIS_COM_INICIO.indexOf(role) !== -1) {
+      window.location.href = 'inicio';
     } else {
       showFeedback('error', 'Perfil desconhecido no sistema.');
     }

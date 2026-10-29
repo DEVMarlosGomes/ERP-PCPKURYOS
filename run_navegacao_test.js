@@ -42,7 +42,13 @@ assert.deepEqual(Object.keys(ANTIGO).sort(), Object.keys(PERFIS).sort(), 'fixtur
 let comparados = 0;
 Object.keys(PERFIS).forEach((nome) => {
   const user = Object.assign({uid: 'u1', nome: 'Pessoa Teste', email: 't@kuryos.com', modulos: null, funcoes: null}, PERFIS[nome]);
-  const novo = linksDoMenu(fonte, PERFIS[nome], fonteNav);
+  const todos = linksDoMenu(fonte, PERFIS[nome], fonteNav);
+  // Início (MENU-03) fica fora dos blocos, no topo: o único link que o menu antigo não tinha.
+  const inicio = todos.filter((l) => l.href === 'inicio');
+  const novo = todos.filter((l) => l.href !== 'inicio');
+  const esperaInicio = !['tv', 'pending'].includes(user.role);
+  assert.deepEqual(inicio.map((l) => [l.grupo, l.rotulo]), esperaInicio ? [[null, 'Início']] : [], nome + ': Início no topo');
+  assert.equal(acesso.homeDoUsuario(user), esperaInicio ? 'inicio.html' : (user.role === 'tv' ? 'placar.html' : 'login.html?status=pending'), nome + ': home');
   const hrefsNovos = novo.map((l) => l.href);
 
   // ── 2. sem duplicado, sem página negada, blocos conhecidos e na ordem
@@ -75,7 +81,7 @@ Object.keys(PERFIS).forEach((nome) => {
 assert.equal(comparados, Object.keys(PERFIS).length);
 
 // ── Blocos do D-01 e agrupamentos esperados
-const menu = (nome, pagina) => linksDoMenu(fonte, PERFIS[nome], fonteNav, pagina);
+const menu = (nome, pagina) => linksDoMenu(fonte, PERFIS[nome], fonteNav, pagina).filter((l) => l.href !== 'inicio');
 const doBloco = (links, bloco) => links.filter((l) => l.grupo === bloco);
 const rotulos = (links, bloco) => doBloco(links, bloco).map((l) => l.rotulo);
 
@@ -115,6 +121,68 @@ assert.deepEqual(menu('logistica', 'cargas.html').filter((l) => l.ativo).map((l)
 assert.deepEqual(menu('admin', 'proximas_ordens.html?setor=rotulagem').filter((l) => l.ativo).map((l) => l.href), ['proximas_ordens?setor=rotulagem']);
 assert.deepEqual(menu('admin', 'crm2.html').filter((l) => l.ativo).map((l) => l.href), ['crm2']);
 assert.match(require('./run_navegacao_menu.js').htmlDoMenu(fonte, PERFIS.admin, fonteNav, 'kickoffs.html'), /class="kt-nav-link active" href="kickoffs" aria-current="page"/);
+
+// ── Início: item ativo no topo do menu quando a tela é o Início
+assert.deepEqual(linksDoMenu(fonte, PERFIS.logistica, fonteNav, 'inicio.html').filter((l) => l.ativo).map((l) => l.href), ['inicio']);
+
+// ── Cartões da tela Início (MENU-03): quem vê o quê, e só lê o que precisa
+const SequenciaSetor = require('./public/shared/sequencia-setor.js');
+const PerdasEtapa = require('./public/shared/perdas-etapa.js');
+const CargasPA = require('./public/shared/cargas-pa.js');
+const ctxDe = (user) => ({podeAbrir: (pg) => acesso.podeAbrirPagina(user, pg), temMod: (m) => acesso.usuarioTemModulo(user, m),
+  role: user.role, setores: acesso.setoresOperacao(user)});
+const cartoesDe = (nome) => Nav.cartoesVisiveis(ctxDe(PERFIS[nome])).map((c) => c.id);
+assert.deepEqual(cartoesDe('logistica').sort(), ['cargas_carregar', 'cargas_faturar', 'descartes', 'devolucoes_receber', 'fila_separacao']);
+assert.deepEqual(cartoesDe('rotulagem'), ['fila_rotulagem']);
+assert.deepEqual(cartoesDe('soCompras').sort(), ['pc_atrasados', 'pc_enviar', 'sc_aprovar', 'sc_cotar']);
+assert.deepEqual(cartoesDe('soManipulacao'), ['fila_manipulacao']);
+assert.deepEqual(cartoesDe('qualidade'), ['rnc_abertas']);
+assert.deepEqual(cartoesDe('tv'), [], 'TV não tem cartão');
+assert.deepEqual(cartoesDe('comercial'), [], 'Comercial não tem cartão (ainda)');
+assert.deepEqual(Nav.fontesNecessarias(Nav.cartoesVisiveis(ctxDe(PERFIS.logistica))), ['agendamentos_expedicao', 'ops', 'devolucoes_cliente', 'solicitacoes_descarte'],
+  'logística só lê o que os seus cartões usam');
+assert.deepEqual(Nav.fontesNecessarias(Nav.cartoesVisiveis(ctxDe(PERFIS.qualidade))), ['nao_conformidades'], 'qualidade não lê ops nem compras');
+// Todo cartão leva a uma tela do registro e só aparece para quem a abre.
+Object.keys(PERFIS).forEach((nome) => {
+  const user = PERFIS[nome];
+  Nav.cartoesVisiveis(ctxDe(user)).forEach((c) => assert.ok(acesso.podeAbrirPagina(user, c.pagina), nome + ': cartão para página negada ' + c.id));
+});
+Nav.CARTOES.forEach((c) => assert.ok(fs.existsSync('public/' + c.pagina), 'cartão para tela inexistente: ' + c.id));
+// Contagem com dados de verdade.
+const lib = {CargasPA, SequenciaSetor, PerdasEtapa, hoje: '2026-10-27', agora: new Date('2026-10-27T12:00:00Z').getTime()};
+const dados = {
+  ops: {
+    '10-1': {status: 'Programado', lote: '10/01', produto: 'F', qtdPlanejada: 100, formulaVersao: 'F1__v1'},
+    '11-1': {status: 'Em Produção', lote: '11/01', produto: 'G', qtdPlanejada: 100, produzidoLinha: 40, abertaDesde: '2026-10-27T07:00:00', separacaoConcluida: true},
+    '12-1': {status: 'Concluído', lote: '12/01', produto: 'H', qtdPlanejada: 10, produzidoLinha: 10}
+  },
+  agendamentos_expedicao: {a1: {status: 'AGENDADA'}, a2: {status: 'AGENDADA'}},
+  nao_conformidades: {n1: {status: 'ABERTA'}, n2: {status: 'FECHADA'}, n3: {status: 'ABERTA'}},
+  solicitacoes_compra: {s1: {status: 'PENDENTE'}, s2: {status: 'APROVADA'}, s3: {status: 'APROVADA'}, s4: {status: 'REJEITADA'}},
+  pedidos_compra: {
+    p1: {status: 'ABERTO'}, p2: {status: 'ENVIADO', dataPrevistaEntrega: '2026-10-20'},
+    p3: {status: 'RECEBIDO_PARCIAL', dataPrevistaEntrega: '2026-10-26T00:00:00Z'},
+    p4: {status: 'ENVIADO', dataPrevistaEntrega: '2026-10-30'}, p5: {status: 'RECEBIDO_TOTAL', dataPrevistaEntrega: '2026-10-01'}
+  },
+  devolucoes_cliente: {d1: {status: 'AUTORIZADA'}, d2: {status: 'RECEBIDA'}},
+  solicitacoes_descarte: {x1: {status: 'SOLICITADO'}, x2: {status: 'CONCLUIDO'}}
+};
+const todosCartoes = Nav.pendencias(Nav.CARTOES, dados, lib);
+const porId = Object.fromEntries(todosCartoes.map((p) => [p.id, p]));
+assert.equal(todosCartoes[0].tom, 'alerta', 'alertas vêm primeiro');
+assert.equal(porId.pc_atrasados.n, 2, 'só ENVIADO/RECEBIDO_PARCIAL com data vencida');
+assert.equal(porId.rnc_abertas.n, 2); assert.equal(porId.rnc_abertas.href, 'qualidade.html?tab=rnc');
+assert.equal(porId.cargas_faturar.n, 2); assert.ok(!porId.cargas_carregar, 'cartão sem pendência não aparece');
+assert.equal(porId.sc_aprovar.n, 1); assert.equal(porId.sc_cotar.n, 2); assert.equal(porId.pc_enviar.n, 1);
+assert.equal(porId.devolucoes_receber.n, 1); assert.equal(porId.descartes.n, 1);
+assert.equal(porId.fila_separacao.n, 1, 'só a OP ativa sem separação concluída');
+assert.equal(porId.fila_envase.n, 2); assert.match(porId.fila_envase.texto, /1 em andamento · 1 aguardando/);
+assert.equal(porId.fila_manipulacao.n, 1, 'manipulação: OP com fórmula e sem fase iniciada');
+assert.ok(!porId.fila_rotulagem, 'sem OP com rótulo, sem cartão');
+assert.deepEqual(Nav.pendencias(Nav.CARTOES, {}, lib), [], 'sem dados nenhum cartão aparece nem quebra');
+const errOriginal = console.error; console.error = () => {};
+assert.deepEqual(Nav.pendencias([{id: 'x', titulo: 'x', pagina: 'x', fontes: [], calcular() { throw new Error('boom'); }}], {}, lib), [], 'cartão que falha some sem derrubar a tela');
+console.error = errOriginal;
 
 // ── 3. Toda tela do registro existe
 const rotasCrm = JSON.parse(fs.readFileSync('vercel.json', 'utf8')).rewrites

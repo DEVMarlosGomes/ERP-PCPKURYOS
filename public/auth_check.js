@@ -376,11 +376,17 @@ function podeAbrirPagina(user, pagina) {
 // Primeira página que a pessoa consegue abrir -- usada como "home" e como
 // destino de um Acesso Negado. Sem isto, mandar alguém pra dashboard.html
 // (que ele também não acessa) trocaria um Acesso Negado por outro, em loop.
-const ORDEM_HOME = ['dashboard_executivo.html', 'dashboard.html', 'form.html', 'qualidade.html', 'manipulacao.html', 'planejamento.html',
+// Início (29/10/2026, D-02 da reunião de 28/10): primeiro da fila. Abre para
+// qualquer autenticado (fora de PAGINA_MODULOS, como os manuais) porque só
+// mostra o que a pessoa já abre: atalhos do registro de telas e cartões cuja
+// página de destino ela acessa. A TV da fábrica (papel tv) segue no placar.
+const ORDEM_HOME = ['inicio.html', 'dashboard_executivo.html', 'dashboard.html', 'form.html', 'qualidade.html', 'manipulacao.html', 'planejamento.html',
                     'logistica.html', 'comercial.html', 'pd.html', 'compras.html', 'cadastros.html', 'pedidos.html',
                     'rh_dashboard.html', 'rh_avaliacao.html', 'placar.html', 'financeiro.html', 'controladoria.html'];
+function temInicio(user) { return !!user && user.role !== 'tv' && user.role !== 'pending'; }
 function homeDoUsuario(user) {
   for (var i = 0; i < ORDEM_HOME.length; i++) {
+    if (ORDEM_HOME[i] === 'inicio.html' && !temInicio(user)) continue;
     if (podeAbrirPagina(user, ORDEM_HOME[i])) return ORDEM_HOME[i];
   }
   return 'login.html?status=pending';
@@ -393,6 +399,7 @@ window.funcoesDoUsuario = funcoesDoUsuario;
 window.modulosPadraoDasFuncoes = modulosPadraoDasFuncoes;
 window.usuarioTemModulo = usuarioTemModulo;
 window.podeAbrirPagina = podeAbrirPagina;
+window.homeDoUsuario = homeDoUsuario;
 window.setoresOperacao = setoresOperacao;
 window.podeConferirPesagem = podeConferirPesagem;
 window.podeEditarApontamentos = podeEditarApontamentos;
@@ -420,7 +427,7 @@ window.urlLimpa = urlLimpa;
 // parse, entra por <script> e o menu espera o load (renderUnifiedNavbar).
 (function() {
   if (typeof window.KuryosNav !== 'undefined') return;
-  var src = 'shared/navegacao.js?v=20261029-1';
+  var src = 'shared/navegacao.js?v=20261029-2';
   try {
     if (document.readyState === 'loading') { document.write('<script src="' + src + '" data-kuryos-nav></script>'); return; }
   } catch (e) { /* document.write bloqueado: segue para o <script> */ }
@@ -885,6 +892,8 @@ function renderUnifiedNavbar(user) {
   sidebar.innerHTML =
     '<button type="button" class="kt-brand" aria-label="Kuryos — página inicial" onclick="window.location.href=\'' + brandHome + '\'"><span class="kuryos-brand-mark" aria-hidden="true">K</span><img class="kt-brand-logo" src="kuryos-logo.svg" alt="Kuryos"><span class="kt-brand-sub">Sistema de Produção</span></button>' +
     '<nav class="kuryos-sidebar-nav" aria-label="Navegação principal">' +
+    // Início fica fora dos blocos: é a porta de entrada, não uma área.
+    (temInicio(user) ? '<div class="kt-nav-top">' + ktLink('inicio.html', 'dashboard', 'Início', activePage) + '</div>' : '') +
     gruposHtml +
     '</nav>' +
     '<div class="kt-sidebar-foot">' +
