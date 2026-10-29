@@ -37,6 +37,12 @@ const negado = (p) => assert.rejects(p, /PERMISSION_DENIED|permission_denied/i);
   await adm.ref('config/emitirOp').update({bloquearSemSaldo: true, alteradoPor: 'ADM', alteradoEm: '2026-10-29T10:00:00Z'});
   await negado(adm.ref('config/emitirOp/bloquearSemSaldo').set('sim'));
   passo('ADM liga a trava (booleano)');
+  // .validate não roda no delete: apagar a chave desligaria a trava pelo padrão.
+  await negado(pcp.ref('config/emitirOp/bloquearSemSaldo').remove());
+  await negado(cfg.ref('config/emitirOp').remove());
+  await negado(pcp.ref('config/emitirOp').update({bloquearSemSaldo: null}));
+  assert.equal((await raiz.database().ref('config/emitirOp/bloquearSemSaldo').once('value')).val(), true);
+  passo('PCP e módulo config não apagam a trava para desligá-la');
   // O resto de config/ continua como era para PCP e módulo config.
   await pcp.ref('config/linhas').set(['Linha 1', 'Linha 2']);
   await cfg.ref('config/linhas').set(['Linha 1']);

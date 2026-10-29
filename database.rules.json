@@ -22,6 +22,10 @@
     },
     "config": {
       ".read": "auth != null",
+      // OP-01 (29/10/2026): .validate não roda no delete. Sem isto, quem escreve em config/
+      // (PCP, módulo config) apagava emitirOp/bloquearSemSaldo e a trava voltava ao padrão
+      // (desligada). Aqui no pai ele roda: só o ADM tira a chave.
+      ".validate": "!data.child('emitirOp').child('bloquearSemSaldo').exists() || newData.child('emitirOp').child('bloquearSemSaldo').exists() || root.child('usuarios').child(auth.uid).child('role').val() == 'admin'",
       ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('config').val() == true))",
       // Numeracao de Compras (24/09): SC, cotacao e PC reservam o numero aqui.
       // Sem isto, quem tem so o modulo Compras tomava PERMISSION_DENIED ao criar
