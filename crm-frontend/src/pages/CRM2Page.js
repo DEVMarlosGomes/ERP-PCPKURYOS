@@ -36,6 +36,7 @@ import ListView from "@/components/ListView";
 import AprovacaoClienteModal from "@/components/AprovacaoClienteModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { nomeDaCategoria, opcoesDeCategoria } from "@/lib/categoriasProduto";
+import { herdarPrazo } from "@/lib/prazoAmostra";
 
 function CRMSubNav({ active }) {
     const navigate = useNavigate();
@@ -374,7 +375,7 @@ export default function CRM2Page() {
                 if (proj.responsavel_interno) inherited.responsavel_pd = proj.responsavel_interno;
             }
             setBatchProjetoData(projetoDataFromProject(proj));
-            setBatchSamples([inherited]);
+            setBatchSamples([herdarPrazo(inherited, proj?.prazo_desejado_amostra)]);
             setShowBatchSamples(true);
         }
         await loadProjects();
@@ -530,7 +531,7 @@ export default function CRM2Page() {
             if (selectedProject.responsavel_interno) inherited.responsavel_pd = selectedProject.responsavel_interno;
         }
         setBatchProjetoData(projetoDataFromProject(selectedProject));
-        setBatchSamples([inherited]);
+        setBatchSamples([herdarPrazo(inherited, selectedProject?.prazo_desejado_amostra)]);
         setShowBatchSamples(true);
     };
 
@@ -1263,7 +1264,8 @@ export default function CRM2Page() {
                         if (proj.categoria) inherited.categoria = proj.categoria;
                         if (proj.responsavel_interno) inherited.responsavel_pd = proj.responsavel_interno;
                     }
-                    setBatchSamples([...batchSamples, inherited]);
+                    // CRM-04: nasce com o prazo atual do modal (que veio do projeto).
+                    setBatchSamples([...batchSamples, herdarPrazo(inherited, batchProjetoData?.prazo_desejado_amostra || proj?.prazo_desejado_amostra)]);
                 }}
             />
 

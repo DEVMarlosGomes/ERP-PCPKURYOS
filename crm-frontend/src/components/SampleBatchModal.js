@@ -18,6 +18,7 @@ import {
 } from "@/lib/masks";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { opcoesDeCategoria } from "@/lib/categoriasProduto";
+import { editarPrazo, herdarPrazo, propagarPrazoDoProjeto } from "@/lib/prazoAmostra";
 
 function formatSlugLabel(value) {
     if (!value) return "";
@@ -195,7 +196,11 @@ export default function SampleBatchModal({
                                                 <Input
                                                     type="date"
                                                     value={projetoData.prazo_desejado_amostra || ""}
-                                                    onChange={(e) => updateProjeto("prazo_desejado_amostra", e.target.value)}
+                                                    onChange={(e) => {
+                                                        // CRM-04: as amostras que seguem o projeto acompanham o prazo.
+                                                        updateProjeto("prazo_desejado_amostra", e.target.value);
+                                                        setBatchSamples(propagarPrazoDoProjeto(batchSamples, e.target.value));
+                                                    }}
                                                 />
                                             </div>
                                             <div className="space-y-2">
@@ -343,11 +348,19 @@ export default function SampleBatchModal({
                                         </Select>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>Prazo de entrega ao cliente *</Label>
+                                        <Label className="flex items-center gap-2">
+                                            Prazo de entrega ao cliente *
+                                            {sample.prazo_entrega_cliente && sample.prazo_origem === "projeto" && <Badge variant="secondary" className="text-[10px]">do projeto</Badge>}
+                                            {sample.prazo_entrega_cliente && sample.prazo_origem === "manual" && <Badge variant="outline" className="text-[10px]">alterado</Badge>}
+                                        </Label>
                                         <Input
                                             type="date"
                                             value={sample.prazo_entrega_cliente || ""}
-                                            onChange={(event) => updateSample(sampleIndex, "prazo_entrega_cliente", event.target.value)}
+                                            onChange={(event) => {
+                                                const next = [...batchSamples];
+                                                next[sampleIndex] = editarPrazo(next[sampleIndex], event.target.value, projetoData?.prazo_desejado_amostra);
+                                                setBatchSamples(next);
+                                            }}
                                         />
                                     </div>
                                     <div className="space-y-2">
@@ -446,7 +459,7 @@ export default function SampleBatchModal({
                         ))}
                     </div>
 
-                    <Button variant="outline" className="w-full mt-6" onClick={() => onAddSample ? onAddSample() : setBatchSamples([...batchSamples, {
+                    <Button variant="outline" className="w-full mt-6" onClick={() => onAddSample ? onAddSample() : setBatchSamples([...batchSamples, herdarPrazo({
                         nome_produto: "",
                         categoria: "",
                         briefing_base: "",
@@ -474,7 +487,7 @@ export default function SampleBatchModal({
                         ph: "",
                         observacao_tecnica: "",
                         variacoes: [{ descricao_aplicacao: "", percentual_fragrancia: "", referencia_fragrancia: "", custo_fragrancia: "", custo_fragrancia_currency: "USD", observacoes_especificas: "" }],
-                    }])}>
+                    }, projetoData?.prazo_desejado_amostra)])}>
                         <Plus className="h-4 w-4 mr-2" /> Adicionar Outra Amostra
                     </Button>
                 </div>

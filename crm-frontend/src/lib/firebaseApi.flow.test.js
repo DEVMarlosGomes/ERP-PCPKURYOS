@@ -5,6 +5,7 @@
 // (pedidos_comerciais/ + pedidos/).
 import assert from "node:assert/strict";
 import { memory, expectStatus as fails } from "@/test/memoryFirebase";
+import { herdarPrazo } from "@/lib/prazoAmostra";
 
 vi.mock("firebase/database", () => import("@/test/memoryFirebase").then((m) => m.databaseModule));
 vi.mock("firebase/storage", () => import("@/test/memoryFirebase").then((m) => m.storageModule));
@@ -735,6 +736,19 @@ describe("caminhos de exceção", () => {
     const signed = (await api.post(`/contratos/${cg.id}/assinar`, {})).data;
     assert.equal(signed.pedido_liberado_para_emissao, false);
     assert.match(signed.sku_bloqueios[0], /Categoria 'maquiagem' não possui código ativo/);
+  });
+
+  test("CRM-04: prazo do projeto chega à amostra (com a origem) e à solicitação do P&D", async () => {
+    as("adm");
+    const c = (await api.post("/crm/clients", { nome_empresa: "Prazo Certo" })).data;
+    const p = (await api.post("/crm/projects/batch", { cliente_id: c.id, projects: [{ nome_projeto: "Prazo Splash", prazo_desejado_amostra: "2026-11-10" }] })).data.projects[0];
+    const amostra = herdarPrazo({ nome_produto: "Splash", variacoes: [{ descricao_aplicacao: "Floral" }] }, p.prazo_desejado_amostra);
+    const s = (await api.post("/crm/samples/batch/v2", { projeto_id: p.id, samples: [amostra] })).data.samples[0];
+    const gravada = db(`${T}/crm_samples/${s.id}`);
+    assert.equal(gravada.prazo_entrega_cliente, "2026-11-10");
+    assert.equal(gravada.prazo_origem, "projeto");
+    const req = db(`${T}/pd_requests/${s.variacoes[0].pd_request_id}`);
+    assert.equal(req.deadline, "2026-11-10");
   });
 
   test("CRM-02: Sugerir CLI4 devolve só códigos livres", async () => {
