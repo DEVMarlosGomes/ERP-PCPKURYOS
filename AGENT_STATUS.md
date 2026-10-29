@@ -5,6 +5,12 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Reunião 28/10: menu do Gustavo + ajustes CRM · P&D · Kickoff · BOM · Compras · PCP · Financeiro
+
+- **Pedido:** executar `PROMPT_REUNIAO_20261028.md` (Agente 1 tech lead + Agente 2 dev). Referência: `prod-kuryos.web.app` (só leitura) e `gcallegaro-kur/PCP-Kuryos`.
+- **Estado (29/10):** Portão A aprovado (D-01…D-16 pelo padrão; D-15 = só código, sem dados do `prod-kuryos`). Em execução: Fase 1 (menu, worktree `reuniao-20261028/menu`), Fase 2 (CRM, worktree `reuniao-20261028/crm`) e SKU-01 (b), SKU das aprovações anteriores a 23/10.
+- **Arquivos ativos:** `docs/superpowers/specs/2026-10-28-reuniao-ajustes-design.md` e `docs/superpowers/specs/2026-10-28-matriz-lacunas-gustavo.md` (novos). Código só depois do Portão A. MENU-01/02 tocam `auth_check.js` e o shell, que têm alterações abertas de outra sessão (D-12).
+
 ### Claude — Financeiro e Controladoria (28/10/2026)
 
 - **Pedido:** "todos os módulos se interligam; não mexa nos módulos já criados; Financeiro e Controladoria podem ser criados com base em SAP/TOTVS" — construir `PROMPT_FINANCEIRO.md` e `PROMPT_CONTROLADORIA.md`.
