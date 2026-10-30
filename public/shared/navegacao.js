@@ -139,6 +139,12 @@
       s: function(c) { return c.setores.producao ? 'Produção' : 'Rotulagem'; },
       o: function(c) { return c.setores.producao ? pos('form.html') : pos('proximas_ordens.html?setor=rotulagem') + 0.5; },
       q: function(c) { return c.setores.producao || c.setores.rotulagem; }},
+    // Liberação de linha (PORT-03, Gustavo e1ac6e6): a Qualidade libera; a Produção registra a assepsia.
+    {p: 'liberacao_linha.html', r: 'Liberação de linha', i: 'flask',
+      b: function(c) { return c.temMod('qualidade') ? 'Qualidade' : 'Operação'; },
+      s: function(c) { return c.temMod('qualidade') ? null : 'Produção'; },
+      o: function(c) { return c.temMod('qualidade') ? pos('qualidade.html?tab=rnc') + 0.6 : pos('form.html') + 0.5; },
+      q: function(c) { return c.temMod('qualidade') || c.setores.producao; }},
     {p: 'estoque_setor.html', h: 'estoque_setor.html?setor=producao', r: 'Estoque da Fábrica', i: 'warehouse', b: 'Operação', s: 'Produção', o: 1001.5,
       q: function(c) { return c.setores.producao; }},
     {p: 'proximas_ordens.html', h: 'proximas_ordens.html?setor=manipulacao', r: 'Próximas Ordens', i: 'list', b: 'Operação', s: 'Manipulação',

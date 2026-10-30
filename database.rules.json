@@ -481,6 +481,28 @@
         }
       }
     },
+    // Liberação de linha (PORT-03, porte do Gustavo e1ac6e6; PLANO_QUALIDADE A3): CK-4 assepsia
+    // + CK-5 first article por OP. Operador registra a limpeza; a Qualidade verifica; o líder
+    // assina. Inspeção APROVADA não muda mais.
+    "inspecoes_cq": {
+      ".read": "auth != null",
+      "$id": {
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'qualidade' || root.child('usuarios').child(auth.uid).child('modulos').child('qualidade').val() == true || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'production' || root.child('usuarios').child(auth.uid).child('modulos').child('apontamento').val() == true) && (!data.exists() || data.child('status').val() != 'APROVADO') && newData.exists()",
+        ".validate": "newData.hasChildren(['modeloId', 'versao', 'opKey', 'status'])"
+      }
+    },
+    "liberacao_linha": {
+      ".read": "auth != null",
+      "$opKey": {
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'qualidade' || root.child('usuarios').child(auth.uid).child('modulos').child('qualidade').val() == true || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'production' || root.child('usuarios').child(auth.uid).child('modulos').child('apontamento').val() == true)"
+      }
+    },
+    "assepsia_linhas": {
+      ".read": "auth != null",
+      "$linha": {
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'qualidade' || root.child('usuarios').child(auth.uid).child('modulos').child('qualidade').val() == true || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'production' || root.child('usuarios').child(auth.uid).child('modulos').child('apontamento').val() == true)"
+      }
+    },
     "pedidos_comerciais": {
       ".read": "auth != null",
       ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('pedidos').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true))",
