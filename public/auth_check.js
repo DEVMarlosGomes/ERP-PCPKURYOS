@@ -270,7 +270,11 @@ const KURYOS_MODULOS = {
   rh_feedback:  { rotulo: 'RH — Feedback e Clima',  desc: 'Dashboard, pendências, recados e configuração do Feedback e Clima (só RH Central e administrador)',
                   paginas: ['rh_feedback.html'] },
   rh_temporarios: { rotulo: 'RH — Temporários',    desc: 'Convocação e pagamento semanal dos temporários (só RH Central e administrador; CPF e Pix)',
-                  paginas: ['rh_temporarios.html'] }
+                  paginas: ['rh_temporarios.html'] },
+  // Roadmap do sistema (PORT-09): checklist gerado do MELHORIAS_FUTURAS.md. Fora do padrão de qualquer papel:
+  // só o admin e quem o ADM marcar.
+  backlog:      { rotulo: 'Roadmap do sistema', desc: 'Checklist automático do que ainda falta implementar, do que depende da Kuryos e das decisões pendentes',
+                  paginas: ['backlog.html'] }
 };
 
 // Padrão por papel. Reproduz EXATAMENTE o alcance que cada papel tinha antes

@@ -200,7 +200,8 @@
     {p: 'manual_temporarios.html', r: 'Temporários', i: 'book', b: 'Ajuda', o: function() { return pos('manual_cadastros.html') - 0.4; },
       q: function(c) { return c.temMod('rh_temporarios'); }},
     {p: 'manual_feedback.html', r: 'Feedback e Clima', i: 'book', b: 'Ajuda', o: function() { return pos('manual_cadastros.html') - 0.3; },
-      q: function(c) { return c.temMod('feedback'); }}
+      q: function(c) { return c.temMod('feedback'); }},
+    {p: 'backlog.html', r: 'Roadmap do sistema', i: 'list', b: 'ADM'}
   ];
 
   /* Ícone (ktIcons em auth_check.js) e matiz de cada bloco: azul (--s1) para o

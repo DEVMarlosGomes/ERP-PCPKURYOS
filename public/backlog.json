@@ -1,0 +1,2612 @@
+{
+ "fonte": "MELHORIAS_FUTURAS.md (seções e tópicos)",
+ "geradoEm": "2026-10-30T18:47:04.402Z",
+ "commit": "f599707",
+ "atualizadoEm": null,
+ "secoes": [
+  {
+   "letra": "A",
+   "titulo": "Código: o que está adiado (MELHORIAS_FUTURAS.md)",
+   "itens": [
+    {
+     "id": "8028887955",
+     "grupo": "Sequência por setor / Próximas Ordens — o que ficou para depois",
+     "texto": "Programação por reator",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Pedido do usuário (\"futuramente podemos pensar em uma programação por reator\"). Hoje a manipulação é UMA fila (recurso único `Manipulação`). Para virar por reator: cadastrar os reatores (capacidade em litros — `emitir_op.html` já calcula o volume do batch) em `config`, tratar `manipulacao` como setor de recursos múl…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "460270806c",
+     "grupo": "Sequência por setor / Próximas Ordens — o que ficou para depois",
+     "texto": "Ritmo demonstrado para rotuladora e manipulação",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O ritmo é digitado pelo PCP. Os apontamentos da rotulagem (`produzidoRotulagem`, `setupFimRot`) e as fases da manipulação (`manipulacao/inicio` → `fim`) permitem sugerir um valor — usar sempre o percentil conservador, como `kuryosRitmoDemonstrado`."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "e9adb3462d",
+     "grupo": "Sequência por setor / Próximas Ordens — o que ficou para depois",
+     "texto": "Tempo da análise do bulk pela Qualidade",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "não entra no encadeamento (manipulação → envase). Não há dado de duração; medir `analise/em` − `manipulacao/fim` quando houver amostra."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "883bc12ead",
+     "grupo": "Sequência por setor / Próximas Ordens — o que ficou para depois",
+     "texto": "A sequência não escreve na grade horária do envase",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "OP na grade segue a grade; as demais seguem a posição do PCP. Unificar exigiria gerar slots de `programacao` a partir da sequência — decisão de produto antes de código."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "158a22da4d",
+     "grupo": "Sequência por setor / Próximas Ordens — o que ficou para depois",
+     "texto": "Ritmo real da OP em andamento",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "A estimativa de quem está rodando usa o ritmo planejado sobre o que FALTA; o atraso aparece a cada apontamento (o que falta não diminuiu como devia), não antes. Medir o ritmo real da própria OP esbarra no apontamento por período (checkpoint de intervalo/fim de turno): entre dois checkpoints `produzidoLinha` fica par…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "e2c305e347",
+     "grupo": "Sequência por setor / Próximas Ordens — o que ficou para depois",
+     "texto": "Grade de Quantidades não acompanha a execução",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O auto-ajuste (`autoAjustarPlanejamento`) está pausado a pedido do PCP; a Sequência mostra o desvio (`desvioHoras`) e, desde 29/09, o botão \"Ajustar a grade\" (`shared/ajuste-grade.js`) acerta UM pedido sob comando do PCP. Pendente: o mesmo botão na própria grade de Quantidades (hoje só na Sequência) e a grade em hor…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "a18f144dc2",
+     "grupo": "Sequência por setor / Próximas Ordens — o que ficou para depois",
+     "texto": "Ordem de retrabalho na fila",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O modelo de `PLANO_GESTAO_RETRABALHOS.md` (ordens de fabricação/envase/rotulagem de retrabalho) deve entrar como etapa lida pelo mesmo motor (`etapa()`), não como fila paralela. Hoje a OP de retrabalho entra no envase/rotulagem como qualquer OP e fica fora da manipulação."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "8cbbfff954",
+     "grupo": "Gaps levantados na modelagem de fluxos",
+     "texto": "GAP-05 — Mudança no pedido não chega à OP",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "**FEITO para as OPs em 2026-09-23.** `shared/impacto-pedido-ops.js` calcula, por item, comprometido = produzido + o que falta nas OPs abertas; reduzir abaixo disso (Gestão Comercial) ou cancelar o pedido (Comercial › Cancelar saldo) grava `pendencias_pcp/{id}__v{n}` ou `{id}__cancelamento` **no mesmo update** da mud…"
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "9a5ca8f797",
+     "grupo": "Gaps levantados na modelagem de fluxos",
+     "texto": "Regularização da operação (23/09) — o que fica com o Claude",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Base lida em 23/09: as 338 cargas são todas legado da planilha (última em 11/09), nenhuma pelo fluxo novo; 27 OPs concluídas desde 10/09 sem Conferência de PA; 3 conferências abertas; 2 OPs aguardando PCP; 19 lotes em quarentena. Roteiro para a pessoa responsável publicado em https://claude.ai/artifact/BsAc6bTQzDXKo…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "b9dc3328c5",
+     "grupo": "Gaps levantados na modelagem de fluxos",
+     "texto": "GAP-02 — Devolução e reclamação de cliente",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "**Fluxo físico FEITO em 2026-09-23** (`devolucoes.html`). Decisões do usuário: o Comercial autoriza, vinculada à carga original; a Logística recebe em QUARENTENA; destinos reintegrar, retrabalho, descarte e reenvio, decididos pelo laudo da Qualidade no palete; o expedido do pedido é estornado; a conciliação mostra d…"
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "a785bbaeb2",
+     "grupo": "Gaps levantados na modelagem de fluxos",
+     "texto": "GAP-03 — Estorno da saída física",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "🟠 `confirmarExpedicaoPA` baixa paletes e soma expedido de forma atômica e idempotente, mas não existe o caminho inverso (carga que voltou, NF cancelada). O item \"API de emissão de NF\" abaixo prevê cancelamento **fiscal**; o estorno **físico** é outra coisa e precisa existir antes."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "7e17d2b70d",
+     "grupo": "Gaps levantados na modelagem de fluxos",
+     "texto": "GAP-04 (parte nova) — Portão do bulk",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "**FEITO em 2026-09-23.** Decisão do usuário: toda OP cujo produto tem fórmula (`ops/{lote}.formulaVersao`) só envasa com o bulk LIBERADO; sem fórmula passa. `Manipulacao.podeEnvasar` ganhou a regra, com corte prospectivo em `PORTAO_BULK_DESDE` (24/09 00:00 BRT): no dia havia 13 OPs abertas com fórmula e sem fase de …"
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "1e1eb85525",
+     "grupo": "Gaps levantados na modelagem de fluxos",
+     "texto": "GAP-13 — Orçamento perdido",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "🟡 `orcamentos` só conhece EM_ELABORACAO, ENVIADO, ACEITO/convertido. Falta RECUSADO/VENCIDO com motivo, para ter funil e taxa de conversão por cliente."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "3b009b09be",
+     "grupo": "Gaps levantados na modelagem de fluxos",
+     "texto": "GAP-18 — Duas portas para criar pedido",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "**FEITO em 2026-09-23** (decisão do usuário: remover). `pedidos.html` perdeu o \"+ Novo Pedido\" e o `openNew`; no lugar, o link \"Novo pedido: Comercial →\". Salvar sem pedido aberto recusa. O modal segue para editar o backlog. Guardado por `run_pedido_porta_unica_test.js`."
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "86bc7debc7",
+     "grupo": "Integração entre setores",
+     "texto": "Selo de qualidade do fornecedor na cotação",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— `desempenhoQualidadeFornecedor` já existe em `shared/utils.js` e tem UMA única chamada em todo o sistema (`qualidade.html:1252`). O comprador compara orçamentos sem ver que o fornecedor reprovou lote. Falta só exibir."
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "f49792d05a",
+     "grupo": "Integração entre setores",
+     "texto": "\"Gerar solicitação de compra\" na Matriz de Insumos",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— `insumos.html` calcula a falta e `compras.html` nunca lê o nó `insumos`; nem `insumos.html` referencia `solicitacoes_compra`. Não há caminho de ida nem de volta: o MRP existe pra antecipar a falta e a informação não chega a quem compra."
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "fee49e0aa1",
+     "grupo": "Compras",
+     "texto": "\"Imprimir / salvar PDF\" do pedido na tela de Orçamentos dá 404 (achado em 23/10/2026, COM-06)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— `CommercialBudgetPage.js:openOrderPdf` abre `/api/orders/{id}/pdf`, rota do backend Mongo/FastAPI abandonado; no Vercel volta 404. Trocar por um documento HTML gerado no navegador (mesmo padrão do CGI, `firebaseCommercial.js`, \"Salvar em PDF / imprimir\"). Junto: o orçamento ao cliente ainda não tem documento própr…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "c9228c718e",
+     "grupo": "Compras",
+     "texto": "SC do P&D numerada por \"maior número + 1\" (achado em 23/10/2026, COM-05)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— `POST /pd/requests/{id}/purchase-requests` (`crm-frontend/src/lib/firebaseApi.js`) calcula `Math.max(numero) + 1` sobre `solicitacoes_compra`, enquanto o Compras e a cotação do CRM (COM-05) reservam pelo contador `config/contadores/solicitacaoCompra`. Os dois podem dar o mesmo SC-NNNN. Trocar pelo `nextCounter` (a…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "c1e4cb20cb",
+     "grupo": "Compras",
+     "texto": "NCM no cadastro de material",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— o NCM é o que determina as alíquotas de IPI e de ICMS-ST. Hoje o cadastro de material **não tem o campo** (grep em `cadastros.html`: nenhuma ocorrência), então na cotação alguém digita a alíquota de cabeça a cada orçamento, item a item, fornecedor a fornecedor. Isso é erro esperando pra acontecer num número que de…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "7716c2333c",
+     "grupo": "Compras",
+     "texto": "Anexo da proposta do fornecedor (PDF) na cotação",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— **o Storage já está configurado** (Comercial desde setembro; `/manipulacao/{lote}` para a foto da pesagem desde `13f1142`) e existe o módulo `shared/anexos.js` (validação, caminho, registro). Falta só aplicar na cotação, na foto de RNC, no certificado de calibração e no COA — cada um é tela + uma regra em `storage…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "2a42320289",
+     "grupo": "Compras",
+     "texto": "Lista dos 11 campos da etiqueta está DUPLICADA",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— `PADRAO_ETIQUETA_FORNECEDOR` vive em `shared/utils.js` e a mesma lista está escrita de novo dentro de `functions/index.js` (`criarRascunhoCotacao`), com um comentário admitindo a cópia: *\"Mesma lista de PADRAO_ETIQUETA_FORNECEDOR em public/shared/utils.js\"*. Quem mudar num lugar não muda no outro, e o e-mail ao fo…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "d3a8aafa97",
+     "grupo": "Compras",
+     "texto": "Arquivo de etiqueta pronto por item, no Pedido de Compra",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— hoje o padrão de 11 campos (`PADRAO_ETIQUETA_FORNECEDOR`, `shared/utils.js`) só aparece como texto no e-mail de cotação e (depois desta rodada) no detalhe do Pedido de Compra. A ideia é gerar um arquivo de verdade (PDF/imagem) já preenchido por item, pronto pra anexar no e-mail ao fornecedor. Adiado explicitamente…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "6728358cb3",
+     "grupo": "Compras",
+     "texto": "Exportação da etiqueta em formato de impressora térmica",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— cogitado ainda na Fase 2 de Compras (padrão de etiqueta), nunca chegou a ser desenhado."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "5768db0bcf",
+     "grupo": "Compras",
+     "texto": "Categoria própria de fornecedor para \"Uso e Consumo\" (MU)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— `tipoFornecedorParaMaterial()` (`cadastros.html`) só distingue fornecedor tipo \"mp\" ou \"embalagem\"; MU cai sem filtro (mostra todos). Não é urgente porque MU nunca entra em BOM."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "627e839abd",
+     "grupo": "Compras",
+     "texto": "MU fora da Busca Avançada Fornecedores × Material",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— `BF_FACET_CONFIG` (`compras.html`) só cobre MPGR/MPES/EP/ES/ET."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "dab66c66ee",
+     "grupo": "Compras",
+     "texto": "`insumos.html` — recebimento de insumos sem `.transaction()` (race condition, mesma classe do achado crítico de produção)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ": `executeBatchAllocation` (Alocação em lote) e `recvModalSave` (recebimento manual pontual) calculam `qtdRecebida` a partir de uma leitura (`.once('value')`) fora de transaction, depois escrevem o valor absoluto via `db.ref().update()`. Se Compras registra um recebimento manual pontual enquanto o PCP revisa/confirm…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "5dbf586416",
+     "grupo": "Compras",
+     "texto": "PDF do Pedido de Compra tem o mesmo defeito de folhas em branco que a OP tinha",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— `compras.html` usa o mesmo `body *{visibility:hidden}` + `#printArea{position:absolute}` que fazia a OP sair com 16 folhas em branco: visibility:hidden esconde mas não tira do fluxo, então o Chrome pagina a altura inteira da tela por trás. A correção já está pronta e testada em `public/shared/fichas-op.css` (usada…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "a2ed67e335",
+     "grupo": "Materiais / Cadastros",
+     "texto": "Mecanismo de rename de código de material",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— hoje o código (`mpCodigo`) é imutável depois de criado (diferente de Produto, que tem `skusAnteriores`/`sku_historico`). Se uma classificação errada (tipo) for descoberta depois de já ter gerado o código, não tem como corrigir sem recriar o cadastro e migrar Fórmula/BOM na mão."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "eab1783990",
+     "grupo": "Materiais / Cadastros",
+     "texto": "Log de alterações (histórico) só existe em Materiais",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— `historico_materiais` + `diffParaHistorico()` (`shared/utils.js`) foi desenhado genérico o bastante pra reusar em Produtos/Clientes/ Fornecedores, se algum dia fizer falta lá também."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "65ed7ac63b",
+     "grupo": "Materiais / Cadastros",
+     "texto": "Campo \"categoria de uso\" (limpeza/EPI/laboratório/escritório) para MU",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— adiado por decisão do usuário: \"só os campos comuns por enquanto\"."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "4eacb3ac19",
+     "grupo": "Produtos / SKU",
+     "texto": "`public/produtos.html` é uma cópia órfã",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "da tela de Produtos antiga (sem link de navegação, achado por um agente Explore) — tem o MESMO mecanismo de rename de SKU que `cadastros.html` só que SEM gravar `skusAnteriores`/`sku_historico`. Uma armadilha real se alguém abrir por URL direta e renomear um produto por ali. Devia virar redirect fino pra `cadastros.…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "c5d4c447fd",
+     "grupo": "Produtos / SKU",
+     "texto": "`form.html` lê `allProdutosForm[op.sku]` direto",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ", sem o resolver `getProdutoBySku`/`sku_historico` que o resto do app (horizonte.html, planejamento.html, compras.html) já usa consistentemente. Risco baixo hoje (produto raramente é renomeado), mas é uma inconsistência real."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "7d7262e035",
+     "grupo": "Produtos / SKU",
+     "texto": "95 produtos com código antigo sem dado suficiente pra migrar pro formato novo",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(`CAT-CLI-NNNN`) — 77 por cliente ainda sem cadastro em Clientes (principalmente MOUTIER, 40 produtos), 15 sem correspondência no `Gerador de OPs.xlsm`, 3 com categoria ambígua na planilha. O mapeamento categoria+cliente já resolvido nesta sessão pode ser reaproveitado se um dia quiserem retomar — mas a decisão atua…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "71d75e4035",
+     "grupo": "Produtos / SKU",
+     "texto": "2 produtos do xlsm sem cadastro em `produtos/`",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(`SRM-SEUN-0002`, `HDR-MISS-0008`) — ficaram de fora da importação de Fórmula/BOM por não terem produto correspondente."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "88f7c5bd29",
+     "grupo": "Produtos / SKU",
+     "texto": "Histórico de alterações do cadastro de produtos",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(pedido do usuário em 2026-09-16). Os SKUs HDR-MISS-*, MRARBS05, MRARBS10 e MRARBS12 estavam inativos com pedido e OP abertos, e não há como saber quem inativou: materiais gravam `historico_materiais/{key}` (campo, antes, depois, quem, quando; ver `renderHistoricoMaterial` em `cadastros.html`), produtos não. Replica…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "377b2a39c5",
+     "grupo": "Pedidos — clareza da tela",
+     "texto": "Número do pedido do cliente ao lado do nosso",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O cliente fala pelo número dele (\"pedido 34\"), o PCP pelo nosso (\"0014\"), e a conciliação de 16/09 com Miss Rose e Wike Make travou nisso. O campo já existe (`pedidos_comerciais/{id}.numeroPedidoCliente`, preenchido em `comercial.html`), mas nenhum pedido da base o tinha e `pedidos.html` não o mostra. Exibir \"0014 /…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "d8f7dd2d3a",
+     "grupo": "Pedidos — clareza da tela",
+     "texto": "SKU / código interno ao lado do nome do produto",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "nas mesmas tabelas."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "a09c3ebcb1",
+     "grupo": "Fórmulas / BOM / Especificações",
+     "texto": "~78 linhas de Especificações do Gerador de OPs ainda não importadas",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— 94% já está feito (180 de ~230 produtos), sobrou um resíduo pequeno."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "2f26c84472",
+     "grupo": "Fórmulas / BOM / Especificações",
+     "texto": "531 itens de Fórmula/BOM pendentes de revisão manual",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— não é bug, é fila de trabalho (material não identificado na importação, com sugestão por similaridade already ali pra acelerar). Ninguém está monitorando ativamente o \"quantos faltam\" ainda — talvez um indicador na tela inicial de Cadastros fizesse sentido."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "d2ceaa3995",
+     "grupo": "Fórmulas / BOM / Especificações",
+     "texto": "Nova versão de fórmula nasce SEM especificação e a OP não avisa",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— `+ Nova versão` (cadastros.html) cria `especificacoes/{produto}__{versao}` com `itens: {}` vazio. Se alguém emitir OP nessa versão antes de a Qualidade preencher os ensaios, a ficha físico-química sai com \"Nenhuma especificação de qualidade cadastrada pra esta versão da fórmula\" e o lote vai pro chão de fábrica se…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "89f1066257",
+     "grupo": "Fórmulas / BOM / Especificações",
+     "texto": "Ensaio crítico não aparece na ficha impressa",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— `critico: true` existe no cadastro e o laudo usa (`avaliarPlanoInspecao.bloqueia`), mas a ficha de OP imprime todos os ensaios iguais. Quem preenche à mão não tem como saber qual reprova o lote sozinho. (2026-09-21)"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "650aed3e7a",
+     "grupo": "Fórmulas — UX",
+     "texto": "Busca de produto (aba Fórmulas/BOM/Especificações) não navega por teclado, só mouse",
+     "subitens": [],
+     "extras": {},
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "e3020ab161",
+     "grupo": "Fórmulas — UX",
+     "texto": "Busca de produto não encontra por nome de cliente, só por SKU/descrição",
+     "subitens": [],
+     "extras": {},
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "e5f8ec7c35",
+     "grupo": "Fórmulas — UX",
+     "texto": "Sem indicação visual de que dá pra trocar o produto selecionado sem recarregar a página (funciona, só não é óbvio)",
+     "subitens": [],
+     "extras": {},
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "be364aec59",
+     "grupo": "Planejamento / PCP",
+     "texto": "PCP-02: trava da OP na regra do banco ficou de fora (23/10/2026)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— o pacote previa `.validate` na criação de `ops/$op` conferindo `formulas|bom|especificacoes/{SKU}__vN/status = APROVADA` e CGI assinado. Não entrou porque pelo menos 8 telas gravam em `ops/{lote}` com `update` (`form.html`, `ops.html`, `historico.html`, `manipulacao.html`...), e algumas podem criar o nó (apontamen…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "9923b4e551",
+     "grupo": "Planejamento / PCP",
+     "texto": "PCP-02: legado ainda só com aviso",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— produto sem `origemCrm` emite com Fórmula/BOM/ Especificação não aprovadas (decisão de 2026-09: nenhuma estava aprovada). Medir quantos produtos ativos têm as três aprovadas antes de virar trava para todos."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "dd50d5ff73",
+     "grupo": "Planejamento / PCP",
+     "texto": "Apontamento de manipulação (rendimento real do batch)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— **FEITO** (`50b5e46`, 2026-09-17). A fase de granel vive em `ops/{lote}/manipulacao` (lote da manipulação = lote da OP) e `manipulacao.html` registra pesagem por MP com lote, conferência por outra pessoa, tempos, perdas e rendimento. O pré-requisito de processo foi atacado pelo próprio fluxo: a pesagem só fecha co…"
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "6b7b8c0b41",
+     "grupo": "Planejamento / PCP",
+     "texto": "Alertas sonoros na fábrica / notificação no celular do funcionário",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "quando uma OP atrasa — evolução natural do sistema de alertas por e-mail (Fase 4 do plano), cogitada pelo usuário como próximo passo \"conforme for\" amadurecendo, não parte do MVP."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "aa7dd73208",
+     "grupo": "Planejamento / PCP",
+     "texto": "E-mail de fim de turno tem % inconsistentes",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(`onTurnoEncerrado`, `functions/index.js:895`, campos `disponibilidadePct`/performance) — reportado pelo usuário como \"bem inconsistente\". Adiado deliberadamente: revisar com calma, caso a caso (provavelmente é mais de uma causa raiz, não um bug único óbvio), não durante a implementação do plano de Planejamento/PCP."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "2ef77fc489",
+     "grupo": "Planejamento / PCP",
+     "texto": "Trava dura na lista de \"Alocar OP\" (`form.html`)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— hoje a lista só guia (ordenada por prioridade + selo \"Próxima recomendada\"), mas produção ainda pode escolher qualquer OP livre, não só a programada pra aquela linha. Adiado conscientemente pelo usuário (\"bate, fica legal por hora\"): travar de verdade exigiria confiar em `ops.linha` pra saber \"essa OP é dessa linh…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "6157e2c5e4",
+     "grupo": "Planejamento / PCP",
+     "texto": "Modal \"Encerrar OP\" (Painel de Turno, `form.html`) — mensagem de erro ambígua em falha parcial",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ": `fecharAlocacaoOP` já grava `status:'Concluído'` no Firebase antes de `salvarPerdasEncerrarOP` rodar; se só a escrita de perdas falhar (rede instável), o operador vê \"Erro ao encerrar OP\" mesmo com a OP já encerrada de verdade — e uma nova tentativa erra de novo com \"Essa OP não está mais aberta\", contradizendo a …"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "c739508894",
+     "grupo": "Planejamento / PCP",
+     "texto": "Campo \"Operador\" obrigatório só em alguns dos 3 fluxos de Encerrar OP",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ": Painel de Turno exige; \"Fechar Lote\" (Modo Avançado) nunca grava responsável nenhum. Achado da 4a rodada — não é bug, é decisão de design ainda não tomada (Painel de Turno = multi-operador vs. Modo Avançado = uso administrativo?). Decidir ao unificar os 3 fluxos (Fase 3, já mapeado em `PLANO_PLANEJAMENTO_PCP.md`)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "43e0fa81c3",
+     "grupo": "Planejamento / PCP",
+     "texto": "Sincronizar OP arrastada (Planejamento de OPs) com as horas programadas do pedido (Planejamento de Quantidades)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— hoje são duas fontes independentes pra essencialmente a mesma informação: o arrasto de uma OP (`planejamento.html`, seção \"pós-plano\") só grava `dataInicioPlanejada`/`dataFimPlanejada`/`linha` na própria OP, sem tocar nos slots de `programacao/` que a Grade de Quantidades usa pra mostrar \"Horas Programadas\"/\"Progr…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "efc2bc6f43",
+     "grupo": "Planejamento / PCP",
+     "texto": "Zona fixa rolante (`config/congelamento.diasFixos`) desligada por ora",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— desativada em produção (`diasFixos: 0`, valor gravado direto no Firebase em 2026-08-31, sem mudança de código) a pedido do usuário, no mesmo espírito do item acima: mecanismo de proteção fazia sentido numa operação mais madura, mas por ora é atrito sem benefício claro. Mecanismo original: `autoAjustarPlanejamento`…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "6008acf3e5",
+     "grupo": "Planejamento / PCP",
+     "texto": "`admin.html` — `saveConfig()` regrava o nó `config` inteiro a cada pequena edição",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(`db.ref('config').set(dataToSave)`, chamado por praticamente todo botão da página): se dois admins editarem `config` quase ao mesmo tempo — um em `admin.html`, outro em `planejamento.html` (`config/planejamento`) ou `cadastros.html` (`config/categoriasProduto`) — o último `.set()` vence e apaga silenciosamente a mu…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "0491ac04e9",
+     "grupo": "Planejamento / PCP",
+     "texto": "Duplicação da regra \"dia útil\"",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(`admin.html`): calculada de forma independente em `renderMetasPorLinha()` e `calcDiasUteis()`. Se a regra mudar (ex: feriados por linha), fácil corrigir um e esquecer o outro."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "30c25af829",
+     "grupo": "Planejamento / PCP",
+     "texto": "Listas de config mortas",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ": \"Produtos / Itens\" (`config.produtos`) e \"Operadores\" (`config.operadores`) em `admin.html` não são lidas por nenhuma outra página do app (confirmado por busca em todo `public/`). \"Produtos / Itens\" tem nome quase idêntico ao catálogo real de produtos (`produtos/`, gerenciado em `cadastros.html`) — confuso, um adm…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "8144688b19",
+     "grupo": "Planejamento / PCP",
+     "texto": "Cores de UI hardcoded ignoram o tema escuro",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(`admin.html`, `dashboard_analise.html`): `.tag.linha`/`.tag.posto`/`.alert-success`/ `.alert-danger`/`.matrix-table tr:hover`/`.meta-totals` (admin.html) e `.bar-row .lbl`/`.bar-row .bar` (dashboard_analise.html) usam hex fixo de fundo/texto claro em vez dos tokens de tema já definidos nesses mesmos arquivos — em m…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "64f0877064",
+     "grupo": "Planejamento / PCP",
+     "texto": "Salvar as 5 fichas de `emitir_op.html` direto na pasta de rede do Gerador de OPs",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— pedido do usuário, adiado deliberadamente como melhoria futura. Confirmado que não é possível vindo do navegador (sem acesso a caminho de rede, restrição do próprio browser) e que **não existe hoje** nenhuma automação de \"e-mail chega → salva na pasta\" pra esse fluxo (conferido direto no VBA: `GerarOP_PDF` usa `Ex…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "33bd8d233d",
+     "grupo": "Planejamento / PCP",
+     "texto": "Etiqueta de caixa de embarque — FEITO em 01/10/2026",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(`shared/etiqueta-caixa.js`): campos obrigatórios na ordem pedida, DUN-14 em ITF-14, logo do cliente, formatos 90×55 e 100×70. Pendência de CADASTRO, não de código: em 01/10, dos 385 produtos ativos só 28 têm DUN-14, 79 têm código do cliente e 78 têm peso da caixa — o diálogo avisa e a etiqueta sai com o campo em br…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "76d6583f53",
+     "grupo": "Acessibilidade (varredura pendente)",
+     "texto": "`admin.html`",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ": zero `<label>` com `for=` no arquivo inteiro (~35 labels) — nenhum campo de texto/data/número tem nome acessível pra leitor de tela (só os checkboxes de dias da semana, que aninham `<input>` dentro do `<label>`, estão corretos). Os 9 campos de \"tag-add\" (Linhas, Rotulagem, Postos, Motivos de Parada, etc.) não têm …"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "bd35e85953",
+     "grupo": "Acessibilidade (varredura pendente)",
+     "texto": "`dashboard_analise.html`",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ": mesmo padrão (Período, Cliente, Categoria, Sub-categoria, Viscosidade, Linha, Status, Tipo de serviço, Busca, Agrupar por — nenhum ligado por `for=`). Dropdowns multi-seleção customizados (`setupMultiSelect`) não fecham com Esc, só clicando fora com o mouse — ruim pra quem usa teclado (equipe de PCP/escritório, us…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "a72d608ddc",
+     "grupo": "Acessibilidade (varredura pendente)",
+     "texto": "`cadastros.html`/`logistica.html`/`emitir_op.html`",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(achado da 5a rodada): mesmo padrão confirmado — `cadastros.html` tem 130 labels, 0 usam `for=`; `logistica.html`/`emitir_op.html` têm 0 ocorrências de `label for=`. Nenhum dos três trata Escape pra fechar modal (só botão × ou clique fora)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "2e7e5b36d7",
+     "grupo": "Limpeza de código (stubs legados)",
+     "texto": "`produtos.html`/`clientes.html`/`formulas.html`/`materiais.html` são stubs de redirect",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(`location.replace(...)` pra `cadastros.html`) que ainda carregam ~1000 linhas cada da implementação antiga completa por trás — nunca executa pro usuário (o redirect já navegou a página antes do `DOMContentLoaded` disparar essa lógica), mas gera leituras desnecessárias no Firebase por uma fração de segundo a cada ac…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "7adedeaa57",
+     "grupo": "Limpeza de código (stubs legados)",
+     "texto": "`admin.html:405-409`",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ": `calcDias(ini, fim)` definida mas nunca chamada (`calcDiasUteis()` é usada no lugar) — código morto, remover."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "00433d6a6a",
+     "grupo": "Segurança / Regras de Acesso",
+     "texto": "Contas de usuário: o que ficou de fora do CRUD do ADM (20/10/2026)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "`usuarios.html` cria, edita o nome, manda link de senha e desativa/reativa sem servidor (conta nasce numa segunda instância do Firebase no navegador). Ficou para depois, porque exige Admin SDK (servidor do Render, que dorme no plano grátis): (1) **trocar o e-mail** de login de alguém — hoje o caminho é criar outro u…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "182b429e16",
+     "grupo": "Segurança / Regras de Acesso",
+     "texto": "Link do \"Esqueci minha senha\" ainda abre a página do Firebase (operação, não código)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "A tela `login.html` já troca a senha sozinha quando recebe `?mode=resetPassword&oobCode=...`. Para o e-mail cair nela: Console do Firebase (`erpkuryos`) › Authentication › Templates › Redefinição de senha › editar o URL de ação para `https://<domínio do PCP>/login`, e incluir o domínio da Vercel em Authentication › …"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "123af89476",
+     "grupo": "Segurança / Regras de Acesso",
+     "texto": "Desmarcar um módulo não revoga a ESCRITA no banco",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(limite conhecido, aceito ao publicar o acesso por módulo em 2026-09-07). Os checkboxes por usuário valem nas duas pontas, mas de forma **aditiva**: a regra do banco virou `(papel de antes) || (tem o módulo X)`. Ou seja, marcar um módulo **concede** escrita de verdade; desmarcar tira a tela do menu e bloqueia a pági…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "9f00169ed8",
+     "grupo": "Segurança / Regras de Acesso",
+     "texto": "`auth_check.js` bloqueia por página, `database.rules.json` não bloqueia por papel nos mesmos dados",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— `pageAccessRules` impede `production`/`rotulagem`/`rh`/`gestor` de abrir `cadastros.html`/ `compras.html`/`insumos.html`, mas as regras do banco dão `.read: \"auth != null\"` sem checar papel pra `materiais`, `clientes`, `fornecedores`, `cotacoes`, `pedidos_compra`, `estoque`, `insumos` etc. — qualquer papel autenti…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "a5b3b40d58",
+     "grupo": "Segurança / Regras de Acesso",
+     "texto": "`ops.html`/`historico.html` não incluem `rotulagem` em `pageAccessRules`, mas as regras do banco permitem escrita de `rotulagem` em `ops`/`registros`",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— direção seguraconservadora (client bloqueia mais do que o servidor permitiria), mas pode ser um bug funcional: papel Rotulagem sem UI pra uma ação que a regra já autoriza."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "d5c40d0afe",
+     "grupo": "Segurança / Regras de Acesso",
+     "texto": "`functions/index.js:27` (`checkApiKey`)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— comparação de API key usa `!==` (não constant-time). Risco teórico de timing attack, difícil de explorar sobre rede real; ajuste cosmético (`crypto.timingSafeEqual`) se quiser fechar de vez."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "2a89a5bfd4",
+     "grupo": "Segurança / Regras de Acesso",
+     "texto": "`functions/index.js:296` (`criarPedido`)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— sem cap no tamanho de `body.itens`; só explorável por quem já tem a API key (o macro VBA confiável), risco real baixo."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "225f4b748c",
+     "grupo": "Segurança / Regras de Acesso",
+     "texto": "`cadastros.html` — race conditions de baixo risco em toggles/arrays sem `.transaction()`",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ": toggle \"Revisado\" de Fornecedores (linha 2609) e Fórmulas (linha 3544) fazem `.set(!valorAtual)` a partir do cache local; add/toggle/remove de Categorias (linhas 2817-2863) regrava o array `config/categoriasProduto` inteiro a partir do snapshot em memória. Dois cliques quase simultâneos podem fazer um \"pular\"/perd…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "2a4ccb872d",
+     "grupo": "Segurança / Regras de Acesso",
+     "texto": "`cadastros.html` — performance da aba Fórmulas/BOM/Materiais",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ": `formulas`/`bom`/`produtos`/`especificacoes` são carregados por inteiro e o listener nunca é desmontado ao trocar de aba — editar a fórmula de QUALQUER produto, de qualquer sessão, dispara `renderTable()` completo em Materiais (mesmo em background) e `selecionarVersao()` completo em Fórmulas (reconstrói o `tbody` …"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "8f93994ed8",
+     "grupo": "Segurança / Regras de Acesso",
+     "texto": "`emitir_op.html:487` — substituição de material usa `prompt()` nativo",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(digitar o código exato de cor, sem autocomplete) em vez do padrão de busca com autocomplete usado no resto do app pra qualquer seleção de material — único ponto da emissão de OP (fluxo crítico, decide o que é consumido no lote) com esse padrão mais sujeito a erro de digitação."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "d979b75afd",
+     "grupo": "Ordens de Serviço / Roteiro de Produção / Estoque de Produto Acabado",
+     "texto": "Ordens de Serviço \"principais\"",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "-- as 5 que já existem hoje via o Gerador de OPs em Excel (Separação, Manipulação, Envase, Rotulagem, Análise de Qualidade de Bulk/Produto Acabado), hoje \"dissolvidas\" dentro dos postos de trabalho sem formalização própria. Objetivo declarado do usuário: internalizar o Gerador de OPs no sistema assim que os cadastro…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "4af83067ac",
+     "grupo": "Ordens de Serviço / Roteiro de Produção / Estoque de Produto Acabado",
+     "texto": "Ordens de Serviço \"acessórias\"/de transformação",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "-- NÃO são etapas fixas do processo padrão, são trabalho que a empresa quer **minimizar**: ocorrem quando um fornecedor não é avisado corretamente da especificação e a produção precisa \"absorver o custo\" transformando um material errado no material certo (exemplo real dado pelo usuário: cortar uma válvula de 120mm p…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "188052fa3c",
+     "grupo": "Ordens de Serviço / Roteiro de Produção / Estoque de Produto Acabado",
+     "texto": "Roteiro de produção condicional por SKU + gate de disponibilidade via \"mínimo entre etapas obrigatórias\"",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "-- alguns SKUs têm etapas que legitimamente rodam fora de ordem por restrição de capacidade (exemplo real: \"fixador de maquiagem\" não cabe celofanar em linha, gargalo de produção -- envasa tudo primeiro, celofana depois, por fora). Modelo proposto: quantidade \"pronta pra estoque/faturamento\" = a MENOR quantidade ent…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "16087ff7b5",
+     "grupo": "Ordens de Serviço / Roteiro de Produção / Estoque de Produto Acabado",
+     "texto": "Ficha de Separação hoje mistura dois momentos distintos",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "-- separação de materiais (início da cadeia, ligado à emissão da OP) e conferência de produto acabado pra estoque/faturamento (fim da cadeia) -- numa única ficha ambígua, preenchida só parcialmente. No modelo novo viram duas etapas independentes; a segunda (conferência de produto acabado) deixa de ser manual e passa…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "a51eb5fe15",
+     "grupo": "Ordens de Serviço / Roteiro de Produção / Estoque de Produto Acabado",
+     "texto": "Estoque de produto acabado incremental",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ", alimentado pelo gate acima -- fecha a lacuna já identificada de \"sem estoque de produto acabado\" (Fase 4 só cobre matéria-prima/embalagem consumida; Logística ainda controla produto acabado numa planilha separada)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "ff15398005",
+     "grupo": "Ordens de Serviço / Roteiro de Produção / Estoque de Produto Acabado",
+     "texto": "Faturamento parcial por acúmulo até gatilho de coleta",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "-- confirmado pelo usuário que faturamento já é parcial na prática (ex: a cada 3.000kg acumulados dispara uma coleta e o faturamento correspondente) -- o saldo de estoque de produto acabado acima seria o que acumula até bater esse gatilho, integrando com o agendamento de coleta que Logística já acompanha."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "8816d13a59",
+     "grupo": "Estoque / Produção",
+     "texto": "`ajustarEstoque` aceitar `itemTipo`",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(feito 01/10: `extras.itemTipo`; os leitores com `|| 'material'` só usam o padrão quando o campo falta, e o intermediário sempre grava) (`shared/utils.js`, ~linha 1223 grava `itemTipo: 'material'` fixo). Item intermediário com saldo agregado entraria no log como material. Aceitar `extras.itemTipo` e revisar os leito…"
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "63c40aea3b",
+     "grupo": "Estoque / Produção",
+     "texto": "Aba \"Histórico\" do `estoque.html` → Kardex",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(feito 01/10) A aba antiga lista o log cru, somando movimentos de lote com os do item. Trocar por um link para `kardex.html?item=`."
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "755af21160",
+     "grupo": "Estoque / Produção",
+     "texto": "Sem estoque de produto acabado",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— **FEITO** (conferido em 2026-09-23): a Conferência de PA cria paletes endereçados em `estoque_lotes` (QUARENTENA → laudo CK-7 → Expedição). O que continua aberto é o gate \"menor entre etapas\" da seção acima (GAP-09 em `FLUXOS_DO_SISTEMA.md`)."
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "2d852d78eb",
+     "grupo": "Estoque / Produção",
+     "texto": "Devolução ao fornecedor como movimento de estoque",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— **FEITO** (lote interno/recebimento, `747b607`): Logística › Histórico › Devolver tira do estoque e reabre o saldo do PC. Continua aberto: Compras não é avisado e não há documento de devolução (GAP-10)."
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "4166afbb09",
+     "grupo": "Estoque / Produção",
+     "texto": "Perda por etapa (Rotulagem vs Envase) E por SKU",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "⚠ verificar se ainda procede — adiado explicitamente: \"temos skus com insumos de menor qualidade, o que ocasionam mais perdas, queria tentar capturar e mensurar essas variações\". É analytics pra depois do cutover das planilhas legadas, não construir preventivamente."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "56c017ff54",
+     "grupo": "Estoque / Produção",
+     "texto": "Agendamento em `planejamento.html` parcialmente desconectado do fluxo de congelamento de `horizonte.html`/`alocacoes_planejamento` — deixou de ser um item de ba",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "cklog: confirmado e aprofundado (o motor de replanejamento automático não produz efeito visível hoje), virou Fase 1 de trabalho ativo em `PLANO_PLANEJAMENTO_PCP.md`."
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "19ed3336bf",
+     "grupo": "WMS — lacunas vs. TOTVS/SAP",
+     "texto": "Inventário rotativo (contagem cíclica)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— **FEITO** (`d33fced`). Aba \"📋 Inventário Rotativo\" em `estoque.html`, com contagem CEGA (o esperado só aparece depois de informar o contado), rodízio por \"há mais tempo sem contar + posição ocupada\", e ajuste que rateia falta em ordem de validade sem tocar o saldo agregado."
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "ff08e1b62a",
+     "grupo": "WMS — lacunas vs. TOTVS/SAP",
+     "texto": "Numeração de rua é GLOBAL, não escopada por área",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— **RESOLVIDO** (confirmado pelo usuário e na base em 2026-09-17: `estrutura_ruas` usa `GAL-1`, `FAB-6`, `DOC-1`…). Texto original mantido abaixo como histórico. ⚠ **bloqueava povoar as outras áreas** — `estrutura_ruas/{codigoRua}` e o código do endereço é `rua.nivel.predio`, sem prefixo de área. Hoje as 236 posiçõe…"
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "ef9c077f27",
+     "grupo": "WMS — lacunas vs. TOTVS/SAP",
+     "texto": "Leitura de código de barras / coletor",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— endereçamento, separação e contagem são 100% digitados, a maior fonte de erro em WMS manual. O app **já gera EAN13 e Code39** (`ean13Svg`, `shared/utils.js`) e já traz `shared/qrcode-lib.js` — etiqueta de endereço + leitura pela câmera do celular é um passo curto a partir do que existe. Adiado explicitamente pelo …"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "0d34b17784",
+     "grupo": "WMS — lacunas vs. TOTVS/SAP",
+     "texto": "Lote por QR code / código de barras na pesagem do granel",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(pedido do usuário em 2026-09-18: \"poder indicar o lote através de leitura de QR code ou código de barras, que iremos utilizar na geração de etiquetas no recebimento de material\"). Hoje o lote na pesagem vem do FEFO (`pesagem/planoLotes`, `manipulacao.html` → `calcularPlanoFefo`) ou é digitado quando a MP não tem sa…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "75631b7994",
+     "grupo": "WMS — lacunas vs. TOTVS/SAP",
+     "texto": "Devolução da sobra ao endereço depois da pesagem",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(preocupação do usuário em 2026-09-18: \"como funcionaria devolverem para o local correto o material que tiraram\"). Base já pronta: a Separação grava no pedaço separado `enderecoOrigemKey/Codigo` (de onde saiu) e a baixa da pesagem sai primeiro do pedaço separado para a OP (`separadoPara` em `sugerirAlocacaoFefo`). F…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "2576297042",
+     "grupo": "WMS — lacunas vs. TOTVS/SAP",
+     "texto": "Tipo de posição (picking × pulmão)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— adiado explicitamente pelo usuário: *\"não separar por ora, quero primeiro começar a operação, depois aperfeiçoar\"*. Quando retomar, o dado real já favorece derivar do nível em vez de configurar 236 posições: o galpão tem 88 posições no nível 1 (chão, picking natural) e 148 nos níveis 2 e 3 (porta-palete, pulmão). …"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "e6b0612073",
+     "grupo": "WMS — lacunas vs. TOTVS/SAP",
+     "texto": "Capacidade da posição",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— adiado explicitamente pelo usuário (\"deixar pra depois\"). Sem capacidade não há como o sistema avisar que a posição não comporta — hoje só se descobre no chão. Se/quando entrar, o desenho de menor atrito é **por rua** (6 números a preencher, herdados pelas posições), não por posição. Cuidado com a lição do campo `…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "bb21c9f6df",
+     "grupo": "WMS — lacunas vs. TOTVS/SAP",
+     "texto": "Reabastecimento (pulmão → picking)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— depende do tipo de endereço acima. É o que evita o separador subir no porta-palete pra buscar item de giro alto."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "03a76f4e5c",
+     "grupo": "WMS — lacunas vs. TOTVS/SAP",
+     "texto": "Contagem por papel de armazém",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— a aba de Inventário mora em `estoque.html`, que é admin/pcp. Quem conta fisicamente no galpão tende a ser `production`. Abrir a contagem pra esse papel exige mexer em três coisas juntas, senão vira permissão pela metade: `pageAccessRules` de `estoque.html`, e o `.write` de `contagens_inventario` **e** de `endereco…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "8d6c70c273",
+     "grupo": "WMS — lacunas vs. TOTVS/SAP",
+     "texto": "Onda de separação (wave picking)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— a Separação hoje é uma OP por vez. TOTVS/SAP agrupam N ordens numa onda e ordenam por percurso no armazém. Com o galpão a 800m da fábrica, agrupar as OPs do dia numa viagem só é ganho direto e mensurável."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "24b0c386b9",
+     "grupo": "WMS — lacunas vs. TOTVS/SAP",
+     "texto": "Conferência / duplo-check na separação",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— quem separa confirma o próprio trabalho. O padrão de mercado separa separador e conferente, e é exatamente o que a manipulação passou a fazer em `50b5e46` (quem pesa não confere; divergência trava). Reaproveitar o mesmo desenho aqui."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "d56150901c",
+     "grupo": "WMS — lacunas vs. TOTVS/SAP",
+     "texto": "Quarentena com endereço físico",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— o lote já tem `status: QUARENTENA` e o FEFO corretamente o ignora. Falta o outro lado: um endereço bloqueado de verdade onde esse material fica, pra que a separação física também não o alcance (o bloqueio de posição de `a8f5fc0` já dá a primitiva)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "a0b07e6085",
+     "grupo": "WMS — lacunas vs. TOTVS/SAP",
+     "texto": "`opcoesEnderecoSelect` triplicado",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— a mesma função de montar o `<select>` de endereços existe em `estoque.html:798`, `separacao_materiais.html:249` e `logistica.html:487`, e **já divergiram** (a de Logística tem \"Sem endereço\", as outras não). Qualquer regra nova de endereço vai precisar ser lembrada em 3 lugares. Candidato direto a subir pra `share…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "e846a926c1",
+     "grupo": "MRP — o que falta pra ser MRP de verdade",
+     "texto": "Necessidade líquida completa",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "= bruta − disponível − em trânsito + estoque de segurança. Hoje a tela já mostra o disponível (`saldoAtual − saldoEmpenhado`) como referência visual, mas o número que ela grava como necessidade continua sendo o **bruto** do BOM. O passo seguinte é gravar o líquido, ou pelo menos oferecer os dois."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "7533159bc6",
+     "grupo": "MRP — o que falta pra ser MRP de verdade",
+     "texto": "\"Em trânsito\" não existe como conceito",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— **FEITO** no motor do MRP (2026-09-13, `calcularMrpMaterial` desconta PC em trânsito)."
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "d21e5caab7",
+     "grupo": "MRP — o que falta pra ser MRP de verdade",
+     "texto": "Estoque de segurança não existe",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "por material — o **campo** existe desde o MRP (`materiais/{key}`, editável no card); falta preenchê-lo, junto com lead time e lote mínimo/múltiplo — é operação (GAP-06)."
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "6a39569011",
+     "grupo": "MRP — o que falta pra ser MRP de verdade",
+     "texto": "`saldoEmpenhado` não influencia decisão de compra",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— o empenho funciona (emissão de OP reserva, apontamento baixa) e é exibido em `estoque.html` e agora em `insumos.html`, mas nenhum cálculo de compra usa o disponível real. O dado está pronto e não é consumido."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "dc25fe4856",
+     "grupo": "Propriedade do estoque por cliente — o que ficou de fora",
+     "texto": "Remessa do cliente a caminho no MRP ignora a data",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "`repartirMrpPorDono` abate a demanda do cliente com estoque + trânsito dele sem conferir se a remessa chega antes da data da demanda. Com poucas remessas é aceitável; se virar rotina, fasear a cobertura por semana como o resto do motor."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "d13887e9f9",
+     "grupo": "Propriedade do estoque por cliente — o que ficou de fora",
+     "texto": "Empenho não sabe o dono",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "`saldoEmpenhado` sai inteiro do geral da Kuryos (conservador: nunca faz a Kuryos parecer ter mais do que tem). Para ficar exato, `empenharMateriais` precisaria reservar primeiro da parte do cliente da OP (a OP resolve o cliente pelo SKU, `clienteKeyDoSku`)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "9a9f59c233",
+     "grupo": "Propriedade do estoque por cliente — o que ficou de fora",
+     "texto": "Mapa por rua / Planta baixa não filtram por cliente",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— só a lista de Posições, o Saldo Agregado e o Saldo por Lote. O detalhe da posição já mostra dono/destino de cada lote."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "12e8e61cbd",
+     "grupo": "Propriedade do estoque por cliente — o que ficou de fora",
+     "texto": "Saída manual de lote de cliente",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(Registrar Saída, Descarte) só mexe no lote, como sempre foi; não existe fluxo de **devolução de material ao cliente** que baixe também `porCliente`. Hoje isso se corrige com Ajustar Saldo escolhendo o cliente."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "ae8a0b824d",
+     "grupo": "Propriedade do estoque por cliente — o que ficou de fora",
+     "texto": "Material de cliente parado (sobra)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "aparece no MRP como \"sobra, não serve a outros\", mas não há alerta de material de cliente sem demanda há X dias."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "bd3449fe62",
+     "grupo": "Propriedade do estoque por cliente — o que ficou de fora",
+     "texto": "Dado a corrigir na operação",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "PC-0003 e PC-0005 (ENVIADOS) e PC-0004 (terceiro, parcial — falta receber 4.312 un de EP-00037) precisam de 🔗 Cliente/pedido antes do próximo recebimento. O que o PC-0004 já recebeu (7.300 un de EP-00036 e 17.157 un de EP-00037, remessa da LOMAR PACK) entrou antes da regra e segue como estoque da Kuryos; se esse ma…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "55588027c5",
+     "grupo": "Organização / navegação",
+     "texto": "`horizonte.html` está no limbo",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— foi tirado do menu por decisão do usuário (\"não é usado\"), mas segue publicado, com regra de acesso válida em `pageAccessRules`, e continua gravando em `alocacoes_planejamento` — nó que `autoAjustarPlanejamento` lê pra decidir o que **não** pode remanejar. Alguém que abra por URL pode congelar capacidade no planej…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "a255567e82",
+     "grupo": "Organização / navegação",
+     "texto": "Categoria/subcategoria de produto repetem o padrão que Cliente tinha",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— `config/categoriasProduto` existe como cadastro real (e o gerador de SKU usa), mas o campo gravado no produto continua sendo texto livre com datalist montado dos valores já usados. Mesma mecânica que gerou 67% de clientes órfãos, em escala menor. A correção é a mesma já aplicada em Cliente (`8c2166f`): resolver um…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "6dfd6b51c9",
+     "grupo": "Qualidade",
+     "texto": "Aposentar o `gerar_relatorio.py`",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O script em `06. Laboratório/01. CQ/23. Relatório de análise` continua rodando em paralelo, lendo a planilha do Microsoft Forms. Os dois vão conviver enquanto a Qualidade não migrar o preenchimento para o app — e dois caminhos para o mesmo documento é exatamente o risco que o Gerador de OPs em VBA já criou com a num…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "f1b4815ee4",
+     "grupo": "Qualidade",
+     "texto": "Arquivar o PDF junto ao lote",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Hoje o laudo é impresso e quem salva o arquivo é a pessoa, na pasta do mês. O natural seria anexar ao próprio lote (já existe `shared/anexos.js` e Storage configurado) para o Dossiê do Lote mostrar o laudo emitido."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "cd2e02726e",
+     "grupo": "Qualidade",
+     "texto": "Registro do responsável no cadastro de usuários",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Hoje a lista vive em `config/responsaveisCq` e cresce sozinha quando alguém assina como \"Outro\". Funciona, mas o CRQ/CRF deveria estar no cadastro da pessoa."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "59d892fab9",
+     "grupo": "Qualidade",
+     "texto": "Número sequencial de laudo",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O documento se identifica pelo lote. Se a Anvisa ou um cliente pedir numeração própria do laudo, falta um contador."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "6286755673",
+     "grupo": "Qualidade",
+     "texto": "Medida fora da ficha técnica não é julgada",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "No F009, a ficha técnica é texto livre e a tabela dimensional só registra o que foi medido — o sistema não compara. Para julgar, a ficha precisaria virar campo estruturado (mínimo/máximo por medida) no cadastro do material."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "3add893b52",
+     "grupo": "Qualidade",
+     "texto": "`fill()` do Playwright não age nos campos do modal de laudo",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Dentro de `.modal-body` (que tem `overflow-y:auto`) o fill ora trava na checagem de actionability, ora insere o texto no campo que estava com o foco. No navegador os campos funcionam normalmente (conferido por screenshot); os testes de UI usam o helper `preencher()`, que dispara o evento direto. Se alguém descobrir …"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "e51ef92fa2",
+     "grupo": "Qualidade",
+     "texto": "CK-6, ronda de linha: 2h é muito tempo",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Palavras deles: \"tem envase de lote pequeno; envasadora manual, o peso acaba mudando um pouco\". Modelo proposto e ainda não construído: intervalo padrão de **1 hora**, configurável por linha, com pontos obrigatórios no início do lote, na retomada após parada ou ajuste e no fim; em lote curto, 3 pontos (início, meio,…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "ab8866a663",
+     "grupo": "Qualidade",
+     "texto": "CK-5, setup de linha / first article: \"pelo menos 32 unidades\"",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(a spec dizia 5–10). É o checklist que confere os insumos certos e o primeiro peso."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "bc032085fc",
+     "grupo": "Qualidade",
+     "texto": "CK-8, higiene e calibração diária",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "\"verificação diária das balanças, estufas, pHmetro e termohigrômetro\" — feita hoje no laboratório, fora do sistema. Calibração 1×/ano por instrumento."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "86cac7e6ca",
+     "grupo": "Qualidade",
+     "texto": "Torquímetro não é usado hoje",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O CK-7 já trata: vedação verificada à mão é obrigatória, e o campo de torque medido só aparece com `parametros_pa/{sku}.torqueAtivo` ligado."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "9d3b990a98",
+     "grupo": "Qualidade",
+     "texto": "Régua calibrada de 30 e 60 cm",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "para insumos maiores: instrumento que eles gostariam de ter cadastrado."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "8f25812dc8",
+     "grupo": "Qualidade",
+     "texto": "Retenção",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "MP geralmente retida até o vencimento; PA **validade + 1 ano**, com FQ anual (shelf life). O prazo do PA já está no CK-7; o ensaio anual de estabilidade ainda não existe."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "3c2ca78a10",
+     "grupo": "Qualidade",
+     "texto": "Ajuste de granel deve consumir MP pelo sistema",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "\"solicitar via sistema a quantidade e especificação para dar baixa do estoque e registrar o lote utilizado. Não pode usar MP que não esteja na composição.\" Hoje a pesagem já baixa estoque por lote, mas o **ajuste depois do fechamento** não tem fluxo."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "94f48accdf",
+     "grupo": "Qualidade",
+     "texto": "Ajuste aprovado precisa seguir para os próximos lotes e atualizar a ANVISA",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— versão de ficha técnica com rastro regulatório. Nem sempre uma reprovação muda a especificação; tem que ser avaliado caso a caso."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "6ef7822fa5",
+     "grupo": "Qualidade",
+     "texto": "Análise visual também em MP e granel",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(a spec marcava \"não\" para a seção visual nesses dois tipos de RA)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "98514da944",
+     "grupo": "Qualidade",
+     "texto": "Assépsia é antes da OP entrar em produção",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ", não durante — por isso ficou fora da fase de manipulação e pertence ao setup de linha."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "e486f7c165",
+     "grupo": "Qualidade",
+     "texto": "WMS de semi-acabado",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(pedido do usuário em 17/09): identificar onde está o granel que será envasado. Hoje o granel não tem endereço nem saldo próprio; a fase de manipulação registra o rendimento, mas não vira lote endereçável."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "633998d949",
+     "grupo": "Qualidade",
+     "texto": "Prazo de análise",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "a spec dizia 24h (urgente 4h); a Qualidade anotou que **hoje são 3 dias**."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "8348b961cd",
+     "grupo": "Qualidade",
+     "texto": "Ordem de Manipulação (OM) não existe como entidade",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— **RESOLVIDO** (`50b5e46`). Não virou entidade separada: como o lote da manipulação é o mesmo da OP (confirmado pelo usuário), a OM é a **fase de granel do lote**, em `ops/{lote}/manipulacao`. Com isso a análise de granel saiu do palete e foi para o lugar certo, e CK-3 (assépsia) e os hard stops \"por OM\" passam a t…"
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "3125a80c82",
+     "grupo": "Qualidade",
+     "texto": "Tarefas Pendentes não existe",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— as 14 tarefas CQ-01..CQ-14 com SLA, o temporizador de ronda de 2h e o escalonamento em 30min pressupõem essa arquitetura. Hoje só existe `alertas_pendentes`, que é fila de e-mail, não tarefa com responsável e prazo."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "454ab97b9b",
+     "grupo": "Qualidade",
+     "texto": "Anexo de arquivo não existe",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— **RESOLVIDO na base** (`13f1142`): Storage configurado e `shared/anexos.js` pronto; a primeira aplicação é a foto obrigatória da pesagem do granel. Foto em RNC, certificado de calibração e PDF do COA agora são trabalho de tela, não de infraestrutura."
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "899a4aa0e3",
+     "grupo": "Qualidade",
+     "texto": "RA (Registro de Análise)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— hoje o laudo mora *dentro* do lote (`estoque_lotes/{item}/{lote}/qualidade`), sem numeração própria `RA-{AAAAMMDD}-{seq}`, sem tipo e sem NF de origem. **Todo o resto da spec referencia o RA como chave** — é a entidade que mais custa não ter."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "3f131f78e4",
+     "grupo": "Qualidade",
+     "texto": "RET (Amostra de Retenção)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— a planilha \"Controle da Retenção\" segue fora do sistema. O CK-7 já registra unidades, local e prazo da retenção do PA (**validade + 1 ano**, corrigido pela Qualidade), mas isso mora dentro do laudo do palete: não existe a entidade RET com fila de descarte no vencimento nem o ensaio anual de estabilidade. MP/fragrâ…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "d9da709f26",
+     "grupo": "Qualidade",
+     "texto": "Instrumentos de Calibração",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— nada. Precisa de anexo (certificado PDF)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "3f128b3b5a",
+     "grupo": "Qualidade",
+     "texto": "Trilha de status de lote",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— o status muda e o movimento é logado em `movimentos_estoque`, mas não há o registro explícito \"de X para Y, por quem, quando\" que a spec pede."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "48128ddad8",
+     "grupo": "Qualidade",
+     "texto": "Etiqueta interna de liberação de Qualidade",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— uma 2ª etiqueta, distinta da etiqueta de identificação que o fornecedor cola nas caixas/fardos (essa já existe, `PADRAO_ETIQUETA_FORNECEDOR`). Explicitamente adiada: \"Qualidade vai acabar ficando no próximo módulo\"."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "1e4d5eed9e",
+     "grupo": "Qualidade",
+     "texto": "Faixas numéricas nas especificações",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— dos 1.323 ensaios cadastrados, só **26% têm mínimo/máximo** preenchidos como número; nos outros 74% a avaliação fica com o analista. Boa parte é legítima (\"aspecto\", \"cor\", \"odor\" não viram número), mas **115 registros de pH e 48 de densidade estão sem faixa** — são grandezas medidas, com a faixa escrita só no tex…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "78007450b5",
+     "grupo": "Qualidade",
+     "texto": "Revisar quais ensaios são críticos",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— só **3 ensaios em 181 especificações** estão marcados como críticos. É a marcação que decide se um desvio para o lote; provavelmente subestima a realidade."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "ad85a1f793",
+     "grupo": "Qualidade",
+     "texto": "MRP de insumo real + integração do formulário MS Forms \"Liberação - Embalagens\" com o pedido",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "⚠ verificar se ainda procede."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "e991c513d7",
+     "grupo": "Outros achados antigos — reconfirmar antes de agir",
+     "texto": "API de emissão de NF a partir da Expedição",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— confirmada como etapa futura em 11/09/2026. As novas cargas de `expedicoes_comerciais` preservam os pedidos comerciais e cadastro do cliente, OP/apontamento consolidado, paletes, caixas completas/parcial, conferência, Qualidade, endereço de saída e transporte. Integrar emissão, retorno de chave/XML, autorização e …"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "440766fd62",
+     "grupo": "Outros achados antigos — reconfirmar antes de agir",
+     "texto": "Migrar Cloud Functions de Node.js 20 antes de 30/10/2026",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— o deploy de 11/09/2026 confirmou que o runtime está depreciado e será desativado nessa data. Planejar atualização conjunta do `functions/package.json`, `firebase-functions` e regressão das callables/triggers; não atualizar a dependência isoladamente porque a CLI advertiu sobre mudanças incompatíveis."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "ac1ff22f7a",
+     "grupo": "Outros achados antigos — reconfirmar antes de agir",
+     "texto": "OP 26215/01 com `status`/`motivoCancelamento` dessincronizado",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "⚠ — causa raiz nunca encontrada, identificado bem no início desta sessão e nunca revisitado."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "706100d458",
+     "grupo": "Outros achados antigos — reconfirmar antes de agir",
+     "texto": "Gatilho automático de Financeiro na conclusão de um pedido",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "⚠ — adiado, nunca retomado."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "1d95cb188c",
+     "grupo": "Outros achados antigos — reconfirmar antes de agir",
+     "texto": "`dashboard.html`",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "⚠ — usuário queria ver rodando com dado real antes de decidir o que mudar; nunca revisitado desde então."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "f86b16540a",
+     "grupo": "Operação (Produção / Manipulação / Rotulagem) — Fases 2 e 3",
+     "texto": "Fase 2 — \"Guardar / Mover\" no setor",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Botão para o operador informar o endereço onde guardou um lote, limitado às áreas do próprio setor (`config/operacao/areasPorSetor`). Mesmo mecanismo que a Separação já usa (`transferirLoteEndereco` / `separarParcialLoteEndereco` em `utils.js`). Tem que ser \"extremamente simples de operar\". Depois: leitura da etique…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "e7ce6aa791",
+     "grupo": "Operação (Produção / Manipulação / Rotulagem) — Fases 2 e 3",
+     "texto": "Fase 2 — tela de pendências de armazenagem, aberta primeiro",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "MP e rótulos chegam na doca; quando a Qualidade libera o lote, os operadores da Manipulação (MP) e da Rotulagem (rótulos) têm que ver, logo ao entrar, o que precisam guardar e organizar. Precisa estar na `ORDEM_HOME` de `auth_check.js` para quem é só do setor. Origem: lotes LIBERADO em endereço de doca (área de rece…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "ede9843803",
+     "grupo": "Operação (Produção / Manipulação / Rotulagem) — Fases 2 e 3",
+     "texto": "Fase 2 — visto do PCP nos apontamentos e na confirmação de OP de envase",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O usuário quer \"ir acompanhando\" sem travar a fábrica: lista do que o PCP ainda não viu, com o visto registrando quem/quando. Não bloqueante."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "8013eb6708",
+     "grupo": "Operação (Produção / Manipulação / Rotulagem) — Fases 2 e 3",
+     "texto": "Fase 3 — bulk com endereço de tanque",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Preparação antes de executar (física e sistema): identificar e etiquetar cada tanque/bombona; criar a área \"MANIPULAÇÃO\" (ou \"BULK\") em Cadastros › Áreas de Endereço e os tanques como posições dela; definir capacidade de cada um. No sistema: ao fechar a manipulação, informar tanque + kg; o bulk aparece no estoque da…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "779df1d3e3",
+     "grupo": "Operação (Produção / Manipulação / Rotulagem) — Fases 2 e 3",
+     "texto": "Fase 3 — OP de higienização do tanque",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Ao esvaziar o tanque, abrir uma ordem de higienização sob responsabilidade da Manipulação, e o tanque só volta a ser usado depois dela. O usuário quer chegar lá, mas a operação ainda não está madura para isso."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "f0faa9da6d",
+     "grupo": "Operação (Produção / Manipulação / Rotulagem) — Fases 2 e 3",
+     "texto": "Consolidação completa da OP",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "\"Todos os apontamentos e tudo que é envolvido de uma OP, digo tudo mesmo, cada OP que ramificou da OP iniciada (envase, rotulagem, separação, expedição...)\". Base existente: `dossie_lote.html` (auditoria do lote). Conferir o que ele já cobre antes de construir outra tela; o que falta provavelmente é separação, exped…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "3e8d3239d5",
+     "grupo": "Operação (Produção / Manipulação / Rotulagem) — Fases 2 e 3",
+     "texto": "Ajuste fino das permissões por perfil",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O perfil Produção deixou de editar/excluir no Histórico (só PCP/admin, pedido do usuário). As regras do banco em `registros` ainda permitem gravar pelo papel `production` — endurecer quando as outras telas que gravam ali estiverem mapeadas."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "0e9b0ad67b",
+     "grupo": "Operação (Produção / Manipulação / Rotulagem) — Fases 2 e 3",
+     "texto": "Etiqueta de palete impressa na Conferência de PA (29/09)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Hoje a etiqueta do palete de produto acabado (PA-…, `EtiquetasWMS.pagina('palete')` em `shared/etiquetas-wms.js`) sai pela tela Movimentar (🏷️ por lote). O ponto natural é imprimir automaticamente quando a Conferência de PA cria os paletes (`estoque.html`, aba Conferência de PA / `finalizarConferenciaPA`)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "bf564864e3",
+     "grupo": "Operação (Produção / Manipulação / Rotulagem) — Fases 2 e 3",
+     "texto": "Leitura de etiqueta no iPhone",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O botão 📷 Ler da Movimentar usa o `BarcodeDetector` do navegador, que existe no Chrome do Android mas não no Safari/iOS. No iPhone o campo aceita digitação e leitor Bluetooth; se virar necessidade, embutir um leitor em JS (ex.: ZXing) — o mesmo já validado em `run_etiquetas_leitura_test.js`."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "fad12183ad",
+     "grupo": "Operação (Produção / Manipulação / Rotulagem) — Fases 2 e 3",
+     "texto": "Entrega sugerida = último insumo crítico + 30 dias (decisão do usuário, 30/09)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O campo `pedidos/{chave}.dataEntregaPcp` (por item, digitado pelo PCP; pedido inteiro = maior data dos itens) está no ar. A sugestão automática existe só como função pura (`EntregaPcp.sugerirEntrega`, `shared/entrega-pcp.js`, 30 dias corridos, `{uteis: true}` para úteis) e **não está ligada a nenhuma tela**: depende…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "6b73a9f4f7",
+     "grupo": "Operação (Produção / Manipulação / Rotulagem) — Fases 2 e 3",
+     "texto": "Alocações abertas em OP já concluída (medido em 30/09)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Na base, 24 OPs `Concluído`/`Aguardando Confirmação` ainda trazem `abertaDesde` (Linha) ou `abertaDesdeRot` (Rotulagem) preenchido: 9 com rotulagem alocada (26204/04-v2, 26217/01·02·04, 26219/04…) e o resto com a Linha (26212/05, 26215/04, 26216/01, 26224/01…). A maioria vem do fluxo antigo/da confirmação manual do …"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "b8ecf2f8ca",
+     "grupo": "Operação (Produção / Manipulação / Rotulagem) — Fases 2 e 3",
+     "texto": "Dashboard Diário: manipulação, qualidade e rotulagem do DIA (pedido do usuário, 30/09)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O Andon (tempo real) já mostra rotuladoras, postos, a cadeia do lote e a fila da Qualidade (`shared/andon-cadeia.js`). Falta a parte \"dia fechado\" no mesmo dashboard: manipulação (kg manipulados, lotes fechados, rendimento e perda de processo — `Manipulacao.resumoManipulacao`), qualidade (análises concluídas, libera…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "04265427fe",
+     "grupo": "Intermediários, conciliação da rotulagem e cadastro de BOM",
+     "texto": "Travas da conciliação (decisão do usuário: \"em algum momento a ideia é criarmos travas\")",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Hoje só informa. Quando for travar: usar `ConciliacaoRotulagem.tolerancia()` (0,5% do rotulado, mínimo 1 un, é só informativa) e decidir quem conclui com diferença (sugestão: só o PCP, com justificativa). Gancho: `confirmarConclusaoOp` em `ops.html` e o status da OP. Fluxo: GAP de rotulagem em `FLUXOS_DO_SISTEMA.md`."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "aa467fd4d5",
+     "grupo": "Intermediários, conciliação da rotulagem e cadastro de BOM",
+     "texto": "Descontar intermediário na criação da OP (decisão do usuário)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Ao emitir a OP, sugerir abater (a) o bulk já em estoque e LIBERADO pela Qualidade da quantidade a manipular e (b) o saldo de frasco rotulado LIBERADO da quantidade a rotular. Base pronta: `ConsultaEstoque.estoqueIntermediario` (por SKU, com liberado x aguardando). Falta: o gancho em `emitir_op.html`, reservar o inte…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "3652cea08e",
+     "grupo": "Intermediários, conciliação da rotulagem e cadastro de BOM",
+     "texto": "Bulk validado pela Qualidade por lote",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Hoje o bulk usa `manipulacao.status === 'LIBERADO'` da OP de origem; o bulk retido numa bombona herda esse status. Se a bombona misturar OPs, validar por bombona."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "86f8a1969d",
+     "grupo": "Intermediários, conciliação da rotulagem e cadastro de BOM",
+     "texto": "Rotulagem sem apontamento",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "A 26271/01 mostra envase 3.840 e rotulagem 0 (chip \"rotulagem sem apontamento\"): é treinamento dos setores, não defeito; o chip deixa visível quem ainda não aponta."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "3ff7e66769",
+     "grupo": "Intermediários, conciliação da rotulagem e cadastro de BOM",
+     "texto": "BOM da versão em uso inexistente (levantado em 05/10, `relatorios/boms-fora-de-uso-2026-10-05.csv`)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "9 perfumes PRF-AFEE (fórmula V2, BOM só v1) têm BOM vazio na conta: embalagem fica de fora de OP, compra e consumo. Precisa de cadastro (criar/copiar o BOM V2), não de código. `bomDaVersao` só tolera a caixa da letra."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "e68bb50792",
+     "grupo": "Intermediários, conciliação da rotulagem e cadastro de BOM",
+     "texto": "Pedidos que não calculam (`relatorios/pedidos-que-nao-calculam-2026-10-05.csv`)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "62 de 82 pedidos abertos: 48 sem densidade/volume no produto, 9 sem fórmula/BOM, 5 com SKU fora do cadastro. Resolve o \"O que comprar\" e o MRP."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "dc4916e1af",
+     "grupo": "Intermediários, conciliação da rotulagem e cadastro de BOM",
+     "texto": "Alocações abertas em OP Concluída (21 em 05/10, antes eram 24)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "`scripts/aplicar-plano1.sh` libera; falta ajustar `ops.html` para liberar `abertaDesde*` ao concluir a OP (hoje a confirmação do PCP não libera)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "d3d2926a96",
+     "grupo": "Indicadores enterprise ainda indisponíveis",
+     "texto": "OTIF, atrasos e tempo de preparação",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "completar data prometida e marcos reais de expedição/entrega por pedido; status isolado não define prazo."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "2b36805c24",
+     "grupo": "Indicadores enterprise ainda indisponíveis",
+     "texto": "OEE, produtividade e perdas",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "consolidar duração produtiva, paradas e refugo por OP/turno antes de calcular disponibilidade × performance × qualidade."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "07d733a8b1",
+     "grupo": "Indicadores enterprise ainda indisponíveis",
+     "texto": "Pareto de não conformidades",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "padronizar causa/categoria nas RNCs; texto livre não deve ser agrupado automaticamente como se fosse uma taxonomia."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "a4d8ead7c0",
+     "grupo": "Indicadores enterprise ainda indisponíveis",
+     "texto": "Faturamento, recebíveis, margem, lucro e EBITDA",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "integrar uma fronteira financeira confiável (NF, competência, títulos, vencimentos e baixas). Carga aguardando NF não é razão financeira."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "0ba08367ea",
+     "grupo": "UI — aspecto do ERP no ar",
+     "texto": "Gráficos com cor fixa fora do Executivo/Geral",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "`dashboard.html` (cores por linha em `colorMap`) e `gestao_comercial.html` mantêm as cores próprias; o tema global só ajusta fonte, grade, tooltip e bordas. Se quiser tudo na paleta `--chart-1..5`, é trocar as constantes de cor dessas telas."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "862c5ce095",
+     "grupo": "UI — aspecto do ERP no ar",
+     "texto": "Abas fora do padrão `data-ui=\"tab\"`",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(ex.: as duas abas de `pedidos.html`, as de `gestao_comercial.html`) seguem o visual antigo. Retomar marcando-as com `data-ui=\"tabs\"`/`data-ui=\"tab\"`; a camada `kuryos-erp-ref.css` já cobre."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "a423245f0b",
+     "grupo": "UI — pendências da repaginação Apple (13/10/2026) — dívida técnica",
+     "texto": "Cores claras fixas no CSS de cada tela",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "A camada global remapeia no modo escuro os fundos/cores mais comuns escritos em `style=\"\"` e os casos achados pelo detector de \"clarões\" (fundo com luminância > 0,78 no tema escuro) nas 42 telas operacionais com dados simulados. Com dados reais podem surgir outros (badges e linhas geradas por JS). Retomar: rodar o d…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "f579bbc49e",
+     "grupo": "UI — pendências da repaginação Apple (13/10/2026) — dívida técnica",
+     "texto": "Rótulos em caixa alta espaçada no CSS próprio das telas",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(ex.: `consulta_estoque.html` `.mini th`, chips de status em `ops.html`). A camada normaliza cabeçalhos de tabela e as classes de rótulo conhecidas; o resto da cauda longa ficou como está."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "430a0b080f",
+     "grupo": "UI — pendências da repaginação Apple (13/10/2026) — dívida técnica",
+     "texto": "Testes de UI desatualizados (já falhavam antes)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "`run_historico_apontamentos_ui_test.js` procura o texto `✓ confere`, mas o `kuryos-icon-system.js` troca o ✓ por SVG desde 07/10; `run_menu_sanfona_ui_test.js` lê o rótulo do grupo no trilho recolhido, onde ele fica oculto desde 12/10. Ajustar as asserções para o texto sem o glifo e abrir a sidebar antes de ler."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "4cc3954afe",
+     "grupo": "UI — pendências da repaginação Apple (13/10/2026) — dívida técnica",
+     "texto": "`scripts/test-dashboard-showcase.mjs` e `test-ui-operational-contracts.mjs`",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "precisam ser atualizados: o primeiro espera animações de entrada que foram retiradas de propósito (produto carrega direto na tarefa); o segundo compara byte a byte e acusa as novas versões de cache (`?v=20261013-apple1`), única alteração em HTML."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "14a6423f8b",
+     "grupo": "Fluxo comercial CRM → Kickoff → CGI → SKU → pedido — o que ficou de fora",
+     "texto": "SKU nova chega ao PCP sem kg/caixa, lote padrão e capacidade (`prodHoraRef`)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "A emissão de OP avisa (ainda não trava, `emitir_op.html`) quando faltam `unCx`/`kgCaixa`; o PCP completa no Cadastros antes da primeira OP. `unCx` vem do questionário do Kickoff quando preenchido. Avaliar pedir peso da caixa e lote padrão no bloco de fechamento do Kickoff."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "5e9bba2743",
+     "grupo": "Fluxo comercial CRM → Kickoff → CGI → SKU → pedido — o que ficou de fora",
+     "texto": "Fila `cadastro_bom_solicitacoes` do Kickoff sem tela própria",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O cadastro de verdade acontece pelos pendentes da v1 no Cadastros; a fila só registra, e a Direção (ADM) segue com a dispensa registrada. Se o volume crescer, uma lista dessas solicitações no Cadastros > Materiais evita procurar produto a produto."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "cb095c4436",
+     "grupo": "Fluxo comercial CRM → Kickoff → CGI → SKU → pedido — o que ficou de fora",
+     "texto": "CGI em HTML para imprimir, não PDF gerado",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Sem servidor, o documento abre numa aba com \"Salvar em PDF / imprimir\". O conteúdo jurídico fica congelado no contrato (`documento.clausulas`). Se o jurídico exigir PDF assinado digitalmente, gerar via Cloud Function."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "6694bd33cc",
+     "grupo": "Fluxo comercial CRM → Kickoff → CGI → SKU → pedido — o que ficou de fora",
+     "texto": "5 variações do CRM3 presas a card antigo sem solicitação no P&D (26/10/2026)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "2026-1003-f (Perfumes de Nicho, Atomic Rose, \"Aguardando Aprovação\" desde 16/07) e 2026-1002-e/g/m/t (Afeer: VIP Man Black, Bleu Afeer, Night Blue, Missdance 16, \"Em Desenvolvimento\" desde 23/07). Vieram do Mongo com `pd_card_id` e sem `pd_request_id`; o card existe sem `pd_request_id` e some do quadro do P&D desde …"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "b2844fc7ba",
+     "grupo": "Fluxo comercial CRM → Kickoff → CGI → SKU → pedido — o que ficou de fora",
+     "texto": "Regras novas sem teste no emulador",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "`run_clientes_criacao_rules_test.js` e `run_crm_fluxo_rules_test.js` estão escritos e não foram executados (esta máquina não tem Java/Firebase CLI). Rodar antes de publicar as regras, que saem do repo do ERP (`scripts/merge-firebase-rules.mjs`)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "1c9baa1aa8",
+     "grupo": "Fluxo comercial CRM → Kickoff → CGI → SKU → pedido — o que ficou de fora",
+     "texto": "Functions no Render (plano gratuito) — limites conhecidos (14/10/2026)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "`functions/render-server.js` roda as 20 functions fora do Firebase. (1) Gatilho do banco que acontecer com o servidor fora do ar (Render dormindo, deploy, reinício) não é reprocessado ao voltar: o estado ao ligar é linha de base. Mitigação atual: pinger em `/health`. Retomar: guardar a última versão vista por gatilh…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "12546a9a99",
+     "grupo": "Velocidade das telas — medição e próximos passos",
+     "texto": "Arquivar OPs encerradas (maior ganho)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "1.330 das 1.388 OPs (96%) estão Concluídas/Canceladas, e quase toda tela baixa todas. Mover as encerradas há mais de N dias para `ops_historico/` reduz o nó a ~60 OPs. Antes: levantar as telas que precisam do histórico (dashboards, histórico, dossiê de lote, relatórios, MRP) e fazê-las ler `ops_historico` só quando …"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "88b939b74a",
+     "grupo": "Velocidade das telas — medição e próximos passos",
+     "texto": "Sincronização do ADM no servidor",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "`syncAllActiveOpsStatus`/autoajuste rodam no navegador de quem é ADM (~1,2 MB a cada 5 min). O servidor do Render já fica ligado 24 h — mover para lá tira esse peso de todas as telas."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "97986708c8",
+     "grupo": "Velocidade das telas — medição e próximos passos",
+     "texto": "Cadastros estáticos em cache local",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "`materiais`, `produtos`, `formulas`, `bom`, `especificacoes` (~1,1 MB) mudam pouco: mostrar a cópia guardada no navegador na hora e atualizar em segundo plano."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "dd55426a6a",
+     "grupo": "Auditoria ponta a ponta — o que ficou para decidir",
+     "texto": "Regras do banco sem teste no emulador",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "12 testes `run_*_rules_test.js` (e `run_devolucao_cliente_server_test.js`) exigem o emulador na porta 9023, que precisa de Java. Instalar o JDK 21 e rodar `firebase emulators:exec --only database` antes de publicar regras. As regras publicadas em `erpkuryos` ainda estão atrás do repo (troca `gestor` → `comercial`): …"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "f73a1949f7",
+     "grupo": "Auditoria ponta a ponta — o que ficou para decidir",
+     "texto": "Testes de UI que já falhavam antes (asserção presa a emoji/glifo que o `kuryos-icon-system.js` troca por SVG desde 07/10)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "`run_fotos_qualidade_ui_test.js` (📷), `run_propriedade_estoque_ui_test.js` (🏭), `run_proximas_ordens_ui_test.js` (⚠), `run_seletor_endereco_ui_test.js` (📦), `run_calendario_logistica_ui_test.js` (⚠), `run_pedidos_conciliacao_ui_test.js` (✓), `run_portao_bulk_ui_test.js`, `run_movimentar_ui_test.js`, `run_operacao…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "37460b4196",
+     "grupo": "Auditoria ponta a ponta — o que ficou para decidir",
+     "texto": "Testes sensíveis ao ambiente",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "`run_etiquetas_leitura_test.js` precisa de `@zxing/library`; os de UI pedem o pacote `playwright` (nesta máquina rodaram com o Chrome instalado, `channel: 'chrome'`); `scripts/test-ui-operational-contracts.mjs` compara byte a byte e acusa CRLF do checkout no Windows mesmo sem mudança (`admin.html`). Sob carga, `run_…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "7ba5182539",
+     "grupo": "Cotação por insumo e serviço — o que ficou de fora",
+     "texto": "Preço de embalagem na cotação é digitado à mão",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "938 dos 939 materiais não têm preço. O campo que existe, \"Custo ref.\" do fornecedor (`fornecedorUnico.custoReferencia` / `fornecedores/*/custoReferencia`, 1 material preenchido), não diz moeda nem unidade (un, kg, milheiro) — usar direto na cotação pode errar por mil. Quando Compras gravar o preço com moeda e unidad…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "07326917af",
+     "grupo": "Cotação por insumo e serviço — o que ficou de fora",
+     "texto": "Densidade fora do cálculo",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O BOM do Kickoff converte mL em L e a cotação cobra o preço/kg da MP por litro (1 L = 1 kg); `kg_por_unidade` idem. Só 6 de 377 produtos têm densidade. Quando a fórmula tiver densidade, multiplicar em `buildBomLines` (`firebaseCommercial.js`) e no `kgDaUnidade` da `cotacaoBase`."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "44e9907774",
+     "grupo": "Cotação por insumo e serviço — o que ficou de fora",
+     "texto": "Custo-hora da linha não existe",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O preço sugerido do serviço só aparece com custo-hora preenchido à mão em Cadastros › Serviços. Origem natural: `PLANO_CUSTOS.md` (absorção por horas-padrão). Até lá o comercial decide o preço."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "a0d2d5fcc0",
+     "grupo": "Cotação por insumo e serviço — o que ficou de fora",
+     "texto": "Produtividade da carga inicial é por tipo, não por produto",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Envase líquido 150 un/h (P25, puxado por 45 perfumes de 50 mL; sem perfume ~600 un/h) e creme 515 un/h. Se a cotação for de um produto parecido com um SKU existente, dá para sugerir pelo `prodHoraRef` dele."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "85fb10fb17",
+     "grupo": "Teste do cliente JOHN — pendências de dado",
+     "texto": "PED-0009 duplicado",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Rascunho do CRM nascido vazio (CGI assinado antes da cotação) e bloqueado; o usuário lançou o mesmo pedido à mão como PED-0010 (liberado ao PCP). Cancelar o PED-0009 em Comercial; reprocessar a assinatura liberaria um segundo pedido do mesmo SKU no PCP."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "aa31f05911",
+     "grupo": "Teste do cliente JOHN — pendências de dado",
+     "texto": "PRF-JOHN-0001 v1 em rascunho",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Fórmula, BOM e Especificação esperam 4 itens que não existem no cadastro: Álcool Cetílico C16 (Oxyteno), frasco PLASTSUL, caixa master KUTM (20 un) e rótulo frontal/contra (Gráfica X). Cadastrar em Cadastros › Materiais, escolher nos itens pendentes da Fórmula/BOM e aprovar (P&D/Qualidade, PCP/Comercial). Backup do …"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "e73229838c",
+     "grupo": "Teste do cliente JOHN — pendências de dado",
+     "texto": "Kickoffs antigos com o id do usuário como responsável",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O KO-2026-031 (e os criados antes de 17/10) guardam `responsavel_comercial`/`responsavel_kuryos` com o id; os novos gravam o nome. Corrigir na próxima edição do Kickoff ou num ajuste em lote."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "f0ef9cb719",
+     "grupo": "Teste do cliente JOHN — pendências de dado",
+     "texto": "Clientes do cadastro mestre criados pelo CRM antes de 17/10 sem contato",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O pedido lê o contato do CRM enquanto o cadastro estiver vazio; copiar para o cadastro exige papel PCP/Cadastros (a regra não deixa o Comercial alterar cliente existente)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "dc8e3d1d39",
+     "grupo": "Pendências da Emissão de OP por setor — o que ficou de fora",
+     "texto": "P&D não recebe pendência ainda",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Densidade e validade foram para a Qualidade (estabilidade/especificação). Se o P&D tiver que responder, a barra precisa entrar na tela do P&D, que é do app do CRM (React) — `shared/pendencias-setor-ui.js` é para as páginas do PCP."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "9eab228941",
+     "grupo": "Pendências da Emissão de OP por setor — o que ficou de fora",
+     "texto": "Sem e-mail",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O setor vê a pendência ao abrir a própria tela. Se precisar de aviso ativo, ligar `pendencias_setor` ao `checkNotificacoes` (functions/index.js), como `notificacoes_comercial`."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "a4e2e69509",
+     "grupo": "Pendências da Emissão de OP por setor — o que ficou de fora",
+     "texto": "Un./caixa e peso por caixa são aviso, não trava",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Seguem a decisão de 2026-09 (375 produtos sem peso por caixa). Quando o cadastro estiver em dia, virar trava em `emitirOP()` e marcar `obrigatorio: true` em `PendenciasSetor.CAMPOS`."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "2abc51c255",
+     "grupo": "Acesso ao CRM/P&D por usuário que não é ADM",
+     "texto": "Só 1 dos 14 usuários ativos tem `tenant_id = kuryos`",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "As regras de `erp/{tenant}/*` (CRM, P&D, Kickoff, Contratos) liberam leitura e escrita só para ADM ou para quem tem o tenant. Hoje os usuários de PCP, Qualidade, Produção etc. não abrem o CRM/P&D — o que bate com o uso atual (só ADM opera lá). Quem receber a função Comercial ou P&D em Usuários ganha o tenant ao salv…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "6bee761e78",
+     "grupo": "Acesso ao CRM/P&D por usuário que não é ADM",
+     "texto": "Rodar `run_crm_fluxo_rules_test.js` e `run_clientes_criacao_rules_test.js` no emulador",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "antes da próxima mudança de regra: as regras foram publicadas em 15/10 sem esse teste (sem Java nesta máquina); a conferência foi por diferença exata contra o que estava no ar."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "a61592e353",
+     "grupo": "Custos e Resultado — o que ficou de fora",
+     "texto": "Regras `custos/` e `resultado/` não publicadas — publicadas em 28/10 (backup das anteriores; a diferença era só o acréscimo)",
+     "subitens": [],
+     "extras": {},
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "d69c48d448",
+     "grupo": "Custos e Resultado — o que ficou de fora",
+     "texto": "Conferência de consumo dos pontos desligada",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(`resultado-pontos.js:conferenciaConsumo`, plano §7). O envase baixa a embalagem pela ficha (BOM × apontado), então só o material **entregue à linha** mede perda escondida: separação por OP (`ops/{op}/separacaoConcluida.itens`) menos a sobra devolvida (`ops/{op}/sobraDevolvida.itens`, campo que o motor já lê e que *…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "9c2dbcef96",
+     "grupo": "Custos e Resultado — o que ficou de fora",
+     "texto": "Imposto realizado pelo % do parâmetro",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ", não pela nota: a NF registrada em `faturamento/nfs` não traz imposto destacado. Resolver junto com a Controladoria (`PROMPT_CONTROLADORIA.md`) ou com o XML da NF-e, se um dia for importado."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "9949ef5e90",
+     "grupo": "Custos e Resultado — o que ficou de fora",
+     "texto": "Custo não é copiado na separação/transferência de lote",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(`utils.js` copia dono, destino e lote interno). O motor de realizado contorna pelo lote irmão de mesmo lote interno. Se um dia o lote interno se perder numa cópia, o consumo cai no preço vigente (declarado)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "ce14518693",
+     "grupo": "Custos e Resultado — o que ficou de fora",
+     "texto": "SKU sem fórmula",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(envase de granel do cliente) nunca fecha ficha: falta um marcador \"granel do cliente\" no produto. Hoje a pendência aparece como \"sem fórmula\"."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "c6ab0f3bef",
+     "grupo": "Custos e Resultado — o que ficou de fora",
+     "texto": "Programa do dia",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "é digitado em Custos › Resultado até as telas de planejamento existirem (`PLANO_PLANEJAMENTO_PCP.md`)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "3ad529300e",
+     "grupo": "Custos e Resultado — o que ficou de fora",
+     "texto": "Manual operacional",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(`manuais.html`) ainda não tem a seção de Custos e do placar."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "2e58a70833",
+     "grupo": "Custos e Resultado — o que ficou de fora",
+     "texto": "Testes de tela (`*_ui_test.js`) não rodam nesta máquina",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ": o pacote `playwright` não está no repo (falham igual no HEAD). Instalar como devDependency ou documentar o caminho do Chromium."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "1edd0e7055",
+     "grupo": "Financeiro e Controladoria — o que ficou de fora",
+     "texto": "Vínculo pedido comercial ↔ carga faturada",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "A carteira a receber (compromisso) abate o já faturado pelo `pedidoId` dos itens da solicitação de faturamento. Se esse id não for a chave de `pedidos_comerciais`, a carteira aparece bruta. Conferir quando o faturamento operar no `erpkuryos` (`financeiro.js:compromissos`)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "1265f28736",
+     "grupo": "Financeiro e Controladoria — o que ficou de fora",
+     "texto": "Imposto real da nota",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "A NF registrada não traz imposto destacado; a dedução da DRE usa o % de Custos › Parâmetros (marcado ESTIMADO). Resolver com o XML da NF-e ou com a apuração do contador (`controladoria.js:documentosEsperados`, bloco NF)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "609ad05da0",
+     "grupo": "Financeiro e Controladoria — o que ficou de fora",
+     "texto": "Integração bancária por API, boleto e PIX automático",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Hoje a conciliação é por OFX (grátis). Reavaliar quando o volume de baixas justificar."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "2b0eae3da4",
+     "grupo": "Financeiro e Controladoria — o que ficou de fora",
+     "texto": "CPV pela ficha padrão sem OP de origem",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "credita o estoque de PA que nenhuma OP debitou: o PA pode ficar negativo no balancete. Some quando as OPs vendidas tiverem custo completo no Custos."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "9820f04809",
+     "grupo": "Financeiro e Controladoria — o que ficou de fora",
+     "texto": "Conta referencial (ECD)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "do plano de contas em branco: o contador informa em Controladoria › Plano de contas antes do primeiro export."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "b949790b96",
+     "grupo": "Financeiro e Controladoria — o que ficou de fora",
+     "texto": "Manual operacional",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(`manuais.html`) ainda sem as seções de Financeiro e Controladoria."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "6ff4ff11d6",
+     "grupo": "Reunião 28/10 — FIN-01, OP-01, OP-02",
+     "texto": "A trava de saldo da emissão de OP vive só na tela",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "A OP continua gravada pelo cliente (como o PCP-02); a regra do banco garante só que a liberação sem saldo é do ADM, em nome próprio e com motivo, e que só o ADM liga, desliga ou apaga a chave (`config/emitirOp/bloquearSemSaldo`). Quem escreve direto no banco passa. Retomar levando a emissão de OP para o servidor (Re…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "2d71ed341e",
+     "grupo": "Reunião 28/10 — FIN-01, OP-01, OP-02",
+     "texto": "Saldo comparado é o físico",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(`saldoAtual`); o empenhado (`saldoEmpenhado`) não é descontado. Rever quando o empenho estiver em uso."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "41e5041798",
+     "grupo": "Reunião 28/10 — FIN-01, OP-01, OP-02",
+     "texto": "`emitir_op.html` tem 563 px de largura em 390 px",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "por causa da tabela de materiais de 6 colunas (já era assim antes). Virar cartões no celular."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "f0d57efc6e",
+     "grupo": "Reunião 28/10 — FIN-01, OP-01, OP-02",
+     "texto": "`travar()` do Financeiro relança o erro depois do toast",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(`shared/financeiro-tela.js`): recusa do servidor deixa uma rejeição não tratada no console. Trocar o relançamento por retorno controlado."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "43dd598b96",
+     "grupo": "Reunião 28/10 — FIN-01, OP-01, OP-02",
+     "texto": "FIN-01 sem ensaio contra a base",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "A leitura nova (\"2x 30/60\", \"3x\") só entra quando o texto começa por número + \"x\"/\"vezes\"; as condições já gravadas leem igual. Conferir com uma exportação de `fin/` quando houver títulos manuais."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "66694a8036",
+     "grupo": "Reunião 28/10 — FEFO-01 e PLAN-01",
+     "texto": "Ensaio com a base (30/10)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "1.393 OPs; 0 moveriam (a base parou na última OP de 21/09). 984 OPs históricas têm linha com a grafia antiga (\"Linha 01/02/03\") e ficam fora do motor e da grade; as 63 abertas usam \"Linha 1/2/3\". Se o histórico precisar entrar, normalizar o nome da linha em `reprogramacao-linha.js:blocosDasOps` (e na grade), não no …"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "bad4071340",
+     "grupo": "Reunião 28/10 — FEFO-01 e PLAN-01",
+     "texto": "Atraso de OP em execução pelo mínimo certo",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(max(fim planejado, agora)). O ETA pelo ritmo (`ops.html`) daria um empurrão mais cedo; decidir com o PCP."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "ff2fcc3d86",
+     "grupo": "Reunião 28/10 — FEFO-01 e PLAN-01",
+     "texto": "\"OP vinculada travada\"",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "foi lida como \"já começou\" + zona fixa. Travar a OP ligada a bloco congelado em `alocacoes_planejamento` ficou de fora."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "07e3f6cd33",
+     "grupo": "Reunião 28/10 — FEFO-01 e PLAN-01",
+     "texto": "Separação consolidada (vários OPs por material)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "segue FEFO com `clienteKey`, mas não tem \"+ outro lote\" com motivo como a separação por OP."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "45e740f1ef",
+     "grupo": "Reunião 28/10 — FEFO-01 e PLAN-01",
+     "texto": "FEFO na operação",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "o apontamento não escolhe lote de embalagem; ele baixa o que foi separado para a OP (`separadoPara`). Se a fábrica apontar sem separar, volta ao FEFO geral."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "21150e504d",
+     "grupo": "Reunião 28/10 — FEFO-01 e PLAN-01",
+     "texto": "Suítes de tela que já falhavam no main antes da Fase 6",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(texto desatualizado, não regressão): `run_operacao_ui_test.js` (módulo `placar` no perfil Produção), `run_portao_bulk_ui_test.js` (texto do portão do granel), `run_proximas_ordens_ui_test.js` (glifo \"⚠\" trocado pela camada de ícones). Atualizar as asserções."
+     },
+     "feito": false,
+     "hash": null
+    }
+   ]
+  },
+  {
+   "letra": "B",
+   "titulo": "Depende da Kuryos",
+   "itens": [
+    {
+     "id": "b39965b082",
+     "grupo": "Integração entre setores",
+     "texto": "Área de endereço para quarentena",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— `config/areasEndereco` tem cinco áreas (GAL, FAB, ROT, MP, MUC) e nenhuma de retenção. O status separa no sistema, nada separa no chão. É cadastro, não código, e precisa existir antes do Dia D."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "0547fcc018",
+     "grupo": "Estoque / Produção",
+     "texto": "Contagem do inventário no kardex",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(feito 01/10: linha informativa + última contagem na Conciliação) `contagens_inventario` está vazio hoje; quando o Dia D acontecer, mostrar cada contagem (contado × sistema) na linha do tempo do item."
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "243d559b62",
+     "grupo": "Estoque / Produção",
+     "texto": "Os 27 materiais com saldo sem movimento registrado",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "são consumos de 01–02/09, antes do log. Não se corrigem com código: o inventário do Dia D zera essa diferença com ajuste registrado."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "56bf89db63",
+     "grupo": "Operação (Produção / Manipulação / Rotulagem) — Fases 2 e 3",
+     "texto": "Fase 2 — pesagem pelo FEFO quando o estoque estiver maduro",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "A pesagem já indica os lotes por FEFO (`calcularPlanoFefo` em `manipulacao.html`) e baixa o lote informado. O que depende do \"Dia D\" é o saldo por lote ser confiável — sem ele o FEFO sugere o que não existe."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "9dbe621beb",
+     "grupo": "Indicadores enterprise ainda indisponíveis",
+     "texto": "Valor, cobertura, giro e ruptura de estoque",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "dependem do inventário físico Dia D, custo por lote e parâmetros de planejamento preenchidos."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "b92d2f9736",
+     "grupo": "Reunião 28/10 — FIN-01, OP-01, OP-02",
+     "texto": "Texto da prontidão desatualizado com a trava ligada",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "`public/shared/prontidao-op.js` (item 6) segue dizendo \"o saldo … não serve para decidir até o Dia D\" mesmo quando a trava está ligada. Ajustar o texto lendo `config/emitirOp/bloquearSemSaldo` no Dia D."
+     },
+     "feito": false,
+     "hash": null
+    }
+   ]
+  },
+  {
+   "letra": "C",
+   "titulo": "Decisões pendentes do usuário",
+   "itens": [
+    {
+     "id": "9a02db27a7",
+     "grupo": "Auditoria ponta a ponta — o que ficou para decidir",
+     "texto": "Dados que precisam de decisão de quem opera (nada foi alterado no banco)",
+     "subitens": [
+      "Pedido `26` (SEUNOURA): 4 linhas com SKU que não existe no cadastro — `AGU-SEUN-0001`, `BSP-SEUN-0001` (o cadastro tem `BSPL-SEUN-0001`), `HID-SEUN-0001`, `SRM-SEUN-0002`. Sem produto não há BOM nem emissão de OP para elas. Decidir: cadastrar ou corrigir o SKU da linha (`pedidos/26__<sku>` e `pedidos_comerciais/26/itens`).",
+      "Produto duplicado: `produtos/KUBPBA01-2` e `produtos/KUBPBA01_-_2`, ambos com SKU `KUBPBA01 - 2`. Ver qual tem OPs/estoque antes de desativar o outro.",
+      "Contador `config/contadores/sku/PEL_SEUN` = 1 com `PEL-SEUN-0002` já cadastrado. O Cadastros agora pula número ocupado; acertar o contador para 2 é opcional.",
+      "`erp/kuryos/pd_requests/734dfe9c-…` aponta para a amostra `b0749e38-…`, que não existe (veio assim do Mongo). O card abre; só perde o vínculo com a amostra."
+     ],
+     "extras": {},
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "5bde6686b3",
+     "grupo": "Cotação por insumo e serviço — o que ficou de fora",
+     "texto": "Não existe documento da cotação para o cliente",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "A composição fica na tela e no banco (`crm_propostas/*/composicao`). Quando houver um PDF da proposta, decidir se o cliente vê a abertura por etapa (preço cheio, desconto) ou só o preço por unidade."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "cb6a11a3f1",
+     "grupo": "Reunião 28/10 — FEFO-01 e PLAN-01",
+     "texto": "Zona fixa (`config/congelamento.diasFixos`) vale também para puxar/empurrar OP",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Na base hoje ela é 0 dias. Com 7 dias, quase nada da semana se move; decidir se a zona deve valer aqui."
+     },
+     "feito": false,
+     "hash": null
+    }
+   ]
+  }
+ ],
+ "resumo": {
+  "A": {
+   "titulo": "Código: o que está adiado (MELHORIAS_FUTURAS.md)",
+   "total": 225,
+   "feitos": 19
+  },
+  "B": {
+   "titulo": "Depende da Kuryos",
+   "total": 6,
+   "feitos": 1
+  },
+  "C": {
+   "titulo": "Decisões pendentes do usuário",
+   "total": 3,
+   "feitos": 0
+  }
+ }
+}

@@ -99,6 +99,9 @@ assert.deepEqual(rotulos(menu('rh'), 'RH'), ['Dash', 'Colaboradores', 'Avaliaç�
   'PORT-08: RH como no menu do Gustavo');
 assert.deepEqual(rotulos(menu('production'), 'RH'), ['Feedback da Semana'], 'PORT-08: todo colaborador com login responde o Feedback da Semana');
 assert.ok(!menu('tv').some((l) => l.href === 'feedback'), 'a TV não responde feedback');
+const ajudaAdm = rotulos(admin, 'Ajuda');
+assert.deepEqual(ajudaAdm.slice(ajudaAdm.indexOf('Qualidade'), ajudaAdm.indexOf('Qualidade') + 6),
+  ['Qualidade', 'Auditoria 5S', 'Ativos', 'Temporários', 'Feedback e Clima', 'Cadastros'], 'manuais novos na ordem do Gustavo, entre Qualidade e Cadastros');
 assert.deepEqual(rotulos(admin, 'Analytics'), ['Visão Executiva 360°', 'Indicadores Setoriais', 'Dashboard Diário', 'Dashboard Geral', 'Custos e Resultado', 'Placar da fábrica']);
 assert.deepEqual(doBloco(admin, 'Comercial').map((l) => [l.sub, l.rotulo]), [
   ['Vendas', 'Pedidos e Orçamentos'], ['Vendas', 'Gestão Comercial'], ['Vendas', 'Devoluções de Cliente'],
@@ -110,7 +113,7 @@ assert.deepEqual([...new Set(doBloco(admin, 'Armazém').map((l) => l.sub))], ['E
 assert.deepEqual([...new Set(doBloco(admin, 'Operação').map((l) => l.sub).filter(Boolean))], ['Produção', 'Manipulação', 'Rotulagem']);
 assert.deepEqual(rotulos(admin, 'Expedição'), ['Expedição de Vendas', 'Relatório de Expedição']);
 assert.deepEqual(rotulos(admin, 'Pedidos e Rastreio'), ['Pedidos', 'Relatório de Pedido', 'Dossiê do Lote']);
-assert.deepEqual(rotulos(admin, 'ADM'), ['Ajustes / Config', 'Usuários']);
+assert.deepEqual(rotulos(admin, 'ADM'), ['Ajustes / Config', 'Usuários', 'Roadmap do sistema'], 'PORT-09: Roadmap no ADM');
 assert.ok(!admin.some((l) => l.grupo === 'Logística'), 'Logística virou Armazém + Expedição');
 
 const log = menu('logistica');
