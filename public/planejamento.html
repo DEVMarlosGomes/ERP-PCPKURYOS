@@ -15,6 +15,7 @@
   <script src="shared/sequencia-setor.js"></script>
   <script src="shared/sequencia-setor-tela.js"></script>
   <script src="shared/ajuste-grade.js"></script>
+  <script src="shared/reprogramacao-linha.js"></script>
   <script src="auth_check.js"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="shared/theme.css">
@@ -65,6 +66,7 @@
     .day-tab.is-today{box-shadow:inset 0 -2px 0 #34d399}
     .grid-card{background:var(--card);border-radius:0 12px 12px 12px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:14px}
     .plan-table-wrap{overflow-x:auto}
+    .reprog-tabela td{padding:8px 6px;border-bottom:1px solid var(--border);vertical-align:top}
     .plan-table{width:100%;border-collapse:collapse;min-width:660px}
     .plan-table th{background:color-mix(in srgb, var(--text) 4%, var(--card));padding:10px 12px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border);white-space:nowrap;text-align:center}
     .plan-table th.col-hora{text-align:left;width:80px}
@@ -436,6 +438,16 @@
       <div id="opsSemProgramacaoBody" style="display:block;padding:0 14px 14px"></div>
     </div>
 
+    <!-- PLAN-01 (28/10): reprogramação pelo realizado -- "antecipou puxa,
+         atrasou empurra". Só aparece quando o motor acha o que mover (ou um
+         conflito com a zona fixa); nada é gravado sem o PCP ver a simulação. -->
+    <div class="grid-card" id="reprogBanner" style="display:none;margin-bottom:12px;border-left:4px solid var(--warning)" data-ui="surface" role="status" aria-live="polite">
+      <div style="padding:10px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="flex:1;min-width:220px;font-size:13px" id="reprogBannerTxt"></span>
+        <button class="btn btn-primary" id="reprogVerBtn">Ver simulação</button>
+      </div>
+    </div>
+
     <div class="day-tabs" id="dayTabsOps"></div>
     <div class="grid-card" data-ui="surface">
       <div class="plan-table-wrap" data-ui="table-scroll">
@@ -648,6 +660,21 @@
   </div>
 </div>
 
+<!-- PLAN-01: simulação da reprogramação pelo realizado, antes de gravar. -->
+<div class="modal-overlay" id="reprogModal">
+  <div class="modal" style="max-width:640px" role="dialog" aria-modal="true" aria-labelledby="reprogModalTtl">
+    <div class="modal-hdr">
+      <div><div class="modal-ttl" id="reprogModalTtl">Reprogramar pelo realizado</div><div class="modal-sub" id="reprogModalSub">—</div></div>
+      <button class="modal-x" id="reprogModalClose" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body" data-ui="dialog-body" id="reprogModalBody"></div>
+    <div class="modal-ftr">
+      <button class="btn btn-ghost" id="reprogModalCancelBtn">Cancelar</button>
+      <button class="btn btn-primary" id="reprogModalAplicarBtn">Aplicar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Programar uma OP emitida que ainda não tem NENHUMA data -- só depois
      disso ela aparece na Grade de OPs e vira arrastável pra ajustar fino. -->
 <div class="modal-overlay" id="progOpModal">
@@ -831,7 +858,7 @@ window.addEventListener('DOMContentLoaded',function(){
   currentWeekStart=getMon(new Date());
   var dw=new Date().getDay();
   currentDayIdx=(dw>=1&&dw<=5)?dw-1:0;
-  setupTabBar();setupGradeControls();setupProdModal();setupAgdModal();setupSetupModal();setupOpsGridDrag();setupOpsSemProgramacao();setupProgOpModal();setupConfigTab();
+  setupTabBar();setupGradeControls();setupProdModal();setupAgdModal();setupSetupModal();setupOpsGridDrag();setupOpsSemProgramacao();setupProgOpModal();setupConfigTab();setupReprogramacao();
   
   var agdSearch = document.getElementById('agdSearchInput');
   var agdFilter = document.getElementById('agdFilterClient');
@@ -1093,8 +1120,95 @@ function loadOps(){
     // Independente do resto do primeiro carregamento (não depende de
     // pedidos/semana) -- roda sempre que `ops` mudar.
     renderOpsSemProgramacao();
+    renderReprogBanner();
     if(!firstLoad){ updateWeeklySummaryTable(); renderWeekBoard(); renderGrid(); renderOpsGrid(); renderOpsWeekBoard(); }
   });
+}
+
+// ═══ PLAN-01 (28/10): reprogramação pelo realizado -- "antecipou puxa,
+// atrasou empurra". O motor (shared/reprogramacao-linha.js) é puro; aqui só
+// se monta a config, mostra a simulação e grava o que o PCP confirmar. ═══
+var reprogUltima=null;
+function cfgReprogramacao(){
+  return {turnos:configTurnos,turnoHorarios:configTurnoHorarios,turnoHorariosFim:configTurnoHorariosFim,turnoHorariosFimSexta:configTurnoHorariosFimSexta,
+    turnoPausas:configTurnoPausas,modoOperacaoTurno:configModoOperacaoTurno,turnoFixoNome:configTurnoFixoNome,turnosExtras:configTurnosExtras,
+    diasSemana:config.diasSemana,feriados:config.feriados||{},setupPadraoPorLinha:configSetupPadraoPorLinha,congelamento:{diasFixos:configCongelamentoDiasFixos}};
+}
+function simularReprogramacao(){
+  if(typeof ReprogramacaoLinha==='undefined')return null;
+  return ReprogramacaoLinha.simular(opsCache,cfgReprogramacao(),{agora:new Date().toISOString(),linhas:configLinhas,fusoMin:-new Date().getTimezoneOffset()});
+}
+function fmtDiaHora(iso){var d=new Date(iso);return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
+function renderReprogBanner(){
+  var box=document.getElementById('reprogBanner');
+  if(!box)return;
+  var r;
+  try{r=simularReprogramacao();}catch(err){console.error('Reprogramação pelo realizado falhou:',err);box.style.display='none';return;}
+  reprogUltima=r;
+  if(!r||(!r.movimentos.length&&!r.conflitos.length)){box.style.display='none';return;}
+  var gat=r.gatilhos.map(function(g){return 'OP '+g.lote+(g.tipo==='ANTECIPOU'?' terminou '+g.minutos+' min antes':' atrasou '+g.minutos+' min')+' ('+g.linha+')';}).join('; ');
+  document.getElementById('reprogBannerTxt').innerHTML='<b>'+(r.movimentos.length?r.movimentos.length+' bloco(s) podem ser movido(s)':'Conflito na zona fixa')+'.</b> '+escapeHtml(gat||'')+
+    (r.conflitos.length?' · <span style="color:var(--danger)">'+r.conflitos.length+' conflito(s) com a zona fixa</span>':'');
+  box.style.display='block';
+}
+function abrirReprogModal(){
+  var r=simularReprogramacao();
+  reprogUltima=r;
+  if(!r)return;
+  var linhaMov=function(m){
+    var tom=m.tipo==='PUXA'?'var(--success)':'var(--warning)';
+    var cor='color-mix(in srgb, '+tom+' 16%, var(--card));color:color-mix(in srgb, '+tom+' 75%, var(--text))';
+    return '<tr><td><b>'+escapeHtml(m.lote)+'</b> <span style="display:inline-block;padding:1px 8px;border-radius:20px;font-size:11px;font-weight:700;background:'+cor+'">'+(m.tipo==='PUXA'?'puxa':'empurra')+'</span>'+
+      '<div style="font-size:11px;color:var(--muted)">'+escapeHtml(m.linha)+' · '+escapeHtml(m.produto||'')+'</div></td>'+
+      '<td>era '+fmtDiaHora(m.de.inicio)+'<br><b>passa a '+fmtDiaHora(m.para.inicio)+'</b><div style="font-size:11px;color:var(--muted)">até '+fmtDiaHora(m.para.fim)+'</div></td></tr>';
+  };
+  var h='';
+  h+='<div style="font-size:13px;margin-bottom:8px">'+(r.gatilhos.length?r.gatilhos.map(function(g){return '• OP <b>'+escapeHtml(g.lote)+'</b> ('+escapeHtml(g.linha)+') '+(g.tipo==='ANTECIPOU'?'terminou '+g.minutos+' min antes do previsto':'está '+g.minutos+' min atrasada');}).join('<br>'):'Nenhuma OP antecipou ou atrasou.')+'</div>';
+  h+='<div style="font-weight:700;margin:10px 0 6px" data-testid="reprog-total">'+r.movimentos.length+' bloco(s) serão movido(s)</div>';
+  if(r.movimentos.length){
+    h+='<table class="reprog-tabela" style="width:100%;border-collapse:collapse;font-size:12.5px"><tbody>'+r.movimentos.map(linhaMov).join('')+'</tbody></table>';
+  }
+  if(r.conflitos.length){
+    h+='<div style="margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--tint-red-bg);color:var(--tint-red-fg);font-size:12.5px"><b>Conflitos (não serão mexidos):</b><br>'+
+      r.conflitos.map(function(c){return 'OP '+escapeHtml(c.lote)+' ('+escapeHtml(c.linha)+'): '+escapeHtml(c.motivo)+' — '+c.sobreposicaoMin+' min';}).join('<br>')+'</div>';
+  }
+  if(r.zonaFixa.length)h+='<div style="font-size:11.5px;color:var(--muted);margin-top:8px">'+r.zonaFixa.length+' OP(s) dentro da zona fixa ('+configCongelamentoDiasFixos+' dias) não se movem sozinhas.</div>';
+  if(r.vencidas.length)h+='<div style="font-size:11.5px;color:var(--muted);margin-top:4px">Fora da conta: '+r.vencidas.map(function(v){return escapeHtml(v.lote);}).join(', ')+' — programadas, não abertas, com o fim previsto já passado. Reprograme à mão.</div>';
+  h+='<div style="font-size:11.5px;color:var(--muted);margin-top:8px">Duração de cada OP mantida em horas de trabalho (turnos, pausas e feriados de Ajustes), com o setup da linha antes de cada OP movida e início em múltiplos de 15 min. A OP em produção não muda de plano.</div>';
+  document.getElementById('reprogModalSub').textContent='Simulação — nada foi gravado ainda';
+  document.getElementById('reprogModalBody').innerHTML=h;
+  document.getElementById('reprogModalAplicarBtn').disabled=!r.movimentos.length;
+  document.getElementById('reprogModal').classList.add('open');
+}
+function fecharReprogModal(){document.getElementById('reprogModal').classList.remove('open');}
+function aplicarReprogramacao(){
+  var mostrada=reprogUltima;
+  // Recalcula em cima do dado FRESCO (como o arraste): se mudou desde a simulação, mostra de novo.
+  var r=simularReprogramacao();
+  var assinatura=function(x){return JSON.stringify((x&&x.movimentos||[]).map(function(m){return [m.id,m.para.inicio,m.para.fim];}));};
+  if(assinatura(r)!==assinatura(mostrada)){showToast('A grade mudou desde a simulação — confira de novo antes de aplicar.');abrirReprogModal();return;}
+  if(!r.movimentos.length){fecharReprogModal();return;}
+  var agoraISO=new Date().toISOString();
+  var updates=ReprogramacaoLinha.montarUpdates(r,{hoje:toYMD(new Date()),chave:String(Date.now()),agoraISO:agoraISO,
+    por:(window.currentUser&&window.currentUser.nome)||null});
+  var btn=document.getElementById('reprogModalAplicarBtn');
+  btn.disabled=true;
+  db.ref().update(updates).then(function(){
+    fecharReprogModal();
+    showToast(r.movimentos.length+' OP(s) reprogramada(s).');
+    renderOpsGrid();renderReprogBanner();
+  }).catch(function(err){
+    showToast('Erro ao gravar a reprogramação: '+err.message);
+  }).then(function(){btn.disabled=false;});
+}
+function setupReprogramacao(){
+  document.getElementById('reprogVerBtn').addEventListener('click',abrirReprogModal);
+  document.getElementById('reprogModalClose').addEventListener('click',fecharReprogModal);
+  document.getElementById('reprogModalCancelBtn').addEventListener('click',fecharReprogModal);
+  document.getElementById('reprogModal').addEventListener('click',function(e){if(e.target===this)fecharReprogModal();});
+  document.getElementById('reprogModalAplicarBtn').addEventListener('click',aplicarReprogramacao);
+  // Atraso cresce com o relógio: reavalia a cada minuto, sem gravar nada.
+  setInterval(renderReprogBanner,60000);
 }
 
 // ═══ OPs emitidas sem NENHUMA data (achado do usuário: dado real de
