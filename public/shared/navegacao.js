@@ -193,7 +193,14 @@
       q: function(c) { return c.temMod('manutencao'); }},
     {p: 'auditoria_5s.html', r: 'Auditoria 5S', i: 'clipboard', b: 'Qualidade', o: function() { return pos('retrabalhos.html') + 0.5; }},
     {p: 'manual_auditoria_5s.html', r: 'Auditoria 5S', i: 'book', b: 'Ajuda', o: function() { return pos('manual_cadastros.html') - 0.6; },
-      q: function(c) { return c.temMod('auditoria5s'); }}
+      q: function(c) { return c.temMod('auditoria5s'); }},
+    {p: 'rh_temporarios.html', r: 'Temporários', i: 'clipboard', b: 'RH'},
+    {p: 'feedback.html', r: 'Feedback da Semana', i: 'pencil', b: 'RH'},
+    {p: 'rh_feedback.html', r: 'Feedback e Clima', i: 'chart', b: 'RH'},
+    {p: 'manual_temporarios.html', r: 'Temporários', i: 'book', b: 'Ajuda', o: function() { return pos('manual_cadastros.html') - 0.4; },
+      q: function(c) { return c.temMod('rh_temporarios'); }},
+    {p: 'manual_feedback.html', r: 'Feedback e Clima', i: 'book', b: 'Ajuda', o: function() { return pos('manual_cadastros.html') - 0.3; },
+      q: function(c) { return c.temMod('feedback'); }}
   ];
 
   /* Ícone (ktIcons em auth_check.js) e matiz de cada bloco: azul (--s1) para o

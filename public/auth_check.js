@@ -263,7 +263,14 @@ const KURYOS_MODULOS = {
                   paginas: ['ativos.html'] },
   // Auditoria 5S (PORT-07): checklist do líder, auditoria da Qualidade e inspeção da Diretoria.
   auditoria5s:  { rotulo: 'Auditoria 5S',        desc: 'Checklist do líder, auditoria da Qualidade e inspeção da Diretoria (5S)',
-                  paginas: ['auditoria_5s.html'] }
+                  paginas: ['auditoria_5s.html'] },
+  // RH (PORT-08): Feedback da Semana é de todo colaborador com login; o painel e os Temporários, do RH Central.
+  feedback:     { rotulo: 'Feedback da Semana',     desc: 'Avaliar colegas e líder e responder a pesquisa de clima (o colaborador não vê resultado)',
+                  paginas: ['feedback.html'] },
+  rh_feedback:  { rotulo: 'RH — Feedback e Clima',  desc: 'Dashboard, pendências, recados e configuração do Feedback e Clima (só RH Central e administrador)',
+                  paginas: ['rh_feedback.html'] },
+  rh_temporarios: { rotulo: 'RH — Temporários',    desc: 'Convocação e pagamento semanal dos temporários (só RH Central e administrador; CPF e Pix)',
+                  paginas: ['rh_temporarios.html'] }
 };
 
 // Padrão por papel. Reproduz EXATAMENTE o alcance que cada papel tinha antes
@@ -285,6 +292,13 @@ const MODULOS_POR_PAPEL = {
   pd: ['pd'],
   pending: []
 };
+// PORT-08 (Fase 8, Dev 3), acréscimo ao padrão por papel, como no repositório do Gustavo:
+// o Feedback da Semana é de todo colaborador com login (a TV e a conta pendente não respondem);
+// o RH Central ganha Temporários e o painel do Feedback e Clima.
+['pcp', 'production', 'rotulagem', 'logistica', 'qualidade', 'rh', 'gestor', 'comercial', 'pd'].forEach(function(papel) {
+  if (MODULOS_POR_PAPEL[papel].indexOf('feedback') < 0) MODULOS_POR_PAPEL[papel].push('feedback');
+});
+MODULOS_POR_PAPEL.rh.push('rh_temporarios', 'rh_feedback');
 
 // página -> lista de módulos que a liberam (derivada, nunca digitada duas
 // vezes). Página fora deste mapa é liberada pra qualquer autenticado -- é o

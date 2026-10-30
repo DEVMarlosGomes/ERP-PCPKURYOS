@@ -95,6 +95,10 @@ assert.deepEqual([...new Set(admin.map((l) => l.grupo))],
   ['Analytics', 'Comercial', 'P&D', 'Pedidos e Rastreio', 'PCP', 'Compras', 'Armazém', 'Operação', 'Qualidade', 'Expedição',
     'Manutenção', 'Cadastros', 'Financeiro', 'ADM', 'RH', 'Ajuda'], 'admin: blocos na ordem do D-01 (Manutenção com Ativos desde o PORT-06)');
 assert.deepEqual(rotulos(admin, 'Manutenção'), ['Ativos'], 'PORT-06: Ativos no bloco Manutenção');
+assert.deepEqual(rotulos(menu('rh'), 'RH'), ['Dash', 'Colaboradores', 'Avaliação de Desempenho', 'Férias', 'Temporários', 'Feedback da Semana', 'Feedback e Clima'],
+  'PORT-08: RH como no menu do Gustavo');
+assert.deepEqual(rotulos(menu('production'), 'RH'), ['Feedback da Semana'], 'PORT-08: todo colaborador com login responde o Feedback da Semana');
+assert.ok(!menu('tv').some((l) => l.href === 'feedback'), 'a TV não responde feedback');
 assert.deepEqual(rotulos(admin, 'Analytics'), ['Visão Executiva 360°', 'Indicadores Setoriais', 'Dashboard Diário', 'Dashboard Geral', 'Custos e Resultado', 'Placar da fábrica']);
 assert.deepEqual(doBloco(admin, 'Comercial').map((l) => [l.sub, l.rotulo]), [
   ['Vendas', 'Pedidos e Orçamentos'], ['Vendas', 'Gestão Comercial'], ['Vendas', 'Devoluções de Cliente'],
