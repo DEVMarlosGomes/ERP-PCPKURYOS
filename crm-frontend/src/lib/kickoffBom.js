@@ -16,6 +16,10 @@ export { unidadesPorEmbalagem };
 
 export const NIVEL_DO_BLOCO = { bloco2: "primaria", bloco3: "secundaria", bloco4: "terciaria" };
 
+/* BOM-04 (reunião 28/10/2026): paletização é logística, não insumo comprado por unidade — continua no
+ * Bloco 4 do Kickoff, mas não entra no BOM (nem, portanto, na cotação e na solicitação de compra). */
+export const FORA_DO_BOM = new Set(["paletizacao"]);
+
 // Tipos que o resto do sistema já conhece (cotação, PCP); o nível vai em campo próprio.
 export function tipoDaLinha(bloco, componenteId) {
   if (componenteId === "tampa") return "tampa";
@@ -36,7 +40,7 @@ export function linhasDeEmbalagem(questionario, { numeroKickoff = "", volumePedi
   for (const bloco of ["bloco2", "bloco3", "bloco4"]) {
     for (const bruta of q[bloco]?.componentes || []) {
       const r = normalizarLinhaComponente(bruta);
-      if (simNao(r.aplicavel) !== "sim") continue;
+      if (simNao(r.aplicavel) !== "sim" || FORA_DO_BOM.has(r.id)) continue;
       const terciaria = bloco === "bloco4";
       const unidades = terciaria ? unidadesPorEmbalagem(r, q.bloco0) : null;
       const porUnidade = terciaria ? (unidades ? 1 / unidades : null) : (numero(r.qtd_por_unidade) ?? 1);

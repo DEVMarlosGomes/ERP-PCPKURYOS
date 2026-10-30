@@ -4,6 +4,15 @@ import { insumosDoKickoff, linhasDeEmbalagem, unidadesPorEmbalagem } from "./kic
 const linha = (id, extra = {}) => ({ id, componente: id, aplicavel: "sim", definido: "sim", fornecido_por: "kuryos", ...extra });
 
 describe("BOM de embalagens (BOM-01)", () => {
+  test("BOM-04: paletização aplicável fica no Kickoff, fora do BOM (e da cotação)", () => {
+    const q = {
+      bloco0: { displays_ou_unidades_por_caixa_master: "24" },
+      bloco4: { componentes: [linha("caixa_master"), linha("paletizacao", { tipo_componente: "PALETIZACAO", unidades_por_embalagem: "960" })] },
+    };
+    const l = linhasDeEmbalagem(q, { numeroKickoff: "KO-1", volumePedido: 960 });
+    expect(l.map((x) => x.componente_id)).toEqual(["caixa_master"]);
+    expect(insumosDoKickoff({ bom: l }).some((x) => x.componente_id === "paletizacao")).toBe(false);
+  });
   test("todo componente aplicável entra, com nível e quantidade; cartucho, válvula e bula também", () => {
     const q = {
       bloco2: { componentes: [linha("frasco_pote_bisnaga", { material_codigo: "EP-00089", material_nome: "FRASCO PET 300ML", qtd_por_unidade: 1 }),
