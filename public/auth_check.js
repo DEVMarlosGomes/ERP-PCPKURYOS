@@ -274,7 +274,11 @@ const KURYOS_MODULOS = {
   // Roadmap do sistema (PORT-09): checklist gerado do MELHORIAS_FUTURAS.md. Fora do padrão de qualquer papel:
   // só o admin e quem o ADM marcar.
   backlog:      { rotulo: 'Roadmap do sistema', desc: 'Checklist automático do que ainda falta implementar, do que depende da Kuryos e das decisões pendentes',
-                  paginas: ['backlog.html'] }
+                  paginas: ['backlog.html'] },
+  // Painel de Controle (PORT-01, porte do Gustavo e3ddcd0): filas, idade e SLA por etapa e por
+  // setor. Fora de MODULOS_POR_PAPEL: o ADM marca quem acompanha (visão de gestão).
+  painel:       { rotulo: 'Painel de Controle', desc: 'Filas, idade e atraso de cada etapa do fluxo, por setor, com a cobrança pronta (visão de gestão)',
+                  paginas: ['painel.html'] }
 };
 
 // Padrão por papel. Reproduz EXATAMENTE o alcance que cada papel tinha antes

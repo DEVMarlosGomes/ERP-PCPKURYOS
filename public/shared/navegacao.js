@@ -44,6 +44,8 @@
      o: posição dentro do bloco (número ou função); sem ele vale a ordem do registro. */
   var TELAS = [
     // ── Analytics
+    // Painel de Controle (PORT-01, Gustavo e3ddcd0): gargalos por etapa, idade, SLA e cobrança.
+    {p: 'painel.html', r: 'Painel de Controle', i: 'gear', b: 'Analytics'},
     {p: 'dashboard_executivo.html', r: 'Visão Executiva 360°', i: 'dashboard', b: 'Analytics'},
     {p: 'dashboard_setorial.html', r: 'Indicadores Setoriais', i: 'chart', b: 'Analytics'},
     {p: 'dashboard.html', r: 'Dashboard Diário', i: 'dashboard', b: 'Analytics'},

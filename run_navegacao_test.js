@@ -36,7 +36,7 @@ const ETAPAS_EXPEDICAO = ['faturamento', 'cargas'];
 // Telas portadas na Fase 8 (Dev 3: PORT-06 a PORT-09): os únicos links novos aceitos
 // além do menu antigo -- quem tem o módulo passa a vê-los; o resto não muda.
 const NOVAS_FASE8 = ['ativos', 'manual_ativos', 'auditoria_5s', 'manual_auditoria_5s', 'rh_temporarios', 'manual_temporarios',
-  'feedback', 'rh_feedback', 'manual_feedback', 'backlog', 'pesagens', 'checklists_cq', 'liberacao_linha'];
+  'feedback', 'rh_feedback', 'manual_feedback', 'backlog', 'pesagens', 'checklists_cq', 'liberacao_linha', 'painel'];
 
 // O fixture cobre todos os perfis do aceite.
 ['admin', 'pcp', 'gestor', 'qualidade', 'rotulagem', 'logistica', 'comercial', 'pd', 'production', 'rh', 'tv',
@@ -102,7 +102,7 @@ assert.ok(!menu('tv').some((l) => l.href === 'feedback'), 'a TV não responde fe
 const ajudaAdm = rotulos(admin, 'Ajuda');
 assert.deepEqual(ajudaAdm.slice(ajudaAdm.indexOf('Qualidade'), ajudaAdm.indexOf('Qualidade') + 6),
   ['Qualidade', 'Auditoria 5S', 'Ativos', 'Temporários', 'Feedback e Clima', 'Cadastros'], 'manuais novos na ordem do Gustavo, entre Qualidade e Cadastros');
-assert.deepEqual(rotulos(admin, 'Analytics'), ['Visão Executiva 360°', 'Indicadores Setoriais', 'Dashboard Diário', 'Dashboard Geral', 'Custos e Resultado', 'Placar da fábrica']);
+assert.deepEqual(rotulos(admin, 'Analytics'), ['Painel de Controle', 'Visão Executiva 360°', 'Indicadores Setoriais', 'Dashboard Diário', 'Dashboard Geral', 'Custos e Resultado', 'Placar da fábrica']);
 assert.deepEqual(doBloco(admin, 'Comercial').map((l) => [l.sub, l.rotulo]), [
   ['Vendas', 'Pedidos e Orçamentos'], ['Vendas', 'Gestão Comercial'], ['Vendas', 'Devoluções de Cliente'],
   ['CRM', 'CRM 1 · Clientes'], ['CRM', 'CRM 2 · Projetos'], ['CRM', 'CRM 3 · Amostras'], ['CRM', 'Kickoffs'],
