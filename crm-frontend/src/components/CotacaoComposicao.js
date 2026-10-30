@@ -8,7 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, Plus, Trash2 } from "lucide-react";
 import api from "@/lib/api";
-import { UNIDADES_SERVICO, calcularCotacao, linhaDeServico, mesclarComposicao } from "@/lib/cotacao";
+import { MIN_MOTIVO_DESCONTO, UNIDADES_SERVICO, calcularCotacao, linhaDeServico, mesclarComposicao } from "@/lib/cotacao";
+import { useAuth } from "@/contexts/AuthContext";
+import { isAdmin } from "@/lib/crmRules";
 
 const rs = (n, casas = 2) => (n === null || n === undefined ? "—"
   : `R$ ${Number(n).toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: Math.max(casas, 4) })}`);
@@ -16,7 +18,11 @@ const qtd = (n) => Number(n || 0).toLocaleString("pt-BR", { maximumFractionDigit
 const TIPO_INSUMO = { mp_formula: "MP", embalagem_primaria: "Emb. primária", tampa: "Tampa", emb_secundaria: "Emb. secundária", emb_terciaria: "Caixa master", rotulo: "Rótulo" };
 const SemPreco = () => <Badge variant="outline" className="border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-300 text-[10px]">SEM PREÇO</Badge>;
 
+const acimaDoMaximo = (l) => l?.desconto_maximo_pct !== undefined && l?.desconto_maximo_pct !== null && Number(l.desconto_pct || 0) > Number(l.desconto_maximo_pct) + 1e-9;
+
 export default function CotacaoComposicao({ projetoId, salva, congelada, taxa, onChange, onAplicarPreco }) {
+  const { user } = useAuth() || {};
+  const adm = isAdmin(user);
   const [base, setBase] = useState(null);
   const [erro, setErro] = useState("");
   const [composicao, setComposicao] = useState(null);
@@ -172,9 +178,19 @@ export default function CotacaoComposicao({ projetoId, salva, congelada, taxa, o
                     <td className="px-2 py-1.5 tabular-nums whitespace-nowrap">{l.pendente ? <span title="Preencha o preço em PCP › Cadastros › Serviços"><SemPreco /></span> : rs(l.preco_cheio, 4)}</td>
                     <td className="px-2 py-1.5 whitespace-nowrap">
                       <span className="inline-flex items-center gap-1">
-                        <Input className="h-7 w-16 text-xs tabular-nums" type="number" min="0" max="100" step="0.5" disabled={bloqueado} value={l.desconto_pct ?? 0}
+                        <Input className={`h-7 w-16 text-xs tabular-nums ${acimaDoMaximo(l) ? "border-red-500" : ""}`} type="number" min="0" max="100" step="0.5" disabled={bloqueado} value={l.desconto_pct ?? 0}
                           onChange={(e) => setServico(i, { desconto_pct: Math.min(100, Math.max(0, Number(e.target.value) || 0)) })} data-testid={`servico-desconto-${i}`} />%
                       </span>
+                      {/* COT-01 (D-10): o Cadastros define o máximo; a linha nasce com 0 %. */}
+                      {l.desconto_maximo_pct !== undefined && l.desconto_maximo_pct !== null && (
+                        <span className={`block text-[10px] ${acimaDoMaximo(l) ? "font-medium text-red-700" : "text-muted-foreground"}`} data-testid={`servico-desconto-max-${i}`}>
+                          máx. {l.desconto_maximo_pct}%{acimaDoMaximo(l) ? (adm ? " — acima: informe o motivo" : " — acima do máximo: só o ADM libera") : ""}
+                        </span>
+                      )}
+                      {acimaDoMaximo(l) && adm && (
+                        <Input className="mt-1 h-7 w-48 text-[11px]" placeholder={`Motivo (mín. ${MIN_MOTIVO_DESCONTO} caracteres) *`} disabled={bloqueado} value={l.desconto_motivo || ""}
+                          onChange={(e) => setServico(i, { desconto_motivo: e.target.value })} data-testid={`servico-desconto-motivo-${i}`} />
+                      )}
                     </td>
                     <td className="px-2 py-1.5 tabular-nums whitespace-nowrap">{l.pendente ? "—" : rs(l.preco_final, 4)}</td>
                     <td className="px-2 py-1.5 tabular-nums whitespace-nowrap">{l.setup_lote ? rs(l.setup_lote) : "—"}</td>

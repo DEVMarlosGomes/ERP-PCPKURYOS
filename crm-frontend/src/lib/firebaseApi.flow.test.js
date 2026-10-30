@@ -284,6 +284,11 @@ describe("fluxo comercial completo até a emissão de OP", () => {
     await api.post(`/crm/projects/${project.id}/proposta`, { composicao, status: "rascunho" });
     composicao.insumos = composicao.insumos.map((l) => (l.bom_id === frasco.bom_id ? { ...l, preco: 1.2 } : l));
     composicao.servicos = composicao.servicos.filter((l) => l.nome !== "Rotulagem");
+    // COT-01: nasce com 0 %; o comercial dá até o máximo (10 %); acima é recusado.
+    assert.equal(composicao.servicos[0].desconto_pct, 0);
+    composicao.servicos[0].desconto_pct = 15;
+    await fails(api.post(`/crm/projects/${project.id}/proposta`, { composicao, status: "rascunho" }), 422, /passa do máximo de 10%/);
+    composicao.servicos[0].desconto_pct = 10;
     await api.post(`/crm/projects/${project.id}/proposta`, { composicao, status: "rascunho" });
     const salvo = Object.values(db(`${T}/crm_propostas`))[0].composicao.resumo;
     // MPs: 0,16 × 9,50 + 0,04 × 40 × 6,00 (dólar do dia no teste) + frasco 1,20 = 12,32

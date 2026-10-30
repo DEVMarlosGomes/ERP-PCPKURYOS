@@ -1,4 +1,4 @@
-import { calcularCotacao, insumosDoBom, linhaDeServico, mensagemDePendencias, mesclarComposicao, precoDoItemDeFormula, precoSugerido } from "./cotacao";
+import { calcularCotacao, insumosDoBom, linhaDeServico, mensagemDePendencias, mesclarComposicao, precoDoItemDeFormula, precoSugerido, validarDescontos } from "./cotacao";
 
 const BOM = [
   { id: "I1", tipo: "mp_formula", codigo_interno: "MP0001", descricao: "Álcool Etílico", unidade: "L", quantidade_por_unidade: 0.16 },
@@ -56,6 +56,7 @@ describe("cálculo da cotação", () => {
     const c = base();
     c.insumos[2].preco = 1.2;
     c.servicos.push(linhaDeServico(CELOFANE));
+    c.servicos[0].desconto_pct = 10; // COT-01: o comercial dá até o máximo (10 % no Cadastros)
     const r = calcularCotacao(c, 5.5);
     expect(r.pode_enviar).toBe(true);
     // 0,16 × 9,50 + 0,04 × 40 × 5,5 + 1 × 1,20 = 1,52 + 8,80 + 1,20
@@ -160,5 +161,24 @@ describe("serviços escolhidos no Kickoff (KO-08)", () => {
     const m = mesclarComposicao({ servicos: [linhaDeServico(ENVASE)] }, { ...base, servicos_selecionados: [] });
     expect(m.servicos.map((l) => l.servico_id)).toEqual([ENVASE.id]);
     expect(m.servicos[0].fora_do_kickoff).toBeUndefined();
+  });
+});
+
+describe("COT-01 (D-10): desconto do serviço é o máximo", () => {
+  test("linha nasce com 0 % e guarda o máximo do Cadastros", () => {
+    expect(linhaDeServico(ENVASE)).toMatchObject({ desconto_pct: 0, desconto_maximo_pct: 10 });
+  });
+  test("no limite passa; acima recusa o comercial; ADM só com motivo", () => {
+    const linha = (d, extra = {}) => ({ ...linhaDeServico(ENVASE), desconto_pct: d, ...extra });
+    expect(validarDescontos([linha(0)]).ok).toBe(true);
+    expect(validarDescontos([linha(10)]).ok).toBe(true);
+    const acima = validarDescontos([linha(12)]);
+    expect(acima.ok).toBe(false);
+    expect(acima.erros[0]).toMatch(/12% em Envase líquido passa do máximo de 10%.*ADM/);
+    expect(validarDescontos([linha(12)], { admin: true }).erros[0]).toMatch(/motivo/);
+    const adm = validarDescontos([linha(12, { desconto_motivo: "Cliente estratégico, volume anual" })], { admin: true });
+    expect(adm.ok).toBe(true);
+    expect(adm.acima).toHaveLength(1);
+    expect(validarDescontos([{ nome: "Fora", desconto_pct: 50, fora_da_tabela: true }]).ok).toBe(true);
   });
 });

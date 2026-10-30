@@ -1183,7 +1183,7 @@
     </div>
   </div>
   <div class="main-tab-panel" id="maintab-servicos">
-    <div class="section-note">Tabela de preços dos serviços cobrados na cotação do CRM (envase, rosqueamento, celofane…). Cada etapa tem o seu <b>desconto padrão</b>, que o comercial ajusta linha a linha na cotação. Serviço sem preço aparece como <b>SEM PREÇO</b> e bloqueia o envio da cotação — nunca vira zero. Mudou preço, desconto, setup ou mínimo, abre vigência nova: cotação em rascunho passa a usar o valor novo; cotação já enviada fica como saiu.</div>
+    <div class="section-note">Tabela de preços dos serviços cobrados na cotação do CRM (envase, rosqueamento, celofane…). Cada etapa tem o seu <b>desconto máximo</b>: a cotação nasce com 0 % e o comercial dá até esse limite; acima, só o ADM, com motivo. Serviço sem preço aparece como <b>SEM PREÇO</b> e bloqueia o envio da cotação — nunca vira zero. Mudou preço, desconto, setup ou mínimo, abre vigência nova: cotação em rascunho passa a usar o valor novo; cotação já enviada fica como saiu.</div>
     <div class="kt-toolbar" data-ui="filters">
       <select class="kt-select" id="filtroAtivo-srv">
         <option value="ativo">Ativos</option>
@@ -1203,7 +1203,7 @@
               <th style="min-width:200px">Serviço</th>
               <th style="min-width:110px">Cobrança</th>
               <th style="min-width:120px">Preço</th>
-              <th style="min-width:80px">Desconto</th>
+              <th style="min-width:80px">Desconto máx.</th>
               <th style="min-width:90px">Setup/lote</th>
               <th style="min-width:90px">Mínimo</th>
               <th style="min-width:110px">Sugerido</th>
@@ -1244,7 +1244,7 @@
               <div class="field-hint" id="hintPreco-srv">Por unidade de cobrança. Vazio bloqueia o envio da cotação que usar este serviço.</div>
             </div>
             <div class="form-group">
-              <label>Desconto da etapa (%)</label>
+              <label>Desconto máximo (%)</label>
               <input type="text" inputmode="decimal" id="fDesconto-srv" placeholder="0">
               <div class="field-hint">Padrão desta etapa; o comercial muda linha a linha na cotação.</div>
             </div>
@@ -1649,7 +1649,7 @@ document.addEventListener('DOMContentLoaded', function() {
   function brl(n, casas) { return 'R$ ' + Number(n).toLocaleString('pt-BR', { minimumFractionDigits: casas == null ? 2 : casas, maximumFractionDigits: 4 }); }
   function dataBr(iso) { return iso ? new Date(iso).toLocaleDateString('pt-BR') : '—'; }
   function campo(n) { return n === null || n === undefined ? '' : String(n).replace('.', ','); }
-  var ROTULO_CAMPO = { nome: 'nome', unidade: 'unidade', preco: 'preço', descontoPct: 'desconto %', setupLote: 'setup/lote', minimoPedido: 'mínimo',
+  var ROTULO_CAMPO = { nome: 'nome', unidade: 'unidade', preco: 'preço', descontoPct: 'desconto máximo %', setupLote: 'setup/lote', minimoPedido: 'mínimo',
     custoHora: 'custo-hora', produtividade: 'produtividade', margemPct: 'margem %', ativo: 'status', obs: 'observação' };
 
   function render() {

@@ -27,7 +27,7 @@ import { cli4For, cli4Valido } from "@/lib/cli4";
 import { MIN_JUSTIFICATIVA, PROJECT_STAGES, PROJECT_TRANSITIONS, formulaRegistrada, hasAnyRole, isAdmin, isComercial, movementEntry, normalizeName } from "@/lib/crmRules";
 import { numeroKickoff } from "@/lib/numeracaoProjeto";
 import { registroDeCambio, taxaDaCotacao, textoCambio } from "@/lib/cambio";
-import { calcularCotacao, insumosDoBom, mensagemDePendencias, precoDoItemDeFormula } from "@/lib/cotacao";
+import { calcularCotacao, insumosDoBom, mensagemDePendencias, precoDoItemDeFormula, validarDescontos } from "@/lib/cotacao";
 import { ehSugestao, sugestaoDePreco, ultimoPrecoDoMaterial } from "@/lib/ultimoPreco";
 import { entradaHistoricoAprovacao, validarAprovacaoCliente } from "@/lib/aprovacaoCliente";
 import { acrescentarHistorico } from "@/lib/historicoTimeline";
@@ -457,9 +457,19 @@ export function createCommercialRouter(h) {
 
   // Fase 7: a composição (insumos do BOM + serviços) é recalculada aqui com a taxa da cotação
   // (a da aprovação quando aprovada, senão a do dia). Enviar com item SEM PREÇO é recusado — nunca vira zero.
-  async function conferirComposicao(changes, existing) {
+  async function conferirComposicao(changes, existing, profile) {
     if (!changes.composicao) return;
     const status = changes.status ?? existing?.status;
+    // COT-01 (D-10): desconto do serviço até o máximo do Cadastros; acima, só ADM com motivo (fica registrado).
+    if (!(status === "enviado" && existing?.status === "enviado" && JSON.stringify(existing?.composicao?.servicos) === JSON.stringify(changes.composicao.servicos))) {
+      const d = validarDescontos(changes.composicao.servicos, { admin: isAdmin(profile) });
+      if (!d.ok) throw apiError(422, d.erros.join(" "));
+      if (d.acima.length) {
+        const acima = new Set(d.acima);
+        changes.composicao = { ...changes.composicao, servicos: changes.composicao.servicos.map((l) => (acima.has(l) && !l.desconto_liberado_por
+          ? { ...l, desconto_liberado_por: userName(profile), desconto_liberado_em: now() } : l)) };
+      }
+    }
     // Só taxa real (registrada na aprovação ou ao vivo): o padrão de R$ 6,00 das fórmulas não vale
     // para cotação ao cliente — sem dólar, insumo em US$ fica "SEM CÂMBIO", como na tela.
     // Leitura forçada: o cache de 30 s pode estar atrás do dólar que será registrado nesta gravação.
@@ -676,7 +686,7 @@ export function createCommercialRouter(h) {
     if (existing?.desatualizado && payload.status === "enviado") {
       throw apiError(409, `Orçamento — ${textoDesatualizado(existing.desatualizado)}. Revise ou registre "revisado, sem impacto" antes de enviar.`);
     }
-    await conferirComposicao(payload, existing);
+    await conferirComposicao(payload, existing, profile);
     // COM-03: o orçamento aponta para a revisão da cotação que usou.
     Object.assign(payload, await referenciaDaCotacao(tenant, projectId));
     // COM-01: enviar ao cliente registra a taxa do momento no histórico (não congela nada).
@@ -2208,7 +2218,7 @@ export function createCommercialRouter(h) {
         }
         // Enviar sem mexer na composição também confere a que já está gravada.
         if (!changes.composicao && changes.status === "enviado" && current.composicao) changes.composicao = current.composicao;
-        await conferirComposicao(changes, current);
+        await conferirComposicao(changes, current, profile);
         const salva = await patch(tenant, "crm_propostas", current.id, { ...changes, updated_by: currentUid(), updated_by_name: userName(profile) });
         if (changes.status === "enviado" && current.status !== "enviado") await registrarCambio(tenant, project, "envio", profile);
         if (cambioAprovacao) await registrarCambio(tenant, project, "orcamento_aprovado", profile, cambioAprovacao);

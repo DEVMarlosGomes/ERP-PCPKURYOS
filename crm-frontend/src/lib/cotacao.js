@@ -73,7 +73,8 @@ export function linhaDeServico(servico) {
   const s = servico || {};
   return {
     servico_id: s.id, codigo: s.codigo || "", nome: s.nome || "", unidade: s.unidade || "un",
-    preco_cheio: positivo(s.preco), desconto_pct: pct(s.descontoPct), setup_lote: num(s.setupLote) || 0,
+    // COT-01 (D-10): o desconto do Cadastros é o MÁXIMO da etapa; a linha nasce com 0 % e o comercial dá até ele.
+    preco_cheio: positivo(s.preco), desconto_pct: 0, desconto_maximo_pct: pct(s.descontoPct), setup_lote: num(s.setupLote) || 0,
     minimo_pedido: num(s.minimoPedido) || 0, fator: 1,
   };
 }
@@ -105,7 +106,8 @@ export function mesclarComposicao(salva, base, { congelada = false } = {}) {
     const fora = escolhidos.size && !escolhidos.has(l.servico_id) ? { fora_do_kickoff: true } : {};
     if (!atual) return { ...l, fora_da_tabela: true, ...fora };
     const nova = linhaDeServico(atual);
-    return { ...nova, desconto_pct: pct(l.desconto_pct), fator: positivo(l.fator) || 1, ...fora };
+    return { ...nova, desconto_pct: pct(l.desconto_pct), fator: positivo(l.fator) || 1, ...fora,
+      ...(l.desconto_motivo ? { desconto_motivo: l.desconto_motivo, desconto_liberado_por: l.desconto_liberado_por || "" } : {}) };
   });
   for (const id of escolhidos) {
     if (tabela.has(id) && !servicos.some((l) => l.servico_id === id)) servicos.push(linhaDeServico(tabela.get(id)));
@@ -127,6 +129,24 @@ function quantidadeCobrada(unidade, fator, ctx) {
   if (unidade === "kg") return ctx.qtd * ctx.kg * f;
   if (unidade === "lote") return ctx.lotes * f;
   return ctx.qtd * f;
+}
+
+/* COT-01 (D-10): desconto acima do máximo da etapa só com ADM e motivo (mín. 10 caracteres).
+ * Devolve { ok, erros, acima: [linhas acima do máximo] }. Linha sem máximo conhecido (fora da tabela) não é conferida. */
+export const MIN_MOTIVO_DESCONTO = 10;
+export function validarDescontos(servicos, { admin = false } = {}) {
+  const erros = [];
+  const acima = [];
+  for (const l of servicos || []) {
+    const max = l?.desconto_maximo_pct;
+    if (max === undefined || max === null || l.fora_da_tabela) continue;
+    if (pct(l.desconto_pct) <= pct(max) + 1e-9) continue;
+    acima.push(l);
+    const nome = l.nome || l.codigo || "serviço";
+    if (!admin) erros.push(`Desconto de ${pct(l.desconto_pct)}% em ${nome} passa do máximo de ${pct(max)}% (Cadastros › Serviços). Só o ADM libera, com motivo.`);
+    else if (String(l.desconto_motivo || "").trim().length < MIN_MOTIVO_DESCONTO) erros.push(`Informe o motivo do desconto acima do máximo em ${nome} (mínimo ${MIN_MOTIVO_DESCONTO} caracteres).`);
+  }
+  return { ok: !erros.length, erros, acima };
 }
 
 export function calcularCotacao(composicao, taxa) {
