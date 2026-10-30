@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import BomEmbalagens from "@/components/BomEmbalagens";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -345,46 +346,8 @@ export default function KickoffPage() {
                   </div>
                   <Button variant="outline" onClick={loadKickoff}>Atualizar</Button>
                 </div>
-                {["primaria", "secundaria", "terciaria", ""].map((nivel) => {
-                  const linhas = (kickoff.bom || []).filter((l) => (l.nivel || "") === nivel);
-                  if (!linhas.length) return null;
-                  return (
-                    <div key={nivel || "outros"} className="mb-4 overflow-x-auto">
-                      <h3 className="mb-1 text-sm font-semibold">{{ primaria: "Primária", secundaria: "Secundária", terciaria: "Terciária", "": "Outros" }[nivel]}</h3>
-                      <table className="w-full min-w-[900px] text-sm" data-testid={`bom-${nivel || "outros"}`}>
-                        <thead>
-                          <tr className="border-b text-left">
-                            <th className="py-2 pr-3">Código</th>
-                            <th className="py-2 pr-3">Item</th>
-                            <th className="py-2 pr-3">Especificação</th>
-                            <th className="py-2 pr-3">Fornecido por</th>
-                            <th className="py-2 pr-3">Fornecedor</th>
-                            <th className="py-2 pr-3">{nivel === "terciaria" ? "Unid./emb." : "Qtd/un"}</th>
-                            <th className="py-2 pr-3">Qtd pedido</th>
-                            <th className="py-2">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {linhas.map((line) => (
-                            <tr key={line.id} className="border-b last:border-b-0">
-                              <td className="py-2 pr-3 font-mono text-xs">{line.codigo_interno}</td>
-                              <td className="py-2 pr-3">{line.descricao}{line.definido === false && <Badge variant="secondary" className="ml-1">a definir</Badge>}{line.item_novo && <Badge variant="secondary" className="ml-1">item novo</Badge>}</td>
-                              <td className="py-2 pr-3 text-muted-foreground">{line.especificacao || "-"}</td>
-                              <td className="py-2 pr-3">{line.fornecido_por === "cliente" ? "Cliente" : line.fornecido_por === "kuryos" ? "Kuryos" : "-"}</td>
-                              <td className="py-2 pr-3">{line?.fornecedor_principal?.nome || "-"}</td>
-                              <td className="py-2 pr-3">{nivel === "terciaria" ? (line.unidades_por_embalagem ?? "-") : (line.quantidade_por_unidade ?? "-")}</td>
-                              <td className="py-2 pr-3">{line.quantidade_total_pedido ?? "-"}</td>
-                              <td className="py-2">
-                                <Badge variant={line.status_homologacao === "homologado" ? "outline" : "secondary"}>{line.status_homologacao}</Badge>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  );
-                })}
-                {(kickoff.bom || []).length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Nenhum componente aplicável no questionário ainda.</p>}
+                {/* BOM-03: Tabela/Árvore; texto quebra; no celular, cartões. */}
+                <BomEmbalagens bom={kickoff.bom || []} produto={[questionario.bloco0?.nome_produto, questionario.bloco0?.volume_gramatura].filter(Boolean).join(" ")} />
               </CardContent>
             </Card>
             <Card>
