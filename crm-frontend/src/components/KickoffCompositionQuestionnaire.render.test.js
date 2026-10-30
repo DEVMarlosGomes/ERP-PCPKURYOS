@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import KickoffCompositionQuestionnaire, { emptyKickoffQuestionnaire } from "@/components/KickoffCompositionQuestionnaire";
+import KickoffCompositionQuestionnaire, { GRUPOS_BLOCO2, emptyKickoffQuestionnaire, linhasPorGrupo } from "@/components/KickoffCompositionQuestionnaire";
 import { CATALOGO_PADRAO, OUTRO, escolherTipo } from "@/lib/tiposComponente";
 
 vi.mock("@/lib/api", () => ({ default: { get: () => new Promise(() => {}), put: async () => ({}) } }));
@@ -31,4 +31,22 @@ test("selo de origem e motivo de alteração", () => {
   const editado = { ...original, bloco0: { ...original.bloco0, volume_gramatura: "250 mL" } };
   const html = renderToStaticMarkup(<KickoffCompositionQuestionnaire value={editado} original={original} onChange={() => {}} onSave={() => {}} />);
   expect(html).toContain('data-testid="motivo-sobrescrita"');
+});
+
+// KO-11 (D-05): Bloco 2 em dois grupos — Frasco e Tampa e válvula; Kickoff antigo (ordem antiga) abre igual.
+test("Bloco 2 agrupado: Frasco × Tampa e válvula, sem mexer na ordem gravada", () => {
+  const ordemAntiga = ["frasco_pote_bisnaga", "airless_rollon_ampola", "tampa", "valvula_pump", "valvula_spray", "valvula_aerossol_atuador",
+    "gatilho_trigger", "batoque_redutor_orificio", "lacre_inducao_disco", "aplicador", "custom_1"].map((id) => ({ id, componente: id }));
+  const ordem = linhasPorGrupo(ordemAntiga, GRUPOS_BLOCO2);
+  expect(ordem.map((o) => [o.grupo, ordemAntiga[o.indice].id])).toEqual([
+    ["Frasco", "frasco_pote_bisnaga"], ["Frasco", "airless_rollon_ampola"], ["Frasco", "batoque_redutor_orificio"], ["Frasco", "lacre_inducao_disco"], ["Frasco", "aplicador"],
+    ["Tampa e válvula", "tampa"], ["Tampa e válvula", "valvula_pump"], ["Tampa e válvula", "valvula_spray"], ["Tampa e válvula", "valvula_aerossol_atuador"], ["Tampa e válvula", "gatilho_trigger"],
+    ["Outros componentes", "custom_1"],
+  ]);
+  const q = emptyKickoffQuestionnaire();
+  q.bloco2.componentes = ordemAntiga.slice(0, 10).map((r) => ({ ...r, aplicavel: "", definido: "" }));
+  const html = renderToStaticMarkup(<KickoffCompositionQuestionnaire value={q} onChange={() => {}} onSave={() => {}} />);
+  expect(html.split('data-testid="grupo-componentes"').length - 1).toBe(2);
+  expect(html.indexOf(">Frasco</th>")).toBeLessThan(html.indexOf(">Tampa e válvula</th>"));
+  expect(html).toContain('value="tampa"');
 });

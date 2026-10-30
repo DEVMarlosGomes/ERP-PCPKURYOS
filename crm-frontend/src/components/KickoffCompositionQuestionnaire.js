@@ -11,18 +11,36 @@ import { opcoesDeCategoria } from "@/lib/categoriasProduto";
 import { normalizarLinhaComponente, pendenciasQuestionario, simNao } from "@/lib/kickoffPendencias";
 import { CATALOGO_PADRAO, OUTRO, TIPO_OUTRO, escolherTipo, especificacaoDasCaracteristicas, tiposDaLinha, valorAtributo } from "@/lib/tiposComponente";
 
+// KO-11 (reunião 28/10/2026, D-05): "tudo que vai no frasco fica no frasco; tampa e válvula juntas".
+// Mesmos ids de linha (dados antigos abrem iguais, sem migração); só a ordem e o agrupamento mudam.
 const BLOCO2_COMPONENTS = [
   ["frasco_pote_bisnaga", "Frasco / pote / bisnaga"],
   ["airless_rollon_ampola", "Airless / roll-on / ampola"],
+  ["batoque_redutor_orificio", "Batoque / redutor / orificio"],
+  ["lacre_inducao_disco", "Lacre de inducao / disco de vedacao"],
+  ["aplicador", "Aplicador (pincel / espatula / esponja)"],
   ["tampa", "Tampa (rosca / flip-top / pressao)"],
   ["valvula_pump", "Valvula pump / bomba dosadora"],
   ["valvula_spray", "Valvula spray / atomizador"],
   ["valvula_aerossol_atuador", "Valvula aerossol + atuador"],
   ["gatilho_trigger", "Gatilho / trigger"],
-  ["batoque_redutor_orificio", "Batoque / redutor / orificio"],
-  ["lacre_inducao_disco", "Lacre de inducao / disco de vedacao"],
-  ["aplicador", "Aplicador (pincel / espatula / esponja)"],
 ];
+
+export const GRUPOS_BLOCO2 = [
+  { titulo: "Frasco", ids: ["frasco_pote_bisnaga", "airless_rollon_ampola", "batoque_redutor_orificio", "lacre_inducao_disco", "aplicador"] },
+  { titulo: "Tampa e válvula", ids: ["tampa", "valvula_pump", "valvula_spray", "valvula_aerossol_atuador", "gatilho_trigger"] },
+];
+
+/* Ordem de exibição por grupo, sem mexer na ordem gravada: [{ grupo, indice }]. Linha que não é de
+ * nenhum grupo (acrescentada à mão) fica em "Outros componentes", no fim, na ordem em que entrou. */
+export function linhasPorGrupo(lista, grupos) {
+  if (!grupos?.length) return (lista || []).map((_, indice) => ({ grupo: null, indice }));
+  const grupoDe = new Map(grupos.flatMap((g, gi) => g.ids.map((id) => [id, gi])));
+  const posNoGrupo = new Map(grupos.flatMap((g) => g.ids.map((id, i) => [id, i])));
+  return (lista || []).map((row, indice) => ({ row, indice, gi: grupoDe.has(row?.id) ? grupoDe.get(row.id) : grupos.length }))
+    .sort((a, b) => a.gi - b.gi || (a.gi < grupos.length ? posNoGrupo.get(a.row.id) - posNoGrupo.get(b.row.id) : a.indice - b.indice))
+    .map(({ gi, indice }) => ({ grupo: gi < grupos.length ? grupos[gi].titulo : "Outros componentes", indice }));
+}
 
 const BLOCO3_COMPONENTS = [
   ["rotulo", "Rotulo (frontal / contra)"],
@@ -388,7 +406,7 @@ function CaracteristicasDaLinha({ linha, catalogo, onChange }) {
 const TIPO_DO_BLOCO = { bloco2: "EP", bloco3: "ES", bloco4: "ET" };
 const rotuloMaterial = (m) => `${m.codigo_interno} — ${m.nome}`;
 
-function ComponentTable({ title, value, onChange, defaults, hasArt = false, bloco, materiais = [], catalogo = [] }) {
+function ComponentTable({ title, value, onChange, defaults, hasArt = false, bloco, materiais = [], catalogo = [], grupos = null }) {
   const list = value?.componentes || [];
   const terciaria = bloco === "bloco4";
   const campoQtd = terciaria ? "unidades_por_embalagem" : "qtd_por_unidade";
@@ -469,7 +487,9 @@ function ComponentTable({ title, value, onChange, defaults, hasArt = false, bloc
             </tr>
           </thead>
           <tbody className="divide-y">
-            {list.map((row, index) => {
+            {linhasPorGrupo(list, grupos).map(({ grupo, indice: index }, pos, ordem) => {
+              const row = list[index];
+              const cabecalho = grupo && (pos === 0 || ordem[pos - 1].grupo !== grupo);
               // KO-03: Aplicável? Não ou Definido? Não = linha resolvida; o resto só vale com os dois em Sim.
               const aplicavel = normalizeBinary(row.aplicavel) === "sim";
               const precisa = aplicavel && normalizeBinary(row.definido) === "sim";
@@ -477,6 +497,11 @@ function ComponentTable({ title, value, onChange, defaults, hasArt = false, bloc
               const mostraCaracteristicas = precisa && !row.material_codigo && row.tipo_componente;
               return (
               <Fragment key={row.id || index}>
+              {cabecalho && (
+                <tr className="bg-muted/40" data-testid="grupo-componentes">
+                  <th colSpan={hasArt ? 10 : 8} scope="colgroup" className="px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{grupo}</th>
+                </tr>
+              )}
               <tr className={normalizeBinary(row.aplicavel) === "nao" ? "opacity-60" : ""}>
                 <td className="px-2 py-2 space-y-1">
                   <Input value={row.componente || ""} onChange={(event) => updateRow(index, "componente", event.target.value)} />
@@ -677,7 +702,7 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
       </Section>
 
       <Section title="Bloco 2 - Embalagem primaria e sistema de fechamento" pendencias={pend.bloco2.pendencias}>
-        <ComponentTable title="Componentes" bloco="bloco2" materiais={materiais} catalogo={catalogo} value={q.bloco2} defaults={BLOCO2_COMPONENTS} onChange={(v) => update("bloco2", "componentes", v.componentes)} />
+        <ComponentTable title="Componentes" bloco="bloco2" materiais={materiais} catalogo={catalogo} value={q.bloco2} defaults={BLOCO2_COMPONENTS} grupos={GRUPOS_BLOCO2} onChange={(v) => update("bloco2", "componentes", v.componentes)} />
       </Section>
 
       <Section title="Bloco 3 - Embalagem secundaria e comunicacao" pendencias={pend.bloco3.pendencias}>

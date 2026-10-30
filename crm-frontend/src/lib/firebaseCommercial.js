@@ -75,17 +75,19 @@ export const KURYOS_FABRICANTE = {
 
 export const QUESTIONARIO_COMPOSICAO_VERSION = "questionario_composicao_projeto_2";
 
+// KO-11 (reunião 28/10/2026, D-05): "tudo que vai no frasco fica no frasco; tampa e válvula juntas".
+// Mesmos ids de linha (dados antigos abrem iguais, sem migração); só a ordem e o agrupamento mudam.
 const BLOCO2_COMPONENTS = [
   ["frasco_pote_bisnaga", "Frasco / pote / bisnaga"],
   ["airless_rollon_ampola", "Airless / roll-on / ampola"],
+  ["batoque_redutor_orificio", "Batoque / redutor / orificio"],
+  ["lacre_inducao_disco", "Lacre de inducao / disco de vedacao"],
+  ["aplicador", "Aplicador (pincel / espatula / esponja)"],
   ["tampa", "Tampa (rosca / flip-top / pressao)"],
   ["valvula_pump", "Valvula pump / bomba dosadora"],
   ["valvula_spray", "Valvula spray / atomizador"],
   ["valvula_aerossol_atuador", "Valvula aerossol + atuador"],
   ["gatilho_trigger", "Gatilho / trigger"],
-  ["batoque_redutor_orificio", "Batoque / redutor / orificio"],
-  ["lacre_inducao_disco", "Lacre de inducao / disco de vedacao"],
-  ["aplicador", "Aplicador (pincel / espatula / esponja)"],
 ];
 const BLOCO3_COMPONENTS = [
   ["rotulo", "Rotulo (frontal / contra)"],
