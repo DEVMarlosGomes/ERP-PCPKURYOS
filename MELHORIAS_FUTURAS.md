@@ -1425,3 +1425,15 @@ Contexto: entregues pelo Dev 3 (`reuniao-20261028/fin-op`) e revisados; spec em 
 - **`emitir_op.html` tem 563 px de largura em 390 px** por causa da tabela de materiais de 6 colunas (já era assim antes). Virar cartões no celular.
 - **`travar()` do Financeiro relança o erro depois do toast** (`shared/financeiro-tela.js`): recusa do servidor deixa uma rejeição não tratada no console. Trocar o relançamento por retorno controlado.
 - **FIN-01 sem ensaio contra a base.** A leitura nova ("2x 30/60", "3x") só entra quando o texto começa por número + "x"/"vezes"; as condições já gravadas leem igual. Conferir com uma exportação de `fin/` quando houver títulos manuais.
+
+## Reunião 28/10 — FEFO-01 e PLAN-01 (30/10/2026)
+
+Contexto: entregues pelo Dev 3 (`reuniao-20261028/fase6`), revisados e ensaiados contra a base (`scripts/ensaio-reprogramacao-linha.js`, só leitura).
+
+- **Ensaio com a base (30/10):** 1.393 OPs; 0 moveriam (a base parou na última OP de 21/09). 984 OPs históricas têm linha com a grafia antiga ("Linha 01/02/03") e ficam fora do motor e da grade; as 63 abertas usam "Linha 1/2/3". Se o histórico precisar entrar, normalizar o nome da linha em `reprogramacao-linha.js:blocosDasOps` (e na grade), não no dado.
+- **Atraso de OP em execução pelo mínimo certo** (max(fim planejado, agora)). O ETA pelo ritmo (`ops.html`) daria um empurrão mais cedo; decidir com o PCP.
+- **Zona fixa (`config/congelamento.diasFixos`) vale também para puxar/empurrar OP.** Na base hoje ela é 0 dias. Com 7 dias, quase nada da semana se move; decidir se a zona deve valer aqui.
+- **"OP vinculada travada"** foi lida como "já começou" + zona fixa. Travar a OP ligada a bloco congelado em `alocacoes_planejamento` ficou de fora.
+- **Separação consolidada (vários OPs por material)** segue FEFO com `clienteKey`, mas não tem "+ outro lote" com motivo como a separação por OP.
+- **FEFO na operação:** o apontamento não escolhe lote de embalagem; ele baixa o que foi separado para a OP (`separadoPara`). Se a fábrica apontar sem separar, volta ao FEFO geral.
+- **Suítes de tela que já falhavam no main antes da Fase 6** (texto desatualizado, não regressão): `run_operacao_ui_test.js` (módulo `placar` no perfil Produção), `run_portao_bulk_ui_test.js` (texto do portão do granel), `run_proximas_ordens_ui_test.js` (glifo "⚠" trocado pela camada de ícones). Atualizar as asserções.
