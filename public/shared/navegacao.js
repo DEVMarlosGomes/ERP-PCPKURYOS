@@ -98,6 +98,13 @@
     {p: 'planejamento.html', r: 'Planejamento', i: 'calendar', b: 'PCP'},
     {p: 'ops.html', r: 'Controle de OPs', i: 'gear', b: 'PCP'},
     {p: 'emitir_op.html', r: 'Emitir OP', i: 'pencil', b: 'PCP'},
+    // Pesagens (PORT-02, porte do Gustavo f2090df): a gestão cobra pelo PCP; a
+    // Manipulação vê o seu dia na Operação.
+    {p: 'pesagens.html', i: 'flask',
+      r: function(c) { return c.temMod('planejamento') || c.temMod('emitir_op') ? 'Pesagens' : 'Pesagens do dia'; },
+      b: function(c) { return c.temMod('planejamento') || c.temMod('emitir_op') ? 'PCP' : 'Operação'; },
+      s: function(c) { return c.temMod('planejamento') || c.temMod('emitir_op') ? null : 'Manipulação'; },
+      o: function(c) { return c.temMod('planejamento') || c.temMod('emitir_op') ? pos('emitir_op.html') + 0.6 : pos('manipulacao.html') + 0.5; }},
     {p: 'insumos.html', r: 'Matriz de Insumos (MRP)', i: 'box', b: 'PCP'},
     // O que comprar: escolhe pedidos e vê o que falta, material a material.
     {p: 'o_que_comprar.html', r: 'O que comprar', i: 'cart',
@@ -258,10 +265,8 @@
      página de destino precisa abrir + condição extra) e como contar. Quem não
      vê o cartão também não gera a leitura dos dados dele (fontesNecessarias).
      Portados do registro do Gustavo só os cartões cujas fontes existem aqui;
-     ficaram de fora "Inspeção total de PA" (inspecao_total.html e
-     shared/inspecao-total-pa.js não existem neste repo) e "Pesagens para
-     cobrar" (pesagens.html e shared/pesagens-dia.js idem). Entram junto com
-     a tela, quando ela for portada (Fase 8). */
+     "Pesagens para cobrar" voltou com a tela (PORT-02); "Inspeção total de
+     PA" volta no PORT-03. */
   function contar(no, status) {
     var n = 0;
     Object.keys(no || {}).forEach(function(k) { if ((no[k] || {}).status === status) n++; });
@@ -290,6 +295,18 @@
   }
 
   var CARTOES = [
+    {id: 'pesagens', i: 'flask', titulo: 'Pesagens para cobrar', pagina: 'pesagens.html', fontes: ['ops', 'programacao'],
+      q: function(c) { return c.temMod('planejamento') || c.temMod('emitir_op'); },
+      calcular: function(d, lib) {
+        if (!lib.PesagensDia) return null;
+        var r = lib.PesagensDia.pendencias(d.ops, d.programacao, lib.hoje, {ideal: 3, janela: 5});
+        if (!r.cobrar) return null;
+        var a = r.contagem.ATRASADA || 0, f = r.contagem.FORA_META || 0;
+        var partes = [];
+        if (a) partes.push(a + ' com envase hoje ou atrasado');
+        if (f) partes.push(f + ' fora da meta');
+        return {n: r.cobrar, tom: a ? 'alerta' : 'aviso', texto: partes.join(' · ')};
+      }},
     // ── Expedição (shared/cargas-pa.js: a mesma contagem da faixa de etapas)
     {id: 'cargas_faturar', i: 'clipboard', titulo: 'Cargas a faturar', pagina: 'faturamento.html', fontes: ['agendamentos_expedicao'],
       calcular: function(d, lib) {

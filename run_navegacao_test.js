@@ -35,8 +35,8 @@ const paginaDe = (href) => semHtml(href).split('?')[0] + '.html';
 const ETAPAS_EXPEDICAO = ['faturamento', 'cargas'];
 // Telas portadas na Fase 8 (Dev 3: PORT-06 a PORT-09): os únicos links novos aceitos
 // além do menu antigo -- quem tem o módulo passa a vê-los; o resto não muda.
-const NOVAS_FASE8_DEV3 = ['ativos', 'manual_ativos', 'auditoria_5s', 'manual_auditoria_5s', 'rh_temporarios', 'manual_temporarios',
-  'feedback', 'rh_feedback', 'manual_feedback', 'backlog'];
+const NOVAS_FASE8 = ['ativos', 'manual_ativos', 'auditoria_5s', 'manual_auditoria_5s', 'rh_temporarios', 'manual_temporarios',
+  'feedback', 'rh_feedback', 'manual_feedback', 'backlog', 'pesagens'];
 
 // O fixture cobre todos os perfis do aceite.
 ['admin', 'pcp', 'gestor', 'qualidade', 'rotulagem', 'logistica', 'comercial', 'pd', 'production', 'rh', 'tv',
@@ -70,7 +70,7 @@ Object.keys(PERFIS).forEach((nome) => {
   antigos.forEach((l) => { rotuloAntigo[l.href] = l.rotulo; });
   const setAntigo = new Set(antigos.map((l) => l.href));
   const setNovo = new Set(hrefsNovos);
-  const sobrando = [...setNovo].filter((h) => !setAntigo.has(h) && !NOVAS_FASE8_DEV3.includes(h));
+  const sobrando = [...setNovo].filter((h) => !setAntigo.has(h) && !NOVAS_FASE8.includes(h));
   assert.deepEqual(sobrando, [], nome + ': link novo que o menu antigo não oferecia');
   const faltando = [...setAntigo].filter((h) => !setNovo.has(h));
   const faltaAceita = faltando.filter((h) => ETAPAS_EXPEDICAO.includes(h) && setNovo.has('expedicao'));
@@ -78,7 +78,7 @@ Object.keys(PERFIS).forEach((nome) => {
   // Mesmo rótulo, salvo o link que passou a representar as três etapas.
   novo.forEach((l) => {
     if (l.href === 'expedicao') { assert.equal(l.rotulo, 'Expedição de Vendas'); return; }
-    if (NOVAS_FASE8_DEV3.includes(l.href)) return; // tela nova: não havia rótulo antigo
+    if (NOVAS_FASE8.includes(l.href)) return; // tela nova: não havia rótulo antigo
     assert.equal(l.rotulo, rotuloAntigo[l.href], nome + ': rótulo mudou em ' + l.href);
   });
   comparados++;
@@ -127,6 +127,12 @@ assert.deepEqual(doBloco(rot, 'Operação').map((l) => [l.sub, l.rotulo]).filter
   [['Rotulagem', 'Próximas Ordens'], ['Rotulagem', 'Apontamento'], ['Rotulagem', 'Histórico de Apontamentos'], ['Rotulagem', 'Estoque dos Rótulos']]);
 assert.equal(rotulos(menu('soConferencia'), 'Operação')[0], 'Conferência de Pesagem');
 assert.deepEqual([...new Set(menu('pending').map((l) => l.grupo))], ['Ajuda'], 'conta pendente só vê os manuais');
+
+// ── Fase 8: telas portadas no lugar certo
+assert.deepEqual(rotulos(menu('pcp'), 'PCP').slice(0, 4), ['Planejamento', 'Controle de OPs', 'Emitir OP', 'Pesagens'], 'PORT-02: Pesagens logo depois de Emitir OP');
+assert.deepEqual(doBloco(menu('soManipulacao'), 'Operação').filter((l) => l.rotulo === 'Pesagens do dia').map((l) => l.sub), ['Manipulação'], 'PORT-02: a Manipulação vê o seu dia');
+assert.ok(!menu('rotulagem').some((l) => l.href === 'pesagens'), 'rotulagem não vê Pesagens');
+assert.ok(Nav.cartoesVisiveis({podeAbrir: (pg) => acesso.podeAbrirPagina(PERFIS.production, pg), temMod: (m) => acesso.usuarioTemModulo(PERFIS.production, m), role: 'production', setores: acesso.setoresOperacao(PERFIS.production)}).some((c) => c.id === 'pesagens'), 'PORT-02: cartão Pesagens para quem planeja');
 
 // ── Item ativo: a etapa da expedição marca o link único; a aba certa no Estoque
 assert.deepEqual(menu('logistica', 'faturamento.html').filter((l) => l.ativo).map((l) => l.href), ['expedicao']);

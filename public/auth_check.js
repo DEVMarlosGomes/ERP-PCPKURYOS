@@ -206,18 +206,18 @@ const KURYOS_MODULOS = {
   apontamento:  { rotulo: 'Operação — Produção',   desc: 'Apontamento das linhas, histórico e estoque da fábrica',
                   paginas: ['form.html', 'historico.html', 'estoque_setor.html', 'proximas_ordens.html', 'material_processo.html'] },
   manipulacao:  { rotulo: 'Operação — Manipulação', desc: 'Pesagem, manipulação do bulk e estoque da manipulação',
-                  paginas: ['manipulacao.html', 'estoque_setor.html', 'proximas_ordens.html', 'material_processo.html'] },
+                  paginas: ['manipulacao.html', 'pesagens.html', 'estoque_setor.html', 'proximas_ordens.html', 'material_processo.html'] },
   rotulagem:    { rotulo: 'Operação — Rotulagem',  desc: 'Apontamento da rotulagem, histórico e estoque da sala de rótulos',
                   paginas: ['form.html', 'historico.html', 'estoque_setor.html', 'proximas_ordens.html', 'material_processo.html'] },
   // Quem pode conferir a pesagem enquanto a chave "Conferência de Pesagem"
   // (Ajustes) estiver ligada -- Qualidade e P&D. Dá acesso só à tela da
   // Manipulação; conferir é a única ação que a tela oferece a quem só tem isto.
   conferencia_pesagem: { rotulo: 'Conferência de Pesagem', desc: 'Qualidade/P&D: conferir a pesagem antes da manipulação',
-                  paginas: ['manipulacao.html'] },
+                  paginas: ['manipulacao.html', 'pesagens.html'] },
   planejamento: { rotulo: 'Planejamento e OPs',    desc: 'Programação, controle de OPs e histórico de apontamentos',
-                  paginas: ['planejamento.html', 'horizonte.html', 'ops.html', 'historico.html', 'proximas_ordens.html', 'material_processo.html', 'consulta_estoque.html', 'o_que_comprar.html'] },
+                  paginas: ['planejamento.html', 'horizonte.html', 'ops.html', 'pesagens.html', 'historico.html', 'proximas_ordens.html', 'material_processo.html', 'consulta_estoque.html', 'o_que_comprar.html'] },
   emitir_op:    { rotulo: 'Emitir OP',             desc: 'Criar a ordem de produção que a fábrica executa',
-                  paginas: ['emitir_op.html', 'dossie_lote.html'] },
+                  paginas: ['emitir_op.html', 'dossie_lote.html', 'pesagens.html'] },
   comercial:    { rotulo: 'Comercial',             desc: 'Orçamentos, pedidos, CRM e desenvolvimento',
                   paginas: ['comercial.html', 'gestao_comercial.html', 'crm1.html', 'crm2.html', 'crm3.html', 'pd.html', 'crm-admin.html', 'devolucoes.html', 'relatorio_pedido.html'] },
   // P&D (14/10/2026): função própria, separada do Comercial (que continua vendo
