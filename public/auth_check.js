@@ -283,7 +283,11 @@ const KURYOS_MODULOS = {
   // (Kuryos ou cliente). Fora de MODULOS_POR_PAPEL: só admin e quem o ADM marcar; a
   // função do servidor (alterarTitularidadeEstoque) confere de novo.
   titularidade: { rotulo: 'Titularidade do Estoque', desc: 'Mudar de quem é o material em estoque (Kuryos ou um cliente), com motivo e registro',
-                  paginas: ['titularidade.html'] }
+                  paginas: ['titularidade.html'] },
+  // Auditoria do sistema (PORT-05, porte do Gustavo): quem gravou o quê nas telas de operação.
+  // Só o admin lê (regra do banco); fora de MODULOS_POR_PAPEL.
+  auditoria:    { rotulo: 'Auditoria do Sistema', desc: 'Quem apontou, com qual login, e toda gravação das telas de operação (dado sensível)',
+                  paginas: ['auditoria.html'] }
 };
 
 // Padrão por papel. Reproduz EXATAMENTE o alcance que cada papel tinha antes
@@ -470,6 +474,12 @@ window.urlLimpa = urlLimpa;
   s.setAttribute('data-kuryos-nav', '');
   document.head.appendChild(s);
 })();
+
+// Auditoria geral (PORT-05, porte do Gustavo c2cde70): carrega, em sincronia e antes
+// dos scripts da própria página, o módulo que registra toda gravação feita pelas
+// telas. A instalação acontece no login, quando o usuário já está identificado.
+// Fora do CRM/P&D React (crm-app.html): D-16 audita só a operação.
+try { if (document.readyState === 'loading' && !window.__PCP_EMBEDDED__) document.write('<script src="shared/auditoria-escritas.js?v=20261030-1"><\/script>'); } catch (e) { /* a auditoria nunca impede o uso da tela */ }
 
 window.currentUser = null;
 
@@ -697,6 +707,11 @@ window.currentUser = null;
             } else {
               // Constrói e injeta o menu superior unificado
               renderUnifiedNavbar(window.currentUser);
+              try {
+                if (window.AuditoriaEscritas && window.firebase && !window.__PCP_EMBEDDED__) {
+                  window.AuditoriaEscritas.instalar(window.firebase, function() { return {usuario: window.currentUser, pagina: activePage}; });
+                }
+              } catch (e) { console.warn('Auditoria: não instalada nesta tela', e); }
               // Avisa a página que o PAPEL do usuário já é conhecido.
               //
               // A leitura do perfil é assíncrona e quase sempre chega DEPOIS

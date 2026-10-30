@@ -503,6 +503,37 @@
         ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'qualidade' || root.child('usuarios').child(auth.uid).child('modulos').child('qualidade').val() == true || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'production' || root.child('usuarios').child(auth.uid).child('modulos').child('apontamento').val() == true)"
       }
     },
+    // Auditoria do sistema (PORT-05, porte do Gustavo 0a5e577/c2cde70): eventos do chão de
+    // fábrica e toda gravação das telas de operação. Só o admin lê; quem grava é o próprio
+    // usuário (porUid == auth.uid), uma vez, sem alterar nem apagar. D-16: custos/, fin/,
+    // ctl/, resultado/ e erp/ ficam fora (shared/auditoria-escritas.js, IGNORAR).
+    "eventos_auditoria": {
+      ".read": "auth != null && root.child('usuarios').child(auth.uid).child('role').val() == 'admin'",
+      "$dia": {
+        "$id": {
+          ".write": "auth != null && !data.exists() && newData.exists()",
+          ".validate": "newData.hasChildren(['acao','em','porUid'])",
+          "porUid": { ".validate": "newData.isString() && newData.val() == auth.uid" },
+          "acao": { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "em": { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "$outro": { ".validate": true }
+        }
+      }
+    },
+    "auditoria_geral": {
+      ".read": "auth != null && root.child('usuarios').child(auth.uid).child('role').val() == 'admin'",
+      "$dia": {
+        "$id": {
+          ".write": "auth != null && !data.exists() && newData.exists()",
+          ".validate": "newData.hasChildren(['metodo','caminho','em','porUid'])",
+          "porUid": { ".validate": "newData.isString() && newData.val() == auth.uid" },
+          "metodo": { ".validate": "newData.isString() && newData.val().length <= 20" },
+          "caminho": { ".validate": "newData.isString() && newData.val().length <= 200" },
+          "em": { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "$outro": { ".validate": true }
+        }
+      }
+    },
     "pedidos_comerciais": {
       ".read": "auth != null",
       ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('pedidos').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true))",

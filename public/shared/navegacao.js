@@ -183,6 +183,8 @@
     {p: 'controladoria.html', r: 'Controladoria', i: 'scale', b: 'Financeiro'},
     {p: 'admin.html', r: 'Ajustes / Config', i: 'sliders', b: 'ADM'},
     {p: 'usuarios.html', r: 'Usuários', i: 'people', b: 'ADM'},
+    // Auditoria (PORT-05, porte do Gustavo): eventos e gravações das telas de operação.
+    {p: 'auditoria.html', r: 'Auditoria', i: 'history', b: 'ADM'},
 
     // ── RH
     {p: 'rh_dashboard.html', r: 'Dash', i: 'dashboard', b: 'RH'},
@@ -202,6 +204,7 @@
     {p: 'manual_qualidade.html', r: 'Qualidade', i: 'book', b: 'Ajuda', q: function(c) { return c.temMod('qualidade'); }},
     {p: 'manual_cadastros.html', r: 'Cadastros', i: 'book', b: 'Ajuda', q: function(c) { return c.temMod('cadastros'); }},
     {p: 'manual_admin.html', r: 'Administração', i: 'book', b: 'Ajuda', q: function(c) { return c.temMod('usuarios'); }},
+    {p: 'manual_auditoria.html', r: 'Auditoria', i: 'book', b: 'Ajuda', q: function(c) { return c.temMod('auditoria'); }},
     // A referência completa descreve o sistema INTEIRO, inclusive o que a pessoa não acessa.
     {p: 'manual_referencia.html', r: 'Referência do Sistema', i: 'book', b: 'Ajuda'},
 

@@ -36,7 +36,8 @@ const ETAPAS_EXPEDICAO = ['faturamento', 'cargas'];
 // Telas portadas na Fase 8 (Dev 3: PORT-06 a PORT-09): os únicos links novos aceitos
 // além do menu antigo -- quem tem o módulo passa a vê-los; o resto não muda.
 const NOVAS_FASE8 = ['ativos', 'manual_ativos', 'auditoria_5s', 'manual_auditoria_5s', 'rh_temporarios', 'manual_temporarios',
-  'feedback', 'rh_feedback', 'manual_feedback', 'backlog', 'pesagens', 'checklists_cq', 'liberacao_linha', 'painel', 'titularidade'];
+  'feedback', 'rh_feedback', 'manual_feedback', 'backlog', 'pesagens', 'checklists_cq', 'liberacao_linha', 'painel', 'titularidade',
+  'auditoria', 'manual_auditoria'];
 
 // O fixture cobre todos os perfis do aceite.
 ['admin', 'pcp', 'gestor', 'qualidade', 'rotulagem', 'logistica', 'comercial', 'pd', 'production', 'rh', 'tv',
@@ -113,7 +114,7 @@ assert.deepEqual([...new Set(doBloco(admin, 'Armazém').map((l) => l.sub))], ['E
 assert.deepEqual([...new Set(doBloco(admin, 'Operação').map((l) => l.sub).filter(Boolean))], ['Produção', 'Manipulação', 'Rotulagem']);
 assert.deepEqual(rotulos(admin, 'Expedição'), ['Expedição de Vendas', 'Relatório de Expedição']);
 assert.deepEqual(rotulos(admin, 'Pedidos e Rastreio'), ['Pedidos', 'Relatório de Pedido', 'Dossiê do Lote']);
-assert.deepEqual(rotulos(admin, 'ADM'), ['Ajustes / Config', 'Usuários', 'Roadmap do sistema'], 'PORT-09: Roadmap no ADM');
+assert.deepEqual(rotulos(admin, 'ADM'), ['Ajustes / Config', 'Usuários', 'Auditoria', 'Roadmap do sistema'], 'PORT-05/09: Auditoria e Roadmap no ADM');
 assert.ok(!admin.some((l) => l.grupo === 'Logística'), 'Logística virou Armazém + Expedição');
 
 const log = menu('logistica');
