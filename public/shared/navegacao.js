@@ -123,6 +123,8 @@
       s: function(c) { return c.temMod('logistica') ? 'Estoque' : null; }},
     {p: 'estoque.html', h: 'estoque.html?tab=agregado', r: 'Estoque', i: 'warehouse', b: 'Armazém', s: 'Estoque'},
     {p: 'estoque.html', h: 'estoque.html?tab=posicoes', r: 'WMS', i: 'warehouse', b: 'Armazém', s: 'Estoque'},
+    // Titularidade (PORT-04, Gustavo e6ad1fc): troca de dono com motivo, pelo servidor.
+    {p: 'titularidade.html', r: 'Titularidade do Estoque', i: 'tag', b: 'Armazém', s: 'Estoque'},
     {p: 'kardex.html', r: 'Kardex', i: 'list', b: 'Armazém', s: 'Estoque'},
     {p: 'movimentar.html', r: 'Movimentar material', i: 'truck', b: 'Armazém', s: 'Estoque'},
     // ── Armazém › Fluxo

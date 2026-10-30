@@ -18,9 +18,47 @@ const PedidoDiretoria = require("./pedido_diretoria");
 const {prepararFaturamento} = require("./faturamento_carga");
 const FaturamentoEmail = require("./faturamento_email");
 const DevolucaoCliente = require("./devolucao_cliente");
+const Titularidade = require("./titularidade");
 
 admin.initializeApp();
 const db = admin.database();
+
+// PORT-04 (porte do Gustavo e6ad1fc). Servido pelo Render como as demais (render-server.js).
+// Alterar titularidade do estoque (24/10/2026): quem pode é o administrador ou
+// quem o ADM marcou no módulo "titularidade". A troca mexe no lote e no saldo
+// por cliente de uma vez, por isso roda numa transaction e grava a operação
+// (idempotente) e o motivo no próprio item.
+exports.alterarTitularidadeEstoque = onCall({timeoutSeconds: 120, memory: "512MiB"}, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para alterar a titularidade.");
+  const uid = request.auth.uid;
+  const permitido = user => !!user && (user.role === "admin" || (user.modulos && user.modulos.titularidade === true));
+  const user = (await db.ref("usuarios/" + uid).once("value")).val() || {};
+  if (!permitido(user)) throw new HttpsError("permission-denied", "Só o administrador (ou quem recebeu o módulo Titularidade do Estoque) pode alterar a titularidade.");
+  const autor = user.nome || request.auth.token.email || uid;
+  const agora = new Date().toISOString();
+  const dados = Object.assign({}, request.data || {}, {novoLoteKey: db.ref().push().key, movKey: db.ref().push().key});
+  let plano, falha;
+  await db.ref().once("value");
+  const result = await db.ref().transaction((base) => {
+    falha = null;
+    if (!base) return base;
+    try {
+      if (!permitido((base.usuarios || {})[uid])) throw Object.assign(new Error("Permissão revogada."), {code: "permission-denied"});
+      plano = Titularidade.preparar(base, dados, {autor, uid, agora});
+      for (const [path, value] of Object.entries(plano.updates)) {
+        const partes = path.split("/");
+        let node = base;
+        for (const parte of partes.slice(0, -1)) node = node[parte] || (node[parte] = {});
+        node[partes[partes.length - 1]] = value;
+      }
+      return base;
+    } catch (e) { falha = e; return; }
+  }, undefined, false);
+  if (falha) throw new HttpsError(falha.code || "failed-precondition", falha.message);
+  if (!result.committed || !plano) throw new HttpsError("aborted", "O estoque mudou durante a troca. Atualize a tela e tente de novo.");
+  return {ok: true, ja: !!plano.ja, resumo: plano.resumo, qtd: plano.qtd, novoLoteKey: plano.novoLoteKey || null};
+});
+// fim titularidade
 
 exports.salvarAgendamentoExpedicaoPA = onCall({timeoutSeconds: 120, memory: "512MiB"}, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para agendar a carga.");

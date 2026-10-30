@@ -278,7 +278,12 @@ const KURYOS_MODULOS = {
   // Painel de Controle (PORT-01, porte do Gustavo e3ddcd0): filas, idade e SLA por etapa e por
   // setor. Fora de MODULOS_POR_PAPEL: o ADM marca quem acompanha (visão de gestão).
   painel:       { rotulo: 'Painel de Controle', desc: 'Filas, idade e atraso de cada etapa do fluxo, por setor, com a cobrança pronta (visão de gestão)',
-                  paginas: ['painel.html'] }
+                  paginas: ['painel.html'] },
+  // Titularidade do estoque (PORT-04, porte do Gustavo e6ad1fc): de quem é o material
+  // (Kuryos ou cliente). Fora de MODULOS_POR_PAPEL: só admin e quem o ADM marcar; a
+  // função do servidor (alterarTitularidadeEstoque) confere de novo.
+  titularidade: { rotulo: 'Titularidade do Estoque', desc: 'Mudar de quem é o material em estoque (Kuryos ou um cliente), com motivo e registro',
+                  paginas: ['titularidade.html'] }
 };
 
 // Padrão por papel. Reproduz EXATAMENTE o alcance que cada papel tinha antes
