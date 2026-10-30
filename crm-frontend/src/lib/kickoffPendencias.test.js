@@ -35,11 +35,11 @@ describe("pendências do Kickoff (KO-03)", () => {
     q.bloco5.amostra_referencia_fornecida_cliente = "sim";
     expect(pendenciasQuestionario(q).status.bloco5.campos_pendentes).toEqual(["amostra_referencia_descricao"]);
   });
-  test("componente: Aplicável vazio pende; Não não pende; Sim exige Definido; Definido Não não pende", () => {
+  test("componente: Aplicável vazio pende; Não não pende; Sim exige Definido; KO-12: Definido Não pende", () => {
     expect(pendenciasDaLinha({ aplicavel: "" })).toEqual(["aplicavel"]);
     expect(pendenciasDaLinha({ aplicavel: "nao", fornecido_por: "" })).toEqual([]);
     expect(pendenciasDaLinha({ aplicavel: "sim" })).toEqual(["definido"]);
-    expect(pendenciasDaLinha({ aplicavel: "sim", definido: "nao" })).toEqual([]);
+    expect(pendenciasDaLinha({ aplicavel: "sim", definido: "nao" })).toEqual(["definido_pendente"]);
     expect(pendenciasDaLinha({ aplicavel: "sim", definido: "sim" })).toEqual(["fornecido_por", "especificacao_fornecedor_codigo"]);
     // KO-05: na secundária o item também é obrigatório (Compras cota rótulo e cartucho).
     expect(pendenciasDaLinha({ aplicavel: "sim", definido: "sim", fornecido_por: "kuryos" }, true)).toEqual(["especificacao_fornecedor_codigo", "arte_cria_aprova", "arte_aprovada"]);
@@ -69,5 +69,29 @@ describe("fornecido por e item do Cadastros (KO-05)", () => {
     expect(pendenciasDaLinha({ ...base, item_novo: true, item_novo_descricao: "", qtd_por_unidade: "2" })).toEqual(["item_novo_descricao"]);
     expect(pendenciasDaLinha({ ...base, material_codigo: "EP-00001", qtd_por_unidade: 0 })).toEqual(["qtd_por_unidade"]);
     expect(pendenciasDaLinha({ ...base, material_codigo: "ET-00017", unidades_por_embalagem: "" }, false, "bloco4")).toEqual(["unidades_por_embalagem"]);
+  });
+});
+
+describe("KO-12: rótulo, gravação e pendência obrigatória", () => {
+  test("(a) rótulo Não aplicável pergunta a gravação; Sim exige o tipo; outra linha Não segue sem pendência", () => {
+    const rotulo = { id: "rotulo", componente: "Rótulo", aplicavel: "nao" };
+    expect(pendenciasDaLinha(rotulo, true)).toEqual(["gravacao"]);
+    expect(pendenciasDaLinha({ ...rotulo, gravacao: "nao" }, true)).toEqual([]);
+    expect(pendenciasDaLinha({ ...rotulo, gravacao: "sim" }, true)).toEqual(["tipo_gravacao"]);
+    expect(pendenciasDaLinha({ ...rotulo, gravacao: "sim", tipo_gravacao: "hot_stamping" }, true)).toEqual([]);
+    expect(pendenciasDaLinha({ id: "cartucho", aplicavel: "nao" }, true)).toEqual([]);
+  });
+  test("(c) aplicável = Sim e definido ≠ Sim é pendência nos blocos 2, 3 e 4 e trava o bloco", () => {
+    const q = completo();
+    q.bloco2.componentes.push({ id: "tampa", componente: "Tampa", aplicavel: "sim", definido: "nao" });
+    q.bloco3.componentes.push({ id: "cartucho", componente: "Cartucho", aplicavel: "sim", definido: "" });
+    q.bloco4.componentes.push({ id: "caixa_master", componente: "Caixa master", aplicavel: "sim", definido: "nao" });
+    const r = pendenciasQuestionario(q);
+    expect(r.ok).toBe(false);
+    expect(r.status.bloco2.pendencias.map((p) => p.rotulo)).toEqual(["Tampa: Definir o componente (aplicável e ainda não definido)"]);
+    expect(r.status.bloco3.pendencias.map((p) => p.rotulo)).toEqual(["Cartucho: Definido?"]);
+    expect(r.status.bloco4.completo).toBe(false);
+    q.bloco3.componentes[0] = { id: "rotulo", componente: "Rótulo", aplicavel: "nao", gravacao: "sim" };
+    expect(pendenciasQuestionario(q).status.bloco3.pendencias.map((p) => p.rotulo)).toContain("Rótulo: Tipo de gravação");
   });
 });

@@ -50,3 +50,23 @@ test("Bloco 2 agrupado: Frasco × Tampa e válvula, sem mexer na ordem gravada",
   expect(html.indexOf(">Frasco</th>")).toBeLessThan(html.indexOf(">Tampa e válvula</th>"));
   expect(html).toContain('value="tampa"');
 });
+
+// KO-12: rótulo Não aplicável pergunta a gravação; o rótulo oferece o seletor de tipo e atributos (como o cartucho).
+test("Bloco 3: gravação no rótulo não aplicável e seletor de tipo no rótulo aplicável", () => {
+  const q = emptyKickoffQuestionnaire();
+  q.bloco3.componentes[0] = { ...q.bloco3.componentes[0], aplicavel: "nao", gravacao: "sim" };
+  const html = renderToStaticMarkup(<KickoffCompositionQuestionnaire value={q} onChange={() => {}} onSave={() => {}} />);
+  expect(html).toContain('data-testid="pergunta-gravacao"');
+  expect(html).toContain("Hot stamping");
+  expect(html).toContain("Impressão direta");
+  const rotulo = CATALOGO_PADRAO.find((tp) => tp.codigo === "ROTULO");
+  const q2 = emptyKickoffQuestionnaire();
+  q2.bloco3.componentes[0] = { ...q2.bloco3.componentes[0], aplicavel: "sim", definido: "sim", fornecido_por: "kuryos", ...escolherTipo({}, rotulo),
+    atributos: { posicao: "Frontal + contra", material: "BOPP branco" } };
+  q2.bloco3.componentes[1] = { ...q2.bloco3.componentes[1], aplicavel: "sim", definido: "nao" };
+  const html2 = renderToStaticMarkup(<KickoffCompositionQuestionnaire value={q2} onChange={() => {}} onSave={() => {}} />);
+  expect(html2).toContain(">Rótulo</option>");
+  expect(html2).toContain("Rótulo · Posição: Frontal + contra · Material: BOPP branco");
+  expect(html2).not.toContain('data-testid="pergunta-gravacao"');
+  expect(html2).toContain('data-testid="chip-pendencia-definir"');
+});

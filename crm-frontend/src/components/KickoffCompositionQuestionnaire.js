@@ -8,7 +8,7 @@ import api from "@/lib/api";
 import CatalogoComponentesDialog from "@/components/CatalogoComponentesDialog";
 import ResponsavelTecnicoField from "@/components/ResponsavelTecnicoField";
 import { opcoesDeCategoria } from "@/lib/categoriasProduto";
-import { normalizarLinhaComponente, pendenciasQuestionario, simNao } from "@/lib/kickoffPendencias";
+import { LINHA_COM_GRAVACAO, TIPOS_GRAVACAO, normalizarLinhaComponente, pendenciasQuestionario, simNao } from "@/lib/kickoffPendencias";
 import { CATALOGO_PADRAO, OUTRO, TIPO_OUTRO, escolherTipo, especificacaoDasCaracteristicas, tiposDaLinha, valorAtributo } from "@/lib/tiposComponente";
 
 // KO-11 (reunião 28/10/2026, D-05): "tudo que vai no frasco fica no frasco; tampa e válvula juntas".
@@ -502,7 +502,7 @@ function ComponentTable({ title, value, onChange, defaults, hasArt = false, bloc
                   <th colSpan={hasArt ? 10 : 8} scope="colgroup" className="px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{grupo}</th>
                 </tr>
               )}
-              <tr className={normalizeBinary(row.aplicavel) === "nao" ? "opacity-60" : ""}>
+              <tr className={normalizeBinary(row.aplicavel) === "nao" && row.id !== LINHA_COM_GRAVACAO ? "opacity-60" : ""}>
                 <td className="px-2 py-2 space-y-1">
                   <Input value={row.componente || ""} onChange={(event) => updateRow(index, "componente", event.target.value)} />
                   {aplicavel && !row.material_codigo && (
@@ -519,7 +519,13 @@ function ComponentTable({ title, value, onChange, defaults, hasArt = false, bloc
                   )}
                 </td>
                 <td className="px-2 py-2"><YesNoToggle compact value={row.aplicavel} onChange={(next) => updateRow(index, "aplicavel", next)} /></td>
-                <td className="px-2 py-2">{aplicavel ? <YesNoToggle compact value={row.definido} onChange={(next) => updateRow(index, "definido", next)} /> : <span className="text-xs text-muted-foreground">—</span>}</td>
+                <td className="px-2 py-2">
+                  {aplicavel ? <YesNoToggle compact value={row.definido} onChange={(next) => updateRow(index, "definido", next)} /> : <span className="text-xs text-muted-foreground">—</span>}
+                  {/* KO-12: aplicável e não definido trava o bloco até definir. */}
+                  {aplicavel && normalizeBinary(row.definido) === "nao" && (
+                    <span className="mt-1 block w-fit rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300" data-testid="chip-pendencia-definir">pendência: definir</span>
+                  )}
+                </td>
                 <td className="px-2 py-2">
                   <select disabled={!precisa} value={row.fornecido_por || ""} onChange={(event) => updateRow(index, "fornecido_por", event.target.value)}
                     className="h-9 rounded-md border bg-background px-2 text-sm disabled:opacity-50" data-testid="fornecido-por">
@@ -571,6 +577,30 @@ function ComponentTable({ title, value, onChange, defaults, hasArt = false, bloc
                   </div>
                 </td>
               </tr>
+              {/* KO-12 (a): sem rótulo, a identificação pode ir gravada na peça. */}
+              {row.id === LINHA_COM_GRAVACAO && normalizeBinary(row.aplicavel) === "nao" && (
+                <tr className="bg-muted/10" data-testid="pergunta-gravacao">
+                  <td colSpan={hasArt ? 10 : 8} className="px-2 pb-3 pt-0">
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-md bg-muted/40 p-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium">Vai ser gravado?</span>
+                        <YesNoToggle compact value={row.gravacao} onChange={(next) => updateFields(index, { gravacao: next, ...(next === "sim" ? {} : { tipo_gravacao: "" }) })} />
+                      </div>
+                      {normalizeBinary(row.gravacao) === "sim" && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-medium">Tipo de gravação *</span>
+                          {Object.entries(TIPOS_GRAVACAO).map(([valor, rotulo]) => (
+                            <button key={valor} type="button" aria-pressed={row.tipo_gravacao === valor} onClick={() => updateRow(index, "tipo_gravacao", row.tipo_gravacao === valor ? "" : valor)}
+                              className={`rounded-full border px-3 py-1 text-xs font-medium ${row.tipo_gravacao === valor ? "border-primary bg-primary text-primary-foreground" : row.tipo_gravacao ? "border-border hover:bg-accent" : "border-amber-400 hover:bg-accent dark:border-amber-600"}`}>
+                              {rotulo}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )}
               {mostraCaracteristicas && (
                 <tr className="bg-muted/10">
                   <td colSpan={hasArt ? 10 : 8} className="px-2 pb-3 pt-0">

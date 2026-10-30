@@ -48,7 +48,8 @@ export const ROTULOS = {
   responsavel_kuryos: "Responsável Kuryos", responsavel_cliente: "Responsável cliente", data_preenchimento: "Data do preenchimento",
   aplicavel: "Aplicável?", definido: "Definido?", fornecido_por: "Fornecido por",
   especificacao_fornecedor_codigo: "Item do Cadastros ou especificação", arte_cria_aprova: "Arte: cria / aprova", arte_aprovada: "Arte aprovada?",
-  item_novo_descricao: "Descrição do item novo", tipo_componente_outro: "Qual tipo (Outro)", qtd_por_unidade: "Quantidade por unidade", unidades_por_embalagem: "Unidades por embalagem",
+  item_novo_descricao: "Descrição do item novo", definido_pendente: "Definir o componente (aplicável e ainda não definido)",
+  gravacao: "Vai ser gravado?", tipo_gravacao: "Tipo de gravação", tipo_componente_outro: "Qual tipo (Outro)", qtd_por_unidade: "Quantidade por unidade", unidades_por_embalagem: "Unidades por embalagem",
 };
 
 /* KO-05 (23/10/2026): "Fornecido por" é Kuryos ou Cliente (menu). Medido em 22/10 nos 11 Kickoffs:
@@ -97,18 +98,30 @@ export function unidadesPorEmbalagem(linha, bloco0 = {}) {
 const QTD_DO_BLOCO = { bloco2: "qtd_por_unidade", bloco3: "qtd_por_unidade", bloco4: "unidades_por_embalagem" };
 const positivo = (v) => Number(String(v ?? "").replace(",", ".")) > 0;
 
-/* Linha de componente: Aplicável? vazio = pendente; Não = pronto (não entra no BOM);
- * Sim → Definido? obrigatório; Definido? Não = pronto (será definido depois, sem pendência);
+/* KO-12 (reunião 28/10/2026): rótulo "Não aplicável" pergunta se o produto vai ser gravado (silk, hot
+ * stamping, impressão direta) — sem rótulo, a identificação vai na peça. */
+export const TIPOS_GRAVACAO = { silk: "Silk", hot_stamping: "Hot stamping", impressao_direta: "Impressão direta" };
+export const LINHA_COM_GRAVACAO = "rotulo";
+
+/* Linha de componente: Aplicável? vazio = pendente; Não = pronto (não entra no BOM) — o rótulo "Não"
+ * ainda pede "Vai ser gravado?" e, se Sim, o tipo de gravação;
+ * Sim → Definido? obrigatório; KO-12: Definido? Não (aplicável e não definido) é PENDÊNCIA — o bloco
+ * não fica pronto e a aprovação do Kickoff trava até definir (antes era "pronto, define depois");
  * Definido? Sim → fornecido por (Kuryos/Cliente) + o item (do Cadastros, ou "item novo" descrito, ou a
  * especificação escrita) + quantidade; na secundária também arte: quem cria/aprova + arte aprovada?. */
 export function pendenciasDaLinha(linha, comArte = false, bloco = comArte ? "bloco3" : "bloco2", bloco0 = {}) {
   const r = normalizarLinhaComponente(linha);
   const aplicavel = simNao(r.aplicavel);
   if (aplicavel === "") return ["aplicavel"];
-  if (aplicavel === "nao") return [];
+  if (aplicavel === "nao") {
+    if (r.id !== LINHA_COM_GRAVACAO) return [];
+    const gravacao = simNao(r.gravacao);
+    if (gravacao === "") return ["gravacao"];
+    return gravacao === "sim" && !TIPOS_GRAVACAO[r.tipo_gravacao] ? ["tipo_gravacao"] : [];
+  }
   const definido = simNao(r.definido);
   if (definido === "") return ["definido"];
-  if (definido === "nao") return [];
+  if (definido === "nao") return ["definido_pendente"];
   const faltam = [];
   if (VAZIO(r.fornecido_por)) faltam.push("fornecido_por");
   // KO-04: sem item do Cadastros, o tipo escolhido no menu especifica o componente — todos os
