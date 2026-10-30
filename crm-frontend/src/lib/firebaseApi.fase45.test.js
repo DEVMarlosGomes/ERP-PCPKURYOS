@@ -54,6 +54,28 @@ async function projetoNoKickoff(nome, { briefing = {}, amostra = {}, variacao = 
   return { client, project, sample, variation, kickoff };
 }
 
+// Questionário inteiro respondido (o Bloco 0 já veio do CRM).
+function questionarioCompleto(kickoff, extra = (q) => q) {
+  const q = structuredClone(kickoff.questionario_composicao);
+  Object.assign(q.bloco0, { forma_fisica: q.bloco0.forma_fisica || "liquido", volume_gramatura: q.bloco0.volume_gramatura || "200 ml", displays_ou_unidades_por_caixa_master: "24" });
+  Object.assign(q.bloco1, { formula: "desenvolvida_kuryos", cliente_fornece: ["nada"], tem_cor: "nao", tem_brilho_mica_glitter: "nao", viscosidade: "fluida", densidade: "0,85", compra_fragrancia_por: "kuryos" });
+  for (const section of ["bloco2", "bloco3", "bloco4"]) q[section].componentes = q[section].componentes.map((row) => ({ ...row, aplicavel: "nao", ...(row.id === "rotulo" ? { gravacao: "nao" } : {}) }));
+  q.bloco2.componentes[0] = { ...q.bloco2.componentes[0], aplicavel: "sim", definido: "sim", fornecido_por: "kuryos", especificacao_fornecedor_codigo: "Frasco PET 200 mL" };
+  Object.assign(q.bloco5, { especificacoes_cq_componentes: "Padrão", testes_aprovacoes_obrigatorios: "Estabilidade", amostra_referencia_fornecida_cliente: "sim", amostra_referencia_descricao: "Frasco de referência na Qualidade" });
+  q.bloco6 = { equipamentos: ["Envasadora volumétrica 4 bicos"], pessoas: [{ funcao: "Operador de envase", quantidade: "2" }], producao_por_minuto: "25", unidades_por_hora: "1500" };
+  Object.assign(q.fechamento, { data_prevista_inicio_producao: "2026-12-01", volume_primeiro_lote: "3000", responsavel_kuryos: "Carla", responsavel_cliente: "Lia" });
+  for (const campo of Object.keys(q.origem?.bloco0 || {})) q.origem.bloco0[campo] = { ...q.origem.bloco0[campo], sobrescrito: false };
+  return extra(q);
+}
+
+async function aprovarKickoff(kickoff) {
+  for (const [uid, etapa] of [["pd", "lider_pd"], ["cq", "cq"], ["eng", "eng_produto"], ["com", "comercial"], ["adm", "direcao"]]) {
+    as(uid);
+    kickoff = (await api.post(`/kickoff/${kickoff.id}/aprovacao`, { etapa, decisao: "aprovado" })).data;
+  }
+  return kickoff;
+}
+
 describe("Fase 4 — Kickoff e BOM", () => {
   test("KO-10: projeto completo no CRM abre o Kickoff com o Bloco 0 sem pendência, tudo com selo de origem", async () => {
     const { kickoff } = await projetoNoKickoff("Aurora", { amostra: { textura_esperada: "Creme leve", parametro_variacao: "volume" },
@@ -66,5 +88,33 @@ describe("Fase 4 — Kickoff e BOM", () => {
     assert.equal(origem.forma_fisica.fonte, "Amostra");
     assert.equal(origem.volume_gramatura.fonte, "Amostra");
     assert.equal(origem.modelo_servico.fonte, "Projeto (CRM)");
+  });
+
+  test("KO-12/KO-13: pendência trava a aprovação; aprovado, un/h vai para o prodHoraRef só do SKU vazio", async () => {
+    const { kickoff, sample, variation } = await projetoNoKickoff("Brisa");
+    // SKUs já existentes do projeto: um sem capacidade, outro com a do PCP.
+    memory.write("produtos/PRF-BRIS-0001", { sku: "PRF-BRIS-0001", descricao: "Brisa A", ativo: true });
+    memory.write("produtos/PRF-BRIS-0002", { sku: "PRF-BRIS-0002", descricao: "Brisa B", ativo: true, prodHoraRef: 1200 });
+    memory.write(`${T}/crm_samples/${sample.id}/variacoes`, [{ ...variation, sku_id: "PRF-BRIS-0001" }, { id: "V2", codigo: "x", sku_id: "PRF-BRIS-0002" }]);
+    as("com");
+    // Aplicável e não definido: pendência, a aprovação trava.
+    const pendente = (await api.put(`/kickoff/${kickoff.id}/questionario-composicao`, { questionario: questionarioCompleto(kickoff, (q) => {
+      q.bloco3.componentes[1] = { ...q.bloco3.componentes[1], aplicavel: "sim", definido: "nao" };
+      return q;
+    }) })).data;
+    assert.equal(pendente.status, "em_preenchimento");
+    assert.ok(pendente.blocos_status.bloco3.campos_pendentes.some((c) => /definido_pendente/.test(c)));
+    as("pd");
+    await fails(api.post(`/kickoff/${kickoff.id}/aprovacao`, { etapa: "lider_pd", decisao: "aprovado" }), 400, /Questionario incompleto/);
+    as("com");
+    const pronto = (await api.put(`/kickoff/${kickoff.id}/questionario-composicao`, { questionario: questionarioCompleto(kickoff) })).data;
+    assert.equal(pronto.status, "aguardando_aprovacao");
+    assert.equal(pronto.blocos_estado.bloco6.dono, "eng_produto");
+    const aprovado = await aprovarKickoff(pronto);
+    assert.equal(aprovado.status, "aprovado");
+    assert.equal(aprovado.blocos_estado.bloco6.estado, "congelado");
+    assert.equal(db("produtos/PRF-BRIS-0001/prodHoraRef"), 1500, "SKU sem capacidade recebe o un/h do Kickoff");
+    assert.equal(db("produtos/PRF-BRIS-0002/prodHoraRef"), 1200, "referência do PCP não é sobrescrita");
+    assert.deepEqual(aprovado.prod_hora_ref_gravado, [{ sku: "PRF-BRIS-0001", prod_hora_ref: 1500 }]);
   });
 });

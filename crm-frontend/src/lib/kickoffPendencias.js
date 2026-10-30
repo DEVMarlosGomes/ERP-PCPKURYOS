@@ -9,6 +9,7 @@
  * Funções puras: nada aqui lê ou grava no banco. */
 
 import { TIPO_OUTRO, atributosPendentes } from "./tiposComponente";
+import { pendenciasOperacional } from "./kickoffOperacional";
 
 const VAZIO = (v) => v === undefined || v === null || (typeof v === "string" && !v.trim()) || (Array.isArray(v) && !v.length);
 
@@ -144,7 +145,8 @@ export function pendenciasDaLinha(linha, comArte = false, bloco = comArte ? "blo
   return faltam;
 }
 
-export const BLOCOS = ["bloco0", "bloco1", "bloco2", "bloco3", "bloco4", "bloco5", "fechamento"];
+// KO-13: bloco6 = Operacional (equipamentos, pessoas, ritmo), antes do fechamento.
+export const BLOCOS = ["bloco0", "bloco1", "bloco2", "bloco3", "bloco4", "bloco5", "bloco6", "fechamento"];
 
 /* Mesmo formato que o resto do sistema já lê ({ ok, status: { bloco: { completo, campos_pendentes } } }),
  * mais `pendencias` com rótulo para a tela. */
@@ -160,6 +162,7 @@ export function pendenciasQuestionario(questionario) {
       if (v === "") pend.push({ campo, rotulo: ROTULOS[campo] || campo });
       else if (v === "sim") for (const d of dependentes) if (VAZIO(dados[d])) pend.push({ campo: d, rotulo: ROTULOS[d] || d });
     }
+    if (bloco === "bloco6") pend.push(...pendenciasOperacional(dados));
     if (["bloco2", "bloco3", "bloco4"].includes(bloco)) {
       (dados.componentes || []).forEach((linha, i) => {
         for (const campo of pendenciasDaLinha(linha, bloco === "bloco3", bloco, q.bloco0 || {})) {

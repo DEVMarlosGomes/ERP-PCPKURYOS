@@ -49,7 +49,7 @@ const APPROVAL_ROLES = {
 
 // RFC-001: nome do bloco e quem valida (D-1).
 const NOME_BLOCO = { bloco0: "Bloco 0 · Identificação", bloco1: "Bloco 1 · Formulação", bloco2: "Bloco 2 · Primária", bloco3: "Bloco 3 · Secundária",
-  bloco4: "Bloco 4 · Terciária", bloco5: "Bloco 5 · Qualidade", fechamento: "Fechamento" };
+  bloco4: "Bloco 4 · Terciária", bloco5: "Bloco 5 · Qualidade", bloco6: "Bloco 6 · Operacional", fechamento: "Fechamento" };
 const NOME_DONO = { comercial: "Comercial", lider_pd: "Líder P&D", eng_produto: "Engenharia", cq: "CQ" };
 const COR_ESTADO = {
   nao_iniciado: "bg-muted text-muted-foreground", em_preenchimento: "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300",

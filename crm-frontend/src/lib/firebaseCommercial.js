@@ -35,6 +35,7 @@ import { ROTULOS, normalizarLinhaComponente, pendenciasQuestionario, simNao } fr
 import { BLOCOS_DA_ETAPA, aguardaPd, assinaturaDoBloco, congelarTodos, estadoDosBlocos, validarBlocos } from "@/lib/kickoffBlocos";
 import { aplicarSobrescritas, coletorDeOrigem, preencherVazios, sobrescritasDaOrigem, variacaoEntreSkus } from "@/lib/kickoffAutopreenchimento";
 import { insumosDoKickoff, linhasDeEmbalagem } from "@/lib/kickoffBom";
+import { blocoOperacionalVazio, prodHoraRefParaGravar, unidadesPorHora } from "@/lib/kickoffOperacional";
 import { formaFisicaDoCrm, modeloServicoDoCrm, registroAnvisaDoCrm, servicosDaProposta, volumeDaVariacao } from "@/lib/bloco0DoCrm";
 import { validarResponsavel } from "@/lib/responsaveisTecnicos";
 import { resolverDesatualizado, textoDesatualizado } from "@/lib/retrabalhoAprovada";
@@ -148,6 +149,7 @@ export function questionarioTemplate() {
       especificacoes_cq_componentes: "", especificacoes_cq_anexos: [], testes_aprovacoes_obrigatorios: "",
       amostra_referencia_fornecida_cliente: "",
     },
+    bloco6: blocoOperacionalVazio(),
     fechamento: {
       data_prevista_inicio_producao: "", volume_primeiro_lote: "", responsavel_kuryos: "", responsavel_cliente: "",
       data_preenchimento: "",
@@ -381,6 +383,9 @@ export function dadosDeProducaoDoKickoff(kickoff) {
   if (densidade > 0 && densidade < 3) out.densidadeGranel = densidade;
   const validade = Number.parseInt(b2.prazo_validade_produto_meses, 10);
   if (validade > 0) out.prazoValidadeMeses = validade;
+  // KO-13: SKU nascido do Kickoff leva o ritmo da linha como capacidade de referência (produto novo = vazio).
+  const unH = unidadesPorHora(q.bloco6);
+  if (unH) out.prodHoraRef = unH;
   return out;
 }
 
@@ -1421,6 +1426,7 @@ export function createCommercialRouter(h) {
     }));
     const nextIndex = APPROVAL_SEQUENCE.indexOf(etapa) + 1;
     const documentos = [];
+    const prodHoraGravado = [];
     const status = decisao === "reprovado" ? "em_preenchimento" : (nextIndex >= APPROVAL_SEQUENCE.length ? "aprovado" : "aguardando_aprovacao");
     const updated = await patch(tenant, "kickoffs", kickoff.id, {
       aprovacoes, status,
@@ -1436,6 +1442,22 @@ export function createCommercialRouter(h) {
     if (decisao === "reprovado") await enqueueRevisionTask(tenant, updated, etapa);
     else if (status !== "aprovado") await enqueueApprovalTask(tenant, updated, APPROVAL_SEQUENCE[nextIndex]);
     else {
+      // KO-13: un/h do Bloco Operacional vira prodHoraRef dos SKUs do projeto SÓ onde está vazio.
+      try {
+        const bloco6 = updated.questionario_composicao?.bloco6;
+        const skus = new Set((await all(tenant, "crm_samples")).filter((s) => s.projeto_id === updated.projeto_id)
+          .flatMap((s) => (s.variacoes || []).map((v) => v.sku_id)).filter(Boolean));
+        const updates = {};
+        for (const sku of skus) {
+          const produto = await masterOne("produtos", sku);
+          const valor = produto ? prodHoraRefParaGravar(produto.prodHoraRef, bloco6) : null;
+          if (valor) updates[`produtos/${sku}/prodHoraRef`] = valor;
+        }
+        if (Object.keys(updates).length) await update(ref(firebaseDb), updates);
+        prodHoraGravado.push(...Object.keys(updates).map((p) => ({ sku: p.split("/")[1], prod_hora_ref: updates[p] })));
+      } catch (error) {
+        console.error(`[Kickoff] prodHoraRef dos SKUs do ${updated.numero_kickoff} não foi gravado:`, error);
+      }
       const ctx = updated.formula_id ? await resolveRegisteredFormula(tenant, updated.projeto_id, updated.formula_id).catch(() => null) : null;
       if (ctx?.pd_request?.id) {
         await patch(tenant, "pd_requests", ctx.pd_request.id, { kickoff_completed: true });
@@ -1456,7 +1478,7 @@ export function createCommercialRouter(h) {
       });
     }
     await auditCard(tenant, "kickoff_approval_decision", "kickoff", updated.id, { status: kickoff.status, etapa }, { status, etapa, decisao, requisitos_dispensados: dispensados }, profile);
-    return { ...(await decorateKickoff(tenant, updated)), documentos_gerados: documentos };
+    return { ...(await decorateKickoff(tenant, updated)), documentos_gerados: documentos, prod_hora_ref_gravado: prodHoraGravado };
   }
 
   async function exportBom(tenant, kickoffId) {

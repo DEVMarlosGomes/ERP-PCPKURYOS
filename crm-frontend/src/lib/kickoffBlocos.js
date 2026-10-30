@@ -12,6 +12,7 @@ import { BLOCOS, simNao } from "./kickoffPendencias";
 export const DONO_DO_BLOCO = {
   bloco0: "comercial", fechamento: "comercial", bloco1: "lider_pd",
   bloco2: "eng_produto", bloco3: "eng_produto", bloco4: "eng_produto", bloco5: "cq",
+  bloco6: "eng_produto", // KO-13: Bloco Operacional
 };
 export const BLOCOS_DA_ETAPA = Object.entries(DONO_DO_BLOCO).reduce((m, [bloco, etapa]) => {
   (m[etapa] ||= []).push(bloco);

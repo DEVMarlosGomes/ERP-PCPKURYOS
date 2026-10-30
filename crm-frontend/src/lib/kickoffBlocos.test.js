@@ -14,7 +14,7 @@ const calc = (q, anterior, extra = {}) => estadoDosBlocos({ questionario: q, pen
 
 describe("estado por bloco (RFC-001)", () => {
   test("etapas e donos (D-1)", () => {
-    expect(BLOCOS_DA_ETAPA).toEqual({ direcao: [], comercial: ["bloco0", "fechamento"], lider_pd: ["bloco1"], eng_produto: ["bloco2", "bloco3", "bloco4"], cq: ["bloco5"] });
+    expect(BLOCOS_DA_ETAPA).toEqual({ direcao: [], comercial: ["bloco0", "fechamento"], lider_pd: ["bloco1"], eng_produto: ["bloco2", "bloco3", "bloco4", "bloco6"], cq: ["bloco5"] });
   });
   test("não iniciado / em preenchimento / pronto são calculados", () => {
     const { estados } = calc(q0());

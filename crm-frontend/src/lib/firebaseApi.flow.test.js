@@ -69,13 +69,16 @@ function questionarioCompleto(kickoff) {
   Object.assign(q.bloco0, { forma_fisica: "liquido", volume_gramatura: "200", numero_skus_variacoes: "1", modelo_servico: "full_service_marca_propria", displays_ou_unidades_por_caixa_master: "24" });
   Object.assign(q.bloco1, { formula: "desenvolvida_kuryos", cliente_fornece: ["nada"], tem_cor: "nao", tem_brilho_mica_glitter: "nao", viscosidade: "fluida", densidade: "0,85", compra_fragrancia_por: "kuryos" });
   for (const section of ["bloco2", "bloco3", "bloco4"]) {
-    q[section].componentes = q[section].componentes.map((row) => ({ ...row, aplicavel: "nao" }));
+    // KO-12: rótulo não aplicável responde a gravação.
+    q[section].componentes = q[section].componentes.map((row) => ({ ...row, aplicavel: "nao", ...(row.id === "rotulo" ? { gravacao: "nao" } : {}) }));
   }
   q.bloco2.componentes[0] = { ...q.bloco2.componentes[0], aplicavel: "sim", definido: "sim", fornecido_por: "kuryos", especificacao_fornecedor_codigo: "Frasco PET 200 mL" };
   // KO-03: "Sim" exige o complemento (sem ele o Kickoff fica pendente).
   Object.assign(q.bloco5, { especificacoes_cq_componentes: "Padrão Kuryos", testes_aprovacoes_obrigatorios: "Estabilidade 90 dias", amostra_referencia_fornecida_cliente: "sim",
     amostra_referencia_descricao: "Frasco de referência entregue pela Lumi, guardado na Qualidade" });
   Object.assign(q.fechamento, { data_prevista_inicio_producao: "2026-12-01", volume_primeiro_lote: "3000", responsavel_kuryos: "Carla", responsavel_cliente: "Lia" });
+  // KO-13: Bloco Operacional obrigatório.
+  q.bloco6 = { equipamentos: ["Envasadora"], pessoas: [{ funcao: "Operador", quantidade: "2" }], producao_por_minuto: "20", unidades_por_hora: "1200" };
   return q;
 }
 

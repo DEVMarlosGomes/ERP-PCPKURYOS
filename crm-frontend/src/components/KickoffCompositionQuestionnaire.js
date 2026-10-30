@@ -9,6 +9,7 @@ import CatalogoComponentesDialog from "@/components/CatalogoComponentesDialog";
 import ResponsavelTecnicoField from "@/components/ResponsavelTecnicoField";
 import { opcoesDeCategoria } from "@/lib/categoriasProduto";
 import { LINHA_COM_GRAVACAO, TIPOS_GRAVACAO, normalizarLinhaComponente, pendenciasQuestionario, simNao } from "@/lib/kickoffPendencias";
+import { atualizarRitmo, blocoOperacionalVazio, equipamentosDaLista, totalPessoas, unidadesPorHora } from "@/lib/kickoffOperacional";
 import { CATALOGO_PADRAO, OUTRO, TIPO_OUTRO, escolherTipo, especificacaoDasCaracteristicas, tiposDaLinha, valorAtributo } from "@/lib/tiposComponente";
 
 // KO-11 (reunião 28/10/2026, D-05): "tudo que vai no frasco fica no frasco; tampa e válvula juntas".
@@ -133,6 +134,7 @@ export function emptyKickoffQuestionnaire() {
       amostra_referencia_fornecida_cliente: "",
       amostra_referencia_descricao: "",
     },
+    bloco6: blocoOperacionalVazio(),
     fechamento: {
       data_prevista_inicio_producao: "",
       volume_primeiro_lote: "",
@@ -165,8 +167,90 @@ function mergeQuestionnaire(value) {
       ...(data.bloco5 || {}),
       amostra_referencia_fornecida_cliente: normalizeBinary(data.bloco5?.amostra_referencia_fornecida_cliente),
     },
+    bloco6: {
+      ...base.bloco6, ...(data.bloco6 || {}),
+      equipamentos: equipamentosDaLista(data.bloco6?.equipamentos),
+      pessoas: Array.isArray(data.bloco6?.pessoas) ? data.bloco6.pessoas : Object.values(data.bloco6?.pessoas || {}),
+    },
     fechamento: { ...base.fechamento, ...(data.fechamento || {}) },
   };
+}
+
+/* KO-13: Bloco Operacional — equipamentos (texto), pessoas por função e ritmo da linha. */
+function BlocoOperacional({ value, onChange }) {
+  const b = value || blocoOperacionalVazio();
+  const [novoEquip, setNovoEquip] = useState("");
+  const pessoas = b.pessoas || [];
+  const set = (campos) => onChange({ ...b, ...campos });
+  const addEquip = () => {
+    const t = novoEquip.trim();
+    if (!t) return;
+    if (!b.equipamentos.includes(t)) set({ equipamentos: [...b.equipamentos, t] });
+    setNovoEquip("");
+  };
+  const setPessoa = (i, campos) => set({ pessoas: pessoas.map((p, idx) => (idx === i ? { ...p, ...campos } : p)) });
+  const unH = unidadesPorHora(b);
+  return (
+    <div className="space-y-4" data-testid="bloco-operacional">
+      <div className="space-y-2">
+        <Label>Equipamentos da linha</Label>
+        <div className="flex flex-wrap gap-2">
+          {b.equipamentos.map((eq) => (
+            <span key={eq} className="inline-flex items-center gap-1 rounded-full border bg-muted/40 px-3 py-1 text-xs">
+              {eq}
+              <button type="button" className="text-muted-foreground hover:text-red-500" aria-label={`Remover ${eq}`} onClick={() => set({ equipamentos: b.equipamentos.filter((x) => x !== eq) })}>×</button>
+            </span>
+          ))}
+        </div>
+        <div className="flex max-w-md gap-2">
+          <Input value={novoEquip} placeholder="Ex.: Envasadora volumétrica 4 bicos" onChange={(ev) => setNovoEquip(ev.target.value)}
+            onKeyDown={(ev) => { if (ev.key === "Enter") { ev.preventDefault(); addEquip(); } }} data-testid="novo-equipamento" />
+          <Button type="button" variant="outline" size="sm" onClick={addEquip}><Plus className="h-3.5 w-3.5" /> Adicionar</Button>
+        </div>
+        <p className="text-[11px] text-muted-foreground">Com o módulo Ativos (Fase 8), a escolha vem do cadastro de ativos; até lá, texto.</p>
+      </div>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <Label>Pessoas na linha</Label>
+          <Button type="button" variant="outline" size="sm" onClick={() => set({ pessoas: [...pessoas, { funcao: "", quantidade: "", observacao: "" }] })}><Plus className="h-3.5 w-3.5" /> Função</Button>
+        </div>
+        <div className="overflow-x-auto rounded-md border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/60"><tr>
+              <th className="px-2 py-2 text-left font-medium">Função</th><th className="w-32 px-2 py-2 text-left font-medium">Quantidade</th>
+              <th className="px-2 py-2 text-left font-medium">Observação</th><th className="w-10 px-2 py-2" />
+            </tr></thead>
+            <tbody className="divide-y">
+              {pessoas.map((p, i) => (
+                <tr key={i}>
+                  <td className="px-2 py-1.5"><Input value={p.funcao || ""} placeholder="Ex.: Operador de envase" onChange={(ev) => setPessoa(i, { funcao: ev.target.value })} /></td>
+                  <td className="px-2 py-1.5"><Input type="number" min="0" step="1" value={p.quantidade ?? ""} onChange={(ev) => setPessoa(i, { quantidade: ev.target.value })} /></td>
+                  <td className="px-2 py-1.5"><Input value={p.observacao || ""} onChange={(ev) => setPessoa(i, { observacao: ev.target.value })} /></td>
+                  <td className="px-2 py-1.5"><Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Remover função" onClick={() => set({ pessoas: pessoas.filter((_, idx) => idx !== i) })}><Trash2 className="h-3.5 w-3.5 text-red-500" /></Button></td>
+                </tr>
+              ))}
+              <tr className="bg-muted/30 font-medium"><td className="px-2 py-2">Total</td><td className="px-2 py-2" data-testid="total-pessoas">{totalPessoas(pessoas)} pessoa(s)</td><td colSpan={2} /></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <Label>Produção por minuto (un/min)</Label>
+          <Input type="number" min="0" step="any" value={b.producao_por_minuto || ""} onChange={(ev) => onChange(atualizarRitmo(b, "producao_por_minuto", ev.target.value))} data-testid="producao-por-minuto" />
+          <p className="mt-1 text-[11px] text-muted-foreground">{b.ritmo_digitado === "hora" ? "calculado (÷ 60)" : "digitado"}</p>
+        </div>
+        <div>
+          <Label>Unidades por hora (un/h)</Label>
+          <Input type="number" min="0" step="any" value={b.unidades_por_hora || ""} onChange={(ev) => onChange(atualizarRitmo(b, "unidades_por_hora", ev.target.value))} data-testid="unidades-por-hora" />
+          <p className="mt-1 text-[11px] text-muted-foreground">{b.ritmo_digitado === "minuto" ? "calculado (× 60)" : "digitado"}</p>
+        </div>
+      </div>
+      <p className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        Ao aprovar o Kickoff, {unH ? `${unH.toLocaleString("pt-BR")} un/h` : "as unidades por hora"} vão para a capacidade de referência (prodHoraRef) do SKU só se ela estiver vazia — o Kickoff não sobrescreve a referência do PCP. Este bloco não entra no PDF do BOM.
+      </p>
+    </div>
+  );
 }
 
 export function questionnaireFromKickoff(kickoff) {
@@ -748,6 +832,10 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
         <TextField o="bloco5.testes_aprovacoes_obrigatorios" label="Testes / aprovacoes obrigatorios antes da producao" value={q.bloco5.testes_aprovacoes_obrigatorios} onChange={(v) => update("bloco5", "testes_aprovacoes_obrigatorios", v)} rows={4} />
         <YesNoToggle o="bloco5.amostra_referencia_fornecida_cliente" label="Amostra de referencia fornecida pelo cliente" value={q.bloco5.amostra_referencia_fornecida_cliente} onChange={(v) => update("bloco5", "amostra_referencia_fornecida_cliente", v)} />
         {normalizeBinary(q.bloco5.amostra_referencia_fornecida_cliente) === "sim" && <TextField o="bloco5.amostra_referencia_descricao" label="Descreva a amostra de referência (o que é, quem guarda) *" value={q.bloco5.amostra_referencia_descricao} onChange={(v) => update("bloco5", "amostra_referencia_descricao", v)} rows={2} />}
+      </Section>
+
+      <Section title="Bloco 6 - Operacional (linha de produção)" pendencias={pend.bloco6.pendencias}>
+        <BlocoOperacional value={q.bloco6} onChange={(v) => onChange({ ...q, bloco6: v })} />
       </Section>
 
       <Section title="Fechamento" pendencias={pend.fechamento.pendencias}>

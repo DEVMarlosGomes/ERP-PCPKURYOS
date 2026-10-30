@@ -8,6 +8,7 @@ const completo = () => ({
   bloco3: { componentes: [{ componente: "Rótulo", aplicavel: "sim", definido: "sim", fornecido_por: "cliente", especificacao_fornecedor_codigo: "BOPP branco 80×60", arte_cria_aprova: "cliente", arte_aprovada: "nao" }] },
   bloco4: { componentes: [{ componente: "Display", aplicavel: "nao" }] },
   bloco5: { especificacoes_cq_componentes: "AQL 1,0", testes_aprovacoes_obrigatorios: "Estabilidade", amostra_referencia_fornecida_cliente: "nao" },
+  bloco6: { equipamentos: ["Envasadora"], pessoas: [{ funcao: "Operador", quantidade: 2 }], unidades_por_hora: "1200" },
   fechamento: { data_prevista_inicio_producao: "2026-11-10", volume_primeiro_lote: "5000", responsavel_kuryos: "Ana", responsavel_cliente: "Maria", data_preenchimento: "2026-10-23" },
 });
 
