@@ -165,6 +165,9 @@
   function syncAppViewport() {
     var appRoot = document.getElementById('root');
     var appMain = document.querySelector('[data-app-main="true"]');
+    // Só as telas React (CRM/P&D) têm altura fixada aqui. Nas demais, medir a
+    // barra forçava o navegador a recalcular o layout da página inteira.
+    if (!appRoot && !appMain) return;
     var topbar = document.querySelector('.kuryos-enterprise-topbar');
     var availableHeight = Math.max(320, window.innerHeight - (topbar ? topbar.getBoundingClientRect().height : 68)) + 'px';
     if (appRoot) {
@@ -284,10 +287,20 @@
     });
   }
 
+  // build roda a cada mudança do DOM (MutationObserver abaixo). Depois de
+  // montado, as sincronizações vão para o próximo quadro, uma vez só: antes
+  // rodavam a cada mudança e, com tabelas grandes (Cadastros: 939 linhas +
+  // troca de emoji por ícone), somavam ~8 s de CPU travada medindo layout.
+  var syncAgendado = false;
   function build() {
     var sidebar = document.getElementById('unified-navbar');
     if (!sidebar) return;
-    if (built) { syncRoute(sidebar); syncAppViewport(); return; }
+    if (built) {
+      if (syncAgendado) return;
+      syncAgendado = true;
+      requestAnimationFrame(function () { syncAgendado = false; syncRoute(sidebar); syncAppViewport(); });
+      return;
+    }
     built = true;
     setupSidebar(sidebar);
     setupTopbar(sidebar);

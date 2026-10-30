@@ -3,12 +3,14 @@
 
   var charts = {};
   var state = { data: {}, unavailable: {}, period: '30' };
+  // Só os nós que a tela de fato usa (20/10/2026). Antes baixava também
+  // expedicoes_comerciais (1,26 MB, quase todo histórico legado), paradas,
+  // solicitações, estoque e quatro nós do CRM/P&D que nenhum cálculo lia:
+  // ~1,9 MB a mais a cada abertura da primeira tela do ADM.
   var paths = {
-    orders: 'pedidos', commercial: 'pedidos_comerciais', ops: 'ops', stops: 'paradas_historico',
-    requests: 'solicitacoes_compra', purchases: 'pedidos_compra', stock: 'estoque', lots: 'estoque_lotes',
-    quality: 'nao_conformidades', shipments: 'expedicoes_comerciais', schedules: 'agendamentos_expedicao',
-    clients: 'erp/kuryos/crm_clients', projects: 'erp/kuryos/crm_projects', samples: 'erp/kuryos/crm_samples',
-    pd: 'erp/kuryos/pd_requests', tests: 'erp/kuryos/pd_tests', approvals: 'erp/kuryos/pd_approvals'
+    orders: 'pedidos', commercial: 'pedidos_comerciais', ops: 'ops',
+    purchases: 'pedidos_compra', lots: 'estoque_lotes', quality: 'nao_conformidades',
+    schedules: 'agendamentos_expedicao', projects: 'erp/kuryos/crm_projects', pd: 'erp/kuryos/pd_requests'
   };
   var svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>';
 

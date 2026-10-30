@@ -2631,31 +2631,39 @@ document.addEventListener('DOMContentLoaded', function() {
     cacheVigencia = {f: allFormulasMat, b: allBomMat, formulas: formulas, boms: boms};
     return cacheVigencia;
   }
-  function calcularUsoMaterial(mpCodigo, incluirAntigas) {
-    if (!mpCodigo) return [];
-    var usos = [], vig = incluirAntigas ? null : mapaVigencia(), vigAll = mapaVigencia();
-    Object.entries(allFormulasMat).forEach(function(entry) {
+  /* Índice material → usos, montado UMA vez por versão dos dados (20/10/2026).
+     Antes calcularUsoMaterial percorria todas as fórmulas e BOMs com seus
+     itens para CADA material da tabela (939 × ~445 registros), de novo a cada
+     atualização do banco: ~2,5 s de CPU travada só na coluna "Usado em". Mesmo
+     resultado, mesma ordem (fórmulas antes de BOMs, ordenação estável). */
+  var cacheUsoMaterial = null;
+  function indiceUsoMaterial() {
+    if (cacheUsoMaterial && cacheUsoMaterial.f === allFormulasMat && cacheUsoMaterial.b === allBomMat) return cacheUsoMaterial.idx;
+    var vigAll = mapaVigencia(), idx = {};
+    function add(mp, uso) { if (!mp) return; (idx[mp] = idx[mp] || []).push(uso); }
+    Object.entries(allFormulasMat || {}).forEach(function(entry) {
       var key = entry[0], f = entry[1];
       if (!f || !f.itens) return;
-      if (vig && !vig.formulas[key]) return;
       var cv = codProdutoEVersao(key, f);
       Object.values(f.itens).forEach(function(it) {
-        if (it && it.mpCodigo === mpCodigo) {
-          usos.push({ codProduto: cv.codProduto, versao: cv.versao, status: f.status || null, onde: 'Fórmula', antiga: !vigAll.formulas[key], chave: key, proporcao: it.percentualMM != null ? (fmtNum(it.percentualMM) + '%') : '—' });
-        }
+        if (it) add(it.mpCodigo, { codProduto: cv.codProduto, versao: cv.versao, status: f.status || null, onde: 'Fórmula', antiga: !vigAll.formulas[key], chave: key, proporcao: it.percentualMM != null ? (fmtNum(it.percentualMM) + '%') : '—' });
       });
     });
-    Object.entries(allBomMat).forEach(function(entry) {
+    Object.entries(allBomMat || {}).forEach(function(entry) {
       var key = entry[0], b = entry[1];
       if (!b || !b.itens) return;
-      if (vig && !vig.boms[key]) return;
       var cv = codProdutoEVersao(key, b);
       Object.values(b.itens).forEach(function(it) {
-        if (it && it.materialCodigo === mpCodigo) {
-          usos.push({ codProduto: cv.codProduto, versao: cv.versao, status: b.status || null, onde: 'BOM', antiga: !vigAll.boms[key], chave: key, proporcao: pecasPorUnidadeBom(it) ? ('1 a cada ' + fmtNum(pecasPorUnidadeBom(it)) + ' peças') : it.qtdPorPeca != null ? (fmtNum(it.qtdPorPeca) + '/peça') : '—' });
-        }
+        if (it) add(it.materialCodigo, { codProduto: cv.codProduto, versao: cv.versao, status: b.status || null, onde: 'BOM', antiga: !vigAll.boms[key], chave: key, proporcao: pecasPorUnidadeBom(it) ? ('1 a cada ' + fmtNum(pecasPorUnidadeBom(it)) + ' peças') : it.qtdPorPeca != null ? (fmtNum(it.qtdPorPeca) + '/peça') : '—' });
       });
     });
+    cacheUsoMaterial = {f: allFormulasMat, b: allBomMat, idx: idx};
+    return idx;
+  }
+  function calcularUsoMaterial(mpCodigo, incluirAntigas) {
+    if (!mpCodigo) return [];
+    // Sem as antigas = só a versão em uso (mapaVigencia), como antes.
+    var usos = (indiceUsoMaterial()[mpCodigo] || []).filter(function(u) { return incluirAntigas || !u.antiga; });
     usos.sort(function(a, b) { return norm(a.codProduto).localeCompare(norm(b.codProduto)) || a.onde.localeCompare(b.onde) || String(a.chave).localeCompare(String(b.chave)); });
     return usos;
   }

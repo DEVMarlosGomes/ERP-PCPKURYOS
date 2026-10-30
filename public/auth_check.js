@@ -1679,7 +1679,7 @@ function _autoAjustarPlanejamentoInterno(db, pedidoKey) {
   }
   if (!document.querySelector('script[data-kuryos-enterprise-shell]')) {
     var enterpriseShell = document.createElement('script');
-    enterpriseShell.src = 'shared/kuryos-enterprise-shell.js?v=20261020-2';
+    enterpriseShell.src = 'shared/kuryos-enterprise-shell.js?v=20261020-3';
     enterpriseShell.defer = true;
     enterpriseShell.setAttribute('data-kuryos-enterprise-shell', '');
     document.head.appendChild(enterpriseShell);

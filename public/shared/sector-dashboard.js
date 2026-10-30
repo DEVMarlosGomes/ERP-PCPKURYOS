@@ -62,7 +62,24 @@
 
   function renderBars(values){var entries=Object.entries(values).sort(function(a,b){return b[1]-a[1];}),max=Math.max(1,...entries.map(function(e){return e[1];}));return entries.length?entries.map(function(entry){return '<div class="sector-bar-row"><span class="sector-bar-label" title="'+entry[0]+'">'+entry[0]+'</span><span class="sector-bar-track"><span class="sector-bar-fill" style="width:'+Math.max(2,entry[1]/max*100)+'%"></span></span><span class="sector-bar-value">'+int(entry[1])+'</span></div>';}).join(''):'<div class="sector-empty">Fonte insuficiente para uma distribuição confiável.</div>';}
   function render(){var m=model(active);document.querySelectorAll('.sector-tab').forEach(function(button){button.classList.toggle('active',button.dataset.sector===active);button.setAttribute('aria-selected',String(button.dataset.sector===active));});document.getElementById('sector-title').textContent=m.title;document.getElementById('sector-description').textContent=m.description;document.getElementById('sector-kpis').innerHTML=m.kpis.map(function(item){var tag=item.href?'a':'article';return '<'+tag+(item.href?' href="'+item.href+'"':'')+' class="sector-kpi" data-available="'+item.available+'"><div class="sector-kpi-name">'+item.name+'</div><div class="sector-kpi-value">'+item.value+'</div><div class="sector-kpi-detail">'+item.detail+'</div></'+tag+'>';}).join('');document.getElementById('sector-chart-title').textContent=m.barTitle;document.getElementById('sector-chart-description').textContent=m.barDescription;document.getElementById('sector-bars').innerHTML=renderBars(m.bars);document.getElementById('sector-methods').innerHTML=m.methods.map(function(item){return '<div class="sector-method"><strong>'+item.name+'</strong><span>'+item.text+'</span></div>';}).join('');}
-  function select(key){active=sectors.some(function(item){return item[0]===key;})?key:'pcp';var url=new URL(location.href);url.searchParams.set('area',active);history.replaceState(null,'',url);render();}
-  function init(){active=new URLSearchParams(location.search).get('area')||'pcp';document.getElementById('sector-tabs').innerHTML=sectors.map(function(item){return '<button type="button" class="sector-tab" role="tab" data-sector="'+item[0]+'">'+item[1]+'</button>';}).join('');document.getElementById('sector-tabs').addEventListener('click',function(event){var button=event.target.closest('.sector-tab');if(button)select(button.dataset.sector);});Promise.all(Object.keys(paths).map(function(key){return firebase.database().ref(paths[key]).once('value').then(function(s){data[key]=s.val()||{};}).catch(function(error){data[key]={};unavailable[key]=error&&(error.code||error.message)||'indisponível';});})).then(function(){document.getElementById('sector-state').textContent='Fontes atualizadas';select(active);});}
+  // Cada aba carrega só os nós que usa, na primeira vez que é aberta (20/10/2026).
+  // Antes a tela baixava os 18 nós de todas as abas ao abrir (inclusive
+  // expedicoes_comerciais, 1,26 MB) para mostrar só a aba PCP.
+  var needs = { pcp:['orders','ops'], producao:['ops','stops'], comercial:['commercial','clients','projects','samples'], pd:['pd','tests','approvals','samples'], compras:['requests','purchases'], estoque:['stock','lots','materials'], qualidade:['lots','rncs'], expedicao:['schedules','shipments'], financeiro:[] };
+  var loading = {};
+  function ensure(key){
+    return Promise.all((needs[key]||[]).map(function(name){
+      if(!loading[name])loading[name]=firebase.database().ref(paths[name]).once('value').then(function(s){data[name]=s.val()||{};}).catch(function(error){data[name]={};unavailable[name]=error&&(error.code||error.message)||'indisponível';});
+      return loading[name];
+    }));
+  }
+  function select(key){
+    active=sectors.some(function(item){return item[0]===key;})?key:'pcp';
+    var url=new URL(location.href);url.searchParams.set('area',active);history.replaceState(null,'',url);
+    var alvo=active,state=document.getElementById('sector-state');
+    state.textContent='Carregando fontes';
+    ensure(alvo).then(function(){if(alvo!==active)return;state.textContent='Fontes atualizadas';render();});
+  }
+  function init(){active=new URLSearchParams(location.search).get('area')||'pcp';document.getElementById('sector-tabs').innerHTML=sectors.map(function(item){return '<button type="button" class="sector-tab" role="tab" data-sector="'+item[0]+'">'+item[1]+'</button>';}).join('');document.getElementById('sector-tabs').addEventListener('click',function(event){var button=event.target.closest('.sector-tab');if(button)select(button.dataset.sector);});select(active);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
