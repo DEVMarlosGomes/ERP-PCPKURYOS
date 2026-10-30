@@ -616,6 +616,7 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
             { value: "bastao", label: "Bastao" },
             { value: "outro", label: "Outro" },
           ]} />
+          {q.bloco0.forma_fisica === "outro" && <Field o="bloco0.forma_fisica_outro" label="Qual forma física?" value={q.bloco0.forma_fisica_outro} onChange={(v) => update("bloco0", "forma_fisica_outro", v)} />}
           <Field o="bloco0.volume_gramatura" label="Volume / gramatura" value={q.bloco0.volume_gramatura} onChange={(v) => update("bloco0", "volume_gramatura", v)} />
           <Field o="bloco0.numero_skus_variacoes" label="No de SKUs / variacoes" value={q.bloco0.numero_skus_variacoes} onChange={(v) => update("bloco0", "numero_skus_variacoes", v)} />
           <CheckboxGroup o="bloco0.varia_entre_skus" label="O que varia entre SKUs" values={q.bloco0.varia_entre_skus} onChange={(v) => update("bloco0", "varia_entre_skus", v)} options={[

@@ -35,6 +35,7 @@ import { ROTULOS, normalizarLinhaComponente, pendenciasQuestionario, simNao } fr
 import { BLOCOS_DA_ETAPA, aguardaPd, assinaturaDoBloco, congelarTodos, estadoDosBlocos, validarBlocos } from "@/lib/kickoffBlocos";
 import { aplicarSobrescritas, coletorDeOrigem, preencherVazios, sobrescritasDaOrigem, variacaoEntreSkus } from "@/lib/kickoffAutopreenchimento";
 import { insumosDoKickoff, linhasDeEmbalagem } from "@/lib/kickoffBom";
+import { formaFisicaDoCrm, modeloServicoDoCrm, registroAnvisaDoCrm, servicosDaProposta, volumeDaVariacao } from "@/lib/bloco0DoCrm";
 import { validarResponsavel } from "@/lib/responsaveisTecnicos";
 import { resolverDesatualizado, textoDesatualizado } from "@/lib/retrabalhoAprovada";
 import {
@@ -244,13 +245,6 @@ function mapCategoria(value) {
   const key = String(value || "").trim().toLowerCase();
   return ({ capilares: "capilar", capilar: "capilar", skin_care: "skin_care", skincare: "skin_care", skin_care_dermocosmeticos: "skin_care",
     perfumaria: "perfumaria", maquiagem: "maquiagem", home_care: "home_care" })[key] || key;
-}
-
-function mapModeloServico(value) {
-  const key = String(value || "").trim().toLowerCase();
-  return ({ formula_do_cliente: "industrializacao_pura", co_desenvolvimento: "industrializacao_com_desenvolvimento",
-    full_service: "full_service_marca_propria", full_service_kuryos: "full_service_marca_propria",
-    full_service_marca_propria: "full_service_marca_propria" })[key] || key;
 }
 
 // Kickoff antigo (antes do questionário de composição): prontidão por blocos, como no master.
@@ -1139,8 +1133,13 @@ export function createCommercialRouter(h) {
         const valor = de("bloco0", "categoria", [project.categoria, PROJ], [firstSample.categoria, AMO]);
         return codigoDaCategoria(valor, categoriasCadastro) || mapCategoria(valor);
       })(),
-      forma_fisica: de("bloco0", "forma_fisica", [firstSample.textura_esperada, AMO], [project.forma_fisica, PROJ]),
-      volume_gramatura: de("bloco0", "volume_gramatura", [firstItem.volume_gramatura, PROP], [formulaVolume, FORM], [project.volume_gramatura, PROJ]),
+      // KO-10: texto livre do CRM ("Creme leve") vira a opção do Kickoff; o que não casa vai em "outro" com o texto.
+      ...(() => {
+        const forma = formaFisicaDoCrm(de("bloco0", "forma_fisica", [project.forma_fisica, PROJ], [firstSample.forma_fisica, AMO], [firstSample.textura_esperada, AMO], [firstSample.aplicacao, AMO]));
+        if (forma.forma_fisica_outro) de("bloco0", "forma_fisica_outro", [forma.forma_fisica_outro, origem.bloco0?.forma_fisica?.fonte || AMO]);
+        return forma;
+      })(),
+      volume_gramatura: de("bloco0", "volume_gramatura", [firstItem.volume_gramatura, PROP], [volumeDaVariacao(firstVariation), AMO], [formulaVolume, FORM], [project.volume_gramatura, PROJ]),
       // Nº de SKUs = variações aprovadas pelo cliente; sem amostra aprovada, a proposta e o projeto.
       numero_skus_variacoes: asText(de("bloco0", "numero_skus_variacoes", [variacao.numero_skus || "", "Variações aprovadas"],
         [(proposta.items_pedido || []).length || "", PROP], [project.numero_skus_variacoes, PROJ])),
@@ -1151,10 +1150,14 @@ export function createCommercialRouter(h) {
       variacao_outra_categoria_qual: de("bloco0", "variacao_outra_categoria_qual", [variacao.variacao_outra_categoria_qual, "Variações aprovadas"]),
       unidades_por_display: asText(de("bloco0", "unidades_por_display", [project.unidades_por_display, PROJ])),
       displays_ou_unidades_por_caixa_master: asText(de("bloco0", "displays_ou_unidades_por_caixa_master", [project.displays_por_caixa_master, PROJ], [firstItem.quantidade_por_caixa, PROP])),
-      registro_notificacao_anvisa: firstValue(de("bloco0", "registro_notificacao_anvisa", [project.registro_notificacao_anvisa, PROJ], [client.tem_anvisa, CLI]), "a_providenciar"),
+      registro_notificacao_anvisa: firstValue(de("bloco0", "registro_notificacao_anvisa", [registroAnvisaDoCrm(project.registro_notificacao_anvisa), PROJ], [registroAnvisaDoCrm(client.tem_anvisa), CLI]), "a_providenciar"),
       detentor_registro: de("bloco0", "detentor_registro", [project.detentor_registro, PROJ], [client.nome_empresa, CLI]),
       responsavel_tecnico: de("bloco0", "responsavel_tecnico", [project.responsavel_tecnico, PROJ], [client.responsavel_tecnico, CLI]),
-      modelo_servico: mapModeloServico(de("bloco0", "modelo_servico", [project.tipo_servico, PROJ], [proposta.modelo_servico, PROP])),
+      // Só o vínculo do nome acima (a tela não mostra o id; sem selo, para não exigir motivo de algo invisível).
+      responsavel_tecnico_id: firstValue(project.responsavel_tecnico_id, client.responsavel_tecnico_id),
+      modelo_servico: modeloServicoDoCrm(de("bloco0", "modelo_servico", [project.tipo_servico, PROJ], [proposta.modelo_servico, PROP])),
+      // KO-10: os serviços que o orçamento/cotação já cobra.
+      servicos_selecionados: de("bloco0", "servicos_selecionados", [project.servicos_selecionados, PROJ], [servicosDaProposta(proposta), PROP]) || [],
     });
     Object.assign(questionario.bloco1, {
       formula: formula.id ? de("bloco1", "formula", ["desenvolvida_kuryos", FORM]) : de("bloco1", "formula", [project.formula_origem, PROJ]),
