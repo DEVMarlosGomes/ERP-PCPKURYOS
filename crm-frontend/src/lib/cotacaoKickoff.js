@@ -99,17 +99,25 @@ export function precosDaCotacao(insumos, cotacao) {
   });
 }
 
-/* COM-05: o que vai para o Compras como Solicitação de Compra — itens que a Kuryos compra, com
- * código no Cadastros e quantidade. O resto volta como pendência (item novo/sem cadastro vai
- * antes pelo cadastro; do cliente não se compra). */
+/* COM-05: o que vai para o Compras como Solicitação de Compra — itens que a Kuryos compra, com quantidade.
+ * COT-02 (reunião 28/10/2026): TODA linha definida no Kickoff vai, mesmo sem código no Cadastros (item
+ * novo) e sem fornecedor: segue com as características (especificação montada pelo tipo/atributos) e
+ * "fornecedor a definir", marcada sem_cadastro para o Compras cotar sem esperar o cadastro.
+ * Fica de fora só o que é do cliente (não se compra) e o que não tem quantidade do pedido. */
+export const FORNECEDOR_A_DEFINIR = "fornecedor a definir";
+export function obsDaLinha(l) {
+  return [l.especificacao && l.especificacao !== l.descricao ? l.especificacao : "", l.fornecedor_sugerido ? `fornecedor sugerido: ${l.fornecedor_sugerido}` : FORNECEDOR_A_DEFINIR,
+    !l.material_codigo ? (l.item_novo ? "item novo (não cadastrado)" : "sem cadastro") : ""].filter(Boolean).join(" · ");
+}
 export function itensParaCompras(cotacao) {
   const itens = [];
   const fora = [];
   for (const l of cotacao?.linhas || []) {
     if (l.fornecido_por === "cliente") continue;
-    if (!l.material_codigo) { fora.push({ descricao: l.descricao, motivo: l.item_novo ? "item novo: cadastrar antes" : "sem cadastro" }); continue; }
     if (!(num(l.qtd_total) > 0)) { fora.push({ descricao: l.descricao, motivo: "sem quantidade do pedido" }); continue; }
-    itens.push({ linha_id: l.linha_id, materialCodigo: l.material_codigo, materialNome: l.descricao, qtd: num(l.qtd_total), unidade: l.unidade || "un", obs: l.especificacao || "" });
+    itens.push({ linha_id: l.linha_id, materialCodigo: l.material_codigo || "", materialNome: l.descricao, qtd: num(l.qtd_total), unidade: l.unidade || "un",
+      obs: obsDaLinha(l), especificacao: l.especificacao || "", sem_cadastro: !l.material_codigo, item_novo: Boolean(l.item_novo),
+      fornecedor_sugerido: l.fornecedor_sugerido || "" });
   }
   return { itens, fora };
 }

@@ -49,10 +49,23 @@ describe("cotação em registro próprio (COM-03)", () => {
 });
 
 describe("ponte com o Compras (COM-05)", () => {
-  test("vai para a SC só o que a Kuryos compra, com código e quantidade", () => {
+  test("COT-02: vai para a SC tudo que a Kuryos compra, mesmo sem cadastro e sem fornecedor (com a especificação)", () => {
     const { itens, fora } = itensParaCompras({ linhas: linhasDaCotacao(KICKOFF) });
-    expect(itens.map((i) => [i.materialCodigo, i.qtd])).toEqual([["MP0001", 160], ["EP-00089", 1000]]);
-    expect(fora.map((f) => f.motivo)).toEqual(["item novo: cadastrar antes", "sem cadastro", "sem cadastro", "sem cadastro"]);
+    expect(itens.map((i) => [i.materialCodigo, i.materialNome, i.qtd, i.sem_cadastro])).toEqual([
+      ["MP0001", "Álcool", 160, false], ["EP-00089", "FRASCO PET 200", 1000, false], ["", "Válvula bruma 24/410", 1000, true],
+      ["", "cartucho", 1000, true], ["", "display_expositor_pdv", 84, true], ["", "caixa_master", 21, true],
+    ]);
+    expect(itens[2]).toMatchObject({ item_novo: true, obs: "fornecedor a definir · item novo (não cadastrado)" });
+    expect(itens.some((i) => i.materialNome === "rotulo")).toBe(false); // do cliente: não se compra
+    expect(fora).toEqual([]);
+    expect(itensParaCompras({ linhas: [{ descricao: "X", qtd_total: null }] }).fora).toEqual([{ descricao: "X", motivo: "sem quantidade do pedido" }]);
+  });
+  test("COT-02: componente pelo tipo, sem fornecedor, vai com a especificação completa", () => {
+    const linhas = linhasDaCotacao({ bom: linhasDeEmbalagem({ bloco2: { componentes: [comp("tampa", { tipo_componente: "TAMPA", tipo_componente_nome: "Tampa",
+      atributos_def: [{ chave: "rosca", nome: "Rosca", tipo: "enum", obrigatorio: true }], atributos: { rosca: "24/410" } })] } }, { volumePedido: 500 }) });
+    expect(linhas[0]).toMatchObject({ especificacao: "Tampa · Rosca: 24/410", fornecedor_sugerido: "" });
+    const [item] = itensParaCompras({ linhas }).itens;
+    expect(item).toMatchObject({ materialNome: "Tampa · Rosca: 24/410", sem_cadastro: true, obs: "fornecedor a definir · sem cadastro" });
   });
   test("preço do processo: vencedor do item → vencedor geral → menor resposta", () => {
     const resp = (preco) => ({ respostaItens: { i1: { precoUnit: preco }, i2: { precoUnit: preco } } });

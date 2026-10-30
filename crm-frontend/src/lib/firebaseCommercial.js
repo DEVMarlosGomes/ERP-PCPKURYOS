@@ -625,8 +625,11 @@ export function createCommercialRouter(h) {
       numero, numeroFormatado: `SC-${pad(numero)}`, status: "PENDENTE", criadoEm: now(), criadoPor: userName(profile), solicitante: userName(profile),
       justificativa: `Cotação ${cotacao.numero} do projeto ${project.numero_projeto || ""} ${project.nome_projeto || ""}`.replace(/\s+/g, " ").trim(),
       origemTela: "crm", origemModulo: "CRM",
-      itens: Object.fromEntries(itens.map((it) => [newId(), { materialKey: chaveDo.get(it.materialCodigo) || it.materialCodigo, materialCodigo: it.materialCodigo,
-        materialNome: it.materialNome, qtd: it.qtd, unidade: it.unidade, obs: it.obs, origemCotacaoLinhaId: it.linha_id }])),
+      // COT-02: item sem cadastro vai com a especificação, "fornecedor a definir" e a marca semCadastro.
+      itens: Object.fromEntries(itens.map((it) => [newId(), { materialKey: (it.materialCodigo && chaveDo.get(it.materialCodigo)) || it.materialCodigo || "", materialCodigo: it.materialCodigo,
+        materialNome: it.materialNome, qtd: it.qtd, unidade: it.unidade, obs: it.obs, origemCotacaoLinhaId: it.linha_id,
+        ...(it.especificacao ? { especificacao: it.especificacao } : {}), ...(it.sem_cadastro ? { semCadastro: true, itemNovo: it.item_novo } : {}),
+        fornecedorSugerido: it.fornecedor_sugerido || "a definir" }])),
       origem: { tipo: "CRM_COTACAO", cotacaoId: cotacao.id, cotacaoNumero: cotacao.numero, projetoId: project.id, projeto: project.nome_projeto || "", cliente: project.cliente_nome || "" },
     };
     await masterWrite("solicitacoes_compra", scKey, sc);
