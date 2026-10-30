@@ -190,7 +190,10 @@
     // As posições `o` encaixam cada tela no bloco sem reordenar o que já existe.
     {p: 'ativos.html', r: 'Ativos', i: 'gear', b: 'Manutenção'},
     {p: 'manual_ativos.html', r: 'Ativos', i: 'book', b: 'Ajuda', o: function() { return pos('manual_cadastros.html') - 0.5; },
-      q: function(c) { return c.temMod('manutencao'); }}
+      q: function(c) { return c.temMod('manutencao'); }},
+    {p: 'auditoria_5s.html', r: 'Auditoria 5S', i: 'clipboard', b: 'Qualidade', o: function() { return pos('retrabalhos.html') + 0.5; }},
+    {p: 'manual_auditoria_5s.html', r: 'Auditoria 5S', i: 'book', b: 'Ajuda', o: function() { return pos('manual_cadastros.html') - 0.6; },
+      q: function(c) { return c.temMod('auditoria5s'); }}
   ];
 
   /* Ícone (ktIcons em auth_check.js) e matiz de cada bloco: azul (--s1) para o

@@ -696,6 +696,41 @@
           ".validate": "newData.hasChildren(['de', 'para', 'em'])"
         }
       }
+    },
+    // Auditoria 5S (PORT-07; regras do Gustavo, 06/10): checklist do líder, auditoria da Qualidade e
+    // inspeção da Diretoria. O registro FECHADO não muda mais (prova formal para as consequências);
+    // ações, ciência e ocorrências têm nós próprios. Configuração (quem é líder/auditor) só o admin.
+    "auditoria5s_config": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('role').val() == 'admin'"
+    },
+    "auditorias_5s": {
+      ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('auditoria5s').val() == true)",
+      "$id": {
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('auditoria5s').val() == true) && !data.child('fechadaEm').exists()",
+        ".validate": "!newData.exists() || newData.hasChildren(['tipo', 'setor', 'data', 'itens', 'resultado', 'assinatura', 'fechadaEm'])"
+      }
+    },
+    "acoes_5s": {
+      ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('auditoria5s').val() == true)",
+      ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('auditoria5s').val() == true)"
+    },
+    "ciencia_5s": {
+      ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('auditoria5s').val() == true)",
+      "$aud": {
+        "$quem": {
+          ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('auditoria5s').val() == true) && !data.exists()",
+          ".validate": "newData.hasChildren(['uid', 'nome', 'em'])"
+        }
+      }
+    },
+    // Ocorrências individuais (nome da pessoa): leem só RH/gestão/auditores; registra quem opera o módulo.
+    "ocorrencias_5s": {
+      ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'rh' || root.child('auditoria5s_config').child('usuarios').child(auth.uid).child('papel').val() == 'GESTAO' || root.child('auditoria5s_config').child('usuarios').child(auth.uid).child('papel').val() == 'AUDITOR' || root.child('auditoria5s_config').child('usuarios').child(auth.uid).child('papel').val() == 'DIRETORIA')",
+      "$id": {
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('auditoria5s').val() == true) && (!data.exists() || root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('auditoria5s_config').child('usuarios').child(auth.uid).child('papel').val() == 'GESTAO')",
+        ".validate": "!newData.exists() || newData.hasChildren(['data', 'setor', 'colaboradorNome', 'descricao', 'registradoPorUid'])"
+      }
     }
   }
 }
