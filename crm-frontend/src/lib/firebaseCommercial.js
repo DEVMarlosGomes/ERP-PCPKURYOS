@@ -35,6 +35,7 @@ import { ROTULOS, normalizarLinhaComponente, pendenciasQuestionario, simNao } fr
 import { BLOCOS_DA_ETAPA, aguardaPd, assinaturaDoBloco, congelarTodos, estadoDosBlocos, validarBlocos } from "@/lib/kickoffBlocos";
 import { aplicarSobrescritas, coletorDeOrigem, preencherVazios, sobrescritasDaOrigem, variacaoEntreSkus } from "@/lib/kickoffAutopreenchimento";
 import { insumosDoKickoff, linhasDeEmbalagem } from "@/lib/kickoffBom";
+import { htmlDoBom } from "@/lib/bomDocumento";
 import { blocoOperacionalVazio, prodHoraRefParaGravar, unidadesPorHora } from "@/lib/kickoffOperacional";
 import { formaFisicaDoCrm, modeloServicoDoCrm, registroAnvisaDoCrm, servicosDaProposta, volumeDaVariacao } from "@/lib/bloco0DoCrm";
 import { validarResponsavel } from "@/lib/responsaveisTecnicos";
@@ -925,8 +926,11 @@ export function createCommercialRouter(h) {
     const { mps, embalagens } = await buildBomLines(tenant, kickoff);
     // Kickoff antigo (sem questionário) segue com tudo no BOM, como sempre foi.
     const bom = (semQuestionario ? [...mps, ...embalagens] : embalagens).map(manter);
+    // BOM-02: a ficha guarda a versão da fórmula registrada (aprovada pelo cliente) para a aba BOM.
+    const formulaDaFicha = !semQuestionario && kickoff.formula_id ? await one(tenant, "pd_formulas", kickoff.formula_id).catch(() => null) : null;
     const ficha = semQuestionario ? (kickoff.ficha_manipulacao || null)
-      : { formula_id: kickoff.formula_id || null, itens: mps.map(manter), atualizado_em: kickoff.ficha_manipulacao?.atualizado_em || null };
+      : { formula_id: kickoff.formula_id || null, ...(formulaDaFicha ? { formula_versao: Number(formulaDaFicha.version) || 1, formula_nome: formulaDaFicha.name || formulaDaFicha.nome || "" } : {}),
+        itens: mps.map(manter), atualizado_em: kickoff.ficha_manipulacao?.atualizado_em || null };
     const mudou = JSON.stringify(bom) !== JSON.stringify(kickoff.bom || [])
       || JSON.stringify(ficha?.itens || []) !== JSON.stringify(kickoff.ficha_manipulacao?.itens || []);
     if (mudou) {
@@ -2294,6 +2298,11 @@ export function createCommercialRouter(h) {
       if (is("POST", /^\/kickoff\/([^/]+)\/restore$/)) return setArchived(tenant, m[1], false, "", profile);
       if (is("GET", /^\/kickoff\/([^/]+)\/bom$/)) return (await refreshBom(tenant, await getKickoff(tenant, m[1]))).bom;
       if (is("POST", /^\/kickoff\/([^/]+)\/bom\/export$/)) return exportBom(tenant, m[1]);
+      // BOM-02: PDF do BOM (HTML para imprimir) sem a ficha de manipulação e sem o Bloco Operacional.
+      if (is("GET", /^\/kickoff\/([^/]+)\/bom\/pdf$/)) {
+        const k = await refreshBom(tenant, await getKickoff(tenant, m[1]));
+        return new Blob([htmlDoBom(k, { geradoEm: new Date().toLocaleString("pt-BR") })], { type: "text/html;charset=utf-8" });
+      }
       if (is("POST", /^\/kickoff\/([^/]+)\/aprovacao$/)) return approveKickoff(tenant, m[1], data, profile);
       if (is("POST", /^\/kickoff\/([^/]+)\/blocos\/([^/]+)\/validar$/)) return validarBloco(tenant, m[1], m[2], profile);
 

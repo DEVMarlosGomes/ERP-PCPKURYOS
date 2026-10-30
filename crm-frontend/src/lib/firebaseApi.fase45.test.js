@@ -117,4 +117,18 @@ describe("Fase 4 — Kickoff e BOM", () => {
     assert.equal(db("produtos/PRF-BRIS-0002/prodHoraRef"), 1200, "referência do PCP não é sobrescrita");
     assert.deepEqual(aprovado.prod_hora_ref_gravado, [{ sku: "PRF-BRIS-0001", prod_hora_ref: 1500 }]);
   });
+
+  test("BOM-02: PDF do BOM sai sem a ficha de manipulação e sem o Bloco Operacional; a tela tem a ficha com a versão", async () => {
+    const { kickoff } = await projetoNoKickoff("Cais");
+    as("com");
+    const k = (await api.put(`/kickoff/${kickoff.id}/questionario-composicao`, { questionario: questionarioCompleto(kickoff) })).data;
+    assert.equal(k.ficha_manipulacao.formula_versao, 1);
+    assert.ok(k.ficha_manipulacao.itens.some((l) => l.descricao === "Álcool Etílico"));
+    const { data: blob } = await api.get(`/kickoff/${kickoff.id}/bom/pdf`);
+    const html = await blob.text();
+    assert.match(blob.type, /text\/html/);
+    assert.match(html, /Frasco PET 200 mL/);
+    assert.doesNotMatch(html, /Álcool Etílico/);
+    assert.doesNotMatch(html, /Envasadora|Operador de envase/);
+  });
 });

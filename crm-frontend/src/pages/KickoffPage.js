@@ -205,6 +205,20 @@ export default function KickoffPage() {
     }
   };
 
+  // BOM-02: PDF do BOM (sem manipulação e sem equipamentos); a aba abre antes para não virar pop-up barrado.
+  const exportBomPdf = async () => {
+    const win = window.open("", "_blank");
+    try {
+      const { data: blob } = await api.get(`/kickoff/${id}/bom/pdf`, { responseType: "blob" });
+      const url = URL.createObjectURL(blob);
+      if (win) win.location.href = url; else window.location.href = url;
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      win?.close();
+      toast.error(formatApiError(error));
+    }
+  };
+
   const archiveKickoff = async () => {
     const motivo = window.prompt("Motivo do arquivamento do Kickoff") || "";
     if (!motivo.trim()) return;
@@ -253,7 +267,11 @@ export default function KickoffPage() {
           <Button variant="outline" onClick={() => navigate("/kickoffs")}>Voltar</Button>
           <Button variant="outline" onClick={exportBom}>
             <Download className="h-4 w-4 mr-2" />
-            Exportar BOM
+            Exportar BOM (CSV)
+          </Button>
+          <Button variant="outline" onClick={exportBomPdf} data-testid="exportar-bom-pdf">
+            <FileText className="h-4 w-4 mr-2" />
+            Exportar PDF
           </Button>
           {kickoff.status === "arquivado" ? (
             canManage && (
@@ -371,9 +389,14 @@ export default function KickoffPage() {
             </Card>
             <Card>
               <CardContent className="p-5">
-                <h2 className="font-medium">Ficha de manipulação</h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="font-medium">Ficha de manipulação</h2>
+                  {/* BOM-02: a fórmula do Kickoff é a registrada = aprovada pelo cliente; só leitura, fora do PDF. */}
+                  {kickoff.formula_id && <Badge variant="outline" data-testid="ficha-aprovada">aprovada pelo cliente{kickoff.ficha_manipulacao?.formula_versao ? ` · v${kickoff.ficha_manipulacao.formula_versao}` : ""}</Badge>}
+                  <Badge variant="secondary">somente leitura · fora do PDF</Badge>
+                </div>
                 <p className="mb-3 text-sm text-muted-foreground">
-                  Matérias-primas da fórmula do P&D{kickoff.bloco1?.formula_vinculada ? ` (${kickoff.bloco1.formula_vinculada})` : ""}. Documento separado do BOM de embalagens.
+                  Matérias-primas da fórmula do P&D{kickoff.ficha_manipulacao?.formula_nome || kickoff.bloco1?.formula_vinculada ? ` (${kickoff.ficha_manipulacao?.formula_nome || kickoff.bloco1.formula_vinculada})` : ""}. Documento separado do BOM de embalagens.
                 </p>
                 {(kickoff.ficha_manipulacao?.itens || []).length ? (
                   <div className="overflow-x-auto">
