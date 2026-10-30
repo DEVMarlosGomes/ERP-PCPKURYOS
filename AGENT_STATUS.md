@@ -8,7 +8,7 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 ### Claude — Reunião 28/10: menu do Gustavo + ajustes CRM · P&D · Kickoff · BOM · Compras · PCP · Financeiro
 
 - **Pedido:** executar `PROMPT_REUNIAO_20261028.md` (Agente 1 tech lead + Agente 2 dev). Referência: `prod-kuryos.web.app` (só leitura) e `gcallegaro-kur/PCP-Kuryos`.
-- **Estado (29/10, noite):** Portão A aprovado (D-01…D-16 pelo padrão; D-15 = só código). **Fase 2 (CRM) concluída em commits locais** `2df7b1d` CRM-01, `71fedd7` CRM-02, `1ae6341`/`36257dc` CRM-03/04, `7c72bc4` build — sem push (Portão C). Migração das categorias antigas: plano pronto (106 campos), aplica depois do deploy. Em execução por 3 devs em worktrees: `reuniao-20261028/menu` (Fase 1), `reuniao-20261028/pd` (Fase 3), `reuniao-20261028/fin-op` (FIN-01, OP-01/02).
+- **Estado (30/10):** no `main`: Fase 2 (CRM-01..04), Fase 1 (menu do Gustavo, Início), Fase 3 (PD-01..06) e FIN-01/OP-01/OP-02, revisados pelo tech lead e publicados. Em seguida, sem parar (pedido do Marlos em 30/10): Dev 2 → Fases 4 e 5; Dev 3 → Fase 6; Dev 1 → Fase 8.
 - **Arquivos ativos:** `docs/superpowers/specs/2026-10-28-reuniao-ajustes-design.md` e `docs/superpowers/specs/2026-10-28-matriz-lacunas-gustavo.md` (novos). Código só depois do Portão A. MENU-01/02 tocam `auth_check.js` e o shell, que têm alterações abertas de outra sessão (D-12).
 
 ### Claude (Dev Sênior 1) — Reunião 28/10: menu lateral do Gustavo (29/10/2026)
