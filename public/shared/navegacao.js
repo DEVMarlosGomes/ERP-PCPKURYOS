@@ -160,6 +160,8 @@
     {p: 'qualidade.html', h: 'qualidade.html?tab=rnc', r: 'Não Conformidades', i: 'alert', b: 'Qualidade'},
     {p: 'qualidade_historico.html', r: 'Histórico e Indicadores', i: 'chart', b: 'Qualidade'},
     {p: 'retrabalhos.html', r: 'Retrabalhos', i: 'history', b: 'Qualidade'},
+    // Modelos de checklist (PORT-03, Gustavo 9c02f76): a Qualidade edita e versiona as perguntas.
+    {p: 'checklists_cq.html', r: 'Modelos de checklist', i: 'clipboard', b: 'Qualidade'},
 
     // ── Expedição: um link só; a tela encadeia montar carga → faturamento → acompanhamento.
     {p: 'expedicao.html', r: 'Expedição de Vendas', i: 'truck', b: 'Expedição', fam: EXPEDICAO},

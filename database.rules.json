@@ -460,6 +460,27 @@
         ".validate": "(!data.child('abertaLinha').exists() || !newData.child('abertaLinha').exists() || data.child('abertaLinha').val() == newData.child('abertaLinha').val() || (auth != null && root.child('usuarios').child(auth.uid).child('role').val() == 'admin')) && (newData.child('status').val() == 'Concluído' || newData.child('status').val() == 'Cancelado' || newData.child('status').val() == 'Aguardando Confirmação' || !newData.child('abertaDesde').exists() || !newData.child('abertaLinha').exists() || !root.child('retrabalhos_linhas').child(newData.child('abertaLinha').val()).exists())"
       }
     },
+    // Modelos de checklist da Qualidade (PORT-03, porte do Gustavo 9c02f76; PLANO_QUALIDADE A2):
+    // todo logado LÊ (operador preenche a assepsia com o modelo); edita quem é da Qualidade.
+    // Versão publicada é imutável -- a inspeção guarda o número da versão e precisa
+    // reencontrar as perguntas como eram.
+    "checklist_modelos": {
+      ".read": "auth != null",
+      "$modeloId": {
+        // Sem .write aqui de propósito: permissão concedida em cima não pode ser
+        // revogada embaixo, e a versão publicada precisa ser imutável.
+        ".validate": "newData.hasChildren(['codigo', 'nome'])",
+        "versoes": {
+          "$n": {
+            ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'qualidade' || root.child('usuarios').child(auth.uid).child('modulos').child('qualidade').val() == true) && !data.exists()",
+            ".validate": "newData.hasChildren(['itens', 'criadaEm'])"
+          }
+        },
+        "$campo": {
+          ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'qualidade' || root.child('usuarios').child(auth.uid).child('modulos').child('qualidade').val() == true)"
+        }
+      }
+    },
     "pedidos_comerciais": {
       ".read": "auth != null",
       ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp')) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('pedidos').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true))",
