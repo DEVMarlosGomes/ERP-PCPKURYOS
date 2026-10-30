@@ -184,7 +184,13 @@
     {p: 'manual_cadastros.html', r: 'Cadastros', i: 'book', b: 'Ajuda', q: function(c) { return c.temMod('cadastros'); }},
     {p: 'manual_admin.html', r: 'Administração', i: 'book', b: 'Ajuda', q: function(c) { return c.temMod('usuarios'); }},
     // A referência completa descreve o sistema INTEIRO, inclusive o que a pessoa não acessa.
-    {p: 'manual_referencia.html', r: 'Referência do Sistema', i: 'book', b: 'Ajuda'}
+    {p: 'manual_referencia.html', r: 'Referência do Sistema', i: 'book', b: 'Ajuda'},
+
+    // ── Fase 8 (reunião 28/10/2026), portes do Gustavo -- Dev 3 (PORT-06 a PORT-09).
+    // As posições `o` encaixam cada tela no bloco sem reordenar o que já existe.
+    {p: 'ativos.html', r: 'Ativos', i: 'gear', b: 'Manutenção'},
+    {p: 'manual_ativos.html', r: 'Ativos', i: 'book', b: 'Ajuda', o: function() { return pos('manual_cadastros.html') - 0.5; },
+      q: function(c) { return c.temMod('manutencao'); }}
   ];
 
   /* Ícone (ktIcons em auth_check.js) e matiz de cada bloco: azul (--s1) para o

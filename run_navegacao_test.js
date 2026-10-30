@@ -33,6 +33,10 @@ const acesso = new Function(fonte.slice(ini, fim) +
 const semHtml = (h) => String(h).replace(/\.html(?=$|[?#])/, '');
 const paginaDe = (href) => semHtml(href).split('?')[0] + '.html';
 const ETAPAS_EXPEDICAO = ['faturamento', 'cargas'];
+// Telas portadas na Fase 8 (Dev 3: PORT-06 a PORT-09): os únicos links novos aceitos
+// além do menu antigo -- quem tem o módulo passa a vê-los; o resto não muda.
+const NOVAS_FASE8_DEV3 = ['ativos', 'manual_ativos', 'auditoria_5s', 'manual_auditoria_5s', 'rh_temporarios', 'manual_temporarios',
+  'feedback', 'rh_feedback', 'manual_feedback', 'backlog'];
 
 // O fixture cobre todos os perfis do aceite.
 ['admin', 'pcp', 'gestor', 'qualidade', 'rotulagem', 'logistica', 'comercial', 'pd', 'production', 'rh', 'tv',
@@ -66,7 +70,7 @@ Object.keys(PERFIS).forEach((nome) => {
   antigos.forEach((l) => { rotuloAntigo[l.href] = l.rotulo; });
   const setAntigo = new Set(antigos.map((l) => l.href));
   const setNovo = new Set(hrefsNovos);
-  const sobrando = [...setNovo].filter((h) => !setAntigo.has(h));
+  const sobrando = [...setNovo].filter((h) => !setAntigo.has(h) && !NOVAS_FASE8_DEV3.includes(h));
   assert.deepEqual(sobrando, [], nome + ': link novo que o menu antigo não oferecia');
   const faltando = [...setAntigo].filter((h) => !setNovo.has(h));
   const faltaAceita = faltando.filter((h) => ETAPAS_EXPEDICAO.includes(h) && setNovo.has('expedicao'));
@@ -74,6 +78,7 @@ Object.keys(PERFIS).forEach((nome) => {
   // Mesmo rótulo, salvo o link que passou a representar as três etapas.
   novo.forEach((l) => {
     if (l.href === 'expedicao') { assert.equal(l.rotulo, 'Expedição de Vendas'); return; }
+    if (NOVAS_FASE8_DEV3.includes(l.href)) return; // tela nova: não havia rótulo antigo
     assert.equal(l.rotulo, rotuloAntigo[l.href], nome + ': rótulo mudou em ' + l.href);
   });
   comparados++;
@@ -88,7 +93,8 @@ const rotulos = (links, bloco) => doBloco(links, bloco).map((l) => l.rotulo);
 const admin = menu('admin');
 assert.deepEqual([...new Set(admin.map((l) => l.grupo))],
   ['Analytics', 'Comercial', 'P&D', 'Pedidos e Rastreio', 'PCP', 'Compras', 'Armazém', 'Operação', 'Qualidade', 'Expedição',
-    'Cadastros', 'Financeiro', 'ADM', 'RH', 'Ajuda'], 'admin: blocos na ordem do D-01 (Manutenção sem tela ainda)');
+    'Manutenção', 'Cadastros', 'Financeiro', 'ADM', 'RH', 'Ajuda'], 'admin: blocos na ordem do D-01 (Manutenção com Ativos desde o PORT-06)');
+assert.deepEqual(rotulos(admin, 'Manutenção'), ['Ativos'], 'PORT-06: Ativos no bloco Manutenção');
 assert.deepEqual(rotulos(admin, 'Analytics'), ['Visão Executiva 360°', 'Indicadores Setoriais', 'Dashboard Diário', 'Dashboard Geral', 'Custos e Resultado', 'Placar da fábrica']);
 assert.deepEqual(doBloco(admin, 'Comercial').map((l) => [l.sub, l.rotulo]), [
   ['Vendas', 'Pedidos e Orçamentos'], ['Vendas', 'Gestão Comercial'], ['Vendas', 'Devoluções de Cliente'],

@@ -256,7 +256,11 @@ const KURYOS_MODULOS = {
   financeiro:   { rotulo: 'Financeiro',            desc: 'Contas a pagar e a receber, bancos, conciliação e fluxo de caixa (dado sensível)',
                   paginas: ['financeiro.html'] },
   controladoria:{ rotulo: 'Controladoria',         desc: 'Razão gerencial, DRE, rentabilidade, orçamento e fechamento do mês (dado sensível)',
-                  paginas: ['controladoria.html'] }
+                  paginas: ['controladoria.html'] },
+  // ── Fase 8 (reunião 28/10/2026), portes do repositório do Gustavo -- Dev 3 (PORT-06 a PORT-09).
+  // Manutenção › Ativos (PORT-06): o cadastro que a Qualidade, a Operação e o Kickoff (KO-13) consomem.
+  manutencao:   { rotulo: 'Manutenção — Ativos',   desc: 'Cadastro de máquinas e equipamentos (reatores, linhas, instrumentos) usado pelos outros módulos',
+                  paginas: ['ativos.html'] }
 };
 
 // Padrão por papel. Reproduz EXATAMENTE o alcance que cada papel tinha antes

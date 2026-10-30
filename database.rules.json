@@ -676,6 +676,26 @@
     "retrabalhos_linhas": {
       ".read": "auth != null",
       ".write": false
+    },
+    // ── Fase 8 (reunião 28/10/2026), portes do Gustavo -- Dev 3 ─────────────────────────────
+    // Manutenção › Ativos (PORT-06; regra do Gustavo, 19/10): todo usuário logado LÊ (Qualidade,
+    // Operação, Planejamento e o Kickoff/KO-13 consomem o cadastro); grava o admin ou quem tem o
+    // módulo manutencao. Histórico de situação só acrescenta.
+    "ativos": {
+      ".read": "auth != null",
+      ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('manutencao').val() == true)",
+      "$ativoId": {
+        ".validate": "!newData.exists() || (newData.hasChildren(['codigo', 'nome', 'tipo', 'area', 'situacao']) && newData.child('codigo').isString() && newData.child('codigo').val().length > 0 && (newData.child('situacao').val() == 'OPERACIONAL' || newData.child('situacao').val() == 'EM_MANUTENCAO' || newData.child('situacao').val() == 'INATIVO'))"
+      }
+    },
+    "ativos_historico": {
+      ".read": "auth != null",
+      "$ativoId": {
+        "$evento": {
+          ".write": "auth != null && !data.exists() && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('modulos').child('manutencao').val() == true)",
+          ".validate": "newData.hasChildren(['de', 'para', 'em'])"
+        }
+      }
     }
   }
 }
