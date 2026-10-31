@@ -16,6 +16,7 @@ const rs = (n, casas = 2) => (n === null || n === undefined ? "—"
   : `R$ ${Number(n).toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: Math.max(casas, 4) })}`);
 const qtd = (n) => Number(n || 0).toLocaleString("pt-BR", { maximumFractionDigits: 4 });
 const TIPO_INSUMO = { mp_formula: "MP", embalagem_primaria: "Emb. primária", tampa: "Tampa", emb_secundaria: "Emb. secundária", emb_terciaria: "Caixa master", rotulo: "Rótulo" };
+const ORIGEM_PRECO = { cotacao: "Compras", formula: "Fórmula P&D", manual: "Manual", cadastro_servicos: "Cadastros" };
 const SemPreco = () => <Badge variant="outline" className="border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-300 text-[10px]">SEM PREÇO</Badge>;
 
 const acimaDoMaximo = (l) => l?.desconto_maximo_pct !== undefined && l?.desconto_maximo_pct !== null && Number(l.desconto_pct || 0) > Number(l.desconto_maximo_pct) + 1e-9;
@@ -115,6 +116,9 @@ export default function CotacaoComposicao({ projetoId, salva, congelada, taxa, o
                         </select>
                         <Input className="h-7 w-24 text-xs tabular-nums" type="number" min="0" step="0.0001" disabled={bloqueado} value={l.preco ?? ""} placeholder="preço"
                           onChange={(e) => setInsumo(i, { preco: e.target.value === "" ? null : Number(e.target.value) })} data-testid={`insumo-preco-${i}`} />
+                        {l.origem_preco && <Badge variant="secondary" className="text-[9px] whitespace-nowrap" title={l.fonte_preco || l.cotacao_numero || ""}>
+                          {ORIGEM_PRECO[l.origem_preco] || l.origem_preco}
+                        </Badge>}
                       </div>
                     )}
                   </td>
@@ -163,7 +167,7 @@ export default function CotacaoComposicao({ projetoId, salva, congelada, taxa, o
                   <tr key={`${l.servico_id}-${i}`} className={l.pendente ? "bg-red-500/5" : ""}>
                     <td className="px-2 py-1.5 min-w-[150px]">
                       <span className="font-medium">{l.nome}</span>
-                      <span className="block text-[10px] text-muted-foreground">{UNIDADES_SERVICO[l.unidade]?.rotulo || l.unidade}{l.fora_da_tabela ? " · fora da tabela atual" : ""}{doKickoff.has(l.servico_id) ? " · do Kickoff" : ""}</span>
+                      <span className="block text-[10px] text-muted-foreground">{UNIDADES_SERVICO[l.unidade]?.rotulo || l.unidade}{l.fora_da_tabela ? " · fora da tabela atual" : ""}{doKickoff.has(l.servico_id) ? " · do Kickoff" : ""}{l.origem_preco ? ` · ${ORIGEM_PRECO[l.origem_preco] || l.origem_preco}` : ""}</span>
                       {l.fora_do_kickoff && <span className="block text-[10px] font-medium text-red-700" data-testid="servico-fora-kickoff">não escolhido no Kickoff — remova ou marque no Kickoff</span>}
                     </td>
                     <td className="px-2 py-1.5 tabular-nums whitespace-nowrap">

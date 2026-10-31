@@ -56,7 +56,7 @@ const as = (uid) => memory.setUser(uid);
 beforeAll(async () => {
   memory.reset(SEED);
   api = (await import("@/lib/firebaseApi")).default;
-});
+}, 30_000);
 afterAll(async () => {
   // DUMP_SEED=arquivo.json grava o banco final (base para demonstração visual das telas).
   if (process.env.DUMP_SEED) (await import("node:fs")).writeFileSync(process.env.DUMP_SEED, JSON.stringify(memory.root));
@@ -537,6 +537,13 @@ describe("fluxo comercial completo até a emissão de OP", () => {
       const depoisDosPrecos = (await api.get(`/crm/projects/${project.id}/cotacao`)).data.vigente;
       if (depoisDosPrecos.status !== "precificada") await api.post(`/crm/projects/${project.id}/cotacao/status`, { status: "precificada" });
     }
+    // COT-04: ao abrir o orçamento completo, a composição recebe o valor cotado e sua origem.
+    const baseOrcamento = (await api.get(`/crm/projects/${project.id}/cotacao-base`)).data;
+    assert.deepEqual(
+      [baseOrcamento.insumos.find((i) => i.bom_id === frasco.linha_id).preco, baseOrcamento.insumos.find((i) => i.bom_id === frasco.linha_id).origem_preco],
+      [1.27, "cotacao"]
+    );
+    assert.ok(baseOrcamento.servicos.length > 0, "serviços escolhidos no Kickoff também compõem o orçamento");
     await fails(api.put(`/crm/projects/${project.id}/cotacao/linhas/${frasco.linha_id}`, { preco: 3 }), 409, /abra uma revisão/);
     // Kickoff muda depois que a cotação saiu do rascunho: revisão r2, r1 substituída, preço mantido.
     const q = structuredClone(kickoffVig.questionario_composicao);

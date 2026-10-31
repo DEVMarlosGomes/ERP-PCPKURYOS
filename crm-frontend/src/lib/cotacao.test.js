@@ -182,3 +182,24 @@ describe("COT-01 (D-10): desconto do serviço é o máximo", () => {
     expect(validarDescontos([{ nome: "Fora", desconto_pct: 50, fora_da_tabela: true }]).ok).toBe(true);
   });
 });
+
+describe("COT-04: orçamento completo sugerido pela cotação", () => {
+  test("traz insumo cotado e serviço do Cadastros com origem; SEM PREÇO continua bloqueando", () => {
+    const base = {
+      qtd_pedido: 1000,
+      insumos: [
+        { bom_id: "frasco", descricao: "Frasco", qtd_por_unidade: 1, unidade: "un", fornecido_por: "kuryos", preco: 1.27, moeda: "BRL", origem_preco: "cotacao", fonte_preco: "cotado_compras", cotacao_numero: "COT-2026-001-r1" },
+        { bom_id: "tampa", descricao: "Tampa", qtd_por_unidade: 1, unidade: "un", fornecido_por: "kuryos", preco: null, moeda: "BRL", origem_preco: "manual" },
+      ],
+      servicos: [ENVASE], servicos_selecionados: [ENVASE.id],
+    };
+    const composicao = mesclarComposicao(null, base);
+    expect(composicao.insumos[0]).toMatchObject({ preco: 1.27, origem_preco: "cotacao", fonte_preco: "cotado_compras" });
+    expect(composicao.servicos[0]).toMatchObject({ preco_cheio: 0.3, origem_preco: "cadastro_servicos" });
+    const calculada = calcularCotacao(composicao, 5);
+    expect(calculada.pode_enviar).toBe(false);
+    expect(calculada.pendencias).toContainEqual({ tipo: "insumo", descricao: "Tampa", motivo: "SEM PREÇO" });
+    composicao.insumos[1].preco = 0.2;
+    expect(calcularCotacao(composicao, 5).pode_enviar).toBe(true);
+  });
+});

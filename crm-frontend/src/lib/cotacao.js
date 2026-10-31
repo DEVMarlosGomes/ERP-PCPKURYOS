@@ -74,7 +74,7 @@ export function linhaDeServico(servico) {
   return {
     servico_id: s.id, codigo: s.codigo || "", nome: s.nome || "", unidade: s.unidade || "un",
     // COT-01 (D-10): o desconto do Cadastros é o MÁXIMO da etapa; a linha nasce com 0 % e o comercial dá até ele.
-    preco_cheio: positivo(s.preco), desconto_pct: 0, desconto_maximo_pct: pct(s.descontoPct), setup_lote: num(s.setupLote) || 0,
+    preco_cheio: positivo(s.preco), origem_preco: "cadastro_servicos", desconto_pct: 0, desconto_maximo_pct: pct(s.descontoPct), setup_lote: num(s.setupLote) || 0,
     minimo_pedido: num(s.minimoPedido) || 0, fator: 1,
   };
 }
