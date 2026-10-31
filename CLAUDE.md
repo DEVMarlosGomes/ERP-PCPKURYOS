@@ -56,7 +56,7 @@ pedido de funcionalidade com "escrevo só a spec"; o formato de spec vale apenas
 próprio usuário pedir um documento para entregar aos devs do ERP. Não tenho acesso ao
 código do Kuryos ERP — lá só dá para verificar pelo navegador.
 
-## Estado dos módulos (setembro/2026)
+## Estado dos módulos (outubro/2026)
 
 | Módulo | Situação |
 |---|---|
@@ -68,7 +68,7 @@ código do Kuryos ERP — lá só dá para verificar pelo navegador.
 | Custos e Resultado (`custos.html`, `placar.html`) | construído e auditado em 26–28/10 (`AUDITORIA_CUSTOS_20261028.md`); LP em 0 SKUs até haver preço, impostos e custo da operação; realizado e placar param na última OP (21/09). Regras `custos/` e `resultado/` publicadas em 28/10. |
 | Financeiro (`financeiro.html`) e Controladoria (`controladoria.html`) | construídos em 28/10 (`PROMPT_FINANCEIRO.md` §15, `PROMPT_CONTROLADORIA.md` §15); módulos `financeiro` e `controladoria` marcados pelo ADM; só LEEM os outros módulos (títulos dos recebimentos/NFs/operação; lançamentos do razão de custos/NFs/baixas). Títulos, baixas, lançamentos e fechamento só o servidor grava; nada se apaga (estorno). Base sem NF de saída e sem banco até a operação cadastrar |
 | Menu lateral e Início (reunião 28/10) | no ar desde 30/10: menu montado de um registro único (`public/shared/navegacao.js`, ordem do D-01, identidade do Gustavo); `inicio.html` é a home. Tela nova entra no registro no mesmo commit; `run_navegacao_test.js` compara os links de 39 perfis |
-| Reunião 28/10 (`docs/superpowers/specs/`) | no ar: CRM-01..04 (categorias = Cadastros, código gravado), PD-01..06, FIN-01 (parcelas), OP-01/02 (trava de saldo **desligada** até o Dia D, liberação só ADM), FEFO-01, PLAN-01 (reprograma linha só com "Aplicar" do PCP), portes do Gustavo PORT-06..09 (Ativos, 5S, RH, Roadmap). Em curso: Fases 4–5 (Kickoff/BOM/Cotação) e PORT-01..05/10 |
+| Reunião 28/10 (`AUDITORIA_REUNIAO_20261028.md`) | concluída em 31/10: MENU-01..04, CRM-01..04, PD-01..06, KO-10..13, BOM-02..04, COT-01..04, SKU-01, OP-01/02, PLAN-01, FEFO-01, FIN-01 e PORT-01..10. A trava de saldo segue **desligada** até o Dia D. Duas propostas aprovadas antigas precisam de revisão antes de gerar SKU; decisões e operação restantes estão no relatório. |
 | Estoque | ver "Dia D" abaixo |
 
 **O saldo de estoque ainda não serve para decidir.** Dos 906 materiais cadastrados, só 37

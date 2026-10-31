@@ -8,9 +8,10 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 ### Codex (Tech Lead) — Fechamento integral do prompt da reunião 28/10 (31/10/2026)
 
 - **Pedido:** retomar os dois agentes cloud de onde pararam, finalizar todas as fases/tickets de `PROMPT_REUNIAO_20261028.md`, integrar, testar e auditar o prompt inteiro procurando brechas, falhas e regressões.
-- **Coordenação:** Dev Full Stack 1 fecha Fases 4–5 na branch/worktree existente `reuniao-20261028/fase4-5`; Dev Full Stack 2 fecha as lacunas da Fase 8 em branch/worktree própria baseada em `reuniao-20261028/fase8`. O Tech Lead integra somente commits revisados no `main`.
-- **Arquivos do Tech Lead:** `AGENT_STATUS.md`, `AUDITORIA_REUNIAO_20261028.md`, `CLAUDE.md`, `MELHORIAS_FUTURAS.md` e, após a entrega dos devs, os arquivos necessários para resolver conflitos e correções encontradas na auditoria. Nenhum arquivo ativo dos devs será editado simultaneamente no `main`.
-- **Estado inicial:** `main` limpo em `bd09f7b`; Dev 1 deixou a Fase 8 sem `inspecao_total.html` e com PORT-10 parcial; Dev 2 deixou COT-03 sem commit e COT-04/SKU-01 pendentes.
+- **Entregue:** Fases 4–5 e Fase 8 integradas no `main`; todos os tickets MENU, CRM, P&D, Kickoff/BOM, Cotação/SKU/Compras, PCP, Financeiro e PORT-01..10 auditados em `AUDITORIA_REUNIAO_20261028.md`.
+- **Validação:** CRM 408 testes/2 ignorados + build; navegação 39 perfis; coerência 402 verificações; motores/UI de Painel, Pesagens, Qualidade, Titularidade, Auditoria, RNC e Expedição; regras COT-01 (8), COT-03 (13), Checklists/Liberação e Auditoria no emulador. Ensaio somente leitura SKU-01: 6 propostas, 3 aprovadas, 1 fluxo atual indexado e 2 legadas sem SKU para revisão manual.
+- **Achados corrigidos:** fixture da Home, overflow móvel de Emitir OP, dois testes intermitentes/falso-negativo e falta da fronteira de segurança do desconto máximo (`0f9ca5d`).
+- **Publicação:** pendente apenas registrar abaixo o commit final, o push e o hash das regras após o deploy explícito no projeto `erpkuryos`.
 
 ### Claude — Reunião 28/10: menu do Gustavo + ajustes CRM · P&D · Kickoff · BOM · Compras · PCP · Financeiro
 

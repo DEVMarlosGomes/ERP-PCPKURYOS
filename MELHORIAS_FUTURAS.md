@@ -1430,7 +1430,7 @@ Contexto: entregues pelo Dev 3 (`reuniao-20261028/fin-op`) e revisados; spec em 
 - **A trava de saldo da emissão de OP vive só na tela.** A OP continua gravada pelo cliente (como o PCP-02); a regra do banco garante só que a liberação sem saldo é do ADM, em nome próprio e com motivo, e que só o ADM liga, desliga ou apaga a chave (`config/emitirOp/bloquearSemSaldo`). Quem escreve direto no banco passa. Retomar levando a emissão de OP para o servidor (Render), com a mesma função pura `public/shared/saldo-emissao-op.js`.
 - **Texto da prontidão desatualizado com a trava ligada.** `public/shared/prontidao-op.js` (item 6) segue dizendo "o saldo … não serve para decidir até o Dia D" mesmo quando a trava está ligada. Ajustar o texto lendo `config/emitirOp/bloquearSemSaldo` no Dia D.
 - **Saldo comparado é o físico** (`saldoAtual`); o empenhado (`saldoEmpenhado`) não é descontado. Rever quando o empenho estiver em uso.
-- **`emitir_op.html` tem 563 px de largura em 390 px** por causa da tabela de materiais de 6 colunas (já era assim antes). Virar cartões no celular.
+- ~~**`emitir_op.html` tinha 563 px de largura em 390 px** por causa da tabela de materiais de 6 colunas.~~ Corrigido em `da07369`: a tabela fica contida e rolável sem alargar a página.
 - **`travar()` do Financeiro relança o erro depois do toast** (`shared/financeiro-tela.js`): recusa do servidor deixa uma rejeição não tratada no console. Trocar o relançamento por retorno controlado.
 - **FIN-01 sem ensaio contra a base.** A leitura nova ("2x 30/60", "3x") só entra quando o texto começa por número + "x"/"vezes"; as condições já gravadas leem igual. Conferir com uma exportação de `fin/` quando houver títulos manuais.
 
