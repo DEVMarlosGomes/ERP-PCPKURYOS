@@ -2112,6 +2112,8 @@ var STATUS_LOTE = {
   // uma decisão da Qualidade que ninguém tomou. Está disponível porque a
   // mercadoria está no galpão, e o rótulo deixa a origem à vista.
   LEGADO_ESTOQUE:         { rotulo: 'Estoque legado',         badge: 'badge-gray',   disponivel: true,  aplicaA: 'produto'  },
+  INSPECAO_TOTAL:         { rotulo: 'Em inspeção total',      badge: 'badge-orange', disponivel: false, aplicaA: 'produto'  },
+  EM_RETRABALHO:          { rotulo: 'Em retrabalho',          badge: 'badge-orange', disponivel: false, aplicaA: 'produto'  },
   REPROVADO:              { rotulo: 'Reprovado',              badge: 'badge-red',    disponivel: false, aplicaA: 'ambos'    },
   RETIDO:                 { rotulo: 'Retido',                 badge: 'badge-red',    disponivel: false, aplicaA: 'ambos'    },
   VENCIDO:                { rotulo: 'Vencido',                badge: 'badge-red',    disponivel: false, aplicaA: 'ambos'    },
@@ -2155,6 +2157,36 @@ function badgeStatusLote(status) {
 // REPROVADO não zera o saldo: o material continua fisicamente lá, ocupando
 // a posição, até alguém devolver ao fornecedor ou descartar -- e essas são
 // saídas próprias, com movimento próprio, não efeito colateral de um laudo.
+// Registro `qualidade` gravado no lote/palete a partir do laudo. Função pura:
+// é compartilhada pelo laudo avulso e pelo laudo único de PA por OP.
+function qualidadeDoLaudo(laudo, autor, agora) {
+  return {
+    decisao: laudo.decisao,
+    inspecionadoEm: agora,
+    inspecionadoPor: autor || null,
+    dataInspecao: laudo.dataInspecao || agora.slice(0, 10),
+    qtdAmostrada: laudo.qtdAmostrada != null ? laudo.qtdAmostrada : null,
+    certificadoFornecedor: !!laudo.certificadoFornecedor,
+    condicoesVeiculo: laudo.condicoesVeiculo != null ? laudo.condicoesVeiculo : null,
+    condicoesEmbalagem: laudo.condicoesEmbalagem != null ? laudo.condicoesEmbalagem : null,
+    integridadeEmbalagem: laudo.integridadeEmbalagem || null,
+    ausenciaVazamento: laudo.ausenciaVazamento || null,
+    observacao: laudo.observacao || null,
+    autorizadoPor: laudo.autorizadoPor || null,
+    especificacaoKey: laudo.especificacaoKey || null,
+    ensaios: laudo.ensaios || null,
+    resumoPlano: laudo.resumoPlano || null,
+    ck7: laudo.ck7 || null,
+    resumoCk7: laudo.resumoCk7 || null,
+    resultadosPa: laudo.resultadosPa || null,
+    recebimentoCq: laudo.recebimentoCq || null,
+    embalagem: laudo.embalagem || null,
+    resumoEmbalagem: laudo.resumoEmbalagem || null,
+    fotos: (laudo.fotos && laudo.fotos.length) ? laudo.fotos : null,
+    fotosDispensadas: laudo.fotosDispensadas ? true : null
+  };
+}
+
 function registrarLaudoQualidade(dbRef, itemCodigo, loteKey, laudo, autor) {
   if (!itemCodigo || !loteKey || !laudo || !laudo.decisao) {
     return Promise.resolve({ ok: false, erro: 'Faltam dados do laudo.' });
@@ -2184,44 +2216,7 @@ function registrarLaudoQualidade(dbRef, itemCodigo, loteKey, laudo, autor) {
     if (atual.status !== 'QUARENTENA') return; // aborta a transaction
     saldoNoMomento = atual.saldoLote || 0;
     atual.status = laudo.decisao;
-    atual.qualidade = {
-      decisao: laudo.decisao,
-      inspecionadoEm: agora,
-      inspecionadoPor: autor || null,
-      dataInspecao: laudo.dataInspecao || agora.slice(0, 10),
-      qtdAmostrada: laudo.qtdAmostrada != null ? laudo.qtdAmostrada : null,
-      certificadoFornecedor: !!laudo.certificadoFornecedor,
-      condicoesVeiculo: laudo.condicoesVeiculo != null ? laudo.condicoesVeiculo : null,
-      condicoesEmbalagem: laudo.condicoesEmbalagem != null ? laudo.condicoesEmbalagem : null,
-      integridadeEmbalagem: laudo.integridadeEmbalagem || null,
-      ausenciaVazamento: laudo.ausenciaVazamento || null,
-      observacao: laudo.observacao || null,
-      autorizadoPor: laudo.autorizadoPor || null,
-      // Resultado ensaio a ensaio, quando o item tem especificação
-      // cadastrada. É o que transforma o laudo de "aprovado/reprovado" em
-      // registro de análise rastreável -- e o que um COA precisaria ler.
-      especificacaoKey: laudo.especificacaoKey || null,
-      ensaios: laudo.ensaios || null,
-      resumoPlano: laudo.resumoPlano || null,
-      // CK-7 (inspecao-pa.js): checklist de produto acabado do palete --
-      // itens conforme/não conforme, amostragem √N+1, pesagem individual,
-      // retenção e laudo externo. Só existe em lote de PA.
-      ck7: laudo.ck7 || null,
-      resumoCk7: laudo.resumoCk7 || null,
-      // Resultados FQ e microbiológicos do Relatório de Análise de PA,
-      // digitados no laudo (laudo-pa-resultados.js) -- antes iam ao papel.
-      resultadosPa: laudo.resultadosPa || null,
-      // F0070 / F009 (inspecao-embalagem.js + formulários oficiais do CQ):
-      // identificação do recebimento que os laudos em papel pedem e que a
-      // entrada da Logística não captura, e o checklist de embalagem.
-      recebimentoCq: laudo.recebimentoCq || null,
-      embalagem: laudo.embalagem || null,
-      resumoEmbalagem: laudo.resumoEmbalagem || null,
-      // Fotos da análise (shared/fotos-qualidade.js): até 6, no Storage; aqui só
-      // o registro. fotosDispensadas = reprovação sem o que fotografar.
-      fotos: (laudo.fotos && laudo.fotos.length) ? laudo.fotos : null,
-      fotosDispensadas: laudo.fotosDispensadas ? true : null
-    };
+    atual.qualidade = qualidadeDoLaudo(laudo, autor, agora);
     // ── Pendência de endereçamento definitivo ──
     // Levantado pelo usuário (2026-09-08): "o correto não seria ir para
     // quarentena e, após aprovado, ser endereçado pela logística?".
@@ -2361,6 +2356,7 @@ function lotesAguardandoQualidade(estoqueLotes) {
       out.push({
         itemKey: itemKey, loteKey: loteKey,
         itemTipo: l.itemTipo || 'material',
+        opKey: l.opKey || null, origemTipo: l.origemTipo || null,
         itemCodigo: l.itemCodigo, itemNome: l.itemNome || null, unidade: l.unidade || null,
         saldoLote: l.saldoLote || 0,
         loteOrigem: l.loteOrigem || null, dataValidade: l.dataValidade || null,

@@ -204,7 +204,7 @@ const KURYOS_MODULOS = {
   // `apontamento` continua sendo a da Produção de propósito: as regras do
   // banco e os `modulos` já gravados usam esse nome.
   apontamento:  { rotulo: 'Operação — Produção',   desc: 'Apontamento das linhas, histórico e estoque da fábrica',
-                  paginas: ['form.html', 'historico.html', 'estoque_setor.html', 'proximas_ordens.html', 'material_processo.html', 'liberacao_linha.html'] },
+                  paginas: ['form.html', 'historico.html', 'estoque_setor.html', 'proximas_ordens.html', 'material_processo.html', 'liberacao_linha.html', 'inspecao_total.html'] },
   manipulacao:  { rotulo: 'Operação — Manipulação', desc: 'Pesagem, manipulação do bulk e estoque da manipulação',
                   paginas: ['manipulacao.html', 'pesagens.html', 'estoque_setor.html', 'proximas_ordens.html', 'material_processo.html'] },
   rotulagem:    { rotulo: 'Operação — Rotulagem',  desc: 'Apontamento da rotulagem, histórico e estoque da sala de rótulos',
@@ -215,7 +215,7 @@ const KURYOS_MODULOS = {
   conferencia_pesagem: { rotulo: 'Conferência de Pesagem', desc: 'Qualidade/P&D: conferir a pesagem antes da manipulação',
                   paginas: ['manipulacao.html', 'pesagens.html'] },
   planejamento: { rotulo: 'Planejamento e OPs',    desc: 'Programação, controle de OPs e histórico de apontamentos',
-                  paginas: ['planejamento.html', 'horizonte.html', 'ops.html', 'pesagens.html', 'historico.html', 'proximas_ordens.html', 'material_processo.html', 'consulta_estoque.html', 'o_que_comprar.html'] },
+                  paginas: ['planejamento.html', 'horizonte.html', 'ops.html', 'pesagens.html', 'inspecao_total.html', 'historico.html', 'proximas_ordens.html', 'material_processo.html', 'consulta_estoque.html', 'o_que_comprar.html'] },
   emitir_op:    { rotulo: 'Emitir OP',             desc: 'Criar a ordem de produção que a fábrica executa',
                   paginas: ['emitir_op.html', 'dossie_lote.html', 'pesagens.html'] },
   comercial:    { rotulo: 'Comercial',             desc: 'Orçamentos, pedidos, CRM e desenvolvimento',
@@ -234,7 +234,7 @@ const KURYOS_MODULOS = {
   logistica:    { rotulo: 'Logística e Estoque',   desc: 'Agendamentos, Estoque/WMS e Separação de Materiais',
                   paginas: ['logistica.html', 'movimentar.html', 'expedicao.html', 'faturamento.html', 'cargas.html', 'relatorio_expedicao.html', 'estoque.html', 'consulta_estoque.html', 'kardex.html', 'separacao_materiais.html', 'descarte.html', 'devolucoes.html', 'proximas_ordens.html', 'material_processo.html'] },
   qualidade:    { rotulo: 'Qualidade',             desc: 'Liberação de lotes, não conformidades e fornecedores',
-                  paginas: ['qualidade.html', 'qualidade_historico.html', 'dossie_lote.html', 'retrabalhos.html', 'devolucoes.html', 'material_processo.html', 'checklists_cq.html', 'liberacao_linha.html'] },
+                  paginas: ['qualidade.html', 'qualidade_historico.html', 'dossie_lote.html', 'retrabalhos.html', 'devolucoes.html', 'material_processo.html', 'checklists_cq.html', 'liberacao_linha.html', 'inspecao_total.html'] },
   config:       { rotulo: 'Ajustes / Configuração',desc: 'Metas, parâmetros e listas do sistema',
                   paginas: ['admin.html'] },
   usuarios:     { rotulo: 'Gestão de Usuários',    desc: 'Ver a lista de usuários do sistema',

@@ -37,7 +37,7 @@ const ETAPAS_EXPEDICAO = ['faturamento', 'cargas'];
 // além do menu antigo -- quem tem o módulo passa a vê-los; o resto não muda.
 const NOVAS_FASE8 = ['ativos', 'manual_ativos', 'auditoria_5s', 'manual_auditoria_5s', 'rh_temporarios', 'manual_temporarios',
   'feedback', 'rh_feedback', 'manual_feedback', 'backlog', 'pesagens', 'checklists_cq', 'liberacao_linha', 'painel', 'titularidade',
-  'auditoria', 'manual_auditoria'];
+  'auditoria', 'manual_auditoria', 'inspecao_total'];
 
 // O fixture cobre todos os perfis do aceite.
 ['admin', 'pcp', 'gestor', 'qualidade', 'rotulagem', 'logistica', 'comercial', 'pd', 'production', 'rh', 'tv',
