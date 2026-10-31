@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { diffLinhas, faltasDeParidade, itensParaCompras, linhasDaCotacao, mesclarLinhas, numeroCotacao, precosDaCotacao, precosDosProcessos, resumoCotacao } from "./cotacaoKickoff";
+import { cotacaoPrecificada, diffLinhas, faltasDeParidade, itensParaCompras, linhasDaCotacao, mesclarLinhas, numeroCotacao, precosDaCotacao, precosDosProcessos, resumoCotacao } from "./cotacaoKickoff";
 import { linhasDeEmbalagem } from "./kickoffBom";
 
 const comp = (id, extra = {}) => ({ id, componente: id, aplicavel: "sim", definido: "sim", fornecido_por: "kuryos", qtd_por_unidade: 1, ...extra });
@@ -78,5 +78,15 @@ describe("ponte com o Compras (COM-05)", () => {
     expect(m.get("EP-00089")).toEqual({ preco: 1.3, detalhe: "COT-0042 · Vidro Sul · vencedor" });
     expect(m.get("MP0001")).toEqual({ preco: 1.1, detalhe: "COT-0042 · Plastsul · menor resposta" });
     expect(m.has("ET-1")).toBe(false);
+  });
+});
+
+describe("COT-03: cotação precificada", () => {
+  test("toda linha que a Kuryos compra com preço; a do cliente não conta", () => {
+    expect(cotacaoPrecificada([{ preco: 1 }, { fornecido_por: "cliente" }])).toBe(true);
+    expect(cotacaoPrecificada([{ preco: 1 }, { preco: null }])).toBe(false);
+    expect(cotacaoPrecificada([{ fornecido_por: "cliente" }])).toBe(false);
+    expect(cotacaoPrecificada([{ preco: 1, fonte_preco: "cotado_compras" }, { preco: 2 }], { soCompras: true })).toBe(false);
+    expect(cotacaoPrecificada([{ preco: 1, fonte_preco: "cotado_compras" }], { soCompras: true })).toBe(true);
   });
 });

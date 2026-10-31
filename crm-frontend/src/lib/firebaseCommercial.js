@@ -41,7 +41,7 @@ import { formaFisicaDoCrm, modeloServicoDoCrm, registroAnvisaDoCrm, servicosDaPr
 import { validarResponsavel } from "@/lib/responsaveisTecnicos";
 import { resolverDesatualizado, textoDesatualizado } from "@/lib/retrabalhoAprovada";
 import {
-  STATUS_COTACAO, TRAVADAS, diffLinhas, itensParaCompras, linhasDaCotacao, mesclarLinhas, numeroCotacao, precosDaCotacao, precosDosProcessos, resumoCotacao,
+  STATUS_COTACAO, TRAVADAS, cotacaoPrecificada, diffLinhas, itensParaCompras, linhasDaCotacao, mesclarLinhas, numeroCotacao, precosDaCotacao, precosDosProcessos, resumoCotacao,
 } from "@/lib/cotacaoKickoff";
 
 export const NOT_HANDLED = Symbol("not-handled");
@@ -613,6 +613,31 @@ export function createCommercialRouter(h) {
       historico_status: [...(atual.historico_status || []), { status: novo, em: now(), por: currentUid(), por_nome: userName(profile) }] });
   }
 
+  /* COT-03 + D-11: o Pedido de Compra da cotação do projeto só sai com o projeto em pedido (ou com o ADM, com
+   * motivo). A marca fica na raiz (liberacoes_pc_projeto/{projeto}), que o Compras lê e a regra do banco confere
+   * ao consolidar a SC. Falha aqui não desfaz a etapa: fica no console e o ADM pode liberar à mão. */
+  async function liberarPcDoProjeto(tenant, project, tipo, profile, motivo = "") {
+    if (!project?.id) return null;
+    const registro = { liberado: true, tipo, tenant, projeto_numero: project.numero_projeto || "", em: now(), por: currentUid(), por_nome: userName(profile),
+      ...(motivo ? { motivo } : {}) };
+    try {
+      await set(ref(firebaseDb, `liberacoes_pc_projeto/${project.id}`), registro);
+      return registro;
+    } catch (error) {
+      if (tipo === "adm") throw error;
+      console.error(`[Compras] liberação de PC do projeto ${project.numero_projeto || project.id} não gravada:`, error);
+      return null;
+    }
+  }
+
+  async function liberarPcPeloAdm(tenant, projectId, data, profile) {
+    if (!isAdmin(profile)) throw apiError(403, "Só o ADM libera Pedido de Compra antes de o projeto virar pedido.");
+    const motivo = String(data?.motivo || "").trim();
+    if (motivo.length < 10) throw apiError(422, "Informe o motivo da liberação (mínimo 10 caracteres): amostra, urgência…");
+    const project = await getProject(tenant, projectId);
+    return liberarPcDoProjeto(tenant, project, "adm", profile, motivo);
+  }
+
   async function abrirSolicitacaoCompra(tenant, cotacao, profile) {
     const { itens, fora } = itensParaCompras(cotacao);
     if (!itens.length) return { solicitacao_compra_id: null, compras_fora: fora };
@@ -650,7 +675,16 @@ export function createCommercialRouter(h) {
       mudou = true;
       return { ...l, preco: p.preco, moeda: "BRL", fonte_preco: "cotado_compras", fonte_detalhe: p.detalhe, preco_atualizado_em: now(), preco_atualizado_por: "Compras" };
     });
-    return mudou ? patch(tenant, "cotacoes", cotacao.id, { linhas }) : cotacao;
+    // COT-03: Compras precificou tudo o que a Kuryos compra → a cotação do projeto passa a "precificada" e o
+    // projeto mostra o aviso (o orçamento abre com esses valores, COT-04).
+    // Só quando o preço que acabou de voltar do Compras completa a cotação (preço digitado à mão segue o fluxo manual).
+    if (!mudou) return cotacao;
+    const completa = cotacaoPrecificada(linhas, { soCompras: true });
+    const salva = await patch(tenant, "cotacoes", cotacao.id, { linhas, ...(completa ? { status: "precificada", precificada_em: now(), precificada_por: "Compras" } : {}) });
+    if (completa && cotacao.projeto_id) {
+      await patch(tenant, "crm_projects", cotacao.projeto_id, { cotacao_precificada_em: salva.precificada_em, cotacao_aviso: `Cotação ${cotacao.numero} precificada pelo Compras: o orçamento já abre com os valores.` });
+    }
+    return salva;
   }
 
   async function precificarLinha(tenant, projectId, linhaId, data, profile) {
@@ -2004,6 +2038,7 @@ export function createCommercialRouter(h) {
       await mirrorClientStage(tenant, project, profile, "negociacao", "espelho_crm2_cotacao");
     } else {
       project = await advanceProjectStage(tenant, projectId, "pedido_aprovado", profile, "orcamento_aprovado");
+      await liberarPcDoProjeto(tenant, project, "pedido", profile);
       kickoff = await createKickoffForProject(tenant, projectId, profile);
       // COM-07: SKU por variação aprovada, aguardando CGI. Falha de SKU não desfaz a aprovação: fica
       // registrada no orçamento e a assinatura do CGI tenta de novo.
@@ -2076,6 +2111,7 @@ export function createCommercialRouter(h) {
       result.kickoff_criado = { kickoff_id: kickoff.id, numero_kickoff: kickoff.numero_kickoff };
       result.tarefas_criadas = [{ tipo: "preencher_kickoff_bloco2", responsavel: "comercial" }];
     } else if (project.stage === "pedido_aprovado") {
+      await liberarPcDoProjeto(tenant, project, "pedido", profile);
       const kickoff = await createKickoffForProject(tenant, project.id, profile);
       result.kickoff_criado = { kickoff_id: kickoff.id, numero_kickoff: kickoff.numero_kickoff };
       result.tarefas_criadas = [{ tipo: "preencher_kickoff_bloco2", responsavel: "comercial" }];
@@ -2235,6 +2271,7 @@ export function createCommercialRouter(h) {
       // COM-03: cotação em registro próprio (vigente + revisões), gerada do Kickoff.
       if (is("GET", /^\/crm\/projects\/([^/]+)\/cotacao$/)) { await getProject(tenant, m[1]); return listarCotacoes(tenant, m[1]); }
       if (is("POST", /^\/crm\/projects\/([^/]+)\/cotacao$/)) { await gerarCotacao(tenant, m[1], profile); return listarCotacoes(tenant, m[1]); }
+      if (is("POST", /^\/crm\/projects\/([^/]+)\/liberar-pc$/)) return liberarPcPeloAdm(tenant, m[1], data, profile);
       if (is("POST", /^\/crm\/projects\/([^/]+)\/cotacao\/status$/)) { await mudarStatusCotacao(tenant, m[1], data, profile); return listarCotacoes(tenant, m[1]); }
       if (is("PUT", /^\/crm\/projects\/([^/]+)\/cotacao\/linhas\/([^/]+)$/)) { await precificarLinha(tenant, m[1], decodeURIComponent(m[2]), data, profile); return listarCotacoes(tenant, m[1]); }
       // KO-06: responsáveis técnicos (menu do Kickoff, com "+ cadastrar" ali mesmo).

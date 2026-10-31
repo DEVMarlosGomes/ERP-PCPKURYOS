@@ -132,3 +132,23 @@ describe("Fase 4 — Kickoff e BOM", () => {
     assert.doesNotMatch(html, /Envasadora|Operador de envase/);
   });
 });
+
+describe("Fase 5 — cotação, orçamento, SKU", () => {
+  test("COT-03 / D-11: liberar PC antes do pedido só ADM, com motivo; projeto em pedido grava a liberação", async () => {
+    const { project } = await projetoNoKickoff("Duna");
+    as("com");
+    await fails(api.post(`/crm/projects/${project.id}/liberar-pc`, { motivo: "Amostra urgente para feira" }), 403, /ADM/);
+    as("adm");
+    await fails(api.post(`/crm/projects/${project.id}/liberar-pc`, { motivo: "curto" }), 422, /motivo/);
+    await api.post(`/crm/projects/${project.id}/liberar-pc`, { motivo: "Amostra urgente para feira" });
+    assert.deepEqual([db(`liberacoes_pc_projeto/${project.id}/tipo`), db(`liberacoes_pc_projeto/${project.id}/motivo`)], ["adm", "Amostra urgente para feira"]);
+    memory.write(`liberacoes_pc_projeto/${project.id}`, null);
+    // Projeto que chega a Pedido Aprovado grava a liberação "pedido" com o tenant (a regra confere a etapa).
+    memory.write(`${T}/crm_projects/${project.id}/stage`, "em_negociacao");
+    await api.put(`/crm/projects/${project.id}/move`, { stage: "pedido_aprovado" }).catch(() => null);
+    if (db(`${T}/crm_projects/${project.id}/stage`) === "pedido_aprovado") {
+      assert.deepEqual([db(`liberacoes_pc_projeto/${project.id}/tipo`), db(`liberacoes_pc_projeto/${project.id}/tenant`)], ["pedido", "kuryos"]);
+    }
+  });
+});
+

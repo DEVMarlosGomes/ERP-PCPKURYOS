@@ -4517,6 +4517,40 @@ function wireCotacoesAndamento() {
     });
   });
 }
+// COT-03 + D-11 (reunião 28/10/2026): PC de processo que veio de cotação de projeto do CRM
+// (SC com origem CRM_COTACAO) só sai com o projeto em pedido -- o CRM grava
+// liberacoes_pc_projeto/{projeto} ao chegar a Pedido Aprovado. Exceção: o ADM libera
+// com motivo (amostra, urgência). A regra do banco confere o mesmo ao consolidar a SC.
+function projetosCrmDoProcesso(proc) {
+  var ids = {};
+  Object.keys((proc && proc.solicitacoesOrigem) || {}).forEach(function(scKey) {
+    var o = (allSolicitacoes[scKey] || {}).origem || {};
+    if (o.tipo === 'CRM_COTACAO' && o.projetoId) ids[o.projetoId] = o.projeto || o.projetoId;
+  });
+  return ids;
+}
+function conferirLiberacaoPcProjeto(proc) {
+  var ids = projetosCrmDoProcesso(proc);
+  var chaves = Object.keys(ids);
+  if (!chaves.length) return Promise.resolve(true);
+  return Promise.all(chaves.map(function(id) { return db.ref('liberacoes_pc_projeto/' + id).once('value'); })).then(function(snaps) {
+    var travados = chaves.filter(function(id, i) { var v = snaps[i].val(); return !(v && v.liberado === true); });
+    if (!travados.length) return true;
+    var nomes = travados.map(function(id) { return ids[id]; }).join(', ');
+    if (!(window.currentUser && window.currentUser.role === 'admin')) {
+      showAlert('Pedido de Compra bloqueado: a cotação é do projeto ' + nomes + ', que ainda não virou pedido no CRM. Só o ADM libera antes, com motivo.', 'danger');
+      return false;
+    }
+    var motivo = (window.prompt('Projeto ' + nomes + ' ainda não virou pedido. Motivo para liberar o Pedido de Compra (amostra, urgência…), mínimo 10 caracteres:') || '').trim();
+    if (motivo.length < 10) { showAlert('Liberação cancelada: informe o motivo (mínimo 10 caracteres).', 'danger'); return false; }
+    var updates = {};
+    travados.forEach(function(id) {
+      updates['liberacoes_pc_projeto/' + id] = { liberado: true, tipo: 'adm', motivo: motivo, em: new Date().toISOString(), por_nome: currentUserNome(), origem: 'compras' };
+    });
+    return db.ref().update(updates).then(function() { return true; });
+  });
+}
+
 // Cria um PC para UM fornecedor, somente com os itens que foram decididos
 // para ele. A reserva das solicitações é feita pela função orquestradora,
 // uma única vez para a cotação inteira.
@@ -4580,6 +4614,13 @@ function criarPedidoCotacaoPorFornecedor(procKey, proc, convidadoKey, itemKeys) 
 function gerarPedidosDeCotacaoPorItem(procKey, escolhasTela) {
   var proc = allProcessosCotacao[procKey];
   if (!proc) return;
+  if (!escolhasTela || !escolhasTela.__liberado) {
+    conferirLiberacaoPcProjeto(proc).then(function(ok) { if (ok) gerarPedidosDeCotacaoPorItem(procKey, Object.assign({}, escolhasTela, { __liberado: true })); })
+      .catch(function(err) { showAlert('Erro ao conferir a liberação do projeto: ' + err.message, 'danger'); });
+    return;
+  }
+  escolhasTela = Object.assign({}, escolhasTela);
+  delete escolhasTela.__liberado;
   var itens = proc.itens || {}, convidados = proc.fornecedoresConvidados || {};
   var escolhas = Object.assign({}, proc.vencedoresPorItem || {}, escolhasTela || {});
   var comparacao = compararCotacao(itens, convidados);
@@ -4633,9 +4674,14 @@ function gerarPedidosDeCotacaoPorItem(procKey, escolhasTela) {
 // Reaproveita a mesma lógica de reserva por .transaction() que o antigo
 // saveConsolidar() usava -- só o preço agora vem da resposta do convidado
 // vencedor, não é mais digitado na hora.
-function gerarPedidoDeCotacao(procKey, convidadoKey) {
+function gerarPedidoDeCotacao(procKey, convidadoKey, liberado) {
   var proc = allProcessosCotacao[procKey];
   if (!proc) return;
+  if (!liberado) {
+    conferirLiberacaoPcProjeto(proc).then(function(ok) { if (ok) gerarPedidoDeCotacao(procKey, convidadoKey, true); })
+      .catch(function(err) { showAlert('Erro ao conferir a liberação do projeto: ' + err.message, 'danger'); });
+    return;
+  }
   var convidado = (proc.fornecedoresConvidados || {})[convidadoKey];
   if (!convidado) return;
   if (!convidado.fornecedorKey) {

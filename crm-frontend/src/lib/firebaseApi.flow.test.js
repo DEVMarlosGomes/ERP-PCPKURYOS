@@ -527,8 +527,16 @@ describe("fluxo comercial completo até a emissão de OP", () => {
     assert.deepEqual([voltou.preco, voltou.fonte_preco, voltou.fonte_detalhe], [1.27, "cotado_compras", "COT-0042 · Vidro Sul · vencedor"]);
     const semPreco = (await api.get(`/crm/projects/${project.id}/cotacao`)).data.vigente.resumo.sem_preco;
     if (semPreco) await fails(api.post(`/crm/projects/${project.id}/cotacao/status`, { status: "precificada" }), 422, /SEM PREÇO/);
-    for (const l of r1.linhas.filter((x) => x.fornecido_por !== "cliente")) await api.put(`/crm/projects/${project.id}/cotacao/linhas/${l.linha_id}`, { preco: 2 });
-    await api.post(`/crm/projects/${project.id}/cotacao/status`, { status: "precificada" });
+    // COT-03: quando o preço do Compras cobre tudo, a cotação já passa sozinha a "precificada" (aviso no projeto).
+    const auto = (await api.get(`/crm/projects/${project.id}/cotacao`)).data.vigente;
+    if (auto.status === "precificada") assert.match(db(`${T}/crm_projects/${project.id}/cotacao_aviso`), /precificada pelo Compras/);
+    else {
+      for (const l of r1.linhas.filter((x) => x.fornecido_por !== "cliente")) await api.put(`/crm/projects/${project.id}/cotacao/linhas/${l.linha_id}`, { preco: 2 });
+      // A resposta de cada PUT relê o processo do Compras. A última linha pode completar e
+      // precificar automaticamente antes desta transição manual.
+      const depoisDosPrecos = (await api.get(`/crm/projects/${project.id}/cotacao`)).data.vigente;
+      if (depoisDosPrecos.status !== "precificada") await api.post(`/crm/projects/${project.id}/cotacao/status`, { status: "precificada" });
+    }
     await fails(api.put(`/crm/projects/${project.id}/cotacao/linhas/${frasco.linha_id}`, { preco: 3 }), 409, /abra uma revisão/);
     // Kickoff muda depois que a cotação saiu do rascunho: revisão r2, r1 substituída, preço mantido.
     const q = structuredClone(kickoffVig.questionario_composicao);

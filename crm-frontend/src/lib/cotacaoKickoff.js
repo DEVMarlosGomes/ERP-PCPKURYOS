@@ -88,6 +88,13 @@ export function resumoCotacao(cotacao) {
   };
 }
 
+/* COT-03: a cotação está precificada quando toda linha que a Kuryos compra tem preço (> 0).
+ * soCompras: só conta o preço que voltou do processo de cotação do Compras (o processo fechou). */
+export function cotacaoPrecificada(linhas, { soCompras = false } = {}) {
+  const compra = (linhas || []).filter((l) => l && l.fornecido_por !== "cliente");
+  return compra.length > 0 && compra.every((l) => num(l.preco) > 0 && (!soCompras || l.fonte_preco === "cotado_compras"));
+}
+
 /* Insumos do orçamento com o preço levantado na cotação: COTADO vence o estimado da fórmula do
  * P&D (trilha ESTIMADO_PD → COTADO → PAGO, PROMPT_CUSTOS_ERP.md). Sem preço na cotação, fica o
  * que já havia. */

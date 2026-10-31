@@ -288,7 +288,22 @@
     "solicitacoes_compra": {
       ".read": "auth != null",
       "$key": {
-        ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || (root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' && newData.exists()))) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('compras').val() == true)) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('pedidos').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true) && newData.exists())"
+        ".write": "(auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || (root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' && newData.exists()))) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('compras').val() == true)) || (auth != null && (root.child('usuarios').child(auth.uid).child('modulos').child('pedidos').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true) && newData.exists())",
+        // COT-03 + D-11 (reunião 28/10/2026): SC de cotação de projeto do CRM (origem CRM_COTACAO) só é consolidada
+        // (é o passo que todo Pedido de Compra de processo dá antes de nascer) com o projeto liberado em
+        // liberacoes_pc_projeto: virou pedido (CRM2 Pedido Aprovado) ou o ADM liberou com motivo.
+        "status": {
+          ".validate": "newData.val() != 'CONSOLIDADA' || data.val() == 'CONSOLIDADA' || newData.parent().child('origem').child('tipo').val() != 'CRM_COTACAO' || root.child('liberacoes_pc_projeto').child(newData.parent().child('origem').child('projetoId').val() + '').child('liberado').val() == true"
+        }
+      }
+    },
+    // COT-03 + D-11: liberação para gerar PC de cotação de projeto. 'pedido' = o CRM grava quando o projeto chega a
+    // Pedido Aprovado (a regra confere a etapa no tenant); 'adm' = o ADM libera antes, com motivo. Só o ADM apaga.
+    "liberacoes_pc_projeto": {
+      ".read": "auth != null",
+      "$projeto": {
+        ".write": "auth != null && (newData.exists() ? (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'comercial' || root.child('usuarios').child(auth.uid).child('role').val() == 'vendedor' || root.child('usuarios').child(auth.uid).child('role').val() == 'sales_ops' || root.child('usuarios').child(auth.uid).child('modulos').child('comercial').val() == true) : root.child('usuarios').child(auth.uid).child('role').val() == 'admin')",
+        ".validate": "newData.child('liberado').val() == true && ((newData.child('tipo').val() == 'adm' && root.child('usuarios').child(auth.uid).child('role').val() == 'admin' && newData.child('motivo').isString() && newData.child('motivo').val().length >= 10) || (newData.child('tipo').val() == 'pedido' && newData.child('tenant').isString() && root.child('erp').child(newData.child('tenant').val()).child('crm_projects').child($projeto).child('stage').val() == 'pedido_aprovado'))"
       }
     },
     "pedidos_compra": {
