@@ -113,7 +113,9 @@ async function abrir(browser, uid, viewport, tema) {
     lidos = await page.evaluate(() => [...new Set(window.__lidos)]);
     assert.deepEqual(lidos, [], 'sem cartão, sem leitura');
     const areasCom = await page.locator('#areas .area h3').allInnerTexts();
-    assert.deepEqual(areasCom, ['Comercial', 'P&D', 'Ajuda']);
+    // PORT-08 libera Feedback da Semana para todo colaborador autenticado;
+    // por isso o Comercial também recebe o bloco RH com esse único atalho.
+    assert.deepEqual(areasCom, ['Comercial', 'P&D', 'RH', 'Ajuda']);
     assert.ok((await page.locator('#areas').innerText()).includes('CRM 1 · Clientes'));
     assert.deepEqual(erros, []);
     await ctx.close();
