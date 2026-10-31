@@ -20,7 +20,7 @@ const pal = (n, extra) => Object.assign({
     page.on('pageerror', (e) => erros.push(e.message));
     page.on('dialog', (d) => d.accept());
     const dados = {
-      'usuarios/u1': {nome: 'Ana Qualidade', email: 'q@kuryos.com', role: 'qualidade'},
+      usuarios: {u1: {nome: 'Ana Qualidade', email: 'q@kuryos.com', role: 'qualidade'}},
       estoque_lotes: {SKU1: {pa_1: pal(1), pa_2: pal(2)}},
       ops: {'26280-01': {lote: '26280/01', sku: 'SKU1', produto: 'BODY SPLASH X'}}
     };
