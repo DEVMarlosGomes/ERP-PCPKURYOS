@@ -731,6 +731,8 @@ export function createCommercialRouter(h) {
     if (existing) {
       const salva = await patch(tenant, "crm_propostas", existing.id, payload);
       if (registrarEnvio) await registrarCambio(tenant, project, "envio", profile);
+      // SKU-01: orçamento enviado é a entrada explícita em Negociação no espelho do CRM1.
+      if (registrarEnvio) await mirrorClientStage(tenant, project, profile, "negociacao", "espelho_crm2_orcamento_enviado");
       return salva;
     }
     const criada = await create(tenant, "crm_propostas", {
@@ -739,6 +741,7 @@ export function createCommercialRouter(h) {
       created_by: currentUid(), created_by_name: userName(profile),
     });
     if (registrarEnvio) await registrarCambio(tenant, project, "envio", profile);
+    if (registrarEnvio) await mirrorClientStage(tenant, project, profile, "negociacao", "espelho_crm2_orcamento_enviado");
     return criada;
   }
 
@@ -1741,7 +1744,16 @@ export function createCommercialRouter(h) {
           if (existing) {
             // Só produto nascido do CRM recebe o vínculo do CGI (regra do banco: produtos/$sku/origemCrm).
             if (!doOrcamento && existing.origemCrm && existing.origemCrm.cgiContratoId !== contrato.id) {
-              await set(ref(firebaseDb, `produtos/${variation.sku_id}/origemCrm`), { ...existing.origemCrm, ...cgi });
+              await set(ref(firebaseDb, `produtos/${skuId}/origemCrm`), { ...existing.origemCrm, ...cgi });
+            }
+            // Autocura: se o update atômico produto+índice concluiu e a sessão caiu antes de vincular
+            // a variação, a repetição recupera a mesma SKU em vez de alocar outra.
+            if (!variation.sku_id) {
+              const fresh = await one(tenant, "crm_samples", sample.id);
+              await patch(tenant, "crm_samples", sample.id, {
+                stage: "aprovada",
+                variacoes: (fresh.variacoes || []).map((v) => (v.id === variation.id ? { ...v, sku_id: skuId, sku_codigo: existing.sku || skuId, gera_sku: true } : v)),
+              });
             }
             entry.sku = { ...existing, id: skuId, codigo_interno: skuId,
               estrutura_pcp: await ensurePcpStructure(tenant, skuId, variation, kickoff, contrato, profile) };
@@ -2260,6 +2272,9 @@ export function createCommercialRouter(h) {
         await conferirComposicao(changes, current, profile);
         const salva = await patch(tenant, "crm_propostas", current.id, { ...changes, updated_by: currentUid(), updated_by_name: userName(profile) });
         if (changes.status === "enviado" && current.status !== "enviado") await registrarCambio(tenant, project, "envio", profile);
+        if (changes.status === "enviado" && current.status !== "enviado") {
+          await mirrorClientStage(tenant, project, profile, "negociacao", "espelho_crm2_orcamento_enviado");
+        }
         if (cambioAprovacao) await registrarCambio(tenant, project, "orcamento_aprovado", profile, cambioAprovacao);
         if (aprovacao) {
           await acrescentarHistorico(`erp/${tenant}/crm_projects/${m[1]}/historico_movimentacoes`,

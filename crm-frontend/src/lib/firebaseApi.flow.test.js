@@ -307,6 +307,7 @@ describe("fluxo comercial completo até a emissão de OP", () => {
       tipo_produto: "Body Splash Verão", items_pedido: [{ item: "Body Splash Verão — Cítrico", qtd: 3000, valor_unitario: 12.5, valor_total: 37500 }],
       condicoes_pagamento: "28 dias", status: "enviado",
     });
+    assert.equal(db(`${T}/crm_clients/${client.id}/stage`), "negociacao", "orçamento enviado espelha Negociação no CRM1");
     await api.put(`/crm/projects/${project.id}/move`, { stage: "orcamento_completo" });
     // COM-02: sem quem aprovou, canal e data/hora a decisão não é registrada.
     await fails(api.post(`/crm/projects/${project.id}/proposta/decisao`, { decisao: "aprovado" }), 422, /quem aprovou/);
