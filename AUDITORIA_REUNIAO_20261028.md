@@ -40,7 +40,7 @@ Todas foram aplicadas: registro/menu e Início (D-01/02); trava de OP configurá
 
 ## Regras do banco
 
-Antes do fechamento, a leitura de `/.settings/rules` em produção tinha SHA-256 `2f75aeea09280ca3988418f68c7f68da96c2cdc9bd5602ae5a2819b55a368dbc` e não continha os 12 grupos verificados da Fase 8 (`liberacoes_pc_projeto`, Checklists/Inspeção/Liberação/Assepsia, Auditoria, Ativos, 5S, RH e Roadmap). O arquivo final acrescenta esses nós e a proteção COT-01. A publicação usa exclusivamente `firebase deploy --only database --project erpkuryos`; o hash e a presença pós-publicação ficam no `AGENT_STATUS.md`. O `.firebaserc` não foi alterado.
+Antes do fechamento, a leitura de `/.settings/rules` em produção tinha SHA-256 `2f75aeea09280ca3988418f68c7f68da96c2cdc9bd5602ae5a2819b55a368dbc` e não continha os 11 grupos persistentes verificados da Fase 8 (`liberacoes_pc_projeto`, Checklists/Inspeção/Liberação/Assepsia, Auditoria, Ativos, 5S e RH). Roadmap lê `backlog.json` estático e não cria nó de banco. O arquivo final acrescenta esses nós e a proteção COT-01. Publicado em 31/10 exclusivamente com `firebase deploy --only database --project erpkuryos`; a leitura posterior teve SHA-256 `e186c13a2b3a6964974bfee83d9d112797d2d75d4ec48d3beca5acd40f82e99e`, com os 11 grupos presentes. O `.firebaserc` não foi alterado.
 
 ## Brechas e falhas encontradas
 

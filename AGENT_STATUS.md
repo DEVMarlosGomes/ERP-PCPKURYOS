@@ -11,7 +11,7 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 - **Entregue:** Fases 4–5 e Fase 8 integradas no `main`; todos os tickets MENU, CRM, P&D, Kickoff/BOM, Cotação/SKU/Compras, PCP, Financeiro e PORT-01..10 auditados em `AUDITORIA_REUNIAO_20261028.md`.
 - **Validação:** CRM 408 testes/2 ignorados + build; navegação 39 perfis; coerência 402 verificações; motores/UI de Painel, Pesagens, Qualidade, Titularidade, Auditoria, RNC e Expedição; regras COT-01 (8), COT-03 (13), Checklists/Liberação e Auditoria no emulador. Ensaio somente leitura SKU-01: 6 propostas, 3 aprovadas, 1 fluxo atual indexado e 2 legadas sem SKU para revisão manual.
 - **Achados corrigidos:** fixture da Home, overflow móvel de Emitir OP, dois testes intermitentes/falso-negativo e falta da fronteira de segurança do desconto máximo (`0f9ca5d`).
-- **Publicação:** pendente apenas registrar abaixo o commit final, o push e o hash das regras após o deploy explícito no projeto `erpkuryos`.
+- **Publicação:** regras do RTDB publicadas explicitamente em `erpkuryos` (antes `2f75aeea…`, depois `e186c13a…`; 11/11 grupos persistentes presentes; Roadmap é arquivo estático). `main` publicado até `2b027fd`; commit de registro final publicado em seguida.
 
 ### Claude — Reunião 28/10: menu do Gustavo + ajustes CRM · P&D · Kickoff · BOM · Compras · PCP · Financeiro
 
