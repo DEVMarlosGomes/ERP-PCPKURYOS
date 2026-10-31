@@ -59,6 +59,7 @@
     .radio-opt{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
     .radio-opt input{width:auto}
     table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+    .table-scroll{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
     thead th{background:var(--surface-2);padding:7px 10px;text-align:left;font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--border)}
     td{padding:7px 10px;border-bottom:1px solid var(--tint-gray-bg)}
     .num{text-align:right;font-variant-numeric:tabular-nums}
@@ -105,7 +106,13 @@
     /* Impressão das fichas de OP: shared/fichas-op.css (etiquetas de caixa:
        shared/etiqueta-caixa.js, janela própria)
        (bloco único, compartilhado com ops.html -- ver o comentário lá). */
-    @media(max-width:600px){.form-grid{grid-template-columns:1fr}.resumo-grid{grid-template-columns:1fr 1fr}}
+    @media(max-width:600px){
+      .header,.main{width:100%;max-width:100%;padding-left:10px;padding-right:10px}
+      .card{max-width:100%;padding:14px;overflow:hidden}
+      .form-grid{grid-template-columns:1fr}.resumo-grid{grid-template-columns:1fr 1fr}
+      #cardMateriais .table-scroll{overflow-x:auto}
+      #cardMateriais table{min-width:540px}
+    }
   </style>
 </head>
 <body class="kuryos-theme has-sidebar" data-kuryos-operational="">
@@ -188,10 +195,12 @@
   <!-- 3. Materiais -->
   <div id="cardMateriais" class="card" style="display:none" data-ui="surface">
     <div class="card-title" data-ui="surface-head">4. Consumo de Materiais (fórmula + embalagem)</div>
-    <table>
-      <thead><tr><th>Material</th><th>Origem</th><th class="num">%</th><th class="num">Quantidade</th><th class="num">Estoque atual</th><th></th></tr></thead>
-      <tbody id="materiaisBody"></tbody>
-    </table>
+    <div class="table-scroll" tabindex="0" aria-label="Consumo de materiais; deslize horizontalmente para ver todas as colunas">
+      <table>
+        <thead><tr><th>Material</th><th>Origem</th><th class="num">%</th><th class="num">Quantidade</th><th class="num">Estoque atual</th><th></th></tr></thead>
+        <tbody id="materiaisBody"></tbody>
+      </table>
+    </div>
     <div class="field-hint" style="margin-top:8px">"Substituir" troca só o consumo dessa OP -- não altera a fórmula/BOM cadastrada. <span id="hintSaldoEmissao"></span></div>
   </div>
 

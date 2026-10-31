@@ -233,8 +233,6 @@ const ops = (page) => page.evaluate(() => Object.values(window.__db.ops || {}));
     for (const [vp, tema, nome] of [[{width: 1400, height: 1000}, 'dark', 'desktop-escuro'], [{width: 390, height: 844}, 'light', '390-claro'], [{width: 390, height: 844}, 'dark', '390-escuro']]) {
       ({page, erros} = await abrirTela(browser, 'emitir_op.html', banco({chave: null}), 'pcp', vp, tema));
       await dimensionar(page);
-      // A tabela de materiais (6 colunas, já existia) é mais larga que 390 px; medida antes do que é novo.
-      const antes = await page.evaluate(() => document.documentElement.scrollWidth);
       await page.locator('#materiaisBody tr', {hasText: 'EP-00200'}).locator('.subst-btn').click();
       await page.waitForSelector('#substModalBg.open');
       await page.screenshot({path: path.join(ART, 'op02-substituir-saldo-' + nome + '.png')});
@@ -245,8 +243,12 @@ const ops = (page) => page.evaluate(() => Object.values(window.__db.ops || {}));
       await page.locator('[data-testid="saldo-bloqueio"]').scrollIntoViewIfNeeded();
       await page.screenshot({path: path.join(ART, 'op01-bloqueio-pcp-' + nome + '.png')});
       const largura = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
-      console.log('     ' + nome + ': largura da página ' + largura[0] + ' / janela ' + largura[1] + ' (antes do quadro novo: ' + antes + ')');
-      ok(largura[0] === antes, nome + ': o quadro de saldo e o modal não alargam a página');
+      console.log('     ' + nome + ': largura da página ' + largura[0] + ' / janela ' + largura[1]);
+      ok(largura[0] <= largura[1] + 1, nome + ': página sem rolagem horizontal');
+      ok(await page.evaluate(() => {
+        const wrap = document.querySelector('#cardMateriais .table-scroll');
+        return window.innerWidth > 600 || (wrap.scrollWidth > wrap.clientWidth && wrap.getBoundingClientRect().right <= window.innerWidth + 1);
+      }), nome + ': tabela larga rola dentro do cartão, sem alargar a página');
       ok(await page.evaluate(() => document.getElementById('saldoBloqueio').scrollWidth <= document.getElementById('saldoBloqueio').clientWidth + 1), nome + ': o quadro de saldo cabe na largura');
       semErro(erros, nome);
       await page.close();
