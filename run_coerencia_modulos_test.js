@@ -122,7 +122,9 @@ htmls.forEach((f) => {
       return m && m[1] === g;
     });
     if (!dono) return;
-    const carrega = new RegExp('src=["\']shared/' + dono.replace('.', '\\.') + '["\']');
+    // Cache-buster em script (`modulo.js?v=...`) continua carregando o mesmo
+    // módulo. O detector antigo acusava falso negativo em inicio.html.
+    const carrega = new RegExp('src=["\']shared/' + dono.replace('.', '\\.') + '(?:\\?[^"\']*)?["\']');
     checa(carrega.test(src),
       f + ' usa ' + g + '.* mas não carrega shared/' + dono + ' — o global não existe em tempo de execução');
   });

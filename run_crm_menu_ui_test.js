@@ -40,7 +40,11 @@ async function abrir(browser, rota, viewport) {
   });
   await page.goto('https://app.test' + rota);
   await page.waitForSelector('.kuryos-enterprise-topbar .kuryos-topbar-title', {state: 'attached', timeout: 10000});
-  await page.waitForTimeout(150);
+  await page.waitForFunction(() => {
+    const esperado = window.KuryosCrmMenu && window.KuryosCrmMenu.linkDaRota(location.pathname);
+    const ativo = document.querySelector('#unified-navbar .kt-nav-link.active');
+    return esperado ? ativo && ativo.getAttribute('href') === esperado && document.title !== 'CRM e P&D · Kuryos PCP' : true;
+  });
   return {page, errors};
 }
 
@@ -55,7 +59,13 @@ const estado = (page) => page.evaluate(() => ({
 
 async function navegar(page, rota) {
   await page.evaluate((r) => { history.pushState(null, '', r); document.getElementById('root').appendChild(document.createElement('div')); }, rota);
-  await page.waitForTimeout(120);
+  // Sob carga paralela, um timeout fixo de 120 ms podia ler o menu antes do
+  // requestAnimationFrame da ponte e acusar CRM 1 na rota do CRM 2.
+  await page.waitForFunction(() => {
+    const esperado = window.KuryosCrmMenu.linkDaRota(location.pathname);
+    const ativo = document.querySelector('#unified-navbar .kt-nav-link.active');
+    return esperado ? ativo && ativo.getAttribute('href') === esperado : !ativo;
+  });
   return estado(page);
 }
 
@@ -100,7 +110,7 @@ async function navegar(page, rota) {
     e = await navegar(page, '/crm/orcamentos');
     assert.deepEqual([e.ativos, e.current], [[], []], 'rota sem link no menu não deixa item marcado por engano');
     await page.goBack();
-    await page.waitForTimeout(120);
+    await page.waitForFunction(() => document.querySelector('#unified-navbar .kt-nav-link.active')?.getAttribute('href') === 'contratos');
     e = await estado(page);
     assert.deepEqual(e.ativos, ['contratos'], 'voltar do navegador acompanha');
     assert.deepEqual(errors, []);
