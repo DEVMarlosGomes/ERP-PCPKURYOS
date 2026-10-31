@@ -5,6 +5,13 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Codex (Tech Lead) — Fechamento integral do prompt da reunião 28/10 (31/10/2026)
+
+- **Pedido:** retomar os dois agentes cloud de onde pararam, finalizar todas as fases/tickets de `PROMPT_REUNIAO_20261028.md`, integrar, testar e auditar o prompt inteiro procurando brechas, falhas e regressões.
+- **Coordenação:** Dev Full Stack 1 fecha Fases 4–5 na branch/worktree existente `reuniao-20261028/fase4-5`; Dev Full Stack 2 fecha as lacunas da Fase 8 em branch/worktree própria baseada em `reuniao-20261028/fase8`. O Tech Lead integra somente commits revisados no `main`.
+- **Arquivos do Tech Lead:** `AGENT_STATUS.md`, `AUDITORIA_REUNIAO_20261028.md`, `CLAUDE.md`, `MELHORIAS_FUTURAS.md` e, após a entrega dos devs, os arquivos necessários para resolver conflitos e correções encontradas na auditoria. Nenhum arquivo ativo dos devs será editado simultaneamente no `main`.
+- **Estado inicial:** `main` limpo em `bd09f7b`; Dev 1 deixou a Fase 8 sem `inspecao_total.html` e com PORT-10 parcial; Dev 2 deixou COT-03 sem commit e COT-04/SKU-01 pendentes.
+
 ### Claude — Reunião 28/10: menu do Gustavo + ajustes CRM · P&D · Kickoff · BOM · Compras · PCP · Financeiro
 
 - **Pedido:** executar `PROMPT_REUNIAO_20261028.md` (Agente 1 tech lead + Agente 2 dev). Referência: `prod-kuryos.web.app` (só leitura) e `gcallegaro-kur/PCP-Kuryos`.
