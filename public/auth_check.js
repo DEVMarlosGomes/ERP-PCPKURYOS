@@ -77,6 +77,16 @@ var KURYOS_FUNCTIONS_ORIGIN = 'https://pcp-kuryos-functions.onrender.com';
   }
 })();
 
+// --- Lista suspensa única (shared/lista-suspensa.js, 19/10/2026) ---
+// Toda tela carrega este arquivo; daqui sai a lista do sistema que substitui o
+// <datalist> nativo. Escrita síncrona durante a leitura do <head>: o módulo
+// fica pronto antes dos scripts da página chamarem attachAutocomplete.
+(function() {
+  if (window.KtListaSuspensa || document.querySelector('script[src$="shared/lista-suspensa.js"]')) return;
+  if (document.readyState === 'loading') document.write('<script src="shared/lista-suspensa.js"></script>');
+  else { var s = document.createElement('script'); s.src = 'shared/lista-suspensa.js'; document.head.appendChild(s); }
+})();
+
 // --- Preferência manual de tema (claro/escuro/automático) ---
 // Aplicado já no topo do script, antes de qualquer outra coisa, pra não
 // piscar o tema errado (o CSS já está linkado no <head> antes deste script).
@@ -491,6 +501,14 @@ window.currentUser = null;
     themeLink.rel = 'stylesheet';
     themeLink.href = 'shared/theme.css';
     document.head.appendChild(themeLink);
+  }
+
+  // Cabeçalho de toda tabela fica congelado enquanto o corpo rola.
+  if (!window.__ktTabelaFixa && !document.querySelector('script[src="shared/tabela-fixa.js"]')) {
+    var fixaScript = document.createElement('script');
+    fixaScript.src = 'shared/tabela-fixa.js';
+    fixaScript.defer = true;
+    document.head.appendChild(fixaScript);
   }
 
   // Estilos da sidebar de navegação (ver dashboard.html para o resto dos tokens).
