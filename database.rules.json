@@ -762,6 +762,16 @@
         },
         "crm_propostas": {
           "$proposta": {
+            // COT-01 / D-10: a validação do adaptador melhora a mensagem, mas
+            // não é fronteira de segurança. A regra impede gravação direta de
+            // desconto acima do máximo cadastrado; só ADM passa com motivo.
+            "composicao": {
+              "servicos": {
+                "$linha": {
+                  ".validate": "!newData.exists() || !newData.child('desconto_pct').exists() || (newData.child('desconto_pct').isNumber() && newData.child('desconto_pct').val() >= 0 && (newData.child('desconto_pct').val() == 0 || (newData.child('servico_id').isString() && root.child('servicos').child(newData.child('servico_id').val()).child('descontoPct').isNumber() && newData.child('desconto_pct').val() <= root.child('servicos').child(newData.child('servico_id').val()).child('descontoPct').val()) || (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' && newData.child('desconto_motivo').isString() && newData.child('desconto_motivo').val().length >= 10)))"
+                }
+              }
+            },
             "negociacao_aprovacao_cliente": {
               "aprovado_em_ms": { ".validate": "newData.isNumber() && newData.val() <= now + 120000" }
             }
