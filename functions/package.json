@@ -6,9 +6,12 @@
   },
   "main": "index.js",
   "dependencies": {
-    "firebase-admin": "^12.0.0",
-    "firebase-functions": "^5.0.0",
+    "firebase-admin": "14.5.0",
+    "firebase-functions": "7.4.0",
     "pdfkit": "^0.17.2"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "@google-cloud/firestore-api": "0.7.1"
+  }
 }
