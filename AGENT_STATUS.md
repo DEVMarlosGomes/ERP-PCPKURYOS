@@ -5,7 +5,10 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
-### Codex (Tech Lead) — Planejamento por ritmo + Central de Ajuda + auditoria integral (31/10/2026)
+### Codex (Tech Lead) — Fechamento das pendências P1/P2 (01/11/2026)
+
+- **Pedido atual:** resolver Dia D/saldo de abertura, cutover, emissão de OP no servidor, OP sem data/fila, acessos/tenant, dados mestres, propostas legadas e vulnerabilidades residuais.
+- **Escopo inicial:** primeiro auditar os mecanismos existentes e separar automação segura de ações que exigem contagem física ou dado contábil real; alterações previstas em funções/regras/testes, emissão/planejamento, inventário/cutover, usuários e documentação. Nenhum dado real será inventado e nenhuma migração destrutiva será executada sem backup e reconciliação.
 
 - **Pedido:** (1) reprogramar pela duração/ritmo real: atraso empurra todas as OPs seguintes e adiantamento puxa todas; (2) a zona fixa não impede esse reflow; (3) manter grade de 15 minutos; (4) construir em Ajuda o workflow completo do sistema e de cada setor; (5) auditar o sistema inteiro e corrigir falhas.
 - **Coordenação:** Dev Full Stack 1 trabalha apenas no motor/tela/testes de Planejamento; Dev Full Stack 2 trabalha apenas em `public/manuais.html`, módulos novos exclusivos da Central de Ajuda e testes. Ambos usam branch/worktree própria; o Tech Lead integra commits revisados e executa a auditoria transversal no `main`.
