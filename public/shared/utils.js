@@ -2800,7 +2800,10 @@ function cancelarRnc(dbRef, numero, dados, autor) {
   var agora = new Date().toISOString();
   var recusa = null;
   return dbRef.ref('nao_conformidades/' + numero).transaction(function(atual) {
-    if (!atual) { recusa = 'RNC não encontrada.'; return; }
+    // O primeiro passe da transaction pode receber null apenas porque o SDK
+    // ainda não consultou o servidor. Devolver undefined aqui abortava antes
+    // da leitura e impedia cancelar qualquer RNC sem listener prévio.
+    if (!atual) return atual;
     if (atual.status === 'CANCELADA') { recusa = 'Esta RNC já está cancelada.'; return; }
     if (atual.status === 'CONCLUIDA') {
       recusa = 'RNC concluída não se cancela: ela já tem causa raiz, ação corretiva e disposição registradas.';
@@ -2817,6 +2820,9 @@ function cancelarRnc(dbRef, numero, dados, autor) {
     atual.duplicataDe = d.duplicataDe ? String(d.duplicataDe).trim() : null;
     return atual;
   }).then(function(res) {
+    if (!res || !res.snapshot || typeof res.snapshot.val !== 'function' || res.snapshot.val() == null) {
+      return { ok: false, erro: 'RNC não encontrada.' };
+    }
     if (!res || !res.committed) return { ok: false, erro: recusa || 'Não foi possível cancelar esta RNC.' };
     return { ok: true, numero: numero };
   });

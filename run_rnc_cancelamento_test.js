@@ -34,9 +34,12 @@ function fakeDb(dados) {
     ref: (path) => ({
       transaction: (fn) => {
         const antes = get(path);
-        const depois = fn(antes === undefined ? null : JSON.parse(JSON.stringify(antes)));
+        // O SDK pode chamar primeiro com cache local vazio e depois com o
+        // valor do servidor. O falso precisa reproduzir as duas passadas.
+        let depois = fn(null);
+        if (depois === null && antes !== undefined) depois = fn(JSON.parse(JSON.stringify(antes)));
         if (depois === undefined) return Promise.resolve({committed: false, snapshot: {val: () => antes}});
-        set(path, depois);
+        if (depois !== null) set(path, depois);
         return Promise.resolve({committed: true, snapshot: {val: () => depois}});
       }
     })
