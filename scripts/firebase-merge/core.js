@@ -220,16 +220,18 @@ function createBatches(entries, maxPaths = 400, maxBytes = 4_000_000) {
   const batches = [];
   let batch = {};
   let size = 2;
+  let paths = 0;
   for (const entry of entries) {
     const relativePath = entry.path.replace(/^\//, "");
     const addition = Buffer.byteLength(JSON.stringify(relativePath)) + Buffer.byteLength(JSON.stringify(entry.after)) + 2;
-    if (Object.keys(batch).length && (Object.keys(batch).length >= maxPaths || size + addition > maxBytes)) {
-      batches.push(batch); batch = {}; size = 2;
+    if (paths && (paths >= maxPaths || size + addition > maxBytes)) {
+      batches.push(batch); batch = {}; size = 2; paths = 0;
     }
     batch[relativePath] = entry.after;
     size += addition;
+    paths++;
   }
-  if (Object.keys(batch).length) batches.push(batch);
+  if (paths) batches.push(batch);
   return batches;
 }
 
