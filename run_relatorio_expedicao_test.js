@@ -72,7 +72,11 @@ const texto = (page, sel) => page.locator(sel).innerText();
           return {ref(path) {
             // once() do SDK recebe CALLBACK, não só devolve promessa -- é assim
             // que o auth_check lê usuarios/{uid}.
-            var snap = {val: function() { return path === 'usuarios/u1' ? perfil : null; }};
+            var snap = {val: function() {
+              if (path === 'usuarios/u1') return perfil;
+              if (path === 'expedicoes_comerciais') return structuredClone(data);
+              return null;
+            }};
             return {path: path,
               once(ev, cb) { if (cb) cb(snap); return Promise.resolve(snap); },
               on(ev, cb) { cb(snap); return cb; }, off() {}};
@@ -81,7 +85,6 @@ const texto = (page, sel) => page.locator(sel).innerText();
       };
       window.kuryosDatabaseURL = x => x;
       window.kuryosConnectEmulatorsIfLocal = () => {};
-      window.dbOnValue = (ref, cb) => cb({val: () => structuredClone(data)});
     }, cargas());
     await page.route('**/*', async route => {
       const url = new URL(route.request().url());
@@ -90,7 +93,6 @@ const texto = (page, sel) => page.locator(sel).innerText();
       // auth_check.js entra DE VERDADE: é ele que desenha o menu lateral, e
       // foi justamente o menu que sumiu em produção quando a tela esqueceu o
       // initializeApp. Stubar o auth_check aqui cegaria o teste de novo.
-      if (name === 'shared/utils.js') return route.fulfill({body: '', contentType: 'text/javascript'});
       const file = 'public/' + name;
       if (!fs.existsSync(file)) return route.fulfill({status: 404, body: ''});
       return route.fulfill({body: fs.readFileSync(file),
@@ -117,6 +119,22 @@ const texto = (page, sel) => page.locator(sel).innerText();
 
     // ── 1. Sem filtro: tudo aparece e os totais batem ────────────────────
     // 600+240+1200+1776+24 = 3840 unidades em 5 linhas / 4 cargas.
+    // O menu e os dados usam callbacks assíncronos independentes. Aguardar a
+    // renderização evita confundir a linha "Carregando…" com o resultado em
+    // máquinas mais lentas.
+    try {
+      await page.waitForFunction(() => document.querySelectorAll('#corpo tr').length === 5,
+        null, {timeout: 5000});
+    } catch (_) {
+      const diagnostico = await page.evaluate(() => ({
+        linhas: window.linhas && window.linhas.length,
+        cargas: window.cargas && Object.keys(window.cargas).length,
+        corpo: document.getElementById('corpo').innerText,
+        dbOnValue: typeof window.dbOnValue
+      }));
+      assert.fail('relatório não terminou de carregar: ' + JSON.stringify(diagnostico) +
+        ' | erros=' + JSON.stringify(errors));
+    }
     assert.equal(await page.locator('#corpo tr').count(), 5, 'todas as linhas sem filtro');
     assert.match(await texto(page, '#totais'), /3\.840/, 'total de unidades sem filtro');
     assert.match(await texto(page, '#totais'), /4\s*carga/i);

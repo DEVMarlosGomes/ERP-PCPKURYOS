@@ -2044,15 +2044,16 @@ function bloquearSeBulkNaoLiberado(op, acao) {
    só avisa. */
 var configLiberacaoLinha = {}, liberacoesLinha = {}, assepsiaLinhas = {}, ativosCad = {};
 /* Aviso que não bloqueia (trava desligada). Esta tela não tem faixa de aviso
-   própria (showAlert não existe aqui): faixa fixa no topo, por cima de tudo,
-   fecha no × ou sozinha em 20 s. */
+   própria (showAlert não existe aqui): faixa fixa no topo da tela normal, mas
+   abaixo dos modais, para nunca cobrir títulos e ações no celular. Fecha no ×
+   ou sozinha em 20 s. */
 function avisoLiberacao(msg) {
   var box = document.getElementById('avisoLiberacao');
   if (!box) {
     box = document.createElement('div');
     box.id = 'avisoLiberacao';
     box.setAttribute('role', 'alert');
-    box.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:2147483000;width:min(760px,calc(100vw - 24px));' +
+    box.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:10000;width:min(760px,calc(100vw - 24px));' +
       'background:#fde8e8;color:#9b1c1c;border:1px solid #f3b4b4;border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.25);padding:14px 44px 14px 18px;font-size:14px;line-height:1.45';
     document.body.appendChild(box);
   }

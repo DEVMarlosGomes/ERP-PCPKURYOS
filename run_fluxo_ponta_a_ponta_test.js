@@ -508,12 +508,16 @@ async function fechar(page, errors, etapa) {
     assert.ok(geo.topo >= 0 && geo.base <= geo.altura, 'botão Encerrar OP dentro da tela do celular: ' + JSON.stringify(geo));
     assert.equal(geo.overflow, 'auto');
     assert.ok(geo.rola, 'o conteúdo maior que a tela rola dentro do modal');
-    const cobre = await page.evaluate(() => {
+    const cobertura = await page.evaluate(() => {
       const t = document.querySelector('#encerrarOpTurnoModal .modal-ttl').getBoundingClientRect();
       const el = document.elementFromPoint(t.left + 4, t.top + t.height / 2);
-      return el && !!el.closest('#encerrarOpTurnoModal');
+      return {
+        cobre: !!(el && el.closest('#encerrarOpTurnoModal')),
+        elemento: el && { tag: el.tagName, id: el.id, classe: el.className },
+        ponto: { x: t.left + 4, y: t.top + t.height / 2 }
+      };
     });
-    assert.ok(cobre, 'nada (botão de menu) fica por cima do título do modal');
+    assert.ok(cobertura.cobre, 'nada (botão de menu) fica por cima do título do modal: ' + JSON.stringify(cobertura));
     console.log('   celular 375x667: botão Encerrar OP visível, lista rola dentro do modal');
     await page.click('#btnConfirmarEncerrarOpTurno');
     await page.waitForTimeout(800);

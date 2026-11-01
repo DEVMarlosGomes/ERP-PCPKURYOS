@@ -25,7 +25,10 @@ export default defineConfig({
     },
   },
   build: { outDir: "build" },
-  test: { globals: true, setupFiles: ["./src/test/setup.js"] },
+  // O primeiro import do adaptador Firebase/OXC pode ultrapassar 10 s após
+  // uma instalação limpa no Windows. É inicialização da suíte, não espera de
+  // regra de negócio; 30 s evita falsos negativos sem alongar cada teste.
+  test: { globals: true, setupFiles: ["./src/test/setup.js"], hookTimeout: 30000 },
   server: { host: "0.0.0.0", port: 3000 },
   preview: { host: "0.0.0.0", port: 3000 },
 });
