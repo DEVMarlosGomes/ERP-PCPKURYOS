@@ -65,7 +65,7 @@ assert.match(email.corpo, /42 min/);
 assert.match(email.corpo, /AK-2026-000601/);
 assert.match(email.corpo, /Fora da tolerância de 2%:<\/strong> MPES-003 — sobra na embalagem/);
 assert.doesNotMatch(email.corpo, /Fora da tolerância[^<]*MPGR-002/, '0,3% está dentro');
-assert.match(email.corpo, /href="https:\/\/prod-kuryos\.web\.app\/manipulacao\.html"/);
+assert.match(email.corpo, /href="https:\/\/pcp-kuryos\.vercel\.app\/manipulacao\.html"/);
 assert.equal(email.resumo.foraTolerancia, 1);
 
 // ── 2. O gatilho real ────────────────────────────────────────────────────
@@ -131,7 +131,7 @@ const gatilho = index.onPesagemFechada;
 assert.ok(gatilho && gatilho.handler, 'onPesagemFechada exportado');
 assert.equal(gatilho.tipo, 'onValueWritten');
 assert.equal(gatilho.opts.ref, '/ops/{opKey}/manipulacao/status', 'gatilho no status da fase de bulk');
-assert.equal(gatilho.opts.instance, 'prod-kuryos-default-rtdb');
+assert.equal(gatilho.opts.instance, 'erpkuryos-default-rtdb');
 assert.equal(gatilho.opts.secrets.length, 4, 'leva os segredos do Graph');
 
 const evento = (id, antes, depois, opKey) => ({

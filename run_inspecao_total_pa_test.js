@@ -248,6 +248,10 @@ function bancoFalso(dados) {
   assert.match(nav, /\{p: 'inspecao_total\.html'[\s\S]*Inspeção Total de PA/, 'página no registro único do menu');
   const qual = fs.readFileSync('public/qualidade.html', 'utf8');
   assert.match(qual, /InspecaoTotalPA\.sinalizar\(db, g\.opKey/); assert.match(qual, /Sinalizar problema/); assert.match(qual, /shared\/inspecao-total-pa\.js/);
-  assert.match(fs.readFileSync('public/inspecao_total.html', 'utf8'), /InspecaoTotalPA\.decidir\(db/);
+  const telaInspecao = fs.readFileSync('public/inspecao_total.html', 'utf8');
+  assert.match(telaInspecao, /InspecaoTotalPA\.decidir\(db/);
+  assert.match(telaInspecao, /projectId: "erpkuryos"/, 'inspeção aponta para o banco atual');
+  assert.doesNotMatch(telaInspecao, /prod-kuryos/, 'inspeção não pode voltar ao banco antigo');
+  assert.match(telaInspecao, /db\.ref\('usuarios_publico'\)/, 'Qualidade usa o índice público de responsáveis');
   console.log('run_inspecao_total_pa_test: OK');
 })().catch((e) => { console.error(e); process.exit(1); });

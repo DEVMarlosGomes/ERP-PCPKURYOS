@@ -8,7 +8,7 @@ const PDFDocument = require("pdfkit");
 const {destinatarios: listaEmails} = require("./pedido_diretoria");
 
 const AZUL = "#0a1c69", CINZA = "#6e6e73", LINHA = "#d2d2d7";
-const URL_EXPEDICAO = "https://prod-kuryos.web.app/expedicao.html";
+const URL_EXPEDICAO = "https://pcp-kuryos.vercel.app/expedicao.html";
 
 function texto(v) { return v == null ? "" : String(v); }
 function n(v) { const x = Number(v); return isFinite(x) ? x : 0; }

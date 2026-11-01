@@ -201,13 +201,13 @@
 
 <script>
 var firebaseConfig = {
-  apiKey: "AIzaSyAKfI4MTbydlskdg5lMuvESfLIBhlPwQdw",
-  authDomain: "prod-kuryos.firebaseapp.com",
-  databaseURL: kuryosDatabaseURL("https://prod-kuryos-default-rtdb.firebaseio.com"),
-  projectId: "prod-kuryos",
-  storageBucket: "prod-kuryos.firebasestorage.app",
-  messagingSenderId: "323674581733",
-  appId: "1:323674581733:web:e283a491c0c2bd6025420c"
+  apiKey: "AIzaSyBvASzcbKyv3uW7NBzDFDyLsKls3An3UUs",
+  authDomain: "erpkuryos.firebaseapp.com",
+  databaseURL: kuryosDatabaseURL("https://erpkuryos-default-rtdb.firebaseio.com"),
+  projectId: "erpkuryos",
+  storageBucket: "erpkuryos.firebasestorage.app",
+  messagingSenderId: "272752392739",
+  appId: "1:272752392739:web:047a6c4aa60145d77f4f96"
 };
 firebase.initializeApp(firebaseConfig);
 kuryosConnectEmulatorsIfLocal();
@@ -241,12 +241,14 @@ dbOnValue(db.ref('config/inspecaoTotalPrazoHoras'), function(s) { prazoCfg = s.v
 db.ref('config/linhas').once('value').then(function(s) {
   linhasCfg = s.val() || [];
   $('listaLinhas').innerHTML = (Array.isArray(linhasCfg) ? linhasCfg : Object.values(linhasCfg)).map(function(l) { return '<option value="' + escapeAttr(l) + '">'; }).join('');
-}).catch(function() {});
-db.ref('usuarios').once('value').then(function(s) {
+}).catch(function(e) { console.warn('Não foi possível carregar as linhas:', e); });
+// A Qualidade não pode ler o cadastro privado de usuários. O índice público
+// contém exatamente nome e papel e serve para os datalists de responsáveis.
+db.ref('usuarios_publico').once('value').then(function(s) {
   var u = s.val() || {};
   pessoas = Object.keys(u).map(function(k) { return u[k] && u[k].nome; }).filter(Boolean);
   $('listaPessoas').innerHTML = pessoas.map(function(n) { return '<option value="' + escapeAttr(n) + '">'; }).join('');
-}).catch(function() {});
+}).catch(function(e) { console.warn('Não foi possível carregar os responsáveis:', e); });
 
 function paletesDe(opKey) { return InspecaoTotalPA.paletesDaInspecao(estoque, opKey); }
 function unidades(opKey, insp) {

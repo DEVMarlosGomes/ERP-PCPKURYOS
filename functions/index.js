@@ -2,9 +2,10 @@ const {onRequest, onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {onValueCreated, onValueWritten} = require("firebase-functions/v2/database");
 const {defineSecret} = require("firebase-functions/params");
-// Banco dos gatilhos: functions/.env.<projeto> (ex.: .env.erpkuryos) define RTDB_INSTANCE;
-// sem o arquivo, segue o banco de produção original (prod-kuryos), como sempre foi.
-const RTDB_INSTANCE = process.env.RTDB_INSTANCE || "prod-kuryos-default-rtdb";
+// Banco dos gatilhos: functions/.env.<projeto> (ex.: .env.erpkuryos) define RTDB_INSTANCE.
+// O fallback também aponta para o banco atual: uma configuração ausente nunca
+// pode religar silenciosamente os gatilhos ao projeto legado prod-kuryos.
+const RTDB_INSTANCE = process.env.RTDB_INSTANCE || "erpkuryos-default-rtdb";
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const {prepararFinalizacao} = require("./conferencia_pa");
