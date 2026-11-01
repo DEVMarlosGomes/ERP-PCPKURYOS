@@ -55,7 +55,9 @@
     }
     var d = Prop.saldoPorDono(estoqueItem);
     var parte = clienteKey ? num(d.porCliente[clienteKey]) : 0;
-    return {registrado: true, total: d.total, geral: d.geral, parteCliente: arred(parte), disponivel: arred(d.geral + parte), unidade: estoqueItem.unidade || ''};
+    var empenhado = Math.max(0, num(estoqueItem.saldoEmpenhado));
+    return {registrado: true, total: d.total, geral: d.geral, parteCliente: arred(parte), empenhado: arred(empenhado),
+      disponivel: arred(Math.max(0, d.geral + parte - empenhado)), unidade: estoqueItem.unidade || ''};
   }
 
   /* itens: [{mpCodigo, mpNome, quantidade, unidade}] (materiaisConsumo da OP).

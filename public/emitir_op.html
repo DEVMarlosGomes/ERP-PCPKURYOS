@@ -9,6 +9,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-functions-compat.js"></script>
   <script src="shared/utils.js"></script>
   <script src="shared/itens-cadastro.js"></script>
   <script src="shared/pendencias-setor.js"></script>
@@ -302,6 +303,7 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 kuryosConnectEmulatorsIfLocal();
 var db = firebase.database();
+var emitirOpServidor = firebase.functions().httpsCallable('emitirOpServidor');
 
 var allProdutos = {}, allMateriais = {}, allFormulas = {}, allBom = {}, allEspecificacoes = {}, allEstoque = {}, configData = {};
 var allAlocacoes = {}, allOps = {}, allPedidos = {}, configPlanejamento = {diasSemana:[1,2,3,4,5], feriados:{}};
@@ -1310,22 +1312,6 @@ function validarMateriaisConsumo() {
   return '';
 }
 
-/* ── Numeração de lote (AADDD/NN) -- mesmo formato já em produção nos milhares de OPs existentes ── */
-function proximoLote() {
-  var hoje = new Date();
-  var ano2 = String(hoje.getFullYear() % 100).padStart(2, '0');
-  var inicioAno = new Date(hoje.getFullYear(), 0, 1);
-  var diaDoAno = Math.floor((hoje - inicioAno) / 86400000) + 1;
-  var prefixo = ano2 + String(diaDoAno).padStart(3, '0');
-  var counterPath = 'config/contadores/lotesPorDia/' + prefixo;
-  // Reusa o mesmo helper de contador seguro contra corrida de shared/utils.js
-  // (já usado pra numeração de SKU) em vez de reimplementar a .transaction()
-  // aqui -- só o formato final (prefixo/NN, com barra) é específico deste caso.
-  return nextSequential(db, counterPath, null, 2).then(function(seq) {
-    return prefixo + '/' + seq.formatado;
-  });
-}
-
 /* ── Auto-programação (Fase 1 do plano) ── Simplificação deliberada: NÃO
    replica o grid completo de turnos/pausas de planejamento.html
    (turnosParaCapacidade/configTurnoHorarios/kuryosHorasExtrasDoDia) -- só
@@ -1445,33 +1431,14 @@ function montarDadosOP(lote, janela) {
     liberacaoSemSaldo: liberacaoSemSaldoAtual
   };
 }
-// Achado do Auditor: enquanto o Gerador de OPs (VBA/planilha) continuar
-// rodando em paralelo (fase de transição), ele numera lotes pelo próprio
-// contador interno, sem nenhuma ligação com config/contadores/lotesPorDia/*
-// usado aqui. Os dois podem perfeitamente gerar o mesmo "26230/01" no mesmo
-// dia. O antigo `db.ref('ops/'+loteKey).set(data)` sobrescrevia esse nó sem
-// checar se já existia -- se o lote já tivesse produção real apontada
-// (produzidoLinha, paradas, etc.), isso apagava tudo em silêncio. Agora a
-// gravação usa `.transaction()`: só commita se o nó ainda estiver vazio: se
-// já existir (colisão com o VBA ou com outra emissão concorrente), a
-// transaction aborta sem tocar no dado existente e tentamos o PRÓXIMO
-// número automaticamente, até um limite de tentativas.
-function reservarLoteEEmitir(tentativasRestantes, janela) {
-  return proximoLote().then(function(lote) {
-    var loteKey = sanitizeKey(lote);
-    var data = montarDadosOP(lote, janela);
-    return db.ref('ops/' + loteKey).transaction(function(atual) {
-      if (atual !== null) return; // já existe (provavelmente emitido por outra via) -- aborta sem sobrescrever
-      return data;
-    }).then(function(result) {
-      if (!result.committed) {
-        if (tentativasRestantes <= 0) {
-          throw new Error('Não foi possível reservar um número de lote livre (colisão repetida com OPs já existentes). Tente novamente em instantes.');
-        }
-        return reservarLoteEEmitir(tentativasRestantes - 1, janela);
-      }
-      return {lote: lote, data: data};
-    });
+// Numeração, validação de saldo, criação da OP, empenho e alerta são gravados
+// juntos pelo servidor. Duas emissões concorrentes não reservam o mesmo saldo.
+function reservarLoteEEmitir(janela, motivoLiberacao) {
+  var data = montarDadosOP('', janela);
+  delete data.lote;
+  delete data.liberacaoSemSaldo;
+  return emitirOpServidor({op: data, motivoLiberacao: motivoLiberacao || null}).then(function(result) {
+    return {lote: result.data.lote, data: result.data.op};
   });
 }
 
@@ -1589,7 +1556,7 @@ function emitirOP(motivoLiberacao) {
     }
   }
 
-  reservarLoteEEmitir(5, janela).then(function(res) {
+  reservarLoteEEmitir(janela, motivoLiberacao).then(function(res) {
     opJaEmitida = res.data;
     document.getElementById('loteEmitido').textContent = res.lote;
     document.getElementById('cardAlocacao').style.display = 'none';
@@ -1608,31 +1575,7 @@ function emitirOP(motivoLiberacao) {
     }
     showAlert(msg, 'success');
 
-    // Reserva (empenha) no estoque cada material do consumo calculado --
-    // best-effort, fora da transaction de emissão: a OP já existe e é o que
-    // importa; o empenho é um reflexo dela, não pré-requisito pra emitir.
-    // Material sem controle de estoque (ex.: água) não é reservado (01/10).
-    empenharMateriais(db, res.lote, res.data.sku, Object.values(res.data.materiaisConsumo || {}).filter(function(it) {
-      return !materialSemControleEstoque(it.mpCodigo, allMateriais);
-    })).catch(function(err) {
-      console.error('Falha ao empenhar materiais da OP ' + res.lote + ':', err);
-    });
-
-    // Aviso por e-mail de "OP emitida" -- quem manda de fato é a Cloud
-    // Function checkOpsEmitidas (functions/index.js), que só varre
-    // alertas_pendentes a cada 2min e envia via Microsoft Graph. Até aqui
-    // só o VBA (via criarOP) gravava essa fila -- OP emitida por esta tela
-    // nunca disparava e-mail nenhum. Mesmo formato exato que criarOP já usa,
-    // pra não precisar mexer no consumidor.
-    db.ref('alertas_pendentes').push({
-      tipo: 'op_emitida', timestamp: new Date().toISOString(),
-      lote: res.lote, sku: res.data.sku, produto: res.data.produto, cliente: res.data.cliente,
-      qtdPlanejada: res.data.qtdPlanejada, pedidoComercialId: res.data.skuPedidoKey || '',
-      emitidoPor: res.data.emitidoPor,
-    }).catch(function(err) {
-      console.error('Falha ao enfileirar aviso por e-mail da OP ' + res.lote + ':', err);
-    });
-
+    // O alerta de e-mail já foi enfileirado pelo servidor na mesma transação.
     // Consumo da alocação congelada -- só existe se pedidoVinculado.aloc
     // veio preenchido (bônus de programação, ver comentário no topo do
     // bloco de vínculo). O vínculo com o PEDIDO em si já está gravado

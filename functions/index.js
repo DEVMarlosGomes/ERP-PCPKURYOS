@@ -20,9 +20,39 @@ const {prepararFaturamento} = require("./faturamento_carga");
 const FaturamentoEmail = require("./faturamento_email");
 const DevolucaoCliente = require("./devolucao_cliente");
 const Titularidade = require("./titularidade");
+const EmissaoOp = require("./emissao_op");
 
 admin.initializeApp();
 const db = admin.database();
+
+exports.emitirOpServidor = onCall({timeoutSeconds: 120, memory: "512MiB"}, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para emitir a OP.");
+  const uid = request.auth.uid;
+  const user = (await db.ref("usuarios/" + uid).once("value")).val() || {};
+  const permitted = profile => !!profile && (["admin", "pcp"].includes(profile.role) || profile.modulos && profile.modulos.emitir_op === true);
+  if (!permitted(user)) throw new HttpsError("permission-denied", "Seu perfil não pode emitir OP.");
+  const identity = {uid, name: user.nome || request.auth.token.email || uid, role: user.role};
+  const data = Object.assign({}, request.data || {}, {alertKey: db.ref().push().key});
+  let plan;
+  let failure;
+  await db.ref().once("value");
+  const result = await db.ref().transaction(base => {
+    failure = null;
+    try {
+      const current = ((base || {}).usuarios || {})[uid] || {};
+      if (!permitted(current)) throw Object.assign(new Error("Permissão de emissão revogada."), {code: "permission-denied"});
+      identity.role = current.role;
+      plan = EmissaoOp.prepare(base, data, identity, new Date());
+      return base;
+    } catch (error) {
+      failure = error;
+      return;
+    }
+  }, undefined, false);
+  if (failure) throw new HttpsError(failure.code || "failed-precondition", failure.message, failure.details);
+  if (!result.committed || !plan) throw new HttpsError("aborted", "O estoque mudou durante a emissão. Tente novamente.");
+  return {ok: true, lote: plan.lote, op: plan.op};
+});
 
 // PORT-04 (porte do Gustavo e6ad1fc). Servido pelo Render como as demais (render-server.js).
 // Alterar titularidade do estoque (24/10/2026): quem pode é o administrador ou
