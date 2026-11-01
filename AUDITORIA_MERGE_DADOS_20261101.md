@@ -1,8 +1,16 @@
 # Auditoria da união de dados reais — 01/11/2026
 
+## Aplicação autorizada — 01/11/2026
+
+O usuário confirmou que o export de 01/11 é a fonte mais atual e autorizou a publicação. A execução `merge-7d3744273b64c678` foi aplicada ao `erpkuryos` com backup, checkpoint e `--disable-triggers`: **269.237 campos**, em 27 lotes, todos confirmados pelo Firebase. IDs iguais foram atualizados no mesmo caminho; nenhum registro idêntico foi duplicado.
+
+Os 46 históricos com referência órfã foram preservados e geraram 46 pendências determinísticas em `pendencias_setor`: 19 OPs, 18 especificações, três BOMs, três pedidos e três fórmulas. Cadastros exibe aviso e popup laranja, com acesso direto à aba Produtos e fechamento automático quando o vínculo passar a apontar para um produto existente.
+
+A auditoria pós-importação `merge-a32a9598d2560a22` retornou: zero registros novos, zero complementos, zero sobrescritas, zero rejeições e zero campos planejados. Metadados técnicos de entrega de e-mail são deliberadamente preservados para não reabrir nem repetir efeitos. Proveniência: `importacoes_dados/merge-7d3744273b64c678`.
+
 ## Resultado executivo
 
-A rotina de união conservadora foi implementada e executada **somente em simulação**. Nenhuma escrita foi feita no Firebase. A fonte principal foi comparada com uma fotografia autorizada e somente leitura do `erpkuryos` obtida em 01/11/2026.
+A rotina de união conservadora foi inicialmente implementada e validada em simulação. A aplicação posterior, autorizada pelo usuário, está registrada na seção acima.
 
 Execução principal: `merge-aafb10ee8a418f0a`.
 
@@ -85,7 +93,7 @@ Os 2.973 conflitos precisam de decisão por campo antes de qualquer sobreposiç�
 
 ## Testes
 
-`node --test run_firebase_merge_test.js`: **12/12 aprovados**.
+`node --test run_firebase_merge_test.js`: **15/15 aprovados**, além dos testes de pendências e do popup de Cadastros.
 
 Coberturas: registro novo, idêntico, complemento com `0`/`false`, conflito, referência inválida, segunda execução, retomada, concorrência, reversão seletiva, exclusão de efeitos operacionais, divergência estrutural e `null`. Na repetição em memória sobre os dados reais, a primeira execução planejou 264.952 inclusões e a segunda **zero**, mantendo somente conflitos e rejeições para revisão.
 
@@ -109,7 +117,7 @@ Reverter apenas os caminhos que aquela execução ainda controla:
 node scripts/firebase-merge/cli.js revert --plan "scratch\firebase-merge\<runId>\plan.json" --project erpkuryos --confirm-run <runId>
 ```
 
-**Nenhum dos dois últimos comandos foi executado.** O plano deve ser regenerado imediatamente antes da janela aprovada.
+O comando de aplicação foi executado na autorização de 01/11/2026. O comando de reversão não foi executado; o backup e o checkpoint permanecem em `scratch/firebase-merge/merge-7d3744273b64c678/`.
 
 ## Decisões e arquivos ainda necessários
 
@@ -120,4 +128,4 @@ node scripts/firebase-merge/cli.js revert --plan "scratch\firebase-merge\<runId>
 5. fontes oficiais de bancos/títulos, contas ECD, capacidade de SKU e lead time/lote mínimo;
 6. política de retenção dos históricos que aparecem apenas no export de origem.
 
-Sem esses insumos, a rotina e a simulação estão concluídas, mas a união operacional não deve ser declarada concluída.
+A união do export está concluída. Os insumos acima continuam necessários para a regularização dos órfãos, o Dia D físico e os cadastros contábeis/operacionais que nunca estiveram no JSON.

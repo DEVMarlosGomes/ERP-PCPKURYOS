@@ -113,3 +113,11 @@ test("referência órfã é importada e gera uma única pendência determinísti
   const second = planMerge(source, current, {excludedRoots, invalidReferencePolicy: "flag"});
   assert.equal(second.changes.length, 0);
 });
+
+test("preserva metadados técnicos de e-mail para não repetir efeitos", () => {
+  const source = {...base, pedidos_comerciais: {P1: {status: "APROVADO", versoes: {v2: {email: {status: "ERRO", em: "antes"}}}}}};
+  const current = {...base, pedidos_comerciais: {P1: {status: "RASCUNHO", versoes: {v2: {email: {status: "ENVIADO", em: "depois"}}}}}};
+  const result = planMerge(source, current, {excludedRoots, conflictPolicy: "source"});
+  assert.ok(result.changes.some((x) => x.path === "/pedidos_comerciais/P1/status"));
+  assert.equal(result.changes.some((x) => x.path.includes("/email/")), false);
+});

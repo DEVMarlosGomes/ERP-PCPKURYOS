@@ -1,6 +1,6 @@
 # CLAUDE.md — App PCP Kuryos (`producao_firebase_FINAL`)
 
-> **União de dados (01/11/2026):** `scripts/firebase-merge/cli.js` implementa simulação padrão, merge conservador por folha, validação de referências, conflitos, lotes/checkpoint, concorrência, backup e reversão seletiva. A simulação real está em `AUDITORIA_MERGE_DADOS_20261101.md`; nenhuma escrita foi feita no Firebase.
+> **União de dados (01/11/2026):** `scripts/firebase-merge/cli.js` implementa simulação padrão, merge por folha, validação de referências, conflitos, lotes/checkpoint, concorrência, backup e reversão seletiva. O export atual foi aplicado ao `erpkuryos` na execução `merge-7d3744273b64c678` (269.237 campos; gatilhos desativados); a auditoria posterior retornou zero alterações. Os 46 órfãos aparecem para regularização em Cadastros. Detalhes: `AUDITORIA_MERGE_DADOS_20261101.md`.
 
 App de PCP/produção da Kuryos em Firebase (RTDB + Hosting + Functions), projeto
 `prod-kuryos`, repo `https://github.com/gcallegaro-kur/PCP-Kuryos.git`, branch `main`.

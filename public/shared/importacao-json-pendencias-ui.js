@@ -1,7 +1,7 @@
 (function(root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.ImportacaoJsonPendenciasUI = factory();
-})(typeof globalThis !== 'undefined' ? globalThis : this, function() {
+  if (typeof module === 'object' && module.exports) module.exports = factory(root);
+  else root.ImportacaoJsonPendenciasUI = factory(root);
+})(typeof globalThis !== 'undefined' ? globalThis : this, function(root) {
   'use strict';
 
   function esc(value) {

@@ -2,7 +2,7 @@
 
 const crypto = require("node:crypto");
 
-const TOOL_VERSION = "1.2.0";
+const TOOL_VERSION = "1.2.1";
 const EXCLUDED_ROOTS = new Map([
   ["config", "configuração e segredos operacionais não são dados mestres"],
   ["usuarios", "perfil não equivale ao Firebase Authentication; revisão humana obrigatória"],
@@ -154,9 +154,12 @@ function planMerge(source, current, options = {}) {
       const leafRejects = [];
       collectLeaves(sourceRecord, currentRecord, `/${root}/${id}`, leaves, leafRejects);
       rejected.push(...leafRejects);
-      const adds = leaves.filter((entry) => entry.action === "add");
-      const diffs = leaves.filter((entry) => entry.action === "conflict");
-      const same = leaves.filter((entry) => entry.action === "identical");
+      // Estado de entrega de e-mail é efeito técnico, não dado de negócio. Ele
+      // pode avançar após o export e nunca deve ser reaberto/repetido no merge.
+      const businessLeaves = leaves.filter((entry) => !/(^|\/)email(\/|$)/.test(entry.path));
+      const adds = businessLeaves.filter((entry) => entry.action === "add");
+      const diffs = businessLeaves.filter((entry) => entry.action === "conflict");
+      const same = businessLeaves.filter((entry) => entry.action === "identical");
       changes.push(...adds.map((entry) => ({...entry, root, recordId: id, sourcePath: entry.path})));
       if (conflictPolicy === "source") changes.push(...diffs.map((entry) => ({...entry, action: "overwrite", root, recordId: id, sourcePath: entry.path})));
       conflicts.push(...diffs.map((entry) => ({...entry, root, recordId: id, sourcePath: entry.path})));
