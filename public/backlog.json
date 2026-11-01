@@ -1,13 +1,24 @@
 {
  "fonte": "MELHORIAS_FUTURAS.md (seções e tópicos)",
- "geradoEm": "2026-10-30T18:47:04.402Z",
- "commit": "f599707",
+ "geradoEm": "2026-11-01T02:35:40.028Z",
+ "commit": "3c689ae",
  "atualizadoEm": null,
  "secoes": [
   {
    "letra": "A",
    "titulo": "Código: o que está adiado (MELHORIAS_FUTURAS.md)",
    "itens": [
+    {
+     "id": "5a7c81b1ef",
+     "grupo": "Expedição — complemento do desmembramento de palete",
+     "texto": "Unir paletes e desmembrar ainda na Conferência de PA",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "A entrega PORT-10 permite desmembrar na tela *Montar carga*, onde a divergência física costuma aparecer. Ficaram fora a operação inversa (unir) e a divisão antes de o PA entrar no estoque. Fluxo LOG/Expedição; referência: `public/shared/desmembrar-palete.js`."
+     },
+     "feito": false,
+     "hash": null
+    },
     {
      "id": "8028887955",
      "grupo": "Sequência por setor / Próximas Ordens — o que ficou para depois",
@@ -2377,14 +2388,14 @@
      "hash": null
     },
     {
-     "id": "41e5041798",
+     "id": "d552cace45",
      "grupo": "Reunião 28/10 — FIN-01, OP-01, OP-02",
-     "texto": "`emitir_op.html` tem 563 px de largura em 390 px",
+     "texto": "`emitir_op.html` tinha 563 px de largura em 390 px",
      "subitens": [],
      "extras": {
-      "Detalhe": "por causa da tabela de materiais de 6 colunas (já era assim antes). Virar cartões no celular."
+      "Detalhe": "por causa da tabela de materiais de 6 colunas. Corrigido em `da07369`: a tabela fica contida e rolável sem alargar a página."
      },
-     "feito": false,
+     "feito": true,
      "hash": null
     },
     {
@@ -2595,8 +2606,8 @@
  "resumo": {
   "A": {
    "titulo": "Código: o que está adiado (MELHORIAS_FUTURAS.md)",
-   "total": 225,
-   "feitos": 19
+   "total": 226,
+   "feitos": 20
   },
   "B": {
    "titulo": "Depende da Kuryos",
