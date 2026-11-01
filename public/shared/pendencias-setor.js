@@ -123,6 +123,7 @@
   function jaResolvida(p, dados) {
     var d = dados || {};
     if (!p || p.status !== 'ABERTA') return false;
+    if (p.tipo === 'REFERENCIA_IMPORTACAO') return d.referenciaExiste === true;
     if (p.tipo === 'DADO_PRODUTO') return campoPreenchido(d.produto, p.campo);
     if (p.tipo === 'MATERIAL') {
       var it = d.item || {};

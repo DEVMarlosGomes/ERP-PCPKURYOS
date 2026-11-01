@@ -25,11 +25,15 @@ function parseArgs(argv) {
 function fail(message) { console.error(`ERRO: ${message}`); process.exitCode = 1; }
 function readJson(file) { return JSON.parse(fs.readFileSync(file, "utf8")); }
 function writeJson(file, value) { fs.mkdirSync(path.dirname(file), {recursive: true}); fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, {flag: "wx"}); }
-function firebaseBin() { return process.platform === "win32" ? path.join(process.env.APPDATA || "", "npm", "firebase.cmd") : "firebase"; }
+function runFirebase(args, stdio = "inherit") {
+  const executable = process.platform === "win32" ? process.execPath : "firebase";
+  const prefix = process.platform === "win32" ? [path.join(process.env.APPDATA || "", "npm", "node_modules", "firebase-tools", "lib", "bin", "firebase.js")] : [];
+  return spawnSync(executable, prefix.concat(args), {stdio});
+}
 
 function downloadCurrent(project) {
   const file = path.join(os.tmpdir(), `firebase-merge-live-${process.pid}-${Date.now()}.json`);
-  const run = spawnSync(firebaseBin(), ["database:get", "/", "--project", project, "--output", file], {stdio: "inherit", shell: process.platform === "win32"});
+  const run = runFirebase(["database:get", "/", "--project", project, "--output", file]);
   if (run.status !== 0) throw new Error("não foi possível obter fotografia atual do Firebase");
   return {file, data: readJson(file)};
 }
@@ -37,7 +41,7 @@ function downloadCurrent(project) {
 function updateFirebase(project, data, workDir, label) {
   const file = path.join(workDir, `${label}.json`);
   fs.writeFileSync(file, `${JSON.stringify(data)}\n`);
-  const run = spawnSync(firebaseBin(), ["database:update", "/", file, "--project", project, "--force", "--disable-triggers"], {stdio: "inherit", shell: process.platform === "win32"});
+  const run = runFirebase(["database:update", "/", file, "--project", project, "--force", "--disable-triggers"]);
   if (run.status !== 0) throw new Error(`falha ao aplicar ${label}`);
 }
 
@@ -52,9 +56,12 @@ function humanReport(plan, sourceFile, currentFile) {
     `Registros complementados: ${c.complementedRecords}`,
     `Registros idênticos: ${c.identicalRecords}`,
     `Registros conflitantes: ${c.conflictingRecords}`,
+    `Registros sobrescritos pela fonte autorizada: ${c.overwrittenRecords}`,
     `Registros rejeitados: ${c.rejectedRecords}`,
     `Campos a incluir: ${c.fieldAdditions}`,
     `Campos conflitantes preservados: ${c.fieldConflicts}`,
+    `Campos sobrescritos pela fonte autorizada: ${c.fieldOverwrites}`,
+    `Referências importadas com pendência: ${(plan.referenceWarnings || []).length}`,
     `Valores rejeitados: ${c.rejectedValues}`,
     `Raízes excluídas: ${plan.excluded.map((x) => x.root).join(", ") || "nenhuma"}`,
     `Raízes com trigger no plano: ${plan.triggerSensitiveRoots.filter((x) => x.plannedFields).map((x) => `${x.root}(${x.plannedFields})`).join(", ") || "nenhuma"}`,
@@ -66,7 +73,10 @@ function simulate(args) {
   const currentFile = args.current || downloadCurrent(args.project).file;
   const source = readJson(args.source);
   const current = readJson(currentFile);
-  const plan = planMerge(source, current);
+  const plan = planMerge(source, current, {
+    conflictPolicy: args.conflictPolicy || "preserve",
+    invalidReferencePolicy: args.invalidReferencePolicy || "reject",
+  });
   const dir = path.resolve(args.outDir, plan.runId);
   fs.mkdirSync(dir, {recursive: true});
   const planFile = path.join(dir, "plan.json");

@@ -87,3 +87,29 @@ test("null da fonte nunca vira exclusão", () => {
   assert.ok(result.rejected.some((x) => x.path === "/clientes/C1/nome"));
   assert.equal(result.changes.filter((x) => x.root === "clientes").length, 0);
 });
+
+test("fonte autorizada sobrescreve divergência sem duplicar registro", () => {
+  const result = planMerge({...base, clientes: {C1: {nome: "Mais atual"}}}, {...base, clientes: {C1: {nome: "Antigo"}}}, {excludedRoots, conflictPolicy: "source"});
+  const overwrite = result.changes.find((x) => x.path === "/clientes/C1/nome");
+  assert.equal(overwrite.action, "overwrite");
+  assert.equal(overwrite.after, "Mais atual");
+  assert.equal(result.counts.overwrittenRecords, 1);
+});
+
+test("referência órfã é importada e gera uma única pendência determinística", () => {
+  const source = {...base, formulas: {F1: {codProduto: "SKU-ORFAO", versao: 1}}};
+  const first = planMerge(source, base, {excludedRoots, invalidReferencePolicy: "flag"});
+  assert.equal(first.referenceWarnings.length, 1);
+  assert.ok(first.changes.some((x) => x.path === "/formulas/F1/codProduto"));
+  const pending = first.changes.filter((x) => x.root === "pendencias_setor");
+  assert.ok(pending.length > 0);
+  const current = JSON.parse(JSON.stringify(base));
+  for (const entry of first.changes) {
+    const parts = entry.path.slice(1).split("/");
+    let cursor = current;
+    for (let i = 0; i < parts.length - 1; i++) cursor = cursor[parts[i]] || (cursor[parts[i]] = {});
+    cursor[parts[parts.length - 1]] = entry.after;
+  }
+  const second = planMerge(source, current, {excludedRoots, invalidReferencePolicy: "flag"});
+  assert.equal(second.changes.length, 0);
+});

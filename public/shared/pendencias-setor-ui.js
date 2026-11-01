@@ -23,7 +23,16 @@
         var k = e[0], p = e[1];
         if (conferidas[k]) return;
         conferidas[k] = true;
-        var leitura = p.tipo === 'MATERIAL'
+        var leitura = p.tipo === 'REFERENCIA_IMPORTACAO'
+          ? db.ref(p.colecao + '/' + p.registroKey + '/' + p.campo).once('value').then(function(s) {
+              var valor = String(s.val() || '').trim();
+              if (!valor) return { referenciaExiste: false };
+              return Promise.all([
+                db.ref('produtos/' + chaveMaterial(valor)).once('value'),
+                db.ref('produtos').orderByChild('sku').equalTo(valor).limitToFirst(1).once('value')
+              ]).then(function(resultados) { return { referenciaExiste: resultados[0].exists() || resultados[1].exists() }; });
+            })
+          : p.tipo === 'MATERIAL'
           ? db.ref(p.colecao + '/' + p.versaoKey + '/itens/' + p.itemKey).once('value').then(function(s) {
               var it = s.val() || {}, cod = p.colecao === 'bom' ? it.materialCodigo : it.mpCodigo;
               if (!cod) return { item: it };
@@ -50,7 +59,9 @@
                 '<input class="ps-valor" data-k="' + esc(k) + '" inputmode="decimal" placeholder="' + esc(p.rotulo) + '" style="width:120px">' +
                 (meta.tipo === 'volume' ? '<select class="ps-unidade" data-k="' + esc(k) + '">' + P.UNIDADES_VOLUME.map(function(u) { return '<option value="' + u + '">' + u + '</option>'; }).join('') + '</select>' : '') +
                 '<button class="btn btn-primary btn-sm ps-salvar" data-k="' + esc(k) + '">Salvar</button></span>'
-            : '<a class="btn btn-ghost btn-sm" href="cadastros.html?tab=formulas&produto=' + encodeURIComponent(p.produtoKey) + '">Abrir Fórmula / BOM</a>';
+            : p.tipo === 'REFERENCIA_IMPORTACAO'
+              ? '<a class="btn btn-ghost btn-sm" href="cadastros.html?tab=produtos&regularizar=' + encodeURIComponent(p.valorAusente || '') + '">Regularizar produto</a>'
+              : '<a class="btn btn-ghost btn-sm" href="cadastros.html?tab=formulas&produto=' + encodeURIComponent(p.produtoKey) + '">Abrir Fórmula / BOM</a>';
           return '<div style="display:flex;gap:10px;align-items:center;padding:6px 0;flex-wrap:wrap;border-top:1px solid var(--border)">' +
             '<span class="badge">' + esc(P.SETORES[p.setor] || p.setor) + '</span>' +
             (p.obrigatorio ? '<span class="badge" style="background:var(--tint-red-bg);color:var(--tint-red-fg)">trava a OP</span>' : '<span class="badge">aviso</span>') +

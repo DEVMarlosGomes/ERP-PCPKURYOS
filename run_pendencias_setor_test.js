@@ -49,6 +49,9 @@ const noCadastro = (c) => c === 'ET-00068';
 assert.equal(P.jaResolvida(pi, { item: { materialCodigo: '' }, codigoNoCadastro: noCadastro }), false);
 assert.equal(P.jaResolvida(pi, { item: { materialCodigo: 'ET-00068' }, codigoNoCadastro: noCadastro }), true);
 assert.equal(P.jaResolvida({ ...pv, status: 'RESOLVIDA' }, { produto: {} }), false);
+const importada = { status: 'ABERTA', tipo: 'REFERENCIA_IMPORTACAO' };
+assert.equal(P.jaResolvida(importada, { referenciaExiste: false }), false);
+assert.equal(P.jaResolvida(importada, { referenciaExiste: true }), true);
 assert.deepEqual(Object.keys(P.gravacaoResolvida('K', 'Ana', T2, 'preenchido na barra')), [
   'pendencias_setor/K/status', 'pendencias_setor/K/resolvidaEm', 'pendencias_setor/K/resolvidaPor', 'pendencias_setor/K/resolvidaComo']);
 

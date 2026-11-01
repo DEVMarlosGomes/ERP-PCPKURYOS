@@ -17,10 +17,12 @@
   <script src="shared/cambio.js"></script>
   <script src="shared/servicos.js"></script>
   <script src="shared/pendencias-setor.js"></script><script src="shared/pendencias-setor-ui.js"></script>
+  <script src="shared/importacao-json-pendencias-ui.js"></script>
   <script src="shared/itens-cadastro.js"></script>
   <script src="auth_check.js"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="shared/theme.css">
+  <link rel="stylesheet" href="shared/importacao-json-pendencias.css">
   <style>
     /* Fase 6 (unificação de cadastros): tokens/base idênticos aos que já
        existiam, um em cada um de produtos.html/materiais.html/formulas.html/
@@ -80,6 +82,7 @@
     .alert-success{background:var(--tint-green-bg);color:var(--tint-green-fg);border:1px solid color-mix(in srgb, var(--tint-green-fg) 40%, transparent)}
     .alert-danger{background:var(--tint-red-bg);color:var(--tint-red-fg);border:1px solid color-mix(in srgb, var(--tint-red-fg) 40%, transparent)}
     .alert-info{background:var(--tint-blue-bg);color:var(--primary);border:1px solid color-mix(in srgb, var(--primary) 40%, transparent)}
+    .alert-warning{background:color-mix(in srgb,#f59e0b 14%,var(--card));color:color-mix(in srgb,#92400e 72%,var(--text));border:1px solid color-mix(in srgb,#d97706 42%,var(--border))}
     .modal-bg{display:none;position:fixed;inset:0;width:100vw;height:100dvh;background:rgba(6,18,63,.48);z-index:25000;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));overflow:hidden;overscroll-behavior:contain;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
     .modal-bg.open{display:flex}
     .modal-bg>.modal{background:var(--card);border-radius:18px;width:100%;max-width:680px;max-height:calc(100dvh - 32px);margin:0;box-shadow:0 24px 80px rgba(6,18,63,.28);overflow:hidden;display:flex;flex-direction:column;min-width:0}
@@ -225,6 +228,7 @@
 
 <div class="main">
   <div id="alertBox" class="alert alert-success"></div>
+  <div id="pendenciasImportacaoJson" hidden></div>
   <div id="pendenciasSetor" style="display:none"></div>
 </div>
 
@@ -1510,6 +1514,7 @@ kuryosConnectEmulatorsIfLocal();
 var db = firebase.database();
 // 17/10/2026: o que faltou na Emissão de OP (volume, caixa, materiais fora do cadastro) chega aqui.
 try { PendenciasSetorUI.montar({ el: document.getElementById("pendenciasSetor"), setores: ["CADASTROS"], db: db, autor: function() { return (window.currentUser && window.currentUser.nome) || (firebase.auth().currentUser && firebase.auth().currentUser.email) || "Cadastros"; } }); } catch (e) { console.error("[pendências] ", e); }
+try { ImportacaoJsonPendenciasUI.montar({ el: document.getElementById("pendenciasImportacaoJson"), db: db }); } catch (e) { console.error("[importação JSON] ", e); }
 
 // ── Utilitários compartilhados por TODAS as sub-abas (Fase 6) ──────────
 // Únicos de propósito -- produtos.html/materiais.html/formulas.html/
@@ -1635,6 +1640,15 @@ document.addEventListener('DOMContentLoaded', function() {
   var params = new URLSearchParams(location.search);
   var tab = params.get('tab');
   if (tab && MAINTAB_ALIASES[tab]) activateMainTab(tab, false);
+  var regularizar = params.get('regularizar');
+  if (regularizar) setTimeout(function() {
+    var busca = document.getElementById('searchInput-prod');
+    if (!busca) return;
+    busca.value = regularizar;
+    busca.dispatchEvent(new Event('input', { bubbles: true }));
+    busca.focus();
+    showAlert('Referência ' + regularizar + ': crie o produto ou abra o registro correto para ajustar o vínculo.', 'warning');
+  }, 250);
 });
 
 // ════════════════════════════════════════════════════════════════════
