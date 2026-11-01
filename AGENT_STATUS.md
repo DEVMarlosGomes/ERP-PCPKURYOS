@@ -5,13 +5,12 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
-### Codex (Tech Lead) — Fechamento integral do prompt da reunião 28/10 (31/10/2026)
+### Codex (Tech Lead) — Planejamento por ritmo + Central de Ajuda + auditoria integral (31/10/2026)
 
-- **Pedido:** retomar os dois agentes cloud de onde pararam, finalizar todas as fases/tickets de `PROMPT_REUNIAO_20261028.md`, integrar, testar e auditar o prompt inteiro procurando brechas, falhas e regressões.
-- **Entregue:** Fases 4–5 e Fase 8 integradas no `main`; todos os tickets MENU, CRM, P&D, Kickoff/BOM, Cotação/SKU/Compras, PCP, Financeiro e PORT-01..10 auditados em `AUDITORIA_REUNIAO_20261028.md`.
-- **Validação:** CRM 408 testes/2 ignorados + build; navegação 39 perfis; coerência 402 verificações; motores/UI de Painel, Pesagens, Qualidade, Titularidade, Auditoria, RNC e Expedição; regras COT-01 (8), COT-03 (13), Checklists/Liberação e Auditoria no emulador. Ensaio somente leitura SKU-01: 6 propostas, 3 aprovadas, 1 fluxo atual indexado e 2 legadas sem SKU para revisão manual.
-- **Achados corrigidos:** fixture da Home, overflow móvel de Emitir OP, dois testes intermitentes/falso-negativo e falta da fronteira de segurança do desconto máximo (`0f9ca5d`).
-- **Publicação:** regras do RTDB publicadas explicitamente em `erpkuryos` (antes `2f75aeea…`, depois `e186c13a…`; 11/11 grupos persistentes presentes; Roadmap é arquivo estático). `main` publicado até `2b027fd`; commit de registro final publicado em seguida.
+- **Pedido:** (1) reprogramar pela duração/ritmo real: atraso empurra todas as OPs seguintes e adiantamento puxa todas; (2) a zona fixa não impede esse reflow; (3) manter grade de 15 minutos; (4) construir em Ajuda o workflow completo do sistema e de cada setor; (5) auditar o sistema inteiro e corrigir falhas.
+- **Coordenação:** Dev Full Stack 1 trabalha apenas no motor/tela/testes de Planejamento; Dev Full Stack 2 trabalha apenas em `public/manuais.html`, módulos novos exclusivos da Central de Ajuda e testes. Ambos usam branch/worktree própria; o Tech Lead integra commits revisados e executa a auditoria transversal no `main`.
+- **Arquivos do Tech Lead:** `AGENT_STATUS.md`, `CLAUDE.md`, relatório de auditoria final e correções encontradas fora dos arquivos ativos dos devs. Nenhuma publicação antes das suítes e revisão visual.
+- **Estado inicial:** `main` limpo em `34e47d0`; decisões anteriores de 15 minutos mantidas; decisão nova remove a zona fixa do reflow automático e manda usar o ritmo real da linha em ambas as direções.
 
 ### Claude — Reunião 28/10: menu do Gustavo + ajustes CRM · P&D · Kickoff · BOM · Compras · PCP · Financeiro
 
