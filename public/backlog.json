@@ -1,7 +1,7 @@
 {
  "fonte": "MELHORIAS_FUTURAS.md (seções e tópicos)",
- "geradoEm": "2026-11-01T02:35:40.028Z",
- "commit": "3c689ae",
+ "geradoEm": "2026-11-01T13:07:24.466Z",
+ "commit": "1f58dfb",
  "atualizadoEm": null,
  "secoes": [
   {
@@ -69,9 +69,9 @@
      "texto": "Ritmo real da OP em andamento",
      "subitens": [],
      "extras": {
-      "Detalhe": "A estimativa de quem está rodando usa o ritmo planejado sobre o que FALTA; o atraso aparece a cada apontamento (o que falta não diminuiu como devia), não antes. Medir o ritmo real da própria OP esbarra no apontamento por período (checkpoint de intervalo/fim de turno): entre dois checkpoints `produzidoLinha` fica par…"
+      "Detalhe": "Entregue em 31/10: a ETA usa quantidade restante ÷ `mediaPorHora`; sem ritmo gravado, deriva o produzido pelo tempo útil decorrido. Atraso empurra toda a fila e adiantamento puxa toda a fila, preservando calendário, setup, travas duras e grade de 15 minutos. A zona fixa não bloqueia o reflow. Risco residual: o últim…"
      },
-     "feito": false,
+     "feito": true,
      "hash": null
     },
     {
@@ -2437,9 +2437,20 @@
      "texto": "Atraso de OP em execução pelo mínimo certo",
      "subitens": [],
      "extras": {
-      "Detalhe": "(max(fim planejado, agora)). O ETA pelo ritmo (`ops.html`) daria um empurrão mais cedo; decidir com o PCP."
+      "Detalhe": "Substituído em 31/10 pela ETA do ritmo real da linha; atraso e adiantamento refluem toda a fila."
      },
-     "feito": false,
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "5199210c25",
+     "grupo": "Reunião 28/10 — FEFO-01 e PLAN-01",
+     "texto": "Zona fixa no reflow",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Decidido em 31/10 que ela não bloqueia puxar/empurrar a fila; continua apenas informativa nesse cálculo."
+     },
+     "feito": true,
      "hash": null
     },
     {
@@ -2588,17 +2599,6 @@
      },
      "feito": false,
      "hash": null
-    },
-    {
-     "id": "cb6a11a3f1",
-     "grupo": "Reunião 28/10 — FEFO-01 e PLAN-01",
-     "texto": "Zona fixa (`config/congelamento.diasFixos`) vale também para puxar/empurrar OP",
-     "subitens": [],
-     "extras": {
-      "Detalhe": "Na base hoje ela é 0 dias. Com 7 dias, quase nada da semana se move; decidir se a zona deve valer aqui."
-     },
-     "feito": false,
-     "hash": null
     }
    ]
   }
@@ -2606,8 +2606,8 @@
  "resumo": {
   "A": {
    "titulo": "Código: o que está adiado (MELHORIAS_FUTURAS.md)",
-   "total": 226,
-   "feitos": 20
+   "total": 227,
+   "feitos": 23
   },
   "B": {
    "titulo": "Depende da Kuryos",
@@ -2616,7 +2616,7 @@
   },
   "C": {
    "titulo": "Decisões pendentes do usuário",
-   "total": 3,
+   "total": 2,
    "feitos": 0
   }
  }

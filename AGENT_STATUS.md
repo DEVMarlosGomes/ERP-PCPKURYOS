@@ -11,6 +11,7 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 - **Coordenação:** Dev Full Stack 1 trabalha apenas no motor/tela/testes de Planejamento; Dev Full Stack 2 trabalha apenas em `public/manuais.html`, módulos novos exclusivos da Central de Ajuda e testes. Ambos usam branch/worktree própria; o Tech Lead integra commits revisados e executa a auditoria transversal no `main`.
 - **Arquivos do Tech Lead:** `AGENT_STATUS.md`, `CLAUDE.md`, relatório de auditoria final e correções encontradas fora dos arquivos ativos dos devs. Nenhuma publicação antes das suítes e revisão visual.
 - **Estado inicial:** `main` limpo em `34e47d0`; decisões anteriores de 15 minutos mantidas; decisão nova remove a zona fixa do reflow automático e manda usar o ritmo real da linha em ambas as direções.
+- **Concluído (01/11):** Planejamento integrado em `1208174`; Central de Ajuda em `1f58dfb`; HOM em `805de54`; RNC/cache frio em `19e191f`; backlog sincronizado em `f7939ac`. Auditoria final em `AUDITORIA_SISTEMA_20261101.md`: corrigidos banco legado da Inspeção Total, índice público de responsáveis, links antigos dos e-mails, fallback de gatilhos, sobreposição mobile e fixtures frágeis. Validação: 129 scripts triados/verdes; CRM 408/408 (2 ignorados) + build; motor 31; Ajuda 93; navegação 39 perfis; coerência 402; banco emulado e fluxo ponta a ponta. Pendências operacionais e de segurança residual estão classificadas P1/P2 no relatório.
 
 ### Claude — Reunião 28/10: menu do Gustavo + ajustes CRM · P&D · Kickoff · BOM · Compras · PCP · Financeiro
 

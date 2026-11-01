@@ -55,7 +55,7 @@ Antes do fechamento, a leitura de `/.settings/rules` em produção tinha SHA-256
 ## Decisões e operação ainda necessárias
 
 - Decisão de 31/10: home spray permanece na ficha Febella e usa a categoria `HOM`.
-- Confirmar no planejamento: atraso pelo mínimo atual ou ritmo previsto; zona fixa também no reflow; grade de 15 ou 5 minutos. O código mantém a decisão documentada de 15 minutos até nova orientação.
+- **Decidido e implementado em 31/10:** a ETA usa o ritmo real da linha (quantidade restante ÷ ritmo apontado, com derivação pelo produzido/tempo útil quando necessário). Atraso empurra todas as OPs seguintes e adiantamento puxa todas; a zona fixa não bloqueia esse reflow; a granularidade permanece em 15 minutos. OP iniciada ou concluída segue como trava dura.
 - Virar a fábrica para `erpkuryos` e fazer o inventário físico do Dia D; só então ligar a trava de saldo e usar FEFO com lotes reais.
 - Atribuir Financeiro/Controladoria, Qualidade e RH; corrigir tenant de Adlai, Diego e Roberta.
 - Cadastrar bancos/títulos de abertura, contas ECD, capacidade dos SKUs e lead time/lote mínimo dos materiais prioritários.

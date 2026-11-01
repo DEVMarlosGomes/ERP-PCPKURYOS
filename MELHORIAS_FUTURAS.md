@@ -54,14 +54,12 @@ Adiado:
 - **A sequência não escreve na grade horária do envase.** OP na grade segue a
   grade; as demais seguem a posição do PCP. Unificar exigiria gerar slots de
   `programacao` a partir da sequência — decisão de produto antes de código.
-- **Ritmo real da OP em andamento.** A estimativa de quem está rodando usa o
-  ritmo planejado sobre o que FALTA; o atraso aparece a cada apontamento
-  (o que falta não diminuiu como devia), não antes. Medir o ritmo real da
-  própria OP esbarra no apontamento por período (checkpoint de intervalo/fim
-  de turno): entre dois checkpoints `produzidoLinha` fica parado e o ritmo
-  medido cairia a zero. Caminho: usar os `registros` da OP com
-  `periodoInicio/periodoFim` (sessões limpas, como `kuryosSessoesLimpas`) e
-  só confiar a partir de uma amostra mínima; valor conservador.
+- ~~**Ritmo real da OP em andamento.**~~ Entregue em 31/10: a ETA usa quantidade
+  restante ÷ `mediaPorHora`; sem ritmo gravado, deriva o produzido pelo tempo
+  útil decorrido. Atraso empurra toda a fila e adiantamento puxa toda a fila,
+  preservando calendário, setup, travas duras e grade de 15 minutos. A zona
+  fixa não bloqueia o reflow. Risco residual: o último ritmo pode oscilar; por
+  isso a tela sempre simula e pede confirmação antes de gravar.
 - **Grade de Quantidades não acompanha a execução.** O auto-ajuste
   (`autoAjustarPlanejamento`) está pausado a pedido do PCP; a Sequência mostra
   o desvio (`desvioHoras`) e, desde 29/09, o botão "Ajustar a grade"
@@ -1439,8 +1437,8 @@ Contexto: entregues pelo Dev 3 (`reuniao-20261028/fin-op`) e revisados; spec em 
 Contexto: entregues pelo Dev 3 (`reuniao-20261028/fase6`), revisados e ensaiados contra a base (`scripts/ensaio-reprogramacao-linha.js`, só leitura).
 
 - **Ensaio com a base (30/10):** 1.393 OPs; 0 moveriam (a base parou na última OP de 21/09). 984 OPs históricas têm linha com a grafia antiga ("Linha 01/02/03") e ficam fora do motor e da grade; as 63 abertas usam "Linha 1/2/3". Se o histórico precisar entrar, normalizar o nome da linha em `reprogramacao-linha.js:blocosDasOps` (e na grade), não no dado.
-- **Atraso de OP em execução pelo mínimo certo** (max(fim planejado, agora)). O ETA pelo ritmo (`ops.html`) daria um empurrão mais cedo; decidir com o PCP.
-- **Zona fixa (`config/congelamento.diasFixos`) vale também para puxar/empurrar OP.** Na base hoje ela é 0 dias. Com 7 dias, quase nada da semana se move; decidir se a zona deve valer aqui.
+- ~~**Atraso de OP em execução pelo mínimo certo.**~~ Substituído em 31/10 pela ETA do ritmo real da linha; atraso e adiantamento refluem toda a fila.
+- ~~**Zona fixa no reflow.**~~ Decidido em 31/10 que ela não bloqueia puxar/empurrar a fila; continua apenas informativa nesse cálculo.
 - **"OP vinculada travada"** foi lida como "já começou" + zona fixa. Travar a OP ligada a bloco congelado em `alocacoes_planejamento` ficou de fora.
 - **Separação consolidada (vários OPs por material)** segue FEFO com `clienteKey`, mas não tem "+ outro lote" com motivo como a separação por OP.
 - **FEFO na operação:** o apontamento não escolhe lote de embalagem; ele baixa o que foi separado para a OP (`separadoPara`). Se a fábrica apontar sem separar, volta ao FEFO geral.
