@@ -9,6 +9,7 @@ import { normalizeName } from "./crmRules.js";
 // vence): maquiagem e barba antes de pele; protetor, desodorante e sabonete antes de "facial"/
 // "creme"; "tônico" só é cabelo quando capilar. Vocabulário conferido contra a base em 29/10/2026.
 export const CATEGORIA_LEGADA = [
+  [/home_spray|aromatizador|difusor_de_ambiente/, "HOM"],
   [/maquiagem|batom|gloss|base_liquida|primer|blush|delineador|cilios|iluminador|fixador|bb_cream|cc_cream|sombra/, "MAQ"],
   [/barba|barbear/, "BAR"],
   [/bronzeador/, "BRZ"],

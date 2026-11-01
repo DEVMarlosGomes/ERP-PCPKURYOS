@@ -9,6 +9,7 @@ const RAW = [
   { ativo: true, codigo: "BAR", exemplos: "gel de barbear, pós-barba", nome: "BARBA E APÓS-BARBA" },
   { ativo: false, codigo: "UNH", exemplos: "esmalte, removedor", nome: "UNHAS" },
   { ativo: true, codigo: "PEL", exemplos: "hidratante, creme facial, óleo corporal", nome: "PELE" },
+  { ativo: true, codigo: "HOM", exemplos: "home spray, aromatizador", nome: "HOME" },
   null,
 ];
 
@@ -16,7 +17,7 @@ describe("categorias do Cadastros no CRM (CRM-01)", () => {
   const ativas = categoriasAtivas(RAW);
 
   it("só ativas, ordenadas pelo nome como no Cadastros", () => {
-    expect(ativas.map((c) => c.codigo)).toEqual(["BAR", "CAB", "HIG", "PEL", "PRF"]);
+    expect(ativas.map((c) => c.codigo)).toEqual(["BAR", "CAB", "HIG", "HOM", "PEL", "PRF"]);
   });
 
   it("aceita o nó como objeto (chaves numéricas) e vazio", () => {
@@ -53,15 +54,15 @@ describe("categorias do Cadastros no CRM (CRM-01)", () => {
       perfume_edp: "PRF", eau_de_toilette: "PRF", sache_perfumado: "PRF",
     };
     for (const [valor, codigo] of Object.entries(casos)) expect([valor, codigoDaCategoria(valor, todas)]).toEqual([valor, codigo]);
-    expect(codigoDaCategoria("home_spray_aromatizador", todas)).toBeNull();
+    expect(codigoDaCategoria("home_spray_aromatizador", todas)).toBe("HOM");
     expect(codigoDaCategoria("talco", todas)).toBeNull();
   });
 
   it("opções: ativas + valor antigo gravado marcado, sem duplicar", () => {
     const op = opcoesDeCategoria(ativas, ["PRF", "body_splash", "body_splash"]);
-    expect(op.map((o) => o.value)).toEqual(["BAR", "CAB", "HIG", "PEL", "PRF", "body_splash"]);
+    expect(op.map((o) => o.value)).toEqual(["BAR", "CAB", "HIG", "HOM", "PEL", "PRF", "body_splash"]);
     expect(op.at(-1)).toMatchObject({ label: "(antigo) Body Splash", antigo: true });
-    expect(opcoesDeCategoria(ativas, "").length).toBe(5);
+    expect(opcoesDeCategoria(ativas, "").length).toBe(6);
   });
 
   it("nome para exibir", () => {
@@ -82,12 +83,12 @@ describe("migração do dado antigo (CRM-01)", () => {
   it("só caminhos planos, só o que muda, e o que não resolve fica como está", () => {
     expect(plano.updates).toEqual({
       "erp/kuryos/crm_projects/p1/categoria": "CAB",
+      "erp/kuryos/crm_projects/p3/categoria": "HOM",
       "erp/kuryos/crm_samples/a1/categoria": "PRF",
       "erp/kuryos/crm_clients/c1/categoria_interesse": ["PRF", "MAQ"],
       "erp/kuryos/crm_clients/c3/categoria_interesse": ["talco", "CAB"],
     });
     expect(plano.naoResolvidos).toEqual([
-      { caminho: "erp/kuryos/crm_projects/p3/categoria", valor: "home_spray" },
       { caminho: "erp/kuryos/crm_clients/c3/categoria_interesse", valor: "talco" },
     ]);
   });
