@@ -438,9 +438,9 @@
       <div id="opsSemProgramacaoBody" style="display:block;padding:0 14px 14px"></div>
     </div>
 
-    <!-- PLAN-01 (28/10): reprogramação pelo realizado -- "antecipou puxa,
-         atrasou empurra". Só aparece quando o motor acha o que mover (ou um
-         conflito com a zona fixa); nada é gravado sem o PCP ver a simulação. -->
+    <!-- PLAN-01 (28/10, decisão final 31/10): reprogramação pelo ritmo real --
+         "adiantou puxa toda a fila, atrasou empurra toda a fila". A zona fixa
+         não bloqueia este reflow; nada é gravado sem o PCP ver a simulação. -->
     <div class="grid-card" id="reprogBanner" style="display:none;margin-bottom:12px;border-left:4px solid var(--warning)" data-ui="surface" role="status" aria-live="polite">
       <div style="padding:10px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <span style="flex:1;min-width:220px;font-size:13px" id="reprogBannerTxt"></span>
@@ -1125,8 +1125,8 @@ function loadOps(){
   });
 }
 
-// ═══ PLAN-01 (28/10): reprogramação pelo realizado -- "antecipou puxa,
-// atrasou empurra". O motor (shared/reprogramacao-linha.js) é puro; aqui só
+// ═══ PLAN-01 (28/10, decisão final 31/10): reprogramação pelo ritmo real --
+// "adiantou puxa toda a fila, atrasou empurra toda a fila". O motor é puro; aqui só
 // se monta a config, mostra a simulação e grava o que o PCP confirmar. ═══
 var reprogUltima=null;
 function cfgReprogramacao(){
@@ -1136,7 +1136,7 @@ function cfgReprogramacao(){
 }
 function simularReprogramacao(){
   if(typeof ReprogramacaoLinha==='undefined')return null;
-  return ReprogramacaoLinha.simular(opsCache,cfgReprogramacao(),{agora:new Date().toISOString(),linhas:configLinhas,fusoMin:-new Date().getTimezoneOffset()});
+  return ReprogramacaoLinha.simular(opsCache,cfgReprogramacao(),{agora:new Date().toISOString(),linhas:configLinhas,fusoMin:-new Date().getTimezoneOffset(),granularidadeMin:15});
 }
 function fmtDiaHora(iso){var d=new Date(iso);return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
 function renderReprogBanner(){
@@ -1146,9 +1146,8 @@ function renderReprogBanner(){
   try{r=simularReprogramacao();}catch(err){console.error('Reprogramação pelo realizado falhou:',err);box.style.display='none';return;}
   reprogUltima=r;
   if(!r||(!r.movimentos.length&&!r.conflitos.length)){box.style.display='none';return;}
-  var gat=r.gatilhos.map(function(g){return 'OP '+g.lote+(g.tipo==='ANTECIPOU'?' terminou '+g.minutos+' min antes':' atrasou '+g.minutos+' min')+' ('+g.linha+')';}).join('; ');
-  document.getElementById('reprogBannerTxt').innerHTML='<b>'+(r.movimentos.length?r.movimentos.length+' bloco(s) podem ser movido(s)':'Conflito na zona fixa')+'.</b> '+escapeHtml(gat||'')+
-    (r.conflitos.length?' · <span style="color:var(--danger)">'+r.conflitos.length+' conflito(s) com a zona fixa</span>':'');
+  var gat=r.gatilhos.map(function(g){var real=g.origem==='ritmo real';return 'OP '+g.lote+(g.tipo==='ANTECIPOU'?(real?' tem previsão '+g.minutos+' min antes pelo ritmo real':' terminou '+g.minutos+' min antes'):(real?' tem previsão '+g.minutos+' min depois pelo ritmo real':' atrasou '+g.minutos+' min'))+' ('+g.linha+')';}).join('; ');
+  document.getElementById('reprogBannerTxt').innerHTML='<b>'+r.movimentos.length+' bloco(s) podem ser movido(s).</b> '+escapeHtml(gat||'');
   box.style.display='block';
 }
 function abrirReprogModal(){
@@ -1163,7 +1162,7 @@ function abrirReprogModal(){
       '<td>era '+fmtDiaHora(m.de.inicio)+'<br><b>passa a '+fmtDiaHora(m.para.inicio)+'</b><div style="font-size:11px;color:var(--muted)">até '+fmtDiaHora(m.para.fim)+'</div></td></tr>';
   };
   var h='';
-  h+='<div style="font-size:13px;margin-bottom:8px">'+(r.gatilhos.length?r.gatilhos.map(function(g){return '• OP <b>'+escapeHtml(g.lote)+'</b> ('+escapeHtml(g.linha)+') '+(g.tipo==='ANTECIPOU'?'terminou '+g.minutos+' min antes do previsto':'está '+g.minutos+' min atrasada');}).join('<br>'):'Nenhuma OP antecipou ou atrasou.')+'</div>';
+  h+='<div style="font-size:13px;margin-bottom:8px">'+(r.gatilhos.length?r.gatilhos.map(function(g){var real=g.origem==='ritmo real';return '• OP <b>'+escapeHtml(g.lote)+'</b> ('+escapeHtml(g.linha)+') '+(g.tipo==='ANTECIPOU'?(real?'tem término previsto '+g.minutos+' min antes pelo ritmo real':'terminou '+g.minutos+' min antes do previsto'):(real?'tem término previsto '+g.minutos+' min depois pelo ritmo real':'está '+g.minutos+' min atrasada'));}).join('<br>'):'Nenhuma OP antecipou ou atrasou.')+'</div>';
   h+='<div style="font-weight:700;margin:10px 0 6px" data-testid="reprog-total">'+r.movimentos.length+' bloco(s) serão movido(s)</div>';
   if(r.movimentos.length){
     h+='<table class="reprog-tabela" style="width:100%;border-collapse:collapse;font-size:12.5px"><tbody>'+r.movimentos.map(linhaMov).join('')+'</tbody></table>';
@@ -1172,9 +1171,9 @@ function abrirReprogModal(){
     h+='<div style="margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--tint-red-bg);color:var(--tint-red-fg);font-size:12.5px"><b>Conflitos (não serão mexidos):</b><br>'+
       r.conflitos.map(function(c){return 'OP '+escapeHtml(c.lote)+' ('+escapeHtml(c.linha)+'): '+escapeHtml(c.motivo)+' — '+c.sobreposicaoMin+' min';}).join('<br>')+'</div>';
   }
-  if(r.zonaFixa.length)h+='<div style="font-size:11.5px;color:var(--muted);margin-top:8px">'+r.zonaFixa.length+' OP(s) dentro da zona fixa ('+configCongelamentoDiasFixos+' dias) não se movem sozinhas.</div>';
+  if(r.zonaFixa.length)h+='<div style="font-size:11.5px;color:var(--muted);margin-top:8px">'+r.zonaFixa.length+' OP(s) estão na zona fixa ('+configCongelamentoDiasFixos+' dias), que não bloqueia este reflow por ritmo real.</div>';
   if(r.vencidas.length)h+='<div style="font-size:11.5px;color:var(--muted);margin-top:4px">Fora da conta: '+r.vencidas.map(function(v){return escapeHtml(v.lote);}).join(', ')+' — programadas, não abertas, com o fim previsto já passado. Reprograme à mão.</div>';
-  h+='<div style="font-size:11.5px;color:var(--muted);margin-top:8px">Duração de cada OP mantida em horas de trabalho (turnos, pausas e feriados de Ajustes), com o setup da linha antes de cada OP movida e início em múltiplos de 15 min. A OP em produção não muda de plano.</div>';
+  h+='<div style="font-size:11.5px;color:var(--muted);margin-top:8px">A ETA da OP em produção usa quantidade restante ÷ ritmo real da linha. Toda a fila seguinte é reencaixada em horas de trabalho (turnos, pausas e feriados), com setup e início em múltiplos de 15 min. A OP já iniciada não se move.</div>';
   document.getElementById('reprogModalSub').textContent='Simulação — nada foi gravado ainda';
   document.getElementById('reprogModalBody').innerHTML=h;
   document.getElementById('reprogModalAplicarBtn').disabled=!r.movimentos.length;

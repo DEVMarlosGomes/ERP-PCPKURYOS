@@ -21,7 +21,7 @@ function dados(cenario) {
     usuarios: {pcp: {nome: 'Carla PCP', email: 'pcp@kuryos.com', role: 'pcp'}},
     config: {
       linhas: ['Linha 1', 'Linha 2'], turnos: ['A'], turnoHorarios: {A: '07:00'}, turnoHorariosFim: {A: '17:00'}, turnoHorariosFimSexta: {A: '16:00'},
-      turnoPausas: {A: {inicio: '12:00', fim: '13:00'}}, setupPadraoPorLinha: {'Linha 1': 30}, congelamento: {diasFixos: 0},
+      turnoPausas: {A: {inicio: '12:00', fim: '13:00'}}, setupPadraoPorLinha: {'Linha 1': 30}, congelamento: {diasFixos: cenario === 'zona' ? 7 : 0},
       planejamento: {diasSemana: [1, 2, 3, 4, 5], feriados: {'2026-11-02': true}}
     },
     produtos: {p1: {sku: 'BS01', descricao: 'BODY SPLASH 200ML', prodHoraRef: 500}},
@@ -33,9 +33,9 @@ function dados(cenario) {
         dataInicioPlanejada: L('2026-10-27 14:00'), dataFimPlanejada: L('2026-10-27 16:00')}
     }
   };
-  base.ops.A = cenario === 'atrasou'
+  base.ops.A = cenario !== 'antecipou'
     ? {lote: '26300/01', sku: 'BS01', produto: 'BODY SPLASH A', status: 'Em Produção', linha: 'Linha 1', abertaLinha: 'Linha 1', qtdPlanejada: 2000, produzidoLinha: 1700,
-      abertaDesde: L('2026-10-27 07:00'), dataInicioReal: L('2026-10-27 07:02'), dataInicioPlanejada: L('2026-10-27 07:00'), dataFimPlanejada: L('2026-10-27 11:00')}
+      mediaPorHora: 300, abertaDesde: L('2026-10-27 07:00'), dataInicioReal: L('2026-10-27 07:02'), dataInicioPlanejada: L('2026-10-27 07:00'), dataFimPlanejada: L('2026-10-27 11:00')}
     : {lote: '26300/01', sku: 'BS01', produto: 'BODY SPLASH A', status: 'Aguardando Confirmação', linha: 'Linha 1', qtdPlanejada: 2000, produzidoLinha: 2000,
       dataInicioReal: L('2026-10-27 07:00'), dataFimReal: L('2026-10-27 09:00'), dataInicioPlanejada: L('2026-10-27 07:00'), dataFimPlanejada: L('2026-10-27 11:00'),
       confirmacaoEtapas: {envase: {status: 'AGUARDANDO', fechadoEm: L('2026-10-27 09:00')}}};
@@ -134,18 +134,28 @@ const updatesOps = (page) => page.evaluate(() => window.__updates.filter((u) => 
 
     // ── 2. Atrasou: empurra, C vira o dia ─────────────────────────────────
     ({page, errors, context} = await abrir(browser, 'atrasou', '2026-10-27 11:40'));
-    ok(/26300\/01 atrasou 40 min/.test(await page.locator('#reprogBanner').innerText()), 'aviso: OP 26300/01 atrasou 40 min');
+    ok(/26300\/01 tem previsão 100 min depois pelo ritmo real/.test(await page.locator('#reprogBanner').innerText()), 'aviso: ETA da OP 26300/01 está 100 min depois pelo ritmo real');
     await page.click('#reprogVerBtn');
     await page.waitForSelector('#reprogModal.open');
     const corpo2 = await page.locator('#reprogModalBody').innerText();
-    ok(/2 bloco\(s\) serão movido\(s\)/.test(corpo2) && /empurra[\s\S]*27\/10 13:15/.test(corpo2) && /27\/10 15:45[\s\S]*até 28\/10 07:45/.test(corpo2),
-      'B empurra para 13:15; C para 15:45 e termina no dia seguinte 07:45');
+    ok(/2 bloco\(s\) serão movido\(s\)/.test(corpo2) && /empurra[\s\S]*27\/10 14:15/.test(corpo2) && /27\/10 16:45[\s\S]*até 28\/10 08:45/.test(corpo2),
+      'B empurra para 14:15; C para 16:45 e termina no dia seguinte 08:45, a partir da ETA real');
     await page.click('#reprogModalCancelBtn');
     ok((await updatesOps(page)).length === 0, 'Cancelar não grava nada');
     ok(!errors.length, 'sem erro de JS (atrasou): ' + errors.join(' | '));
     await context.close();
 
-    // ── 3. Prints: escuro e 390 px ────────────────────────────────────────
+    // ── 3. Zona fixa é informativa e não impede o reflow ──────────────────
+    ({page, errors, context} = await abrir(browser, 'zona', '2026-10-27 11:40'));
+    ok(/2 bloco\(s\) podem ser movido\(s\)/.test(await page.locator('#reprogBanner').innerText()), 'zona fixa: o aviso continua oferecendo mover B e C');
+    await page.click('#reprogVerBtn');
+    await page.waitForSelector('#reprogModal.open');
+    const corpoZona = await page.locator('#reprogModalBody').innerText();
+    ok(/2 OP\(s\) estão na zona fixa[\s\S]*não bloqueia este reflow/.test(corpoZona) && !/Conflitos/.test(corpoZona), 'modal explica que a zona fixa não bloqueia e não cria conflito');
+    ok(!errors.length, 'sem erro de JS (zona fixa): ' + errors.join(' | '));
+    await context.close();
+
+    // ── 4. Prints: escuro e 390 px ────────────────────────────────────────
     for (const [vp, tema, nome] of [[{width: 1400, height: 1000}, 'dark', 'desktop-escuro'], [{width: 390, height: 844}, 'light', '390-claro'], [{width: 390, height: 844}, 'dark', '390-escuro']]) {
       ({page, errors, context} = await abrir(browser, 'atrasou', '2026-10-27 11:40', vp, tema));
       await page.locator('#reprogBanner').scrollIntoViewIfNeeded();

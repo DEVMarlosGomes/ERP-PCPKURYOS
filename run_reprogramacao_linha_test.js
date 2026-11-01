@@ -41,14 +41,14 @@ let ops = {
     dataFimPlanejada: L('2026-10-27 11:00'), confirmacaoEtapas: {envase: {status: 'AGUARDANDO', fechadoEm: L('2026-10-27 09:00')}}}),
   B: op({lote: 'B', status: 'Não Iniciado', dataInicioPlanejada: L('2026-10-27 11:00'), dataFimPlanejada: L('2026-10-27 14:00')}),
   C: op({lote: 'C', status: 'Não Iniciado', dataInicioPlanejada: L('2026-10-27 14:00'), dataFimPlanejada: L('2026-10-27 16:00')}),
-  // Programada para quinta, longe da C: não está encadeada, fica onde está.
+  // Programada para quinta: a decisão final manda trazer TODA a fila seguinte.
   D: op({lote: 'D', status: 'Não Iniciado', dataInicioPlanejada: L('2026-10-29 07:00'), dataFimPlanejada: L('2026-10-29 09:00')})
 };
 let r = R.simular(ops, CFG, {agora: L('2026-10-27 09:10')});
-deq(mov(r), [['B', 'PUXA', '2026-10-27 09:30', '2026-10-27 11:30'], ['C', 'PUXA', '2026-10-27 13:00', '2026-10-27 15:00']],
-  'A terminou às 09:00 (previsto 11:00): B puxa para 09:30 (setup de 30 min) mantendo 120 min úteis; C puxa e respeita a pausa');
+deq(mov(r), [['B', 'PUXA', '2026-10-27 09:30', '2026-10-27 11:30'], ['C', 'PUXA', '2026-10-27 13:00', '2026-10-27 15:00'], ['D', 'PUXA', '2026-10-27 15:30', '2026-10-28 07:30']],
+  'A terminou às 09:00 (previsto 11:00): toda a fila puxa; B/C respeitam setup e pausa, D deixa de ficar parada até quinta');
 deq(r.gatilhos.map((g) => [g.lote, g.tipo, g.minutos]), [['A', 'ANTECIPOU', 120]], 'gatilho: A antecipou 120 min');
-ok(!r.movimentos.some((m) => m.id === 'D'), 'D (quinta, não encadeada) não é puxada');
+ok(r.movimentos.some((m) => m.id === 'D'), 'D também é puxada: o reflow não para em uma folga da grade');
 ok(r.movimentos.every((m) => new Date(m.para.inicio).getUTCMinutes() % 15 === 0), 'todo início movido cai em múltiplo de 15 min');
 
 // Nunca no passado: agora 10:40 -> B começa 10:45, não 09:30.
@@ -57,19 +57,24 @@ eq(H(r.movimentos[0].para.inicio), '2026-10-27 10:45', 'puxar nunca programa ant
 
 // ── 2. Atrasou: as programadas empurram, com virada de dia ────────────────
 ops = {
-  A: op({lote: 'A', status: 'Em Produção', abertaDesde: L('2026-10-27 07:00'), dataInicioReal: L('2026-10-27 07:02'), dataInicioPlanejada: L('2026-10-27 07:00'), dataFimPlanejada: L('2026-10-27 11:00')}),
+  A: op({lote: 'A', status: 'Em Produção', abertaDesde: L('2026-10-27 07:00'), dataInicioReal: L('2026-10-27 07:02'), dataInicioPlanejada: L('2026-10-27 07:00'), dataFimPlanejada: L('2026-10-27 11:00'), qtdPlanejada: 2000, produzidoLinha: 1700, mediaPorHora: 300}),
   B: op({lote: 'B', status: 'Não Iniciado', dataInicioPlanejada: L('2026-10-27 11:00'), dataFimPlanejada: L('2026-10-27 14:00')}),
   C: op({lote: 'C', status: 'Não Iniciado', dataInicioPlanejada: L('2026-10-27 14:00'), dataFimPlanejada: L('2026-10-27 16:00')})
 };
 r = R.simular(ops, CFG, {agora: L('2026-10-27 11:40')});
-deq(mov(r), [['B', 'EMPURRA', '2026-10-27 13:15', '2026-10-27 15:15'], ['C', 'EMPURRA', '2026-10-27 15:45', '2026-10-28 07:45']],
-  'A atrasada (rodando às 11:40): B empurra para depois do setup e da pausa; C passa do expediente e termina no dia seguinte');
-deq(r.gatilhos.map((g) => [g.lote, g.tipo, g.minutos]), [['A', 'ATRASOU', 40]], 'gatilho: A atrasou 40 min');
+deq(mov(r), [['B', 'EMPURRA', '2026-10-27 14:15', '2026-10-27 16:15'], ['C', 'EMPURRA', '2026-10-27 16:45', '2026-10-28 08:45']],
+  'A rodando tem ETA 13:40 pelo ritmo real (300/h para 300 restantes); B/C empurram a partir dessa previsão');
+deq(r.gatilhos.map((g) => [g.lote, g.tipo, g.minutos, g.origem]), [['A', 'ATRASOU', 100, 'ritmo real']], 'gatilho: ETA pelo ritmo real atrasa 100 min úteis');
+const uRitmo = R.montarUpdates(r, {hoje: '2026-10-27', chave: 'ritmo', agoraISO: L('2026-10-27 11:40'), por: 'PCP'});
+ok(/previsão pelo ritmo real 100 min depois/.test(uRitmo['ajustes_planejamento/2026-10-27/reprog_ritmo_0'].motivo), 'auditoria registra que o atraso veio da previsão pelo ritmo real, não de um término ocorrido');
 ok(!r.movimentos.some((m) => m.id === 'A'), 'a OP rodando não muda de plano (fica o previsto para o indicador de atraso)');
 
-// Rodando no horário: plano encostado sem setup NÃO é empurrado à toa.
-r = R.simular(ops, CFG, {agora: L('2026-10-27 10:00')});
-deq(r.movimentos, [], 'nada aconteceu: nenhum bloco se move (o setup só entra quando a OP de fato se move)');
+// Rodando adiantada: a ETA pelo ritmo real puxa a fila antes mesmo do fechamento.
+ops.A.produzidoLinha = 1800; ops.A.mediaPorHora = 400;
+r = R.simular(ops, CFG, {agora: L('2026-10-27 09:00')});
+deq(mov(r), [['B', 'PUXA', '2026-10-27 10:00', '2026-10-27 12:00'], ['C', 'PUXA', '2026-10-27 13:30', '2026-10-27 15:30']],
+  'A rodando tem ETA 09:30 (200 restantes a 400/h): todas as próximas são trazidas para a frente');
+deq(r.gatilhos.map((g) => [g.lote, g.tipo, g.minutos, g.origem]), [['A', 'ANTECIPOU', 90, 'ritmo real']], 'gatilho de adiantamento também vem da ETA do ritmo real');
 
 // ── 3. Bloco travado no meio ──────────────────────────────────────────────
 const bl = (id, estado, ini, fim, extra) => Object.assign({id, lote: id, linha: 'Linha 1', estado, inicio: new Date(L(ini)).getTime(), fim: new Date(L(fim)).getTime(), setupMin: 30, movel: estado === 'PROGRAMADA'}, extra || {});
@@ -83,17 +88,18 @@ deq(mov(r), [['B', 'EMPURRA', '2026-10-27 14:30', '2026-10-27 15:30'], ['C', 'EM
   'B não cabe antes da travada F: pula por cima dela (14:30); C vem depois de B');
 ok(!r.movimentos.some((m) => m.id === 'F'), 'a travada no meio não se move');
 
-// Zona fixa invadida pela atrasada: não move, devolve conflito.
+// Zona fixa não é trava do reflow automático (decisão final do usuário).
 r = R.reprogramar({calendario: cal, agora: L('2026-10-27 11:40'), blocos: [
   bl('A', 'RODANDO', '2026-10-27 07:00', '2026-10-27 11:40', {fimPlanejado: new Date(L('2026-10-27 11:00')).getTime(), atrasada: true, movel: false}),
-  bl('Z', 'PROGRAMADA', '2026-10-27 11:00', '2026-10-27 14:00', {movel: false, motivoFixo: 'zona fixa'})
+  bl('Z', 'PROGRAMADA', '2026-10-27 11:00', '2026-10-27 14:00', {movel: true, naZonaFixa: true})
 ]});
-deq(r.movimentos, [], 'OP da zona fixa não é empurrada');
-deq(r.conflitos.map((c) => [c.lote, c.com, c.sobreposicaoMin]), [['Z', 'A', 40]], 'conflito: Z invadida 40 min pela A, para o PCP decidir');
+deq(mov(r), [['Z', 'EMPURRA', '2026-10-27 13:15', '2026-10-27 15:15']], 'OP da zona fixa é empurrada normalmente pelo reflow');
+deq(r.conflitos, [], 'zona fixa não gera conflito no reflow');
 
-// Via config: zona fixa de 7 dias trava tudo desta semana.
+// Via config: a zona de 7 dias continua identificada para a UI/auditoria, mas não trava.
+ops.A.produzidoLinha = 1700; ops.A.mediaPorHora = 300;
 r = R.simular(ops, Object.assign({}, CFG, {congelamento: {diasFixos: 7}}), {agora: L('2026-10-27 11:40')});
-ok(!r.movimentos.length && r.zonaFixa.length === 2 && r.conflitos.length === 1, 'zona fixa (7 dias): nada se move; B invadida vira conflito');
+ok(r.movimentos.length === 2 && r.zonaFixa.length === 2 && !r.conflitos.length, 'zona fixa (7 dias): B e C são identificadas e movidas, sem conflito');
 
 // ── 4. Feriado e sexta ────────────────────────────────────────────────────
 ops = {
@@ -126,4 +132,4 @@ eq(H(u['ops/B/dataInicioPlanejada']), '2026-10-27 09:30', 'Concluído com dataFi
 ok(/26302\/01 terminou 120 min antes/.test(u['ajustes_planejamento/2026-10-27/reprog_k1_0'].motivo), 'o registro diz o porquê: ' + u['ajustes_planejamento/2026-10-27/reprog_k1_0'].motivo);
 ok(!Object.keys(u).some((k) => /alocacoes_planejamento|programacao\//.test(k)), 'não toca alocacoes_planejamento nem a grade de quantidades');
 
-console.log(`OK reprogramação da linha: ${n} asserções — calendário (pausa, sexta, sábado extra, feriado), antecipa puxa só as encadeadas, atrasa empurra com virada de dia, bloco travado no meio, zona fixa vira conflito, nunca no passado, vencida fora, 15 min, caminhos planos.`);
+console.log(`OK reprogramação da linha: ${n} asserções — calendário, ETA pelo ritmo real, toda a fila em ambas as direções, trava dura preservada, zona fixa não bloqueia, nunca no passado, vencida fora, 15 min e caminhos planos.`);

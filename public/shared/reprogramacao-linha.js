@@ -5,10 +5,10 @@
  * (reflowAposArrasto, por colunas de hora de UM dia). Este motor olha o que já
  * aconteceu em cada linha e propõe a nova posição das OPs PROGRAMADAS que vêm
  * depois:
- *  - OP que terminou antes do previsto: as seguintes ENCADEADAS (que estavam
- *    encostadas nela, só com o changeover no meio) puxam para a frente;
- *  - OP atrasada (ainda rodando depois do fim previsto): as programadas que ela
- *    invade empurram, em cadeia.
+ *  - OP terminada ou rodando com ETA anterior ao previsto: TODA a fila
+ *    seguinte puxa para a frente;
+ *  - OP rodando cuja ETA pelo ritmo real passou do fim previsto: TODA a fila
+ *    seguinte empurra, em cadeia.
  * Nada é gravado aqui: a tela mostra a simulação ("N blocos serão movidos") e o
  * PCP confirma; o update sai em caminhos planos (montarUpdates).
  *
@@ -24,10 +24,9 @@
  *    quando a OP de fato se move -- um plano já encostado sem setup não é
  *    empurrado à toa.
  *  - Travado não se move e vira obstáculo: OP aberta/rodando (o início já
- *    aconteceu), OP terminada, OP na zona fixa de congelamento
- *    (config/congelamento.diasFixos). Bloco movido pula por cima de um
- *    travado no meio; se uma OP atrasada invade uma OP da zona fixa, o motor
- *    NÃO move a da zona fixa -- devolve o CONFLITO para o PCP decidir.
+ *    aconteceu) e OP terminada. A zona fixa continua informativa na grade,
+ *    mas NÃO bloqueia este reflow (decisão final de 31/10/2026). Bloco movido
+ *    pula por cima de uma trava dura no meio.
  *  - Programação vencida (OP programada que nem abriu e cujo fim previsto já
  *    passou) fica fora: não se sabe se vai rodar; é decisão do PCP.
  *  - Nunca programa no passado: início movido >= agora.
@@ -187,17 +186,34 @@
         return;
       }
       if (iniReal || op.abertaDesde) {
-        // Rodando (ou parada entre turnos): o início já aconteceu. Fim esperado:
-        // o previsto, ou agora se já passou dele (estimativa mínima; reavalia a cada rodada).
-        var fimEst = Math.max(fimPlan || 0, agora || 0);
+        // Rodando (ou parada entre turnos): o início já aconteceu e nunca muda.
+        // A ETA, porém, é recalculada pelo ritmo REAL gravado no apontamento.
+        // Se esse campo ainda não existir, deriva a média do produzido pelo tempo
+        // útil já decorrido. Só cai na estimativa mínima antiga quando faltam dados.
+        var produzido = Number(op.produzidoLinha != null ? op.produzidoLinha : op.produzido) || 0;
+        var qtdPlanejada = Number(op.qtdPlanejada) || 0;
+        var ritmoReal = Number(op.mediaPorHora) || 0;
+        if (!(ritmoReal > 0) && produzido > 0 && iniReal != null && agora != null && c.calendario) {
+          var decorridoMin = c.calendario.minutosUteis(iniReal, agora);
+          if (decorridoMin > 0) ritmoReal = produzido / (decorridoMin / 60);
+        }
+        var faltam = Math.max(qtdPlanejada - produzido, 0);
+        var fimEst = Math.max(fimPlan || 0, agora || 0), etaCalculada = false;
+        if (agora != null && qtdPlanejada > 0 && ritmoReal > 0 && c.calendario) {
+          fimEst = c.calendario.somarUteis(agora, faltam / ritmoReal * 60);
+          etaCalculada = fimEst != null;
+          if (!etaCalculada) fimEst = Math.max(fimPlan || 0, agora || 0);
+        }
         saida.push(Object.assign(b, {estado: 'RODANDO', inicio: iniReal, fim: fimEst, movel: false, motivoFixo: 'em produção',
-          atrasada: fimPlan != null && agora != null && agora > fimPlan}));
+          ritmoReal: ritmoReal > 0 ? ritmoReal : null, faltam: faltam, etaCalculada: etaCalculada,
+          atrasada: fimPlan != null && fimEst != null && fimEst - fimPlan >= 15 * MIN,
+          adiantada: fimPlan != null && fimEst != null && fimPlan - fimEst >= 15 * MIN}));
         return;
       }
       if (iniPlan == null || fimPlan == null) return;
       if (agora != null && fimPlan <= agora) { vencidas.push(Object.assign(b, {estado: 'VENCIDA', inicio: iniPlan, fim: fimPlan})); return; }
       var naZona = congeladoAte != null && iniPlan < congeladoAte;
-      saida.push(Object.assign(b, {estado: 'PROGRAMADA', inicio: iniPlan, fim: fimPlan, movel: !naZona, motivoFixo: naZona ? 'zona fixa' : null}));
+      saida.push(Object.assign(b, {estado: 'PROGRAMADA', inicio: iniPlan, fim: fimPlan, movel: true, motivoFixo: null, naZonaFixa: naZona}));
     });
     return {blocos: saida, vencidas: vencidas};
   }
@@ -218,9 +234,10 @@
       var obstaculos = lista.filter(function(b) { return !b.movel; });
       lista.forEach(function(b) {
         if (b.estado === 'TERMINADA' && b.fimPlanejado != null && b.fimPlanejado - b.fim >= g * MIN) {
-          gatilhos.push({id: b.id, lote: b.lote, linha: linha, tipo: 'ANTECIPOU', minutos: Math.round(cal.minutosUteis(b.fim, b.fimPlanejado))});
+          gatilhos.push({id: b.id, lote: b.lote, linha: linha, tipo: 'ANTECIPOU', minutos: Math.round(cal.minutosUteis(b.fim, b.fimPlanejado)), origem: 'fim real'});
         }
-        if (b.estado === 'RODANDO' && b.atrasada) gatilhos.push({id: b.id, lote: b.lote, linha: linha, tipo: 'ATRASOU', minutos: Math.round(cal.minutosUteis(b.fimPlanejado, b.fim))});
+        if (b.estado === 'RODANDO' && b.atrasada) gatilhos.push({id: b.id, lote: b.lote, linha: linha, tipo: 'ATRASOU', minutos: Math.round(cal.minutosUteis(b.fimPlanejado, b.fim)), origem: b.etaCalculada ? 'ritmo real' : 'relógio'});
+        if (b.estado === 'RODANDO' && b.adiantada) gatilhos.push({id: b.id, lote: b.lote, linha: linha, tipo: 'ANTECIPOU', minutos: Math.round(cal.minutosUteis(b.fim, b.fimPlanejado)), origem: b.etaCalculada ? 'ritmo real' : 'relógio'});
       });
 
       // Posição de um bloco que começa depois de `fronteira` (+ setup), sem
@@ -243,23 +260,20 @@
         return null;
       }
 
-      var fronteira = null, fimOrigAnterior = null, final = {};
+      var fronteira = null, final = {}, reflowAtivo = false;
       lista.forEach(function(b) {
         if (!b.movel) {
           final[b.id] = {inicio: b.inicio, fim: b.fim};
           fronteira = fronteira == null ? b.fim : Math.max(fronteira, b.fim);
-          fimOrigAnterior = b.estado === 'PROGRAMADA' ? b.fim : (b.fimPlanejado != null ? b.fimPlanejado : b.fim);
+          if ((b.estado === 'TERMINADA' && b.fimPlanejado != null && b.fimPlanejado - b.fim >= g * MIN) ||
+              (b.estado === 'RODANDO' && (b.atrasada || b.adiantada))) reflowAtivo = true;
           return;
         }
-        if (fronteira == null) { final[b.id] = {inicio: b.inicio, fim: b.fim}; fronteira = b.fim; fimOrigAnterior = b.fim; return; } // nada antes: sem gatilho
+        if (fronteira == null || !reflowAtivo) { final[b.id] = {inicio: b.inicio, fim: b.fim}; fronteira = b.fim; return; }
         var duracao = cal.minutosUteis(b.inicio, b.fim) || Math.max(0, (b.fim - b.inicio) / MIN);
-        var folgaOrig = fimOrigAnterior != null && b.inicio > fimOrigAnterior ? cal.minutosUteis(fimOrigAnterior, b.inicio) : 0;
-        var encadeado = folgaOrig <= (b.setupMin || 0) + g;
-        var invadido = fronteira > b.inicio;
-        var pos = null, tipo = null;
-        if (invadido || encadeado) pos = posicionar(fronteira, b, duracao);
-        if (pos && invadido && pos.inicio > b.inicio) tipo = 'EMPURRA';
-        else if (pos && !invadido && encadeado && b.inicio - pos.inicio >= g * MIN) tipo = 'PUXA';
+        var pos = posicionar(fronteira, b, duracao), tipo = null;
+        if (pos && pos.inicio - b.inicio >= g * MIN) tipo = 'EMPURRA';
+        else if (pos && b.inicio - pos.inicio >= g * MIN) tipo = 'PUXA';
         if (tipo) {
           movimentos.push({id: b.id, lote: b.lote, produto: b.produto, linha: linha, tipo: tipo, de: {inicio: iso(b.inicio), fim: iso(b.fim)}, para: {inicio: iso(pos.inicio), fim: iso(pos.fim)},
             deltaMin: Math.round((pos.inicio - b.inicio) / MIN)});
@@ -269,22 +283,6 @@
           fronteira = Math.max(fronteira, b.fim);
           final[b.id] = {inicio: b.inicio, fim: b.fim};
         }
-        fimOrigAnterior = b.fim;
-      });
-      // Conflito: OP da zona fixa que, na posição final, ainda divide a linha
-      // com outra (tipicamente a OP atrasada que rodou por cima). O motor não
-      // a move; o PCP decide.
-      lista.forEach(function(b) {
-        if (b.motivoFixo !== 'zona fixa') return;
-        var f = final[b.id], pior = 0, quem = null;
-        lista.forEach(function(o) {
-          var x = final[o.id];
-          if (o.id === b.id || !x || x.inicio >= f.fim || x.fim <= f.inicio) return;
-          var sobre = cal.minutosUteis(Math.max(f.inicio, x.inicio), Math.min(f.fim, x.fim));
-          if (sobre > pior) { pior = sobre; quem = o; }
-        });
-        if (quem) conflitos.push({id: b.id, lote: b.lote, linha: linha, sobreposicaoMin: Math.round(pior), com: quem.lote,
-          motivo: 'OP na zona fixa invadida pela OP ' + quem.lote + ': libere a zona fixa ou reprograme à mão.'});
       });
     });
     return {movimentos: movimentos, conflitos: conflitos, gatilhos: gatilhos};
@@ -297,10 +295,10 @@
     var dias = cfg && cfg.congelamento && cfg.congelamento.diasFixos != null ? Number(cfg.congelamento.diasFixos) : 7;
     // Zona fixa como a Grade: datas < hoje + N dias (dentroZonaFixa).
     var congeladoAte = c.ignorarZonaFixa || !(dias > 0) || agora == null ? null : cal.instante(cal.local(agora).ymd, 0) + dias * DIA_MIN * MIN;
-    var b = blocosDasOps(ops, {agora: agora, setupPadraoPorLinha: (cfg || {}).setupPadraoPorLinha, congeladoAte: congeladoAte, linhas: c.linhas});
+    var b = blocosDasOps(ops, {agora: agora, setupPadraoPorLinha: (cfg || {}).setupPadraoPorLinha, congeladoAte: congeladoAte, linhas: c.linhas, calendario: cal});
     var r = reprogramar({blocos: b.blocos, calendario: cal, agora: agora, granularidadeMin: c.granularidadeMin});
     r.vencidas = b.vencidas.map(function(v) { return {id: v.id, lote: v.lote, linha: v.linha, inicio: iso(v.inicio), fim: iso(v.fim)}; });
-    r.zonaFixa = b.blocos.filter(function(x) { return x.motivoFixo === 'zona fixa'; }).map(function(x) { return x.id; });
+    r.zonaFixa = b.blocos.filter(function(x) { return x.naZonaFixa; }).map(function(x) { return x.id; });
     r.congeladoAte = congeladoAte == null ? null : iso(congeladoAte);
     return r;
   }
@@ -316,7 +314,10 @@
     Object.keys(porLinha).forEach(function(linha, i) {
       var ms_ = porLinha[linha], puxa = ms_.filter(function(m) { return m.tipo === 'PUXA'; }).length;
       var gat = (resultado.gatilhos || []).filter(function(x) { return x.linha === linha; })
-        .map(function(x) { return 'OP ' + x.lote + (x.tipo === 'ANTECIPOU' ? ' terminou ' : ' atrasou ') + x.minutos + ' min' + (x.tipo === 'ANTECIPOU' ? ' antes' : ''); }).join('; ');
+        .map(function(x) {
+          if (x.origem === 'ritmo real') return 'OP ' + x.lote + ': previsão pelo ritmo real ' + x.minutos + ' min ' + (x.tipo === 'ANTECIPOU' ? 'antes' : 'depois');
+          return 'OP ' + x.lote + (x.tipo === 'ANTECIPOU' ? ' terminou ' : ' atrasou ') + x.minutos + ' min' + (x.tipo === 'ANTECIPOU' ? ' antes' : '');
+        }).join('; ');
       u['ajustes_planejamento/' + q.hoje + '/reprog_' + q.chave + '_' + i] = {
         timestamp: q.agoraISO, linha: linha, por: q.por || null, tipo: 'reprogramacao_realizado',
         motivo: linha + ': reprogramação pelo realizado' + (gat ? ' (' + gat + ')' : '') + ' — ' + puxa + ' puxada(s), ' + (ms_.length - puxa) + ' empurrada(s): ' +
