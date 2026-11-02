@@ -20,6 +20,7 @@ ok(/caddy:2\.10\.2-alpine/.test(dockerfile), "Caddy fixado");
 ok(!/:latest\b/.test(dockerfile + compose), "nenhuma imagem latest");
 ok(/npm ci --prefix crm-frontend/.test(dockerfile), "CRM usa lockfile");
 ok(/npm ci --omit=dev/.test(dockerfile), "backend instala só produção");
+ok(!/npm cache clean/.test(dockerfile), "build paralelo não apaga cache npm compartilhado");
 ok(!/COPY\s+.*firebase-service-account/i.test(dockerfile), "credencial não entra na imagem");
 ok(/GOOGLE_APPLICATION_CREDENTIALS: \/run\/secrets\/firebase_service_account/.test(compose), "credencial montada como secret");
 ok(!/\b8080:8080\b/.test(compose), "backend não publica a porta 8080");

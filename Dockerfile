@@ -25,7 +25,7 @@ ENV NODE_ENV=production \
 WORKDIR /app
 COPY functions/package.json functions/package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
+    npm ci --omit=dev --no-audit --no-fund
 COPY functions ./
 COPY scripts/hostinger/backup-firebase.js ./ops/backup-firebase.js
 USER node
