@@ -2,7 +2,7 @@
 
 const crypto = require("node:crypto");
 
-const TOOL_VERSION = "1.2.1";
+const TOOL_VERSION = "1.3.0";
 const EXCLUDED_ROOTS = new Map([
   ["config", "configuração e segredos operacionais não são dados mestres"],
   ["usuarios", "perfil não equivale ao Firebase Authentication; revisão humana obrigatória"],
@@ -89,6 +89,10 @@ function buildCatalogs(source, current) {
   for (const db of [source, current]) {
     addCatalog(products, db.produtos, ["sku", "codProduto", "codigo"]);
     addCatalog(materials, db.materiais, ["mpCodigo", "materialCodigo", "codigo"]);
+    // SKU antigo continua sendo uma referencia valida. O produto nao e
+    // duplicado nem o historico reescrito quando o codigo muda: o indice
+    // sku_historico e o contrato oficial de resolucao desses vinculos.
+    for (const alias of Object.keys(db.sku_historico || {})) products.add(String(alias));
   }
   return {products, materials};
 }
@@ -101,7 +105,11 @@ function validateRecord(root, id, record, catalogs) {
       errors.push(`${field} referencia ${entity} inexistente`);
     }
   };
-  if (["formulas", "especificacoes", "bom"].includes(root)) requireRef(record.codProduto, catalogs.products, "codProduto", "produto");
+  if (root === "especificacoes" && record.tipoItem === "MATERIAL") {
+    requireRef(record.codProduto, catalogs.materials, "codProduto", "material");
+  } else if (["formulas", "especificacoes", "bom"].includes(root)) {
+    requireRef(record.codProduto, catalogs.products, "codProduto", "produto");
+  }
   if (["ops", "pedidos"].includes(root)) requireRef(record.sku, catalogs.products, "sku", "produto");
   if (root === "estoque") requireRef(record.materialCodigo || id, catalogs.materials, "materialCodigo", "material");
   if (root === "lotes_internos") requireRef(record.materialKey, catalogs.materials, "materialKey", "material");
