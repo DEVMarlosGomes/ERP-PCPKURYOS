@@ -27,6 +27,7 @@ ok(!/\b8080:8080\b/.test(compose), "backend não publica a porta 8080");
 ok(/max-size: "10m"/.test(compose) && /max-file: "5"/.test(compose), "logs rotacionados");
 ok(/restart: unless-stopped/.test(compose), "reinício automático");
 ok(/handle_path \/api\/\*/.test(caddy), "proxy preserva prefixo público /api");
+ok(/handle \/healthz \{\s*respond 200\s*\}/.test(caddy), "healthcheck público precede arquivos estáticos");
 ok(/max_size 10MB/.test(caddy) && /read_timeout 120s/.test(caddy), "limite e timeout alinhados ao servidor");
 ok(/try_files \{path\} \{path\}\.html =404/.test(caddy), "rotas diretas HTML funcionam");
 ok(/pcp-kuryos\.vercel\.app[\s\S]*onrender\.com/.test(auth), "Vercel mantém Render até o corte");

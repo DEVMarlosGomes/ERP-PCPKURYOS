@@ -22,7 +22,9 @@ http://localhost, http://127.0.0.1 {
 		-Server
 	}
 
-	respond /healthz 200
+	handle /healthz {
+		respond 200
+	}
 
 	handle_path /api/* {
 		request_body {
