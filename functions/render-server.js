@@ -249,12 +249,14 @@ module.exports = { configureFirebaseEnv, createServer, startTriggers, startSched
 
 if (require.main === module) {
   configureFirebaseEnv();
-  const admin = require("firebase-admin");
+  const { getAuth } = require("firebase-admin/auth");
+  const { getDatabase } = require("firebase-admin/database");
   const fns = require("./index.js");
+  const adminRuntime = { auth: getAuth, database: getDatabase };
   const corsOrigins = String(process.env.CORS_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean);
-  const server = createServer({ fns, admin, corsOrigins });
+  const server = createServer({ fns, admin: adminRuntime, corsOrigins });
   const port = Number(process.env.PORT || 8080);
   server.listen(port, () => console.log(`Functions do PCP no ar na porta ${port} (${Object.keys(fns).length} funções)`));
-  if (process.env.DISABLE_TRIGGERS !== "1") startTriggers({ fns, db: admin.database() });
+  if (process.env.DISABLE_TRIGGERS !== "1") startTriggers({ fns, db: getDatabase() });
   if (process.env.DISABLE_SCHEDULE !== "1") startSchedules({ fns });
 }

@@ -2,11 +2,12 @@ const {onRequest, onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {onValueCreated, onValueWritten} = require("firebase-functions/v2/database");
 const {defineSecret} = require("firebase-functions/params");
+const {initializeApp} = require("firebase-admin/app");
+const {getDatabase, ServerValue} = require("firebase-admin/database");
 // Banco dos gatilhos: functions/.env.<projeto> (ex.: .env.erpkuryos) define RTDB_INSTANCE.
 // O fallback também aponta para o banco atual: uma configuração ausente nunca
 // pode religar silenciosamente os gatilhos ao projeto legado prod-kuryos.
 const RTDB_INSTANCE = process.env.RTDB_INSTANCE || "erpkuryos-default-rtdb";
-const admin = require("firebase-admin");
 const crypto = require("crypto");
 const {prepararFinalizacao} = require("./conferencia_pa");
 const {prepararSaida} = require("./expedicao");
@@ -22,8 +23,8 @@ const DevolucaoCliente = require("./devolucao_cliente");
 const Titularidade = require("./titularidade");
 const EmissaoOp = require("./emissao_op");
 
-admin.initializeApp();
-const db = admin.database();
+initializeApp();
+const db = getDatabase();
 
 exports.emitirOpServidor = onCall({timeoutSeconds: 120, memory: "512MiB"}, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para emitir a OP.");
@@ -1895,7 +1896,7 @@ exports.registrarRecebimento = onCall(async (request) => {
       recebidoPor: identidade.autor, criadoEm: agora, status: "ATIVO", idempotencyKey,
     };
     Object.entries(estoqueSomado).forEach(([key, info]) => {
-      updates[`estoque/${key}/saldoAtual`] = admin.database.ServerValue.increment(info.qtd);
+      updates[`estoque/${key}/saldoAtual`] = ServerValue.increment(info.qtd);
       updates[`estoque/${key}/materialCodigo`] = info.materialCodigo;
       updates[`estoque/${key}/materialNome`] = info.materialNome;
       updates[`estoque/${key}/unidade`] = info.unidade;
@@ -1904,7 +1905,7 @@ exports.registrarRecebimento = onCall(async (request) => {
       // saldoAtual segue sendo o TOTAL físico; a parte do cliente dono fica
       // separada (ver shared/propriedade-estoque.js).
       Object.entries(info.porCliente).forEach(([c, parte]) => {
-        updates[`estoque/${key}/porCliente/${c}/saldoAtual`] = admin.database.ServerValue.increment(parte.qtd);
+        updates[`estoque/${key}/porCliente/${c}/saldoAtual`] = ServerValue.increment(parte.qtd);
         if (parte.nome) updates[`estoque/${key}/porCliente/${c}/clienteNome`] = parte.nome;
       });
     });
@@ -1993,12 +1994,12 @@ exports.cancelarRecebimento = onCall(async (request) => {
       }
     });
     Object.entries(estoqueCancelado).forEach(([materialKey, qtd]) => {
-      updates[`estoque/${materialKey}/saldoAtual`] = admin.database.ServerValue.increment(-qtd);
+      updates[`estoque/${materialKey}/saldoAtual`] = ServerValue.increment(-qtd);
       updates[`estoque/${materialKey}/ultimaAtualizacao`] = agora;
       updates[`estoque/${materialKey}/ultimaMovimentacao`] = {tipo: "cancelamento_recebimento", qtd: -qtd, ref: pedidoKey, em: agora};
     });
     Object.entries(clienteCancelado).forEach(([caminho, qtd]) => {
-      updates[`estoque/${caminho}`] = admin.database.ServerValue.increment(-qtd);
+      updates[`estoque/${caminho}`] = ServerValue.increment(-qtd);
     });
     updates[`recebimentos_locks/${pedidoKey}`] = null;
     await db.ref().update(updates);
@@ -2052,12 +2053,12 @@ exports.registrarDevolucaoRecebimento = onCall(async (request) => {
     updates[`pedidos_compra/${pedidoKey}/status`] = apos.status;
     updates[`pedidos_compra/${pedidoKey}/recebimentos/${recebimentoKey}/itensRecebidos/${linhaKey}/qtdDevolvida`] = devolvidaAntes + qtd;
     updates[`pedidos_compra/${pedidoKey}/recebimentos/${recebimentoKey}/devolucoes/${eventoKey}`] = {linhaKey, loteInterno: lote.loteInterno, quantidade: qtd, motivo, por: identidade.autor, em: agora};
-    updates[`estoque/${materialKey}/saldoAtual`] = admin.database.ServerValue.increment(-qtd);
+    updates[`estoque/${materialKey}/saldoAtual`] = ServerValue.increment(-qtd);
     updates[`estoque/${materialKey}/ultimaAtualizacao`] = agora;
     updates[`estoque/${materialKey}/ultimaMovimentacao`] = {tipo: "devolucao_fornecedor", qtd: -qtd, ref: pedidoKey, em: agora};
     const donoDevolvido = PropriedadeEstoque.donoDoLote(lote);
     if (donoDevolvido.tipo === PropriedadeEstoque.CLIENTE) {
-      updates[`estoque/${materialKey}/porCliente/${donoDevolvido.clienteKey}/saldoAtual`] = admin.database.ServerValue.increment(-qtd);
+      updates[`estoque/${materialKey}/porCliente/${donoDevolvido.clienteKey}/saldoAtual`] = ServerValue.increment(-qtd);
     }
     updates[`estoque_lotes/${materialKey}/${linha.loteKey}/saldoLote`] = novoSaldo;
     updates[`estoque_lotes/${materialKey}/${linha.loteKey}/qtdDevolvida`] = (Number(lote.qtdDevolvida) || 0) + qtd;
