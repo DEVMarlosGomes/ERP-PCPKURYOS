@@ -1,8 +1,11 @@
 # Auditoria da regularizacao das 46 referencias importadas
 
-Data da execucao: 02/11/2026  
-Projeto de destino: `erpkuryos`  
-Execucao: `reconcile-f3a6238cce852802`  
+Data da execucao: 02/11/2026
+
+Projeto de destino: `erpkuryos`
+
+Execucao: `reconcile-f3a6238cce852802`
+
 Estado: **APLICADO E VERIFICADO**
 
 ## Escopo e fonte
