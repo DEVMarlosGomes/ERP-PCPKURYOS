@@ -9,6 +9,7 @@ __pycache__/
 .env
 .env.*
 !.env.example
+!.env.production.example
 .fuse_hidden*
 produtos_watcher_state.json
 processed_ops.json

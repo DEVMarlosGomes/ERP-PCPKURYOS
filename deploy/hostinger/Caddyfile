@@ -1,0 +1,66 @@
+{
+	email {$ACME_EMAIL}
+	admin off
+	log default {
+		output stdout
+		format json
+	}
+}
+
+http://localhost, http://127.0.0.1 {
+	respond /healthz 200
+}
+
+{$ERP_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options SAMEORIGIN
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	respond /healthz 200
+
+	handle_path /api/* {
+		request_body {
+			max_size 10MB
+		}
+		reverse_proxy functions:8080 {
+			health_uri /health
+			health_interval 30s
+			transport http {
+				read_timeout 120s
+				write_timeout 120s
+			}
+		}
+	}
+
+	handle {
+		root * /srv/public
+
+		redir / /login 302
+		redir /crm1.html /crm1 301
+		redir /crm2.html /crm2 301
+		redir /crm3.html /crm3 301
+		redir /crm-admin.html /crm-admin 301
+		redir /kickoffs.html /kickoffs 301
+		redir /contratos.html /contratos 301
+		redir /pd.html /pd 301
+
+		@crm_routes path /crm1 /crm2 /crm3 /crm-admin /kickoffs /contratos /pd /kickoff/* /crm/* /pd/*
+		rewrite @crm_routes /crm-app.html
+
+		@static_assets path /static/* *.svg *.png *.jpg *.jpeg *.ico *.woff *.woff2
+		header @static_assets Cache-Control "public, max-age=86400"
+		@short_cache path /shared/* /auth_check.js
+		header @short_cache Cache-Control "public, max-age=300, must-revalidate"
+		@documents path *.html *.json
+		header @documents Cache-Control "no-cache, must-revalidate"
+
+		try_files {path} {path}.html =404
+		file_server
+	}
+}

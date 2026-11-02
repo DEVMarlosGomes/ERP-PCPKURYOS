@@ -1,10 +1,13 @@
-// --- Cloud Functions fora do Firebase (site na Vercel, funções no Render) ---
-// No Firebase Hosting (prod-kuryos.web.app etc.) e no preview local, nada muda:
-// as funções seguem nas Cloud Functions do projeto. Em qualquer outro domínio
-// (Vercel), firebase.functions() passa a chamar o servidor do Render, que roda o
-// mesmo functions/index.js (functions/render-server.js). Resolvido na hora da
-// chamada, porque as páginas inicializam o Firebase depois deste script.
-var KURYOS_FUNCTIONS_ORIGIN = 'https://pcp-kuryos-functions.onrender.com';
+// --- Cloud Functions fora do Firebase ---
+// Firebase Hosting e preview local continuam usando as Cloud Functions nativas.
+// O domínio Vercel legado aponta para o Render até o corte. No domínio próprio,
+// Caddy encaminha /api para o mesmo functions/render-server.js na VPS Hostinger.
+// window.KURYOS_FUNCTIONS_ORIGIN permite sobrescrever antes deste script em um
+// ambiente excepcional, sem embutir segredos (esta URL é pública).
+var KURYOS_FUNCTIONS_ORIGIN = window.KURYOS_FUNCTIONS_ORIGIN ||
+  (location.hostname === 'pcp-kuryos.vercel.app'
+    ? 'https://pcp-kuryos-functions.onrender.com'
+    : location.origin.replace(/\/$/, '') + '/api');
 (function() {
   var host = location.hostname;
   // *.test é o domínio reservado dos testes automatizados (Firebase simulado).

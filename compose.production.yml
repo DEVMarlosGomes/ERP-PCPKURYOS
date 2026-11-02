@@ -1,0 +1,112 @@
+name: kuryos
+
+services:
+  web:
+    image: kuryos-web:${APP_VERSION:?Defina APP_VERSION com o commit publicado}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:24.17.0-alpine3.23}
+        CADDY_IMAGE: ${CADDY_IMAGE:-caddy:2.10.2-alpine}
+    restart: unless-stopped
+    depends_on:
+      functions:
+        condition: service_healthy
+    environment:
+      ERP_DOMAIN: ${ERP_DOMAIN:?Defina ERP_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?Defina ACME_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    logging: &logs
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - edge
+
+  functions:
+    image: kuryos-functions:${APP_VERSION:?Defina APP_VERSION com o commit publicado}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: functions
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:24.17.0-alpine3.23}
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      NODE_ENV: production
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase_service_account
+      GCLOUD_PROJECT: ${GCLOUD_PROJECT:-erpkuryos}
+      FIREBASE_DATABASE_URL: ${FIREBASE_DATABASE_URL:?Defina FIREBASE_DATABASE_URL}
+      FIREBASE_STORAGE_BUCKET: ${FIREBASE_STORAGE_BUCKET:?Defina FIREBASE_STORAGE_BUCKET}
+      RTDB_INSTANCE: ${RTDB_INSTANCE:-erpkuryos-default-rtdb}
+      CORS_ORIGINS: https://${ERP_DOMAIN}
+      OPS_API_KEY: ${OPS_API_KEY:?Defina OPS_API_KEY}
+      PEDIDOS_API_KEY: ${PEDIDOS_API_KEY:?Defina PEDIDOS_API_KEY}
+      MS_GRAPH_TENANT_ID: ${MS_GRAPH_TENANT_ID:-}
+      MS_GRAPH_CLIENT_ID: ${MS_GRAPH_CLIENT_ID:-}
+      MS_GRAPH_CLIENT_SECRET: ${MS_GRAPH_CLIENT_SECRET:-}
+      MS_GRAPH_SENDER_EMAIL: ${MS_GRAPH_SENDER_EMAIL:-}
+      DISABLE_TRIGGERS: ${DISABLE_TRIGGERS:-0}
+      DISABLE_SCHEDULE: ${DISABLE_SCHEDULE:-0}
+    secrets:
+      - firebase_service_account
+    volumes:
+      - type: bind
+        source: ${BACKUP_DIR:-/opt/kuryos/backups}
+        target: /backups
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    logging: *logs
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - edge
+    expose:
+      - "8080"
+
+  restic:
+    image: restic/restic:0.18.1
+    profiles: ["backup"]
+    environment:
+      RESTIC_REPOSITORY: ${RESTIC_REPOSITORY:-}
+      RESTIC_PASSWORD: ${RESTIC_PASSWORD:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+    volumes:
+      - type: bind
+        source: ${BACKUP_DIR:-/opt/kuryos/backups}
+        target: /backups
+        read_only: true
+    networks:
+      - backup
+
+secrets:
+  firebase_service_account:
+    file: ${FIREBASE_SERVICE_ACCOUNT_FILE:?Defina FIREBASE_SERVICE_ACCOUNT_FILE}
+
+volumes:
+  caddy_data:
+    name: kuryos_caddy_data
+  caddy_config:
+    name: kuryos_caddy_config
+
+networks:
+  edge:
+    name: kuryos_edge
+  backup:
+    name: kuryos_backup
+
