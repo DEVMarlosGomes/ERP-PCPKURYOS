@@ -28,6 +28,7 @@ ok(/max-size: "10m"/.test(compose) && /max-file: "5"/.test(compose), "logs rotac
 ok(/restart: unless-stopped/.test(compose), "reinício automático");
 ok(/handle_path \/api\/\*/.test(caddy), "proxy preserva prefixo público /api");
 ok(/handle \/healthz \{\s*respond 200\s*\}/.test(caddy), "healthcheck público precede arquivos estáticos");
+ok(/www\.\{\$ERP_DOMAIN\}\s*\{\s*redir https:\/\/\{\$ERP_DOMAIN\}\{uri\} permanent\s*\}/.test(caddy), "alias www redireciona ao domínio canônico com HTTPS");
 ok(/max_size 10MB/.test(caddy) && /read_timeout 120s/.test(caddy), "limite e timeout alinhados ao servidor");
 ok(/try_files \{path\} \{path\}\.html =404/.test(caddy), "rotas diretas HTML funcionam");
 ok(/pcp-kuryos\.vercel\.app[\s\S]*onrender\.com/.test(auth), "Vercel mantém Render até o corte");
