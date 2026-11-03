@@ -30,14 +30,14 @@ Os caminhos legados equivalentes ainda precisam de resolução autoritativa. O m
 - `functions/epa.js`: pendências estruturadas, validação de aplicabilidade, referências/revisões, fórmula, componentes, MPES, GTIN EAN-13/master GTIN-14, datas/quantidades/master e separação de campos documentais.
 - Fórmula: mesmo limiar estrito da emissão existente, `abs(total − 100) < 0,0005` ponto percentual; total precisa ser número finito. Não é ajuste automático nem q.s.p.
 - `functions/epa-revisions.js`: reducer puro para `RASCUNHO → EM_VALIDACAO → APROVADA`; alteração das fontes/política aborta; revisão cria novo registro e descarta aprovações. Não persiste por si só e não promete concorrência no banco.
-- Aprovação neste reducer depende de política **explicitamente confirmada**, identidades ativas, papel requerido e segregação do elaborador. Isso é uma proteção conservadora de implementação, **não uma política industrial já aprovada pelo Marlos**. Não há dispensa automática do ADM.
+- Marlos confirmou em 03/11/2026 a combinação **Qualidade + Engenharia de Produto**. A política local versionada é `functions/epa-policy.js` (v1), com ambos os papéis obrigatórios, sem ordem imposta entre eles. O reducer mantém identidades ativas e segregação do elaborador; não há dispensa automática do ADM. Política confirmada não equivale a integração ou publicação concluída.
 - `functions/epa-preview.js`: PDF real, paginado, sempre marcado como rascunho. Texto é desenhado como texto; não interpreta HTML, não busca URLs e não copia assinaturas do modelo.
 
 `ready=true` significa somente que o contrato normalizado passou nas verificações implementadas. Não atesta autenticidade das origens, legalidade fiscal, aprovação regulatória, estabilidade, estoque elegível, capacidade de produzir, imagens preservadas, assinatura ou reserva. Jamais usar esse booleano como autorização industrial.
 
 ## Ainda obrigatório antes de integração
 
-1. Confirmar aprovadores e papel de cada ação; versionar política no servidor.
+1. Usar a política v1 confirmada (Qualidade + Engenharia de Produto) no futuro serviço autoritativo; integrar as permissões de cada ação sem aceitar política enviada pelo cliente.
 2. Adaptar dados reais com resolução por IDs, sem correspondência apenas por nome; verificar status nas fontes e períodos de vigência.
 3. Persistir especificações/revisões imutáveis por transação, com perfil/tenant ativo conferidos dentro do portão; bloquear gravação direta no RTDB. Nenhuma regra nova existe neste incremento.
 4. Criar OP rascunho sem reserva/execução; emitir snapshot por OP + revisão técnica, idempotente, com estado recuperável de artefato.
@@ -52,7 +52,7 @@ Os caminhos legados equivalentes ainda precisam de resolução autoritativa. O m
 | Texto de 21/10: câmbio sem congelamento; plano antigo: enviado congelado | Preço/câmbio atuais separados do documento aprovado imutável; não reescrever emitidos | Não muda cálculo comercial neste incremento |
 | 15/10 MP só após aprovação × reunião 28/10 fila imediata | Solicitação provisória não é material validado para produção | Validador local recusa provisório |
 | Amostra sempre 1000 g × revisão aprovada 60 + base 1000 | Separar volume real/base/unidade; sem densidade presumida | Sem alterar amostras existentes |
-| Sem aprovação do químico × CQ obrigatório | Não dispensa Qualidade, cliente nem liberação da EPA | Pergunta dos aprovadores pendente |
+| Sem aprovação do químico × CQ obrigatório | Não dispensa Qualidade, cliente nem liberação da EPA | Marlos confirmou Qualidade + Engenharia para EPA |
 | Antecipação à diretoria sem leitura | Não equivale a estabilidade ou prontidão industrial | Não aprova fonte automaticamente |
 | Estoque bloqueante × Dia D | Manter configuração atual; nunca habilitar pela geração de PDF | Produção intacta |
 | Ficha no BOM × fora do PDF | Referência visível; composição detalhada em documento separado | Snapshot local separa composição |

@@ -82,7 +82,7 @@ HEAD de referência: `376eada506b4d88fb0934af3990558997a78fabe`. Fontes: R = reu
 | EPA-06 | E: MPES/provisórios bloqueiam final | PARCIAL | `functions/epa.js`: validação componentes | T; código fornecedor real ainda não adaptado |
 | EPA-07 | E: lote/datas/peso sem placeholders | PARCIAL | `functions/epa.js`: ocorrência | T; política real de validade a resolver na origem |
 | EPA-08 | E: caixa parcial explícita | PARCIAL | `functions/epa.js`: `CAIXA_PARCIAL` | T; decisão precisa ser autoritativa |
-| EPA-09 | E: segregação de aprovação | PARCIAL | `functions/epa-revisions.js`: `approve` | T bloqueia própria revisão/inativo; política real pendente |
+| EPA-09 | E: segregação de aprovação | PARCIAL | `functions/epa-revisions.js`: `approve` + `epa-policy.js` | Qualidade + Engenharia confirmadas por Marlos; testes locais; integração real pendente |
 | EPA-10 | E: nova revisão preserva anterior | PARCIAL | `functions/epa-revisions.js`: `revise` | T; armazenamento imutável pendente |
 | EPA-11 | E: mudança de origem aborta aprovação | PARCIAL | `functions/epa-revisions.js`: `fresh` | T; transação/concorrência no banco não implementadas |
 | EPA-12 | E: PDF paginado marcado rascunho | PARCIAL | `functions/epa-preview.js` | T + inspeção de todas as 3 páginas; sem tela integrada |

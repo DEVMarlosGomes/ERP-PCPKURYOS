@@ -6,7 +6,7 @@
 |---|---|---|---|
 | P0 AUD-EPA-03: consumo adulterável | Reproduzido, não corrigido | Extrair motor de dimensionamento confiável; catalogar massa/volume/perdas/substituições | Payload menor ou código trocado recusado; não romper ajustes legítimos; ensaio isolado antes de mudança |
 | P0 AUD-EPA-02: prontidão/portão de execução | Reproduzido, não corrigido | Separar OP rascunho de executável, fontes aprovadas, EPA final, reserva elegível | API e regras negam contorno; PDF falho nunca libera; compatibilidade de OP histórica |
-| P0 AUD-EPA-04: aprovação/autoridade por ação | Parcial em reducer local | Marlos confirma política; servidor carrega perfil/tenant; regras fecham escrita direta | Negativas por perfil/inativo/tenant/autoaprovação; validação transacional de papéis |
+| P0 AUD-EPA-04: aprovação/autoridade por ação | Política Qualidade + Engenharia confirmada; parcial em reducer local | Integrar política v1; servidor carrega perfil/tenant; regras fecham escrita direta | Negativas por perfil/inativo/tenant/autoaprovação; validação transacional de papéis |
 | P1 EPA: adaptadores de fontes | Contrato local pronto; integração ausente | Projeto/cliente/amostra/fórmula/Kickoff/BOM/SKU por ID+revisão; não nome | Mudança na origem não mistura revisões; dados reais só leitura ou cópia sanitizada |
 | P1 EPA: normalização industrial | Inicial, incompleta | Diferenciar fórmula por variante, processo regulatório, NCM/CEST, gravação rica, limites e prazo aprovado | Validações no servidor; nenhum código/densidade/validade inventado |
 | P1 EPA: persistência/versionamento | Reducer testado; banco não implementado | Transações, IDs determinísticos, histórico/revisões e política versionada | Duas sessões e retry produzem uma decisão lógica; sem sobrescrever documento emitido |
@@ -23,7 +23,7 @@
 ## Sequência segura
 
 1. Fechar o inventário das regras de cálculo e o consumo autoritativo (AUD-EPA-03), mantendo provas reproduzíveis.
-2. Confirmar aprovadores; adaptar e revalidar fontes; persistir especificação/revisões de modo fechado por padrão.
+2. Integrar política confirmada Qualidade + Engenharia; adaptar e revalidar fontes; persistir especificação/revisões de modo fechado por padrão.
 3. Separar ocorrência/OP rascunho; gerar artefato final privado e recuperável; coordenar reserva/portão de execução.
 4. Integrar a UI; eliminar o PDF genérico; testar autorização direta, retry, concorrência, falhas e invalidação.
 5. Completar a matriz de todos os anexos e testar impactos nos demais setores; encerrar apenas com evidências e riscos residuais explícitos.

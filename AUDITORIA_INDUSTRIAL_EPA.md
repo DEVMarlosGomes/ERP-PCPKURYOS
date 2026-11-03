@@ -86,7 +86,7 @@ Evidências: 33 testes do núcleo/revisões/preview + 3 provas de defeitos + 5 O
 
 ## Bloqueios e continuação
 
-Pergunta enviada: quem aprova a EPA industrial (Qualidade, Qualidade+Engenharia ou outra política). Essa decisão bloqueia a aprovação/emissão final, não a auditoria independente e preparação.
+Decisão recebida de Marlos em 03/11/2026: **Qualidade + Engenharia de Produto**. Registrada na política local v1 (`functions/epa-policy.js`), com teste das duas ordens e recusa de administrador sem os papéis. A decisão remove a dúvida de aprovadores, mas aprovação/emissão reais continuam dependendo da integração autoritativa e dos portões abaixo.
 
 Também pendem resolução das fontes reais, unidades/conversões, preparação OP sem reserva, API/regras, armazenamento privado provisionado, emissão idempotente/recuperável, ativos, código de barras, UI e E2E. Ver `PLANO_CORRECOES_INDUSTRIAIS.md` e limites em `ESPECIFICACAO_EPA.md`.
 
