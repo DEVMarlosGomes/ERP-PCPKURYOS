@@ -74,12 +74,12 @@
     "usuarios": {
       ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'rh')",
       "$uid": {
-        ".read": "auth != null",
-        ".write": "auth != null && ((auth.uid == $uid && !data.exists()) || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')",
-        // Quem cria o próprio perfil (aba Cadastrar / login sem perfil) só nasce
+        ".read": "auth != null && (auth.uid == $uid || root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'rh')",
+        ".write": "auth != null && auth.uid == $uid && !data.exists()",
+        // Quem cria o próprio perfil (recuperação de login legado sem perfil) só nasce
         // 'pending', sem funções, módulos nem tenant: antes dava para se gravar
         // já como admin. Só o ADM atribui acesso.
-        ".validate": "root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || (newData.child('role').val() == 'pending' && !newData.child('funcoes').exists() && !newData.child('modulos').exists() && !newData.child('modulosDasFuncoes').exists() && !newData.child('tenant_id').exists())"
+        ".validate": "newData.child('role').val() == 'pending' && !newData.child('funcoes').exists() && !newData.child('modulos').exists() && !newData.child('modulosDasFuncoes').exists() && !newData.child('tenant_id').exists()"
       }
     },
     "usuarios_publico": {
@@ -87,9 +87,17 @@
       // usuarios/ continua restrito a admin/RH. O papel tem de bater com usuarios/{uid}.
       ".read": "auth != null",
       "$uid": {
-        ".write": "auth != null && (auth.uid == $uid || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')",
+        ".write": "auth != null && auth.uid == $uid",
         ".validate": "newData.child('nome').isString() && newData.child('role').val() == root.child('usuarios').child($uid).child('role').val()"
       }
+    },
+    "usuarios_removidos": {
+      ".read": "auth != null && root.child('usuarios').child(auth.uid).child('role').val() == 'admin'",
+      ".write": false
+    },
+    "auditoria_acessos": {
+      ".read": "auth != null && root.child('usuarios').child(auth.uid).child('role').val() == 'admin'",
+      ".write": false
     },
     "produtos": {
       ".read": "auth != null",

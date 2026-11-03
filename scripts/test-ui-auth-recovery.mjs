@@ -25,9 +25,10 @@ function scenario(profile) {
     createElement: element, querySelector() { return null; }, querySelectorAll() { return []; },
     getElementById(id) { return elements.get(id) || null; },
     addEventListener(name, callback) { callbacks.set(name, callback); },
+    write() {},
   };
   document.documentElement.dataset = {};
-  const location = { pathname: '/cadastros.html', href: '/cadastros.html', search: '' };
+  const location = { origin: 'https://app.test', pathname: '/cadastros.html', href: '/cadastros.html', search: '' };
   const storage = new Map();
   const localStorage = { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) };
   const media = { matches: false, addEventListener() {} };

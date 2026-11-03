@@ -4,6 +4,7 @@ const {onValueCreated, onValueWritten} = require("firebase-functions/v2/database
 const {defineSecret} = require("firebase-functions/params");
 const {initializeApp} = require("firebase-admin/app");
 const {getDatabase, ServerValue} = require("firebase-admin/database");
+const {getAuth} = require("firebase-admin/auth");
 // Banco dos gatilhos: functions/.env.<projeto> (ex.: .env.erpkuryos) define RTDB_INSTANCE.
 // O fallback também aponta para o banco atual: uma configuração ausente nunca
 // pode religar silenciosamente os gatilhos ao projeto legado prod-kuryos.
@@ -22,9 +23,31 @@ const FaturamentoEmail = require("./faturamento_email");
 const DevolucaoCliente = require("./devolucao_cliente");
 const Titularidade = require("./titularidade");
 const EmissaoOp = require("./emissao_op");
+const {criarServicoIdentidade} = require("./identidade_acesso");
 
 initializeApp();
 const db = getDatabase();
+const identidadeAcesso = criarServicoIdentidade({db, auth: getAuth()});
+
+// Identidade e acesso do ERP: toda mutação privilegiada passa pelo Admin SDK.
+// O cliente nunca cria, desativa ou exclui contas diretamente. O serviço também
+// protege a própria conta, o último administrador e registra a trilha completa.
+exports.gerenciarUsuario = onCall({timeoutSeconds: 60, memory: "256MiB"}, async (request) => {
+  try {
+    return await identidadeAcesso.executar(request);
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    const raw = String(error && error.code || "internal").replace(/^functions\//, "").replace(/^auth\//, "");
+    const code = ["unauthenticated", "permission-denied", "invalid-argument", "not-found", "failed-precondition", "already-exists", "resource-exhausted"].includes(raw)
+      ? raw
+      : raw === "email-already-exists" ? "already-exists"
+      : raw === "invalid-email" ? "invalid-argument"
+      : "internal";
+    const message = code === "internal" ? "Não foi possível concluir a operação de identidade." : error.message;
+    console.error("[gerenciarUsuario]", error);
+    throw new HttpsError(code, message, error && error.details);
+  }
+});
 
 exports.emitirOpServidor = onCall({timeoutSeconds: 120, memory: "512MiB"}, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para emitir a OP.");

@@ -84,7 +84,7 @@ function htmlDoMenu(fonteAuth, user, fonteNav, pagina) {
   const pg = pagina || 'dashboard.html';
   const ctx = {
     console, document: doc, navigator: {userAgent: 'node'},
-    location: {pathname: '/' + pg.split('?')[0], search: pg.indexOf('?') >= 0 ? '?' + pg.split('?')[1] : '', hostname: 'app.test', href: ''},
+    location: {origin: 'https://app.test', pathname: '/' + pg.split('?')[0], search: pg.indexOf('?') >= 0 ? '?' + pg.split('?')[1] : '', hostname: 'app.test', href: ''},
     localStorage: {getItem() { return null; }, setItem() {}, removeItem() {}},
     matchMedia() { return {matches: false, addEventListener() {}}; },
     setTimeout() { return 0; }, clearTimeout() {}, requestAnimationFrame() { return 0; },

@@ -121,6 +121,27 @@ antes de fechar.
   As regras se publicam **só** a partir de `database.rules.json` deste repo; a cópia da
   pasta antiga foi desativada porque apagaria nós em produção.
 
+### Identidade e acesso (03/11/2026)
+
+- O login público não cadastra contas. `public/login.html` oferece entrada e recuperação
+  de senha; a criação, edição, funções, módulos, tenant, bloqueio, revogação de sessões e
+  exclusão ficam em `public/usuarios.html` para administradores.
+- Toda mutação privilegiada passa pela callable `gerenciarUsuario` e pelo Admin SDK
+  (`functions/identidade_acesso.js`). O navegador não recebe senha e não escreve perfis
+  administrativos. Desativar bloqueia também o Firebase Auth; excluir arquiva o perfil
+  em `usuarios_removidos`; ações ficam em `auditoria_acessos`.
+- Autoexclusão, autodesativação e mudança do próprio acesso são recusadas. A proteção do
+  último administrador ocorre em transação no nó `usuarios`, portanto duas ações
+  simultâneas não conseguem retirar todos os administradores.
+- No projeto `erpkuryos`, cadastro e exclusão pelo cliente estão desativados na
+  configuração do Identity Toolkit. Senhas novas exigem 8 caracteres, maiúscula,
+  minúscula e número; símbolo é permitido. `forceUpgradeOnSignin=false`: senhas antigas
+  continuam entrando até serem redefinidas. A configuração idempotente vive em
+  `scripts/configurar-auth-producao.js` e foi aplicada/verificada em 03/11/2026.
+- `usuarios/$uid` só pode ser lido pelo próprio usuário, ADM ou RH. O cliente só cria o
+  próprio perfil pendente para recuperar logins legados sem perfil; perfis ativos,
+  auditoria e arquivo de excluídos são escritos exclusivamente pelo servidor.
+
 - **Status "Em Testes" e "Aguardando Aprovação" do P&D só com liberação do servidor**
   (desde 23/10/2026): a regra de `erp/$tenant/pd_requests/$req/status` exige
   `pd_liberacoes_status/$req`, que só `liberarEtapaPd` (Render) grava depois de conferir os
