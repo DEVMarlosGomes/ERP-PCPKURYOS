@@ -155,7 +155,7 @@ Várias páginas com o mesmo nome têm comportamentos diferentes: Compras, Apont
 
 25 caminhos da referência negaram leitura: `clientes_logo`, `contadores_lote_interno`, `correcoes_estoque`, `ctl`, `custos`, `devolucoes_operacoes`, `email_notifications_state`, `emails_diretoria`, `erp`, `feedback_diretorio_por_uid`, `feedback_feitos`, `fin`, `importacoes_dados`, `lotes_internos`, `materiais_chave`, `notificacoes_op_encerrada`, `notificacoes_pesagem`, `pendencias_setor`, `recebimentos_operacoes`, `resultado`, `rh_avaliacoes_por_avaliador`, `rh_ferias_por_gestor`, `servicos`, `solicitacoes_cadastro_material`, `usuarios_publico`.
 
-Negação **não significa coleção vazia ou dado ausente**. Solicitei novo export completo do oficial, gerado agora, para remover esse limite. Não solicitei credencial administrativa em texto nem tentei contornar regras. Mesmo um export completo não comprova telas, Storage, identidades ou efeitos das Functions: exigem evidência própria.
+Negação **não significa coleção vazia ou dado ausente**. Marlos esclareceu que o último JSON já está no sistema. Confirmei o arquivo de 01/11 e o mesmo hash registrado na importação; não é necessário reenviá-lo para a conferência histórica nem reimportá-lo. Ele permite conferir nove das coleções negadas, conforme complemento abaixo, mas não transforma a fotografia histórica em leitura ao vivo de 03/11. Não solicitei credencial administrativa em texto nem tentei contornar regras. Mesmo um export completo não comprova telas, Storage, identidades ou efeitos das Functions: exigem evidência própria.
 
 ## 6. Testes executados e resultado real
 
@@ -189,4 +189,24 @@ Scripts locais novos em `scripts/auditoria-virada/`: `collect.js`, `assets.js`, 
 
 Dados reais privados: manifests/fotografias, `comparison-private.json`, `comparison-summary.json`, `readiness-summary.json`, `access-private.json`, `assets-report.json` e os recursos públicos consultados, todos sob `scratch/virada-20261103/`. A coleta recusa sobrescrever suas fotografias, exigindo novo destino/rodada para novo corte. Não compartilhar os JSONs brutos em repositório ou relatório público.
 
-Próximo passo que depende do usuário: export completo atual do oficial para fechar as 25 áreas não verificadas. **Nenhuma autorização de correção/importação foi inferida do pedido de conferir.**
+O JSON já disponível foi confirmado e usado no complemento abaixo. A correção dos bloqueios não deve ficar esperando outra importação; uma fotografia de corte mais recente só é necessária para atestar o estado atual das áreas sem leitura ao vivo. **Nenhuma autorização de correção/importação foi inferida do pedido de conferir.**
+
+## 9. Complemento — último JSON já importado, confirmado com Marlos
+
+Arquivo: `prod-kuryos-default-rtdb-export (1).json`, 25.276.514 bytes, modificação local em 01/11/2026. SHA-256: `E29F53144DB5D7BF6F643A47C83C445A6C6EF054B6614791C094C4B3D718971D`, exatamente o documentado em `AUDITORIA_REGULARIZACAO_46_20261102.md`. Não encontrei outro export RTDB mais recente nos Downloads/JSONs anexados consultados.
+
+O export tem 76 raízes. Nove das 25 coleções sem leitura ao vivo estão presentes nele; as outras 16 não constavam desse export, o que não comprova inexistência atual.
+
+| Coleção negada ao vivo | Comparação do export 01/11 com destino 03/11 |
+|---|---|
+| `contadores_lote_interno` | Idêntico (1 registro/chave) |
+| `correcoes_estoque` | Idêntico (1) |
+| `feedback_diretorio_por_uid` | Idêntico (1) |
+| `lotes_internos` | Idêntico (113) |
+| `recebimentos_operacoes` | Idêntico (5) |
+| `email_notifications_state` | 2 registros com diferenças |
+| `emails_diretoria` | Export 9 × destino 8; 6 diferentes e 1 exclusivo do export |
+| `notificacoes_op_encerrada` | Export 131 × destino 43; 88 exclusivos do export, 2 diferentes |
+| `notificacoes_pesagem` | Export 80 × destino 1; 79 exclusivos do export, 1 diferente |
+
+Esses últimos quatro nós são filas/estado técnico de automações, não pedidos ou materiais que devam ser copiados cegamente. As diferenças reforçam a necessidade de revisar deduplicação/processamento histórico antes de ativar gatilhos e agendas. **Não houve importação, restauração ou reenvio de notificações.** Os 25 caminhos permanecem não verificados *ao vivo*, com nove agora também conferidos historicamente.
