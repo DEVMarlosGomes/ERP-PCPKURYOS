@@ -459,6 +459,8 @@
       <div class="secao-rot">Conta</div>
       <div class="acoes-conta">
         <button type="button" class="btn-mod" id="editVerificarLogin">Verificar vínculo de login</button>
+        <button type="button" class="btn-mod" id="editPermissoes">Validar permissões</button>
+        <button type="button" class="btn-mod" id="editAbrirLogin" hidden>Editar cadastro vinculado ao login</button>
         <button type="button" class="btn-mod" id="editRegularizarLogin" hidden>Regularizar login mantendo histórico</button>
         <button type="button" class="btn-mod" id="editLinkSenha">Enviar link para nova senha</button>
         <button type="button" class="btn-mod" id="editRevogar">Encerrar todas as sessões</button>
@@ -466,6 +468,12 @@
         <button type="button" class="btn-mod" id="editReativar">Reativar acesso</button>
       </div>
       <div class="dica" id="editVinculoStatus" role="status" aria-live="polite"></div>
+      <div id="editSenhaArea" style="margin-top:16px">
+        <div class="campo"><label for="editNovaSenha">Nova senha do usuário</label><input type="password" id="editNovaSenha" minlength="8" maxlength="128" autocomplete="new-password"><div class="dica">8 a 128 caracteres, maiúscula, minúscula e número. Símbolos são permitidos. A senha atual nunca é exibida.</div></div>
+        <div class="campo"><label for="editConfirmarSenha">Confirmar nova senha</label><input type="password" id="editConfirmarSenha" maxlength="128" autocomplete="new-password"></div>
+        <div class="dica">Se faltar login, ele será criado no mesmo cadastro, preservando permissões e histórico. E-mails em conflito não são fundidos automaticamente.</div>
+        <button type="button" class="btn-mod" id="editDefinirSenha">Definir nova senha e encerrar sessões</button>
+      </div>
       <div class="dica" id="editDicaConta" style="font-size:11.5px;color:var(--ink-mute);margin-top:8px;line-height:1.45"></div>
       <div class="danger-zone" id="editDangerZone">
         <div class="secao-rot">Exclusão definitiva</div>
@@ -503,6 +511,19 @@
 <!-- Security Auth Check -->
 <script src="auth_check.js"></script>
 
+<div class="modal-bg" id="modalReauthBg" role="dialog" aria-modal="true" aria-labelledby="reauthTitulo" style="z-index:10000">
+  <form class="modal" id="reauthForm">
+    <div class="modal-head"><div><h2 id="reauthTitulo">Confirmar identidade do administrador</h2><div class="sub">Seus dados em edição serão preservados.</div></div></div>
+    <div class="modal-body">
+      <div class="erro-form" id="reauthErro" role="alert"></div>
+      <div class="campo"><label for="reauthEmail">Seu e-mail</label><input type="email" id="reauthEmail" readonly autocomplete="username"></div>
+      <div class="campo"><label for="reauthSenha">Sua senha atual de administrador</label><input type="password" id="reauthSenha" autocomplete="current-password" required></div>
+      <div class="dica">Esta senha confirma quem está administrando. Não é a nova senha do usuário e não será salva no cadastro.</div>
+    </div>
+    <div class="modal-foot"><button type="button" class="btn-mod" id="reauthCancelar">Cancelar</button><button type="submit" class="btn-salvar" id="reauthConfirmar">Confirmar e continuar</button></div>
+  </form>
+</div>
+
 <!-- Business Logic Script -->
 <script>
   const database = firebase.database();
@@ -520,19 +541,57 @@
   }
 
   var tentativasIdentidade = {};
+  var confirmacaoAdmin = null;
+  function confirmarIdentidadeAdmin() {
+    if (confirmacaoAdmin) return confirmacaoAdmin;
+    var user = firebase.auth().currentUser;
+    if (!user || !user.email) return Promise.reject(new Error('Entre novamente para confirmar sua identidade.'));
+    confirmacaoAdmin = new Promise(function(resolve,reject) {
+      var bg=document.getElementById('modalReauthBg'),form=document.getElementById('reauthForm');
+      var input=document.getElementById('reauthSenha'),btn=document.getElementById('reauthConfirmar'),cancel=document.getElementById('reauthCancelar');
+      var anterior=document.activeElement;
+      document.getElementById('reauthEmail').value=user.email;
+      input.value=''; erroForm('reauthErro',''); bg.classList.add('open'); input.focus();
+      function concluir(error) {
+        input.value='';bg.classList.remove('open');form.onsubmit=null;cancel.onclick=null;bg.onkeydown=null;btn.disabled=false;cancel.disabled=false;
+        if(anterior && anterior.isConnected)anterior.focus();
+        if(error)reject(error);else resolve();
+      }
+      cancel.onclick=function(){concluir(new Error('Confirmação cancelada. Nenhuma alteração foi enviada.'));};
+      bg.onkeydown=function(ev){
+        if(ev.key==='Escape' && !btn.disabled){ev.preventDefault();cancel.click();}
+        if(ev.key==='Tab'){var alvos=[input,cancel,btn].filter(function(x){return !x.disabled;});var ix=alvos.indexOf(document.activeElement);if(ev.shiftKey && ix<=0){ev.preventDefault();alvos[alvos.length-1].focus();}else if(!ev.shiftKey && ix===alvos.length-1){ev.preventDefault();input.focus();}}
+      };
+      form.onsubmit=async function(ev){
+        ev.preventDefault();if(btn.disabled)return;btn.disabled=true;cancel.disabled=true;
+        try {
+          var credential=firebase.auth.EmailAuthProvider.credential(user.email,input.value);
+          input.value='';
+          await user.reauthenticateWithCredential(credential);
+          await user.getIdToken(true);
+          if(firebase.auth().currentUser.uid!==user.uid)throw new Error('Sessão alterada. Entre novamente.');
+          concluir();
+        } catch(error){input.value='';erroForm('reauthErro','Não foi possível confirmar. Confira sua senha de administrador ou entre novamente.');btn.disabled=false;cancel.disabled=false;input.focus();}
+      };
+    });
+    return confirmacaoAdmin.finally(function(){confirmacaoAdmin=null;});
+  }
   function acaoIdentidade(payload) {
-    var assinatura = JSON.stringify(payload);
+    var assinatura = JSON.stringify(Object.assign({},payload,{nova_senha:undefined}));
     var consulta = payload.acao === 'diagnosticar';
     if (!consulta && !tentativasIdentidade[assinatura]) tentativasIdentidade[assinatura] = crypto.randomUUID();
     var dados = consulta ? payload : Object.assign({},payload,{requestId:tentativasIdentidade[assinatura]});
-    return gerenciarUsuarioServidor(dados).then(function(res) {
+    return gerenciarUsuarioServidor(dados).catch(function(err) {
+      if(err.details && err.details.requiresRecentLogin) return confirmarIdentidadeAdmin().then(function(){return gerenciarUsuarioServidor(dados);});
+      throw err;
+    }).then(function(res) {
       delete tentativasIdentidade[assinatura];
       return res.data || {};
     }).catch(function(err) {
       // Falha de transporte pode ocorrer após o commit: reutilizar o ID.
-      if (['functions/unauthenticated','functions/permission-denied','functions/invalid-argument'].indexOf(err.code) >= 0 && !(err.details && err.details.resultadoParcial)) delete tentativasIdentidade[assinatura];
+      if ((['functions/unauthenticated','functions/permission-denied','functions/invalid-argument'].indexOf(err.code) >= 0 || (err.details && err.details.semLogin)) && !(err.details && err.details.resultadoParcial)) delete tentativasIdentidade[assinatura];
       throw err;
-    });
+    }).finally(function(){if(payload.acao==='definir_senha')delete tentativasIdentidade[assinatura];});
   }
   
   // Wait for auth to be confirmed and load users
@@ -875,8 +934,9 @@
   /* ══════════════════════════════════════════════════════════════════
      IDENTIDADE E ACESSO PELO ADM (02/11/2026): criar, editar, redefinir
      senha, revogar sessões, desativar/reativar e excluir.
-     Todas as mutações passam por gerenciarUsuario (Admin SDK). O navegador
-     nunca recebe senha, não habilita/desabilita Auth diretamente e não pode
+     Todas as mutações passam por gerenciarUsuario (Admin SDK). A senha atual
+     nunca é consultada; a nova senha digitada não é persistida no navegador.
+     O navegador não habilita/desabilita Auth diretamente e não pode
      contornar as proteções de autoexclusão e último administrador.
      ══════════════════════════════════════════════════════════════════ */
   var editUidAtual = null;
@@ -960,9 +1020,14 @@
     var u = usuariosCache[uid];
     if (!u) return;
     editUidAtual = uid;
+    document.getElementById('editNovaSenha').value='';
+    document.getElementById('editConfirmarSenha').value='';
+    document.getElementById('editAbrirLogin').hidden=true;
     document.getElementById('editRegularizarLogin').hidden = true;
     document.getElementById('editVinculoStatus').textContent = '';
     var proprio = uid === firebase.auth().currentUser.uid;
+    document.getElementById('editSenhaArea').hidden=proprio || u.desativado===true;
+    document.getElementById('editPermissoes').disabled=proprio;
     document.getElementById('editTitulo').textContent = 'Editar ' + (u.nome || u.email || uid);
     document.getElementById('editSub').textContent = u.desativado
       ? 'Desativado' + (u.desativado_em ? ' em ' + new Date(u.desativado_em).toLocaleDateString('pt-BR') : '')
@@ -981,11 +1046,11 @@
     document.getElementById('editDangerZone').style.display = proprio ? 'none' : '';
     document.getElementById('editDicaConta').textContent = u.desativado
       ? 'Reativar abre a escolha de funções, já com as que ele tinha antes.'
-      : 'O link chega no e-mail da pessoa e serve uma vez só. Desativar tira todas as funções na hora; o histórico dela continua.';
+      : 'Verifique o vínculo, defina a nova senha ou envie o link e valide as permissões. Não é preciso excluir nem recriar o usuário. Desativar mantém o histórico.';
     erroForm('editErro', '');
     document.getElementById('modalEditBg').classList.add('open');
   }
-  function fecharEdicao() { document.getElementById('modalEditBg').classList.remove('open'); editUidAtual = null; }
+  function fecharEdicao() { document.getElementById('modalEditBg').classList.remove('open'); document.getElementById('editNovaSenha').value='';document.getElementById('editConfirmarSenha').value='';editUidAtual = null; }
 
   async function verificarVinculoLogin() {
     var uid = editUidAtual;
@@ -996,11 +1061,14 @@
       var r = await acaoIdentidade({acao:'diagnosticar',uid:uid});
       if (editUidAtual !== uid) return;
       document.getElementById('editRegularizarLogin').hidden = r.vinculo !== 'SEM_LOGIN';
+      var abrirLogin=document.getElementById('editAbrirLogin');
+      abrirLogin.hidden=!(r.vinculo==='CONFLITO_EMAIL' && r.perfilLoginExiste && usuariosCache[r.uidLogin]);
+      abrirLogin.onclick=function(){fecharEdicao();abrirEdicao(r.uidLogin);};
       erroForm('editErro','');
       document.getElementById('editVinculoStatus').textContent = {
         OK:r.desativadoAuth ? 'Login encontrado, mas bloqueado no Auth. Confira a desativação e reative pelas funções, se autorizado.' : 'Login e perfil estão vinculados no mesmo UID e e-mail.',
         SEM_LOGIN:'Este perfil não tem login. Regularizar cria a conta no mesmo UID, preservando histórico e permissões; nenhum acesso adicional será concedido.',
-        CONFLITO_EMAIL:'Este e-mail tem login em outro UID. A fusão automática foi bloqueada; solicite reconciliação de identidade.',
+        CONFLITO_EMAIL:'Este e-mail tem login em outro cadastro. Use Editar cadastro vinculado ao login para alterar senha e permissões. Este registro histórico não será apagado nem fundido automaticamente.',
         EMAIL_DIVERGENTE:'O e-mail do login diverge do cadastro. Confira a identidade antes de salvar qualquer alteração.'
       }[r.vinculo] || 'Vínculo não identificado. Solicite conferência administrativa.';
     } catch (err) { if (editUidAtual === uid) erroForm('editErro',mensagemErroIdentidade(err)); }
@@ -1066,6 +1134,24 @@
       .then(function() { btn.disabled = false; });
   }
 
+  async function definirSenhaAdm() {
+    var uid=editUidAtual,u=usuariosCache[uid];
+    if(!uid || !u)return;
+    var senha=document.getElementById('editNovaSenha').value;
+    var confirmar=document.getElementById('editConfirmarSenha').value;
+    if(senha!==confirmar)return erroForm('editErro','As novas senhas não coincidem.');
+    if(senha.length<8 || senha.length>128 || !/[A-Z]/.test(senha) || !/[a-z]/.test(senha) || !/[0-9]/.test(senha))return erroForm('editErro','Use de 8 a 128 caracteres, maiúscula, minúscula e número. Símbolos são permitidos.');
+    if(!confirm('Definir uma nova senha para '+u.email+' e encerrar as sessões? Se faltar login, ele será preparado no mesmo cadastro, sem adicionar permissões.'))return;
+    var btn=document.getElementById('editDefinirSenha');btn.disabled=true;
+    document.getElementById('editNovaSenha').value='';document.getElementById('editConfirmarSenha').value='';
+    try {
+      await acaoIdentidade({acao:'definir_senha',uid:uid,confirmacao_email:u.email,nova_senha:senha});
+      if(editUidAtual===uid)erroForm('editErro','');
+      showToast('Nova senha definida. Login preservado no mesmo cadastro; valide as permissões para continuar.',7000);
+    } catch(err){if(editUidAtual===uid)erroForm('editErro',mensagemErroIdentidade(err));}
+    finally {senha='';confirmar='';btn.disabled=false;}
+  }
+
   function desativarUsuario() {
     var uid = editUidAtual;
     var u = usuariosCache[uid] || {};
@@ -1112,6 +1198,8 @@
   document.getElementById('editCancelar').addEventListener('click', fecharEdicao);
   document.getElementById('editSalvar').addEventListener('click', salvarConta);
   document.getElementById('editVerificarLogin').addEventListener('click', verificarVinculoLogin);
+  document.getElementById('editDefinirSenha').addEventListener('click', definirSenhaAdm);
+  document.getElementById('editPermissoes').addEventListener('click',function(){var uid=editUidAtual;fecharEdicao();abrirFuncoes(uid);});
   document.getElementById('editRegularizarLogin').addEventListener('click', regularizarLogin);
   document.getElementById('editLinkSenha').addEventListener('click', enviarLinkSenhaAdm);
   document.getElementById('editRevogar').addEventListener('click', revogarSessoes);

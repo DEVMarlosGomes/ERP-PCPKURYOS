@@ -150,7 +150,11 @@ antes de fechar.
   de senha; a criação, edição, funções, módulos, tenant, bloqueio, revogação de sessões e
   exclusão ficam em `public/usuarios.html` para administradores.
 - Toda mutação privilegiada passa pela callable `gerenciarUsuario` e pelo Admin SDK
-  (`functions/identidade_acesso.js`). O navegador não recebe senha e não escreve perfis
+  (`functions/identidade_acesso.js`). Senhas atuais nunca são consultadas. O ADM pode
+  definir nova senha (com confirmação recente da própria identidade); ela transita
+  somente para o provedor e não entra em journal/auditoria. Perfis sem Auth podem
+  preparar login no mesmo UID, preservando acessos; conflitos de e-mail usam o
+  cadastro já vinculado, sem fusão automática. O navegador não escreve perfis
   administrativos. Desativar bloqueia também o Firebase Auth; excluir arquiva o perfil
   em `usuarios_removidos`; ações ficam em `auditoria_acessos`.
 - Autoexclusão, autodesativação e mudança do próprio acesso são recusadas. A proteção do

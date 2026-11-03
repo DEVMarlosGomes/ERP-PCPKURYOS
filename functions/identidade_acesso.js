@@ -292,7 +292,7 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
       try { porEmail = await auth.getUserByEmail(emailValido(before.email)); } catch (error) {
         if (!CODIGOS_AUTH_SEM_USUARIO.has(codigoAuth(error))) throw error;
       }
-      return {ok:true, vinculo:porEmail ? 'CONFLITO_EMAIL' : 'SEM_LOGIN'};
+      return {ok:true, vinculo:porEmail ? 'CONFLITO_EMAIL' : 'SEM_LOGIN', ...(porEmail ? {uidLogin:porEmail.uid,perfilLoginExiste:!!users[porEmail.uid]} : {})};
     }
 
     if (acao === 'regularizar_login') {
@@ -450,6 +450,26 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
       return {ok: true, email: account.email};
     }
 
+    if (acao === 'definir_senha') {
+      garantirOutroUsuario(actor.uid,targetUid,'redefinir a senha administrativa de');
+      let account;
+      try {account=await auth.getUser(targetUid);} catch(error) {if(!CODIGOS_AUTH_SEM_USUARIO.has(codigoAuth(error)))throw error;}
+      const email=emailValido(before.email);
+      if (emailValido(data.confirmacao_email)!==email || (account && String(account.email||'').toLowerCase()!==email)) throw falha('failed-precondition','Confirme o e-mail e o vínculo do login antes de definir a senha.');
+      if (before.desativado===true || account?.disabled===true) throw falha('failed-precondition','Reative o usuário pelas funções antes de definir a senha.');
+      const senha=data.nova_senha;
+      if (typeof senha!=='string' || senha.length<8 || senha.length>128 || !/[A-Z]/.test(senha) || !/[a-z]/.test(senha) || !/[0-9]/.test(senha)) throw falha('invalid-argument','A nova senha deve ter de 8 a 128 caracteres, maiúscula, minúscula e número. Símbolos são permitidos.');
+      // Senhas não são recuperáveis: journal e auditoria vêm antes do efeito.
+      // Não há rollback inventado da senha antiga nem segredo na trilha.
+      await auditar(actor,'DEFINIR_SENHA_SOLICITADA',targetUid,before,before);
+      if(!account) await executarInterno({...request,data:{acao:'regularizar_login',uid:targetUid,confirmacao_email:email}});
+      await revogar(targetUid);
+      try { await auth.updateUser(targetUid,{password:senha}); }
+      catch (_) { throw falha('internal','Não foi possível definir a senha no provedor. Confira a operação antes de repetir.'); }
+      await auditar(actor,'DEFINIR_SENHA',targetUid,before,before);
+      return {ok:true,uid:targetUid,email,sessoesEncerradas:true};
+    }
+
     if (acao === "excluir") {
       garantirOutroUsuario(actor.uid, targetUid, "excluir");
       const confirmacao = emailValido(data.confirmacao_email);
@@ -499,13 +519,23 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
   // transação distribuída entre Auth e RTDB: resultado parcial é explícito,
   // rastreável e não é repetido silenciosamente com o mesmo requestId.
   async function executar(request) {
-    const {actor,data} = await contexto(request);
+    const {actor,data,users} = await contexto(request);
     if (data.acao === 'diagnosticar') return executarInterno(request);
+    // Falta de login é uma pré-condição, não uma execução parcial. Conferir
+    // antes do journal permite preparar a conta e salvar novamente depois.
+    if (['funcoes','modulos','atualizar','solicitar_reset'].includes(data.acao) && users[data.uid]) {
+      try {await auth.getUser(data.uid);} catch(error) {
+        if(!CODIGOS_AUTH_SEM_USUARIO.has(codigoAuth(error)))throw error;
+        throw falha('failed-precondition','Este cadastro ainda não tem login. Abra Editar e defina a nova senha para preparar o mesmo cadastro; depois valide as permissões.',{semLogin:true});
+      }
+    }
     const requestId = data.requestId;
     if (requestId !== undefined && !/^[A-Za-z0-9_-]{16,128}$/.test(requestId)) throw falha('invalid-argument','Identificador de operação inválido.');
     const operationId = requestId ? crypto.createHash('sha256').update(actor.uid + ':' + requestId).digest('hex') : crypto.randomUUID();
     const journal = db.ref(`auditoria_acessos/op_${operationId}`);
-    const fingerprint = crypto.createHash('sha256').update(JSON.stringify({...data,requestId:undefined})).digest('hex');
+    // O journal não guarda senha nem um hash verificável dela. O requestId
+    // identifica a operação; trocar a senha exige uma nova operação explícita.
+    const fingerprint = crypto.createHash('sha256').update(JSON.stringify({...data,nova_senha:undefined,requestId:undefined})).digest('hex');
     const claim = await journal.transaction(current => current || {status:'PREPARADO',fingerprint,por_uid:actor.uid,acao:data.acao || '',alvo_uid:data.uid || null,em:now().toISOString()});
     const previous = claim.snapshot.val();
     // Sem requestId não há reutilização. A marca durável impede repetir
