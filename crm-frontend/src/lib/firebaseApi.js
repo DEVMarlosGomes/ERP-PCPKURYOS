@@ -19,7 +19,7 @@ import { erroNaoFecha, fechamentoFormula, pendenciasDoLote } from "@/lib/fechame
 import { baseVigente, planoDaBase, substituicoesForaDaFragrancia } from "@/lib/formulacaoBase";
 import { contatosDoCliente, entradaHistoricoAprovacao, validarAprovacaoCliente } from "@/lib/aprovacaoCliente";
 import { acrescentarHistorico } from "@/lib/historicoTimeline";
-import { liberarEtapaPd } from "@/lib/servidor";
+import { liberarEtapaPd, chamarServidor } from "@/lib/servidor";
 import { cotacaoDaFormula, situacao as situacaoCambio, validarSpread } from "@/lib/cambio";
 import { validarLeitura } from "@/lib/estabilidade";
 import { CATALOGO_PADRAO, mesclarCatalogo, validarTipoComponente } from "@/lib/tiposComponente";
@@ -926,9 +926,8 @@ async function conferirFechamentoPd(tenantId, request, development) {
 }
 
 async function auditCard(tenantId, action, entityType, entityId, before, after, profile) {
-  await create(tenantId, "audit_log", {
-    action, entity_type: entityType, entity_id: entityId, before: before || null, after: after || null,
-    user_id: firebaseAuth.currentUser?.uid || "", user_name: profile?.name || profile?.nome || profile?.email || "",
+  await chamarServidor("registrarAuditoriaCrm", {
+    tenant_id: tenantId, action, entity_type: entityType, entity_id: entityId, before: before || null, after: after || null,
   });
 }
 

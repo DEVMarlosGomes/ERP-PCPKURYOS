@@ -29,6 +29,25 @@ initializeApp();
 const db = getDatabase();
 const identidadeAcesso = criarServicoIdentidade({db, auth: getAuth()});
 
+exports.registrarAuditoriaCrm = onCall({timeoutSeconds: 30, memory: "256MiB"}, async request => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Faça login.");
+  const profile = (await db.ref(`usuarios/${request.auth.uid}`).get()).val();
+  const roles = [profile && profile.role, ...Object.keys(profile && profile.funcoes || {}).filter(k => profile.funcoes[k] === true)];
+  if (!profile || profile.desativado || profile.role === "pending" || (!roles.some(r => ["admin","pcp","comercial","pd","qualidade","vendedor","sales_ops","lider_pd","formulador","engenharia_produto"].includes(r)) && !profile.modulos?.comercial && !profile.modulos?.pd)) {
+    throw new HttpsError("permission-denied", "Sem acesso ao CRM.");
+  }
+  const d = request.data || {};
+  const tenant = String(d.tenant_id || "");
+  if (!/^[a-z0-9][a-z0-9_-]{1,39}$/.test(tenant) || (!roles.includes("admin") && profile.tenant_id !== tenant)) throw new HttpsError("permission-denied", "Empresa inválida.");
+  for (const k of ["action", "entity_type", "entity_id"]) if (typeof d[k] !== "string" || !d[k].trim() || d[k].length > 200) throw new HttpsError("invalid-argument", "Evento inválido.");
+  if (Buffer.byteLength(JSON.stringify(d)) > 65536) throw new HttpsError("invalid-argument", "Evento excede o limite.");
+  const event = {action: d.action, entity_type: d.entity_type, entity_id: d.entity_id, before: d.before ?? null, after: d.after ?? null,
+    user_id: request.auth.uid, user_name: profile.nome || "", tenant_id: tenant, created_at: new Date().toISOString(), origem: "client_reported"};
+  const ref = db.ref(`erp/${tenant}/audit_log`).push();
+  await ref.set({...event,id:ref.key});
+  return {ok:true,id:ref.key};
+});
+
 // Identidade e acesso do ERP: toda mutação privilegiada passa pelo Admin SDK.
 // O cliente nunca cria, desativa ou exclui contas diretamente. O serviço também
 // protege a própria conta, o último administrador e registra a trilha completa.
@@ -195,7 +214,9 @@ function sanitizeKey(val) {
 
 function checkApiKey(req, res, expected) {
   const provided = (req.get("x-api-key") || "").trim();
-  if (!provided || provided !== String(expected || "").trim()) {
+  const configured = String(expected || "").trim();
+  const digest = value => crypto.createHash("sha256").update(value).digest();
+  if (!provided || !configured || !crypto.timingSafeEqual(digest(provided), digest(configured))) {
     res.status(401).json({ok: false, error: "x-api-key ausente ou inválido"});
     return false;
   }

@@ -189,6 +189,12 @@ function codigoAuth(error) {
 function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => crypto.randomUUID()}) {
   if (!db || !auth) throw new Error("db e auth são obrigatórios");
 
+  async function revogar(uid) {
+    // Publicado antes de invalidar refresh tokens: regras RTDB recusam o ID token antigo.
+    await db.ref(`security_sessions/${uid}`).set({revokedAfter: Math.floor(now().getTime() / 1000)});
+    await auth.revokeRefreshTokens(uid);
+  }
+
   async function auditar(actor, action, targetUid, before, after, extra = {}) {
     const key = db.ref("auditoria_acessos").push().key;
     const date = now();
@@ -210,6 +216,11 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
     const users = await lerUsuarios(db);
     const actorProfile = users[request.auth.uid];
     garantirAdmin(actorProfile);
+    const authTime = Number(request.auth.token && request.auth.token.auth_time);
+    const age = now().getTime() / 1000 - authTime;
+    if (!Number.isFinite(authTime) || age < -120 || age > 900) {
+      throw falha("failed-precondition", "Entre novamente para confirmar sua identidade antes de administrar contas.", {requiresRecentLogin:true});
+    }
     return {
       users,
       actor: {uid: request.auth.uid, nome: actorProfile.nome, email: request.auth.token && request.auth.token.email},
@@ -281,6 +292,7 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
         await auth.updateUser(targetUid, {displayName: authBefore.displayName || undefined, email: authBefore.email, emailVerified: authBefore.emailVerified}).catch(() => {});
         throw error;
       }
+      if (before.email !== email || before.tenant_id !== tenant) await revogar(targetUid);
       await auditar(actor, "ATUALIZAR_USUARIO", targetUid, before, after, {email_alterado: before.email !== email});
       return {ok: true, email};
     }
@@ -299,7 +311,7 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
       try {
         if (beforeAtomic.desativado) await auth.updateUser(targetUid, {disabled: false});
         await db.ref(`usuarios_publico/${targetUid}`).set({nome: after.nome || after.email || targetUid, role: after.role});
-        await auth.revokeRefreshTokens(targetUid);
+        await revogar(targetUid);
       } catch (error) {
         const restaurado = await restaurarPerfilSeAtual(db, targetUid, version, beforeAtomic).catch(() => false);
         if (restaurado) {
@@ -320,7 +332,7 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
       const after = {...before, modulos: data.padrao === true ? null : modulosValidos(data.modulos), modulosDasFuncoes: data.modulosDasFuncoes === true ? true : null,
         atualizado_em: now().toISOString(), atualizado_por: actor.uid, identidade_versao: uuid()};
       await db.ref(`usuarios/${targetUid}`).set(after);
-      await auth.revokeRefreshTokens(targetUid);
+      await revogar(targetUid);
       await auditar(actor, "ALTERAR_MODULOS", targetUid, before, after);
       return {ok: true};
     }
@@ -341,7 +353,7 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
       const after = alteracao.after;
       try {
         await auth.updateUser(targetUid, {disabled: true});
-        await auth.revokeRefreshTokens(targetUid);
+        await revogar(targetUid);
         await db.ref(`usuarios_publico/${targetUid}`).set({nome: after.nome || after.email || targetUid, role: "pending"});
       } catch (error) {
         const restaurado = await restaurarPerfilSeAtual(db, targetUid, version, beforeAtomic).catch(() => false);
@@ -357,7 +369,7 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
 
     if (acao === "revogar_sessoes") {
       garantirOutroUsuario(actor.uid, targetUid, "encerrar as sessões de");
-      await auth.revokeRefreshTokens(targetUid);
+      await revogar(targetUid);
       await auditar(actor, "REVOGAR_SESSOES", targetUid, before, before);
       return {ok: true};
     }

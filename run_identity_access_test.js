@@ -111,7 +111,8 @@ let ids = 0;
     operador: {uid: "operador", email: "op@kuryos.com.br", displayName: "Operador", disabled: false, emailVerified: true},
   });
   const service = criarServicoIdentidade({db, auth, now: () => fixed, uuid: () => `id-${++ids}`});
-  const call = (uid, data) => service.executar({auth: {uid, token: {email: auth.users[uid] && auth.users[uid].email}}, data});
+  const call = (uid, data) => service.executar({auth: {uid, token: {auth_time:fixed.getTime()/1000,email: auth.users[uid] && auth.users[uid].email}}, data});
+  await assert.rejects(service.executar({auth:{uid:"adm",token:{auth_time:0}},data:{acao:"criar"}}), /Entre novamente/);
 
   await assert.rejects(call("operador", {acao: "criar"}), (error) => error.code === "permission-denied");
 
