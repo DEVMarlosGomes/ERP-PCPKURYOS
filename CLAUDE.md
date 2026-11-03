@@ -123,6 +123,16 @@ antes de fechar.
 
 ### Identidade e acesso (03/11/2026)
 
+- Correção publicada na VPS em `397b4a3`: SDK compat 10.7.0 perdia `/api` no
+  customDomain; `auth_check.js` agora usa URL explícita nas callables. Usuários
+  oferece verificar vínculo e regularizar Auth no mesmo UID com confirmação,
+  sem fusão automática de identidades ou nova função concedida. Há journal
+  prévio/idempotência por requestId e trava servidor; falhas parciais exigem
+  conferência, não replay automático. Contadores PC/SC/COT alinhados em 81/39/44
+  com backup e releitura. Validade da expedição lê os três nomes históricos e
+  bloqueia datas inválidas/vencidas no servidor e navegador. Quatro colisões
+  antigas ainda aguardam decisão documental; gatilhos/agendas permanecem
+  desligados. Detalhes: `CORRECOES_VIRADA_ACESSOS_20261103.md`.
 - Segurança em produção desde `bf1f39d`: API verifica revogação/perfil ativo e limita
   chamadas; administração exige login recente; RTDB exige perfil ativo e validade de
   sessão, restringe CRM ao setor e proíbe escrita/exclusão de auditoria pelo cliente.
