@@ -94,7 +94,7 @@ export default function LiberacoesDiretoriaPanel({ nomeDoAprovador, onDecidido }
               <div>
                 <Label>Justificativa *</Label>
                 <Textarea rows={3} value={justificativa} onChange={(ev) => setJustificativa(ev.target.value)} data-testid="liberacao-justificativa"
-                  placeholder="Ex.: D24h estável; cliente precisa da amostra para a apresentação. Comercial avisa que o D48h ainda está em curso." />
+                  placeholder="Ex.: autorizo o envio com D0; Comercial informado de que a estabilidade continua em andamento." />
               </div>
             </div>
           )}

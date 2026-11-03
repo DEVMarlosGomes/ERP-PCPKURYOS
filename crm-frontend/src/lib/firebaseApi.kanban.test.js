@@ -102,3 +102,24 @@ test('retorno de Aguardando para Em Testes pede o retrocesso protegido ao servid
   expect(liberarEtapaPd).toHaveBeenCalledWith('R','IN_TESTS',true);
   expect(memory.read(`${T}/pd_requests/R/status`)).toBe('IN_TESTS');
 });
+
+test('D0: P&D solicita, envio aguarda ADM, aprovação registra motivo e mantém o estudo',async()=>{
+  memory.write('usuarios/pd',{role:'pd',nome:'P&D fictício',tenant_id:'kuryos'});
+  memory.write(`${T}/pd_requests/R/status`,'IN_TESTS');
+  memory.write(`${T}/pd_stability_studies/S`,{id:'S',request_id:'R',status:'IN_PROGRESS'});
+  memory.write(`${T}/pd_stability_readings/D0`,{id:'D0',study_id:'S',day_offset:0});
+  memory.setUser('pd');
+  await expect(api.post('/pd/requests/R/liberacao-antecipada',{motivo:'curto'})).rejects.toMatchObject({response:{status:422}});
+  await api.post('/pd/requests/R/liberacao-antecipada',{motivo:'Cliente precisa apresentar esta amostra com D0'});
+  expect(memory.read(`${T}/pd_requests/R/liberacao_antecipada`)).toMatchObject({status:'aguardando_diretoria',leituras_no_pedido:['D0']});
+  await expect(api.put('/crm/pd/cards/C/move',{status:'aguardando_aprovacao'})).rejects.toThrow(/aprovação de um administrador.*D0/);
+  const decisao={decisao:'aprovada',justificativa:'Autorizo envio com D0 e estabilidade em andamento',data_hora:new Date().toISOString()};
+  await expect(api.post('/pd/requests/R/liberacao-antecipada/decisao',decisao)).rejects.toMatchObject({response:{status:403}});
+  expect(memory.read(`${T}/pd_requests/R/status`)).toBe('IN_TESTS');
+  memory.setUser('adm');
+  await api.post('/pd/requests/R/liberacao-antecipada/decisao',decisao);
+  expect(memory.read(`${T}/pd_requests/R`)).toMatchObject({status:'WAITING_APPROVAL',liberacao_antecipada:{status:'aprovada',decisao:{decidida_por:'adm',justificativa:decisao.justificativa}}});
+  expect(liberarEtapaPd).toHaveBeenCalledWith('R','WAITING_APPROVAL',false);
+  expect(memory.read(`${T}/pd_stability_studies/S/status`)).toBe('IN_PROGRESS');
+  expect(memory.read(`${T}/pd_stability_readings/D0/day_offset`)).toBe(0);
+});

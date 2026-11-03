@@ -56,8 +56,9 @@ export default function LiberacaoAntecipadaPD({ req, podeEditar, onFeito }) {
       {podePedir && (
         <div className="mt-3">
           <Button size="sm" variant="outline" className="gap-1.5 border-amber-300 text-amber-800 hover:bg-amber-50" onClick={() => setAberto(true)} data-testid="pedir-liberacao">
-            <Send className="h-3.5 w-3.5" /> Enviar à diretoria para liberar ao Comercial antes da estabilidade
+            <Send className="h-3.5 w-3.5" /> Solicitar envio antecipado
           </Button>
+          <p className="mt-1 text-xs text-muted-foreground">Pode enviar com D0, mediante justificativa e aprovação de um administrador. A estabilidade continua em andamento.</p>
         </div>
       )}
       <Dialog open={aberto} onOpenChange={setAberto}>
@@ -65,12 +66,12 @@ export default function LiberacaoAntecipadaPD({ req, podeEditar, onFeito }) {
           <DialogHeader>
             <DialogTitle>Liberação antecipada para o Comercial</DialogTitle>
             <DialogDescription>
-              Com a manipulação registrada, a amostra pode ir ao Comercial antes do D48h se a diretoria aprovar — mesmo sem nenhuma leitura de estabilidade (a diretoria vê isso no pedido). O estudo de estabilidade continua normalmente.
+              Com a manipulação registrada, a amostra pode ir ao Comercial com D0, sem esperar D24h ou D48h. Informe a justificativa e aguarde a aprovação de um administrador em CRM › Projetos. A estabilidade continua em andamento.
             </DialogDescription>
           </DialogHeader>
           <div>
             <Label>Por que enviar antes da estabilidade? *</Label>
-            <Textarea rows={4} value={motivo} onChange={(ev) => setMotivo(ev.target.value)} placeholder="Ex.: cliente apresenta a linha na feira de sexta; D24h sem alteração de aspecto, cor, odor e pH" />
+            <Textarea rows={4} value={motivo} onChange={(ev) => setMotivo(ev.target.value)} placeholder="Ex.: cliente precisa da amostra para apresentação; solicitar envio com D0 e estabilidade ainda em andamento." />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAberto(false)}>Cancelar</Button>

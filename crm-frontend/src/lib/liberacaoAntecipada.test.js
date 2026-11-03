@@ -5,6 +5,12 @@ const D24 = [{ day_offset: 1 }];
 const AGORA = Date.parse("2026-10-24T15:00:00Z");
 
 describe("liberação antecipada ao Comercial (24/10/2026)", () => {
+  test("D0 permite solicitar, mas não representa aprovação nem conclusão da estabilidade", () => {
+    expect(podeSolicitar({status:'IN_TESTS',leituras:[{day_offset:0}]}).ok).toBe(true);
+    const pedido=novaSolicitacao({motivo:'Cliente precisa apresentar a amostra',por:'pd',porNome:'P&D',em:'agora',leituras:[{day_offset:0}]});
+    expect(pedido.registro).toMatchObject({status:'aguardando_diretoria',leituras_no_pedido:['D0'],sem_leitura:false,decisao:null});
+    expect(textoEstabilidade(pedido.registro)).toBe('D0');
+  });
   test("PD-05: pede com a manipulação registrada (Em Testes), sem leitura; com o D48h é a entrega normal", () => {
     expect(podeSolicitar({ status: "IN_TESTS", leituras: D24 })).toEqual({ ok: true, motivo: "" });
     expect(podeSolicitar({ status: "IN_TESTS", leituras: [] })).toEqual({ ok: true, motivo: "" });

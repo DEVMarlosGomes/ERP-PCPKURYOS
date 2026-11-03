@@ -40,6 +40,26 @@ describe.skipIf(process.env.FIREBASE_DATABASE_EMULATOR_HOST!=='127.0.0.1:9023' |
     await bridge.root.ref(path+'/status').set('WAITING_APPROVAL');
     await expect(bridge.serverModule.liberarEtapaPd('RET','IN_TESTS',true)).resolves.toEqual({ok:true});
   },60000);
+  test('D0 real: pedido fica pendente, só ADM aprova e o envio usa ticket sem concluir estabilidade',async()=>{
+    const b='erp/kuryos/';
+    await bridge.root.ref().update({
+      ['usuarios/d0pd']:{role:'pd',tenant_id:'kuryos'},
+      [b+'pd_requests/DZERO']:{id:'DZERO',status:'IN_TESTS'},
+      [b+'pd_developments/DD0']:{id:'DD0',request_id:'DZERO'},
+      [b+'pd_formulas/FD0']:{id:'FD0',development_id:'DD0',version:1,locked:true},
+      [b+'pd_formula_items/ID0']:{id:'ID0',formula_id:'FD0',ingredient_name:'Fictício',percentage:100},
+      [b+'pd_stability_studies/SD0']:{id:'SD0',request_id:'DZERO',status:'IN_PROGRESS'},
+      [b+'pd_stability_readings/LD0']:{id:'LD0',study_id:'SD0',day_offset:0},
+    });
+    await api.post('/pd/requests/DZERO/liberacao-antecipada',{motivo:'Cliente precisa da amostra com D0 para apresentação'});
+    expect((await bridge.root.ref(b+'pd_requests/DZERO/liberacao_antecipada').get()).val()).toMatchObject({status:'aguardando_diretoria',leituras_no_pedido:['D0']});
+    await expect(api.put('/pd/requests/DZERO/status',{new_status:'WAITING_APPROVAL'})).rejects.toThrow(/D48h/);
+    await expect(bridge.asUser('d0pd').ref(b+'pd_requests/DZERO/liberacao_antecipada/status').set('aprovada')).rejects.toThrow(/permission_denied/i);
+    await api.post('/pd/requests/DZERO/liberacao-antecipada/decisao',{decisao:'aprovada',justificativa:'Autorizo envio com D0 e estabilidade em andamento',data_hora:new Date().toISOString()});
+    expect((await bridge.root.ref(b+'pd_requests/DZERO').get()).val()).toMatchObject({status:'WAITING_APPROVAL',liberacao_antecipada:{status:'aprovada',decisao:{decidida_por:'adm'}}});
+    expect((await bridge.root.ref(b+'pd_liberacoes_status/DZERO/status').get()).val()).toBe('WAITING_APPROVAL');
+    expect((await bridge.root.ref(b+'pd_stability_studies/SD0/status').get()).val()).toBe('IN_PROGRESS');
+  },60000);
   test('coleções explícitas permitem CRUD autorizado e mantêm validações e isolamento',async()=>{
     await bridge.root.ref('usuarios').update({sales:{role:'comercial',tenant_id:'kuryos'},
       pd:{role:'pd',tenant_id:'kuryos'},operator:{role:'production',tenant_id:'kuryos'},

@@ -2057,7 +2057,7 @@ async function dispatch(e, t) {
     if ("WAITING_APPROVAL" === o && t.liberacao_antecipada?.status !== "aprovada") {
       const e = (await all(_, "pd_stability_studies")).find(e => e.request_id === t.id || e.pd_card_id === t.id),
         a = e ? await related(_, "pd_stability_readings", "study_id", e.id) : [];
-      if (!e || !a.some(e => 2 === Number(e.day_offset))) throw apiError(400, "Nenhuma leitura D48h (48 horas) registrada. Conclua o checkpoint D48h antes de entregar ao Comercial — ou peça a liberação antecipada à diretoria (já com o D24h).");
+      if (!e || !a.some(e => 2 === Number(e.day_offset))) throw apiError(400, "Nenhuma leitura D48h (48 horas) registrada. Conclua o checkpoint D48h antes de entregar ao Comercial — ou solicite a liberação antecipada com justificativa e aprovação de um administrador, inclusive com D0. A estabilidade continua em andamento.");
     }
     // INF-04: a regra do banco exige a liberação do servidor (que confere de novo).
     if ("IN_TESTS" === o || "WAITING_APPROVAL" === o) await liberarEtapaPd(t.id, o, Boolean(r.is_backward));
