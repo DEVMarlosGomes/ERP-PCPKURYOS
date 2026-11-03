@@ -1,6 +1,6 @@
 # EPA industrial — especificação incremental local
 
-03/11/2026. **Não implantada. Não habilita execução de OP.** O núcleo é um contrato normalizado para adaptação das fontes reais, não um cadastro paralelo pronto para uso.
+03/11/2026. **Código do incremento publicado na VPS em `43c63ad`, por autorização posterior do Marlos. Fluxo operacional não integrado; não habilita execução de OP.** O núcleo é um contrato normalizado para adaptação das fontes reais, não um cadastro paralelo pronto para uso.
 
 ## Reaproveitamento e limites
 

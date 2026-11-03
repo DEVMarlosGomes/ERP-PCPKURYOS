@@ -2,7 +2,7 @@
 
 03/11/2026 · branch `hostinger-deploy` · HEAD auditado `376eada506b4d88fb0934af3990558997a78fabe`.
 
-**Auditoria em andamento, não encerrada.** Produção, regras, DNS, estoque, contas e configurações não foram alterados nesta tarefa. Não houve push nem deploy. O novo código é local e não está ligado ao servidor público.
+**Auditoria em andamento, não encerrada.** Na execução inicial, regras, DNS, estoque, contas e configurações não foram alterados, sem push/deploy. **Atualização posterior, autorizada por Marlos em 03/11:** código até `43c63ad` enviado ao GitHub e implantado na VPS. Containers saudáveis, HTTPS/saúde/login 200 e testes da política 2/2 no container. Os módulos continuam sem endpoint ou integração operacional; nenhum dado/regra foi alterado. A publicação de código não encerra os achados abaixo.
 
 ## Fontes e linha de base
 
