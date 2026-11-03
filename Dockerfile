@@ -16,6 +16,7 @@ RUN node scripts/integrar-crm-build.mjs crm-frontend/build
 FROM ${CADDY_IMAGE} AS web
 COPY deploy/hostinger/Caddyfile /etc/caddy/Caddyfile
 COPY --from=crm-build /workspace/public /srv/public
+USER 1000:1000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget -q -O /dev/null http://127.0.0.1/healthz || exit 1
 
