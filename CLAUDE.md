@@ -123,6 +123,14 @@ antes de fechar.
 
 ### Identidade e acesso (03/11/2026)
 
+- Segurança em produção desde `bf1f39d`: API verifica revogação/perfil ativo e limita
+  chamadas; administração exige login recente; RTDB exige perfil ativo e validade de
+  sessão, restringe CRM ao setor e proíbe escrita/exclusão de auditoria pelo cliente.
+  Auditoria comercial passa por callable. Caddy executa UID 1000 e containers têm
+  filesystem read-only/limites. Backup diário local ativo, com ensaio de restauração
+  RTDB aprovado. Detalhes/pendências: `CORRECOES_SEGURANCA_20261103.md`.
+  MFA/Identity Platform, SSH root, destino externo de backup, troca de senha antiga
+  e provisionamento/autorização do Storage ainda precisam das etapas descritas lá.
 - Domínio principal da VPS Hostinger: `kuryoserp.com.br`; `www` e os endereços
   `kuryoserp.tech`/`www.kuryoserp.tech` redirecionam ao principal. O projeto de
   Auth/RTDB continua `erpkuryos`. Deploy por commit com
