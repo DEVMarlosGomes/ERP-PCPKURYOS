@@ -3,6 +3,23 @@
   else root.ExpedicaoPA = factory();
 })(typeof globalThis !== 'undefined' ? globalThis : this, function() {
   'use strict';
+  // Os três nomes existem no histórico. Se divergem, a menor data é a
+  // barreira conservadora; campo preenchido inválido nunca libera saída.
+  function validadeDoLote(lote) {
+    var datas = [];
+    for (var campo of ['dataValidade', 'validade', 'validadeLote']) {
+      var valor = lote && lote[campo];
+      if (valor == null || valor === '') continue;
+      var s = String(valor).trim(), br = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
+      if (br) s = br[3] + '-' + br[2] + '-' + br[1];
+      if (!/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(s)) return null;
+      s = s.slice(0, 10);
+      var d = new Date(s + 'T00:00:00Z');
+      if (!Number.isFinite(d.getTime()) || d.toISOString().slice(0, 10) !== s) return null;
+      datas.push(s);
+    }
+    return datas.sort()[0] || '';
+  }
   function key(v) { return String(v || '').trim().replace(/[./[\]#$]/g, '-').replace(/\s+/g, '_').slice(0, 60); }
   // Mesmo cliente (23/10/2026). Pedido do usuário: cargas com "Miss Rose" e
   // "MISS ROSE" eram recusadas como "clientes diferentes". Medido: 67 dos 78
@@ -79,7 +96,8 @@
     else if (!Number.isInteger(Number(lote.saldoLote)) || Number(lote.saldoLote) <= 0 || lote.expedicaoId) motivo = 'Sem saldo disponível';
     else if (!legado && !['LIBERADO_EXPEDICAO', 'APROVADO_CONCESSAO'].includes(lote.status)) motivo = 'Aguardando liberação da Qualidade';
     else if (!legado && (!lote.qualidade || lote.qualidade.decisao !== lote.status)) motivo = 'Laudo da Qualidade ausente ou divergente';
-    else if (lote.validade && String(lote.validade).slice(0, 10) < hoje) motivo = 'Palete vencido';
+    else if (validadeDoLote(lote) === null) motivo = 'Validade inválida; regularize o lote';
+    else if (validadeDoLote(lote) && validadeDoLote(lote) < hoje) motivo = 'Palete vencido';
     else if (!endereco || endereco.ativo === false || lote.aguardandoEnderecoDefinitivo) motivo = 'Aguardando endereço definitivo ativo';
     else if (op.status !== 'Concluído' || op.sku !== lote.itemCodigo || key(op.sku) !== itemKey) motivo = 'OP ou produto inconsistente';
     else if (!legado && !devolvido && (!conf.finalizadoEm || !lote.conferencia || conf.finalizacaoId !== lote.conferencia.finalizacaoId)) motivo = 'Conferência de PA não finalizada';
@@ -106,7 +124,7 @@
         if (entry[1].itemTipo === 'produto' && Number(entry[1].saldoLote) > 0) linhas.push(analisar(base, item[0], entry[0], hoje));
       });
     });
-    return linhas.sort(function(a, b) { return Number(b.disponivel) - Number(a.disponivel) || String(a.lote.validade || '9999').localeCompare(String(b.lote.validade || '9999')) || String(a.lote.identificadorPalete).localeCompare(String(b.lote.identificadorPalete)); });
+    return linhas.sort(function(a, b) { return Number(b.disponivel) - Number(a.disponivel) || String(validadeDoLote(a.lote) || '9999').localeCompare(String(validadeDoLote(b.lote) || '9999')) || String(a.lote.identificadorPalete).localeCompare(String(b.lote.identificadorPalete)); });
   }
-  return {analisar: analisar, listar: listar, normalizarChavePedido: normalizarChavePedido, resolverChavePedido: resolverChavePedido, mesmoCliente: mesmoCliente};
+  return {analisar: analisar, listar: listar, validadeDoLote: validadeDoLote, normalizarChavePedido: normalizarChavePedido, resolverChavePedido: resolverChavePedido, mesmoCliente: mesmoCliente};
 });

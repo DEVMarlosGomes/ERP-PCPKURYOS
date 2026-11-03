@@ -115,7 +115,7 @@ function renderPaletes(){
       '<td>'+e(l.cliente)+'</td><td>'+e(l.pedidoNumero||'Sem vínculo')+'</td><td class="product"><b>'+e(l.lote.itemCodigo)+'</b><div class="sub">'+e(l.lote.itemNome)+'</div></td>'+
       '<td>'+e(l.lote.opLote||l.lote.opKey)+'<div class="sub">'+e(l.lote.identificadorPalete||l.loteKey)+'</div>'+(!ag&&!enviando&&DesmembrarPalete.podeDesmembrar(l.lote)?'<div><button type="button" class="btn ghost" data-desmembrar="'+e(k)+'" title="O apontamento juntou paletes que fisicamente são separados: divide este palete em vários, sem mexer no total">✂️ Desmembrar</button></div>':'')+'</td><td>'+composicaoHTML(l.lote)+'</td><td class="numeric"><b>'+num(l.lote.saldoLote)+'</b></td>'+celulasPeso(l)+
       '<td>'+e(l.endereco.codigo||l.lote.enderecoCodigo||'—')+'</td><td class="numeric">'+(dias==null?'—':dias)+'</td>'+
-      '<td class="extra-col">'+dataBR(l.op.dataFimReal)+'</td><td class="extra-col">'+dataBR(l.lote.criadoEm)+'</td><td class="extra-col">'+dataBR(l.lote.validade)+'</td></tr>';
+      '<td class="extra-col">'+dataBR(l.op.dataFimReal)+'</td><td class="extra-col">'+dataBR(l.lote.criadoEm)+'</td><td class="extra-col">'+dataBR(ExpedicaoPA.validadeDoLote(l.lote))+'</td></tr>';
   }).join('')||'<tr><td colspan="15">Nenhum palete neste filtro. O PA aparece após a conferência no estoque.</td></tr>';
   selecionaveisVisiveis=enviando?[]:linhas.filter(function(l){return l.disponivel&&!agendaDoPalete(idLinha(l));});
   el('paletes').querySelectorAll('[data-desmembrar]').forEach(function(b){b.onclick=function(){abrirDesmembrar(b.dataset.desmembrar);};});
