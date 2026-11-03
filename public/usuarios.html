@@ -458,11 +458,14 @@
       </div>
       <div class="secao-rot">Conta</div>
       <div class="acoes-conta">
+        <button type="button" class="btn-mod" id="editVerificarLogin">Verificar vínculo de login</button>
+        <button type="button" class="btn-mod" id="editRegularizarLogin" hidden>Regularizar login mantendo histórico</button>
         <button type="button" class="btn-mod" id="editLinkSenha">Enviar link para nova senha</button>
         <button type="button" class="btn-mod" id="editRevogar">Encerrar todas as sessões</button>
         <button type="button" class="btn-mod btn-perigo" id="editDesativar">Desativar acesso</button>
         <button type="button" class="btn-mod" id="editReativar">Reativar acesso</button>
       </div>
+      <div class="dica" id="editVinculoStatus" role="status" aria-live="polite"></div>
       <div class="dica" id="editDicaConta" style="font-size:11.5px;color:var(--ink-mute);margin-top:8px;line-height:1.45"></div>
       <div class="danger-zone" id="editDangerZone">
         <div class="secao-rot">Exclusão definitiva</div>
@@ -507,16 +510,29 @@
 
   function mensagemErroIdentidade(err) {
     var codigo = String((err && err.code) || '').replace('functions/', '');
+    if (err && err.details && err.details.resultadoParcial) return ((err && err.message) || 'Operação interrompida.') + ' Pode haver efeitos parciais. Confira o cadastro e a auditoria antes de repetir. Operação: ' + err.details.operacaoId;
     if (codigo === 'permission-denied') return 'Sua sessão não tem permissão administrativa. Atualize a página e entre novamente.';
     if (codigo === 'unauthenticated') return 'Sua sessão expirou. Entre novamente para continuar.';
     if (codigo === 'already-exists') return 'Já existe uma conta com esse e-mail.';
-    if (codigo === 'not-found') return 'A conta não existe mais. Atualize a lista.';
+    if (codigo === 'not-found') return 'O serviço ou cadastro não foi encontrado. Não exclua nem recrie a conta; confira a conexão e o vínculo de login.';
     if (codigo === 'resource-exhausted') return 'Muitas operações seguidas. Aguarde alguns instantes e tente novamente.';
     return (err && err.message) || 'Não foi possível concluir a operação.';
   }
 
+  var tentativasIdentidade = {};
   function acaoIdentidade(payload) {
-    return gerenciarUsuarioServidor(payload).then(function(res) { return res.data || {}; });
+    var assinatura = JSON.stringify(payload);
+    var consulta = payload.acao === 'diagnosticar';
+    if (!consulta && !tentativasIdentidade[assinatura]) tentativasIdentidade[assinatura] = crypto.randomUUID();
+    var dados = consulta ? payload : Object.assign({},payload,{requestId:tentativasIdentidade[assinatura]});
+    return gerenciarUsuarioServidor(dados).then(function(res) {
+      delete tentativasIdentidade[assinatura];
+      return res.data || {};
+    }).catch(function(err) {
+      // Falha de transporte pode ocorrer após o commit: reutilizar o ID.
+      if (['functions/unauthenticated','functions/permission-denied','functions/invalid-argument'].indexOf(err.code) >= 0 && !(err.details && err.details.resultadoParcial)) delete tentativasIdentidade[assinatura];
+      throw err;
+    });
   }
   
   // Wait for auth to be confirmed and load users
@@ -703,7 +719,7 @@
       .then(function() {
         btn.disabled = false;
         fecharModulos();
-        const n = Object.keys(marcados).length;
+        const n = Object.keys(marcados).filter(function(m) { return marcados[m] === true; }).length;
         showToast(n ? ('Módulos atualizados (' + n + ' liberado' + (n > 1 ? 's' : '') + ').')
                     : 'Usuário ficou sem nenhum módulo — ele não acessa nenhuma tela.');
       })
@@ -878,6 +894,8 @@
 
   function erroForm(id, msg) {
     var el = document.getElementById(id);
+    el.setAttribute('role','status');
+    el.setAttribute('aria-live','polite');
     el.textContent = msg || '';
     el.classList.toggle('on', !!msg);
   }
@@ -904,7 +922,7 @@
     var existente = Object.keys(usuariosCache).filter(function(uid) { return String(usuariosCache[uid].email || '').toLowerCase() === email; })[0];
     if (existente) {
       var ex = usuariosCache[existente];
-      return erroForm('novoErro', (ex.nome || email) + ' já está na lista' + (ex.desativado ? ' (desativado). Use Editar › Reativar acesso.' : '. Ajuste as funções na linha dele.'));
+      return erroForm('novoErro', (ex.nome || email) + ' já está na lista. Use Editar › Verificar vínculo de login para conferir ou regularizar sem duplicar o cadastro.');
     }
     erroForm('novoErro', '');
 
@@ -942,6 +960,8 @@
     var u = usuariosCache[uid];
     if (!u) return;
     editUidAtual = uid;
+    document.getElementById('editRegularizarLogin').hidden = true;
+    document.getElementById('editVinculoStatus').textContent = '';
     var proprio = uid === firebase.auth().currentUser.uid;
     document.getElementById('editTitulo').textContent = 'Editar ' + (u.nome || u.email || uid);
     document.getElementById('editSub').textContent = u.desativado
@@ -966,6 +986,51 @@
     document.getElementById('modalEditBg').classList.add('open');
   }
   function fecharEdicao() { document.getElementById('modalEditBg').classList.remove('open'); editUidAtual = null; }
+
+  async function verificarVinculoLogin() {
+    var uid = editUidAtual;
+    if (!uid) return;
+    var btn = document.getElementById('editVerificarLogin');
+    btn.disabled = true;
+    try {
+      var r = await acaoIdentidade({acao:'diagnosticar',uid:uid});
+      if (editUidAtual !== uid) return;
+      document.getElementById('editRegularizarLogin').hidden = r.vinculo !== 'SEM_LOGIN';
+      erroForm('editErro','');
+      document.getElementById('editVinculoStatus').textContent = {
+        OK:r.desativadoAuth ? 'Login encontrado, mas bloqueado no Auth. Confira a desativação e reative pelas funções, se autorizado.' : 'Login e perfil estão vinculados no mesmo UID e e-mail.',
+        SEM_LOGIN:'Este perfil não tem login. Regularizar cria a conta no mesmo UID, preservando histórico e permissões; nenhum acesso adicional será concedido.',
+        CONFLITO_EMAIL:'Este e-mail tem login em outro UID. A fusão automática foi bloqueada; solicite reconciliação de identidade.',
+        EMAIL_DIVERGENTE:'O e-mail do login diverge do cadastro. Confira a identidade antes de salvar qualquer alteração.'
+      }[r.vinculo] || 'Vínculo não identificado. Solicite conferência administrativa.';
+    } catch (err) { if (editUidAtual === uid) erroForm('editErro',mensagemErroIdentidade(err)); }
+    finally { btn.disabled = false; }
+  }
+
+  async function regularizarLogin() {
+    var uid = editUidAtual, u = usuariosCache[uid];
+    if (!uid || !u) return;
+    var email = prompt('Regularizar o login mantendo o UID e o histórico. Nenhuma função será adicionada. Digite o e-mail do perfil para confirmar:\n' + u.email);
+    if (email === null) return;
+    var btn = document.getElementById('editRegularizarLogin');
+    btn.disabled = true;
+    try {
+      var r = await acaoIdentidade({acao:'regularizar_login',uid:uid,confirmacao_email:email.trim().toLowerCase()});
+      btn.hidden = true;
+      if (editUidAtual === uid) {
+        erroForm('editErro','');
+        document.getElementById('editVinculoStatus').textContent = 'Login regularizado no mesmo UID. Enviando link para definir a senha…';
+      }
+      try {
+        await mandarLinkSenha(firebase.auth(),r.email);
+        if (editUidAtual === uid) document.getElementById('editVinculoStatus').textContent = 'Login regularizado no mesmo UID; link para definir a senha enviado.';
+        showToast('Login regularizado; link para definir senha enviado.');
+      } catch (err) {
+        if (editUidAtual === uid) erroForm('editErro','Login regularizado, mas o e-mail não saiu. Use Enviar link para nova senha. ' + mensagemErroIdentidade(err));
+      }
+    } catch (err) { if (editUidAtual === uid) erroForm('editErro',mensagemErroIdentidade(err)); }
+    finally { btn.disabled = false; }
+  }
 
   function salvarConta() {
     if (!editUidAtual) return;
@@ -995,7 +1060,7 @@
       .then(function() { showToast('Link para nova senha enviado para ' + u.email + '.'); })
       .catch(function(err) {
         erroForm('editErro', err.code === 'auth/user-not-found'
-          ? 'Não existe login para ' + u.email + ' (perfil sem conta). Crie o usuário de novo com esse e-mail.'
+          ? 'Não existe login para este perfil. Use Verificar vínculo de login para regularizar mantendo o histórico.'
           : 'O e-mail não saiu: ' + mensagemErroIdentidade(err));
       })
       .then(function() { btn.disabled = false; });
@@ -1046,6 +1111,8 @@
   document.getElementById('editFechar').addEventListener('click', fecharEdicao);
   document.getElementById('editCancelar').addEventListener('click', fecharEdicao);
   document.getElementById('editSalvar').addEventListener('click', salvarConta);
+  document.getElementById('editVerificarLogin').addEventListener('click', verificarVinculoLogin);
+  document.getElementById('editRegularizarLogin').addEventListener('click', regularizarLogin);
   document.getElementById('editLinkSenha').addEventListener('click', enviarLinkSenhaAdm);
   document.getElementById('editRevogar').addEventListener('click', revogarSessoes);
   document.getElementById('editDesativar').addEventListener('click', desativarUsuario);

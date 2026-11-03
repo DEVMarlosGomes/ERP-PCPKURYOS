@@ -63,6 +63,8 @@ const newbie = make("identity-newbie", "newbie");
   assert.ok((await adm.ref("usuarios_removidos").get()).exists());
   await assert.rejects(alice.ref("auditoria_acessos").get(), PERMISSION_DENIED);
   await assert.rejects(adm.ref("auditoria_acessos/x").set({acao: "FALSA"}), PERMISSION_DENIED);
+  await assert.rejects(adm.ref('identidade_locks/falso').set({owner:'browser'}),PERMISSION_DENIED);
+  await assert.rejects(alice.ref('identidade_locks').get(),PERMISSION_DENIED);
 
   console.log("run_identity_access_rules_test: OK");
   await Promise.all(getApps().map(deleteApp));

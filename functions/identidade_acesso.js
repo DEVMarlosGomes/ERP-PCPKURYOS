@@ -228,7 +228,7 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
     };
   }
 
-  async function executar(request) {
+  async function executarInterno(request) {
     const {users, actor, data} = await contexto(request);
     const acao = String(data.acao || "");
     const targetUid = String(data.uid || "");
@@ -236,6 +236,9 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
     if (acao === "criar") {
       const nome = texto(data.nome, "o nome", 120);
       const email = emailValido(data.email);
+      if (Object.values(users).some(u => String(u.email || '').trim().toLowerCase() === email)) {
+        throw falha('already-exists', 'Este e-mail já tem perfil. Use Editar e verificar vínculo de login; não crie um segundo usuário.');
+      }
       const acesso = perfilDeAcesso(data);
       const date = now().toISOString();
       let created;
@@ -272,6 +275,55 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
     const before = users[targetUid];
     if (!before) throw falha("not-found", "Usuário não encontrado.");
 
+    async function contaExistente() {
+      try { return await auth.getUser(targetUid); } catch (error) {
+        if (!CODIGOS_AUTH_SEM_USUARIO.has(codigoAuth(error))) throw error;
+        throw falha('failed-precondition', 'O perfil existe, mas não há login neste UID. Use Verificar vínculo de login e regularize a conta.', {semLogin:true});
+      }
+    }
+
+    if (acao === 'diagnosticar') {
+      let account;
+      try { account = await auth.getUser(targetUid); } catch (error) {
+        if (!CODIGOS_AUTH_SEM_USUARIO.has(codigoAuth(error))) throw error;
+      }
+      if (account) return {ok:true, vinculo: String(account.email || '').toLowerCase() === String(before.email || '').toLowerCase() ? 'OK' : 'EMAIL_DIVERGENTE', desativadoAuth:account.disabled === true};
+      let porEmail;
+      try { porEmail = await auth.getUserByEmail(emailValido(before.email)); } catch (error) {
+        if (!CODIGOS_AUTH_SEM_USUARIO.has(codigoAuth(error))) throw error;
+      }
+      return {ok:true, vinculo:porEmail ? 'CONFLITO_EMAIL' : 'SEM_LOGIN'};
+    }
+
+    if (acao === 'regularizar_login') {
+      garantirOutroUsuario(actor.uid, targetUid, 'regularizar');
+      const email = emailValido(before.email);
+      if (emailValido(data.confirmacao_email) !== email) throw falha('failed-precondition','Confirme o e-mail do perfil para regularizar o login.');
+      if (Object.entries(users).some(([uid,u]) => uid !== targetUid && String(u.email || '').trim().toLowerCase() === email)) {
+        throw falha('failed-precondition','Há outro perfil com este e-mail. Resolva o conflito de identidade antes de regularizar.');
+      }
+      try {
+        await auth.getUser(targetUid);
+        throw falha('already-exists','Este UID já tem login. Atualize a conferência do vínculo.');
+      } catch (error) { if (!CODIGOS_AUTH_SEM_USUARIO.has(codigoAuth(error))) throw error; }
+      try {
+        await auth.getUserByEmail(email);
+        throw falha('already-exists','O e-mail está vinculado a outro UID. Não será feita fusão automática.');
+      } catch (error) { if (!CODIGOS_AUTH_SEM_USUARIO.has(codigoAuth(error))) throw error; }
+      // Primeiro nasce bloqueada: falha de persistência nunca libera login
+      // sem registro. O UID e os acessos históricos não são substituídos.
+      await auth.createUser({uid:targetUid,email,displayName:texto(before.nome || email,'o nome',120),disabled:true,emailVerified:false});
+      try {
+        await db.ref(`usuarios/${targetUid}`).update({login_regularizado_em:now().toISOString(),login_regularizado_por:actor.uid});
+        await auditar(actor,'REGULARIZAR_LOGIN',targetUid,before,before);
+        await auth.updateUser(targetUid,{disabled:before.desativado === true});
+      } catch (error) {
+        await auth.deleteUser(targetUid).catch(() => {});
+        throw error;
+      }
+      return {ok:true,uid:targetUid,email,enviarRedefinicao:true};
+    }
+
     if (acao === "atualizar") {
       const nome = texto(data.nome, "o nome", 120);
       const email = emailValido(data.email);
@@ -292,13 +344,23 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
         await auth.updateUser(targetUid, {displayName: authBefore.displayName || undefined, email: authBefore.email, emailVerified: authBefore.emailVerified}).catch(() => {});
         throw error;
       }
-      if (before.email !== email || before.tenant_id !== tenant) await revogar(targetUid);
-      await auditar(actor, "ATUALIZAR_USUARIO", targetUid, before, after, {email_alterado: before.email !== email});
+      try {
+        if (before.email !== email || before.tenant_id !== tenant) await revogar(targetUid);
+        await auditar(actor, "ATUALIZAR_USUARIO", targetUid, before, after, {email_alterado: before.email !== email});
+      } catch (error) {
+        const restored = await restaurarPerfilSeAtual(db,targetUid,after.identidade_versao,before).catch(() => false);
+        if (restored) {
+          await auth.updateUser(targetUid,{displayName:authBefore.displayName || undefined,email:authBefore.email,emailVerified:authBefore.emailVerified}).catch(() => {});
+          await db.ref(`usuarios_publico/${targetUid}`).set({nome:before.nome || before.email || targetUid,role:before.role || 'pending'}).catch(() => {});
+        }
+        throw error;
+      }
       return {ok: true, email};
     }
 
     if (acao === "funcoes") {
       garantirOutroUsuario(actor.uid, targetUid, "alterar os acessos de");
+      await contaExistente();
       const version = uuid();
       const alteracao = await alterarUsuariosAtomicamente(db, actor.uid, targetUid, (atual) => {
         const acesso = perfilDeAcesso(data, atual, atual.desativado === true);
@@ -329,16 +391,22 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
       if (before.desativado === true || before.role === "pending") {
         throw falha("failed-precondition", "Defina uma função ativa antes de alterar os módulos.");
       }
+      await contaExistente();
+      const version = uuid();
       const after = {...before, modulos: data.padrao === true ? null : modulosValidos(data.modulos), modulosDasFuncoes: data.modulosDasFuncoes === true ? true : null,
-        atualizado_em: now().toISOString(), atualizado_por: actor.uid, identidade_versao: uuid()};
+        atualizado_em: now().toISOString(), atualizado_por: actor.uid, identidade_versao: version};
       await db.ref(`usuarios/${targetUid}`).set(after);
-      await revogar(targetUid);
+      try { await revogar(targetUid); } catch (error) {
+        await restaurarPerfilSeAtual(db,targetUid,version,before).catch(() => false);
+        throw error;
+      }
       await auditar(actor, "ALTERAR_MODULOS", targetUid, before, after);
       return {ok: true};
     }
 
     if (acao === "desativar") {
       garantirOutroUsuario(actor.uid, targetUid, "desativar");
+      await contaExistente();
       const version = uuid();
       const alteracao = await alterarUsuariosAtomicamente(db, actor.uid, targetUid, (atual) => {
         if (atual.desativado === true) throw falha("failed-precondition", "O usuário já está desativado.");
@@ -369,13 +437,14 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
 
     if (acao === "revogar_sessoes") {
       garantirOutroUsuario(actor.uid, targetUid, "encerrar as sessões de");
+      await contaExistente();
       await revogar(targetUid);
       await auditar(actor, "REVOGAR_SESSOES", targetUid, before, before);
       return {ok: true};
     }
 
     if (acao === "solicitar_reset") {
-      const account = await auth.getUser(targetUid);
+      const account = await contaExistente();
       if (!account.email) throw falha("failed-precondition", "A conta não tem e-mail para recuperação.");
       await auditar(actor, "SOLICITAR_REDEFINICAO_SENHA", targetUid, before, before);
       return {ok: true, email: account.email};
@@ -426,6 +495,50 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
     throw falha("invalid-argument", "Ação de identidade desconhecida.");
   }
 
+  // Journal durável antes de qualquer efeito e trava por identidade. Não há
+  // transação distribuída entre Auth e RTDB: resultado parcial é explícito,
+  // rastreável e não é repetido silenciosamente com o mesmo requestId.
+  async function executar(request) {
+    const {actor,data} = await contexto(request);
+    if (data.acao === 'diagnosticar') return executarInterno(request);
+    const requestId = data.requestId;
+    if (requestId !== undefined && !/^[A-Za-z0-9_-]{16,128}$/.test(requestId)) throw falha('invalid-argument','Identificador de operação inválido.');
+    const operationId = requestId ? crypto.createHash('sha256').update(actor.uid + ':' + requestId).digest('hex') : crypto.randomUUID();
+    const journal = db.ref(`auditoria_acessos/op_${operationId}`);
+    const fingerprint = crypto.createHash('sha256').update(JSON.stringify({...data,requestId:undefined})).digest('hex');
+    const claim = await journal.transaction(current => current || {status:'PREPARADO',fingerprint,por_uid:actor.uid,acao:data.acao || '',alvo_uid:data.uid || null,em:now().toISOString()});
+    const previous = claim.snapshot.val();
+    // Sem requestId não há reutilização. A marca durável impede repetir
+    // operações concluídas e uma trava separada serializa a identidade.
+    if (previous.fingerprint !== fingerprint) throw falha('failed-precondition','Este identificador já pertence a outra operação.');
+    if (previous.status === 'CONCLUIDO') return previous.resultado;
+    if (previous.status !== 'PREPARADO') throw falha('failed-precondition','Operação já recebida. Confira o resultado antes de repetir.',{operacaoId:operationId,resultadoParcial:true});
+    const owner = crypto.randomUUID();
+    const lockKey = crypto.createHash('sha256').update(data.uid || 'email:' + String(data.email || '').trim().toLowerCase()).digest('hex');
+    const lock = db.ref(`identidade_locks/${lockKey}`);
+    const acquired = await lock.transaction(current => current ? undefined : {owner,operationId,em:now().toISOString()});
+    if (!acquired.committed) throw falha('resource-exhausted','Já existe uma operação para esta identidade. Aguarde ou solicite conferência administrativa.');
+    try {
+      const running = await journal.transaction(current => {
+        if (!current) return current; // cache frio: deixar consultar o servidor
+        return current.status === 'PREPARADO' ? {...current,status:'EM_ANDAMENTO',owner} : undefined;
+      });
+      if (!running.committed || running.snapshot.val()?.owner !== owner) throw falha('failed-precondition','Operação já iniciada. Confira o resultado antes de repetir.');
+      const result = await executarInterno(request);
+      await journal.update({status:'CONCLUIDO',resultado:result,concluido_em:now().toISOString()});
+      return result;
+    } catch (error) {
+      await journal.update({status:'REQUER_CONFERENCIA',codigo:String(error.code || 'internal'),falhou_em:now().toISOString()}).catch(() => {});
+      // Mesmo com erro, pode ter ocorrido revogação ou efeito em outro serviço.
+      error.details = {...error.details,operacaoId:operationId,resultadoParcial:true};
+      throw error;
+    } finally {
+      await lock.transaction(current => {
+        if (!current) return current; // cache frio não pode abortar a liberação
+        return current.owner === owner ? null : undefined;
+      }).catch(() => {});
+    }
+  }
   return {executar};
 }
 

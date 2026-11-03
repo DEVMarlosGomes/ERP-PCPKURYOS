@@ -71,13 +71,19 @@ function fakeAuth(seed) {
       calls.push(["createUser", clone(data)]);
       assert.equal("password" in data, false, "administrador nunca define ou recebe senha");
       if (Object.values(users).some((user) => user.email === data.email)) throw Object.assign(new Error("e-mail existe"), {code: "auth/email-already-exists"});
-      const uid = `u${++sequence}`;
+      const uid = data.uid || `u${++sequence}`;
+      if (users[uid]) throw Object.assign(new Error('UID existe'),{code:'auth/uid-already-exists'});
       users[uid] = {uid, ...clone(data)};
       return clone(users[uid]);
     },
     getUser: async (uid) => {
       if (!users[uid]) throw Object.assign(new Error("não encontrado"), {code: "auth/user-not-found"});
       return clone(users[uid]);
+    },
+    getUserByEmail: async (email) => {
+      const user = Object.values(users).find(u => u.email === email);
+      if (!user) throw Object.assign(new Error('não encontrado'),{code:'auth/user-not-found'});
+      return clone(user);
     },
     updateUser: async (uid, data) => {
       calls.push(["updateUser", uid, clone(data)]);
@@ -86,7 +92,10 @@ function fakeAuth(seed) {
       return clone(users[uid]);
     },
     deleteUser: async (uid) => { calls.push(["deleteUser", uid]); delete users[uid]; },
-    revokeRefreshTokens: async (uid) => { calls.push(["revokeRefreshTokens", uid]); },
+    revokeRefreshTokens: async (uid) => {
+      if (!users[uid]) throw Object.assign(new Error('não encontrado'),{code:'auth/user-not-found'});
+      calls.push(["revokeRefreshTokens", uid]);
+    },
   };
 }
 
