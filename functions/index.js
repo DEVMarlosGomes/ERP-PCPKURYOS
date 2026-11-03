@@ -2458,7 +2458,8 @@ exports.liberarEtapaPd = onCall({timeoutSeconds: 60, memory: "512MiB"}, async (r
   const req = (await db.ref(base + "/pd_requests/" + requestId).get()).val();
   if (!req) throw new HttpsError("not-found", "Solicitação do P&D não encontrada.");
   if (voltar) {
-    if (!(novoStatus === "WAITING_APPROVAL" && req.status === "APPROVED")) throw new HttpsError("failed-precondition", "Retrocesso não permitido.");
+    const retrocessos = {APPROVED: "WAITING_APPROVAL", WAITING_APPROVAL: "IN_TESTS"};
+    if (retrocessos[req.status] !== novoStatus) throw new HttpsError("failed-precondition", "Retrocesso não permitido.");
   } else {
     const lista = async (col) => Object.entries((await db.ref(base + "/" + col).get()).val() || {}).map(([id, v]) => ({id: (v && v.id) || id, ...(v || {})}));
     const dev = (await lista("pd_developments")).find((d) => d.request_id === requestId || d.pd_request_id === requestId);

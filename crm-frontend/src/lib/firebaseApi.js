@@ -1705,21 +1705,19 @@ async function dispatch(e, t) {
     const a = PD_CARD_TO_STATUS[r.status] || (PD_STATUS_TO_CARD[r.status] ? r.status : null);
     if (!a) throw apiError(400, `Status P&D inválido: ${r.status}`);
     const o = t.status || "OPEN";
-    await patch(_, "pd_requests", t.id, {
-      status: a
-    });
-    o !== a && (await create(_, "pd_request_status_history", {
-      request_id: t.id,
-      pd_request_id: t.id,
-      from_status: o,
-      to_status: a,
-      comment: r.observacao || `Movido no kanban de ${PD_STATUS_LABELS[o] || o} para ${PD_STATUS_LABELS[a] || a}`,
-      changed_by: firebaseAuth.currentUser.uid,
-      changed_by_name: pdUserName(u),
-      created_at: now(),
-      user_id: firebaseAuth.currentUser.uid
-    }));
-    await pdSyncRequestStatus(_, t, a);
+    if (o !== a) {
+      const backward = PD_BACKWARD_TRANSITIONS[o] === a;
+      const comment = String(r.justificativa || r.observacao || '').trim();
+      if (backward && comment.length < 10) throw justificationRequired('Informe uma justificativa de pelo menos 10 caracteres para retroceder o card de P&D.');
+      // O Kanban não tem uma segunda máquina de estados. A ficha faz as
+      // validações técnicas, obtém a liberação e gera amostra/histórico.
+      await dispatch('PUT', `/pd/requests/${encodeURIComponent(t.id)}/status`, {
+        new_status:a, is_backward:backward,
+        comment:comment || `Movido no kanban de ${PD_STATUS_LABELS[o] || o} para ${PD_STATUS_LABELS[a] || a}`,
+      });
+    } else {
+      await pdSyncRequestStatus(_, t, a);
+    }
     const s = await one(_, "pd_cards", O[1]);
     return response({
       ...normalizePdCard(s),
@@ -1734,16 +1732,13 @@ async function dispatch(e, t) {
   if (O && "PUT" === e) {
     const e = await one(_, "pd_cards", O[1]);
     if (!e) throw apiError(404, "Card P&D não encontrado.");
-    const t = await patch(_, "pd_cards", O[1], r),
-      a = r.status_pd || r.status,
-      o = a && (PD_CARD_TO_STATUS[a] || (PD_STATUS_TO_CARD[a] ? a : null));
-    if (o && e.pd_request_id) {
-      const t = await one(_, "pd_requests", e.pd_request_id);
-      t && (await patch(_, "pd_requests", t.id, {
-        status: o
-      }), await pdSyncRequestStatus(_, t, o));
-    }
-    return response(t, i);
+    const status = r.status_pd || r.status;
+    if (status) await dispatch('PUT', `/crm/pd/cards/${encodeURIComponent(O[1])}/move`, {
+      status, justificativa:r.justificativa, observacao:r.observacao,
+    });
+    const {status_pd, status:ignorado, justificativa, observacao, ...fields} = r;
+    if (Object.keys(fields).length) await patch(_, "pd_cards", O[1], fields);
+    return response(normalizePdCard(await one(_, "pd_cards", O[1])), i);
   }
   if ("POST" === e && "/pd/requests/internal-research" === S) {
     const e = id(),
@@ -2038,6 +2033,7 @@ async function dispatch(e, t) {
     const a = t.status || "OPEN",
       o = r.new_status;
     if (!Object.prototype.hasOwnProperty.call(PD_ALLOWED_TRANSITIONS, o)) throw apiError(400, `Status inválido: ${o}`);
+    if (o === a) return response(t,i); // repetição não gera efeitos novamente
     if (r.is_backward) {
       if (!r.comment || r.comment.trim().length < 10) throw apiError(400, "Justificativa obrigatória para retroceder (mínimo 10 caracteres).");
       if (PD_BACKWARD_TRANSITIONS[a] !== o) throw apiError(400, `Retrocesso não permitido: ${a} → ${o}`);
@@ -2048,14 +2044,25 @@ async function dispatch(e, t) {
     // AMO-03: concluir a manipulação ou entregar ao cliente exige 100% na fórmula vigente e em
     // cada variante dos lotes (tolerância 0,001; antes ±0,5 só na fórmula). Popup na tela.
     if (("IN_TESTS" === o || "WAITING_APPROVAL" === o) && s && !r.is_backward) await conferirFechamentoPd(_, t, s);
-    // INF-04: a regra do banco só aceita esses dois status com a liberação do servidor (que confere de novo).
-    if ("IN_TESTS" === o || "WAITING_APPROVAL" === o) await liberarEtapaPd(t.id, o, Boolean(r.is_backward));
+    let formulaAoEntrarEmTestes;
     if ("IN_TESTS" === o) {
       if (!s) throw apiError(400, "Inicie o desenvolvimento antes de avançar para Em Testes.");
       const e = (await related(_, "pd_formulas", "development_id", s.id)).sort((e, t) => Number(t.version || 0) - Number(e.version || 0))[0];
       if (!e) throw apiError(400, "Registre a fórmula antes de avançar para Em Testes (RN-PD-02).");
       const t = await related(_, "pd_formula_items", "formula_id", e.id);
       if (!t.length) throw apiError(400, "Adicione ingredientes à fórmula antes de avançar para Em Testes (RN-PD-02).");
+      formulaAoEntrarEmTestes = e;
+    }
+    // As pré-condições locais vêm ANTES do ticket e de qualquer efeito.
+    if ("WAITING_APPROVAL" === o && t.liberacao_antecipada?.status !== "aprovada") {
+      const e = (await all(_, "pd_stability_studies")).find(e => e.request_id === t.id || e.pd_card_id === t.id),
+        a = e ? await related(_, "pd_stability_readings", "study_id", e.id) : [];
+      if (!e || !a.some(e => 2 === Number(e.day_offset))) throw apiError(400, "Nenhuma leitura D48h (48 horas) registrada. Conclua o checkpoint D48h antes de entregar ao Comercial — ou peça a liberação antecipada à diretoria (já com o D24h).");
+    }
+    // INF-04: a regra do banco exige a liberação do servidor (que confere de novo).
+    if ("IN_TESTS" === o || "WAITING_APPROVAL" === o) await liberarEtapaPd(t.id, o, Boolean(r.is_backward));
+    if ("IN_TESTS" === o) {
+      const e = formulaAoEntrarEmTestes;
       await patch(_, "pd_formulas", e.id, {
         locked: !0,
         locked_at: now(),
@@ -2074,12 +2081,6 @@ async function dispatch(e, t) {
         created_by: firebaseAuth.currentUser.uid,
         created_by_name: pdUserName(u)
       });
-    }
-    // Liberação antecipada aprovada pela diretoria (24/10/2026) dispensa o D48h; o resto vale igual.
-    if ("WAITING_APPROVAL" === o && t.liberacao_antecipada?.status !== "aprovada") {
-      const e = (await all(_, "pd_stability_studies")).find(e => e.request_id === t.id || e.pd_card_id === t.id),
-        a = e ? await related(_, "pd_stability_readings", "study_id", e.id) : [];
-      if (!e || !a.some(e => 2 === Number(e.day_offset))) throw apiError(400, "Nenhuma leitura D48h (48 horas) registrada. Conclua o checkpoint D48h antes de entregar ao Comercial — ou peça a liberação antecipada à diretoria (já com o D24h).");
     }
     if ("APPROVED" === o && s) {
       const e = await related(_, "pd_tests", "development_id", s.id);
@@ -2134,8 +2135,11 @@ async function dispatch(e, t) {
   if (O && "PUT" === e) {
     const e = await one(_, "pd_requests", O[1]);
     if (!e) throw apiError(404, "Solicitação P&D não encontrada.");
-    const t = await patch(_, "pd_requests", O[1], r);
-    r.status && (await pdSyncRequestStatus(_, t, r.status));
+    const {status, ...fields} = r;
+    if (status && status !== e.status) await dispatch('PUT', `/pd/requests/${encodeURIComponent(O[1])}/status`, {
+      new_status:status,is_backward:r.is_backward,comment:r.comment || r.justificativa,
+    });
+    const t = Object.keys(fields).length ? await patch(_, "pd_requests", O[1], fields) : await one(_, "pd_requests", O[1]);
     return response(t, i);
   }
   if (O && "DELETE" === e) return await pdDeleteRequestCascade(_, O[1]), response({
