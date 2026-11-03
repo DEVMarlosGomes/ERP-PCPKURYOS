@@ -11,6 +11,10 @@ http://localhost, http://127.0.0.1 {
 	respond /healthz 200
 }
 
+kuryoserp.tech, www.kuryoserp.tech {
+	redir https://kuryoserp.com.br{uri} permanent
+}
+
 www.{$ERP_DOMAIN} {
 	redir https://{$ERP_DOMAIN}{uri} permanent
 }

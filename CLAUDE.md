@@ -123,6 +123,11 @@ antes de fechar.
 
 ### Identidade e acesso (03/11/2026)
 
+- Domínio principal da VPS Hostinger: `kuryoserp.com.br`; `www` e os endereços
+  `kuryoserp.tech`/`www.kuryoserp.tech` redirecionam ao principal. O projeto de
+  Auth/RTDB continua `erpkuryos`. Deploy por commit com
+  `scripts/hostinger/deploy.sh` na branch `hostinger-deploy`; push sozinho não
+  atualiza a VPS. Os dois domínios novos estão autorizados no Firebase Auth.
 - O login público não cadastra contas. `public/login.html` oferece entrada e recuperação
   de senha; a criação, edição, funções, módulos, tenant, bloqueio, revogação de sessões e
   exclusão ficam em `public/usuarios.html` para administradores.
