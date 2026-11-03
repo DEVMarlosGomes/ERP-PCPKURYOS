@@ -48,5 +48,14 @@ precisa do aceite do operador; os testes exercitam a API usada pelo arrastar.
   aprovados. Contrato estático impede divergência entre as quatro permissões.
 - Build Vite e integração oficial dos artefatos concluídos.
 
-Versão publicada será registrada no bloco Tech Lead de `AGENT_STATUS.md`, após
-a verificação da VPS e das regras relidas do projeto explícito `erpkuryos`.
+Publicado `b58eb749a25336ff1acf08f4c80180465a281196` na VPS. Regras publicadas
+separadamente no projeto explícito `erpkuryos` e relidas integralmente iguais à
+fonte. Dois containers saudáveis; health/API HTTP 200; callable sem token HTTP
+401; hashes dos arquivos públicos CRM, API e PDPage iguais ao build local.
+Teste adicional real `run_liberar_etapa_pd_test.js` aprovado. Rollback do código
+anterior preservado em `397b4a3`; regras possuem ciclo de publicação independente.
+
+Para o aceite operacional: atualizar a página com Ctrl+Shift+R e testar uma
+transição permitida usando o ícone de arrastar do card. Etapas com fórmula
+incompleta ou sem D48h continuam bloqueadas com mensagem. Não houve teste de
+movimentação de card real em produção por este agente.

@@ -12,6 +12,7 @@ const ordered=v=>Array.isArray(v)?v.map(ordered):v&&typeof v==='object'?Object.f
   const client=await auth.getClient();
   const {data}=await client.request({url:'https://erpkuryos-default-rtdb.firebaseio.com/.settings/rules.json',method:'GET'});
   const local=JSON.parse(fs.readFileSync('database.rules.json','utf8').replace(/^\s*\/\/.*$/gm,''));
-  assert.deepEqual(ordered(data),ordered(local),'Regras publicadas diferentes da fonte');
+  const remote=typeof data==='string'?JSON.parse(data.replace(/^\s*\/\/.*$/gm,'')):data;
+  assert.ok(JSON.stringify(ordered(remote))===JSON.stringify(ordered(local)),'Regras publicadas diferentes da fonte');
   console.log('erpkuryos: regras publicadas integralmente iguais à fonte, leitura sem alteração de dados OK');
 })().catch(e=>{console.error(e.message);process.exitCode=1;});
