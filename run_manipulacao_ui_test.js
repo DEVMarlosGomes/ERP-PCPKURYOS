@@ -311,12 +311,23 @@ async function campo(page, seletor, valor) {
     assert.equal(cancelada.canceladaPor, 'Operador João');
     assert.equal(cancelada.peso, 630, 'o registro não é apagado');
     await page.waitForSelector('.parcela.cancelada');
-    await page.setInputFiles('#pzFoto', foto('agua 2.jpg'));
-    await page.waitForSelector('#formParcela');
+    // A foto não anexa (03/11/2026): "Sem foto? Registrar por escrito" -- o motivo é obrigatório.
+    await page.click('#pzEscrito');
+    await page.waitForSelector('#fpSemFoto');
     assert.equal(await page.inputValue('#fpLote'), 'AK-2026-000577', 'sem FEFO, sugere o último lote usado');
     await page.fill('#fpPeso', '63');
+    await page.fill('#fpSemFoto', 'sem foto');
+    await page.waitForFunction(() => /pelo menos 10 caracteres/.test(document.getElementById('fpFaltando').innerText));
+    assert.equal(await page.locator('#fpSalvar').isDisabled(), true, 'motivo curto não salva');
+    await page.fill('#fpSemFoto', 'Câmera do tablet travou; peso conferido pela Ana');
+    await page.waitForFunction(() => !document.getElementById('fpSalvar').disabled);
     await page.click('#fpSalvar');
     await page.waitForFunction(() => Object.values(window.__db.ops['26260-01'].manipulacao.pesagem.parcelas['MPGR-002']).length === 2);
+    const escrita = (await parcelas('MPGR-002')).find((p) => !p.canceladaEm);
+    assert.equal(escrita.semFotoMotivo, 'Câmera do tablet travou; peso conferido pela Ana');
+    assert.ok(!escrita.foto, 'sem arquivo no Storage');
+    assert.ok(!escrita.semFotoRetroativo, 'não é o retroativo da Qualidade');
+    await page.waitForSelector('text=Sem foto (por escrito): Câmera do tablet travou');
     await page.waitForFunction(() => /Completo/i.test(document.getElementById('mPesagemCards').innerText));
 
     // A lista cobra o que ainda falta guardar.
@@ -477,7 +488,9 @@ async function campo(page, seletor, valor) {
     assert.match(await cq.page.locator('#qGranelInfo').innerText(), /Pesagem por Operador João/);
     assert.match(await cq.page.locator('#qGranelInfo').innerText(), /conferida por Manipuladora Ana/);
     assert.match(await cq.page.locator('#qGranelInfo').innerText(), /Fotos da pesagem: .*MPGR-001.*MPES-003|Fotos da pesagem: .*MPES-003/, 'a auditoria vê a foto de cada MP');
-    assert.doesNotMatch(await cq.page.locator('#qGranelInfo').innerText(), /sem foto/);
+    // A água foi pesada por escrito: a Qualidade vê o motivo, sem o vermelho de "sem foto".
+    assert.match(await cq.page.locator('#qGranelInfo').innerText(), /MPGR-002 63 kg sem foto \(por escrito: Câmera do tablet travou/);
+    assert.doesNotMatch(await cq.page.locator('#qGranelInfo').innerText(), /MP[A-Z]*-\d+ sem foto$|MP[A-Z]*-\d+ sem foto ·/m);
     const ensaios = await cq.page.locator('#qGranelPlanoBody').innerText();
     assert.match(ensaios, /ASPECTO/, 'a análise de granel usa a especificação do produto');
     assert.match(ensaios, /PH/);
@@ -542,7 +555,8 @@ async function campo(page, seletor, valor) {
     assert.match(txt, /2ª pesagem de MPGR-001: 48 kg \(lote AK-2026-000590\) com foto/, 'linha do tempo');
     assert.match(txt, /Granel liberado/);
     assert.match(txt, /pesagem do granel/, 'consumo de MP vem da pesagem');
-    assert.equal(await dossie.page.locator('#dossie .foto img').count(), 5, '2 do álcool + 2 da água (1 cancelada) + 1 da fragrância');
+    assert.equal(await dossie.page.locator('#dossie .foto img').count(), 4, '2 do álcool + 1 da água (a cancelada) + 1 da fragrância');
+    assert.match(await dossie.page.locator('#dossie').innerText(), /sem foto \(por escrito\)[\s\S]*Sem foto: Câmera do tablet travou/);
     assert.equal(await dossie.page.locator('#dossie .foto.cancelada').count(), 1);
     assert.equal(await dossie.page.locator('.kt-sidebar a[href="dossie_lote"]').count(), 1, 'Qualidade tem o Dossiê no menu');
     // Busca sem acento, por cliente e produto.
