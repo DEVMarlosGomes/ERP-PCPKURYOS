@@ -5,6 +5,16 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude (Engenheiro de Sistemas) — P&D: Manipulação em Lote (04/11/2026)
+
+- Worktree `PCP-Kuryos-pdlote`, branch `pd-lote/manipulacao-lote` (base `hostinger-deploy`). Sem push/deploy/regra publicada.
+- Arquivos: `crm-frontend/src/lib/manipulacaoLote*.js`, `crm-frontend/src/lib/ordemLoteHtml.js`,
+  `crm-frontend/src/components/ManipulacaoLote/*`, rotas novas em `crm-frontend/src/lib/firebaseApi.js`,
+  painel em `PDDetail.js` (mínimo), `functions/manipulacao_lote.js` + callable em `functions/index.js`,
+  `database.rules.json` (`pd_manipulacao_lotes`, `criticoPd`, `config/pdLote`), `public/cadastros.html` (caixa crítico),
+  `public/manuais.html` (P&D), testes `run_pd_manipulacao_lote_*`.
+- Progresso por ticket: `docs/superpowers/specs/2026-11-04-pd-manipulacao-lote-progresso.md`.
+
 ### Codex (Tech Lead) — Fechamento das pendências P1/P2 (01/11/2026)
 
 - **Publicado — painel ADM de senhas/acessos (03/11, 18:30 BRT):** `188ed53d04c29d04302ba2dc162d0eeeaa9d059b` implantado; versão saudável, página Usuários HTTP 200/hash igual ao local, serviço no container hash igual, API health 200/39 funções e identidade sem token 401. Rollback de código `bd24410` preservado. Reautenticação inline resolve a causa observada no log; ADM define nova senha/prepara Auth ausente no mesmo UID e valida permissões, mantendo conflitos no cadastro de login já existente. Testes Auth/RTDB e UI isolados concluídos; ver validação acima. Nenhuma senha real foi definida, conta real criada, permissão concedida, regra publicada ou automação ligada nesta tarefa. Operação dos 10 perfis sem Auth e dos 3 conflitos deve ser concluída pelo ADM no painel com as senhas e permissões escolhidas; contas pending/desativadas não foram liberadas em massa. **Arquivos ativos: nenhum após este registro.**
