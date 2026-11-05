@@ -17,7 +17,8 @@ import { fechamentoFormula } from "./fechamentoFormula";
 export const MIN_MEMBROS = 2;
 export const MAX_MEMBROS = 20; // D-01 (Marlos, P1): 20, não 12
 export const STATUS_PD_ELEGIVEIS = ["OPEN", "IN_PROGRESS"];
-export const STATUS_LOTE_ABERTO = ["rascunho", "ordem_gerada"];
+// gerando_ordem: o servidor travou o lote para montar a ordem (segundos); conta como aberto.
+export const STATUS_LOTE_ABERTO = ["rascunho", "gerando_ordem", "ordem_gerada"];
 export const MIN_MOTIVO = 5;
 export const MIN_MOTIVO_DEPOIS_DA_ORDEM = 10;
 export const MINIMO_PESAVEL_PADRAO_G = 0.05;
@@ -27,7 +28,7 @@ export const ROTULO_STATUS_PD = {
   OPEN: "Aberto", IN_PROGRESS: "Em Desenvolvimento", IN_TESTS: "Em Testes", WAITING_APPROVAL: "Aguardando Aprovação",
   APPROVED: "Aprovada", COMPLETED: "Concluída", REJECTED: "Reprovada", CANCELLED: "Cancelada",
 };
-export const ROTULO_STATUS_LOTE = { rascunho: "Rascunho", ordem_gerada: "Ordem gerada", manipulado: "Manipulado", cancelado: "Cancelado" };
+export const ROTULO_STATUS_LOTE = { rascunho: "Rascunho", gerando_ordem: "Gerando a ordem", ordem_gerada: "Ordem gerada", manipulado: "Manipulado", cancelado: "Cancelado" };
 
 const semAcento = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "");
 const norm = (s) => semAcento(s).trim().toLowerCase().replace(/\s+/g, " ");

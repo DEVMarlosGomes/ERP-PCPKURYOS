@@ -24,6 +24,7 @@ const DevolucaoCliente = require("./devolucao_cliente");
 const Titularidade = require("./titularidade");
 const EmissaoOp = require("./emissao_op");
 const {criarServicoIdentidade} = require("./identidade_acesso");
+const ManipulacaoLote = require("./manipulacao_lote");
 
 initializeApp();
 const db = getDatabase();
@@ -2478,8 +2479,29 @@ exports.liberarEtapaPd = onCall({timeoutSeconds: 60, memory: "512MiB"}, async (r
       }
     }
   }
+  if (!voltar) {
+    // Manipulação em lote (D-07/A5): ordem gerada ainda não manipulada não vai a Em Testes, e a versão
+    // do lote tem a assinatura reconferida. Só lê os itens quando a amostra está em algum lote.
+    const lotesPd = (await db.ref(base + "/" + ManipulacaoLote.COLECAO).get()).val() || {};
+    if (Object.values(lotesPd).some((l) => l && l.membros && l.membros[requestId])) {
+      const bloqueio = ManipulacaoLote.bloqueioDeEtapa({lotes: lotesPd, itens: (await db.ref(base + "/pd_formula_items").get()).val(), requestId, novoStatus});
+      if (bloqueio) throw new HttpsError("failed-precondition", bloqueio);
+    }
+  }
   await db.ref(base + "/pd_liberacoes_status/" + requestId).set({status: novoStatus, ate: Date.now() + 2 * 60 * 1000, por: uid, em: new Date().toISOString()});
   return {ok: true};
+});
+
+// ── P&D: manipulação em lote (spec 2026-11-04 §7) — versões travadas, ordem, pesagem, conferência,
+// registro da manipulação e aprovação de crítico. Regras em functions/manipulacao_lote.js.
+const manipulacaoLote = ManipulacaoLote.criarServico({db});
+exports.manipulacaoLoteServidor = onCall({timeoutSeconds: 120, memory: "512MiB"}, async (request) => {
+  try { return await manipulacaoLote.executar(request); } catch (e) {
+    if (e instanceof HttpsError) throw e;
+    if (e && e.code && /^[a-z-]+$/.test(e.code)) throw new HttpsError(e.code, e.message, e.details);
+    console.error("[manipulacaoLoteServidor]", e);
+    throw new HttpsError("internal", "Erro interno na manipulação em lote. Nada foi gravado pela metade: confira o lote e tente de novo.");
+  }
 });
 
 exports.apontarRetrabalho = onCall({timeoutSeconds:120,memory:'512MiB'}, async request => {
