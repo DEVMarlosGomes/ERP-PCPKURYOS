@@ -38,20 +38,30 @@ export function LoteDialog({ loteId, user, onClose }) {
   const lote = detalhe?.lote;
   return (
     <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-[min(98vw,1500px)] w-[98vw] h-[94vh] overflow-y-auto p-4 sm:p-6" data-testid="lote-dialog">
-        <DialogHeader>
-          <DialogTitle className="flex flex-wrap items-center gap-2">
-            Manipulação em lote {lote?.codigo || ""}
-            {lote && <Badge variant="outline" className={COR_STATUS_LOTE[lote.status] || ""}>{ROTULO_STATUS_LOTE[lote.status] || lote.status}</Badge>}
-          </DialogTitle>
-          <DialogDescription>
-            {lote ? `${lote.projeto_numero || ""} ${lote.projeto_nome || ""} · revisão ${lote.revisao}` : "Carregando o lote…"}
-          </DialogDescription>
+      <DialogContent className="flex h-[100dvh] max-h-[100dvh] w-full max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-background p-0 sm:h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-none sm:rounded-xl sm:border" data-testid="lote-dialog" data-lote-workspace="true">
+        <DialogHeader className="shrink-0 border-b bg-background px-5 py-4 pr-14 text-left sm:px-6 sm:pr-16">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">P&amp;D · Manipulação em lote</p>
+              <DialogTitle className="mt-1 flex min-w-0 flex-wrap items-center gap-2 text-xl">
+                <span className="truncate">{lote?.codigo || "Carregando lote…"}</span>
+                {lote && <Badge variant="outline" className={COR_STATUS_LOTE[lote.status] || ""}>{ROTULO_STATUS_LOTE[lote.status] || lote.status}</Badge>}
+              </DialogTitle>
+              <DialogDescription className="mt-1 truncate">
+                {lote ? `${lote.projeto_numero || ""} ${lote.projeto_nome || ""}`.trim() || "Projeto sem identificação" : "Buscando dados e permissões…"}
+              </DialogDescription>
+            </div>
+            {lote && <div className="shrink-0 text-left text-xs text-muted-foreground sm:text-right"><span className="block font-medium text-foreground">Revisão {lote.revisao}</span><span>{Object.values(lote.membros || {}).filter((m) => m?.status_membro !== "removido").length} amostras no lote</span></div>}
+          </div>
         </DialogHeader>
-        {erro && <p className="text-sm text-red-600 dark:text-red-400" role="alert">{erro}</p>}
-        {!detalhe && !erro && <Loader2 className="h-5 w-5 animate-spin" />}
-        {detalhe && lote.status === "rascunho" && <EditorLote detalhe={detalhe} user={user} recarregar={recarregar} />}
-        {detalhe && lote.status !== "rascunho" && <OrdemLote detalhe={detalhe} user={user} recarregar={recarregar} />}
+        <div className="min-h-0 flex-1 overflow-y-auto bg-muted/15 p-4 sm:p-5 lg:p-6" data-testid="lote-workspace-scroll">
+          <div className="mx-auto w-full max-w-[1600px]">
+            {erro && <p className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300" role="alert">{erro}</p>}
+            {!detalhe && !erro && <div className="flex min-h-[40vh] items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />Carregando workspace do lote…</div>}
+            {detalhe && lote.status === "rascunho" && <EditorLote detalhe={detalhe} user={user} recarregar={recarregar} />}
+            {detalhe && lote.status !== "rascunho" && <OrdemLote detalhe={detalhe} user={user} recarregar={recarregar} />}
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
