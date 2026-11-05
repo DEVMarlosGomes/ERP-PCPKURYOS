@@ -5,15 +5,19 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
-### Claude (Engenheiro de Sistemas) — P&D: Manipulação em Lote (04/11/2026)
+### Claude (Dev Fullstack) — P&D: Manipulação em Lote (04–05/11/2026)
 
-- Worktree `PCP-Kuryos-pdlote`, branch `pd-lote/manipulacao-lote` (base `hostinger-deploy`). Sem push/deploy/regra publicada.
-- Arquivos: `crm-frontend/src/lib/manipulacaoLote*.js`, `crm-frontend/src/lib/ordemLoteHtml.js`,
-  `crm-frontend/src/components/ManipulacaoLote/*`, rotas novas em `crm-frontend/src/lib/firebaseApi.js`,
-  painel em `PDDetail.js` (mínimo), `functions/manipulacao_lote.js` + callable em `functions/index.js`,
-  `database.rules.json` (`pd_manipulacao_lotes`, `criticoPd`, `config/pdLote`), `public/cadastros.html` (caixa crítico),
-  `public/manuais.html` (P&D), testes `run_pd_manipulacao_lote_*`.
-- Progresso por ticket: `docs/superpowers/specs/2026-11-04-pd-manipulacao-lote-progresso.md`.
+- **Construído e testado localmente, NÃO publicado.** Worktree `PCP-Kuryos-pdlote`, branch `pd-lote/manipulacao-lote`,
+  rebaseada em 05/11 sobre a versão publicada `25bb2bb` (fora o redesign cancelado `62fc9e3`/`1eed1ce`; backup da base
+  antiga em `backup/pd-lote-antes-rebase-20261105`). Sem push, deploy ou regra publicada.
+- LM-01..08, LM-10..14 feitos (LM-09 kanban adiado). Servidor: callable nova `manipulacaoLoteServidor` (28 callables)
+  e trava extra no `liberarEtapaPd`. Regras novas: `erp/$tenant/pd_manipulacao_lotes`, `materiais/$m/criticoPd` e
+  `config/pdLote` só ADM. Cadastros: caixa "Crítico no P&D" (só ADM). Bundle do CRM integrado.
+- Provas: emulador `demo-pd-lote` (servidor 10 passos, regras 10 passos, adaptador+regras+callables de ponta a ponta,
+  ensaio com fotografia da base apagada às 01:54 de 05/11), CRM 474+ testes, UI do Cadastros e da Central de Ajuda.
+- Para publicar: integrar com a branch da auditoria (`audit-fix-20261104`, também mexe em `database.rules.json`),
+  rodar a bateria completa de regras sobre a junção, publicar regras e funções juntas (a tela chama a callable).
+- **Arquivos ativos: nenhum em edição;** progresso por ticket em `docs/superpowers/specs/2026-11-04-pd-manipulacao-lote-progresso.md`.
 
 ### Codex (Tech Lead) — Fechamento das pendências P1/P2 (01/11/2026)
 

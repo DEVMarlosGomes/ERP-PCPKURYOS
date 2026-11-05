@@ -35,3 +35,4 @@ em lote → ADM aprova 3 → Aguardando Aprovação → cliente aprova as 3 no C
   ingrediente é pesado por amostra: 216 pesagens para 18 amostras. Nomear as fases nas fórmulas é o que traz o ganho.
 - Não feito aqui: o roteiro cronometrado por uma pessoa (5 amostras × 25 ingredientes em < 5 min, em vídeo) — é na
   tela, com quem vai usar.
+| LM-14 manual, Central de Ajuda, MELHORIAS, AGENT_STATUS | feito | (este commit) | `run_manuais_workflow_test.js` (93), `run_manuais_workflow_ui_test.js` | LM-15 auditoria final + prints |

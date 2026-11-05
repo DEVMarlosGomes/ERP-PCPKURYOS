@@ -27,6 +27,32 @@ parcial publicada em `397b4a3` está em `CORRECOES_VIRADA_ACESSOS_20261103.md`.
   a mesma conferência de máximo histórico e ensaio de concorrência antes de
   qualquer nova importação, sem editar o bundle compilado manualmente.
 
+## P&D — Manipulação em lote (adiado na entrega de 05/11/2026)
+
+Spec: `docs/superpowers/specs/2026-11-04-pd-manipulacao-lote-design.md` §11; progresso e ensaio em
+`…-progresso.md`. Código: `crm-frontend/src/lib/manipulacaoLote.js` (motor), `manipulacaoLoteRotas.js`,
+`components/ManipulacaoLote/`, `functions/manipulacao_lote.js`.
+
+- **Fases nas fórmulas (operação, não código):** no ensaio com a base real (18 amostras), nenhum item tinha fase,
+  então a pré-mistura não se aplicou e a bancada pesa cada ingrediente por amostra (216 pesagens). Nomear as fases
+  nas fórmulas de maior giro é o que traz o ganho da pré-mistura (D-05: só fase com nome).
+- **Roteiro cronometrado na tela:** 5 amostras × 25 ingredientes em < 5 min, gravado, com quem vai usar (o ensaio
+  automático levou ~23 s do painel à aprovação no CRM 3, mas não substitui a medição com pessoa).
+- **LM-09 kanban do P&D** com filtro por projeto e modo de seleção — fora por conflito com o Codex em `PDPage.js`.
+- **Matriz (c): amostra aprovada como matriz** do lote.
+- **MP nova criada dentro do editor do lote** (hoje: só MP do Cadastros; MP nova vem das fórmulas de origem).
+- **Estoque do laboratório:** baixar as MPs pesadas no lote (a pesagem já guarda o lote da MP).
+- **Rótulo/laudo/INCI da amostra "fora da base"** (os dados ficam gravados no lote e na versão).
+- **Pré-diluição como linha da ordem** (B2): hoje a ordem só avisa abaixo do mínimo pesável.
+- **`locked` na regra** com coleções nomeadas `pd_formulas`/`pd_formula_items`/`pd_formula_phases` e fechar a
+  escrita direta de `erp/$tenant` (A5.3) — decisão do Marlos; hoje a trava é das rotas e do `liberarEtapaPd`.
+- **Transição em lote no servidor** (hoje: rota real, uma amostra por vez, com relatório).
+- **Assinatura da versão conferida também na ficha/BOM/SKU** gerados no cliente.
+- **Nome de fase com `.`, `#`, `$`, `[`, `]` ou `/`:** a chave de `pre_mistura` no rascunho não aceita esses
+  caracteres (o RTDB recusa a gravação inteira). Codificar a chave em `planoSalvarLote`/`ordemDoLote` se aparecer.
+- **Painel na tela da ordem para o lote cancelado depois da ordem:** hoje mostra a ordem e o motivo; reabrir como
+  rascunho não existe de propósito (versões travadas são histórico).
+
 Documento vivo. Lista de melhorias identificadas ao longo do desenvolvimento
 que foram conscientemente adiadas — não são bugs bloqueantes, são trabalho
 que faz sentido fazer em algum momento, mas não agora. Cada item tem uma
