@@ -23,6 +23,10 @@ function Cena() {
     const lote = montarLote("rascunho");
     lote.matriz = { tipo: "vazia", ref_id: null, codigo: "", celulas: {} };
     lote.motivos = {};
+    if (q.get("amostras") === "3") {
+      delete lote.membros.R4;
+      delete lote.celulas.R4;
+    }
     for (const m of Object.values(lote.membros)) { m.versao_antes = null; if (q.get("gramas") !== "1") m.quantidade_g = undefined; }
     return <EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true }} user={user} recarregar={nada} />;
   }

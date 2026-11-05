@@ -36,6 +36,11 @@ test("editor: 100 % por coluna, comum em âmbar e crítico em vermelho; sem caix
   const origem_celulas = { R2: { [k("Água")]: 79, [k("Fenoxietanol")]: 1, [k("Fragrância Lavanda")]: 20 } };
   const html = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true, origem_celulas }} user={{ role: "pd" }} recarregar={async () => {}} />);
   expect(html).toContain('data-testid="matriz-lote"');
+  expect(tag(html, "matriz-lote")).toContain("table-fixed");
+  expect(tag(html, "matriz-lote")).toContain('style="width:724px"');
+  expect(tag(html, "matriz-lote-table-wrap")).toContain("overflow-x-auto");
+  expect(tag(html, "matriz-lote-table-wrap")).toContain("max-w-full");
+  expect(html).toContain('<col style="width:220px"/>');
   expect(html).toMatch(/data-testid="soma-R1"[^>]*>100 %/);
   expect(tag(html, `cel-R2-${k("Água")}`)).toContain("bg-amber-50");
   expect(tag(html, `cel-R2-${k("Fenoxietanol")}`)).toContain("bg-red-50");
