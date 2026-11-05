@@ -58,6 +58,7 @@ function readBody(req, limit = 10 * 1024 * 1024) {
     req.on("data", (c) => { size += c.length; if (size > limit) { reject(new Error("payload grande demais")); req.destroy(); } else chunks.push(c); });
     req.on("end", () => resolve(Buffer.concat(chunks)));
     req.on("error", reject);
+    req.on("aborted", () => reject(new Error("request aborted")));
   });
 }
 
@@ -84,9 +85,19 @@ function kindOf(fn) {
   return null;
 }
 
-function createServer({ fns, admin, corsOrigins = [], log = console }) {
+function createServer({ fns, admin, corsOrigins = [], log = console, rateLimit = 600 }) {
   const allowAll = corsOrigins.includes("*");
-  return http.createServer(async (req, res) => {
+  const buckets = new Map();
+  let active = 0;
+  function allowed(key, limit) {
+    const now = Date.now();
+    if (buckets.size > 10000) for (const [k, b] of buckets) if (b.until <= now) buckets.delete(k);
+    if (!buckets.has(key) && buckets.size >= 10000) return false;
+    let b = buckets.get(key);
+    if (!b || b.until <= now) { b = {until: now + 60000, count: 0}; buckets.set(key, b); }
+    return ++b.count <= limit;
+  }
+  async function handle(req, res) {
     const origin = req.headers.origin;
     if (origin && (allowAll || corsOrigins.includes(origin))) {
       res.setHeader("Access-Control-Allow-Origin", origin);
@@ -96,7 +107,9 @@ function createServer({ fns, admin, corsOrigins = [], log = console }) {
       res.setHeader("Access-Control-Max-Age", "3600");
     }
     if (req.method === "OPTIONS") { res.statusCode = 204; return res.end(); }
-    const name = decodeURIComponent((req.url || "/").split("?")[0].replace(/^\/+|\/+$/g, ""));
+    let name;
+    try { name = decodeURIComponent((req.url || "/").split("?")[0].replace(/^\/+|\/+$/g, "")); }
+    catch { res.statusCode = 400; return res.end("Invalid URL"); }
     if (req.method === "GET" && (name === "" || name === "health")) {
       res.setHeader("Content-Type", "application/json");
       return res.end(JSON.stringify({ ok: true, funcoes: Object.keys(fns).length, em: new Date().toISOString() }));
@@ -104,6 +117,14 @@ function createServer({ fns, admin, corsOrigins = [], log = console }) {
     const fn = Object.prototype.hasOwnProperty.call(fns, name) ? fns[name] : null;
     const kind = kindOf(fn);
     if (!fn || !["callable", "request"].includes(kind)) { res.statusCode = 404; return res.end("Função não encontrada"); }
+    // O backend não publica porta no host: somente o Caddy pode fornecer este IP.
+    const ip = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown").split(",")[0].trim();
+    if (!allowed(`ip:${ip}`, rateLimit) || active >= 16) {
+      res.statusCode = 429; res.setHeader("Retry-After", "60");
+      return res.end(JSON.stringify({error:{status:"RESOURCE_EXHAUSTED",message:"Muitas solicitações. Aguarde um minuto."}}));
+    }
+    active++;
+    req.kuryosSlot = true;
     let raw;
     try { raw = await readBody(req); } catch (e) { res.statusCode = 413; return res.end(e.message); }
 
@@ -126,11 +147,28 @@ function createServer({ fns, admin, corsOrigins = [], log = console }) {
     const bearer = /^Bearer\s+(.+)$/i.exec(req.headers.authorization || "");
     if (bearer) {
       try {
-        const token = await admin.auth().verifyIdToken(bearer[1]);
+        const token = await admin.auth().verifyIdToken(bearer[1], true);
         auth = { uid: token.uid, token, rawToken: bearer[1] };
       } catch {
         res.statusCode = 401;
         return res.end(JSON.stringify({ error: { status: "UNAUTHENTICATED", message: "Unauthenticated" } }));
+      }
+    }
+    if (auth && !allowed(`uid:${auth.uid}:${name}`, name === "gerenciarUsuario" ? 30 : 120)) {
+      res.statusCode = 429; res.setHeader("Retry-After", "60");
+      return res.end(JSON.stringify({error:{status:"RESOURCE_EXHAUSTED",message:"Limite de solicitações excedido."}}));
+    }
+    if (auth && typeof admin.database === "function") {
+      const db = admin.database();
+      const [profileSnap, sessionSnap] = await Promise.all([
+        db.ref(`usuarios/${auth.uid}`).get(), db.ref(`security_sessions/${auth.uid}`).get(),
+      ]);
+      const profile = profileSnap.val();
+      const revokedAfter = sessionSnap.val()?.revokedAfter;
+      if (!profile || !profile.role || profile.role === "pending" || profile.desativado === true ||
+          (typeof revokedAfter === "number" && !(Number(auth.token.auth_time) > revokedAfter))) {
+        res.statusCode = 403;
+        return res.end(JSON.stringify({error:{status:"PERMISSION_DENIED",message:"Acesso inativo ou sessão encerrada. Entre novamente."}}));
       }
     }
     try {
@@ -142,7 +180,18 @@ function createServer({ fns, admin, corsOrigins = [], log = console }) {
       res.statusCode = status;
       res.end(JSON.stringify(body));
     }
+  }
+  const server = http.createServer((req, res) => {
+    handle(req, res).catch((error) => {
+      log.error("[http] request failed", {name: error && error.name});
+      if (!res.headersSent) { res.statusCode = 500; res.end(JSON.stringify({error:{status:"INTERNAL",message:"INTERNAL"}})); }
+      else res.destroy();
+    }).finally(() => { if (req.kuryosSlot) active--; });
   });
+  server.requestTimeout = 30000;
+  server.headersTimeout = 15000;
+  server.keepAliveTimeout = 5000;
+  return server;
 }
 
 // ── Gatilhos do banco por escuta ─────────────────────────────────────────────

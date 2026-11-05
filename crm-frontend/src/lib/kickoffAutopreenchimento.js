@@ -7,6 +7,7 @@
  * questionario.origem[bloco][campo] = { fonte, atualizado_em, sobrescrito, motivo }. A tela mostra
  * o selo; mudar um valor que veio da origem exige motivo, que fica gravado no mesmo lugar.
  * Funções puras: nada aqui lê ou grava no banco. */
+import { composicaoValida, oQueVaria } from "@/lib/manipulacaoLote";
 
 const vazio = (v) => v === undefined || v === null || (typeof v === "string" && !v.trim()) || (Array.isArray(v) && !v.length);
 const NAO_SAO_BLOCOS = new Set(["origem", "autopopulated_from", "schema_version", "motivos_sobrescrita"]);
@@ -86,6 +87,15 @@ export function variacaoEntreSkus(aprovadas, categoriaProjeto = "") {
   const lista = aprovadas || [];
   const varia = new Set();
   const outros = new Set();
+  // Manipulação em lote (M8): a composição travada da versão aprovada diz o que de fato varia na fórmula
+  // (por material + fase); fragrância marca "fragrância", o resto vai em "outro" com os nomes.
+  const ingredientesQueVariam = oQueVaria(lista.map(({ variation }) => variation));
+  if (ingredientesQueVariam.length) {
+    const fragrancias = new Set(lista.flatMap(({ variation }) => composicaoValida(variation) || []).filter((c) => c.fragrancia).map((c) => c.nome));
+    if (ingredientesQueVariam.some((n) => fragrancias.has(n))) varia.add("fragrancia");
+    const naFormula = ingredientesQueVariam.filter((n) => !fragrancias.has(n));
+    if (naFormula.length) { varia.add("outro"); outros.add(`fórmula: ${naFormula.join(", ")}`); }
+  }
   const distintos = (f) => new Set(lista.map(({ variation }) => String(variation?.[f] ?? "").trim().toLowerCase()).filter(Boolean)).size > 1;
   if (lista.length > 1) {
     if (distintos("referencia_fragrancia")) varia.add("fragrancia");

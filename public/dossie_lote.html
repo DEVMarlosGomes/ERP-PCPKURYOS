@@ -270,10 +270,11 @@ function renderDossie() {
       var fotos = l.todasParcelas.map(function(p) {
         var url = p.foto && p.foto.url;
         return '<div class="foto' + (p.canceladaEm ? ' cancelada' : '') + '">' +
-          (url ? '<a href="' + escapeAttr(url) + '" target="_blank" rel="noopener"><img loading="lazy" src="' + escapeAttr(url) + '" alt="Balança ' + escapeAttr(l.mpCodigo) + '"></a>' : '<div class="sem-foto">' + (p.semFotoRetroativo ? 'sem foto (retroativo)' : 'sem foto') + '</div>') +
+          (url ? '<a href="' + escapeAttr(url) + '" target="_blank" rel="noopener"><img loading="lazy" src="' + escapeAttr(url) + '" alt="Balança ' + escapeAttr(l.mpCodigo) + '"></a>' : '<div class="sem-foto">' + (p.semFotoRetroativo ? 'sem foto (retroativo)' : p.semFotoMotivo ? 'sem foto (por escrito)' : 'sem foto') + '</div>') +
           '<div class="leg"><b>' + (p.ordem ? p.ordem + 'ª · ' : 'cancelada · ') + fmtNum(p.peso) + ' ' + un + '</b><br>lote ' + escapeHtml(p.loteMaterial || '—') +
           '<br><span class="hint">' + escapeHtml(p.por || '') + ' · ' + quando(p.em) + '</span>' +
           (p.motivoForaFefo ? '<br><span style="color:var(--tint-orange-fg)">Fora do FEFO: ' + escapeHtml(p.motivoForaFefo) + '</span>' : '') +
+          (p.semFotoMotivo ? '<br><span style="color:var(--tint-orange-fg)">Sem foto: ' + escapeHtml(p.semFotoMotivo) + '</span>' : '') +
           (p.canceladaEm ? '<br><span style="color:var(--danger)">Cancelada por ' + escapeHtml(p.canceladaPor || '—') + ': ' + escapeHtml(p.motivoCancelamento || '') + '</span>' : '') +
           '</div></div>';
       }).concat(l.fotosAvulsas.map(function(a) {

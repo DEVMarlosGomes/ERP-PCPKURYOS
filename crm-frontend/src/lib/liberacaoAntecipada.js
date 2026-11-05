@@ -1,8 +1,8 @@
 /* Liberação antecipada da amostra ao Comercial (pedido do usuário em 24/10/2026).
  *
  * Regra até aqui: "Em Testes → Entregar ao Comercial" só depois da leitura de estabilidade D48h.
- * Agora o P&D pode pedir para entregar já com os primeiros testes (D24h completo, D48h ainda não
- * feito). O pedido fica "aguardando a diretoria"; um ADM aprova ou recusa no CRM (Projetos) com
+ * O P&D pode pedir para entregar com D0, sem exigir D24h ou D48h completos.
+ * O pedido fica "aguardando a diretoria"; um ADM aprova ou recusa no CRM (Projetos) com
  * quem, data/hora e justificativa. Aprovada, a solicitação segue o caminho normal (Aguardando
  * Aprovação, amostra com o Comercial) e a estabilidade continua correndo.
  * Grava em pd_requests/{id}/liberacao_antecipada. Funções puras: nada aqui lê ou grava no banco. */

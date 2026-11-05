@@ -616,6 +616,9 @@
             <div class="form-group">
               <label class="chk" title="Desmarque para itens como água: continuam na fórmula e na pesagem, mas não dão baixa, não são reservados e não entram na necessidade de compra"><input type="checkbox" id="fControlaEstoque-mat" checked> Controla estoque</label>
             </div>
+            <div class="form-group">
+              <label class="chk" title="Manipulação em lote do P&amp;D: mudar este ingrediente fora da base exige motivo e a aprovação de outra pessoa (ADM ou quem tem o módulo Aprovar crítico P&amp;D). Só o administrador marca ou desmarca."><input type="checkbox" id="fCriticoPd-mat"> Crítico no P&amp;D (só o ADM marca)</label>
+            </div>
           </div>
 
           <div class="section-label" id="historicoMatLabel-mat" style="display:none">Histórico de alterações</div>
@@ -2430,6 +2433,10 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
+  function ehAdminCadastro() {
+    return Boolean(window.currentUser && window.currentUser.role === 'admin');
+  }
+
   function openModal(key) {
     editingKey = key || null;
     var m = key ? (allMateriais[key] || {}) : {};
@@ -2509,6 +2516,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('fControlado').checked = !!m.controlado;
     document.getElementById('fAtivo-mat').checked = m.ativo !== false;
     document.getElementById('fControlaEstoque-mat').checked = m.controlaEstoque !== false;
+    document.getElementById('fCriticoPd-mat').checked = m.criticoPd === true;
+    document.getElementById('fCriticoPd-mat').disabled = !ehAdminCadastro();
 
     solicitacaoMatEmCurso = null;
     setTimeout(renderDuplicidadeMat, 0);
@@ -2826,6 +2835,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }, tipo, currentUserNome(), new Date().toISOString());
     if (skuEntrada.erro) { showAlert(skuEntrada.erro, 'danger'); return; }
     data.skusEntrada = skuEntrada.skusEntrada;
+    // Manipulação em lote (D-02): criticoPd só o ADM muda (a regra do banco recusa o resto). O material é
+    // regravado inteiro, então quem não é ADM leva a marca que já estava gravada.
+    var criticoGravado = !!(editingKey && allMateriais[editingKey] && allMateriais[editingKey].criticoPd === true);
+    if (ehAdminCadastro() ? document.getElementById('fCriticoPd-mat').checked : criticoGravado) data.criticoPd = true;
 
     document.getElementById('modalSaveBtn-mat').disabled = true;
 

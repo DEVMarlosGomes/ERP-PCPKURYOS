@@ -80,36 +80,6 @@
       margin-top: 4px;
     }
 
-    .tabs {
-      display: inline-flex;
-      width: 100%;
-      margin-bottom: 26px;
-      background: color-mix(in srgb, var(--ink) 6%, transparent);
-      border-radius: 10px;
-      padding: 3px;
-      gap: 2px;
-    }
-
-    .tab {
-      flex: 1;
-      padding: 8px;
-      background: none;
-      border: none;
-      border-radius: 8px;
-      color: var(--ink-soft);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      text-align: center;
-      font-family: var(--font-ui);
-    }
-
-    .tab.active {
-      color: var(--ink);
-      background: var(--panel);
-      box-shadow: var(--shadow);
-    }
-
     .form-group {
       margin-bottom: 20px;
     }
@@ -227,6 +197,13 @@
       margin-bottom: 20px;
     }
 
+    .access-note {
+      margin: -8px 0 22px;
+      color: var(--ink-mute);
+      font-size: 12.5px;
+      line-height: 1.5;
+    }
+
     /* ── Moldura do ERP no ar (20/10/2026): tela dividida, painel navy com
        grade e chamada à esquerda, formulário à direita sem cartão. ── */
     body.login-split { display: block; padding: 0; }
@@ -306,10 +283,7 @@
     <p>Sistema de Controle de Produção</p>
   </div>
   
-  <div class="tabs">
-    <button class="tab active" id="tab-login" onclick="switchTab('login')">Entrar</button>
-    <button class="tab" id="tab-register" onclick="switchTab('register')">Cadastrar</button>
-  </div>
+  <p class="access-note">O acesso é criado e autorizado por um administrador do ERP.</p>
   
   <div id="feedback" class="feedback-message"></div>
   
@@ -317,11 +291,11 @@
   <form id="form-login" onsubmit="handleLogin(event)">
     <div class="form-group">
       <label for="login-email">E-mail</label>
-      <input type="email" id="login-email" required placeholder="exemplo@kuryos.com">
+      <input type="email" id="login-email" required placeholder="exemplo@kuryos.com" autocomplete="username" maxlength="254">
     </div>
     <div class="form-group">
       <label for="login-password">Senha</label>
-      <input type="password" id="login-password" required placeholder="Sua senha">
+      <input type="password" id="login-password" required placeholder="Sua senha" autocomplete="current-password">
     </div>
     <button type="submit" class="btn" id="btn-login">Entrar no Sistema</button>
     <button type="button" class="link-btn" onclick="switchTab('forgot')">Esqueci minha senha</button>
@@ -345,32 +319,17 @@
     <p class="form-hint" id="newpass-hint">Conferindo o link...</p>
     <div class="form-group">
       <label for="newpass-password">Nova senha</label>
-      <input type="password" id="newpass-password" required minlength="6" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+      <input type="password" id="newpass-password" required minlength="8" placeholder="Mínimo 8 caracteres" autocomplete="new-password" aria-describedby="newpass-policy">
+      <p class="form-hint" id="newpass-policy" style="margin:7px 0 0">Use ao menos 8 caracteres, com letra maiúscula, minúscula e número. Símbolos também são permitidos.</p>
     </div>
     <div class="form-group">
       <label for="newpass-confirm">Repita a nova senha</label>
-      <input type="password" id="newpass-confirm" required minlength="6" placeholder="Digite de novo" autocomplete="new-password">
+      <input type="password" id="newpass-confirm" required minlength="8" placeholder="Digite de novo" autocomplete="new-password">
     </div>
     <button type="submit" class="btn" id="newpass-btn" disabled>Salvar nova senha</button>
     <button type="button" class="link-btn" onclick="sairDaTrocaDeSenha()">Voltar para o login</button>
   </form>
 
-  <!-- Form Cadastro -->
-  <form id="form-register" onsubmit="handleRegister(event)" style="display:none;">
-    <div class="form-group">
-      <label for="reg-name">Nome Completo</label>
-      <input type="text" id="reg-name" required placeholder="Seu nome">
-    </div>
-    <div class="form-group">
-      <label for="reg-email">E-mail</label>
-      <input type="email" id="reg-email" required placeholder="exemplo@kuryos.com">
-    </div>
-    <div class="form-group">
-      <label for="reg-password">Senha</label>
-      <input type="password" id="reg-password" required minlength="6" placeholder="Mínimo 6 caracteres">
-    </div>
-    <button type="submit" class="btn" id="btn-register">Criar Conta</button>
-  </form>
   <p class="login-foot">Kuryos PCP · Todos os direitos reservados</p>
 </div>
 </main>
@@ -447,16 +406,13 @@
     });
   };
 
-  // login | register | forgot | newpass. As abas só aparecem em login/cadastro.
+  // login | forgot | newpass. Novas contas são provisionadas pelo administrador.
   function switchTab(mode) {
     const feedback = document.getElementById('feedback');
     feedback.className = 'feedback-message';
     feedback.style.display = 'none';
 
-    document.getElementById('tab-login').classList.toggle('active', mode === 'login');
-    document.getElementById('tab-register').classList.toggle('active', mode === 'register');
-    document.querySelector('.tabs').style.display = (mode === 'login' || mode === 'register') ? '' : 'none';
-    ['login', 'register', 'forgot', 'newpass'].forEach(function(m) {
+    ['login', 'forgot', 'newpass'].forEach(function(m) {
       document.getElementById('form-' + m).style.display = m === mode ? 'block' : 'none';
     });
     if (mode === 'forgot') {
@@ -517,7 +473,7 @@
     switchTab('newpass');
     auth.verifyPasswordResetCode(codigo)
       .then(function(email) {
-        document.getElementById('newpass-hint').textContent = 'Conta: ' + email + '. Escolha uma senha nova com pelo menos 6 caracteres.';
+        document.getElementById('newpass-hint').textContent = 'Conta: ' + email + '. Escolha uma senha nova e exclusiva para o ERP.';
         document.getElementById('newpass-btn').disabled = false;
         document.getElementById('login-email').value = email;
         document.getElementById('newpass-password').focus();
@@ -543,6 +499,10 @@
       showFeedback('error', 'As duas senhas não são iguais.');
       return;
     }
+    if (pass.length < 8 || !/[a-z]/.test(pass) || !/[A-Z]/.test(pass) || !/[0-9]/.test(pass)) {
+      showFeedback('error', 'Use ao menos 8 caracteres, incluindo letra maiúscula, letra minúscula e número. Símbolos são permitidos.');
+      return;
+    }
     const btn = document.getElementById('newpass-btn');
     btn.disabled = true;
     auth.confirmPasswordReset(codigoTrocaSenha, pass)
@@ -555,7 +515,7 @@
       .catch(function(err) {
         btn.disabled = false;
         if (err.code === 'auth/weak-password') {
-          showFeedback('error', 'Senha fraca demais. Use pelo menos 6 caracteres.');
+          showFeedback('error', 'Senha fraca demais. Use ao menos 8 caracteres com uma combinação de letras, números ou símbolos.');
         } else if (err.code === 'auth/expired-action-code' || err.code === 'auth/invalid-action-code') {
           sairDaTrocaDeSenha();
           showFeedback('error', 'Este link de troca de senha expirou ou já foi usado. Peça um novo em "Esqueci minha senha".');
@@ -576,10 +536,9 @@
     feedback.style.display = 'block';
   }
   
-  /* Duplo clique (PORT-10, porte do Gustavo 6d63a68). Causa raiz das contas
-     duplicadas medida no banco dele (21/10): o botão de cadastro não era
-     desabilitado durante o envio, e 2-3 cliques no mesmo segundo criavam 2-3
-     contas com o mesmo e-mail. Travar o botão é o conserto, não enfeite. */
+  /* Duplo clique (PORT-10, porte do Gustavo 6d63a68): uma tentativa de login
+     em andamento não aceita um segundo envio. A criação de contas saiu desta
+     página e agora é serializada pelo serviço administrativo. */
   var enviando = false;
   function travarEnvio(idBotao, texto) {
     enviando = true;
@@ -642,61 +601,14 @@
           msg = 'E-mail ou senha incorretos. Se esqueceu a senha, use "Esqueci minha senha".';
         } else if (err.code === 'auth/invalid-email') {
           msg = 'Formato de e-mail inválido.';
+        } else if (err.code === 'auth/user-disabled') {
+          msg = MSG_DESATIVADO;
+        } else if (err.code === 'auth/too-many-requests') {
+          msg = 'Muitas tentativas seguidas. Aguarde alguns minutos ou redefina sua senha.';
+        } else if (err.code === 'auth/network-request-failed') {
+          msg = 'Sem conexão com o servidor. Confira a rede e tente novamente.';
         } else {
           msg = 'Erro ao realizar login: ' + err.message + ' (' + err.code + ')';
-        }
-        showFeedback('error', msg);
-      });
-  }
-  
-  function handleRegister(e) {
-    e.preventDefault();
-    if (enviando) return;  // segundo clique não cria uma segunda conta
-    const name = document.getElementById('reg-name').value.trim();
-    const email = document.getElementById('reg-email').value.trim();
-    const pass = document.getElementById('reg-password').value;
-    const feedback = document.getElementById('feedback');
-    
-    feedback.style.display = 'none';
-    
-    travarEnvio('btn-register', 'Criando conta...');
-    auth.createUserWithEmailAndPassword(email, pass)
-      .then(cred => {
-        // Create user node in DB. Achado do agente de auditoria (4a rodada):
-        // esse .then() interno não tinha `return` nem `.catch()` próprio --
-        // se a escrita do perfil falhasse (rede instável etc.), a rejeição
-        // não chegava no .catch() externo (vira unhandled rejection) e o
-        // usuário não via nem sucesso nem erro, ficando sem saber se o
-        // cadastro funcionou. Tentar de novo com o mesmo e-mail dava
-        // "e-mail já em uso" -- confuso, porque pra ele nada tinha dado certo.
-        return db.ref('usuarios/' + cred.user.uid).set({
-          nome: name,
-          email: email,
-          role: 'pending',
-          created_at: new Date().toISOString()
-        })
-        .then(() => {
-          liberarEnvio('btn-register');
-          auth.signOut(); // logout newly created user
-          showFeedback('success', 'Cadastro realizado com sucesso! Sua conta (' + email + ') agora aguarda ativação pelo administrador do PCP.');
-          document.getElementById('form-register').reset();
-          switchTab('login');
-        })
-        .catch(err => {
-          liberarEnvio('btn-register');
-          auth.signOut();
-          showFeedback('error', 'Sua conta foi criada, mas houve uma falha ao salvar seu perfil de acesso. Contate o administrador do PCP informando o e-mail ' + email + '. (' + err.message + ')');
-        });
-      })
-      .catch(err => {
-        liberarEnvio('btn-register');
-        let msg = 'Erro ao criar conta. Tente novamente.';
-        if (err.code === 'auth/email-already-in-use') {
-          msg = 'Este e-mail já está em uso por outro usuário.';
-        } else if (err.code === 'auth/weak-password') {
-          msg = 'A senha fornecida é muito fraca. Deve conter pelo menos 6 caracteres.';
-        } else {
-          msg = 'Erro ao criar conta: ' + err.message + ' (' + err.code + ')';
         }
         showFeedback('error', msg);
       });

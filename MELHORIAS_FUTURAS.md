@@ -1,5 +1,72 @@
 # Melhorias Futuras — Sistema PCP Kuryos
 
+## Fechamento da virada — pendências de 03/11/2026
+
+Estes itens são portões de fechamento, **não melhorias opcionais**. A entrega
+parcial publicada em `397b4a3` está em `CORRECOES_VIRADA_ACESSOS_20261103.md`.
+
+- **Documentos com números repetidos:** PC-0018/PC-0019, SC-0010 e COT-0014;
+  dois registros por número. Novas reservas já usam contadores alinhados e
+  piso histórico nas telas de Compras. Antes de renumerar registros antigos,
+  Marlos precisa confirmar circulação externa e a forma de retificação.
+  Script de conferência/reparo de contador: `scripts/auditoria-virada/reconcile-counters.js`.
+- **Automações duráveis/corte:** `functions/render-server.js` mantém filas de
+  gatilhos em memória e não recupera alterações feitas enquanto desligado.
+  Definir recuperação, retry/idempotência, remetente/destinatários e ensaio
+  financeiro antes de ativar os seis gatilhos/quatro agendas. Não restaurar
+  filas históricas para simular processamento. Flags continuam desligadas.
+- **Recuperação administrativa de operações parciais:** `functions/identidade_acesso.js`
+  grava `REQUER_CONFERENCIA` e trava por identidade. Falha definitiva ou queda
+  do processo exige conferência técnica do journal/Auth/perfil; falta uma tela
+  de reconciliação/desbloqueio seguro. Não expirar a trava automaticamente
+  sem garantia de que a execução anterior terminou. A regularização normal de
+  perfil sem Auth já está disponível em Usuários, com confirmação explícita.
+- **Piso histórico no helper independente do CRM:** não alterado nesta frente
+  por escopo ativo registrado de outro agente; os contadores compartilhados
+  já foram corrigidos diretamente. Ao retomar `nextCounter` do CRM, adicionar
+  a mesma conferência de máximo histórico e ensaio de concorrência antes de
+  qualquer nova importação, sem editar o bundle compilado manualmente.
+
+## P&D — Manipulação em lote (adiado na entrega de 05/11/2026)
+
+Spec: `docs/superpowers/specs/2026-11-04-pd-manipulacao-lote-design.md` §11; progresso e ensaio em
+`…-progresso.md`. Código: `crm-frontend/src/lib/manipulacaoLote.js` (motor), `manipulacaoLoteRotas.js`,
+`components/ManipulacaoLote/`, `functions/manipulacao_lote.js`.
+
+- **Fases nas fórmulas (operação, não código):** no ensaio com a base real (18 amostras), nenhum item tinha fase,
+  então a pré-mistura não se aplicou e a bancada pesa cada ingrediente por amostra (216 pesagens). Nomear as fases
+  nas fórmulas de maior giro é o que traz o ganho da pré-mistura (D-05: só fase com nome).
+- **Roteiro cronometrado na tela:** 5 amostras × 25 ingredientes em < 5 min, gravado, com quem vai usar (o ensaio
+  automático levou ~23 s do painel à aprovação no CRM 3, mas não substitui a medição com pessoa).
+- **LM-09 kanban do P&D** com filtro por projeto e modo de seleção — fora por conflito com o Codex em `PDPage.js`.
+- **Matriz (c): amostra aprovada como matriz** do lote.
+- **MP nova criada dentro do editor do lote** (hoje: só MP do Cadastros; MP nova vem das fórmulas de origem).
+- **Estoque do laboratório:** baixar as MPs pesadas no lote (a pesagem já guarda o lote da MP).
+- **Rótulo/laudo/INCI da amostra "fora da base"** (os dados ficam gravados no lote e na versão).
+- **Pré-diluição como linha da ordem** (B2): hoje a ordem só avisa abaixo do mínimo pesável.
+- **`locked` na regra** com coleções nomeadas `pd_formulas`/`pd_formula_items`/`pd_formula_phases` e fechar a
+  escrita direta de `erp/$tenant` (A5.3) — decisão do Marlos; hoje a trava é das rotas e do `liberarEtapaPd`.
+- **Transição em lote no servidor** (hoje: rota real, uma amostra por vez, com relatório).
+- **Assinatura da versão conferida também na ficha/BOM/SKU** gerados no cliente.
+- **Nome de fase com `.`, `#`, `$`, `[`, `]` ou `/`:** a chave de `pre_mistura` no rascunho não aceita esses
+  caracteres (o RTDB recusa a gravação inteira). Codificar a chave em `planoSalvarLote`/`ordemDoLote` se aparecer.
+- **Residuais da auditoria final (LM-15, 05/11/2026)** — aceitos para a publicação, cada um com o porquê:
+  - `criticoPd` some se um PCP/módulo Cadastros **apagar** o material (o `.validate` não roda na exclusão e o `.write`
+    vem do pai `materiais`). Inativar mantém a marca. Para fechar: guardar a marca num nó só do ADM.
+  - O número da versão do lote vem de `sequences/pd_formula_version_{dev}`, mas a "nova versão" individual do P&D usa
+    `max+1` sem a sequência: uma versão criada no mesmo segundo da ordem pode repetir o número. A ordem confere a
+    vigente depois da trava; falta a rota individual reservar pela mesma sequência.
+  - `lote_manipulacao` é gravado pelo índice da variação no array do CRM; se alguém mexer no array no mesmo instante,
+    cai na vizinha. Mesmo padrão do resto do CRM (arrays de variações).
+  - O texto canônico da assinatura junta campos com `|`/`;` sem escapar; colisão forjada é contida pela conferência dos
+    100 % no `liberarEtapaPd`.
+  - O painel "Amostras deste projeto" lê 7 coleções inteiras a cada abertura da Overview (igual às outras rotas do
+    adaptador); otimizar quando o P&D crescer.
+  - `formula_aprovada` grava a versão vigente na hora da aprovação, não a que saiu fisicamente para o cliente (são a
+    mesma no fluxo normal: a vigente é a que foi a Em Testes e ao Comercial).
+- **Painel na tela da ordem para o lote cancelado depois da ordem:** hoje mostra a ordem e o motivo; reabrir como
+  rascunho não existe de propósito (versões travadas são histórico).
+
 Documento vivo. Lista de melhorias identificadas ao longo do desenvolvimento
 que foram conscientemente adiadas — não são bugs bloqueantes, são trabalho
 que faz sentido fazer em algum momento, mas não agora. Cada item tem uma

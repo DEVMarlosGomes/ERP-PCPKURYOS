@@ -39,6 +39,7 @@
     .alert.show{display:block}
     .alert-success{background:var(--tint-green-bg);color:var(--tint-green-fg)}
     .alert-danger{background:var(--tint-red-bg);color:var(--tint-red-fg)}
+    .alert-warning{background:var(--tint-orange-bg);color:var(--tint-orange-fg)}
     .alert-warn{background:var(--tint-orange-bg);color:var(--tint-orange-fg)}
     .card{background:var(--card);border-radius:18px;box-shadow:var(--shadow);margin-bottom:14px;border-left:4px solid var(--primary)}
     .card-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -834,6 +835,7 @@ function telaMp(pes, linhas, l, podeEditar) {
       '<div class="p-info"><b>' + fmtNum(p.peso) + ' ' + un + '</b> · ' + escapeHtml(p.loteMaterial || '—') +
         '<div class="field-hint">' + escapeHtml(p.por || '') + (p.em ? ' · ' + horaCurta(p.em) : '') + '</div>' +
         (p.motivoForaFefo ? '<div class="field-hint" style="color:var(--tint-orange-fg)">Fora do FEFO: ' + escapeHtml(p.motivoForaFefo) + '</div>' : '') +
+        (p.semFotoMotivo ? '<div class="field-hint" style="color:var(--tint-orange-fg)">Sem foto (por escrito): ' + escapeHtml(p.semFotoMotivo) + '</div>' : '') +
         (cancelada ? '<div class="field-hint" style="color:var(--tint-red-fg)">Cancelada por ' + escapeHtml(p.canceladaPor || '—') + ': ' + escapeHtml(p.motivoCancelamento || '') + '</div>' : '') +
         (menuParcela === p.id && podeEditar && !cancelada ? '<button type="button" class="btn btn-danger btn-sm" style="margin-top:6px" data-cancelar-parcela="' + escapeAttr(l.itemKey) + '|' + escapeAttr(p.id) + '">Cancelar esta pesagem</button>' : '') +
       '</div>' +
@@ -853,6 +855,7 @@ function telaMp(pes, linhas, l, podeEditar) {
   var acoes = podeEditar
     ? '<div class="pz-acoes">' +
         '<label class="btn-camera"><input type="file" accept="image/*" capture="environment" id="pzFoto">📷 ' + (l.parcelas ? 'Nova pesagem' : 'Fotografar a balança') + '</label>' +
+        '<button type="button" class="btn btn-ghost" id="pzEscrito" title="Quando a foto não puder ser anexada: registre por escrito o motivo">Sem foto? Registrar por escrito</button>' +
         (Manipulacao.dispensaFoto(Manipulacao.fase(allOps[opAtual])) ? '<button type="button" class="btn btn-ghost" id="pzSemFoto" title="Registro retroativo autorizado pela Qualidade">Sem foto (retroativo)</button>' : '') +
         (s !== 'pend' && proxima ? '<button type="button" class="btn btn-ghost pz-prox" data-abrir-mp="' + escapeAttr(proxima) + '">Próxima MP ›</button>' : '') +
       '</div>'
@@ -889,7 +892,11 @@ function telaForm(pes, l) {
       '<div style="flex:1"><b>' + ordinal(l.parcelas + 1) + ' pesagem · ' + escapeHtml(l.mpCodigo) + '</b><div class="field-hint">' + escapeHtml(l.mpNome) + '</div></div></div>' +
     '<div class="form-parcela" id="formParcela">' +
       (fp.previewUrl ? '<img class="fp-preview" src="' + escapeAttr(fp.previewUrl) + '" alt="Foto da balança">'
-        : fp.arquivo === null ? '<div class="pz-aviso">Registro retroativo sem foto, autorizado pela Qualidade na correção.</div>' : '<div class="fp-preview"></div>') +
+        : fp.modo === 'retro' ? '<div class="pz-aviso">Registro retroativo sem foto, autorizado pela Qualidade na correção.</div>'
+        : fp.modo === 'escrito' ? '<div class="pz-aviso">Pesagem sem foto: o motivo escrito fica na pesagem e no dossiê do lote.</div>' +
+          '<label for="fpSemFoto" style="margin-top:8px">Por que a foto não pôde ser anexada? <span class="obrig">obrigatório</span></label>' +
+          '<textarea id="fpSemFoto" rows="3" maxlength="500" autocomplete="off" placeholder="Ex.: câmera do celular sem funcionar; peso conferido pela Ana na balança 2">' + escapeHtml(fp.semFotoMotivo || '') + '</textarea>'
+        : '<div class="fp-preview"></div>') +
       '<label class="pz-link" style="display:inline-block"><input type="file" accept="image/*" capture="environment" id="fpFoto" style="display:none">' + (fp.previewUrl ? 'Refazer a foto' : 'Anexar foto') + '</label>' +
       '<div class="pz-sec">Peso que a balança mostra</div>' +
       '<div class="fp-peso"><input type="text" inputmode="decimal" id="fpPeso" autocomplete="off" placeholder="0,0" value="' + escapeAttr(fp.peso || '') + '"><span>' + un + '</span></div>' +
@@ -907,8 +914,9 @@ function telaForm(pes, l) {
 function atualizarFormParcela() {
   if (!formParcela) return;
   var v = Manipulacao.validarParcela({peso: numeroDigitado(formParcela.peso), loteMaterial: formParcela.lote,
-    temFoto: !!formParcela.arquivo, motivoForaFefo: formParcela.motivoForaFefo}, planoDaMp(formParcela.itemKey),
-    opcoesPesagem(Manipulacao.fase(allOps[opAtual])));
+    temFoto: !!formParcela.arquivo, motivoForaFefo: formParcela.motivoForaFefo,
+    semFotoMotivo: formParcela.modo === 'escrito' ? formParcela.semFotoMotivo : ''}, planoDaMp(formParcela.itemKey),
+    formParcela.modo === 'retro' ? opcoesPesagem(Manipulacao.fase(allOps[opAtual])) : {});
   var falt = document.getElementById('fpFaltando');
   if (falt) falt.textContent = v.ok ? '' : v.erros.join(' ');
   ['fpSalvar', 'fpSalvarProxima'].forEach(function(id) {
@@ -919,8 +927,10 @@ function atualizarFormParcela() {
 
 function atualizarValidacaoPesagem(val, podeEditar) {
   var errosPes = document.getElementById('mPesagemErros');
-  errosPes.className = 'alert alert-danger' + (podeEditar && val.erros.length ? ' show' : '');
-  errosPes.textContent = val.erros.join(' ');
+  var avisos = val.avisos || [];
+  // Sem erro, os avisos (ex.: pesagem sem foto justificada por escrito) aparecem em amarelo.
+  errosPes.className = 'alert ' + (val.erros.length ? 'alert-danger' : 'alert-warning') + (podeEditar && (val.erros.length || avisos.length) ? ' show' : '');
+  errosPes.textContent = val.erros.concat(avisos).join(' ');
   var btn = document.getElementById('mBtnFecharPesagem');
   btn.disabled = !val.ok;
   var faltam = val.linhas.filter(function(l) { return statusLinha(l) === 'pend' || statusLinha(l) === 'parcial'; }).length;
@@ -956,10 +966,22 @@ function ligarPesagem() {
   if (semFoto) semFoto.onclick = function() {
     descartarFormParcela();
     var plano = planoDaMp(mpAberta);
-    formParcela = {itemKey: mpAberta, arquivo: null, previewUrl: '', peso: '', lote: loteSugerido(mpAberta),
+    formParcela = {itemKey: mpAberta, modo: 'retro', arquivo: null, previewUrl: '', peso: '', lote: loteSugerido(mpAberta),
       outroLote: !plano.length, motivoForaFefo: '', enviando: false};
     renderPainel();
   };
+  // Sem foto, por escrito (03/11/2026): a foto não anexa (câmera, Storage, rede).
+  var escrito = document.getElementById('pzEscrito');
+  if (escrito) escrito.onclick = function() {
+    descartarFormParcela();
+    var plano = planoDaMp(mpAberta);
+    formParcela = {itemKey: mpAberta, modo: 'escrito', arquivo: null, previewUrl: '', semFotoMotivo: '', peso: '', lote: loteSugerido(mpAberta),
+      outroLote: !plano.length, motivoForaFefo: '', enviando: false};
+    renderPainel();
+    var c = document.getElementById('fpSemFoto'); if (c) c.focus();
+  };
+  var motivoSemFoto = document.getElementById('fpSemFoto');
+  if (motivoSemFoto) motivoSemFoto.oninput = function() { formParcela.semFotoMotivo = motivoSemFoto.value; atualizarFormParcela(); };
   var refazer = document.getElementById('fpFoto');
   if (refazer) refazer.onchange = function() { receberFoto(this, formParcela && formParcela.itemKey); };
   if (!formParcela) return;
@@ -1001,11 +1023,12 @@ function receberFoto(input, itemKey) {
   var url = (window.URL && URL.createObjectURL) ? URL.createObjectURL(arquivo) : '';
   if (formParcela && formParcela.itemKey === itemKey) {
     if (formParcela.previewUrl && URL.revokeObjectURL) { try { URL.revokeObjectURL(formParcela.previewUrl); } catch (e) { /* nada */ } }
-    formParcela.arquivo = arquivo; formParcela.previewUrl = url;
+    // Conseguiu anexar depois de começar por escrito: vale a foto.
+    formParcela.arquivo = arquivo; formParcela.previewUrl = url; formParcela.modo = 'foto';
   } else {
     descartarFormParcela();
     var plano = planoDaMp(itemKey);
-    formParcela = {itemKey: itemKey, arquivo: arquivo, previewUrl: url, peso: '', lote: loteSugerido(itemKey),
+    formParcela = {itemKey: itemKey, modo: 'foto', arquivo: arquivo, previewUrl: url, peso: '', lote: loteSugerido(itemKey),
       outroLote: !plano.length, motivoForaFefo: '', enviando: false};
   }
   renderPainel();
@@ -1018,8 +1041,9 @@ function salvarParcela(irParaProxima) {
   if (!fp || fp.enviando) return;
   var peso = numeroDigitado(fp.peso);
   var plano = planoDaMp(fp.itemKey);
-  var v = Manipulacao.validarParcela({peso: peso, loteMaterial: fp.lote, temFoto: !!fp.arquivo, motivoForaFefo: fp.motivoForaFefo}, plano,
-    opcoesPesagem(Manipulacao.fase(allOps[opAtual])));
+  var motivoEscrito = fp.modo === 'escrito' && !fp.arquivo ? String(fp.semFotoMotivo || '').trim().slice(0, 500) : '';
+  var v = Manipulacao.validarParcela({peso: peso, loteMaterial: fp.lote, temFoto: !!fp.arquivo, motivoForaFefo: fp.motivoForaFefo,
+    semFotoMotivo: motivoEscrito}, plano, fp.modo === 'retro' ? opcoesPesagem(Manipulacao.fase(allOps[opAtual])) : {});
   if (!v.ok) { showAlert(v.erros.join(' '), 'danger'); return; }
   var opKey = opAtual, itemKey = fp.itemKey;
   var mp = (previstos[itemKey] || {}).mpCodigo || itemKey;
@@ -1039,7 +1063,8 @@ function salvarParcela(irParaProxima) {
       if (arquivo) { foto = Anexos.registro(arquivo, caminhoArq, url, eu()); foto.mpCodigo = mp; }
       return db.ref('ops/' + opKey + '/manipulacao/pesagem/parcelas/' + itemKey).push({
         peso: peso, loteMaterial: String(fp.lote).trim(), foto: foto,
-        semFotoRetroativo: arquivo ? null : true,
+        semFotoRetroativo: (!arquivo && fp.modo === 'retro') ? true : null,
+        semFotoMotivo: (!arquivo && motivoEscrito) ? motivoEscrito : null,
         motivoForaFefo: (!noPlano && plano.length) ? (fp.motivoForaFefo || null) : null,
         por: eu(), em: new Date().toISOString(), mpCodigo: mp
       });

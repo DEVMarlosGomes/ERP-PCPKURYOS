@@ -1573,8 +1573,12 @@ function abrirLaudoGranel(opKey) {
         var mp = ((f.previstos || {})[k] || {}).mpCodigo || k;
         // Uma foto por ida à balança (parcela); rótulo "MP 2ª 25 kg".
         var fotos = Manipulacao.fotosDaLinha(f.pesagem, k).filter(function(a) { return a.url; });
-        links.push(fotos.length
-          ? fotos.map(function(a) { return '<a href="' + escapeAttr(a.url) + '" target="_blank" rel="noopener">' + escapeHtml(mp) + (a.parcela ? ' ' + a.parcela + 'ª ' + escapeHtml(fmtNum(a.peso)) + ' kg' : '') + '</a>'; }).join(' ')
+        // Pesagem sem foto justificada por escrito (03/11/2026): a Qualidade lê o motivo.
+        var escritas = Manipulacao.parcelasDoItem(f.pesagem, k).filter(Manipulacao.semFotoEscrito).map(function(p) {
+          return '<span style="color:var(--tint-orange-fg)">' + escapeHtml(mp) + ' ' + escapeHtml(fmtNum(p.peso)) + ' kg sem foto (por escrito: ' + escapeHtml(p.semFotoMotivo) + ')</span>';
+        });
+        links.push(fotos.length || escritas.length
+          ? fotos.map(function(a) { return '<a href="' + escapeAttr(a.url) + '" target="_blank" rel="noopener">' + escapeHtml(mp) + (a.parcela ? ' ' + a.parcela + 'ª ' + escapeHtml(fmtNum(a.peso)) + ' kg' : '') + '</a>'; }).concat(escritas).join(' ')
           : '<b style="color:var(--danger)">' + escapeHtml(mp) + ' sem foto</b>');
       });
       return '<br>Fotos da pesagem: ' + (links.length ? links.join(' · ') : '<b style="color:var(--danger)">nenhuma</b>') +

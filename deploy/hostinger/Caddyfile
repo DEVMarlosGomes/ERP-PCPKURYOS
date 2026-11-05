@@ -11,10 +11,21 @@ http://localhost, http://127.0.0.1 {
 	respond /healthz 200
 }
 
+kuryoserp.tech, www.kuryoserp.tech {
+	redir https://kuryoserp.com.br{uri} permanent
+}
+
+www.{$ERP_DOMAIN} {
+	redir https://{$ERP_DOMAIN}{uri} permanent
+}
+
 {$ERP_DOMAIN} {
 	encode zstd gzip
 
 	header {
+		Content-Security-Policy "object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
+		Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' https://www.gstatic.com https://www.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; frame-src 'self' https://erpkuryos.firebaseapp.com; object-src 'none'; base-uri 'self'"
+		Permissions-Policy "geolocation=(), microphone=(), payment=()"
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
 		X-Frame-Options SAMEORIGIN
@@ -22,7 +33,9 @@ http://localhost, http://127.0.0.1 {
 		-Server
 	}
 
-	respond /healthz 200
+	handle /healthz {
+		respond 200
+	}
 
 	handle_path /api/* {
 		request_body {

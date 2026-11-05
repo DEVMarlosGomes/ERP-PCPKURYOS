@@ -121,3 +121,17 @@ test("preserva metadados técnicos de e-mail para não repetir efeitos", () => {
   assert.ok(result.changes.some((x) => x.path === "/pedidos_comerciais/P1/status"));
   assert.equal(result.changes.some((x) => x.path.includes("/email/")), false);
 });
+
+test("aceita SKU antigo quando sku_historico aponta para produto atual", () => {
+  const source = {...base, sku_historico: {ANTIGO: "SKU1"}, formulas: {F1: {codProduto: "ANTIGO", versao: 1}}};
+  const result = planMerge(source, base, {excludedRoots, invalidReferencePolicy: "flag"});
+  assert.equal(result.referenceWarnings.length, 0);
+  assert.ok(result.changes.some((x) => x.path === "/formulas/F1/codProduto"));
+});
+
+test("valida especificacao tipo MATERIAL no catalogo de materiais", () => {
+  const source = {...base, especificacoes: {"MP1__v1": {codProduto: "MP1", tipoItem: "MATERIAL", versao: "v1"}}};
+  const result = planMerge(source, base, {excludedRoots, invalidReferencePolicy: "flag"});
+  assert.equal(result.referenceWarnings.length, 0);
+  assert.ok(result.changes.some((x) => x.path === "/especificacoes/MP1__v1/codProduto"));
+});

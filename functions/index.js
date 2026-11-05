@@ -4,6 +4,7 @@ const {onValueCreated, onValueWritten} = require("firebase-functions/v2/database
 const {defineSecret} = require("firebase-functions/params");
 const {initializeApp} = require("firebase-admin/app");
 const {getDatabase, ServerValue} = require("firebase-admin/database");
+const {getAuth} = require("firebase-admin/auth");
 // Banco dos gatilhos: functions/.env.<projeto> (ex.: .env.erpkuryos) define RTDB_INSTANCE.
 // O fallback também aponta para o banco atual: uma configuração ausente nunca
 // pode religar silenciosamente os gatilhos ao projeto legado prod-kuryos.
@@ -22,9 +23,51 @@ const FaturamentoEmail = require("./faturamento_email");
 const DevolucaoCliente = require("./devolucao_cliente");
 const Titularidade = require("./titularidade");
 const EmissaoOp = require("./emissao_op");
+const {criarServicoIdentidade} = require("./identidade_acesso");
+const ManipulacaoLote = require("./manipulacao_lote");
 
 initializeApp();
 const db = getDatabase();
+const identidadeAcesso = criarServicoIdentidade({db, auth: getAuth()});
+
+exports.registrarAuditoriaCrm = onCall({timeoutSeconds: 30, memory: "256MiB"}, async request => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Faça login.");
+  const profile = (await db.ref(`usuarios/${request.auth.uid}`).get()).val();
+  const roles = [profile && profile.role, ...Object.keys(profile && profile.funcoes || {}).filter(k => profile.funcoes[k] === true)];
+  if (!profile || profile.desativado || profile.role === "pending" || (!roles.some(r => ["admin","pcp","comercial","pd","qualidade","vendedor","sales_ops","lider_pd","formulador","engenharia_produto"].includes(r)) && !profile.modulos?.comercial && !profile.modulos?.pd)) {
+    throw new HttpsError("permission-denied", "Sem acesso ao CRM.");
+  }
+  const d = request.data || {};
+  const tenant = String(d.tenant_id || "");
+  if (!/^[a-z0-9][a-z0-9_-]{1,39}$/.test(tenant) || (!roles.includes("admin") && profile.tenant_id !== tenant)) throw new HttpsError("permission-denied", "Empresa inválida.");
+  for (const k of ["action", "entity_type", "entity_id"]) if (typeof d[k] !== "string" || !d[k].trim() || d[k].length > 200) throw new HttpsError("invalid-argument", "Evento inválido.");
+  if (Buffer.byteLength(JSON.stringify(d)) > 65536) throw new HttpsError("invalid-argument", "Evento excede o limite.");
+  const event = {action: d.action, entity_type: d.entity_type, entity_id: d.entity_id, before: d.before ?? null, after: d.after ?? null,
+    user_id: request.auth.uid, user_name: profile.nome || "", tenant_id: tenant, created_at: new Date().toISOString(), origem: "client_reported"};
+  const ref = db.ref(`erp/${tenant}/audit_log`).push();
+  await ref.set({...event,id:ref.key});
+  return {ok:true,id:ref.key};
+});
+
+// Identidade e acesso do ERP: toda mutação privilegiada passa pelo Admin SDK.
+// O cliente nunca cria, desativa ou exclui contas diretamente. O serviço também
+// protege a própria conta, o último administrador e registra a trilha completa.
+exports.gerenciarUsuario = onCall({timeoutSeconds: 60, memory: "256MiB"}, async (request) => {
+  try {
+    return await identidadeAcesso.executar(request);
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    const raw = String(error && error.code || "internal").replace(/^functions\//, "").replace(/^auth\//, "");
+    const code = ["unauthenticated", "permission-denied", "invalid-argument", "not-found", "failed-precondition", "already-exists", "resource-exhausted"].includes(raw)
+      ? raw
+      : raw === "email-already-exists" ? "already-exists"
+      : raw === "invalid-email" ? "invalid-argument"
+      : "internal";
+    const message = code === "internal" ? "Não foi possível concluir a operação de identidade." : error.message;
+    console.error("[gerenciarUsuario]", error);
+    throw new HttpsError(code, message, error && error.details);
+  }
+});
 
 exports.emitirOpServidor = onCall({timeoutSeconds: 120, memory: "512MiB"}, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para emitir a OP.");
@@ -172,7 +215,9 @@ function sanitizeKey(val) {
 
 function checkApiKey(req, res, expected) {
   const provided = (req.get("x-api-key") || "").trim();
-  if (!provided || provided !== String(expected || "").trim()) {
+  const configured = String(expected || "").trim();
+  const digest = value => crypto.createHash("sha256").update(value).digest();
+  if (!provided || !configured || !crypto.timingSafeEqual(digest(provided), digest(configured))) {
     res.status(401).json({ok: false, error: "x-api-key ausente ou inválido"});
     return false;
   }
@@ -2414,7 +2459,8 @@ exports.liberarEtapaPd = onCall({timeoutSeconds: 60, memory: "512MiB"}, async (r
   const req = (await db.ref(base + "/pd_requests/" + requestId).get()).val();
   if (!req) throw new HttpsError("not-found", "Solicitação do P&D não encontrada.");
   if (voltar) {
-    if (!(novoStatus === "WAITING_APPROVAL" && req.status === "APPROVED")) throw new HttpsError("failed-precondition", "Retrocesso não permitido.");
+    const retrocessos = {APPROVED: "WAITING_APPROVAL", WAITING_APPROVAL: "IN_TESTS"};
+    if (retrocessos[req.status] !== novoStatus) throw new HttpsError("failed-precondition", "Retrocesso não permitido.");
   } else {
     const lista = async (col) => Object.entries((await db.ref(base + "/" + col).get()).val() || {}).map(([id, v]) => ({id: (v && v.id) || id, ...(v || {})}));
     const dev = (await lista("pd_developments")).find((d) => d.request_id === requestId || d.pd_request_id === requestId);
@@ -2433,8 +2479,29 @@ exports.liberarEtapaPd = onCall({timeoutSeconds: 60, memory: "512MiB"}, async (r
       }
     }
   }
+  if (!voltar) {
+    // Manipulação em lote (D-07/A5): ordem gerada ainda não manipulada não vai a Em Testes, e a versão
+    // do lote tem a assinatura reconferida. Só lê os itens quando a amostra está em algum lote.
+    const lotesPd = (await db.ref(base + "/" + ManipulacaoLote.COLECAO).get()).val() || {};
+    if (Object.values(lotesPd).some((l) => l && l.membros && l.membros[requestId])) {
+      const bloqueio = ManipulacaoLote.bloqueioDeEtapa({lotes: lotesPd, itens: (await db.ref(base + "/pd_formula_items").get()).val(), requestId, novoStatus});
+      if (bloqueio) throw new HttpsError("failed-precondition", bloqueio);
+    }
+  }
   await db.ref(base + "/pd_liberacoes_status/" + requestId).set({status: novoStatus, ate: Date.now() + 2 * 60 * 1000, por: uid, em: new Date().toISOString()});
   return {ok: true};
+});
+
+// ── P&D: manipulação em lote (spec 2026-11-04 §7) — versões travadas, ordem, pesagem, conferência,
+// registro da manipulação e aprovação de crítico. Regras em functions/manipulacao_lote.js.
+const manipulacaoLote = ManipulacaoLote.criarServico({db});
+exports.manipulacaoLoteServidor = onCall({timeoutSeconds: 120, memory: "512MiB"}, async (request) => {
+  try { return await manipulacaoLote.executar(request); } catch (e) {
+    if (e instanceof HttpsError) throw e;
+    if (e && e.code && /^[a-z-]+$/.test(e.code)) throw new HttpsError(e.code, e.message, e.details);
+    console.error("[manipulacaoLoteServidor]", e);
+    throw new HttpsError("internal", "Erro interno na manipulação em lote. Nada foi gravado pela metade: confira o lote e tente de novo.");
+  }
 });
 
 exports.apontarRetrabalho = onCall({timeoutSeconds:120,memory:'512MiB'}, async request => {

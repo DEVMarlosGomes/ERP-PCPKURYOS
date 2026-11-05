@@ -922,8 +922,36 @@ function attachAutocomplete(input, getItems, opts) {
 // em config/contadores/*; `prefix`/`pad` só formatam o resultado, não afetam
 // o contador em si.
 function nextSequential(dbRef, counterPath, prefix, pad) {
-  return dbRef.ref(counterPath).transaction(function(cur) {
-    return (cur || 0) + 1;
+  // Após importação, o contador pode estar atrás dos documentos. Leitura
+  // obrigatória (sem fallback em erro); a reserva continua transacional.
+  var colecoes = {
+    'config/contadores/pedidoCompra': 'pedidos_compra',
+    'config/contadores/solicitacaoCompra': 'solicitacoes_compra',
+    'config/contadores/processoCotacao': 'processos_cotacao'
+  };
+  var colecao = colecoes[counterPath];
+  var piso = colecao ? dbRef.ref(colecao).once('value').then(function(snap) {
+    return Object.entries(snap.val() || {}).reduce(function(max, entry) {
+      var doc = entry[1] || {};
+      return [doc.numero, doc.numeroFormatado, entry[0]].reduce(function(n, valor) {
+        if (valor == null) return n;
+        var s = String(valor), m = /^(?:SC-|PC-|COT-)?(\d+)$/.exec(s);
+        if (!m) return n;
+        var numero = Number(m[1]);
+        if (!Number.isSafeInteger(numero) || numero < 0) throw new Error('Numeração existente inválida em ' + colecao);
+        return Math.max(n, numero);
+      }, max);
+    }, 0);
+  }) : Promise.resolve(0);
+  return piso.then(function(minimo) {
+    return dbRef.ref(counterPath).transaction(function(cur) {
+      if (cur !== null && cur !== undefined && (!Number.isSafeInteger(cur) || cur < 0)) {
+        throw new Error('Contador inválido em ' + counterPath + '. Solicite regularização ao administrador.');
+      }
+      var proximo = Math.max(cur || 0, minimo) + 1;
+      if (!Number.isSafeInteger(proximo)) throw new Error('Limite de numeração atingido.');
+      return proximo;
+    });
   }).then(function(result) {
     var n = result.snapshot.val();
     // Transação abortada (concorrência, regra negada, conexão) devolvia

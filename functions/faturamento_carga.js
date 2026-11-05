@@ -16,7 +16,7 @@
 
    Puro: o handler em index.js aplica numa transação na raiz, como a agenda. */
 
-const {analisar} = require('./expedicao_regras');
+const {analisar, validadeDoLote} = require('./expedicao_regras');
 const {ativa, pendente} = require('./agenda_expedicao');
 
 function falhar(message, code = 'failed-precondition') { throw Object.assign(new Error(message), {code}); }
@@ -46,7 +46,7 @@ function itensDaCarga(base, agenda, hoje) {
       itemKey: ap.itemKey, loteKey: ap.loteKey, identificadorPalete: lote.identificadorPalete || ap.identificadorPalete || '',
       disponivel: l.disponivel, motivo: l.motivo || '',
       sku: lote.itemCodigo || ap.sku || '', descricao: lote.itemNome || ap.descricao || produto.descricao || '',
-      lote: lote.opLote || lote.loteOrigem || '', validade: lote.validade ? String(lote.validade).slice(0, 10) : '',
+      lote: lote.opLote || lote.loteOrigem || '', validade: validadeDoLote(lote) || '',
       caixas, unidadesPorCaixa: n(lote.unidadesPorCaixa), caixaParcial: parcial, unidades,
       pesoKg: n(lote.pesoTotalKg) || (kgCx && volumes ? Math.round(volumes * kgCx * 1000) / 1000 : 0),
       pedidoId: l.pedidoId || ap.pedidoId || '', pedidoNumero: l.pedidoNumero || ap.pedidoNumero || '',

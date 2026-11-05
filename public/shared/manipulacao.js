@@ -122,9 +122,19 @@
     if (texto(p.loteMaterial) && lotesPlano.length && lotesPlano.indexOf(texto(p.loteMaterial)) < 0 && !texto(p.motivoForaFefo)) {
       erros.push('O FEFO indica ' + lotesPlano.join(', ') + '. Para usar outro lote, informe o motivo.');
     }
-    if (EXIGE_FOTO_PESAGEM && !semFotoOk && !p.temFoto && !(p.foto && p.foto.caminho)) erros.push('Tire a foto da balança.');
+    var temFoto = !!p.temFoto || !!(p.foto && p.foto.caminho);
+    if (EXIGE_FOTO_PESAGEM && !semFotoOk && !temFoto) {
+      if (!texto(p.semFotoMotivo)) erros.push('Tire a foto da balança ou, se não conseguir anexar, descreva por escrito o motivo.');
+      else if (texto(p.semFotoMotivo).length < MIN_MOTIVO_SEM_FOTO) erros.push('Descreva em pelo menos ' + MIN_MOTIVO_SEM_FOTO + ' caracteres por que a foto não pôde ser anexada.');
+    }
     return {ok: !erros.length, erros: erros};
   }
+  // Parcela provada: tem a foto, ou (03/11/2026) a justificativa escrita de por
+  // que a foto não pôde ser anexada -- "campo para preencher por escrito caso
+  // não consiga anexar a foto". A escrita é registro de exceção: fica na
+  // parcela, no dossiê do lote e como aviso no fechamento da pesagem.
+  var MIN_MOTIVO_SEM_FOTO = 10;
+  function semFotoEscrito(p) { return !(p.foto && p.foto.caminho) && texto(p.semFotoMotivo).length >= MIN_MOTIVO_SEM_FOTO; }
 
   function n(v) { var x = Number(v); return isFinite(x) ? x : null; }
   function num(v) { var x = Number(v); return isFinite(x) ? x : 0; }
@@ -200,15 +210,16 @@
       var pesado = parc.length ? arred(parc.reduce(function(s, x) { return s + num(x.peso); }, 0)) : n(r.pesado);
       var lotes = parc.length ? lotesUnicos(parc) : (texto(r.loteMaterial) ? [texto(r.loteMaterial)] : []);
       var desvioPct = (previsto > 0 && pesado != null) ? arred((pesado - previsto) / previsto * 100, 2) : null;
-      var semFoto = parc.length ? parc.filter(function(x) { return !(x.foto && x.foto.caminho); }).length : 0;
+      var escrito = parc.length ? parc.filter(semFotoEscrito).length : 0;
+      var semFoto = parc.length ? parc.filter(function(x) { return !(x.foto && x.foto.caminho) && !semFotoEscrito(x); }).length : 0;
       var semLote = parc.length ? parc.filter(function(x) { return !texto(x.loteMaterial); }).length : 0;
       return {
         itemKey: k, mpCodigo: p.mpCodigo || k, mpNome: p.mpNome || '', unidade: p.unidade || 'kg',
         previsto: previsto, pesado: pesado, loteMaterial: lotes.join(', ') || null, lotes: lotes,
         perda: num(r.perda), justificativa: texto(r.justificativa) || null,
         desvioPct: desvioPct,
-        fotos: parc.length ? parc.length - semFoto : fotosDoItem(pesagem, k).length,
-        parcelas: parc.length, parcelasSemFoto: semFoto, parcelasSemLote: semLote,
+        fotos: parc.length ? parc.length - semFoto - escrito : fotosDoItem(pesagem, k).length,
+        parcelas: parc.length, parcelasSemFoto: semFoto, parcelasSemFotoEscrito: escrito, parcelasSemLote: semLote,
         // Quanto ainda falta pôr na balança (0 quando completou ou passou).
         falta: pesado == null ? previsto : Math.max(0, arred(previsto - pesado)),
         excesso: pesado == null ? 0 : Math.max(0, arred(pesado - previsto)),
@@ -229,9 +240,14 @@
     var semFotoOk = !!(opcoes && opcoes.dispensaFoto);
     var fotos = linhas.reduce(function(s, l) { return s + l.fotos; }, 0);
     // Sem foto: MP sem nenhuma foto, ou com alguma parcela sem a sua.
-    var semFoto = linhas.filter(function(l) { return !l.pendente && (!l.fotos || l.parcelasSemFoto); });
+    // Com parcelas, cada uma precisa da foto ou da justificativa escrita.
+    var semFoto = linhas.filter(function(l) { return !l.pendente && (l.parcelas ? l.parcelasSemFoto > 0 : !l.fotos); });
     if (EXIGE_FOTO_PESAGEM && !semFotoOk && semFoto.length) {
       erros.push('Falta a foto da pesagem de ' + semFoto.map(function(l) { return l.mpCodigo; }).join(', ') + ' (prova de auditoria).');
+    }
+    var escritas = linhas.filter(function(l) { return l.parcelasSemFotoEscrito > 0; });
+    if (escritas.length) {
+      avisos.push('Pesagem sem foto, justificada por escrito: ' + escritas.map(function(l) { return l.mpCodigo; }).join(', ') + '. Fica registrado no dossiê do lote.');
     }
     if (!linhas.length) erros.push(opcoes && opcoes.correcao
       ? 'A correção não tem matérias-primas a pesar.'
@@ -629,6 +645,7 @@
 
   return {
     ESTADOS: ESTADOS, TOLERANCIA_PESAGEM_PCT: TOLERANCIA_PESAGEM_PCT, EXIGE_FOTO_PESAGEM: EXIGE_FOTO_PESAGEM,
+    MIN_MOTIVO_SEM_FOTO: MIN_MOTIVO_SEM_FOTO, semFotoEscrito: semFotoEscrito,
     fotosDoItem: fotosDoItem, parcelasDoItem: parcelasDoItem, fotosDaLinha: fotosDaLinha,
     validarParcela: validarParcela, itensParaFechamento: itensParaFechamento,
     baixasPorLote: baixasPorLote, proximaPendente: proximaPendente, situacaoLotes: situacaoLotes,

@@ -1,0 +1,34 @@
+'use strict';
+const assert=require('node:assert/strict'),path=require('node:path');
+const req=require('node:module').createRequire(path.resolve('functions/package.json'));
+const {initializeApp,deleteApp}=req('firebase-admin/app');
+const {getDatabase}=req('firebase-admin/database'),{getAuth}=req('firebase-admin/auth');
+const {criarServicoIdentidade}=require('./functions/identidade_acesso');
+if(process.env.FIREBASE_DATABASE_EMULATOR_HOST!=='127.0.0.1:9023'||process.env.FIREBASE_AUTH_EMULATOR_HOST!=='127.0.0.1:9099'||process.env.GCLOUD_PROJECT!=='demo-password')throw Error('Exige Auth/RTDB locais em demo-password');
+const app=initializeApp({projectId:'demo-password',databaseURL:'http://127.0.0.1:9023?ns=demo-password-default-rtdb'},'password-emulator');
+const db=getDatabase(app),auth=getAuth(app);
+const signIn=async password=>{
+  const res=await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=demo-only',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'orphan@example.test',password,returnSecureToken:true})});
+  return res.ok;
+};
+(async()=>{
+  await db.ref().set({usuarios:{adm:{role:'admin',nome:'Admin fictício'},orphan:{role:'pd',nome:'P&D fictício',email:'orphan@example.test',tenant_id:'kuryos',modulos:{pd:true}}}});
+  const service=criarServicoIdentidade({db,auth});
+  const call=data=>service.executar({auth:{uid:'adm',token:{auth_time:Math.floor(Date.now()/1000)}},data});
+  const permission={acao:'funcoes',uid:'orphan',funcoes:['pd'],tenant_id:'kuryos',modulos:{pd:true},requestId:'auth_permissions_0001'};
+  await assert.rejects(call(permission),e=>e.details.semLogin===true && !e.details.resultadoParcial);
+  const payload={acao:'definir_senha',uid:'orphan',confirmacao_email:'orphan@example.test',nova_senha:'FicticiaNova9!',requestId:'auth_password_create_0001'};
+  await call(payload);
+  assert.equal((await auth.getUser('orphan')).email,'orphan@example.test');
+  assert.equal(await signIn(payload.nova_senha),true);
+  await call({...payload,nova_senha:'OutraFicticia8!',requestId:'auth_password_change_0001'});
+  assert.equal(await signIn(payload.nova_senha),false);
+  assert.equal(await signIn('OutraFicticia8!'),true);
+  await call(permission);
+  assert.equal((await db.ref('usuarios/orphan/role').get()).val(),'pd');
+  assert.equal((await db.ref('usuarios/orphan/modulos/pd').get()).val(),true);
+  const logs=JSON.stringify((await db.ref('auditoria_acessos').get()).val());
+  assert.ok(!logs.includes(payload.nova_senha)&&!logs.includes('OutraFicticia8!'));
+  assert.equal((await auth.listUsers()).users.length,1);
+  console.log('Auth + RTDB reais emulados: criar no mesmo UID, trocar senha, senha antiga recusada, login novo e permissões preservadas OK');
+})().catch(e=>{console.error(e.message);process.exitCode=1;}).finally(()=>deleteApp(app));

@@ -7,11 +7,13 @@ const assert = require('assert/strict');
 if (process.env.FIREBASE_DATABASE_EMULATOR_HOST !== '127.0.0.1:9023') throw new Error('Teste exige emulador local 9023.');
 process.env.GCLOUD_PROJECT = 'demo-liberar';
 process.env.FIREBASE_CONFIG = JSON.stringify({ projectId: 'demo-liberar', databaseURL: 'http://127.0.0.1:9023?ns=demo-liberar-default-rtdb' });
-const admin = require('./functions/node_modules/firebase-admin');
+const reqFunctions = require('node:module').createRequire(require('node:path').resolve(__dirname, 'functions/package.json'));
+const {initializeApp} = reqFunctions('firebase-admin/app');
+const {getDatabase} = reqFunctions('firebase-admin/database');
 const fns = require('./functions/index.js'); // inicializa o app padrão (servidor) neste emulador
-const raiz = admin.database();
+const raiz = getDatabase();
 const URL = 'http://127.0.0.1:9023?ns=demo-liberar-default-rtdb';
-const pd = admin.initializeApp({ projectId: 'demo-liberar', databaseURL: URL, databaseAuthVariableOverride: { uid: 'pd' } }, 'pd').database();
+const pd = getDatabase(initializeApp({ projectId: 'demo-liberar', databaseURL: URL, databaseAuthVariableOverride: { uid: 'pd' } }, 'pd'));
 const T = 'erp/kuryos';
 const chamar = (uid, data) => fns.liberarEtapaPd.run({ auth: { uid }, data });
 
@@ -61,6 +63,10 @@ const chamar = (uid, data) => fns.liberarEtapaPd.run({ auth: { uid }, data });
   // Retrocesso do ADM de Aprovado para Aguardando: libera sem refazer a conta; de outro status, não.
   assert.deepEqual(await chamar('pd', { requestId: 'R2', novoStatus: 'WAITING_APPROVAL', voltar: true }), { ok: true });
   await assert.rejects(chamar('pd', { requestId: 'R1', novoStatus: 'WAITING_APPROVAL', voltar: true }), (e) => e.code === 'failed-precondition');
+  await raiz.ref(T + '/pd_requests/R2/status').set('WAITING_APPROVAL');
+  assert.deepEqual(await chamar('pd', { requestId: 'R2', novoStatus: 'IN_TESTS', voltar: true }), { ok: true });
+  await raiz.ref(T + '/pd_requests/R2/status').set('APPROVED');
+  await assert.rejects(chamar('pd', { requestId: 'R2', novoStatus: 'IN_TESTS', voltar: true }), (e) => e.code === 'failed-precondition');
 
   console.log('run_liberar_etapa_pd_test: OK');
   process.exit(0);

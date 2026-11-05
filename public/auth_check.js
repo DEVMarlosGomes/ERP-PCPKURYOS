@@ -14,7 +14,19 @@ var KURYOS_FUNCTIONS_ORIGIN = window.KURYOS_FUNCTIONS_ORIGIN ||
   var noFirebase = !/\.(web\.app|firebaseapp\.com|test)$/.test(host) && !/^(localhost|127\.|.*\.nip\.io$)/.test(host);
   if (!noFirebase || typeof firebase === 'undefined' || typeof firebase.functions !== 'function' || typeof firebase.app !== 'function') return;
   var original = firebase.functions;
-  var desviado = function(app) { return (app || firebase.app()).functions(KURYOS_FUNCTIONS_ORIGIN); };
+  var desviado = function(app) {
+    var instancia = (app || firebase.app()).functions(KURYOS_FUNCTIONS_ORIGIN);
+    // Compat 10.7.0 reduz customDomain ao origin e perde /api. A URL
+    // explícita preserva o caminho sem trocar o SDK nem contornar o Auth.
+    if (!instancia.__kuryosCallableUrl) {
+      var chamarPorUrl = instancia.httpsCallableFromURL.bind(instancia);
+      instancia.httpsCallable = function(nome, opcoes) {
+        return chamarPorUrl(KURYOS_FUNCTIONS_ORIGIN.replace(/\/$/, '') + '/' + encodeURIComponent(nome), opcoes);
+      };
+      instancia.__kuryosCallableUrl = true;
+    }
+    return instancia;
+  };
   Object.keys(original).forEach(function(k) { desviado[k] = original[k]; });
   firebase.functions = desviado;
 })();
@@ -300,7 +312,11 @@ const KURYOS_MODULOS = {
   // Auditoria do sistema (PORT-05, porte do Gustavo): quem gravou o quê nas telas de operação.
   // Só o admin lê (regra do banco); fora de MODULOS_POR_PAPEL.
   auditoria:    { rotulo: 'Auditoria do Sistema', desc: 'Quem apontou, com qual login, e toda gravação das telas de operação (dado sensível)',
-                  paginas: ['auditoria.html'] }
+                  paginas: ['auditoria.html'] },
+  // Manipulação em lote do P&D (D-02/A2): aprovar a mudança de ingrediente crítico (criticoPd) de outra
+  // pessoa. Sem tela própria; fora de MODULOS_POR_PAPEL: só o ADM marca (a callable confere de novo).
+  aprovar_critico_pd: { rotulo: 'Aprovar crítico P&D', desc: 'Aprovar, na manipulação em lote, a mudança de ingrediente crítico feita por outra pessoa (RT)',
+                  paginas: [] }
 };
 
 // Padrão por papel. Reproduz EXATAMENTE o alcance que cada papel tinha antes

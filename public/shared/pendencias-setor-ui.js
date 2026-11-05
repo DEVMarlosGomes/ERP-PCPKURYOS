@@ -24,13 +24,29 @@
         if (conferidas[k]) return;
         conferidas[k] = true;
         var leitura = p.tipo === 'REFERENCIA_IMPORTACAO'
-          ? db.ref(p.colecao + '/' + p.registroKey + '/' + p.campo).once('value').then(function(s) {
-              var valor = String(s.val() || '').trim();
+          ? db.ref(p.colecao + '/' + p.registroKey).once('value').then(function(s) {
+              var registro = s.val() || {};
+              var valor = String(registro[p.campo] || '').trim();
               if (!valor) return { referenciaExiste: false };
+              // Especificacao de materia-prima usa codProduto por legado, mas
+              // a referencia correta mora em materiais, nao em produtos.
+              if (p.colecao === 'especificacoes' && registro.tipoItem === 'MATERIAL') {
+                return db.ref('materiais/' + chaveMaterial(valor)).once('value')
+                  .then(function(material) { return { referenciaExiste: material.exists() }; });
+              }
+              // Historicos conservam o SKU que valia na epoca. Um rename nao
+              // reescreve OP/pedido/formula: resolve pelo indice de aliases.
               return Promise.all([
                 db.ref('produtos/' + chaveMaterial(valor)).once('value'),
-                db.ref('produtos').orderByChild('sku').equalTo(valor).limitToFirst(1).once('value')
-              ]).then(function(resultados) { return { referenciaExiste: resultados[0].exists() || resultados[1].exists() }; });
+                db.ref('produtos').orderByChild('sku').equalTo(valor).limitToFirst(1).once('value'),
+                db.ref('sku_historico/' + chaveMaterial(valor)).once('value')
+              ]).then(function(resultados) {
+                if (resultados[0].exists() || resultados[1].exists()) return { referenciaExiste: true };
+                var atual = resultados[2].val();
+                if (!atual) return { referenciaExiste: false };
+                return db.ref('produtos/' + chaveMaterial(atual)).once('value')
+                  .then(function(produto) { return { referenciaExiste: produto.exists() }; });
+              });
             })
           : p.tipo === 'MATERIAL'
           ? db.ref(p.colecao + '/' + p.versaoKey + '/itens/' + p.itemKey).once('value').then(function(s) {

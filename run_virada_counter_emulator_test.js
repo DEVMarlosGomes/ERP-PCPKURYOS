@@ -1,0 +1,22 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
+const req=require('node:module').createRequire(path.resolve('functions/package.json'));
+const {initializeApp,deleteApp}=req('firebase-admin/app'),{getDatabase}=req('firebase-admin/database');
+if(process.env.FIREBASE_DATABASE_EMULATOR_HOST!=='127.0.0.1:9023')throw Error('Exige emulador RTDB local 9023');
+const opts={projectId:'demo-contadores',databaseURL:'http://127.0.0.1:9023?ns=demo-contadores-default-rtdb'};
+const rootApp=initializeApp(opts,'counter-root'),buyerApp=initializeApp({...opts,databaseAuthVariableOverride:{uid:'buyer'}},'counter-buyer');
+const root=getDatabase(rootApp),buyer=getDatabase(buyerApp);
+const source=fs.readFileSync('public/shared/utils.js','utf8');
+const from=source.indexOf('function nextSequential('),to=source.indexOf('// Ordenação clicável',from);
+const {nextSequential}=vm.runInNewContext(source.slice(from,to)+'\n;({nextSequential})');
+(async()=>{
+  await root.ref().set({usuarios:{buyer:{role:'gestor',modulos:{compras:true}}},config:{contadores:{pedidoCompra:19,solicitacaoCompra:10,processoCotacao:14}},pedidos_compra:{historic:{numero:81,numeroFormatado:'PC-0081'}},solicitacoes_compra:{historic:{numero:39}},processos_cotacao:{historic:{numeroFormatado:'COT-0044'}}});
+  const pcs=await Promise.all(Array.from({length:8},()=>nextSequential(buyer,'config/contadores/pedidoCompra','PC',4)));
+  assert.equal(new Set(pcs.map(p=>p.numero)).size,8);
+  assert.equal(Math.min(...pcs.map(p=>p.numero)),82);
+  assert.equal((await root.ref('config/contadores/pedidoCompra').get()).val(),89);
+  assert.equal((await nextSequential(buyer,'config/contadores/solicitacaoCompra','SC',4)).numero,40);
+  assert.equal((await nextSequential(buyer,'config/contadores/processoCotacao','COT',4)).numero,45);
+  assert.equal((await root.ref('pedidos_compra/historic/numero').get()).val(),81);
+  console.log('Contadores no RTDB emulado com papel Compras: leitura permitida, salto histórico e 8 reservas concorrentes únicas OK');
+})().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>Promise.all([deleteApp(rootApp),deleteApp(buyerApp)]));

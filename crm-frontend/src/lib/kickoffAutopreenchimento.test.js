@@ -59,4 +59,19 @@ describe("origem e sobrescrita (KO-02)", () => {
     expect(variacaoEntreSkus([{ sample: s1, variation: {} }], "perfumaria")).toMatchObject({ numero_skus: 1, varia_entre_skus: [], variacao_outra_categoria: "nao" });
     expect(variacaoEntreSkus([])).toMatchObject({ numero_skus: 0, variacao_outra_categoria: "" });
   });
+  test("manipulação em lote: a composição travada da versão aprovada diz o que varia (M8)", () => {
+    const comp = (agua, frag, fragNome = "Fragrância Lavanda") => [
+      { chave: "AGUA|a", nome: "Água", pct: agua }, { chave: "FENOX|a", nome: "Fenoxietanol", pct: 1 }, { chave: `${fragNome}|b`, nome: fragNome, pct: frag, fragrancia: true }];
+    const v = (id, composicao, aprovada = id) => ({ lote_manipulacao: { formula_id: id, composicao }, aprovacao_cliente: { formula_aprovada: { id: aprovada } } });
+    const s = { categoria: "corporal" };
+    const r = variacaoEntreSkus([{ sample: s, variation: v("V1", comp(79, 20)) }, { sample: s, variation: v("V2", comp(78.5, 20.5)) }], "corporal");
+    expect(r.varia_entre_skus.sort()).toEqual(["fragrancia", "outro"]);
+    expect(r.varia_entre_skus_outro).toBe("fórmula: Água");
+    // Só a fragrância muda de nome: varia fragrância, nada mais.
+    const so = variacaoEntreSkus([{ sample: s, variation: v("V1", comp(79, 20)) }, { sample: s, variation: v("V2", comp(79, 20, "Fragrância Rosa")) }], "corporal");
+    expect(so.varia_entre_skus).toEqual(["fragrancia"]);
+    // Cliente aprovou outra versão (refeita depois do lote): a composição do lote não vale.
+    const outra = variacaoEntreSkus([{ sample: s, variation: v("V1", comp(79, 20)) }, { sample: s, variation: v("V2", comp(70, 29), "V9") }], "corporal");
+    expect(outra.varia_entre_skus).toEqual([]);
+  });
 });

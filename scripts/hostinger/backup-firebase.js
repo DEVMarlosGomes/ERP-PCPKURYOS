@@ -8,9 +8,10 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const zlib = require("node:zlib");
 const { pipeline } = require("node:stream/promises");
-const { getApps, initializeApp } = require("firebase-admin/app");
+const { getApps, initializeApp, deleteApp } = require("firebase-admin/app");
 const { getDatabase } = require("firebase-admin/database");
 const { getStorage } = require("firebase-admin/storage");
+const { getAuth } = require("firebase-admin/auth");
 
 function safeTarget(root, name) {
   const hash = crypto.createHash("sha256").update(name).digest("hex");
@@ -26,7 +27,8 @@ async function main() {
   if (fs.existsSync(output) || fs.existsSync(incomplete)) throw new Error("O destino do backup já existe.");
   await fsp.mkdir(incomplete, { recursive: true, mode: 0o700 });
 
-  if (!getApps().length) initializeApp();
+  if (!getApps().length) initializeApp({databaseURL:process.env.FIREBASE_DATABASE_URL,
+    projectId:process.env.GCLOUD_PROJECT,storageBucket:process.env.FIREBASE_STORAGE_BUCKET});
   const startedAt = new Date().toISOString();
   const dbFile = path.join(incomplete, "rtdb.json.gz");
   const snapshot = await getDatabase().ref("/").once("value");
@@ -39,8 +41,9 @@ async function main() {
 
   const bucket = getStorage().bucket(process.env.FIREBASE_STORAGE_BUCKET);
   const objects = [];
+  const [bucketExists] = await bucket.exists();
   let query = { autoPaginate: false, maxResults: 100 };
-  do {
+  while (bucketExists && query) {
     const [files, nextQuery] = await bucket.getFiles(query);
     for (const file of files) {
       const target = safeTarget(incomplete, file.name);
@@ -57,7 +60,19 @@ async function main() {
       });
     }
     query = nextQuery || null;
-  } while (query);
+  }
+
+  // Identidades são parte da recuperação. Hash de senha pode não ser devolvido
+  // pela API; nesse caso a restauração exige redefinição de senha.
+  const users = [];
+  let pageToken;
+  do {
+    const page = await getAuth().listUsers(1000, pageToken);
+    users.push(...page.users.map(user => user.toJSON()));
+    pageToken = page.pageToken;
+  } while (pageToken);
+  await pipeline(require("node:stream").Readable.from([JSON.stringify(users)]), zlib.createGzip({level:9}),
+    fs.createWriteStream(path.join(incomplete,"auth-users.json.gz"), {mode:0o600}));
 
   const manifest = {
     format: 1,
@@ -67,7 +82,8 @@ async function main() {
     startedAt,
     completedAt: new Date().toISOString(),
     rtdb: { file: "rtdb.json.gz", uncompressedBytes: Buffer.byteLength(json) },
-    storage: { count: objects.length, objects },
+    auth: {file:"auth-users.json.gz",count:users.length},
+    storage: { status: bucketExists ? "complete" : "not-provisioned", count: objects.length, objects },
   };
   await fsp.writeFile(path.join(incomplete, "manifest.json"), JSON.stringify(manifest, null, 2), { mode: 0o600 });
   await fsp.rename(incomplete, output);
@@ -77,5 +93,5 @@ async function main() {
 main().catch(async (error) => {
   console.error(error && error.stack || error);
   process.exitCode = 1;
-});
+}).finally(async () => { await Promise.all(getApps().map(deleteApp)); });
 

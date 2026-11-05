@@ -173,7 +173,7 @@ const pesagemOk = {
   assert.deepEqual(M.pendentesDevolucao(previstos, {}), [], 'sem pesagem, nada a guardar');
 
   // Validação de uma ida à balança.
-  assert.deepEqual(M.validarParcela({}).erros, ['Informe o peso que a balança mostrou.', 'Informe o lote da embalagem usada.', 'Tire a foto da balança.']);
+  assert.deepEqual(M.validarParcela({}).erros, ['Informe o peso que a balança mostrou.', 'Informe o lote da embalagem usada.', 'Tire a foto da balança ou, se não conseguir anexar, descreva por escrito o motivo.']);
   assert.equal(M.validarParcela({peso: '12,5'}).ok, false, 'vírgula chega convertida pela tela');
   assert.equal(M.validarParcela({peso: 12.5, loteMaterial: 'AK-1', temFoto: true}).ok, true);
 }
@@ -254,6 +254,33 @@ const pesagemOk = {
   assert.equal(M.transicao('LIBERAR', {quem: 'Daiene'})['analise/decisao'], 'LIBERADO');
   assert.equal(M.transicao('NAO_EXISTE', {}), null);
   assert.equal(M.rotulo('EM_MANIPULACAO'), 'Em manipulação');
+}
+
+// ── Sem foto, por escrito (03/11/2026) ──────────────────────────────────
+// "na etapa de pesagem exige foto: coloque um campo para preencher por escrito
+// caso não consiga anexar a foto". A parcela passa com a justificativa escrita
+// (mínimo 10 caracteres), fica marcada e aparece como aviso no fechamento.
+{
+  const motivo = 'Celular sem câmera; peso conferido pela Ana na balança 2';
+  assert.equal(M.validarParcela({peso: 10, loteMaterial: 'AK-1', semFotoMotivo: motivo}).ok, true, 'escrito substitui a foto');
+  assert.deepEqual(M.validarParcela({peso: 10, loteMaterial: 'AK-1', semFotoMotivo: 'sem foto'}).erros,
+    ['Descreva em pelo menos 10 caracteres por que a foto não pôde ser anexada.']);
+  assert.equal(M.validarParcela({peso: 10, loteMaterial: 'AK-1', semFotoMotivo: '          '}).ok, false, 'só espaços não vale');
+  assert.equal(M.validarParcela({peso: 10, loteMaterial: 'AK-1'}).ok, false, 'sem foto e sem escrito continua barrando');
+
+  const parc = (mp, extra) => ({[mp]: {'-p1': Object.assign({peso: previstos[mp].previsto, loteMaterial: 'AK-1', em: '2026-11-03T10:00:00Z'}, extra)}});
+  const fotoOk = {foto: {caminho: 'manipulacao/x.jpg'}};
+  const pes = {parcelas: Object.assign({}, parc('MP-01', fotoOk), parc('MP-02', {semFotoMotivo: motivo}), parc('MP-03', fotoOk))};
+  const linhas = M.linhasPesagem(previstos, pes);
+  const mp2 = linhas.find((l) => l.itemKey === 'MP-02');
+  assert.equal(mp2.parcelasSemFoto, 0, 'escrita não conta como faltando foto');
+  assert.equal(mp2.parcelasSemFotoEscrito, 1);
+  const v = M.validarPesagem(previstos, pes);
+  assert.ok(!v.erros.some((e) => /Falta a foto/.test(e)), v.erros.join(' | '));
+  assert.ok(v.avisos.some((a) => /MP-02/.test(a) && /por escrito/.test(a)), 'fechamento avisa que MP-02 foi sem foto');
+
+  const semNada = {parcelas: Object.assign({}, parc('MP-01', fotoOk), parc('MP-02', {}), parc('MP-03', fotoOk))};
+  assert.match(M.validarPesagem(previstos, semNada).erros.join(' '), /Falta a foto da pesagem de MP-02/);
 }
 
 console.log('run_manipulacao_test.js: OK');

@@ -13,17 +13,15 @@ COMPOSE="docker compose --project-name kuryos --env-file $CONFIG -f $RELEASE/com
 
 $COMPOSE exec -T functions node ops/backup-firebase.js "$TARGET"
 
-# Carrega apenas para decidir se o repositório externo foi configurado; nada é impresso.
-set -a
-# O caminho absoluto de produção é configurável por KURYOS_ROOT.
-# shellcheck disable=SC1090
-. "$CONFIG"
-set +a
+# .env é dado do Compose, não código shell (segredos podem conter $, espaços etc.).
+RESTIC_REPOSITORY=$(sed -n 's/^RESTIC_REPOSITORY=//p' "$CONFIG" | head -n 1)
+EXTERNAL_OK=0
 case "${RESTIC_REPOSITORY:-}" in
   ""|*"<"*) echo "Backup local criado; armazenamento externo ainda não configurado." ;;
   *)
     $COMPOSE --profile backup run --rm restic backup /backups --tag kuryos
     $COMPOSE --profile backup run --rm restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune
+    EXTERNAL_OK=1
     ;;
 esac
 
@@ -33,7 +31,9 @@ case "$BACKUP_ROOT" in
   "$ROOT_REAL"/backups) ;;
   *) echo "Diretório de backup inseguro: $BACKUP_ROOT" >&2; exit 1 ;;
 esac
-find "$BACKUP_ROOT" -mindepth 2 -type f -mtime +7 -delete
-find "$BACKUP_ROOT" -mindepth 1 -depth -type d -empty -delete
+if [ "$EXTERNAL_OK" = 1 ]; then
+  find "$BACKUP_ROOT" -mindepth 2 -type f -mtime +7 -delete
+  find "$BACKUP_ROOT" -mindepth 1 -depth -type d -empty -delete
+fi
 echo "Backup concluído: $STAMP"
 

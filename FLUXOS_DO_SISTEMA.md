@@ -20,7 +20,7 @@ atualiza o passo aqui no mesmo commit.**
 - Situação: ✅ funciona · 🟡 funciona em parte · ⬜ não existe (é gap).
 - Siglas: `CAD` Cadastro · `CMP` Compras · `COM` Comercial · `PCP` PCP · `LOG` Logística ·
   `QUA` Qualidade · `PRO` Operação › Produção · `MAN` Operação › Manipulação ·
-  `ROT` Operação › Rotulagem · `FAT` Faturamento · `EX` exceção · `GAP` gap.
+  `ROT` Operação › Rotulagem · `FAT` Faturamento · `PD` P&D (CRM incorporado) · `EX` exceção · `GAP` gap.
 
 ---
 
@@ -73,6 +73,27 @@ atualiza o passo aqui no mesmo commit.**
 | COM.9 | Devoluções de Cliente › Autorizar devolução | Pedido, **saída (carga/NF) de onde volta**, quantidade por item (limitada ao que saiu e ainda não voltou), tipo de motivo, motivo, NF de devolução | `devolucoes_cliente/DEV-AAAA-NNN` AUTORIZADA → aparece para a Logística receber (LOG.9) | ✅ |
 
 **Exceções:** orçamento perdido ([EX-01](#ex-01)), ajuste de pedido ([EX-02](#ex-02)), cancelamento ([EX-03](#ex-03)).
+
+---
+
+## PD — P&D › Manipulação em lote (05/11/2026)
+
+Amostras do mesmo projeto manipuladas juntas: uma matriz comum, a fragrância e os ajustes de cada uma, uma
+ordem de pesagem só. Spec: `docs/superpowers/specs/2026-11-04-pd-manipulacao-lote-design.md`.
+
+| Nº | Onde | Faz / preenche | Resultado → aparece em | |
+|---|---|---|---|---|
+| PD.L1 | P&D › solicitação › Overview › **Amostras deste projeto** | Marca de 2 a 20 amostras Abertas ou Em Desenvolvimento (quem não pode entrar mostra o motivo). **Manipular em lote** | Lote `LM-{nº do projeto}-{n}` em rascunho, com a matriz padrão (fórmula vigente mais recente que fecha 100 %) | ✅ |
+| PD.L2 | Lote › matriz | % de cada ingrediente por amostra (100 % ao vivo), clonar matriz/coluna/ingrediente, adicionar MP, quantidade em g (ou densidade), pré-mistura por fase com nome, excesso. Diferença da matriz: fragrância livre; comum com motivo; **crítico** (`criticoPd`, marcado pelo ADM no Cadastros) com motivo e aprovação de outra pessoa (ADM ou módulo "Aprovar crítico P&D") — também quando muda a fórmula anterior da própria amostra, mesmo igual à matriz. **Salvar rascunho** | Só o rascunho, no nó do lote; Aberto → Em Desenvolvimento. Nenhuma versão nova ainda | ✅ |
+| PD.L3 | Lote › **Gerar ordem** | — (o servidor reconfere tudo) | Versão nova **travada** de cada fórmula, ordem de pesagem (pré-mistura + adições), composição na variação do CRM 3, origem na mesma solicitação de MP nova | ✅ |
+| PD.L4 | Ordem › Imprimir · Pesagem | Peso real e lote da MP por linha; desvio acima de max(0,01 g; 1 %) pede motivo; **Corrigir** cria registro novo | Pesagem registrada (quem, quando) | ✅ |
+| PD.L5 | Ordem › Conferir | Outra pessoa confere as linhas (ligado por padrão; só o ADM desliga) | Linhas conferidas | ✅ |
+| PD.L6 | Ordem › **Registrar manipulação** | Entregue por amostra, retenção, descarte (com motivo), perda (até o teto) | Massa conciliada → lote **manipulado** | ✅ |
+| PD.L7 | Lote manipulado › Ações em lote | Em Testes, estabilidade (mesma data), liberação antecipada — uma amostra por vez, pela rota de sempre; ocorrência; **Tornar a nova base do projeto** | Relatório de quem passou e quem falhou; cada amostra segue o próprio caminho no P&D e no CRM 3 | ✅ |
+
+**Regras que valem sempre:** mudar depois da ordem = cancelar o lote (motivo) e montar outro; amostra com versão
+de lote não é apagada (vira Cancelada); projeto/amostra com lote de ordem gerada não é excluído; a aprovação do
+cliente guarda a versão que ele avaliou e o Kickoff usa a composição dela para "o que varia".
 
 ---
 

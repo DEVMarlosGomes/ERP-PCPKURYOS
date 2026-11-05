@@ -71,6 +71,7 @@ código do Kuryos ERP — lá só dá para verificar pelo navegador.
 | Financeiro (`financeiro.html`) e Controladoria (`controladoria.html`) | construídos em 28/10 (`PROMPT_FINANCEIRO.md` §15, `PROMPT_CONTROLADORIA.md` §15); módulos `financeiro` e `controladoria` marcados pelo ADM; só LEEM os outros módulos (títulos dos recebimentos/NFs/operação; lançamentos do razão de custos/NFs/baixas). Títulos, baixas, lançamentos e fechamento só o servidor grava; nada se apaga (estorno). Base sem NF de saída e sem banco até a operação cadastrar |
 | Menu lateral e Início (reunião 28/10) | no ar desde 30/10: menu montado de um registro único (`public/shared/navegacao.js`, ordem do D-01, identidade do Gustavo); `inicio.html` é a home. Tela nova entra no registro no mesmo commit; `run_navegacao_test.js` compara os links de 39 perfis |
 | Reunião 28/10 (`AUDITORIA_REUNIAO_20261028.md`) | concluída em 31/10: MENU-01..04, CRM-01..04, PD-01..06, KO-10..13, BOM-02..04, COT-01..04, SKU-01, OP-01/02, PLAN-01, FEFO-01, FIN-01 e PORT-01..10. Em 01/11 a emissão de OP migrou para transação no servidor e as duas propostas antigas foram confirmadas com SKU. A trava de saldo segue **desligada** até a execução física do Dia D (`PLANO_DIA_D_CUTOVER.md`). |
+| P&D — Manipulação em lote (`PROMPT_PD_MANIPULACAO_EM_LOTE.md`) | construída, auditada e corrigida em 04–05/11 (spec `docs/superpowers/specs/2026-11-04-pd-manipulacao-lote-design.md`, §13 = auditoria final). Regras publicadas em 05/11; código em `hostinger-deploy` `31a1939`. Ordem, pesagem, conferência e aprovação de crítico só pela callable `manipulacaoLoteServidor`; crítico = `materiais/{k}/criticoPd`, marcado só pelo ADM no Cadastros |
 | Estoque | ver "Dia D" abaixo |
 
 **O saldo de estoque ainda não serve para decidir.** Dos 906 materiais cadastrados, só 37
@@ -120,6 +121,54 @@ antes de fechar.
 - **Banco e login de PCP e CRM são o projeto Firebase `erpkuryos`** (não `prod-kuryos`).
   As regras se publicam **só** a partir de `database.rules.json` deste repo; a cópia da
   pasta antiga foi desativada porque apagaria nós em produção.
+
+### Identidade e acesso (03/11/2026)
+
+- Correção publicada na VPS em `397b4a3`: SDK compat 10.7.0 perdia `/api` no
+  customDomain; `auth_check.js` agora usa URL explícita nas callables. Usuários
+  oferece verificar vínculo e regularizar Auth no mesmo UID com confirmação,
+  sem fusão automática de identidades ou nova função concedida. Há journal
+  prévio/idempotência por requestId e trava servidor; falhas parciais exigem
+  conferência, não replay automático. Contadores PC/SC/COT alinhados em 81/39/44
+  com backup e releitura. Validade da expedição lê os três nomes históricos e
+  bloqueia datas inválidas/vencidas no servidor e navegador. Quatro colisões
+  antigas ainda aguardam decisão documental; gatilhos/agendas permanecem
+  desligados. Detalhes: `CORRECOES_VIRADA_ACESSOS_20261103.md`.
+- Segurança em produção desde `bf1f39d`: API verifica revogação/perfil ativo e limita
+  chamadas; administração exige login recente; RTDB exige perfil ativo e validade de
+  sessão, restringe CRM ao setor e proíbe escrita/exclusão de auditoria pelo cliente.
+  Auditoria comercial passa por callable. Caddy executa UID 1000 e containers têm
+  filesystem read-only/limites. Backup diário local ativo, com ensaio de restauração
+  RTDB aprovado. Detalhes/pendências: `CORRECOES_SEGURANCA_20261103.md`.
+  MFA/Identity Platform, SSH root, destino externo de backup, troca de senha antiga
+  e provisionamento/autorização do Storage ainda precisam das etapas descritas lá.
+- Domínio principal da VPS Hostinger: `kuryoserp.com.br`; `www` e os endereços
+  `kuryoserp.tech`/`www.kuryoserp.tech` redirecionam ao principal. O projeto de
+  Auth/RTDB continua `erpkuryos`. Deploy por commit com
+  `scripts/hostinger/deploy.sh` na branch `hostinger-deploy`; push sozinho não
+  atualiza a VPS. Os dois domínios novos estão autorizados no Firebase Auth.
+- O login público não cadastra contas. `public/login.html` oferece entrada e recuperação
+  de senha; a criação, edição, funções, módulos, tenant, bloqueio, revogação de sessões e
+  exclusão ficam em `public/usuarios.html` para administradores.
+- Toda mutação privilegiada passa pela callable `gerenciarUsuario` e pelo Admin SDK
+  (`functions/identidade_acesso.js`). Senhas atuais nunca são consultadas. O ADM pode
+  definir nova senha (com confirmação recente da própria identidade); ela transita
+  somente para o provedor e não entra em journal/auditoria. Perfis sem Auth podem
+  preparar login no mesmo UID, preservando acessos; conflitos de e-mail usam o
+  cadastro já vinculado, sem fusão automática. O navegador não escreve perfis
+  administrativos. Desativar bloqueia também o Firebase Auth; excluir arquiva o perfil
+  em `usuarios_removidos`; ações ficam em `auditoria_acessos`.
+- Autoexclusão, autodesativação e mudança do próprio acesso são recusadas. A proteção do
+  último administrador ocorre em transação no nó `usuarios`, portanto duas ações
+  simultâneas não conseguem retirar todos os administradores.
+- No projeto `erpkuryos`, cadastro e exclusão pelo cliente estão desativados na
+  configuração do Identity Toolkit. Senhas novas exigem 8 caracteres, maiúscula,
+  minúscula e número; símbolo é permitido. `forceUpgradeOnSignin=false`: senhas antigas
+  continuam entrando até serem redefinidas. A configuração idempotente vive em
+  `scripts/configurar-auth-producao.js` e foi aplicada/verificada em 03/11/2026.
+- `usuarios/$uid` só pode ser lido pelo próprio usuário, ADM ou RH. O cliente só cria o
+  próprio perfil pendente para recuperar logins legados sem perfil; perfis ativos,
+  auditoria e arquivo de excluídos são escritos exclusivamente pelo servidor.
 
 - **Status "Em Testes" e "Aguardando Aprovação" do P&D só com liberação do servidor**
   (desde 23/10/2026): a regra de `erp/$tenant/pd_requests/$req/status` exige

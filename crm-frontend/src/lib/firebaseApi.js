@@ -7,6 +7,7 @@ import {
 } from "@/lib/crmRules";
 import { askJustification, isJustificationRequired } from "@/lib/justificationPrompt";
 import { createCommercialRouter, NOT_HANDLED } from "@/lib/firebaseCommercial";
+import { COLECAO_LOTES, NAO_TRATADA, createManipulacaoLoteRouter, historicoDeLote, planoCancelarLotes, planoRemocaoDosLotes, temOrdem } from "@/lib/manipulacaoLoteRotas";
 import { categoriasAtivas } from "@/lib/categoriasProduto";
 import { sugestoesCli4 } from "@/lib/cli4";
 import { amostraDaVersaoFaltando, precoUsd, volumeEmKg } from "@/lib/pdAmostra";
@@ -19,7 +20,7 @@ import { erroNaoFecha, fechamentoFormula, pendenciasDoLote } from "@/lib/fechame
 import { baseVigente, planoDaBase, substituicoesForaDaFragrancia } from "@/lib/formulacaoBase";
 import { contatosDoCliente, entradaHistoricoAprovacao, validarAprovacaoCliente } from "@/lib/aprovacaoCliente";
 import { acrescentarHistorico } from "@/lib/historicoTimeline";
-import { liberarEtapaPd } from "@/lib/servidor";
+import { liberarEtapaPd, chamarServidor } from "@/lib/servidor";
 import { cotacaoDaFormula, situacao as situacaoCambio, validarSpread } from "@/lib/cambio";
 import { validarLeitura } from "@/lib/estabilidade";
 import { CATALOGO_PADRAO, mesclarCatalogo, validarTipoComponente } from "@/lib/tiposComponente";
@@ -537,9 +538,23 @@ function pdSampleBatch(e, t, a) {
   };
 }
 
+async function recusarFaseDeVersaoDeLote(tenantId, formulaId) {
+  const f = await one(tenantId, "pd_formulas", formulaId);
+  if (f?.locked && f.origem_lote) throw apiError(409, `A versão v${f.version || 1} saiu da ordem do lote ${f.origem_lote.codigo || ""} e está travada: as fases dela não mudam. Crie uma versão nova para alterar.`);
+}
+
+// Estudo de estabilidade novo de uma solicitação (rota do estudo e estabilidade em lote — LM-11).
+function novoEstudoEstabilidade(req, inicio) {
+  return clean({
+    request_id: req.id, pd_card_id: req.id,
+    amostra_id: req.crm_sample_id || req.linked_amostra_id, amostra_variacao_id: req.crm_variacao_id || req.linked_variacao_id,
+    status: "ativo", started_at: inicio, updated_at: inicio,
+    conditions: PD_STABILITY_CONDITIONS.map((c) => ({ ...c, completed_day_offsets: [], next_due_day_offset: c.checkpoints[0], next_due_at: inicio })),
+    summary: { overall_status: "pendente_d0", completed_readings: 0 },
+  });
+}
+
 async function pdDeleteRequestCascade(e, t) {
-  // PD-03: amostra descartada cancela (não apaga) as solicitações de MP nova que só ela usava.
-  await descartarMpsNovasDaSolicitacao(e, t, "Amostra descartada: solicitação do P&D excluída");
   const a = (await all(e, "pd_developments")).filter(e => e.request_id === t || e.pd_request_id === t),
     r = new Set(a.map(e => e.id)),
     i = (await all(e, "pd_formulas")).filter(e => r.has(e.development_id)),
@@ -548,7 +563,12 @@ async function pdDeleteRequestCascade(e, t) {
     n = new Set(s.map(e => e.id)),
     d = (await all(e, "pd_document_versions")).filter(e => e.request_id === t || e.pd_request_id === t),
     g = new Set(d.map(e => e.id));
-  for (const [a, i] of [["pd_formula_items", e => o.has(e.formula_id)], ["pd_formula_phases", e => o.has(e.formula_id)], ["pd_formula_costs", e => o.has(e.formula_id)], ["pd_formulas", e => r.has(e.development_id)], ["pd_tests", e => r.has(e.development_id)], ["pd_samples", e => r.has(e.development_id)], ["pd_sample_batches", e => r.has(e.development_id)], ["pd_approvals", e => r.has(e.development_id)], ["pd_costs", e => r.has(e.development_id)], ["pd_cost_versions", e => r.has(e.development_id)], ["pd_documents", e => r.has(e.development_id)], ["pd_lab_results", e => r.has(e.development_id)], ["pd_developments", e => r.has(e.id)], ["pd_request_status_history", e => e.request_id === t || e.pd_request_id === t], ["pd_pending_items", e => e.request_id === t || e.pd_request_id === t], ["pd_updates", e => e.request_id === t || e.pd_request_id === t], ["pd_purchase_requests", e => e.request_id === t || e.pd_request_id === t], ["pd_stability_readings", e => n.has(e.study_id)], ["pd_stability_studies", e => e.request_id === t || e.pd_request_id === t || e.pd_card_id === t], ["workflow_tasks", e => "pd_document" === e.entity_type && g.has(e.entity_id)], ["pd_document_versions", e => e.request_id === t || e.pd_request_id === t], ["pd_ficha_tecnica", e => e.request_id === t || e.pd_request_id === t || r.has(e.development_id)], ["pd_cards", e => e.pd_request_id === t]]) for (const r of (await all(e, a)).filter(i)) await erase(e, a, r.id);
+  const alvos = [["pd_formula_items", e => o.has(e.formula_id)], ["pd_formula_phases", e => o.has(e.formula_id)], ["pd_formula_costs", e => o.has(e.formula_id)], ["pd_formulas", e => r.has(e.development_id)], ["pd_tests", e => r.has(e.development_id)], ["pd_samples", e => r.has(e.development_id)], ["pd_sample_batches", e => r.has(e.development_id)], ["pd_approvals", e => r.has(e.development_id)], ["pd_costs", e => r.has(e.development_id)], ["pd_cost_versions", e => r.has(e.development_id)], ["pd_documents", e => r.has(e.development_id)], ["pd_lab_results", e => r.has(e.development_id)], ["pd_developments", e => r.has(e.id)], ["pd_request_status_history", e => e.request_id === t || e.pd_request_id === t], ["pd_pending_items", e => e.request_id === t || e.pd_request_id === t], ["pd_updates", e => e.request_id === t || e.pd_request_id === t], ["pd_purchase_requests", e => e.request_id === t || e.pd_request_id === t], ["pd_stability_readings", e => n.has(e.study_id)], ["pd_stability_studies", e => e.request_id === t || e.pd_request_id === t || e.pd_card_id === t], ["workflow_tasks", e => "pd_document" === e.entity_type && g.has(e.entity_id)], ["pd_document_versions", e => e.request_id === t || e.pd_request_id === t], ["pd_ficha_tecnica", e => e.request_id === t || e.pd_request_id === t || r.has(e.development_id)], ["pd_cards", e => e.pd_request_id === t]];
+  // LM-05: lê tudo antes de apagar — leitura negada no meio não deixa a solicitação pela metade.
+  const lidos = await Promise.all(alvos.map(([a]) => all(e, a)));
+  // PD-03: amostra descartada cancela (não apaga) as solicitações de MP nova que só ela usava.
+  await descartarMpsNovasDaSolicitacao(e, t, "Amostra descartada: solicitação do P&D excluída");
+  for (const [k, [a, i]] of alvos.entries()) for (const r of lidos[k].filter(i)) await erase(e, a, r.id);
   await erase(e, "pd_requests", t);
 }
 
@@ -926,9 +946,8 @@ async function conferirFechamentoPd(tenantId, request, development) {
 }
 
 async function auditCard(tenantId, action, entityType, entityId, before, after, profile) {
-  await create(tenantId, "audit_log", {
-    action, entity_type: entityType, entity_id: entityId, before: before || null, after: after || null,
-    user_id: firebaseAuth.currentUser?.uid || "", user_name: profile?.name || profile?.nome || profile?.email || "",
+  await chamarServidor("registrarAuditoriaCrm", {
+    tenant_id: tenantId, action, entity_type: entityType, entity_id: entityId, before: before || null, after: after || null,
   });
 }
 
@@ -1199,10 +1218,67 @@ async function crmDependents(tenantId, entity, cardId) {
 
 async function deleteSampleCascade(tenantId, sample) {
   for (const variation of sample.variacoes || []) {
-    if (variation.pd_request_id) await pdDeleteRequestCascade(tenantId, variation.pd_request_id).catch(() => null);
+    if (variation.pd_request_id) {
+      try { await pdDeleteRequestCascade(tenantId, variation.pd_request_id); } catch (error) {
+        // LM-05: a falha não some mais — a amostra fica e o ADM vê o motivo.
+        throw apiError(409, `A amostra ${sample.codigo || sample.nome_produto || sample.id} não foi excluída: a solicitação ${variation.codigo || variation.pd_request_id} do P&D falhou (${error?.response?.data?.detail || error?.message || error}). Tente de novo; o que já tinha sido apagado antes da falha não volta.`);
+      }
+    }
     if (variation.pd_card_id) await erase(tenantId, "pd_cards", variation.pd_card_id);
   }
   await erase(tenantId, "crm_samples", sample.id);
+}
+
+// LM-05: variação em lote com ordem gerada guarda versões e pesagens — o card não é excluído (409).
+// Lotes em rascunho: o projeto excluído cancela os dele; a amostra excluída sai dos lotes (marcada).
+async function prepararLotesParaExclusao(tenantId, entity, cardId, record, projects, samples, profile) {
+  const projetoIds = new Set(entity === "project" ? [cardId] : projects.map((p) => p.id));
+  const reqIds = [...samples, ...(entity === "sample" ? [record] : [])].flatMap((s) => (s.variacoes || []).map((v) => v?.pd_request_id).filter(Boolean));
+  if (!projetoIds.size && !reqIds.length) return;
+  const lotes = await all(tenantId, COLECAO_LOTES);
+  const travados = lotes.filter((l) => temOrdem(l) && (projetoIds.has(l.projeto_id) || reqIds.some((r) => l.membros?.[r])));
+  if (travados.length) {
+    throw apiError(409, `Não dá para excluir: ${travados.map((l) => l.codigo || l.id).join(", ")} já tem ordem de manipulação gerada — as versões e pesagens do lote são histórico. Mantenha o card (marque a amostra como cancelada ou o projeto como perdido) em vez de excluir.`);
+  }
+  const autor = { uid: firebaseAuth.currentUser.uid, nome: pdUserName(profile) };
+  const agora = now();
+  const updates = entity === "sample"
+    ? Object.assign({}, ...reqIds.map((r) => planoRemocaoDosLotes({ tenant: tenantId, lotes, requestId: r, motivo: `Amostra ${record.codigo || cardId} excluída do CRM`, autor, agora, novoId: id })))
+    : planoCancelarLotes({ tenant: tenantId, lotes: lotes.filter((l) => projetoIds.has(l.projeto_id)), motivo: "Projeto excluído do CRM: lote cancelado antes da exclusão", autor, agora, novoId: id });
+  if (Object.keys(updates).length) await update(ref(firebaseDb), updates);
+}
+
+// LM-05: solicitação com versão de lote (ordem gerada) não se apaga — vira Cancelada com motivo e o
+// lote ganha o evento; membro só de rascunho sai do lote (marcado, nunca apagado) e a cascata física segue.
+async function excluirSolicitacaoPd(tenantId, requestId, profile) {
+  const req = await one(tenantId, "pd_requests", requestId);
+  if (!req) throw apiError(404, "Solicitação P&D não encontrada.");
+  const lotes = await all(tenantId, COLECAO_LOTES);
+  const autor = { uid: firebaseAuth.currentUser.uid, nome: pdUserName(profile) };
+  const agora = now();
+  const comHistorico = historicoDeLote(lotes, requestId);
+  if (comHistorico.length) {
+    const T = `${ROOT}/${tenantId}`;
+    const motivo = `Excluída com histórico na manipulação em lote ${comHistorico.map((l) => l.codigo || l.id).join(", ")}: cancelada em vez de apagada (versões e pesagens ficam).`;
+    const hid = id();
+    const updates = {
+      [`${T}/pd_requests/${requestId}/status`]: "CANCELLED", [`${T}/pd_requests/${requestId}/cancelado_motivo`]: motivo, [`${T}/pd_requests/${requestId}/updated_at`]: agora,
+      [`${T}/pd_request_status_history/${hid}`]: { id: hid, request_id: requestId, pd_request_id: requestId, from_status: req.status || "OPEN", to_status: "CANCELLED",
+        comment: motivo, changed_by: autor.uid, changed_by_name: autor.nome, created_at: agora, user_id: autor.uid },
+    };
+    for (const l of comHistorico) {
+      const L = `${T}/${COLECAO_LOTES}/${l.id}`;
+      Object.assign(updates, { [`${L}/revisao`]: Number(l.revisao || 0) + 1, [`${L}/atualizado_em`]: agora,
+        [`${L}/eventos/${id()}`]: { tipo: "solicitacao_cancelada", por: autor.uid, por_nome: autor.nome, em: agora, detalhe: `${l.membros[requestId].codigo_amostra || requestId}: ${motivo}` } });
+    }
+    await update(ref(firebaseDb), updates);
+    await pdSyncRequestStatus(tenantId, { ...req, status: "CANCELLED" }, "CANCELLED");
+    return { deleted: false, cancelled: true, message: motivo };
+  }
+  const remocao = planoRemocaoDosLotes({ tenant: tenantId, lotes, requestId, motivo: "Solicitação excluída no P&D", autor, agora, novoId: id });
+  if (Object.keys(remocao).length) await update(ref(firebaseDb), remocao);
+  await pdDeleteRequestCascade(tenantId, requestId);
+  return { deleted: true, message: "Solicitação removida" };
 }
 
 async function deleteCard(tenantId, entity, cardId, profile, cascade) {
@@ -1214,6 +1290,7 @@ async function deleteCard(tenantId, entity, cardId, profile, cascade) {
   if ((projects.length || samples.length) && !cascade) {
     throw apiError(409, `Este card tem ${projects.length} projeto(s) e ${samples.length} amostra(s) vinculados. Confirme a exclusão em cascata.`);
   }
+  await prepararLotesParaExclusao(tenantId, entity, cardId, record, projects, samples, profile);
   for (const sample of samples) await deleteSampleCascade(tenantId, sample);
   for (const project of projects) await erase(tenantId, "crm_projects", project.id);
   if (entity === "sample") await deleteSampleCascade(tenantId, record);
@@ -1252,6 +1329,13 @@ const commercial = createCommercialRouter({
   all, one, save, patch, create, related, masterAll, masterOne, masterWrite, apiError, now, newId: id, auditCard, syncMasterClients,
   ensureNumeroProjeto, justificationRequired, lerCambio,
   // Chamada interna a outra rota do adaptador (ex.: gerar o EPA do P&D na aprovação do Kickoff).
+  call: (method, url, data) => dispatch(method, url, data, {}),
+});
+
+// Manipulação em lote do P&D (src/lib/manipulacaoLoteRotas.js, spec 2026-11-04).
+const lotesPd = createManipulacaoLoteRouter({
+  all, one, related, masterAll, apiError, now, newId: id, auditCard, pdUserName, ensureNumeroProjeto, pdSyncRequestStatus, isAdmin,
+  novoEstudoEstabilidade,
   call: (method, url, data) => dispatch(method, url, data, {}),
 });
 
@@ -1316,6 +1400,10 @@ async function dispatch(e, t) {
   {
     const handled = await commercial.route({ method: e, path: S, query: q, data: r, profile: u, tenant: _ });
     if (handled !== NOT_HANDLED) return response(handled, i);
+  }
+  {
+    const handled = await lotesPd.route({ method: e, path: S, data: r, profile: u, tenant: _ });
+    if (handled !== NAO_TRATADA) return response(handled, i);
   }
   if ("GET" === e && ("/crm/users-list" === S || "/users" === S)) return response(await async function () {
     // usuarios/ só abre para admin/RH; os demais leem o índice público (nome + papel).
@@ -1635,7 +1723,15 @@ async function dispatch(e, t) {
     const aprovacao = validarAprovacaoCliente(r.aprovacao_cliente, { registradoPor: firebaseAuth.currentUser.uid, registradoPorNome: pdUserName(u) });
     if (!aprovacao.ok) throw apiError(422, aprovacao.erros.join(" "));
     const e = await one(_, "crm_samples", O[1]),
-      variacao = ((e && e.variacoes) || []).find((v) => v.id === O[2]),
+      variacao = ((e && e.variacoes) || []).find((v) => v.id === O[2]);
+    // Manipulação em lote (A4/M8): a aprovação guarda a versão da fórmula que o cliente avaliou (a vigente
+    // da solicitação agora); o Kickoff só usa a composição do lote se ela for dessa versão.
+    if ("aprovada" === r.resultado && variacao?.pd_request_id) {
+      const dev = (await all(_, "pd_developments")).find((d) => d.request_id === variacao.pd_request_id || d.pd_request_id === variacao.pd_request_id);
+      const vig = dev ? (await related(_, "pd_formulas", "development_id", dev.id)).sort((a, b) => Number(b.version || 0) - Number(a.version || 0))[0] : null;
+      if (vig) aprovacao.registro = { ...aprovacao.registro, formula_aprovada: { id: vig.id, versao: Number(vig.version) || 1 } };
+    }
+    const
       t = ((null === e || void 0 === e ? void 0 : e.variacoes) || []).map(e => e.id === O[2] ? {
         ...e,
         status: r.resultado,
@@ -1706,21 +1802,19 @@ async function dispatch(e, t) {
     const a = PD_CARD_TO_STATUS[r.status] || (PD_STATUS_TO_CARD[r.status] ? r.status : null);
     if (!a) throw apiError(400, `Status P&D inválido: ${r.status}`);
     const o = t.status || "OPEN";
-    await patch(_, "pd_requests", t.id, {
-      status: a
-    });
-    o !== a && (await create(_, "pd_request_status_history", {
-      request_id: t.id,
-      pd_request_id: t.id,
-      from_status: o,
-      to_status: a,
-      comment: r.observacao || `Movido no kanban de ${PD_STATUS_LABELS[o] || o} para ${PD_STATUS_LABELS[a] || a}`,
-      changed_by: firebaseAuth.currentUser.uid,
-      changed_by_name: pdUserName(u),
-      created_at: now(),
-      user_id: firebaseAuth.currentUser.uid
-    }));
-    await pdSyncRequestStatus(_, t, a);
+    if (o !== a) {
+      const backward = PD_BACKWARD_TRANSITIONS[o] === a;
+      const comment = String(r.justificativa || r.observacao || '').trim();
+      if (backward && comment.length < 10) throw justificationRequired('Informe uma justificativa de pelo menos 10 caracteres para retroceder o card de P&D.');
+      // O Kanban não tem uma segunda máquina de estados. A ficha faz as
+      // validações técnicas, obtém a liberação e gera amostra/histórico.
+      await dispatch('PUT', `/pd/requests/${encodeURIComponent(t.id)}/status`, {
+        new_status:a, is_backward:backward,
+        comment:comment || `Movido no kanban de ${PD_STATUS_LABELS[o] || o} para ${PD_STATUS_LABELS[a] || a}`,
+      });
+    } else {
+      await pdSyncRequestStatus(_, t, a);
+    }
     const s = await one(_, "pd_cards", O[1]);
     return response({
       ...normalizePdCard(s),
@@ -1735,16 +1829,13 @@ async function dispatch(e, t) {
   if (O && "PUT" === e) {
     const e = await one(_, "pd_cards", O[1]);
     if (!e) throw apiError(404, "Card P&D não encontrado.");
-    const t = await patch(_, "pd_cards", O[1], r),
-      a = r.status_pd || r.status,
-      o = a && (PD_CARD_TO_STATUS[a] || (PD_STATUS_TO_CARD[a] ? a : null));
-    if (o && e.pd_request_id) {
-      const t = await one(_, "pd_requests", e.pd_request_id);
-      t && (await patch(_, "pd_requests", t.id, {
-        status: o
-      }), await pdSyncRequestStatus(_, t, o));
-    }
-    return response(t, i);
+    const status = r.status_pd || r.status;
+    if (status) await dispatch('PUT', `/crm/pd/cards/${encodeURIComponent(O[1])}/move`, {
+      status, justificativa:r.justificativa, observacao:r.observacao,
+    });
+    const {status_pd, status:ignorado, justificativa, observacao, ...fields} = r;
+    if (Object.keys(fields).length) await patch(_, "pd_cards", O[1], fields);
+    return response(normalizePdCard(await one(_, "pd_cards", O[1])), i);
   }
   if ("POST" === e && "/pd/requests/internal-research" === S) {
     const e = id(),
@@ -2039,6 +2130,7 @@ async function dispatch(e, t) {
     const a = t.status || "OPEN",
       o = r.new_status;
     if (!Object.prototype.hasOwnProperty.call(PD_ALLOWED_TRANSITIONS, o)) throw apiError(400, `Status inválido: ${o}`);
+    if (o === a) return response(t,i); // repetição não gera efeitos novamente
     if (r.is_backward) {
       if (!r.comment || r.comment.trim().length < 10) throw apiError(400, "Justificativa obrigatória para retroceder (mínimo 10 caracteres).");
       if (PD_BACKWARD_TRANSITIONS[a] !== o) throw apiError(400, `Retrocesso não permitido: ${a} → ${o}`);
@@ -2049,14 +2141,25 @@ async function dispatch(e, t) {
     // AMO-03: concluir a manipulação ou entregar ao cliente exige 100% na fórmula vigente e em
     // cada variante dos lotes (tolerância 0,001; antes ±0,5 só na fórmula). Popup na tela.
     if (("IN_TESTS" === o || "WAITING_APPROVAL" === o) && s && !r.is_backward) await conferirFechamentoPd(_, t, s);
-    // INF-04: a regra do banco só aceita esses dois status com a liberação do servidor (que confere de novo).
-    if ("IN_TESTS" === o || "WAITING_APPROVAL" === o) await liberarEtapaPd(t.id, o, Boolean(r.is_backward));
+    let formulaAoEntrarEmTestes;
     if ("IN_TESTS" === o) {
       if (!s) throw apiError(400, "Inicie o desenvolvimento antes de avançar para Em Testes.");
       const e = (await related(_, "pd_formulas", "development_id", s.id)).sort((e, t) => Number(t.version || 0) - Number(e.version || 0))[0];
       if (!e) throw apiError(400, "Registre a fórmula antes de avançar para Em Testes (RN-PD-02).");
       const t = await related(_, "pd_formula_items", "formula_id", e.id);
       if (!t.length) throw apiError(400, "Adicione ingredientes à fórmula antes de avançar para Em Testes (RN-PD-02).");
+      formulaAoEntrarEmTestes = e;
+    }
+    // As pré-condições locais vêm ANTES do ticket e de qualquer efeito.
+    if ("WAITING_APPROVAL" === o && t.liberacao_antecipada?.status !== "aprovada") {
+      const e = (await all(_, "pd_stability_studies")).find(e => e.request_id === t.id || e.pd_card_id === t.id),
+        a = e ? await related(_, "pd_stability_readings", "study_id", e.id) : [];
+      if (!e || !a.some(e => 2 === Number(e.day_offset))) throw apiError(400, "Nenhuma leitura D48h (48 horas) registrada. Conclua o checkpoint D48h antes de entregar ao Comercial — ou solicite a liberação antecipada com justificativa e aprovação de um administrador, inclusive com D0. A estabilidade continua em andamento.");
+    }
+    // INF-04: a regra do banco exige a liberação do servidor (que confere de novo).
+    if ("IN_TESTS" === o || "WAITING_APPROVAL" === o) await liberarEtapaPd(t.id, o, Boolean(r.is_backward));
+    if ("IN_TESTS" === o) {
+      const e = formulaAoEntrarEmTestes;
       await patch(_, "pd_formulas", e.id, {
         locked: !0,
         locked_at: now(),
@@ -2075,12 +2178,6 @@ async function dispatch(e, t) {
         created_by: firebaseAuth.currentUser.uid,
         created_by_name: pdUserName(u)
       });
-    }
-    // Liberação antecipada aprovada pela diretoria (24/10/2026) dispensa o D48h; o resto vale igual.
-    if ("WAITING_APPROVAL" === o && t.liberacao_antecipada?.status !== "aprovada") {
-      const e = (await all(_, "pd_stability_studies")).find(e => e.request_id === t.id || e.pd_card_id === t.id),
-        a = e ? await related(_, "pd_stability_readings", "study_id", e.id) : [];
-      if (!e || !a.some(e => 2 === Number(e.day_offset))) throw apiError(400, "Nenhuma leitura D48h (48 horas) registrada. Conclua o checkpoint D48h antes de entregar ao Comercial — ou peça a liberação antecipada à diretoria (já com o D24h).");
     }
     if ("APPROVED" === o && s) {
       const e = await related(_, "pd_tests", "development_id", s.id);
@@ -2135,14 +2232,14 @@ async function dispatch(e, t) {
   if (O && "PUT" === e) {
     const e = await one(_, "pd_requests", O[1]);
     if (!e) throw apiError(404, "Solicitação P&D não encontrada.");
-    const t = await patch(_, "pd_requests", O[1], r);
-    r.status && (await pdSyncRequestStatus(_, t, r.status));
+    const {status, ...fields} = r;
+    if (status && status !== e.status) await dispatch('PUT', `/pd/requests/${encodeURIComponent(O[1])}/status`, {
+      new_status:status,is_backward:r.is_backward,comment:r.comment || r.justificativa,
+    });
+    const t = Object.keys(fields).length ? await patch(_, "pd_requests", O[1], fields) : await one(_, "pd_requests", O[1]);
     return response(t, i);
   }
-  if (O && "DELETE" === e) return await pdDeleteRequestCascade(_, O[1]), response({
-    deleted: !0,
-    message: "Solicitação removida"
-  }, i);
+  if (O && "DELETE" === e) return response(await excluirSolicitacaoPd(_, O[1], u), i);
   if ("GET" === e && "/pd/formulas/bank" === S) {
     let e = await all(_, "pd_formulas");
     const t = await all(_, "pd_formula_items"),
@@ -2497,17 +2594,25 @@ async function dispatch(e, t) {
     formula_id: O[1]
   }), i);
   if (O = j(/^\/pd\/formulas\/([^/]+)\/phases$/), "GET" === e && O) return response((await related(_, "pd_formula_phases", "formula_id", O[1])).sort((e, t) => Number(e.order || 0) - Number(t.order || 0)), i);
+  if ("POST" === e && O) await recusarFaseDeVersaoDeLote(_, O[1]);
   if ("POST" === e && O) return response(await create(_, "pd_formula_phases", {
     ...r,
     formula_id: O[1]
   }), i);
   if (O = j(/^\/pd\/formulas\/([^/]+)\/phases\/reorder$/), "PUT" === e && O) {
+    await recusarFaseDeVersaoDeLote(_, O[1]);
     for (const [e, t] of (r.phase_ids || []).entries()) await patch(_, "pd_formula_phases", t, {
       order: e
     });
     return response({
       success: !0
     }, i);
+  }
+  // A5: fase de versão criada pela ordem de um lote não muda, não some e não ganha outra (as versões
+  // que só foram a Em Testes continuam com o Modo de Preparo editável, como antes).
+  if (O = j(/^\/pd\/formula-phases\/([^/]+)$/), O && ("PUT" === e || "DELETE" === e)) {
+    const fase = await one(_, "pd_formula_phases", O[1]);
+    if (fase?.formula_id) await recusarFaseDeVersaoDeLote(_, fase.formula_id);
   }
   if (O = j(/^\/pd\/formula-phases\/([^/]+)$/), "PUT" === e && O) return response(await patch(_, "pd_formula_phases", O[1], r), i);
   if ("DELETE" === e && O) return await erase(_, "pd_formula_phases", O[1]), response({
@@ -2766,7 +2871,9 @@ async function dispatch(e, t) {
   }
   if ("DELETE" === e && O) {
     if (await masterOne("materiais", O[1])) throw apiError(409, "Item originado no Cadastro Mestre. Desative-o em Cadastros, sem excluir pelo P&D.");
-    for (const e of (await all(_, "pd_formula_items")).filter(e => e.catalog_id === O[1])) await patch(_, "pd_formula_items", e.id, {
+    // A5: item de versão travada guarda a referência (histórico); só as editáveis perdem o vínculo.
+    const travadas = new Set((await all(_, "pd_formulas")).filter((f) => f.locked).map((f) => f.id));
+    for (const e of (await all(_, "pd_formula_items")).filter(e => e.catalog_id === O[1] && !travadas.has(e.formula_id))) await patch(_, "pd_formula_items", e.id, {
       catalog_id: null
     });
     for (const e of (await all(_, "pd_catalog_price_history")).filter(e => e.catalog_id === O[1] || e.catalog_item_id === O[1])) await erase(_, "pd_catalog_price_history", e.id);
@@ -3111,28 +3218,7 @@ async function dispatch(e, t) {
     const e = await one(_, "pd_requests", O[1]);
     if (!e) throw apiError(404, "Solicitação P&D não encontrada.");
     let t = (await all(_, "pd_stability_studies")).find(e => e.request_id === O[1] || e.pd_card_id === O[1]) || null;
-    if (!t) {
-      const a = now();
-      t = await create(_, "pd_stability_studies", {
-        request_id: O[1],
-        pd_card_id: O[1],
-        amostra_id: e.crm_sample_id || e.linked_amostra_id,
-        amostra_variacao_id: e.crm_variacao_id || e.linked_variacao_id,
-        status: "ativo",
-        started_at: a,
-        updated_at: a,
-        conditions: PD_STABILITY_CONDITIONS.map(e => ({
-          ...e,
-          completed_day_offsets: [],
-          next_due_day_offset: e.checkpoints[0],
-          next_due_at: a
-        })),
-        summary: {
-          overall_status: "pendente_d0",
-          completed_readings: 0
-        }
-      });
-    }
+    if (!t) t = await create(_, "pd_stability_studies", novoEstudoEstabilidade({ ...e, id: O[1] }, now()));
     const a = (await related(_, "pd_stability_readings", "study_id", t.id)).sort((e, t) => Number(e.day_offset || 0) - Number(t.day_offset || 0));
     return response({
       study: t,
