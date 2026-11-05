@@ -2,6 +2,9 @@
 // Dados fictícios (src/test/vitrineLoteApi.js entra no lugar de @/lib/api só na config da vitrine).
 import { createRoot } from "react-dom/client";
 import "@/index.css";
+// A vitrine precisa carregar a camada global que também envolve o CRM em produção.
+// Ela define, entre outros contratos, a altura-base dos cabeçalhos de tabela.
+import "../../../public/shared/kuryos-ui-components.css";
 import PainelAmostrasProjeto from "@/components/ManipulacaoLote/PainelAmostrasProjeto";
 import EditorLote from "@/components/ManipulacaoLote/EditorLote";
 import OrdemLote from "@/components/ManipulacaoLote/OrdemLote";

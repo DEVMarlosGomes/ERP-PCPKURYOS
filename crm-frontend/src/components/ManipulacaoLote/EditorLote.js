@@ -241,34 +241,40 @@ export default function EditorLote({ detalhe, user, recarregar }) {
             <col style={{ width: larguraMatriz }} />
             {visiveis.map((r) => <col key={r} style={{ width: larguraAmostra }} />)}
           </colgroup>
-          <thead>
+          <thead data-testid="matriz-lote-cabecalho">
             <tr className="border-b align-top">
-              <th className="sticky left-0 z-10 bg-background p-2 text-left">Ingrediente</th>
-              <th className="p-2 text-right text-xs font-normal text-muted-foreground">Matriz<div className="break-words">{lote.matriz?.codigo || lote.matriz?.tipo}</div></th>
+              {/* O shell define 36 px para todos os th. Neste editor o cabeçalho contém
+                  controles e precisa medir a própria altura para não invadir o tbody. */}
+              <th className="!h-auto sticky left-0 z-10 bg-background p-2 text-left">Ingrediente</th>
+              <th className="!h-auto p-2 text-right text-xs font-normal text-muted-foreground">Matriz<div className="break-words">{lote.matriz?.codigo || lote.matriz?.tipo}</div></th>
               {visiveis.map((r) => {
                 const m = lote.membros[r];
                 const ml = String(m.unidade_pedido || "g").toLowerCase() !== "g";
                 return (
-                  <th key={r} className="p-2 text-left font-normal">
-                    <div className="font-semibold">{cod(r)}</div>
-                    <div className="text-xs text-muted-foreground">{ROTULO_STATUS_PD[estado[r]?.status_pd] || estado[r]?.status_pd || ""}{m.versao_antes ? ` · v${m.versao_antes}` : " · sem fórmula"}</div>
-                    <label className="mt-1 block text-xs">g
-                      <Input className="h-7" inputMode="decimal" aria-label={`Quantidade em g de ${cod(r)}`} value={form.quantidades[r]?.quantidade_g ?? ""} disabled={!pode}
-                        onChange={(e) => mudar((f) => ({ ...f, quantidades: { ...f.quantidades, [r]: { ...f.quantidades[r], quantidade_g: e.target.value } } }))} /></label>
-                    {ml && (
-                      <label className="block text-xs">densidade (g/mL) — pedido {m.quantidade_pedido} {m.unidade_pedido}
-                        <Input className="h-7" inputMode="decimal" value={form.quantidades[r]?.densidade ?? ""} disabled={!pode}
-                          onChange={(e) => mudar((f) => ({ ...f, quantidades: { ...f.quantidades, [r]: { ...f.quantidades[r], densidade: e.target.value } } }))} /></label>
-                    )}
-                    <select className={`mt-1 h-7 w-full text-xs ${SELECT}`} value="" disabled={!pode} aria-label={`Copiar para ${cod(r)}`}
-                      onChange={(e) => { const de = e.target.value; if (de) mudar((f) => ({ ...f, celulas: clonar(f.celulas, { de, para: [r], matrizCelulas: matriz }) })); }}>
-                      <option value="">Copiar de…</option><option value="matriz">Matriz</option>
-                      {ativos.filter((x) => x !== r).map((x) => <option key={x} value={x}>{cod(x)}</option>)}
-                    </select>
-                    <Button variant="ghost" size="sm" className="mt-1 h-6 px-1 text-xs text-red-700 dark:text-red-400" disabled={!pode || ativos.length <= 2}
-                      title={ativos.length <= 2 ? "O lote precisa de pelo menos 2 amostras." : ""} onClick={() => setDialogo({ tipo: "remover", r })}>
-                      <X className="mr-1 h-3 w-3" />Tirar do lote
-                    </Button>
+                  <th key={r} className="!h-auto p-2 text-left font-normal" data-testid={`cabecalho-amostra-${r}`}>
+                    <div className="space-y-0.5">
+                      <div className="font-semibold">{cod(r)}</div>
+                      <div className="text-xs text-muted-foreground">{ROTULO_STATUS_PD[estado[r]?.status_pd] || estado[r]?.status_pd || ""}{m.versao_antes ? ` · v${m.versao_antes}` : " · sem fórmula"}</div>
+                    </div>
+                    <div className="mt-3 grid gap-2 border-t pt-2">
+                      <label className="block text-xs">Quantidade (g)
+                        <Input className="mt-1 h-8" inputMode="decimal" aria-label={`Quantidade em g de ${cod(r)}`} value={form.quantidades[r]?.quantidade_g ?? ""} disabled={!pode}
+                          onChange={(e) => mudar((f) => ({ ...f, quantidades: { ...f.quantidades, [r]: { ...f.quantidades[r], quantidade_g: e.target.value } } }))} /></label>
+                      {ml && (
+                        <label className="block text-xs">Densidade (g/mL) — pedido {m.quantidade_pedido} {m.unidade_pedido}
+                          <Input className="mt-1 h-8" inputMode="decimal" value={form.quantidades[r]?.densidade ?? ""} disabled={!pode}
+                            onChange={(e) => mudar((f) => ({ ...f, quantidades: { ...f.quantidades, [r]: { ...f.quantidades[r], densidade: e.target.value } } }))} /></label>
+                      )}
+                      <select className={`h-8 w-full text-xs ${SELECT}`} value="" disabled={!pode} aria-label={`Copiar para ${cod(r)}`}
+                        onChange={(e) => { const de = e.target.value; if (de) mudar((f) => ({ ...f, celulas: clonar(f.celulas, { de, para: [r], matrizCelulas: matriz }) })); }}>
+                        <option value="">Copiar de…</option><option value="matriz">Matriz</option>
+                        {ativos.filter((x) => x !== r).map((x) => <option key={x} value={x}>{cod(x)}</option>)}
+                      </select>
+                      <Button variant="ghost" size="sm" className="h-7 w-full justify-start px-2 text-xs text-red-700 dark:text-red-400" disabled={!pode || ativos.length <= 2}
+                        title={ativos.length <= 2 ? "O lote precisa de pelo menos 2 amostras." : ""} onClick={() => setDialogo({ tipo: "remover", r })}>
+                        <X className="mr-1 h-3 w-3" />Tirar do lote
+                      </Button>
+                    </div>
                   </th>
                 );
               })}
