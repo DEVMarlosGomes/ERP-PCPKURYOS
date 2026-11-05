@@ -258,5 +258,11 @@ dizer por quê e as amostras ficavam com "Nenhuma fórmula criada".
 - **Matriz vazia:** colunas de amostra sem fórmula anterior não são marcadas como "diferença".
 - **Aba Manipulação e Custo P&D** da amostra mostram em que lote aberto ela está (`GET /pd/requests/{id}/lote-aberto`,
   lê só `pd_manipulacao_lotes`).
+- **Auditoria do diff (05/11):** o carimbo não estava preso à célula — com escrita direta, quem mudou um crítico podia
+  manter o autor de outra pessoa (ou reescrever o valor do carimbo) e aprovar a própria mudança; trocar o material com o
+  mesmo número também preservava o autor. Corrigido: o carimbo leva `valor` **e** `chave` (material+fase) e só preserva o
+  autor com os dois iguais; motor e servidor exigem carimbo do valor e material atuais; **regra nova** em
+  `motivos/$r/$k` (autor anterior só com mesmo `valor` e `chave`). Teste de emulador K cobre o ataque. Concluir para se o
+  salvamento devolver pendência; a tela não promete o número da versão (o servidor reserva o maior + 1).
 - Testes: CRM 486 (motor, rota, render — caso de matriz vazia incluso). Emulador (`run_manipulacao_lote_servidor_test.js`,
   `run_manipulacao_lote_auditoria_test.js`) revisados por leitura; rodar no computador antes do deploy.

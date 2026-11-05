@@ -13,9 +13,10 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   Arquivos: `crm-frontend/src/lib/manipulacaoLote.js` (+ cópia `functions/manipulacao_lote_motor.js` regerada),
   `manipulacaoLoteRotas.js`, `components/ManipulacaoLote/EditorLote.js`, `AvisoLoteDaAmostra.js` (novo), `pages/PDDetail.js`,
   `functions/manipulacao_lote.js` (aprovação de crítico), testes do lote, vitrine, `public/manuais.html`, bundle do CRM.
-  **Regras do banco não mudaram.**
+  **Regra do banco mudou** (`pd_manipulacao_lotes/$lote/motivos/$r/$k`: autor anterior só com o mesmo valor e material — achado
+  do auditor do diff): publicar `--only database --project erpkuryos` junto com as funções.
 - Provas: CRM 486 testes verdes; vitrine conferida com Playwright (1440/390, claro/escuro). **Emulador não roda na nuvem**
-  (download bloqueado): rodar `run_manipulacao_lote_servidor_test.js` e `run_manipulacao_lote_auditoria_test.js` no
+  (download bloqueado): rodar `run_manipulacao_lote_servidor_test.js`, `run_manipulacao_lote_auditoria_test.js` (cenário K novo) e `run_pd_lote_rules_test.js` no
   computador antes de publicar; a callable `manipulacaoLoteServidor` mudou, então o deploy da VPS precisa subir as funções.
 - **Arquivos ativos: os listados acima até o merge na `hostinger-deploy`.**
 
