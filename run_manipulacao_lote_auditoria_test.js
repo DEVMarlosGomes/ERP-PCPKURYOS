@@ -5,7 +5,8 @@
    (pela regra do banco ou pela callable do servidor):
    A matriz forjada na criação · B id do material crítico tirado no rascunho · C autor do motivo forjado
    (autoaprovação) · D célula fantasma · E membro apontando para a amostra aprovada de outro projeto ·
-   G material trocado depois da aprovação · I evento em nome de outra pessoa na criação.
+   G material trocado depois da aprovação · I evento em nome de outra pessoa na criação ·
+   K (05/11) carimbo de quem alterou reaproveitado para se autoaprovar.
    E o que tinha que existir: F lote preso em gerando_ordem cancela depois de 2 min; H módulo
    aprovar_critico_pd atribuível pelo ADM. */
 const assert = require('assert/strict');
@@ -48,7 +49,7 @@ function erp() {
     }
     e.crm_samples[`S${tag}`] = {id: `S${tag}`, projeto_id: proj, variacoes: [{id: `v${tag}a`, codigo: `C${tag}a`, pd_request_id: `R${tag}a`}, {id: `v${tag}b`, codigo: `C${tag}b`, pd_request_id: `R${tag}b`}]};
   };
-  ['A', 'B', 'C', 'D', 'E', 'G', 'X', 'OK'].forEach((t) => par(t));
+  ['A', 'B', 'C', 'D', 'E', 'G', 'X', 'OK', 'J', 'K'].forEach((t) => par(t));
   par('Z', 'P2', 'APPROVED');
   return e;
 }
@@ -84,7 +85,7 @@ const salvar = (db, id, rev, u) => db.ref().update(Object.assign({[`${LC}/${id}/
   // B — tirar o id do material crítico no rascunho.
   await pd.ref(`${LC}/LB`).set(lote('LB', 'B', 'pd'));
   await salvar(pd, 'LB', 2, {[`${LC}/LB/ingredientes/i02/master_material_id`]: null, [`${LC}/LB/ingredientes/i02/codigo`]: 'MP-FENOX',
-    [`${LC}/LB/celulas/RBa`]: {i01: 99.5, i02: 0.5}, [`${LC}/LB/motivos/RBa`]: {i01: {texto: 'compensar', por: 'pd', valor: 99.5}, i02: {texto: 'menos conservante', por: 'pd', valor: 0.5}}});
+    [`${LC}/LB/celulas/RBa`]: {i01: 99.5, i02: 0.5}, [`${LC}/LB/motivos/RBa`]: {i01: {texto: 'compensar', por: 'pd', valor: 99.5}, i02: {texto: 'menos conservante', por: 'pd', valor: 0.5, chave: 'FENOX|'}}});
   await recusado(chamar('pd', 'LB', {acao: 'gerar_ordem', revisao: 2}), /Fenoxietanol/);
   assert.equal(await ler(`${LC}/LB/status`), 'rascunho');
   passo('B: crítico sem o id do material — continua crítico (nome) e a matriz não confere; nada gerado');
@@ -92,11 +93,21 @@ const salvar = (db, id, rev, u) => db.ref().update(Object.assign({[`${LC}/${id}/
   // C — autor do motivo forjado para se autoaprovar.
   await adm.ref(`${LC}/LC`).set(lote('LC', 'C', 'adm'));
   await negado(salvar(adm, 'LC', 2, {[`${LC}/LC/celulas/RCa`]: {i01: 99.5, i02: 0.5},
-    [`${LC}/LC/motivos/RCa`]: {i01: {texto: 'compensar', por: 'pd', valor: 99.5}, i02: {texto: 'menos conservante', por: 'pd', valor: 0.5}}}));
+    [`${LC}/LC/motivos/RCa`]: {i01: {texto: 'compensar', por: 'pd', valor: 99.5}, i02: {texto: 'menos conservante', por: 'pd', valor: 0.5, chave: 'FENOX|'}}}));
   await salvar(adm, 'LC', 2, {[`${LC}/LC/celulas/RCa`]: {i01: 99.5, i02: 0.5},
-    [`${LC}/LC/motivos/RCa`]: {i01: {texto: 'compensar', por: 'adm', valor: 99.5}, i02: {texto: 'menos conservante', por: 'adm', valor: 0.5}}});
+    [`${LC}/LC/motivos/RCa`]: {i01: {texto: 'compensar', por: 'adm', valor: 99.5}, i02: {texto: 'menos conservante', por: 'adm', valor: 0.5, chave: 'FENOX|'}}});
   await recusado(chamar('adm', 'LC', {acao: 'aprovar_critico', requestId: 'RCa', ingKey: 'i02'}), /outra pessoa/);
   passo('C: o banco só aceita o motivo em nome de quem grava; o ADM não aprova a própria mudança');
+
+  // K — 05/11/2026 (sem comentário): o carimbo "quem alterou" não se reaproveita. A química muda o conservante;
+  //     o ADM troca o valor mantendo o carimbo dela (ou reescreve o carimbo no nome dela) para aprovar a própria mudança.
+  await pd.ref(`${LC}/LK`).set(lote('LK', 'K', 'pd'));
+  await salvar(pd, 'LK', 2, {[`${LC}/LK/celulas/RKa`]: {i01: 99.1, i02: 0.9}, [`${LC}/LK/motivos/RKa`]: {i02: {texto: '', por: 'pd', valor: 0.9, chave: 'FENOX|'}}});
+  await negado(salvar(adm, 'LK', 3, {[`${LC}/LK/celulas/RKa`]: {i01: 99.5, i02: 0.5}, [`${LC}/LK/motivos/RKa/i02/valor`]: 0.5}));
+  await negado(salvar(adm, 'LK', 3, {[`${LC}/LK/celulas/RKa`]: {i01: 99.5, i02: 0.5}, [`${LC}/LK/motivos/RKa`]: {i02: {texto: '', por: 'pd', valor: 0.5, chave: 'FENOX|'}}}));
+  await salvar(adm, 'LK', 3, {[`${LC}/LK/celulas/RKa`]: {i01: 99.5, i02: 0.5}}); // muda só a célula: o carimbo fica do 0,9 da química
+  await recusado(chamar('adm', 'LK', {acao: 'aprovar_critico', requestId: 'RKa', ingKey: 'i02'}), /valor atual/);
+  passo('K: carimbo preso ao valor — o ADM não muda o crítico em nome da química nem aprova a própria mudança');
 
   // D — célula fantasma.
   await pd.ref(`${LC}/LD`).set(lote('LD', 'D', 'pd'));
@@ -124,12 +135,26 @@ const salvar = (db, id, rev, u) => db.ref().update(Object.assign({[`${LC}/${id}/
   // G — material trocado depois da aprovação.
   await pd.ref(`${LC}/LG`).set(lote('LG', 'G', 'pd'));
   await salvar(pd, 'LG', 2, {[`${LC}/LG/celulas/RGa`]: {i01: 99.5, i02: 0.5},
-    [`${LC}/LG/motivos/RGa`]: {i01: {texto: 'compensar', por: 'pd', valor: 99.5}, i02: {texto: 'menos conservante', por: 'pd', valor: 0.5}}});
+    [`${LC}/LG/motivos/RGa`]: {i01: {texto: 'compensar', por: 'pd', valor: 99.5}, i02: {texto: 'menos conservante', por: 'pd', valor: 0.5, chave: 'FENOX|'}}});
   await chamar('adm', 'LG', {acao: 'aprovar_critico', requestId: 'RGa', ingKey: 'i02'});
   await salvar(pd, 'LG', 4, {[`${LC}/LG/ingredientes/i02`]: {nome: 'Metilisotiazolinona', master_material_id: 'MIT', fase: ''}});
   await recusado(chamar('pd', 'LG', {acao: 'gerar_ordem', revisao: 4}), /Metilisotiazolinona|matriz do lote não confere|material mudou/);
   assert.equal(await ler(`${LC}/LG/status`), 'rascunho');
   passo('G: trocar o material depois da aprovação invalida a aprovação; a ordem não sai');
+
+  // J — MP nova criada no próprio lote (a tela a registrou na fila com a origem do lote): a ordem sai e a
+  //     versão entra na mesma solicitação.
+  await raiz.ref('solicitacoes_cadastro_material/NOME__OLEO_DE_PRACAXI').set({status: 'PENDENTE_CADASTRO', nome: 'Óleo de Pracaxi',
+    origens: {lote_LJ__i03: {pdRequestId: 'RJa', formulaId: 'lote_LJ', itemId: 'i03', ativa: true}}});
+  await pd.ref(`${LC}/LJ`).set(lote('LJ', 'J', 'pd', {ingredientes: {...JSON.parse(JSON.stringify(ING)), i03: {nome: 'Óleo de Pracaxi', fase: '', mp_nova: {nome: 'Óleo de Pracaxi', tipo: 'MPGR'}}}}));
+  await salvar(pd, 'LJ', 2, {[`${LC}/LJ/celulas/RJa`]: {i01: 98.5, i02: 1, i03: 0.5},
+    [`${LC}/LJ/motivos/RJa`]: {i01: {texto: 'abre espaço para o ativo', por: 'pd', valor: 98.5}, i03: {texto: 'ativo novo do briefing', por: 'pd', valor: 0.5}}});
+  await chamar('pd', 'LJ', {acao: 'gerar_ordem', revisao: 2});
+  const lj = await ler(`${LC}/LJ`);
+  const fidJ = lj.membros.RJa.formula_id_lote;
+  assert.equal((await ler(`${T}/pd_formula_items/${fidJ}_i03`)).mp_nova.nome, 'Óleo de Pracaxi');
+  assert.ok((await ler('solicitacoes_cadastro_material/NOME__OLEO_DE_PRACAXI/origens'))[`${fidJ}__${fidJ}_i03`]);
+  passo('J: MP nova criada no lote — a ordem sai e a versão entra na mesma solicitação do Cadastros');
 
   // H — módulo atribuível.
   assert.equal(Ident.MODULOS_VALIDOS.has('aprovar_critico_pd'), true);

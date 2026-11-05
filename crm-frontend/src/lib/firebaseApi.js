@@ -1335,7 +1335,7 @@ const commercial = createCommercialRouter({
 // Manipulação em lote do P&D (src/lib/manipulacaoLoteRotas.js, spec 2026-11-04).
 const lotesPd = createManipulacaoLoteRouter({
   all, one, related, masterAll, apiError, now, newId: id, auditCard, pdUserName, ensureNumeroProjeto, pdSyncRequestStatus, isAdmin,
-  novoEstudoEstabilidade,
+  novoEstudoEstabilidade, exigirMpNovaInedita, sincronizarFilaMpNova,
   call: (method, url, data) => dispatch(method, url, data, {}),
 });
 

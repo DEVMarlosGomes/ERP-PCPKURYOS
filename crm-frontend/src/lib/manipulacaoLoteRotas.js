@@ -109,6 +109,14 @@ export function createManipulacaoLoteRouter(h) {
   const resumoLote = (l) => ({ id: l.id, codigo: l.codigo, status: l.status, membros: ativosDe(l).length, atualizado_em: l.atualizado_em || l.criado_em || "" });
   const semItens = ({ _itens, ...x }) => x;
 
+  // Aba Manipulação da amostra: em que lote aberto ela está (lê só os lotes — leve).
+  async function loteDaAmostra(t, r) {
+    const lotes = await all(t, COLECAO_LOTES);
+    const l = lotes.filter((x) => M.STATUS_LOTE_ABERTO.includes(x.status) && x.membros?.[r] && x.membros[r].status_membro !== "removido")
+      .sort((a, b) => String(b.atualizado_em || "").localeCompare(String(a.atualizado_em || "")))[0];
+    return { lote: l ? { ...resumoLote(l), versao_lote: l.membros[r].versao_lote || null } : null };
+  }
+
   async function elegiveis(t, proj) {
     const c = await carregarProjeto(t, proj);
     const mp = M.matrizPadrao(c.linhas.filter((l) => l.elegivel).map((l) => ({ request_id: l.request_id, formula: l.formula, itens: l._itens })));
@@ -229,15 +237,26 @@ export function createManipulacaoLoteRouter(h) {
       const erroMp = x?.mp_nova ? validarMpNova(x.mp_nova) : null;
       if (erroMp) throw apiError(422, `${x.nome || k}: ${erroMp}`);
     }
+    // MP nova criada no próprio lote (fora das fórmulas de origem): mesmo nome já cadastrado → 409 com a
+    // oferta de vincular (como na aba Manipulação); usada em alguma amostra → entra na fila do Cadastros.
+    const chavesOrigem = new Set(origem.map((it) => M.chaveMaterialFase(M.itemParaIngrediente(it))));
+    const mpNovasDoLote = Object.entries(ingredientes).filter(([, x]) => x?.mp_nova && !chavesOrigem.has(M.chaveMaterialFase(x)));
+    for (const [, x] of mpNovasDoLote) await h.exigirMpNovaInedita(x.mp_nova);
     const origemCel = origemDosMembros(l, ingredientes, ipf);
     const plano = M.planoSalvarLote({ tenantPath: `erp/${t}`, lote: l, rascunho: { ...data, ingredientes }, contexto: { requests: reqs, origem: origemCel },
       agora: now(), autor: { uid: uid(), nome: h.pdUserName(perfil) }, novoId: newId });
     const motivos = plano.updates[`${P(t, COLECAO_LOTES)}/${id}/motivos`] || l.motivos || {};
-    const pendencias = M.pendencias({ ingredientes, celulas: data?.celulas || {}, matrizCelulas: l.matriz?.celulas || {}, motivos, aprovacoes: l.aprovacoes_criticas || {}, membros: ativos, origem: origemCel });
+    const pendencias = M.pendencias({ ingredientes, celulas: data?.celulas || {}, motivos, aprovacoes: l.aprovacoes_criticas || {}, membros: ativos, origem: origemCel });
     const fechamento = M.fechamentoPorMembro(data?.celulas || {}, ativos, ingredientes);
     if (plano.resumo.semMudanca) return { sem_mudanca: true, lote: l, pendencias, fechamento };
     await gravar(plano.updates);
     const avisos = [];
+    const usadas = mpNovasDoLote.filter(([k]) => ativos.some((r) => Number(data?.celulas?.[r]?.[k]) > 0));
+    if (usadas.length) {
+      const aviso = await h.sincronizarFilaMpNova(t, { formula: { id: `lote_${id}`, version: 1, development_id: l.membros[ativos[0]]?.development_id },
+        registrar: usadas.map(([k, x]) => ({ id: k, formula_id: `lote_${id}`, ingredient_name: x.nome, inci: x.inci, fornecedor: x.fornecedor, mp_nova: x.mp_nova })) }, perfil);
+      if (aviso) avisos.push(aviso);
+    }
     for (const r of plano.resumo.passaramEmDesenvolvimento) { // um por vez (variações irmãs)
       try { await h.pdSyncRequestStatus(t, reqs.get(r), "IN_PROGRESS"); } catch (e) {
         console.error("[Manipulação em lote] sincronia com o CRM falhou:", e);
@@ -387,6 +406,7 @@ export function createManipulacaoLoteRouter(h) {
   async function route({ method, path, data, profile, tenant }) {
     let m;
     if ((m = path.match(/^\/pd\/projetos\/([^/]+)\/amostras-elegiveis$/)) && method === "GET") return elegiveis(tenant, decodeURIComponent(m[1]));
+    if ((m = path.match(/^\/pd\/requests\/([^/]+)\/lote-aberto$/)) && method === "GET") return loteDaAmostra(tenant, decodeURIComponent(m[1]));
     if (path === "/pd/manipulacao-lotes" && method === "POST") return criar(tenant, data, profile);
     if (path === "/pd/manipulacao-lotes-config" && ["GET", "PUT"].includes(method)) return config(tenant, data, profile, method);
     if ((m = path.match(/^\/pd\/manipulacao-lotes\/([^/]+)$/))) {

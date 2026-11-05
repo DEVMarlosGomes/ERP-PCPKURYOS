@@ -156,7 +156,8 @@ function conferirFontes(lote, ctx, problemas) {
     vistas.set(c, k);
     if (M.pct4(mz.celulas && mz.celulas[k]) !== (fonte.get(c) || 0)) problemas.push(`${(ing && ing.nome) || k}: a matriz do lote não confere com a fórmula de origem — monte o lote de novo.`);
     const id = ing && (ing.master_material_id || ing.catalog_id);
-    if (!chavesOrigem.has(c) && !(id && (ctx.materiais.has(id) || ctx.catalogo.has(id)))) {
+    const mpNova = Boolean(ing && ing.mp_nova && texto(ing.mp_nova.nome));
+    if (!chavesOrigem.has(c) && !mpNova && !(id && (ctx.materiais.has(id) || ctx.catalogo.has(id)))) {
       problemas.push(`${(ing && ing.nome) || k}: ingrediente sem material do Cadastros/catálogo e fora das fórmulas de origem — adicione-o pelo catálogo.`);
     }
   }
@@ -204,7 +205,7 @@ function conferirOrdem(lote, ctx) {
   const itensOrigem = itensDeOrigem(lote, ctx);
   const ingredientes = M.classificarIngredientes(lote.ingredientes || {}, {materiais: ctx.materiais, itensOrigem});
   const matrizCelulas = (lote.matriz && lote.matriz.celulas) || {};
-  for (const p of M.pendencias({ingredientes, celulas: lote.celulas || {}, matrizCelulas, motivos: lote.motivos || {}, aprovacoes: lote.aprovacoes_criticas || {}, membros: ativos, origem})) {
+  for (const p of M.pendencias({ingredientes, celulas: lote.celulas || {}, motivos: lote.motivos || {}, aprovacoes: lote.aprovacoes_criticas || {}, membros: ativos, origem})) {
     problemas.push(`${codigoDe(lote, p.request_id)}: ${p.motivo}`);
   }
   const fech = M.fechamentoPorMembro(lote.celulas || {}, ativos, ingredientes);
@@ -217,7 +218,10 @@ function conferirOrdem(lote, ctx) {
 
 // Solicitação de MP nova que já cobre este ingrediente: a que tem como origem o item de mesma
 // chave (material+fase) numa fórmula de origem do lote (PD-03: nunca duplica a solicitação).
-function solicitacaoDaMpNova(ing, itensOrigem, fila) {
+function solicitacaoDaMpNova(ing, itensOrigem, fila, loteId, ingKey) {
+  // MP nova criada no próprio lote: a tela já a registrou na fila com a origem do lote.
+  const doLote = loteId && ingKey ? Object.entries(fila || {}).find(([, s]) => s && s.origens && s.origens[`lote_${loteId}__${ingKey}`]) : null;
+  if (doLote) return doLote[0];
   const k = M.chaveMaterialFase(ing);
   const fontes = itensOrigem.filter((it) => it.mp_nova && M.chaveMaterialFase(M.itemParaIngrediente(it)) === k);
   for (const it of fontes) {
@@ -274,7 +278,7 @@ function montarOrdem({lote, ctx, conf, versoes, novoId, autor, agora, tenant, re
       itens.push(item);
       composicao.push({chave: M.chaveMaterialFase(ing), nome: ing.nome, pct, fragrancia: Boolean(ing.ehFragrancia)});
       if (ing.mp_nova) {
-        const sol = solicitacaoDaMpNova(ing, conf.itensOrigem, ctx.fila);
+        const sol = solicitacaoDaMpNova(ing, conf.itensOrigem, ctx.fila, lote.id, k);
         const req = ctx.requests.get(r) || {};
         if (sol) {
           u[`solicitacoes_cadastro_material/${sol}/origens/${fid}__${item.id}`] = semVazios({pdRequestId: r, formulaId: fid, formulaVersao: versao, itemId: item.id,
@@ -461,19 +465,20 @@ function aplicarAprovacao(lote, data, autor, agora, novoId, materiais, itensOrig
   if (!ing) throw falha("invalid-argument", "Ingrediente não encontrado no lote.");
   if (!ing.critico) throw falha("failed-precondition", `${ing.nome} não é crítico no Cadastro — não precisa de aprovação.`);
   const valor = num(lote.celulas && lote.celulas[r] && lote.celulas[r][k]);
-  const matriz = num(lote.matriz && lote.matriz.celulas && lote.matriz.celulas[k]);
   const fid = lote.membros[r] && lote.membros[r].formula_id_antes;
   const origem = fid ? {[r]: M.celulasDaOrigem(ingredientes, itensDaFormula(fid)).celulas} : {};
-  const difs = M.diferencasDoLote({ingredientes, celulas: {[r]: (lote.celulas && lote.celulas[r]) || {}}, matrizCelulas: (lote.matriz && lote.matriz.celulas) || {}, origem});
-  if (!(difs[r] || []).some((x) => x.ingKey === k)) throw falha("failed-precondition", `${ing.nome} está igual à matriz e à fórmula anterior desta amostra — nada a aprovar.`);
+  // D-1 (05/11/2026): só se aprova o crítico que muda a fórmula ANTERIOR da amostra; sem comentário,
+  // "quem alterou" é o carimbo automático do salvamento (motivos/{r}/{k}/por).
+  if (!fid) throw falha("failed-precondition", `${ing.nome}: esta amostra não tinha fórmula (primeira formulação) — crítico não precisa de aprovação.`);
+  const difs = M.mudancasCriticasDaOrigem({ingredientes, celulas: {[r]: (lote.celulas && lote.celulas[r]) || {}}, origem});
+  if (!(difs[r] || []).some((x) => x.ingKey === k)) throw falha("failed-precondition", `${ing.nome} está igual à fórmula anterior desta amostra — nada a aprovar.`);
   const mot = lote.motivos && lote.motivos[r] && lote.motivos[r][k];
-  if (!mot || texto(mot.texto).length < M.MIN_MOTIVO) throw falha("failed-precondition", `Falta o motivo da mudança de ${ing.nome} — quem formulou escreve antes da aprovação.`);
-  if (!mot.por) throw falha("failed-precondition", `O motivo de ${ing.nome} não tem autor registrado — salve o rascunho de novo.`);
-  if (mot.por === autor.uid) throw falha("failed-precondition", "A aprovação de crítico precisa ser de outra pessoa (você escreveu o motivo).");
+  if (!mot || !mot.por || M.pct4(mot.valor) !== M.pct4(valor) || mot.chave !== M.chaveMaterialFase(ing)) throw falha("failed-precondition", `A alteração de ${ing.nome} ainda não foi salva com o valor atual — salve o rascunho antes de aprovar.`);
+  if (mot.por === autor.uid) throw falha("failed-precondition", "A aprovação de crítico precisa ser de outra pessoa (foi você quem alterou).");
   lote.aprovacoes_criticas = lote.aprovacoes_criticas || {};
   lote.aprovacoes_criticas[r] = Object.assign({}, lote.aprovacoes_criticas[r], {[k]: semVazios({valor, chave: M.chaveMaterialFase(ing),
     master_material_id: ing.master_material_id || ing.catalog_id || undefined, por: autor.uid, por_nome: autor.nome, em: agora})});
-  return {lote: carimbar(lote, autor, agora, novoId, "critico_aprovado", `${codigoDe(lote, r)} · ${ing.nome}: ${fmt(matriz)} → ${fmt(valor)} % aprovado.`), resultado: {request_id: r, ingKey: k, valor}};
+  return {lote: carimbar(lote, autor, agora, novoId, "critico_aprovado", `${codigoDe(lote, r)} · ${ing.nome}: ${fmt(num(origem[r] && origem[r][k]))} → ${fmt(valor)} % aprovado (fórmula anterior → lote).`), resultado: {request_id: r, ingKey: k, valor}};
 }
 
 /* ── Serviço (E/S) ─────────────────────────────────────────────────────────── */

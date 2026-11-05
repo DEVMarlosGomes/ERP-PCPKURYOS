@@ -15,7 +15,8 @@ const doFront = createRequire(path.join(FRONT, "package.json"));
 const { createServer } = await import(pathToFileURL(doFront.resolve("vite")).href);
 const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || "playwright");
 
-const CENAS = { painel: '[data-testid="painel-amostras-projeto"]', editor: '[data-testid="matriz-lote"]', ordem: '[data-testid="pesagem-lote"]', manipulado: '[data-testid="acoes-lote"]' };
+const CENAS = { painel: '[data-testid="painel-amostras-projeto"]', editor: '[data-testid="matriz-lote"]', adicionar: '[data-testid="linha-novo-ingrediente"]',
+  "adicionar-sugestoes": '[data-testid="linha-novo-ingrediente"]', ordem: '[data-testid="pesagem-lote"]', manipulado: '[data-testid="acoes-lote"]' };
 const TELAS = [[1440, 1000], [390, 844]];
 mkdirSync(SAIDA, { recursive: true });
 process.chdir(FRONT); // o Tailwind/PostCSS acham a config pelo diretório atual
@@ -33,8 +34,12 @@ try {
         // "Failed to load resource" sai com a URL pelo evento de resposta; o favicon da vitrine não existe.
         page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) erros.push(m.text()); });
         page.on("response", (r) => { if (r.status() >= 400 && !/favicon\.ico$/.test(r.url())) erros.push(`${r.status()} ${r.url()}`); });
-        await page.goto(`http://127.0.0.1:5179/vitrine-lote.html?cena=${cena}${tema === "escuro" ? "&tema=dark" : ""}`);
+        await page.goto(`http://127.0.0.1:5179/vitrine-lote.html?cena=${cena.replace("-sugestoes", "")}${tema === "escuro" ? "&tema=dark" : ""}`);
         await page.waitForSelector(seletor, { timeout: 30000 });
+        if (cena === "adicionar-sugestoes") { // como fica em uso: digitando e com as sugestões do banco abertas
+          await page.fill('[data-testid="ingrediente-lote"]', "gli");
+          await page.waitForSelector('[data-testid="sugestoes-ingrediente-lote"]', { timeout: 10000 });
+        }
         await page.waitForTimeout(300);
         const transborda = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
         const arquivo = path.join(SAIDA, `${cena}-${w}-${tema}.png`);

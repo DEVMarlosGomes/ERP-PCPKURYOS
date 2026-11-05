@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import EditorLote from "@/components/ManipulacaoLote/EditorLote";
 import OrdemLote from "@/components/ManipulacaoLote/OrdemLote";
 import { ordemLoteHtml } from "@/lib/ordemLoteHtml";
+import { LinhaNovoIngrediente, ingredienteDaLinha } from "@/components/ManipulacaoLote/NovoIngredienteLote";
 import { classificarIngredientes, montarMatriz, ordemDoLote } from "@/lib/manipulacaoLote";
 
 vi.mock("@/lib/api", () => ({ default: { get: async () => ({ data: [] }), post: async () => ({ data: {} }), put: async () => ({ data: {} }) } }));
@@ -27,22 +28,49 @@ function loteDeExemplo(mut) {
   return { lote, k };
 }
 
-test("editor: 100 % por coluna, comum em âmbar e crítico em vermelho, pendências seguram a ordem", () => {
+test("editor: 100 % por coluna, comum em âmbar e crítico em vermelho; sem caixa de comentário; crítico da fórmula anterior segura a conclusão", () => {
   const { lote, k } = loteDeExemplo((l, k) => {
     l.celulas.R2 = { ...l.celulas.R2, [k("Água")]: 79.2, [k("Fenoxietanol")]: 0.8 };
   });
-  const html = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true }} user={{ role: "pd" }} recarregar={async () => {}} />);
+  // R2 já tinha fórmula (v1) com o conservante a 1 %: a troca para 0,8 pede o "Aprovar" de outra pessoa.
+  const origem_celulas = { R2: { [k("Água")]: 79, [k("Fenoxietanol")]: 1, [k("Fragrância Lavanda")]: 20 } };
+  const html = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true, origem_celulas }} user={{ role: "pd" }} recarregar={async () => {}} />);
   expect(html).toContain('data-testid="matriz-lote"');
   expect(html).toMatch(/data-testid="soma-R1"[^>]*>100 %/);
   expect(tag(html, `cel-R2-${k("Água")}`)).toContain("bg-amber-50");
   expect(tag(html, `cel-R2-${k("Fenoxietanol")}`)).toContain("bg-red-50");
-  expect(html).toContain("crítico: precisa da aprovação de outra pessoa");
-  expect(html).toContain('data-testid="pendencias-lote"');
+  expect(html).not.toMatch(/Motivo \(mín/); // não pede comentário
+  expect(html).toContain('data-testid="criticos-lote"');
+  expect(html).toContain("precisa do &quot;Aprovar&quot; de outra pessoa");
+  expect(html).toContain("Para concluir, falta:");
+  expect(html).toContain("1 ingrediente(s) crítico(s) para outra pessoa aprovar");
   expect(desabilitado(html, "btn-gerar-ordem")).toBe(true);
+  expect(html).toContain("Concluir e enviar para a manipulação");
   expect(html).toContain("Fase A");
+  // A mesma mudança sem fórmula anterior (primeira formulação): nada pendente, botão liberado.
+  const novo = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true }} user={{ role: "pd" }} recarregar={async () => {}} />);
+  expect(novo).not.toContain('data-testid="criticos-lote"');
+  expect(desabilitado(novo, "btn-gerar-ordem")).toBe(false);
 });
 
-test("editor: sem diferença e tudo fechado, a ordem só espera salvar; perfil sem P&D só consulta", () => {
+test("editor: matriz vazia (caso LM-2026-041-2) — sem gramas o botão diz o que falta; com gramas e 100 % libera direto, mostrando que cada uma ganha a primeira versão", () => {
+  const { lote, k } = loteDeExemplo((l, k) => {
+    l.matriz = { tipo: "vazia", ref_id: null, codigo: "", celulas: {} };
+    for (const r of ["R1", "R2"]) { l.membros[r].versao_antes = null; l.membros[r].quantidade_g = undefined; }
+    l.celulas.R2 = { [k("Água")]: 79.5, [k("Fenoxietanol")]: 0.5, [k("Fragrância Lavanda")]: 20 };
+  });
+  const semG = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true }} user={{ role: "pd" }} recarregar={async () => {}} />);
+  expect(semG).toContain("quantidade em g de 2026-1003-a, 2026-1003-b");
+  expect(desabilitado(semG, "btn-gerar-ordem")).toBe(true);
+  expect(semG).toContain("Matriz vazia: as amostras sem fórmula anterior são fórmulas novas");
+  expect(tag(semG, `cel-R2-${k("Fenoxietanol")}`)).not.toContain("bg-red-50"); // fórmula nova não tem "diferença"
+  for (const r of ["R1", "R2"]) lote.membros[r].quantidade_g = 50;
+  const pronto = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true }} user={{ role: "pd" }} recarregar={async () => {}} />);
+  expect(desabilitado(pronto, "btn-gerar-ordem")).toBe(false);
+  expect(pronto).toContain("2026-1003-a: primeira versão · 2026-1003-b: primeira versão");
+});
+
+test("editor: sem diferença e tudo fechado, conclui direto; perfil sem P&D só consulta", () => {
   const { lote } = loteDeExemplo();
   const html = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true }} user={{ role: "pd" }} recarregar={async () => {}} />);
   expect(html).toContain("Todas as amostras iguais à matriz.");
@@ -95,3 +123,20 @@ test("impressão: pré-mistura com porções, adições por amostra e tudo escap
   expect(html).not.toContain("<script>alert");
   expect(html).toContain("&lt;script&gt;");
 });
+
+test("adicionar ingrediente no lote: a mesma linha da aba Manipulação, com Aplicar em", () => {
+  const html = renderToStaticMarkup(<LinhaNovoIngrediente ingredientes={{}} ativos={["R1", "R2"]} codigoDe={(r) => `cod-${r}`} onAdicionar={() => {}} />);
+  for (const rotulo of ["Fase", "Ingrediente", "INCI", "Fornecedor", "%Fórmula", "Preço R$/Kg", "Preço US$/Kg", "Aplicar em", "MP nova (ainda não cadastrada)", "Adicionar"]) {
+    expect(html).toContain(rotulo);
+  }
+  expect(html).toContain("Todas as amostras");
+  expect(html).toContain("cod-R2");
+});
+
+test("ingrediente do lote sai com material mestre, código e tipo do catálogo; MP nova com o nome digitado", () => {
+  const catalogo = [{ id: "C9", master_material_id: "MPGR-00012", codigo_interno: "MPGR-00012", unidade: "kg", tipo_material: "MPGR" }];
+  expect(ingredienteDaLinha({ ingredient_name: "Glicerina ", catalog_id: "C9", phase: "a", price_per_kg: "12.5", price_usd: "", fornecedor: "Forn", inci: "Glycerin" }, catalogo))
+    .toMatchObject({ nome: "Glicerina", master_material_id: "MPGR-00012", codigo: "MPGR-00012", tipo_material: "MPGR", price_per_kg: 12.5, price_usd: null, mp_nova: null });
+  expect(ingredienteDaLinha({ ingredient_name: "Óleo de Pracaxi", mp_nova_on: true, phase: "", price_usd: "" }, catalogo).mp_nova).toEqual({ nome: "Óleo de Pracaxi", tipo: "MPGR" });
+});
+

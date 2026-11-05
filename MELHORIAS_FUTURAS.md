@@ -40,7 +40,9 @@ Spec: `docs/superpowers/specs/2026-11-04-pd-manipulacao-lote-design.md` §11; pr
   automático levou ~23 s do painel à aprovação no CRM 3, mas não substitui a medição com pessoa).
 - **LM-09 kanban do P&D** com filtro por projeto e modo de seleção — fora por conflito com o Codex em `PDPage.js`.
 - **Matriz (c): amostra aprovada como matriz** do lote.
-- **MP nova criada dentro do editor do lote** (hoje: só MP do Cadastros; MP nova vem das fórmulas de origem).
+- **MP nova de lote cancelado:** a MP nova criada no editor do lote entra na fila do Cadastros quando alguma amostra a
+  usa (origem `lote_{id}__{ingrediente}`); se o lote for cancelado ou a célula voltar a 0, a solicitação fica pendente
+  (a retirada automática da origem do lote não existe). A fila tem o tratamento manual de sempre.
 - **Estoque do laboratório:** baixar as MPs pesadas no lote (a pesagem já guarda o lote da MP).
 - **Rótulo/laudo/INCI da amostra "fora da base"** (os dados ficam gravados no lote e na versão).
 - **Pré-diluição como linha da ordem** (B2): hoje a ordem só avisa abaixo do mínimo pesável.

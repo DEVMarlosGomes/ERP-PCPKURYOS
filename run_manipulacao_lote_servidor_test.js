@@ -44,7 +44,8 @@ const porId = (l) => Object.fromEntries(l.map((x) => [x.id, x]));
   };
   const membro = (r, s, v, dev, fid, versao, itens, q, cod) => ({ request_id: r, development_id: dev, sample_id: s, variacao_id: v, codigo_amostra: cod, quantidade_g: q,
     formula_id_antes: fid, versao_antes: versao, assinatura_antes: itens.length ? M.assinaturaItens(itens) : null, status_membro: 'ativo' });
-  const motivo = (por, texto, valor) => ({ texto, nivel: 2, valor, por, por_nome: por, em: '2026-11-04T10:00:00Z' });
+  // Carimbo de quem alterou (05/11: sem comentário; preso ao valor e ao material+fase).
+  const motivo = (por, texto, valor, chave) => ({ texto, nivel: 2, valor, chave, por, por_nome: por, em: '2026-11-04T10:00:00Z' });
   await raiz.ref().set({
     usuarios: {
       pd: { role: 'pd', nome: 'Yasmim', tenant_id: 'kuryos' }, pd2: { role: 'formulador', nome: 'Carla', tenant_id: 'kuryos' },
@@ -78,9 +79,9 @@ const porId = (l) => Object.fromEntries(l.map((x) => [x.id, x]));
           R3: membro('R3', 'S2', 'v3', 'D3', null, null, [], 90, '2026-1003-c'),
         },
         ingredientes: mm.ingredientes, celulas,
-        motivos: { R2: { [k('Agua')]: motivo('pd', 'ajuste do conservante', 78.2), [k('Fenoxietanol')]: { ...motivo('rt', 'menos conservante', 0.8), nivel: 3 } },
-          R3: { [k('Agua')]: motivo('pd', 'compensar fragrância', 77.5) },
-          R1: { [k('Fenoxietanol')]: { ...motivo('pd', 'entra o conservante da base', 1), nivel: 3 } } }, // R1 não tinha (muda a fórmula dela)
+        motivos: { R2: { [k('Agua')]: motivo('pd', 'ajuste do conservante', 78.2, 'AGUA|a'), [k('Fenoxietanol')]: { ...motivo('rt', 'menos conservante', 0.8, 'FENOXIETANOL|a'), nivel: 3 } },
+          R3: { [k('Agua')]: motivo('pd', 'compensar fragrância', 77.5, 'AGUA|a') },
+          R1: { [k('Fenoxietanol')]: { ...motivo('pd', 'entra o conservante da base', 1, 'FENOXIETANOL|a'), nivel: 3 } } }, // R1 não tinha (muda a fórmula dela)
         pre_mistura: { A: true }, perda_pct: 3, minimo_pesavel_g: 0.05,
         eventos: { e1: { tipo: 'criado', por: 'pd', em: '2026-11-04T09:00:00Z' } },
       } },

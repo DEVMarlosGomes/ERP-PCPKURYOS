@@ -1,7 +1,10 @@
 /* Editor da matriz do lote (LM-07, spec 2026-11-04 §6/§10). Amostras nas colunas, ingredientes nas
- * linhas, 100 % ao vivo por coluna. Célula diferente da matriz fica marcada: fragrância (lilás) é livre;
- * comum (âmbar) exige motivo; crítico (vermelho) exige motivo e a aprovação de outra pessoa (ADM ou
- * módulo "Aprovar crítico P&D"). Salvar grava só o rascunho; "Gerar ordem" vai ao servidor. */
+ * linhas, 100 % ao vivo por coluna. Célula diferente da matriz fica marcada só como informação
+ * (fragrância lilás, comum âmbar, crítico vermelho) — desde 05/11/2026 o lote NÃO pede comentário:
+ * quem alterou cada célula é registrado sozinho no salvamento. Única trava que sobra (D-1): crítico que
+ * muda a fórmula ANTERIOR da amostra precisa do "Aprovar" de outra pessoa (ADM ou módulo "Aprovar
+ * crítico P&D"). "Concluir e enviar para a manipulação" salva o que estiver na tela e, no servidor, cria a
+ * próxima versão de cada amostra (V1 para quem não tinha fórmula, V(n+1) para quem tinha) + a ordem. */
 import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
@@ -12,10 +15,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertTriangle, CheckCircle2, Copy, Loader2, Plus, Save, Search, ShieldCheck, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Copy, FlaskConical, Loader2, Plus, Save, ShieldCheck, X } from "lucide-react";
+import NovoIngredienteLote from "./NovoIngredienteLote";
 import {
-  MAX_MEMBROS, MINIMO_PESAVEL_PADRAO_G, MIN_MOTIVO, NIVEL, ROTULO_STATUS_PD, chaveMaterialFase, clonar, fechamentoPorMembro,
-  diferencasDoLote, pendencias, quantidadeEmGramas, sugereFragrancia,
+  MAX_MEMBROS, MINIMO_PESAVEL_PADRAO_G, NIVEL, ROTULO_STATUS_PD, chaveMaterialFase, clonar, fechamentoPorMembro,
+  diferencasDoLote, mudancasCriticasDaOrigem, pendencias, quantidadeEmGramas, sugereFragrancia,
 } from "@/lib/manipulacaoLote";
 
 const num = (v) => { const n = Number(String(v ?? "").replace(",", ".")); return Number.isFinite(n) ? n : 0; };
@@ -37,7 +41,6 @@ function estadoDe(lote) {
   return {
     ingredientes: { ...(lote.ingredientes || {}) },
     celulas: Object.fromEntries(ativos.map((r) => [r, { ...(lote.celulas?.[r] || {}) }])),
-    motivos: Object.fromEntries(Object.entries(lote.motivos || {}).map(([r, o]) => [r, Object.fromEntries(Object.entries(o || {}).map(([k, x]) => [k, { texto: x?.texto || "" }]))])),
     quantidades: Object.fromEntries(ativos.map((r) => [r, { quantidade_g: lote.membros[r].quantidade_g ?? "", densidade: lote.membros[r].densidade ?? "" }])),
     pre_mistura: { ...(lote.pre_mistura || {}) },
     perda_pct: lote.perda_pct ?? 0,
@@ -81,49 +84,6 @@ export function MotivoDialog({ titulo, descricao, minimo = 0, rotulo = "Motivo",
   );
 }
 
-function AdicionarIngrediente({ ingredientes, onAdicionar, onFechar }) {
-  const [termo, setTermo] = useState("");
-  const [fase, setFase] = useState("");
-  const [lista, setLista] = useState(null);
-  const [buscando, setBuscando] = useState(false);
-  const buscar = async () => {
-    setBuscando(true);
-    try {
-      const { data } = await api.get("/pd/catalog", { params: { tipo_material: "MPES,MPGR", q: termo.trim() } });
-      setLista((data || []).slice(0, 40));
-    } catch (e) { toast.error(formatApiError(e)); } finally { setBuscando(false); }
-  };
-  const existentes = new Set(Object.values(ingredientes).map(chaveMaterialFase));
-  return (
-    <Dialog open onOpenChange={(v) => { if (!v) onFechar(); }}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader><DialogTitle>Adicionar ingrediente ao lote</DialogTitle>
-          <DialogDescription>Matéria-prima do Cadastros (MPES/MPGR). Entra com 0 % em todas as amostras.</DialogDescription></DialogHeader>
-        <div className="flex gap-2">
-          <Input placeholder="Nome, INCI ou código" value={termo} onChange={(e) => setTermo(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") buscar(); }} />
-          <Button onClick={buscar} disabled={buscando}><Search className="h-4 w-4" /></Button>
-        </div>
-        <div className="flex items-center gap-2"><Label htmlFor="fase-novo">Fase</Label>
-          <Input id="fase-novo" className="w-24" value={fase} onChange={(e) => setFase(e.target.value)} placeholder="A" /></div>
-        <div className="max-h-72 space-y-1 overflow-y-auto">
-          {lista && !lista.length && <p className="text-sm text-muted-foreground">Nada encontrado.</p>}
-          {(lista || []).map((m) => {
-            const ing = { nome: m.nome, codigo: m.codigo_interno || "", catalog_id: m.id, master_material_id: m.master_material_id || m.id, inci: m.inci || "",
-              fase: fase.trim(), funcao: "", price_per_kg: num(m.preco_rs_kg), unit: m.unidade || null, fornecedor: m.fornecedor || "", tipo_material: m.tipo_material || "" };
-            const repetido = existentes.has(chaveMaterialFase(ing));
-            return (
-              <div key={m.id} className="flex items-center justify-between gap-2 rounded border p-2 text-sm">
-                <span><b>{m.nome}</b> <span className="text-xs text-muted-foreground">{m.codigo_interno} {m.inci}</span></span>
-                <Button size="sm" variant="outline" disabled={repetido} title={repetido ? "Já está no lote nesta fase." : ""} onClick={() => onAdicionar(ing)}>Adicionar</Button>
-              </div>
-            );
-          })}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export default function EditorLote({ detalhe, user, recarregar }) {
   const { lote, estado = {}, eu } = detalhe;
   const pode = Boolean(detalhe.pode_editar);
@@ -139,43 +99,72 @@ export default function EditorLote({ detalhe, user, recarregar }) {
   const mudar = (f) => { setForm((x) => f(x)); setSujo(true); };
   const matriz = lote.matriz?.celulas || {};
   const celN = useMemo(() => paraNumeros(form.celulas), [form.celulas]);
-  // Crítico é comparado com a matriz e com a fórmula anterior de cada amostra (auditoria LM-15).
+  // Fórmula anterior de cada amostra (só de quem tinha fórmula): base da trava de crítico (D-1).
   const origem = detalhe.origem_celulas || {};
+  // Matriz vazia e amostra sem fórmula anterior = fórmula nova: não há "diferença" a destacar.
+  const formulaNova = (r) => lote.matriz?.tipo === "vazia" && !origem[r];
   const difs = useMemo(() => diferencasDoLote({ ingredientes: form.ingredientes, celulas: celN, matrizCelulas: matriz, origem }), [form.ingredientes, celN, matriz, origem]);
-  const motivosComAutor = useMemo(() => Object.fromEntries(Object.entries(form.motivos).map(([r, o]) => [r,
-    Object.fromEntries(Object.entries(o || {}).map(([k, x]) => [k, { ...(lote.motivos?.[r]?.[k] || {}), texto: x.texto }]))])), [form.motivos, lote.motivos]);
-  const pend = useMemo(() => pendencias({ ingredientes: form.ingredientes, celulas: celN, matrizCelulas: matriz, motivos: motivosComAutor, aprovacoes: lote.aprovacoes_criticas || {}, membros: ativos, origem }),
-    [form.ingredientes, celN, matriz, motivosComAutor, lote.aprovacoes_criticas, ativos, origem]);
+  const criticosDaOrigem = useMemo(() => mudancasCriticasDaOrigem({ ingredientes: form.ingredientes, celulas: celN, origem }), [form.ingredientes, celN, origem]);
+  const pend = useMemo(() => pendencias({ ingredientes: form.ingredientes, celulas: celN, motivos: lote.motivos || {}, aprovacoes: lote.aprovacoes_criticas || {}, membros: ativos, origem }),
+    [form.ingredientes, celN, lote.motivos, lote.aprovacoes_criticas, ativos, origem]);
   const fech = useMemo(() => fechamentoPorMembro(celN, ativos, form.ingredientes), [celN, ativos, form.ingredientes]);
   const keys = chaves(form.ingredientes);
   const fases = [...new Set(keys.map((k) => String(form.ingredientes[k].fase || "").trim()).filter(Boolean))].sort();
   const cod = (r) => lote.membros[r]?.codigo_amostra || r;
-  const semGramas = ativos.filter((r) => quantidadeEmGramas({ ...lote.membros[r] }) == null);
-  const podeGerar = pode && !sujo && ativos.length >= 2 && !pend.length && ativos.every((r) => fech[r]?.ok) && !semGramas.length;
+  // Gramas do que está NA TELA (o clique de concluir salva antes): sem "salve primeiro".
+  const semGramas = ativos.filter((r) => quantidadeEmGramas({ ...lote.membros[r],
+    quantidade_g: num(form.quantidades[r]?.quantidade_g) || null, densidade: num(form.quantidades[r]?.densidade) || null }) == null);
+  const foraDos100 = ativos.filter((r) => !fech[r]?.ok);
+  const falta = [
+    ...(ativos.length < 2 ? ["o lote precisa de pelo menos 2 amostras"] : []),
+    ...(semGramas.length ? [`quantidade em g de ${semGramas.map(cod).join(", ")}`] : []),
+    ...foraDos100.map((r) => `${cod(r)} fecha ${fmt(fech[r]?.soma)} % (precisa de 100 %)`),
+    ...(pend.length ? [`${pend.length} ingrediente(s) crítico(s) para outra pessoa aprovar`] : []),
+  ];
+  const podeConcluir = pode && !falta.length;
   const podeAprovar = user?.role === "admin" || user?.modulos?.aprovar_critico_pd === true;
   const visiveis = estreito ? [ativos.includes(coluna) ? coluna : ativos[0]] : ativos;
-  const nivelDe = (r, k) => (difs[r] || []).find((x) => x.ingKey === k)?.nivel || 0;
+  const nivelDe = (r, k) => (formulaNova(r) ? 0 : (difs[r] || []).find((x) => x.ingKey === k)?.nivel || 0);
 
   const executar = async (rotulo, fn) => {
     setOcupado(rotulo);
     try { await fn(); } catch (e) { toast.error(formatApiError(e)); } finally { setOcupado(""); }
   };
-  const salvar = () => executar("salvar", async () => {
-    const motivos = Object.fromEntries(Object.entries(form.motivos).map(([r, o]) => [r,
-      Object.fromEntries(Object.entries(o || {}).filter(([, x]) => String(x?.texto || "").trim()).map(([k, x]) => [k, { texto: x.texto.trim() }]))]));
+  // Grava o rascunho e devolve a revisão gravada (a ordem precisa dela).
+  const gravarRascunho = async () => {
     const quantidades = Object.fromEntries(Object.entries(form.quantidades).map(([r, q]) => [r, { quantidade_g: num(q.quantidade_g) || null, densidade: num(q.densidade) || null }]));
-    const { data } = await api.put(`/pd/manipulacao-lotes/${lote.id}`, { revisao: lote.revisao, ingredientes: form.ingredientes, celulas: celN, motivos,
+    const { data } = await api.put(`/pd/manipulacao-lotes/${lote.id}`, { revisao: lote.revisao, ingredientes: form.ingredientes, celulas: celN,
       pre_mistura: form.pre_mistura, perda_pct: num(form.perda_pct), minimo_pesavel_g: num(form.minimo_pesavel_g), quantidades });
+    (data.avisos || []).forEach((a) => toast.warning(a));
+    return data;
+  };
+  const salvar = () => executar("salvar", async () => {
+    const data = await gravarRascunho();
     if (data.sem_mudanca) toast.info("Nada mudou desde o último salvamento.");
     else toast.success(`Rascunho salvo (revisão ${data.lote?.revisao ?? ""}).`);
-    (data.avisos || []).forEach((a) => toast.warning(a));
     await recarregar();
   });
-  const gerar = () => executar("gerar", async () => {
-    const { data } = await api.post(`/pd/manipulacao-lotes/${lote.id}/gerar-ordem`, { revisao: lote.revisao });
-    toast.success("Ordem gerada: cada amostra ganhou uma versão travada da fórmula.");
-    (data.avisos || []).forEach((a) => toast.warning(a));
-    await recarregar();
+  // Um clique: salva o que está na tela e o servidor cria V1/V(n+1) em cada amostra + a ordem de pesagem.
+  const concluir = () => executar("concluir", async () => {
+    let revisao = lote.revisao;
+    if (sujo) {
+      const salvo = await gravarRascunho();
+      revisao = salvo.lote?.revisao ?? revisao;
+      // O salvamento recalcula crítico/fragrância pelo Cadastros: se surgiu pendência, para aqui (salvo, sem ordem).
+      if ((salvo.pendencias || []).length) {
+        toast.error(`Rascunho salvo, mas ainda falta: ${salvo.pendencias.map((p) => `${cod(p.request_id)} · ${p.motivo}`).join(" ")}`);
+        await recarregar();
+        return;
+      }
+    }
+    try {
+      const { data } = await api.post(`/pd/manipulacao-lotes/${lote.id}/gerar-ordem`, { revisao });
+      const v = Object.entries(data.versoes || {}).map(([r, x]) => `${cod(r)} v${x?.versao ?? "?"}`).join(", ");
+      toast.success(v ? `Enviado para a manipulação: ${v}.` : "Enviado para a manipulação: cada amostra ganhou a próxima versão da fórmula.");
+      (data.avisos || []).forEach((a) => toast.warning(a));
+    } finally {
+      await recarregar(); // o rascunho já salvo aparece mesmo se o servidor recusar
+    }
   });
   const aprovar = (r, k) => executar(`aprovar-${r}-${k}`, async () => {
     await api.post(`/pd/manipulacao-lotes/${lote.id}/aprovar-critico`, { requestId: r, ingKey: k });
@@ -196,9 +185,10 @@ export default function EditorLote({ detalhe, user, recarregar }) {
         <Button onClick={salvar} disabled={!pode || !sujo || Boolean(ocupado)} data-testid="btn-salvar-lote">
           {ocupado === "salvar" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />}Salvar rascunho
         </Button>
-        <Button variant="secondary" onClick={gerar} disabled={!podeGerar || Boolean(ocupado)} data-testid="btn-gerar-ordem"
-          title={sujo ? "Salve antes de gerar a ordem." : pend.length ? "Resolva as pendências." : semGramas.length ? "Informe a quantidade em g de todas." : ""}>
-          {ocupado === "gerar" && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}Gerar ordem
+        <Button onClick={concluir} disabled={!podeConcluir || Boolean(ocupado)} data-testid="btn-gerar-ordem"
+          className="bg-emerald-700 text-white hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+          title={falta.length ? `Falta: ${falta.join(" · ")}` : "Cria a próxima versão da fórmula em cada amostra e a ordem de pesagem."}>
+          {ocupado === "concluir" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <FlaskConical className="mr-1 h-4 w-4" />}Concluir e enviar para a manipulação
         </Button>
         <Button variant="outline" onClick={clonarMatrizParaTodas} disabled={!pode}><Copy className="mr-1 h-4 w-4" />Clonar matriz para todas</Button>
         <Button variant="outline" onClick={() => setDialogo({ tipo: "adicionar" })} disabled={!pode}><Plus className="mr-1 h-4 w-4" />Adicionar ingrediente</Button>
@@ -206,6 +196,12 @@ export default function EditorLote({ detalhe, user, recarregar }) {
         {sujo && <span className="text-xs text-amber-700 dark:text-amber-300">Alterações não salvas</span>}
         {!pode && <span className="text-xs text-muted-foreground">Seu perfil só consulta.</span>}
       </div>
+      {pode && (
+        <p className={`text-sm ${falta.length ? "text-amber-800 dark:text-amber-300" : "text-emerald-800 dark:text-emerald-300"}`} data-testid="falta-lote" role="status">
+          {falta.length ? <><b>Para concluir, falta:</b> {falta.join(" · ")}.</>
+            : <>Tudo preenchido. Ao concluir, cada amostra ganha uma versão nova da fórmula na aba Manipulação ({ativos.map((r) => `${cod(r)}: ${lote.membros[r]?.versao_antes ? `depois da v${lote.membros[r].versao_antes}` : "primeira versão"}`).join(" · ")}).</>}
+        </p>
+      )}
 
       <div className="flex flex-wrap items-end gap-4 text-sm">
         <div><Label htmlFor="perda-lote">Excesso nas pré-misturas (%)</Label>
@@ -308,55 +304,54 @@ export default function EditorLote({ detalhe, user, recarregar }) {
         </table>
       </div>
 
+      {ativos.some((r) => (criticosDaOrigem[r] || []).length) && (
+        <section className="space-y-2" data-testid="criticos-lote">
+          <h4 className="text-sm font-semibold">Ingrediente crítico alterado em fórmula que já existia</h4>
+          {ativos.map((r) => (criticosDaOrigem[r] || []).map((x) => {
+            const quem = lote.motivos?.[r]?.[x.ingKey];
+            const ap = lote.aprovacoes_criticas?.[r]?.[x.ingKey];
+            const aprovado = ap && Math.round(num(ap.valor) * 1e4) === Math.round(num(x.para) * 1e4) && ap.chave === chaveMaterialFase(form.ingredientes[x.ingKey] || {});
+            const podeEsteAprovar = podeAprovar && !sujo && quem?.por && quem.por !== eu && Math.round(num(quem.valor) * 1e4) === Math.round(num(x.para) * 1e4)
+              && quem.chave === chaveMaterialFase(form.ingredientes[x.ingKey] || {});
+            return (
+              <div key={`${r}-${x.ingKey}`} className={`flex flex-wrap items-center gap-2 rounded border p-2 text-sm ${CLASSE_NIVEL[NIVEL.CRITICO]}`}>
+                <span className="sm:min-w-[260px]"><b>{cod(r)}</b> · {x.nome}: {fmt(x.de)} → {fmt(x.para)} %{quem?.por_nome ? <span className="block text-xs">alterado por {quem.por_nome}</span> : null}</span>
+                {aprovado
+                  ? <span className="flex items-center gap-1 text-xs text-green-700 dark:text-green-400"><ShieldCheck className="h-3 w-3" />aprovado por {ap.por_nome}</span>
+                  : podeEsteAprovar
+                    ? <Button size="sm" variant="outline" onClick={() => aprovar(r, x.ingKey)} disabled={Boolean(ocupado)}>Aprovar</Button>
+                    : <span className="text-xs text-red-700 dark:text-red-400">precisa do "Aprovar" de outra pessoa (ADM ou módulo Aprovar crítico P&D){sujo ? " — salve antes" : ""}</span>}
+              </div>
+            );
+          }))}
+        </section>
+      )}
+
       <section className="space-y-2" data-testid="diferencas-lote">
-        <h4 className="text-sm font-semibold">Diferenças da matriz</h4>
-        {ativos.every((r) => !(difs[r] || []).length) && <p className="text-xs text-muted-foreground">Todas as amostras iguais à matriz.</p>}
-        {ativos.map((r) => {
-          const frag = (difs[r] || []).filter((x) => x.nivel === NIVEL.FRAGRANCIA);
-          return frag.length ? (
-            <div key={`${r}-frag`} className={`rounded border p-2 text-sm ${CLASSE_NIVEL[NIVEL.FRAGRANCIA]}`}>
-              <b>{cod(r)}</b> · fragrância: {frag.map((x) => `${x.nome} ${fmt(x.de)} → ${fmt(x.para)} %`).join("; ")} <span className="text-xs text-violet-700 dark:text-violet-300">— livre</span>
-            </div>
-          ) : null;
-        })}
-        {ativos.map((r) => (difs[r] || []).filter((x) => x.nivel !== NIVEL.FRAGRANCIA).map((x) => {
-          const salvo = lote.motivos?.[r]?.[x.ingKey];
-          const ap = lote.aprovacoes_criticas?.[r]?.[x.ingKey];
-          const aprovado = ap && Math.round(num(ap.valor) * 1e4) === Math.round(num(x.para) * 1e4) && ap.chave === chaveMaterialFase(form.ingredientes[x.ingKey] || {});
-          const podeEsteAprovar = podeAprovar && !sujo && salvo?.por && salvo.por !== eu && Math.round(num(salvo.valor) * 1e4) === Math.round(num(x.para) * 1e4);
-          return (
-            <div key={`${r}-${x.ingKey}`} className={`flex flex-wrap items-center gap-2 rounded border p-2 text-sm ${CLASSE_NIVEL[x.nivel] || ""}`}>
-              <span className="sm:min-w-[220px]"><b>{cod(r)}</b> · {x.nome}: {fmt(x.de)} → {fmt(x.para)} %{x.daAmostra ? <span className="block text-xs">muda a fórmula anterior desta amostra (a matriz tem o mesmo valor)</span> : null}</span>
-              {(
-                <>
-                  <Input className="h-8 w-full sm:max-w-sm sm:flex-1" placeholder={`Motivo (mín. ${MIN_MOTIVO} letras)`} disabled={!pode} aria-label={`Motivo ${cod(r)} ${x.nome}`}
-                    value={form.motivos[r]?.[x.ingKey]?.texto || ""}
-                    onChange={(e) => mudar((f) => ({ ...f, motivos: { ...f.motivos, [r]: { ...(f.motivos[r] || {}), [x.ingKey]: { texto: e.target.value } } } }))} />
-                  {x.nivel === NIVEL.CRITICO && (aprovado
-                    ? <span className="flex items-center gap-1 text-xs text-green-700 dark:text-green-400"><ShieldCheck className="h-3 w-3" />aprovado por {ap.por_nome}</span>
-                    : podeEsteAprovar
-                      ? <Button size="sm" variant="outline" onClick={() => aprovar(r, x.ingKey)} disabled={Boolean(ocupado)}>Aprovar mudança</Button>
-                      : <span className="text-xs text-red-700 dark:text-red-400">crítico: precisa da aprovação de outra pessoa (ADM ou módulo Aprovar crítico P&D){sujo ? " — salve antes" : ""}</span>)}
-                </>
-              )}
-            </div>
-          );
-        }))}
-        {pend.length > 0 && (
-          <ul className="list-disc pl-5 text-xs text-amber-800 dark:text-amber-300" data-testid="pendencias-lote">
-            {pend.slice(0, 8).map((p) => <li key={`${p.request_id}-${p.ingKey}-${p.tipo}`}>{cod(p.request_id)}: {p.motivo}</li>)}
-            {pend.length > 8 && <li>+{pend.length - 8} pendência(s)</li>}
-          </ul>
-        )}
-        {semGramas.length > 0 && <p className="text-xs text-amber-800 dark:text-amber-300">Sem quantidade em g (salvo): {semGramas.map(cod).join(", ")}.</p>}
-        <p className="text-xs text-muted-foreground">Até {MAX_MEMBROS} amostras por lote. A ordem só sai com 100 % em todas, motivos escritos e críticos aprovados.</p>
+        <h4 className="text-sm font-semibold">Diferenças da matriz <span className="font-normal text-xs text-muted-foreground">(só para conferência — não precisa comentar)</span></h4>
+        {lote.matriz?.tipo === "vazia" && <p className="text-xs text-muted-foreground">Matriz vazia: as amostras sem fórmula anterior são fórmulas novas e viram v1 ao concluir.</p>}
+        {ativos.filter((r) => !formulaNova(r)).every((r) => !(difs[r] || []).length) && lote.matriz?.tipo !== "vazia" && <p className="text-xs text-muted-foreground">Todas as amostras iguais à matriz.</p>}
+        {ativos.filter((r) => !formulaNova(r) && (difs[r] || []).length).map((r) => (
+          <div key={`${r}-dif`} className="rounded border p-2 text-sm">
+            <b>{cod(r)}</b>: {(difs[r] || []).map((x) => (
+              <span key={x.ingKey} className={`mr-2 inline-block rounded border px-1 ${CLASSE_NIVEL[x.nivel] || ""}`}>{x.nome} {fmt(x.de)} → {fmt(x.para)} %</span>
+            ))}
+          </div>
+        ))}
+        <p className="text-xs text-muted-foreground">Até {MAX_MEMBROS} amostras por lote. Quem alterou cada número fica registrado automaticamente ao salvar.</p>
       </section>
 
       {dialogo?.tipo === "adicionar" && (
-        <AdicionarIngrediente ingredientes={form.ingredientes} onFechar={() => setDialogo(null)} onAdicionar={(ing) => {
-          mudar((f) => ({ ...f, ingredientes: { ...f.ingredientes, [proximaChave(f.ingredientes)]: ing } }));
+        <NovoIngredienteLote ingredientes={form.ingredientes} ativos={ativos} codigoDe={cod} onFechar={() => setDialogo(null)} onAdicionar={(ing, pct, alvos) => {
+          mudar((f) => {
+            const k = proximaChave(f.ingredientes);
+            const celulas = { ...f.celulas };
+            if (pct > 0) for (const r of alvos) celulas[r] = { ...(celulas[r] || {}), [k]: String(pct) };
+            return { ...f, ingredientes: { ...f.ingredientes, [k]: ing }, celulas };
+          });
           setDialogo(null);
-          toast.info(`${ing.nome} entrou com 0 % — preencha nas amostras e salve.`);
+          toast.info(pct > 0 ? `${ing.nome} entrou com ${pct} % em ${alvos.length === ativos.length ? "todas as amostras" : alvos.map(cod).join(", ")} — confira os 100 % e salve.`
+            : `${ing.nome} entrou com 0 % — preencha nas amostras e salve.`);
         }} />
       )}
       {dialogo?.tipo === "remover" && (

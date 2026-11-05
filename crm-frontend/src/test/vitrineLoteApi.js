@@ -56,10 +56,19 @@ const elegiveis = {
   matriz_padrao: { request_id: "R1" }, limite: { min: 2, max: 20 },
 };
 
+const catalogo = [
+  { id: "C1", master_material_id: "MPGR-00012", codigo_interno: "MPGR-00012", nome: "Glicerina bidestilada (fictícia)", inci: "Glycerin", unidade: "kg", tipo_material: "MPGR",
+    categoria: "Umectante", preco_rs_kg: 12.5, fornecedores: [{ fornecedor_id: "F1", fornecedor_nome: "Fornecedor Alfa (fictício)", preco_rs_kg: 12.5, moeda: "BRL" },
+      { fornecedor_id: "F2", fornecedor_nome: "Fornecedor Beta (fictício)", preco_rs_kg: 13.9, moeda: "BRL" }] },
+  { id: "C2", master_material_id: "MPGR-00031", codigo_interno: "MPGR-00031", nome: "Glicolato de sódio (fictício)", inci: "Sodium Glycolate", unidade: "kg", tipo_material: "MPGR", preco_rs_kg: 41 },
+  { id: "C3", master_material_id: "MPES-00007", codigo_interno: "MPES-00007", nome: "Glicerídeos de coco (fictício)", inci: "Coco-Glycerides", unidade: "kg", tipo_material: "MPGR", preco_rs_kg: 0 },
+];
 const api = {
   get: async (url) => {
     if (url.includes("amostras-elegiveis")) return { data: elegiveis };
-    if (url.includes("/pd/catalog")) return { data: [] };
+    if (url.includes("/pd/catalog")) return { data: catalogo };
+    if (url.includes("/compras/fornecedores")) return { data: { fornecedores: [{ id: "F1", razao_social: "Fornecedor Alfa (fictício)" }, { id: "F2", razao_social: "Fornecedor Beta (fictício)" }] } };
+    if (url.includes("/pd/homologacao")) return { data: [] };
     return { data: {} };
   },
   post: async () => ({ data: { resultados: amostras.map(([r, cod], i) => ({ request_id: r, codigo: cod, ok: i !== 2, mensagem: i !== 2 ? "Em Testes" : "A fórmula precisa fechar 100% para concluir." })) } }),
