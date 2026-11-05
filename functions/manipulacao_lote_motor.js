@@ -69,6 +69,8 @@ const nivelDaMudanca = (ing) => (ing?.critico ? NIVEL.CRITICO : ehFragrancia(ing
 /* Classificação com fonte confiável: materiais = Map(id → materiais/{id}); itensOrigem = itens das
  * fórmulas de origem (antes de cada membro e matriz). Sem material, só a função de origem vale. */
 function classificarIngredientes(ingredientes, { materiais = new Map(), itensOrigem = [] } = {}) {
+  // Auditoria LM-15: crítico também pelo nome do material marcado — tirar o id do ingrediente não o descaracteriza.
+  const criticosPorNome = new Set([...materiais.values()].filter((m) => m?.criticoPd === true).map((m) => norm(m.mpNome || m.nome)).filter(Boolean));
   const funcaoDe = new Map();
   for (const it of itensOrigem || []) {
     const c = chaveMaterialFase(itemParaIngrediente(it));
@@ -78,7 +80,7 @@ function classificarIngredientes(ingredientes, { materiais = new Map(), itensOri
     const mat = materiais.get(x?.master_material_id) || materiais.get(x?.catalog_id) || null;
     const funcaoOrigem = funcaoDe.get(chaveMaterialFase(x || {})) || "";
     const frag = String(mat?.tipo || "").toUpperCase() === "MPES" || /^MPES\b/i.test(String(mat?.mpCodigo || "")) || /fragr/i.test(semAcento(funcaoOrigem));
-    return [k, { ...x, ehFragrancia: frag, critico: mat?.criticoPd === true }];
+    return [k, { ...x, ehFragrancia: frag, critico: mat?.criticoPd === true || criticosPorNome.has(norm(x?.nome)) }];
   }));
 }
 
@@ -209,8 +211,41 @@ function diferencas({ ingredientes, celulas, matrizCelulas = {} }) {
   return out;
 }
 
-function pendencias({ ingredientes, celulas, matrizCelulas, motivos = {}, aprovacoes = {}, membros }) {
+/* Fórmula de origem de uma amostra (a vigente quando entrou no lote) vista nas chaves do lote, por material
+ * + fase. `fora` = itens de origem que não têm linha no lote (rascunho mexido por fora). */
+function celulasDaOrigem(ingredientes, itens) {
+  const porChave = new Map(Object.entries(ingredientes || {}).map(([k, ing]) => [chaveMaterialFase(ing || {}), k]));
+  const celulas = {};
+  const fora = [];
+  for (const it of itens || []) {
+    const p = num(it?.percentage ?? it?.percentual);
+    if (!(p > 0)) continue;
+    const ing = itemParaIngrediente(it);
+    const k = porChave.get(chaveMaterialFase(ing));
+    if (k) celulas[k] = (pct4(celulas[k] || 0) + pct4(p)) / 1e4;
+    else fora.push(ing.nome);
+  }
+  return { celulas, fora };
+}
+
+/* Auditoria LM-15: crítico é comparado com a matriz E com a fórmula anterior da própria amostra
+ * (origem[r]) — clonar a matriz não pode mudar um conservante sem aprovação. daAmostra = só difere da origem. */
+function diferencasDoLote({ ingredientes, celulas, matrizCelulas = {}, origem = {} }) {
   const d = diferencas({ ingredientes, celulas, matrizCelulas });
+  for (const [r, col] of Object.entries(celulas || {})) {
+    const o = origem?.[r];
+    if (!o) continue;
+    const ja = new Set((d[r] || []).map((x) => x.ingKey));
+    for (const k of chavesOrdenadas(ingredientes)) {
+      if (ja.has(k) || nivelDaMudanca(ingredientes[k]) !== NIVEL.CRITICO || pct4(col?.[k]) === pct4(o[k])) continue;
+      (d[r] ||= []).push({ ingKey: k, nome: ingredientes[k].nome, de: num(o[k]), para: num(col?.[k]), nivel: NIVEL.CRITICO, daAmostra: true });
+    }
+  }
+  return d;
+}
+
+function pendencias({ ingredientes, celulas, matrizCelulas, motivos = {}, aprovacoes = {}, membros, origem = {} }) {
+  const d = diferencasDoLote({ ingredientes, celulas, matrizCelulas, origem });
   const out = [];
   for (const r of membros || Object.keys(celulas || {})) {
     for (const x of d[r] || []) {
@@ -220,17 +255,24 @@ function pendencias({ ingredientes, celulas, matrizCelulas, motivos = {}, aprova
       if (String(mot?.texto || "").trim().length < MIN_MOTIVO) out.push({ ...base, tipo: "motivo", motivo: `Escreva o motivo da mudança de ${x.nome} (mín. ${MIN_MOTIVO} letras).` });
       if (x.nivel !== NIVEL.CRITICO) continue;
       const ap = aprovacoes?.[r]?.[x.ingKey];
-      if (!ap) out.push({ ...base, tipo: "aprovacao", motivo: `${x.nome} é crítico: precisa da aprovação de um RT ou ADM (outra pessoa).` });
+      const deQuem = x.daAmostra ? " (muda a fórmula anterior desta amostra)" : "";
+      if (!ap) out.push({ ...base, tipo: "aprovacao", motivo: `${x.nome} é crítico: precisa da aprovação de um RT ou ADM (outra pessoa)${deQuem}.` });
       else if (pct4(ap.valor) !== pct4(x.para)) out.push({ ...base, tipo: "aprovacao", motivo: `${x.nome}: o valor mudou depois da aprovação — peça de novo.` });
-      else if (mot?.por && ap.por && ap.por === mot.por) out.push({ ...base, tipo: "aprovacao", motivo: `${x.nome}: a aprovação precisa ser de outra pessoa.` });
+      // A aprovação vale para o material + fase aprovados, não para a linha (trocar o material invalida).
+      else if (ap.chave !== chaveMaterialFase(ingredientes[x.ingKey] || {})) out.push({ ...base, tipo: "aprovacao", motivo: `${x.nome}: o material mudou depois da aprovação — peça de novo.` });
+      else if (!mot?.por || ap.por === mot.por) out.push({ ...base, tipo: "aprovacao", motivo: `${x.nome}: a aprovação precisa ser de outra pessoa que não a autora do motivo (salve o motivo antes).` });
     }
   }
   return out;
 }
 
-function fechamentoPorMembro(celulas, membros) {
+// Só soma linhas que existem no lote (auditoria LM-15: chave fantasma não fecha 100 %).
+function fechamentoPorMembro(celulas, membros, ingredientes = null) {
   const out = {};
-  for (const r of membros || Object.keys(celulas || {})) out[r] = fechamentoFormula(Object.values(celulas?.[r] || {}).map((p) => ({ percentage: p })));
+  for (const r of membros || Object.keys(celulas || {})) {
+    const col = Object.entries(celulas?.[r] || {}).filter(([k]) => !ingredientes || Object.prototype.hasOwnProperty.call(ingredientes, k));
+    out[r] = fechamentoFormula(col.map(([, p]) => ({ percentage: p })));
+  }
   return out;
 }
 
@@ -393,7 +435,7 @@ function desvioPesagem(teoricoG, realG) {
  * quando registrada); compara por material + fase (chave), não por nome. */
 function composicaoValida(variacao) {
   const lm = variacao?.lote_manipulacao;
-  if (!Array.isArray(lm?.composicao)) return null;
+  if (!Array.isArray(lm?.composicao) || lm.removido_em) return null;
   const aprovada = variacao?.aprovacao_cliente?.formula_aprovada?.id;
   if (aprovada && lm.formula_id && aprovada !== lm.formula_id) return null;
   return lm.composicao;
@@ -452,7 +494,7 @@ function planoSalvarLote({ tenantPath, lote, rascunho, contexto, agora, autor, n
   const ing = rascunho.ingredientes || {};
   const quantidades = rascunho.quantidades || {};
   const celulas = Object.fromEntries(ativos.map((r) => [r, rascunho.celulas?.[r] || {}]));
-  const difs = diferencas({ ingredientes: ing, celulas, matrizCelulas: lote.matriz?.celulas || {} });
+  const difs = diferencasDoLote({ ingredientes: ing, celulas, matrizCelulas: lote.matriz?.celulas || {}, origem: contexto.origem || {} });
   const resumo = { semMudanca: false, passaramEmDesenvolvimento: [], mudancas: [] };
   const gravado = { ingredientes: lote.ingredientes, celulas: lote.celulas, motivos: lote.motivos, pre_mistura: lote.pre_mistura, perda_pct: lote.perda_pct, minimo_pesavel_g: lote.minimo_pesavel_g };
   const qGravadas = Object.fromEntries(ativos.map((r) => [r, { quantidade_g: lote.membros[r].quantidade_g, densidade: lote.membros[r].densidade }]));
@@ -485,8 +527,9 @@ function planoSalvarLote({ tenantPath, lote, rascunho, contexto, agora, autor, n
     const Lm = `${L}/membros/${r}`;
     u[`${Lm}/quantidade_g`] = num(q.quantidade_g) > 0 ? num(q.quantidade_g) : null;
     u[`${Lm}/densidade`] = num(q.densidade) > 0 ? num(q.densidade) : null;
-    u[`${Lm}/fora_da_base`] = dr.some((x) => x.nivel === NIVEL.CRITICO);
-    u[`${Lm}/diferencas`] = dr.length ? dr.map((x) => x.nome) : null;
+    const daBase = dr.filter((x) => !x.daAmostra); // fora da base = difere da matriz
+    u[`${Lm}/fora_da_base`] = daBase.some((x) => x.nivel === NIVEL.CRITICO);
+    u[`${Lm}/diferencas`] = daBase.length ? daBase.map((x) => x.nome) : null;
   }
   resumo.mudancas = mudancasDoRascunho(lote, rascunho, ativos);
   u[`${L}/ingredientes`] = limpo(ing);
@@ -505,4 +548,4 @@ function planoSalvarLote({ tenantPath, lote, rascunho, contexto, agora, autor, n
   return { updates: u, resumo };
 }
 
-module.exports = { MIN_MEMBROS, MAX_MEMBROS, STATUS_PD_ELEGIVEIS, STATUS_LOTE_ABERTO, MIN_MOTIVO, MIN_MOTIVO_DEPOIS_DA_ORDEM, MINIMO_PESAVEL_PADRAO_G, NIVEL, ROTULO_STATUS_PD, ROTULO_STATUS_LOTE, pct4, fmtG, gramasCg, gramas, ehFragrancia, sugereFragrancia, nivelDaMudanca, classificarIngredientes, PAPEIS_LOTE, podeManipularLote, motivoInelegivel, validarSelecao, matrizPadrao, itemParaIngrediente, chaveMaterialFase, montarMatriz, clonar, diferencas, pendencias, fechamentoPorMembro, quantidadeEmGramas, ordemIndividual, ordemDoLote, textoCanonicoItens, assinaturaItens, itensDaColuna, conciliacaoMassa, toleranciaPesagem, desvioPesagem, composicaoValida, oQueVaria, limpo, mudancasDoRascunho, planoSalvarLote };
+module.exports = { MIN_MEMBROS, MAX_MEMBROS, STATUS_PD_ELEGIVEIS, STATUS_LOTE_ABERTO, MIN_MOTIVO, MIN_MOTIVO_DEPOIS_DA_ORDEM, MINIMO_PESAVEL_PADRAO_G, NIVEL, ROTULO_STATUS_PD, ROTULO_STATUS_LOTE, pct4, fmtG, gramasCg, gramas, ehFragrancia, sugereFragrancia, nivelDaMudanca, classificarIngredientes, PAPEIS_LOTE, podeManipularLote, motivoInelegivel, validarSelecao, matrizPadrao, itemParaIngrediente, chaveMaterialFase, montarMatriz, clonar, diferencas, celulasDaOrigem, diferencasDoLote, pendencias, fechamentoPorMembro, quantidadeEmGramas, ordemIndividual, ordemDoLote, textoCanonicoItens, assinaturaItens, itensDaColuna, conciliacaoMassa, toleranciaPesagem, desvioPesagem, composicaoValida, oQueVaria, limpo, mudancasDoRascunho, planoSalvarLote };

@@ -196,3 +196,29 @@ também na geração de ficha/BOM/SKU no cliente (hoje: `liberarEtapaPd` + rotas
 | M1 ordem dos itens · M2 assinatura por material + SHA-256 · M3 teto da perda · M4 tolerância e estorno · M5 ações só manipulado · M6 fila pelo servidor · M7 exclusão 409 · M8 composição na ordem | §3, §4, §7, §9, D-07, D-11 |
 | B1 excesso para cima · B3 de→para · B4 etapa ausente · B5 config ausente = ligada · B6 ocorrência | D-05, §6, D-01, D-11, D-08 |
 | B2 pré-diluição | §11 (adiado) |
+
+## 13. Auditoria final (LM-15, 05/11/2026) — o que mudou no desenho
+
+O auditor confirmou no emulador que o controle de crítico se contornava. Correções (teste de regressão:
+`run_manipulacao_lote_auditoria_test.js`, um cenário por ataque):
+
+- **Crítico também contra a fórmula anterior da amostra** (`diferencasDoLote`, `origem`): clonar a matriz que muda o
+  conservante de uma amostra pede motivo e aprovação, mesmo igual à matriz. Continua valendo a diferença contra a matriz
+  (união — mais estrito que o D-02 original). `fora_da_base` segue sendo só "difere da matriz".
+- **Nada de crítico decidido pelo que o cliente grava:** no `gerar_ordem` o servidor recalcula a matriz da fonte (fórmula de
+  uma amostra do lote ou base do projeto) por material + fase e recusa se o lote divergir; ingrediente sem material do
+  Cadastros/catálogo e fora das fórmulas de origem é recusado; linha de origem sumida do lote é recusada; crítico é
+  reconhecido também pelo nome do material marcado. A aprovação grava `chave` (material + fase) e `master_material_id`;
+  trocar o material invalida.
+- **Autor do motivo = quem grava** (regra `motivos/$r/$k/por`); motivo sem autor não serve para crítico. Na criação,
+  `criado_por` e o autor de cada evento também são quem grava.
+- **Membro conferido contra a solicitação, a variação e o projeto** (o desenvolvimento é da solicitação; a variação é dela;
+  a amostra é do projeto do lote).
+- **Célula só de ingrediente do lote, de 0 a 100 %**; o 100 % é conferido de novo sobre os itens da versão montada.
+- **Lote preso em `gerando_ordem`** (servidor caiu no meio): depois de 2 min a tela oferece "Gerar ordem de novo" e
+  "Cancelar lote" (a regra passa a aceitar o cancelamento nesse estado).
+- **Módulo "Aprovar crítico P&D"** existe de fato (`KURYOS_MODULOS` e `MODULOS_VALIDOS`); só o ADM marca.
+- **§9 revisto:** a trava de fases vale só para versão criada pela ordem de um lote (`origem_lote`) e cobre também criar
+  e reordenar; versões que só foram a Em Testes continuam com o Modo de Preparo editável, como antes.
+- O servidor relê o banco depois de travar o lote. Residuais registrados em `MELHORIAS_FUTURAS.md`.
+

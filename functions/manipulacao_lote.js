@@ -19,6 +19,7 @@
 const crypto = require("crypto");
 const M = require("./manipulacao_lote_motor");
 const Cambio = require("./cambio");
+const FechamentoFormula = require("./fechamento-formula");
 
 const COLECAO = "pd_manipulacao_lotes";
 const GERANDO_VALIDADE_MS = 2 * 60 * 1000;
@@ -87,6 +88,8 @@ function contexto(raw) {
     samples: new Map(lista(raw.crm_samples).map((x) => [x.id, x])),
     materiais: new Map(lista(raw.materiais).map((x) => [x.id, x])),
     lotes: lista(raw.lotes), cambio: raw.cambio || null, fila: raw.fila || {},
+    bases: new Map(lista(raw.pd_formulacoes_base).map((x) => [x.id, x])),
+    catalogo: new Set(lista(raw.pd_catalog).flatMap((x) => [x.id, x.master_material_id].filter(Boolean))),
     conferencia: raw.conferencia !== false,
   };
 }
@@ -104,11 +107,84 @@ function itensDeOrigem(lote, ctx) {
   return ids.flatMap((fid) => ctx.itensPorFormula.get(fid) || []);
 }
 
+/* Matriz da fonte (fórmula de uma amostra do lote ou base do projeto), por material + fase, em % × 10⁴.
+ * Auditoria LM-15: nunca a que o cliente gravou em lote.matriz.celulas. */
+function matrizDaFonte(lote, ctx) {
+  const m = lote.matriz || {};
+  let itens = [];
+  if (m.tipo === "amostra" && m.ref_id) itens = ctx.itensPorFormula.get(m.ref_id) || [];
+  else if (m.tipo === "base_projeto" && m.ref_id) {
+    itens = ((ctx.bases.get(m.ref_id) || {}).itens || []).map((i) => ({ingredient_name: i.nome, material_code: i.codigo, inci: i.inci, percentage: i.percentual, phase: ""}));
+  }
+  const out = new Map();
+  for (const it of itens) {
+    const p = M.pct4(it.percentage);
+    if (p > 0) { const c = M.chaveMaterialFase(M.itemParaIngrediente(it)); out.set(c, (out.get(c) || 0) + p); }
+  }
+  return out;
+}
+
+/* O lote é coerente com as fontes? Membro = solicitação/variação/projeto certos; matriz = fonte; cada
+ * ingrediente com identidade verificável; nenhuma célula fora dos ingredientes. Devolve a origem por membro. */
+function conferirFontes(lote, ctx, problemas) {
+  const membrosTodos = Object.keys(lote.membros || {});
+  for (const r of ativosDe(lote)) {
+    const m = lote.membros[r];
+    const cod = codigoDe(lote, r);
+    const dev = ctx.devs.get(m.development_id);
+    if (dev && dev.request_id !== r && dev.pd_request_id !== r) problemas.push(`${cod}: o desenvolvimento gravado no lote não é desta solicitação.`);
+    const s = ctx.samples.get(m.sample_id);
+    const {idx, variacao} = variacaoDe(ctx, m);
+    const req = ctx.requests.get(r) || {};
+    const daVariacao = variacao.pd_request_id === r || req.crm_variacao_id === m.variacao_id || req.linked_variacao_id === m.variacao_id;
+    if (!s || s.projeto_id !== lote.projeto_id || idx < 0 || !daVariacao) problemas.push(`${cod}: a amostra gravada no lote não é desta solicitação ou deste projeto.`);
+  }
+  const mz = lote.matriz || {};
+  if (mz.tipo === "amostra" && !membrosTodos.some((r) => lote.membros[r]?.formula_id_antes && lote.membros[r].formula_id_antes === mz.ref_id)) {
+    problemas.push("A matriz do lote precisa ser a fórmula de uma das amostras dele — monte o lote de novo.");
+  }
+  if (mz.tipo === "base_projeto" && (ctx.bases.get(mz.ref_id) || {}).projeto_id !== lote.projeto_id) problemas.push("A base usada como matriz não é deste projeto.");
+  if (!["amostra", "base_projeto", "vazia"].includes(mz.tipo)) problemas.push("Matriz do lote sem tipo conhecido.");
+  const ingredientes = lote.ingredientes || {};
+  const fonte = matrizDaFonte(lote, ctx);
+  const itensOrigem = itensDeOrigem(lote, ctx);
+  const chavesOrigem = new Set(itensOrigem.map((it) => M.chaveMaterialFase(M.itemParaIngrediente(it))));
+  const vistas = new Map();
+  for (const [k, ing] of Object.entries(ingredientes)) {
+    const c = M.chaveMaterialFase(ing || {});
+    if (vistas.has(c)) problemas.push(`${(ing && ing.nome) || k}: aparece duas vezes no lote (mesmo material e fase).`);
+    vistas.set(c, k);
+    if (M.pct4(mz.celulas && mz.celulas[k]) !== (fonte.get(c) || 0)) problemas.push(`${(ing && ing.nome) || k}: a matriz do lote não confere com a fórmula de origem — monte o lote de novo.`);
+    const id = ing && (ing.master_material_id || ing.catalog_id);
+    if (!chavesOrigem.has(c) && !(id && (ctx.materiais.has(id) || ctx.catalogo.has(id)))) {
+      problemas.push(`${(ing && ing.nome) || k}: ingrediente sem material do Cadastros/catálogo e fora das fórmulas de origem — adicione-o pelo catálogo.`);
+    }
+  }
+  for (const c of fonte.keys()) if (!vistas.has(c)) problemas.push("Um ingrediente da matriz sumiu do lote — monte o lote de novo.");
+  for (const [r, col] of Object.entries(lote.celulas || {})) {
+    for (const [k, v] of Object.entries(col || {})) {
+      const n = Number(v);
+      if (!Object.prototype.hasOwnProperty.call(ingredientes, k)) problemas.push(`${codigoDe(lote, r)}: célula sem ingrediente no lote (${k}).`);
+      else if (!Number.isFinite(n) || n < 0 || n > 100) problemas.push(`${codigoDe(lote, r)} · ${ingredientes[k].nome}: valor inválido (${v}).`);
+    }
+  }
+  const origem = {};
+  for (const r of ativosDe(lote)) {
+    const fid = lote.membros[r].formula_id_antes;
+    if (!fid) continue;
+    const o = M.celulasDaOrigem(ingredientes, ctx.itensPorFormula.get(fid) || []);
+    if (o.fora.length) problemas.push(`${codigoDe(lote, r)}: ${o.fora.join(", ")} da fórmula anterior não tem linha no lote — monte o lote de novo.`);
+    origem[r] = o.celulas;
+  }
+  return origem;
+}
+
 /* Tudo o que precisa valer para a ordem sair (§7): status, elegibilidade, fórmula de antes intacta,
  * gramas, níveis pelas fontes, motivos/aprovações, 100 % por membro. Devolve a ordem montada. */
 function conferirOrdem(lote, ctx) {
   const problemas = [];
   const ativos = ativosDe(lote);
+  const origem = conferirFontes(lote, ctx, problemas);
   if (ativos.length < M.MIN_MEMBROS) problemas.push(`O lote precisa de pelo menos ${M.MIN_MEMBROS} amostras ativas.`);
   if (ativos.length > M.MAX_MEMBROS) problemas.push(`No máximo ${M.MAX_MEMBROS} amostras por lote.`);
   for (const r of ativos) {
@@ -128,10 +204,10 @@ function conferirOrdem(lote, ctx) {
   const itensOrigem = itensDeOrigem(lote, ctx);
   const ingredientes = M.classificarIngredientes(lote.ingredientes || {}, {materiais: ctx.materiais, itensOrigem});
   const matrizCelulas = (lote.matriz && lote.matriz.celulas) || {};
-  for (const p of M.pendencias({ingredientes, celulas: lote.celulas || {}, matrizCelulas, motivos: lote.motivos || {}, aprovacoes: lote.aprovacoes_criticas || {}, membros: ativos})) {
+  for (const p of M.pendencias({ingredientes, celulas: lote.celulas || {}, matrizCelulas, motivos: lote.motivos || {}, aprovacoes: lote.aprovacoes_criticas || {}, membros: ativos, origem})) {
     problemas.push(`${codigoDe(lote, p.request_id)}: ${p.motivo}`);
   }
-  const fech = M.fechamentoPorMembro(lote.celulas || {}, ativos);
+  const fech = M.fechamentoPorMembro(lote.celulas || {}, ativos, ingredientes);
   for (const r of ativos) if (!fech[r].ok) problemas.push(`${codigoDe(lote, r)}: a soma dá ${fmt(fech[r].soma)} % — a fórmula precisa fechar 100 %.`);
   const membros = ativos.map((r) => Object.assign({}, lote.membros[r], {request_id: r}));
   const ordem = M.ordemDoLote({ingredientes, celulas: lote.celulas || {}, membros, preMistura: lote.pre_mistura || {}, perdaPct: lote.perda_pct, minimoPesavelG: lote.minimo_pesavel_g});
@@ -209,6 +285,7 @@ function montarOrdem({lote, ctx, conf, versoes, novoId, autor, agora, tenant, re
         }
       }
     }
+    if (!FechamentoFormula.fechamentoFormula(itens).ok) throw falha("failed-precondition", `${cod}: a versão montada não fecha 100 % — nada foi gravado.`);
     for (const ph of ctx.fasesPorFormula.get(base.id) || []) {
       const pid = `${fid}_${ph.id}`;
       u[`${T}/pd_formula_phases/${pid}`] = semVazios(Object.assign({}, ph, {id: pid, tenant_id: tenant, formula_id: fid, created_at: agora, updated_at: agora}));
@@ -374,7 +451,7 @@ function aplicarManipulacao(lote, data, autor, agora, novoId, assinaturasAtuais)
 
 /* Crítico (D-02/A2): ADM ou aprovar_critico_pd, outra pessoa que não a autora do motivo; grava o valor
  * atual (mudar a célula depois invalida a aprovação). */
-function aplicarAprovacao(lote, data, autor, agora, novoId, materiais, itensOrigemDe) {
+function aplicarAprovacao(lote, data, autor, agora, novoId, materiais, itensOrigemDe, itensDaFormula) {
   if (lote.status !== "rascunho") throw falha("failed-precondition", `Aprovação de crítico é no rascunho (o lote está "${rotuloStatus(lote.status)}").`);
   const r = texto(data && data.requestId);
   const k = texto(data && data.ingKey);
@@ -385,12 +462,17 @@ function aplicarAprovacao(lote, data, autor, agora, novoId, materiais, itensOrig
   if (!ing.critico) throw falha("failed-precondition", `${ing.nome} não é crítico no Cadastro — não precisa de aprovação.`);
   const valor = num(lote.celulas && lote.celulas[r] && lote.celulas[r][k]);
   const matriz = num(lote.matriz && lote.matriz.celulas && lote.matriz.celulas[k]);
-  if (M.pct4(valor) === M.pct4(matriz)) throw falha("failed-precondition", `${ing.nome} está igual à matriz nesta amostra — nada a aprovar.`);
+  const fid = lote.membros[r] && lote.membros[r].formula_id_antes;
+  const origem = fid ? {[r]: M.celulasDaOrigem(ingredientes, itensDaFormula(fid)).celulas} : {};
+  const difs = M.diferencasDoLote({ingredientes, celulas: {[r]: (lote.celulas && lote.celulas[r]) || {}}, matrizCelulas: (lote.matriz && lote.matriz.celulas) || {}, origem});
+  if (!(difs[r] || []).some((x) => x.ingKey === k)) throw falha("failed-precondition", `${ing.nome} está igual à matriz e à fórmula anterior desta amostra — nada a aprovar.`);
   const mot = lote.motivos && lote.motivos[r] && lote.motivos[r][k];
   if (!mot || texto(mot.texto).length < M.MIN_MOTIVO) throw falha("failed-precondition", `Falta o motivo da mudança de ${ing.nome} — quem formulou escreve antes da aprovação.`);
+  if (!mot.por) throw falha("failed-precondition", `O motivo de ${ing.nome} não tem autor registrado — salve o rascunho de novo.`);
   if (mot.por === autor.uid) throw falha("failed-precondition", "A aprovação de crítico precisa ser de outra pessoa (você escreveu o motivo).");
   lote.aprovacoes_criticas = lote.aprovacoes_criticas || {};
-  lote.aprovacoes_criticas[r] = Object.assign({}, lote.aprovacoes_criticas[r], {[k]: {valor, por: autor.uid, por_nome: autor.nome, em: agora}});
+  lote.aprovacoes_criticas[r] = Object.assign({}, lote.aprovacoes_criticas[r], {[k]: semVazios({valor, chave: M.chaveMaterialFase(ing),
+    master_material_id: ing.master_material_id || ing.catalog_id || undefined, por: autor.uid, por_nome: autor.nome, em: agora})});
   return {lote: carimbar(lote, autor, agora, novoId, "critico_aprovado", `${codigoDe(lote, r)} · ${ing.nome}: ${fmt(matriz)} → ${fmt(valor)} % aprovado.`), resultado: {request_id: r, ingKey: k, valor}};
 }
 
@@ -421,7 +503,7 @@ function criarServico({db, relogio = () => new Date()}) {
 
   async function lerTenant(tenant) {
     const T = `erp/${tenant}`;
-    const nos = ["pd_requests", "pd_developments", "pd_formulas", "pd_formula_items", "pd_formula_phases", "crm_samples", COLECAO];
+    const nos = ["pd_requests", "pd_developments", "pd_formulas", "pd_formula_items", "pd_formula_phases", "crm_samples", "pd_formulacoes_base", "pd_catalog", COLECAO];
     const [valores, materiais, cambio, fila, conferencia] = await Promise.all([
       Promise.all(nos.map((n) => ler(`${T}/${n}`))), ler("materiais"), ler("config/cambio"), ler("solicitacoes_cadastro_material"), ler("config/pdLote/conferenciaSegundoUsuario"),
     ]);
@@ -474,6 +556,7 @@ function criarServico({db, relogio = () => new Date()}) {
 
     try {
       const loteT = Object.assign({}, travado, {id: loteId});
+      Object.assign(ctx, (await lerTenant(quem.tenant)).ctx); // relê depois da trava: o que mudou no meio conta
       const conf = conferirOrdem(loteT, ctx);
       if (conf.problemas.length) throw falha("failed-precondition", `A ordem não pode sair: ${conf.problemas.join(" ")}`, {problemas: conf.problemas});
       const versoes = {};
@@ -526,7 +609,8 @@ function criarServico({db, relogio = () => new Date()}) {
         const T = `erp/${quem.tenant}`;
         const [materiais, itens, lotes] = await Promise.all([ler("materiais"), ler(`${T}/pd_formula_items`), ler(`${T}/${COLECAO}`)]);
         const ctx = contexto({materiais, pd_formula_items: itens, lotes});
-        return {ok: true, ...(await mutarLote(L, (l) => aplicarAprovacao(l, data, quem, agora, novoId, ctx.materiais, (x) => itensDeOrigem(x, ctx))))};
+        return {ok: true, ...(await mutarLote(L, (l) => aplicarAprovacao(l, data, quem, agora, novoId, ctx.materiais, (x) => itensDeOrigem(x, ctx),
+          (fid) => ctx.itensPorFormula.get(fid) || [])))};
       }
       default: throw falha("invalid-argument", "Ação inválida na manipulação em lote.");
     }

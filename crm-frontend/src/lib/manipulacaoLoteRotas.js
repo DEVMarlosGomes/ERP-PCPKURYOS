@@ -34,6 +34,11 @@ const vigentePorDev = (formulas) => {
   return m;
 };
 const ativosDe = (lote) => Object.entries(lote?.membros || {}).filter(([, m]) => m?.status_membro !== "removido").map(([r]) => r);
+// Fórmula anterior de cada amostra nas chaves do lote (o crítico é comparado com ela também — auditoria LM-15).
+const origemDosMembros = (lote, ingredientes, ipf) => Object.fromEntries(ativosDe(lote).filter((r) => lote.membros[r]?.formula_id_antes)
+  .map((r) => [r, M.celulasDaOrigem(ingredientes, ipf.get(lote.membros[r].formula_id_antes) || []).celulas]));
+const GERANDO_VALIDADE_MS = 2 * 60 * 1000;
+const gerandoVencido = (l) => l?.status === "gerando_ordem" && Date.now() - Number(l?.gerando?.desde_ms || 0) > GERANDO_VALIDADE_MS;
 const mensagemDe = (e) => e?.response?.data?.detail?.message || (typeof e?.response?.data?.detail === "string" ? e.response.data.detail : "") || e?.message || String(e);
 
 export function createManipulacaoLoteRouter(h) {
@@ -170,9 +175,8 @@ export function createManipulacaoLoteRouter(h) {
 
   async function detalhe(t, id, perfil) {
     const l = await lerLote(t, id);
-    const comVersoes = Object.values(l.membros || {}).some((m) => m?.formula_id_lote);
     const [requests, formulas, cfg, itens] = await Promise.all([all(t, "pd_requests"), all(t, "pd_formulas"), get(ref(firebaseDb, "config/pdLote")),
-      comVersoes ? all(t, "pd_formula_items") : []]);
+      all(t, "pd_formula_items")]);
     const reqs = indexar(requests);
     const vig = vigentePorDev(formulas);
     const estado = {};
@@ -182,7 +186,8 @@ export function createManipulacaoLoteRouter(h) {
         fora_do_lote: Boolean(m.formula_id_lote && v && v.id !== m.formula_id_lote) };
     }
     return { lote: l, estado, conferencia_segundo_usuario: cfg.val()?.conferenciaSegundoUsuario !== false, pode_editar: M.podeManipularLote(perfil), eu: uid(),
-      custos: custosDoLote(l, itens) };
+      custos: custosDoLote(l, itens), origem_celulas: origemDosMembros(l, l.ingredientes || {}, agrupar(itens, "formula_id")),
+      gerando_vencido: gerandoVencido(l) };
   }
 
   async function salvar(t, id, data, perfil) {
@@ -191,6 +196,14 @@ export function createManipulacaoLoteRouter(h) {
     if (l.status !== "rascunho") throw apiError(409, `O lote ${l.codigo} está "${M.ROTULO_STATUS_LOTE[l.status] || l.status}": a matriz só muda em rascunho. Para mudar depois da ordem, cancele o lote (com motivo) e monte outro.`);
     exigirRevisao(l, data?.revisao);
     for (const k of Object.keys(data?.ingredientes || {})) if (!/^i\d{2,3}$/.test(k)) throw apiError(400, `Chave de ingrediente inválida: ${k}.`);
+    // Célula só de ingrediente do lote, número de 0 a 100 (auditoria LM-15: chave fantasma fechava 100 %).
+    for (const [r, col] of Object.entries(data?.celulas || {})) {
+      for (const [k, v] of Object.entries(col || {})) {
+        if (!Object.prototype.hasOwnProperty.call(data?.ingredientes || {}, k)) throw apiError(400, `Célula de ${l.membros?.[r]?.codigo_amostra || r} aponta para um ingrediente que não está no lote (${k}).`);
+        const n = Number(v);
+        if (!Number.isFinite(n) || n < 0 || n > 100) throw apiError(400, `Valor inválido em ${l.membros?.[r]?.codigo_amostra || r}: ${v} (use de 0 a 100 %).`);
+      }
+    }
     const [requests, formulas, itens, samples, materiais] = await Promise.all([
       all(t, "pd_requests"), all(t, "pd_formulas"), all(t, "pd_formula_items"), all(t, "crm_samples"), h.masterAll("materiais")]);
     const reqs = indexar(requests);
@@ -216,11 +229,12 @@ export function createManipulacaoLoteRouter(h) {
       const erroMp = x?.mp_nova ? validarMpNova(x.mp_nova) : null;
       if (erroMp) throw apiError(422, `${x.nome || k}: ${erroMp}`);
     }
-    const plano = M.planoSalvarLote({ tenantPath: `erp/${t}`, lote: l, rascunho: { ...data, ingredientes }, contexto: { requests: reqs },
+    const origemCel = origemDosMembros(l, ingredientes, ipf);
+    const plano = M.planoSalvarLote({ tenantPath: `erp/${t}`, lote: l, rascunho: { ...data, ingredientes }, contexto: { requests: reqs, origem: origemCel },
       agora: now(), autor: { uid: uid(), nome: h.pdUserName(perfil) }, novoId: newId });
     const motivos = plano.updates[`${P(t, COLECAO_LOTES)}/${id}/motivos`] || l.motivos || {};
-    const pendencias = M.pendencias({ ingredientes, celulas: data?.celulas || {}, matrizCelulas: l.matriz?.celulas || {}, motivos, aprovacoes: l.aprovacoes_criticas || {}, membros: ativos });
-    const fechamento = M.fechamentoPorMembro(data?.celulas || {}, ativos);
+    const pendencias = M.pendencias({ ingredientes, celulas: data?.celulas || {}, matrizCelulas: l.matriz?.celulas || {}, motivos, aprovacoes: l.aprovacoes_criticas || {}, membros: ativos, origem: origemCel });
+    const fechamento = M.fechamentoPorMembro(data?.celulas || {}, ativos, ingredientes);
     if (plano.resumo.semMudanca) return { sem_mudanca: true, lote: l, pendencias, fechamento };
     await gravar(plano.updates);
     const avisos = [];
@@ -261,9 +275,10 @@ export function createManipulacaoLoteRouter(h) {
     const l = await lerLote(t, id);
     if (l.status === "cancelado") return l;
     if (l.status === "manipulado") throw apiError(409, "Lote já manipulado não se cancela: as amostras existem. Cada uma segue (ou é descartada) pelo próprio fluxo.");
+    if (l.status === "gerando_ordem" && !gerandoVencido(l)) throw apiError(409, "O servidor está gerando a ordem agora — espere 2 minutos e recarregue antes de cancelar.");
     exigirRevisao(l, data?.revisao);
     const motivo = String(data?.motivo || "").trim();
-    const min = l.status === "ordem_gerada" ? M.MIN_MOTIVO_DEPOIS_DA_ORDEM : M.MIN_MOTIVO;
+    const min = l.status === "rascunho" ? M.MIN_MOTIVO : M.MIN_MOTIVO_DEPOIS_DA_ORDEM;
     if (motivo.length < min) throw apiError(422, `Informe o motivo do cancelamento (mín. ${min} letras).`);
     const { L, base } = cabecalhoLote(t, l, perfil);
     await gravar({ ...base, [`${L}/status`]: "cancelado", [`${L}/cancelamento`]: { motivo, por: uid(), por_nome: h.pdUserName(perfil), em: now() },

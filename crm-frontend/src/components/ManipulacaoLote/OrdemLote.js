@@ -105,6 +105,22 @@ export default function OrdemLote({ detalhe, user, recarregar }) {
           {o.n_amostras} amostra(s) · {fmtG(o.total_teorico_g || 0)} g · conferência por segundo usuário {conferencia ? "ligada" : "desligada"}
         </span>
       </div>
+      {lote.status === "gerando_ordem" && (
+        <div className="space-y-2 rounded-md border border-blue-300 bg-blue-50 p-3 text-sm dark:border-blue-700 dark:bg-blue-950/40" data-testid="gerando-ordem">
+          <p>O servidor está gerando a ordem deste lote{lote.gerando?.desde_ms ? ` desde ${new Date(lote.gerando.desde_ms).toLocaleTimeString("pt-BR")}` : ""}.
+            {detalhe.gerando_vencido ? " Passou de 2 minutos: a geração parou no meio. Gere de novo (nada pela metade fica valendo) ou cancele o lote." : " Recarregue em instantes."}</p>
+          {detalhe.gerando_vencido && (
+            <div className="flex flex-wrap gap-2">
+              <Button disabled={!pode || Boolean(ocupado)} onClick={() => executar("regerar", async () => {
+                await api.post(`/pd/manipulacao-lotes/${lote.id}/gerar-ordem`, { revisao: lote.revisao });
+                toast.success("Ordem gerada.");
+                await recarregar();
+              })}>Gerar ordem de novo</Button>
+              <Button variant="ghost" className="text-red-700" disabled={!pode} onClick={() => setDialogo({ tipo: "cancelar" })}>Cancelar lote</Button>
+            </div>
+          )}
+        </div>
+      )}
       {lote.status === "cancelado" && <p className="text-sm text-red-700 dark:text-red-400">Cancelado em {quando(lote.cancelamento?.em)} por {lote.cancelamento?.por_nome}: {lote.cancelamento?.motivo}</p>}
       {(o.avisos || []).length > 0 && <ul className="list-disc rounded border border-amber-300 bg-amber-50 p-2 pl-6 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">{o.avisos.map((a) => <li key={a}>{a}</li>)}</ul>}
 

@@ -79,7 +79,8 @@ const porId = (l) => Object.fromEntries(l.map((x) => [x.id, x]));
         },
         ingredientes: mm.ingredientes, celulas,
         motivos: { R2: { [k('Agua')]: motivo('pd', 'ajuste do conservante', 78.2), [k('Fenoxietanol')]: { ...motivo('rt', 'menos conservante', 0.8), nivel: 3 } },
-          R3: { [k('Agua')]: motivo('pd', 'compensar fragrância', 77.5) } },
+          R3: { [k('Agua')]: motivo('pd', 'compensar fragrância', 77.5) },
+          R1: { [k('Fenoxietanol')]: { ...motivo('pd', 'entra o conservante da base', 1), nivel: 3 } } }, // R1 não tinha (muda a fórmula dela)
         pre_mistura: { A: true }, perda_pct: 3, minimo_pesavel_g: 0.05,
         eventos: { e1: { tipo: 'criado', por: 'pd', em: '2026-11-04T09:00:00Z' } },
       } },
@@ -106,16 +107,20 @@ const porId = (l) => Object.fromEntries(l.map((x) => [x.id, x]));
   await recusa(chamar('adm', { acao: 'aprovar_critico', requestId: 'R2', ingKey: k('Agua') }), 'failed-precondition', /não é crítico/);
   const ap = await chamar('adm', { acao: 'aprovar_critico', requestId: 'R2', ingKey: k('Fenoxietanol') });
   assert.equal(ap.valor, 0.8);
-  assert.deepEqual(await ler(`${L}/aprovacoes_criticas/R2/${k('Fenoxietanol')}`), { valor: 0.8, por: 'adm', por_nome: 'ADM', em: (await ler(`${L}/aprovacoes_criticas/R2/${k('Fenoxietanol')}/em`)) });
+  assert.deepEqual(await ler(`${L}/aprovacoes_criticas/R2/${k('Fenoxietanol')}`), { valor: 0.8, chave: 'FENOXIETANOL|a', master_material_id: 'FENOXIETANOL', por: 'adm', por_nome: 'ADM',
+    em: (await ler(`${L}/aprovacoes_criticas/R2/${k('Fenoxietanol')}/em`)) });
   assert.equal(await ler(`${L}/revisao`), 4);
-  passo('crítico: só ADM/módulo e outra pessoa; aprovação grava o valor e sobe a revisão');
+  await recusa(chamar('pd', { acao: 'gerar_ordem', revisao: 4 }), 'failed-precondition', /2026-1003-a: Fenoxietanol é crítico.*fórmula anterior desta amostra/);
+  await chamar('rt', { acao: 'aprovar_critico', requestId: 'R1', ingKey: k('Fenoxietanol') }); // a R1 ganhou o conservante da matriz
+  assert.equal(await ler(`${L}/revisao`), 5);
+  passo('crítico: só ADM/módulo e outra pessoa; aprovação amarrada ao material; clonar a matriz que muda a amostra também pede aprovação');
 
   // Ordem.
-  const r = await chamar('pd', { acao: 'gerar_ordem', revisao: 4 });
+  const r = await chamar('pd', { acao: 'gerar_ordem', revisao: 5 });
   assert.equal(r.ok, true);
   const lote = await ler(L);
   assert.equal(lote.status, 'ordem_gerada');
-  assert.equal(lote.revisao, 6); // trava (+1) e ordem (+1)
+  assert.equal(lote.revisao, 7); // trava (+1) e ordem (+1)
   assert.equal(lote.gerando, undefined); // a trava saiu
   const f = async (rq) => ({ formula: await ler(`${T}/pd_formulas/${lote.membros[rq].formula_id_lote}`), id: lote.membros[rq].formula_id_lote });
   const v1 = await f('R1'); const v2 = await f('R2'); const v3 = await f('R3');
@@ -154,7 +159,7 @@ const porId = (l) => Object.fromEntries(l.map((x) => [x.id, x]));
   const soma = Object.values(linhas).reduce((s, l) => s + Math.round(l.teorico_g * 100), 0) / 100;
   assert.ok(soma >= 190 && soma <= 190.2, `total ${soma}`);
   assert.ok(lote.ordem.pre_misturas.length >= 1);
-  await recusa(chamar('pd', { acao: 'gerar_ordem', revisao: 6 }), 'failed-precondition', /Ordem gerada/);
+  await recusa(chamar('pd', { acao: 'gerar_ordem', revisao: 7 }), 'failed-precondition', /Ordem gerada/);
   passo(`ordem com ${Object.keys(linhas).length} linhas (${soma} g, pré-mistura da fase A); gerar de novo é recusado`);
 
   // Em Testes antes da manipulação: recusado.

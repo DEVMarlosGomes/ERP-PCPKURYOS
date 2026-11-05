@@ -312,7 +312,11 @@ const KURYOS_MODULOS = {
   // Auditoria do sistema (PORT-05, porte do Gustavo): quem gravou o quê nas telas de operação.
   // Só o admin lê (regra do banco); fora de MODULOS_POR_PAPEL.
   auditoria:    { rotulo: 'Auditoria do Sistema', desc: 'Quem apontou, com qual login, e toda gravação das telas de operação (dado sensível)',
-                  paginas: ['auditoria.html'] }
+                  paginas: ['auditoria.html'] },
+  // Manipulação em lote do P&D (D-02/A2): aprovar a mudança de ingrediente crítico (criticoPd) de outra
+  // pessoa. Sem tela própria; fora de MODULOS_POR_PAPEL: só o ADM marca (a callable confere de novo).
+  aprovar_critico_pd: { rotulo: 'Aprovar crítico P&D', desc: 'Aprovar, na manipulação em lote, a mudança de ingrediente crítico feita por outra pessoa (RT)',
+                  paginas: [] }
 };
 
 // Padrão por papel. Reproduz EXATAMENTE o alcance que cada papel tinha antes

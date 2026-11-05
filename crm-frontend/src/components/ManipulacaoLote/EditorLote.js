@@ -14,8 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle, CheckCircle2, Copy, Loader2, Plus, Save, Search, ShieldCheck, X } from "lucide-react";
 import {
-  MAX_MEMBROS, MINIMO_PESAVEL_PADRAO_G, MIN_MOTIVO, NIVEL, ROTULO_STATUS_PD, chaveMaterialFase, clonar, diferencas, fechamentoPorMembro,
-  pendencias, quantidadeEmGramas, sugereFragrancia,
+  MAX_MEMBROS, MINIMO_PESAVEL_PADRAO_G, MIN_MOTIVO, NIVEL, ROTULO_STATUS_PD, chaveMaterialFase, clonar, fechamentoPorMembro,
+  diferencasDoLote, pendencias, quantidadeEmGramas, sugereFragrancia,
 } from "@/lib/manipulacaoLote";
 
 const num = (v) => { const n = Number(String(v ?? "").replace(",", ".")); return Number.isFinite(n) ? n : 0; };
@@ -139,12 +139,14 @@ export default function EditorLote({ detalhe, user, recarregar }) {
   const mudar = (f) => { setForm((x) => f(x)); setSujo(true); };
   const matriz = lote.matriz?.celulas || {};
   const celN = useMemo(() => paraNumeros(form.celulas), [form.celulas]);
-  const difs = useMemo(() => diferencas({ ingredientes: form.ingredientes, celulas: celN, matrizCelulas: matriz }), [form.ingredientes, celN, matriz]);
+  // Crítico é comparado com a matriz e com a fórmula anterior de cada amostra (auditoria LM-15).
+  const origem = detalhe.origem_celulas || {};
+  const difs = useMemo(() => diferencasDoLote({ ingredientes: form.ingredientes, celulas: celN, matrizCelulas: matriz, origem }), [form.ingredientes, celN, matriz, origem]);
   const motivosComAutor = useMemo(() => Object.fromEntries(Object.entries(form.motivos).map(([r, o]) => [r,
     Object.fromEntries(Object.entries(o || {}).map(([k, x]) => [k, { ...(lote.motivos?.[r]?.[k] || {}), texto: x.texto }]))])), [form.motivos, lote.motivos]);
-  const pend = useMemo(() => pendencias({ ingredientes: form.ingredientes, celulas: celN, matrizCelulas: matriz, motivos: motivosComAutor, aprovacoes: lote.aprovacoes_criticas || {}, membros: ativos }),
-    [form.ingredientes, celN, matriz, motivosComAutor, lote.aprovacoes_criticas, ativos]);
-  const fech = useMemo(() => fechamentoPorMembro(celN, ativos), [celN, ativos]);
+  const pend = useMemo(() => pendencias({ ingredientes: form.ingredientes, celulas: celN, matrizCelulas: matriz, motivos: motivosComAutor, aprovacoes: lote.aprovacoes_criticas || {}, membros: ativos, origem }),
+    [form.ingredientes, celN, matriz, motivosComAutor, lote.aprovacoes_criticas, ativos, origem]);
+  const fech = useMemo(() => fechamentoPorMembro(celN, ativos, form.ingredientes), [celN, ativos, form.ingredientes]);
   const keys = chaves(form.ingredientes);
   const fases = [...new Set(keys.map((k) => String(form.ingredientes[k].fase || "").trim()).filter(Boolean))].sort();
   const cod = (r) => lote.membros[r]?.codigo_amostra || r;
@@ -320,11 +322,11 @@ export default function EditorLote({ detalhe, user, recarregar }) {
         {ativos.map((r) => (difs[r] || []).filter((x) => x.nivel !== NIVEL.FRAGRANCIA).map((x) => {
           const salvo = lote.motivos?.[r]?.[x.ingKey];
           const ap = lote.aprovacoes_criticas?.[r]?.[x.ingKey];
-          const aprovado = ap && Math.round(num(ap.valor) * 1e4) === Math.round(num(x.para) * 1e4);
+          const aprovado = ap && Math.round(num(ap.valor) * 1e4) === Math.round(num(x.para) * 1e4) && ap.chave === chaveMaterialFase(form.ingredientes[x.ingKey] || {});
           const podeEsteAprovar = podeAprovar && !sujo && salvo?.por && salvo.por !== eu && Math.round(num(salvo.valor) * 1e4) === Math.round(num(x.para) * 1e4);
           return (
             <div key={`${r}-${x.ingKey}`} className={`flex flex-wrap items-center gap-2 rounded border p-2 text-sm ${CLASSE_NIVEL[x.nivel] || ""}`}>
-              <span className="sm:min-w-[220px]"><b>{cod(r)}</b> · {x.nome}: {fmt(x.de)} → {fmt(x.para)} %</span>
+              <span className="sm:min-w-[220px]"><b>{cod(r)}</b> · {x.nome}: {fmt(x.de)} → {fmt(x.para)} %{x.daAmostra ? <span className="block text-xs">muda a fórmula anterior desta amostra (a matriz tem o mesmo valor)</span> : null}</span>
               {(
                 <>
                   <Input className="h-8 w-full sm:max-w-sm sm:flex-1" placeholder={`Motivo (mín. ${MIN_MOTIVO} letras)`} disabled={!pode} aria-label={`Motivo ${cod(r)} ${x.nome}`}

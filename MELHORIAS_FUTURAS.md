@@ -50,6 +50,20 @@ Spec: `docs/superpowers/specs/2026-11-04-pd-manipulacao-lote-design.md` §11; pr
 - **Assinatura da versão conferida também na ficha/BOM/SKU** gerados no cliente.
 - **Nome de fase com `.`, `#`, `$`, `[`, `]` ou `/`:** a chave de `pre_mistura` no rascunho não aceita esses
   caracteres (o RTDB recusa a gravação inteira). Codificar a chave em `planoSalvarLote`/`ordemDoLote` se aparecer.
+- **Residuais da auditoria final (LM-15, 05/11/2026)** — aceitos para a publicação, cada um com o porquê:
+  - `criticoPd` some se um PCP/módulo Cadastros **apagar** o material (o `.validate` não roda na exclusão e o `.write`
+    vem do pai `materiais`). Inativar mantém a marca. Para fechar: guardar a marca num nó só do ADM.
+  - O número da versão do lote vem de `sequences/pd_formula_version_{dev}`, mas a "nova versão" individual do P&D usa
+    `max+1` sem a sequência: uma versão criada no mesmo segundo da ordem pode repetir o número. A ordem confere a
+    vigente depois da trava; falta a rota individual reservar pela mesma sequência.
+  - `lote_manipulacao` é gravado pelo índice da variação no array do CRM; se alguém mexer no array no mesmo instante,
+    cai na vizinha. Mesmo padrão do resto do CRM (arrays de variações).
+  - O texto canônico da assinatura junta campos com `|`/`;` sem escapar; colisão forjada é contida pela conferência dos
+    100 % no `liberarEtapaPd`.
+  - O painel "Amostras deste projeto" lê 7 coleções inteiras a cada abertura da Overview (igual às outras rotas do
+    adaptador); otimizar quando o P&D crescer.
+  - `formula_aprovada` grava a versão vigente na hora da aprovação, não a que saiu fisicamente para o cliente (são a
+    mesma no fluxo normal: a vigente é a que foi a Em Testes e ao Comercial).
 - **Painel na tela da ordem para o lote cancelado depois da ordem:** hoje mostra a ordem e o motivo; reabrir como
   rascunho não existe de propósito (versões travadas são histórico).
 

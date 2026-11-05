@@ -21,7 +21,7 @@ describe.skipIf(process.env.FIREBASE_DATABASE_EMULATOR_HOST !== '127.0.0.1:9063'
     await ponte.root.ref().set({
       usuarios: {
         pd: {role: 'pd', nome: 'Química fictícia', tenant_id: 'kuryos'}, pd2: {role: 'formulador', nome: 'Conferente fictícia', tenant_id: 'kuryos'},
-        pcp: {role: 'pcp', nome: 'PCP fictício', tenant_id: 'kuryos'},
+        pcp: {role: 'pcp', nome: 'PCP fictício', tenant_id: 'kuryos'}, adm: {role: 'admin', nome: 'Diretoria fictícia', tenant_id: 'kuryos'},
       },
       materiais: {FENOXIETANOL: {mpNome: 'Fenoxietanol', chaveDuplicidade: 'FENOXIETANOL', criticoPd: true}},
       config: {linhas: ['Linha 1']},
@@ -67,10 +67,11 @@ describe.skipIf(process.env.FIREBASE_DATABASE_EMULATOR_HOST !== '127.0.0.1:9063'
       R2: lote.celulas.R2,
       R3: {[k('Agua')]: 78.5, [k('Fenoxietanol')]: 1, [k('Fragrancia Lavanda')]: 20.5},
     };
-    const corpo = {revisao: 1, ingredientes: lote.ingredientes, celulas, motivos: {R3: {[k('Agua')]: {texto: 'compensar a fragrância'}}}, pre_mistura: {A: true}, perda_pct: 2,
+    const corpo = {revisao: 1, ingredientes: lote.ingredientes, celulas, motivos: {R3: {[k('Agua')]: {texto: 'compensar a fragrância'}}, R1: {[k('Fenoxietanol')]: {texto: 'entra o conservante da base'}}}, pre_mistura: {A: true}, perda_pct: 2,
       quantidades: {R1: {quantidade_g: 50}, R2: {quantidade_g: 50}, R3: {quantidade_g: 30}}};
     const salvo = (await api.put(`/pd/manipulacao-lotes/${lote.id}`, corpo)).data;
-    expect(salvo.pendencias).toEqual([]);
+    // A R1 não tinha o conservante (crítico): pede a aprovação de outra pessoa (auditoria LM-15).
+    expect(salvo.pendencias.map((x) => `${x.request_id}:${x.tipo}`)).toEqual(['R1:aprovacao']);
     expect(await ler(`${T}/pd_manipulacao_lotes/${lote.id}/revisao`)).toBe(2);
     expect(await ler(`${T}/pd_requests/R1/status`)).toBe('IN_PROGRESS');
 
@@ -82,9 +83,15 @@ describe.skipIf(process.env.FIREBASE_DATABASE_EMULATOR_HOST !== '127.0.0.1:9063'
     ponte.comoUsuario('pcp');
     await expect(api.put(`/pd/manipulacao-lotes/${lote.id}`, {...corpo, revisao: 2})).rejects.toThrow(/só consulta/);
 
+    // A própria química não aprova; a diretoria aprova pela callable real.
+    ponte.comoUsuario('pd');
+    await expect(api.post(`/pd/manipulacao-lotes/${lote.id}/aprovar-critico`, {requestId: 'R1', ingKey: k('Fenoxietanol')})).rejects.toThrow(/ADM|crítico/);
+    await expect(api.post(`/pd/manipulacao-lotes/${lote.id}/gerar-ordem`, {revisao: 2})).rejects.toThrow(/aprovação/);
+    ponte.comoUsuario('adm');
+    await api.post(`/pd/manipulacao-lotes/${lote.id}/aprovar-critico`, {requestId: 'R1', ingKey: k('Fenoxietanol')});
     // Ordem pelo servidor real.
     ponte.comoUsuario('pd');
-    const {data: ordem} = await api.post(`/pd/manipulacao-lotes/${lote.id}/gerar-ordem`, {revisao: 2});
+    const {data: ordem} = await api.post(`/pd/manipulacao-lotes/${lote.id}/gerar-ordem`, {revisao: 3});
     expect(ordem.lote.status).toBe('ordem_gerada');
     const linhas = ordem.lote.ordem.linhas_pesagem;
     await expect(api.put(`/pd/manipulacao-lotes/${lote.id}`, {...corpo, revisao: ordem.lote.revisao})).rejects.toThrow(/só muda em rascunho/);

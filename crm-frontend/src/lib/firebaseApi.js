@@ -538,6 +538,11 @@ function pdSampleBatch(e, t, a) {
   };
 }
 
+async function recusarFaseDeVersaoDeLote(tenantId, formulaId) {
+  const f = await one(tenantId, "pd_formulas", formulaId);
+  if (f?.locked && f.origem_lote) throw apiError(409, `A versão v${f.version || 1} saiu da ordem do lote ${f.origem_lote.codigo || ""} e está travada: as fases dela não mudam. Crie uma versão nova para alterar.`);
+}
+
 // Estudo de estabilidade novo de uma solicitação (rota do estudo e estabilidade em lote — LM-11).
 function novoEstudoEstabilidade(req, inicio) {
   return clean({
@@ -2589,11 +2594,13 @@ async function dispatch(e, t) {
     formula_id: O[1]
   }), i);
   if (O = j(/^\/pd\/formulas\/([^/]+)\/phases$/), "GET" === e && O) return response((await related(_, "pd_formula_phases", "formula_id", O[1])).sort((e, t) => Number(e.order || 0) - Number(t.order || 0)), i);
+  if ("POST" === e && O) await recusarFaseDeVersaoDeLote(_, O[1]);
   if ("POST" === e && O) return response(await create(_, "pd_formula_phases", {
     ...r,
     formula_id: O[1]
   }), i);
   if (O = j(/^\/pd\/formulas\/([^/]+)\/phases\/reorder$/), "PUT" === e && O) {
+    await recusarFaseDeVersaoDeLote(_, O[1]);
     for (const [e, t] of (r.phase_ids || []).entries()) await patch(_, "pd_formula_phases", t, {
       order: e
     });
@@ -2601,11 +2608,11 @@ async function dispatch(e, t) {
       success: !0
     }, i);
   }
-  // A5: fase de versão travada (Em Testes ou ordem de lote) não muda nem some.
+  // A5: fase de versão criada pela ordem de um lote não muda, não some e não ganha outra (as versões
+  // que só foram a Em Testes continuam com o Modo de Preparo editável, como antes).
   if (O = j(/^\/pd\/formula-phases\/([^/]+)$/), O && ("PUT" === e || "DELETE" === e)) {
     const fase = await one(_, "pd_formula_phases", O[1]);
-    const f = fase?.formula_id ? await one(_, "pd_formulas", fase.formula_id) : null;
-    if (f?.locked) throw apiError(409, `A versão v${f.version || 1} está travada${f.origem_lote?.codigo ? ` (ordem do lote ${f.origem_lote.codigo})` : ""}: as fases dela não mudam. Crie uma versão nova para alterar.`);
+    if (fase?.formula_id) await recusarFaseDeVersaoDeLote(_, fase.formula_id);
   }
   if (O = j(/^\/pd\/formula-phases\/([^/]+)$/), "PUT" === e && O) return response(await patch(_, "pd_formula_phases", O[1], r), i);
   if ("DELETE" === e && O) return await erase(_, "pd_formula_phases", O[1]), response({

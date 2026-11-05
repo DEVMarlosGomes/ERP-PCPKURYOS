@@ -15,12 +15,12 @@ const T = 'erp/kuryos/pd_manipulacao_lotes';
 let n = 0;
 const passo = (m) => { n++; console.log('  ok  ' + m); };
 
-const novo = (id, extra = {}) => Object.assign({
-  id, tenant_id: 'kuryos', codigo: 'LM-2026-031-1', projeto_id: 'P1', status: 'rascunho', revisao: 1,
+const novo = (id, extra = {}, por = 'pd') => Object.assign({
+  id, tenant_id: 'kuryos', codigo: 'LM-2026-031-1', projeto_id: 'P1', status: 'rascunho', revisao: 1, criado_por: por,
   matriz: {tipo: 'amostra', ref_id: 'F2', celulas: {i01: 80, i02: 20}},
   membros: {R1: {request_id: 'R1', status_membro: 'ativo', quantidade_g: 50}, R2: {request_id: 'R2', status_membro: 'ativo', quantidade_g: 50}},
   ingredientes: {i01: {nome: 'Água'}, i02: {nome: 'Fragrância'}}, celulas: {R1: {i01: 80, i02: 20}, R2: {i01: 80, i02: 20}},
-  eventos: {e1: {tipo: 'criado', por: 'pd', em: 'x'}},
+  eventos: {e1: {tipo: 'criado', por, em: 'x'}},
 }, extra);
 const salvar = (db, id, rev, extra = {}) => db.ref().update(Object.assign({[`${T}/${id}/revisao`]: rev, [`${T}/${id}/atualizado_em`]: 'agora'}, extra));
 
@@ -39,7 +39,8 @@ const salvar = (db, id, rev, extra = {}) => db.ref().update(Object.assign({[`${T
 
   // Criação.
   await pd.ref(`${T}/L1`).set(novo('L1'));
-  await mod.ref(`${T}/L2`).set(novo('L2'));
+  await mod.ref(`${T}/L2`).set(novo('L2', {}, 'mod'));
+  await negado(pd.ref(`${T}/L6`).set(novo('L6', {}, 'adm'))); // criador e autor do evento: sempre quem grava
   for (const db of [pcp, prod, com, outro, off]) await negado(db.ref(`${T}/LX`).set(novo('LX')));
   await negado(pd.ref(`${T}/L3`).set(novo('L3', {status: 'ordem_gerada'})));
   await negado(pd.ref(`${T}/L3`).set(novo('L3', {revisao: 2})));

@@ -36,3 +36,13 @@ em lote → ADM aprova 3 → Aguardando Aprovação → cliente aprova as 3 no C
 - Não feito aqui: o roteiro cronometrado por uma pessoa (5 amostras × 25 ingredientes em < 5 min, em vídeo) — é na
   tela, com quem vai usar.
 | LM-14 manual, Central de Ajuda, MELHORIAS, AGENT_STATUS | feito | (este commit) | `run_manuais_workflow_test.js` (93), `run_manuais_workflow_ui_test.js` | LM-15 auditoria final + prints |
+| LM-15 auditoria final + correções | feito | (este commit) | `run_manipulacao_lote_auditoria_test.js` (10: ataques A–I recusados), servidor 10, regras 10, ponta a ponta, CRM 481, ensaio real de novo | publicar (regras + VPS) |
+
+### LM-15 — auditoria final (05/11/2026)
+
+Auditor independente achou 2 Altos (crítico decidido com dados que o cliente grava; crítico comparado só com a
+matriz) e Médios (autor do motivo forjável, membro não conferido, lote preso em `gerando_ordem`, módulo de aprovação
+inexistente, trava de fases larga demais, célula fantasma). Todos corrigidos — desenho em §13 da spec; cada ataque
+virou um passo de `run_manipulacao_lote_auditoria_test.js`. Residuais aceitos em `MELHORIAS_FUTURAS.md`.
+Ensaio com a fotografia da base refeito com o servidor corrigido (mesmo resultado: 18 amostras, 216 linhas, massa
+conciliada, 18/18 Em Testes, 3 aprovadas no CRM 3); **fotografia apagada às 08:12 de 05/11/2026** com os logs do emulador.

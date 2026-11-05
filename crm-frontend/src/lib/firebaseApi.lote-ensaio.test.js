@@ -28,7 +28,7 @@ describe.skipIf(!pronto)("LM-13: ensaio com a fotografia da base", () => {
   beforeAll(async () => {
     ponte = await import("@/test/pdLoteEmulatorFirebase");
     vi.doMock("@/lib/servidor", () => ponte.serverModule);
-    const colecoes = ["crm_projects", "crm_samples", "pd_requests", "pd_developments", "pd_formulas", "pd_formula_items", "pd_formula_phases", "pd_formulacoes_base", "pd_cards", "pd_sample_batches"];
+    const colecoes = ["crm_projects", "crm_samples", "pd_requests", "pd_developments", "pd_formulas", "pd_formula_items", "pd_formula_phases", "pd_formulacoes_base", "pd_cards", "pd_sample_batches", "pd_catalog"];
     await ponte.root.ref().set({
       usuarios: { pd: { role: "pd", nome: "Química (ensaio)", tenant_id: "kuryos" }, pd2: { role: "formulador", nome: "Conferente (ensaio)", tenant_id: "kuryos" },
         adm: { role: "admin", nome: "Diretoria (ensaio)", tenant_id: "kuryos" } },

@@ -127,13 +127,15 @@ describe("salvar (um update, só o rascunho — D-03/A4)", () => {
       r.celulas.R1 = { ...l.matriz.celulas, [k("Fragrância Rosa")]: 20 };
       delete r.celulas.R1[k("Fragrância Lavanda")];
       r.celulas.R3 = { ...r.celulas.R3, [k("Água")]: 77.5, [k("Fragrância Lavanda")]: 20.5 };
-      r.motivos = { R3: { [k("Água")]: { texto: "compensar fragrância" } } };
+      // R1 não tinha o conservante da matriz: entra com motivo e espera a aprovação (auditoria LM-15).
+      r.motivos = { R3: { [k("Água")]: { texto: "compensar fragrância" } }, R1: { [k("Fenoxietanol")]: { texto: "entra o conservante da base" } } };
     });
     const { r: { data }, n } = await lerContando(() => api.put(`/pd/manipulacao-lotes/${L}`, corpo));
     expect(n).toBeLessThanOrEqual(16); // carga única + sincronia do CRM das 2 que saíram de Aberto
     const g = lote(L);
     expect(g.revisao).toBe(2);
-    expect(data.pendencias).toEqual([]);
+    expect(data.pendencias.map((p) => `${p.request_id}:${p.nome}:${p.tipo}`)).toEqual(["R1:Fenoxietanol:aprovacao"]);
+    expect(data.pendencias[0].motivo).toMatch(/fórmula anterior desta amostra/);
     expect(data.fechamento.R1.ok && data.fechamento.R3.ok).toBe(true);
     expect(Object.keys(memory.read(`${T}/pd_formulas`))).toEqual(formulasAntes); // a versão nasce na ordem, no servidor
     expect(memory.read(`${T}/pd_formulas/F2`)).toMatchObject({ version: 2, locked: true });
@@ -167,7 +169,7 @@ describe("salvar (um update, só o rascunho — D-03/A4)", () => {
       r.motivos.R2 = { [k("Água")]: { texto: "ajuste do conservante" } };
     });
     const { data } = await api.put(`/pd/manipulacao-lotes/${L}`, corpo);
-    expect(data.pendencias.map((p) => `${p.request_id}:${p.nome}:${p.tipo}`)).toEqual(["R2:Fenoxietanol:motivo", "R2:Fenoxietanol:aprovacao"]);
+    expect(data.pendencias.map((p) => `${p.request_id}:${p.nome}:${p.tipo}`)).toEqual(["R1:Fenoxietanol:aprovacao", "R2:Fenoxietanol:motivo", "R2:Fenoxietanol:aprovacao"]);
     expect(lote(L).membros.R2.fora_da_base).toBe(true);
     memory.write(`${T}/pd_formula_items/i1a/percentage`, 89);
     await expectStatus(api.put(`/pd/manipulacao-lotes/${L}`, { ...corpo, perda_pct: 4, revisao: lote(L).revisao }), 409, /2026-1003-a.*editada fora do lote/);
@@ -284,10 +286,16 @@ describe("integrações (LM-11)", () => {
 });
 
 describe("exclusão e versão travada (LM-05, A5)", () => {
-  test("fase de versão travada não muda nem some", async () => {
-    await expectStatus(api.put("/pd/formula-phases/PH2", { titulo: "Fase B" }), 409, /travada/);
-    await expectStatus(api.delete("/pd/formula-phases/PH2"), 409, /travada/);
-    expect(memory.read(`${T}/pd_formula_phases/PH2/titulo`)).toBe("Fase A");
+  test("fase de versão do lote não muda, não some e não ganha outra; a de Em Testes segue editável", async () => {
+    memory.write(`${T}/pd_formulas/FV`, { id: "FV", development_id: "D2", version: 9, locked: true, origem_lote: { lote_id: L, codigo: "LM-2026-031-1" } });
+    memory.write(`${T}/pd_formula_phases/PHV`, { id: "PHV", formula_id: "FV", titulo: "Fase A", ordem: 0 });
+    await expectStatus(api.put("/pd/formula-phases/PHV", { titulo: "Fase B" }), 409, /ordem do lote LM-2026-031-1/);
+    await expectStatus(api.delete("/pd/formula-phases/PHV"), 409, /travada/);
+    await expectStatus(api.post("/pd/formulas/FV/phases", { titulo: "Nova" }), 409, /travada/);
+    await expectStatus(api.put("/pd/formulas/FV/phases/reorder", { phase_ids: ["PHV"] }), 409, /travada/);
+    expect(memory.read(`${T}/pd_formula_phases/PHV/titulo`)).toBe("Fase A");
+    await api.put("/pd/formula-phases/PH2", { titulo: "Fase A — modo de preparo revisado" }); // F2 travada por Em Testes: como antes
+    expect(memory.read(`${T}/pd_formula_phases/PH2/titulo`)).toBe("Fase A — modo de preparo revisado");
   });
   test("solicitação de lote com ordem vira cancelada (com motivo e evento no lote), não é apagada", async () => {
     memory.setUser("adm");

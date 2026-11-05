@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
   MAX_MEMBROS, NIVEL, assinaturaItens, classificarIngredientes, clonar, conciliacaoMassa, desvioPesagem, diferencas, ehFragrancia,
   fechamentoPorMembro, gramas, matrizPadrao, montarMatriz, motivoInelegivel, nivelDaMudanca, oQueVaria, ordemDoLote, ordemIndividual,
-  pendencias, planoSalvarLote, quantidadeEmGramas, sugereFragrancia, validarSelecao,
+  pendencias, planoSalvarLote, quantidadeEmGramas, sugereFragrancia, validarSelecao, chaveMaterialFase, celulasDaOrigem, diferencasDoLote, composicaoValida,
 } from "./manipulacaoLote";
 
 const item = (nome, pct, extra = {}) => ({ ingredient_name: nome, percentage: pct, phase: "A", master_material_id: nome.toUpperCase(), ...extra });
@@ -118,9 +118,17 @@ describe("clonar, diferenças, motivo e 100%", () => {
     const motivos = { R2: { [k("Água")]: { texto: "compensa fragrância", por: "u1" } }, R3: { [k("Água")]: { texto: "ajuste", por: "u1" }, [k("Fenoxietanol")]: { texto: "pH baixo pede mais", por: "u1" } } };
     p = pendencias({ ingredientes, celulas, matrizCelulas: m.matrizCelulas, motivos, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 0.9, por: "adm" } } }, membros });
     expect(p).toEqual([expect.objectContaining({ request_id: "R3", tipo: "aprovacao", motivo: expect.stringMatching(/mudou depois/) })]);
+    // A aprovação vale para o material + fase aprovados (auditoria LM-15): sem a chave, não vale.
     p = pendencias({ ingredientes, celulas, matrizCelulas: m.matrizCelulas, motivos, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 1, por: "adm" } } }, membros });
+    expect(p).toEqual([expect.objectContaining({ request_id: "R3", tipo: "aprovacao", motivo: expect.stringMatching(/material mudou/) })]);
+    const chave = chaveMaterialFase(ingredientes[k("Fenoxietanol")]);
+    p = pendencias({ ingredientes, celulas, matrizCelulas: m.matrizCelulas, motivos, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 1, por: "adm", chave } } }, membros });
     expect(p).toEqual([]);
-    expect(pendencias({ ingredientes, celulas, matrizCelulas: m.matrizCelulas, motivos: { ...motivos, R2: { [k("Água")]: { texto: "ok" } } }, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 1 } } }, membros })[0]).toMatchObject({ request_id: "R2", tipo: "motivo" });
+    // Motivo sem autor (ou do próprio aprovador) não serve para crítico.
+    const semAutor = { ...motivos, R3: { ...motivos.R3, [k("Fenoxietanol")]: { texto: "pH baixo pede mais" } } };
+    expect(pendencias({ ingredientes, celulas, matrizCelulas: m.matrizCelulas, motivos: semAutor, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 1, por: "adm", chave } } }, membros }))
+      .toEqual([expect.objectContaining({ tipo: "aprovacao", motivo: expect.stringMatching(/outra pessoa/) })]);
+    expect(pendencias({ ingredientes, celulas, matrizCelulas: m.matrizCelulas, motivos: { ...motivos, R2: { [k("Água")]: { texto: "ok" } } }, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 1, chave } } }, membros })[0]).toMatchObject({ request_id: "R2", tipo: "motivo" });
   });
   test("100% por coluna com 4 casas", () => {
     const celulas = { A: { i1: 33.3333, i2: 33.3333, i3: 33.3334 }, B: { i1: 99.99 } };
@@ -283,3 +291,38 @@ describe("plano de salvamento (só o rascunho; versões nascem no servidor — A
     expect(r.updates).toEqual({});
   });
 });
+
+describe("auditoria LM-15: crítico não se contorna pelo lote", () => {
+  const fenox = (pct) => item("Fenoxietanol", pct);
+  const origemB = [item("Água", 99.5), fenox(0.5)];
+  const matrizA = [item("Água", 98), fenox(2)];
+  const mm = montarMatriz({ matrizItens: matrizA, membros: [{ request_id: "A", itens: matrizA }, { request_id: "B", itens: origemB }] });
+  const materiais = new Map([["FENOXIETANOL", { mpNome: "Fenoxietanol", criticoPd: true }]]);
+  const ingredientes = classificarIngredientes(mm.ingredientes, { materiais });
+  const kF = Object.keys(ingredientes).find((x) => ingredientes[x].nome === "Fenoxietanol");
+  const origem = { A: celulasDaOrigem(ingredientes, matrizA).celulas, B: celulasDaOrigem(ingredientes, origemB).celulas };
+  test("Clonar matriz não muda um crítico da amostra sem aprovação (compara com a fórmula anterior dela)", () => {
+    const celulas = clonar(mm.celulas, { de: "matriz", para: ["B"], matrizCelulas: mm.matrizCelulas });
+    expect(diferencas({ ingredientes, celulas, matrizCelulas: mm.matrizCelulas }).B).toEqual([]); // igual à matriz…
+    const d = diferencasDoLote({ ingredientes, celulas, matrizCelulas: mm.matrizCelulas, origem });
+    expect(d.B).toEqual([expect.objectContaining({ ingKey: kF, de: 0.5, para: 2, nivel: NIVEL.CRITICO, daAmostra: true })]);
+    const p = pendencias({ ingredientes, celulas, matrizCelulas: mm.matrizCelulas, membros: ["A", "B"], origem });
+    expect(p.map((x) => `${x.request_id}:${x.tipo}`)).toEqual(["B:motivo", "B:aprovacao"]); // …mas muda a amostra B
+  });
+  test("crítico também pelo nome do material marcado (tirar o id não descaracteriza)", () => {
+    const semId = classificarIngredientes({ i09: { nome: "fenoxietanol", fase: "A" } }, { materiais });
+    expect(semId.i09.critico).toBe(true);
+  });
+  test("chave fantasma não fecha 100 %; linha de origem fora do lote aparece", () => {
+    const celulas = { B: { [kF]: 0.5, i99: 99.5 } };
+    expect(fechamentoPorMembro(celulas, ["B"]).B.ok).toBe(true); // sem os ingredientes, soma tudo
+    expect(fechamentoPorMembro(celulas, ["B"], ingredientes).B.ok).toBe(false);
+    const { fora } = celulasDaOrigem({ [kF]: ingredientes[kF] }, origemB);
+    expect(fora).toEqual(["Água"]);
+    expect(chaveMaterialFase(ingredientes[kF])).toBe("FENOXIETANOL|a");
+  });
+  test("composição de amostra retirada do lote não vale para o Kickoff", () => {
+    expect(composicaoValida({ lote_manipulacao: { formula_id: "V1", composicao: [{ nome: "Água", pct: 1 }], removido_em: "x" } })).toBeNull();
+  });
+});
+

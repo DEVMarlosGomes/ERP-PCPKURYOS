@@ -13,7 +13,7 @@ const MODULOS_VALIDOS = new Set([
   "compras", "logistica", "qualidade", "config", "usuarios", "rh",
   "rh_dashboard", "custos", "placar", "financeiro", "controladoria",
   "manutencao", "auditoria5s", "feedback", "rh_feedback", "rh_temporarios",
-  "backlog", "painel", "titularidade", "auditoria",
+  "backlog", "painel", "titularidade", "auditoria", "aprovar_critico_pd",
 ]);
 
 const CODIGOS_AUTH_SEM_USUARIO = new Set(["auth/user-not-found", "user-not-found"]);
