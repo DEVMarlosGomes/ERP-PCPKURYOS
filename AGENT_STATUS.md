@@ -7,7 +7,15 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ### Claude (Dev Fullstack) — P&D: Manipulação em Lote (04–05/11/2026)
 
-- **Construído e testado localmente, NÃO publicado.** Worktree `PCP-Kuryos-pdlote`, branch `pd-lote/manipulacao-lote`,
+- **Publicação (05/11/2026):** regras publicadas no `erpkuryos` às ~08:20 (só 5 pontos novos sobre as publicadas em
+  `b58eb74`: `pd_manipulacao_lotes`, exclusão no `$collection`, `criticoPd`, `config/pdLote` e o `.validate` de `config`).
+  Código em `origin/hostinger-deploy` = `31a1939` (avanço direto do publicado `25bb2bb`: lote + auditoria final + a
+  pesagem sem foto `25a470b`, recolhida por cherry-pick). **VPS ainda na versão anterior** (API com 39 funções): o deploy é
+  `cd /opt/kuryos/repo && ./scripts/hostinger/deploy.sh <commit>` pelo Marlos (a chave de deploy tem senha); conferir
+  40 funções e o hash do `crm-app.html`. O `hostinger-deploy` LOCAL do checkout principal tem `62fc9e3`/`1eed1ce`/
+  `ce19979`/`360d43d` (redesign cancelado + preview + registro) não publicados: rebasear sobre `origin/hostinger-deploy`
+  antes de qualquer commit novo; o `25a470b` sai sozinho no rebase (mesmo patch).
+- Construído e testado na worktree `PCP-Kuryos-pdlote`, branch `pd-lote/manipulacao-lote`,
   rebaseada em 05/11 sobre a versão publicada `25bb2bb` (fora o redesign cancelado `62fc9e3`/`1eed1ce`; backup da base
   antiga em `backup/pd-lote-antes-rebase-20261105`). Sem push, deploy ou regra publicada.
 - LM-01..08, LM-10..14 feitos (LM-09 kanban adiado). Servidor: callable nova `manipulacaoLoteServidor` (28 callables)
