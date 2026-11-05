@@ -18,7 +18,11 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 - Provas: CRM 486 testes verdes; vitrine conferida com Playwright (1440/390, claro/escuro). **Emulador não roda na nuvem**
   (download bloqueado): rodar `run_manipulacao_lote_servidor_test.js`, `run_manipulacao_lote_auditoria_test.js` (cenário K novo) e `run_pd_lote_rules_test.js` no
   computador antes de publicar; a callable `manipulacaoLoteServidor` mudou, então o deploy da VPS precisa subir as funções.
-- **Arquivos ativos: os listados acima até o merge na `hostinger-deploy`.**
+- **GitHub (05/11, 12:55):** `origin/hostinger-deploy` avançada por fast-forward até este registro; `origin/main`
+  (envio avulso `9e402b8`, sem histórico em comum) recebeu um commit por cima com a mesma árvore, sem force push.
+  **Pendente no computador do Marlos:** emulador (3 testes acima), `firebase deploy --only database --project erpkuryos`
+  e `./scripts/hostinger/deploy.sh <commit>` na VPS (conferir 40 funções e hash do `crm-app.html`).
+- **Arquivos ativos: nenhum.**
 
 ### Claude (Dev Fullstack) — P&D: Manipulação em Lote (04–05/11/2026)
 
