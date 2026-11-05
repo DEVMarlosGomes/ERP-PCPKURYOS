@@ -6,6 +6,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import api from "@/lib/api";
 import LiberacaoAntecipadaPD from "@/components/LiberacaoAntecipadaPD";
+import PainelAmostrasProjeto from "@/components/ManipulacaoLote/PainelAmostrasProjeto";
 import RolagemHorizontalDupla from "@/components/RolagemHorizontalDupla";
 import { TIPOS_MP_PD, ingredienteEhEmbalagem } from "@/lib/materiaPrimaPd";
 import { filtrarOpcoes, mesclarEspecificacoes, rotuloOrigem } from "@/lib/especificacoesCadastro";
@@ -900,6 +901,11 @@ export default function PDDetail() {
             <ErrorBoundary label="Overview" resetKey={req.id}>
               <OverviewTab req={req} dev={dev} formulas={formulas} tests={tests} samples={samples} approval={approval} costs={costs} history={history} onRefresh={fetchData} hasDev={hasDev} clientInfo={client_info} canEdit={canEdit} canApproveCommercial={canApproveCommercial} canManageApproval={canManageApproval} onCommercialApprove={() => handleStatusChange("APPROVED")} onCommercialReject={handleCommercialReject} formulaCostData={formula_cost_data} setActiveTab={setActiveTab} documents={documents} updates={updates} pending={pending} canViewCommercial={canViewCommercial} labResults={lab_results} />
             </ErrorBoundary>
+            {(req.crm_project_id || req.linked_projeto_id) && (
+              <ErrorBoundary label="Amostras deste projeto" resetKey={req.id}>
+                <PainelAmostrasProjeto projetoId={req.crm_project_id || req.linked_projeto_id} requestId={req.id} user={authUser} />
+              </ErrorBoundary>
+            )}
           </TabsContent>
 
           <TabsContent value="formula">
