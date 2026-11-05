@@ -232,3 +232,31 @@ biblioteca de MPs saiu de `pages/PDDetail.js` para `lib/bibliotecaMpPd.js` (e o 
 MP nova com nome já cadastrado dá 409 com o vínculo; usada em alguma amostra, entra na fila do Cadastros com a origem
 `lote_{id}__{ingrediente}`; na ordem, o servidor aceita o ingrediente pela MP nova e soma a versão à mesma solicitação.
 
+
+## 15. Sem comentário e conclusão num clique (05/11/2026, decisão do Marlos)
+
+> *"Ao preencher as amostras em lote, após a conclusão do preenchimento elas devem ir diretamente para a manipulação,
+> criando suas V1, V2, V3… E não é necessário comentar as alterações."*
+
+Motivo do pedido: no lote real `LM-2026-041-2` (3 amostras sem fórmula, matriz vazia) cada ingrediente contava como
+"mudança" contra uma matriz de 0 % e pedia um motivo de 5 letras por amostra; o botão "Gerar ordem" ficava cinza sem
+dizer por quê e as amostras ficavam com "Nenhuma fórmula criada".
+
+- **D-02 revogada quanto ao motivo.** `pendencias()` não gera mais o tipo `motivo`. O nó `motivos/{r}/{k}` continua com o
+  mesmo nome (regra do banco inalterada: `por == auth.uid` ou igual ao anterior), mas virou **carimbo automático** de
+  quem alterou: `planoSalvarLote` grava `{ texto: "", nivel, valor, por, por_nome, em }` para toda célula que difere da
+  matriz ou da fórmula anterior, e só troca o autor quando o **valor** muda.
+- **D-1 (crítico).** Só sobra a pendência de crítico que muda a fórmula **anterior da própria amostra**
+  (`mudancasCriticasDaOrigem`): exige "Aprovar" de ADM/módulo `aprovar_critico_pd` que não seja o autor do carimbo.
+  Amostra sem fórmula anterior (primeira formulação) não pede aprovação; o crítico aparece só com o selo. A diferença de
+  crítico contra a matriz, numa amostra que mantém o próprio valor anterior, deixou de pedir aprovação (não muda a fórmula
+  dela). O servidor (`aplicarAprovacao`) recusa aprovar sem fórmula anterior e sem carimbo salvo.
+- **Botão único "Concluir e enviar para a manipulação"** (substitui "Gerar ordem"): salva o que está na tela e chama
+  `gerar_ordem` com a revisão gravada; o servidor cria a próxima versão travada de cada amostra (V1 se não tinha, V(n+1)
+  se tinha, por `sequences/pd_formula_version_{dev}`) e a ordem. Ao lado, "Para concluir, falta: …" lista gramas, 100 % e
+  críticos; as gramas valem do que está na tela.
+- **Matriz vazia:** colunas de amostra sem fórmula anterior não são marcadas como "diferença".
+- **Aba Manipulação e Custo P&D** da amostra mostram em que lote aberto ela está (`GET /pd/requests/{id}/lote-aberto`,
+  lê só `pd_manipulacao_lotes`).
+- Testes: CRM 486 (motor, rota, render — caso de matriz vazia incluso). Emulador (`run_manipulacao_lote_servidor_test.js`,
+  `run_manipulacao_lote_auditoria_test.js`) revisados por leitura; rodar no computador antes do deploy.

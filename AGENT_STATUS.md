@@ -5,6 +5,20 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude (sessão na nuvem, 05/11/2026) — Lote de amostras: sem comentário e concluir num clique
+
+- Pedido do Marlos (05/11, 12:06): concluir o preenchimento do lote manda as amostras direto para a Manipulação
+  (V1, V2, V3…) e não pede comentário de alteração. Spec §15 (`docs/superpowers/specs/2026-11-04-pd-manipulacao-lote-design.md`).
+- Branch `pd-lote/concluir-sem-motivo`, a partir de `origin/hostinger-deploy` `8317469` (não da `main`, que está atrás).
+  Arquivos: `crm-frontend/src/lib/manipulacaoLote.js` (+ cópia `functions/manipulacao_lote_motor.js` regerada),
+  `manipulacaoLoteRotas.js`, `components/ManipulacaoLote/EditorLote.js`, `AvisoLoteDaAmostra.js` (novo), `pages/PDDetail.js`,
+  `functions/manipulacao_lote.js` (aprovação de crítico), testes do lote, vitrine, `public/manuais.html`, bundle do CRM.
+  **Regras do banco não mudaram.**
+- Provas: CRM 486 testes verdes; vitrine conferida com Playwright (1440/390, claro/escuro). **Emulador não roda na nuvem**
+  (download bloqueado): rodar `run_manipulacao_lote_servidor_test.js` e `run_manipulacao_lote_auditoria_test.js` no
+  computador antes de publicar; a callable `manipulacaoLoteServidor` mudou, então o deploy da VPS precisa subir as funções.
+- **Arquivos ativos: os listados acima até o merge na `hostinger-deploy`.**
+
 ### Claude (Dev Fullstack) — P&D: Manipulação em Lote (04–05/11/2026)
 
 - **Publicação (05/11/2026):** regras publicadas no `erpkuryos` às ~08:20 (só 5 pontos novos sobre as publicadas em
