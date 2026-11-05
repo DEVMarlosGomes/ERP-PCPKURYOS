@@ -11,3 +11,27 @@ publicada, sem deploy. Emulador próprio: `firebase.pdlote-test.json` (9063/4463
 | LM-02 rotas + LM-05 exclusão (cliente) | feito | (este commit) | `firebaseApi.manipulacaoLote.test.js` (22); suíte CRM 471 | LM-03 servidor `manipulacaoLoteServidor` (gerar_ordem, pesagens, manipulação, crítico) |
 | LM-03 servidor `manipulacaoLoteServidor` + trava no `liberarEtapaPd` | feito | (este commit) | `run_manipulacao_lote_servidor_test.js` (emulador, 10 passos); contrato CJS; render 28 callables; liberar_etapa_pd OK | LM-04 regras + emulador |
 | LM-04 regras + LM-06/07/08 tela + `criticoPd` no Cadastros | feito | (este commit) | `run_pd_lote_rules_test.js` (10 passos); `firebaseApi.lote-emulator.test.js` (adaptador+regras+callables reais, ponta a ponta); render 4; `run_critico_pd_cadastro_ui_test.js`; suíte CRM 474 | build do CRM, LM-13 ensaio, LM-14 manual, integração com a auditoria |
+| LM-11 integrações | feito | 8776b52 | Kickoff (composição travada), `formula_aprovada`, custo do lote | — |
+| Build do CRM integrado | feito | 57e37ca | `vite build` + `integrar-crm-build.mjs`, base = versão publicada 25bb2bb (sem o redesign cancelado) | — |
+| LM-13 ensaio com dados reais em cópia | feito | (este commit) | `firebaseApi.lote-ensaio.test.js` (só roda com `ENSAIO_FOTO`) | LM-14 manual |
+
+### LM-13 — ensaio (05/11/2026)
+
+Fotografia de leitura (`database:get`, só os nós do P&D/CRM, `materiais`, fila de MP nova e câmbio) exportada para
+o scratchpad da sessão (fora do repositório), carregada no emulador `demo-pd-lote` com usuários fictícios e
+**apagada às 01:54 de 05/11/2026**, junto com os `database-debug.log` do emulador. Nada de dado real entrou no Git.
+
+Projeto real com mais amostras (Manteiga Corporal): **18 amostras, todas elegíveis, 12 ingredientes**. Fluxo pelo
+adaptador real + regras reais + callables reais: criar → salvar (nenhuma precisou da matriz, nenhuma diferença fora
+da fragrância) → gerar ordem → pesar e conferir (outra pessoa) → registrar → Em Testes em lote → liberação antecipada
+em lote → ADM aprova 3 → Aguardando Aprovação → cliente aprova as 3 no CRM 3.
+
+- Ordem do lote = soma das 216 linhas das ordens individuais (tolerância 0,01 g por linha).
+- Massa: 900 g pesados = 900 g destinados (tolerância 4,5 g; teto da perda 18 g).
+- 18/18 em Em Testes, nenhuma variação perdida nas amostras do projeto; a aprovação do cliente guardou a versão do
+  lote (`formula_aprovada`) e o Kickoff leu "fragrância" como o que varia.
+- Tempo (emulador, automático): ~23 s do painel à aprovação; salvar 3 s; gerar ordem 1 s; Em Testes das 18 em 10 s.
+- **Achado:** a pré-mistura não se aplicou — os itens reais não têm fase (D-05: só fase com nome). Sem fase, cada
+  ingrediente é pesado por amostra: 216 pesagens para 18 amostras. Nomear as fases nas fórmulas é o que traz o ganho.
+- Não feito aqui: o roteiro cronometrado por uma pessoa (5 amostras × 25 ingredientes em < 5 min, em vídeo) — é na
+  tela, com quem vai usar.
