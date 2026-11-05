@@ -124,6 +124,10 @@ export default function EditorLote({ detalhe, user, recarregar }) {
   const podeConcluir = pode && !falta.length;
   const podeAprovar = user?.role === "admin" || user?.modulos?.aprovar_critico_pd === true;
   const visiveis = estreito ? [ativos.includes(coluna) ? coluna : ativos[0]] : ativos;
+  const larguraIngrediente = estreito ? 130 : 220;
+  const larguraMatriz = estreito ? 56 : 64;
+  const larguraAmostra = estreito ? 160 : 220;
+  const larguraTabela = larguraIngrediente + larguraMatriz + larguraAmostra * visiveis.length;
   const nivelDe = (r, k) => (formulaNova(r) ? 0 : (difs[r] || []).find((x) => x.ingKey === k)?.nivel || 0);
 
   const executar = async (rotulo, fn) => {
@@ -177,7 +181,7 @@ export default function EditorLote({ detalhe, user, recarregar }) {
   };
 
   return (
-    <div className="space-y-4" data-testid="editor-lote">
+    <div className="min-w-0 space-y-4" data-testid="editor-lote">
       {Object.entries(estado).filter(([, s]) => s?.fora_do_lote).map(([r]) => (
         <p key={r} className="flex items-center gap-1 text-sm text-red-700 dark:text-red-400" role="alert"><AlertTriangle className="h-4 w-4" />{cod(r)}: a fórmula foi editada fora do lote — tire a amostra e inclua de novo.</p>
       ))}
@@ -227,17 +231,25 @@ export default function EditorLote({ detalhe, user, recarregar }) {
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-md border">
-        <table className="border-collapse text-sm" data-testid="matriz-lote">
+      <div className="w-full max-w-full overflow-x-auto rounded-md border" data-testid="matriz-lote-table-wrap">
+        {/* O shell global aplica min-width:max-content às tabelas. Sem larguras próprias, o
+            algoritmo da tabela entrega todo o espaço livre às colunas e a primeira coluna
+            fixa vira um bloco enorme em monitores largos (caso real com três amostras). */}
+        <table className="table-fixed border-collapse text-sm" style={{ width: larguraTabela }} data-testid="matriz-lote">
+          <colgroup>
+            <col style={{ width: larguraIngrediente }} />
+            <col style={{ width: larguraMatriz }} />
+            {visiveis.map((r) => <col key={r} style={{ width: larguraAmostra }} />)}
+          </colgroup>
           <thead>
             <tr className="border-b align-top">
-              <th className="sticky left-0 z-10 min-w-[130px] bg-background p-2 text-left sm:min-w-[200px]">Ingrediente</th>
-              <th className="p-2 text-right text-xs font-normal text-muted-foreground">Matriz<div>{lote.matriz?.codigo || lote.matriz?.tipo}</div></th>
+              <th className="sticky left-0 z-10 bg-background p-2 text-left">Ingrediente</th>
+              <th className="p-2 text-right text-xs font-normal text-muted-foreground">Matriz<div className="break-words">{lote.matriz?.codigo || lote.matriz?.tipo}</div></th>
               {visiveis.map((r) => {
                 const m = lote.membros[r];
                 const ml = String(m.unidade_pedido || "g").toLowerCase() !== "g";
                 return (
-                  <th key={r} className="min-w-[110px] p-2 text-left font-normal sm:min-w-[130px]">
+                  <th key={r} className="p-2 text-left font-normal">
                     <div className="font-semibold">{cod(r)}</div>
                     <div className="text-xs text-muted-foreground">{ROTULO_STATUS_PD[estado[r]?.status_pd] || estado[r]?.status_pd || ""}{m.versao_antes ? ` · v${m.versao_antes}` : " · sem fórmula"}</div>
                     <label className="mt-1 block text-xs">g
@@ -267,7 +279,7 @@ export default function EditorLote({ detalhe, user, recarregar }) {
               const ing = form.ingredientes[k];
               return (
                 <tr key={k} className="border-b last:border-0">
-                  <td className="sticky left-0 z-10 bg-background p-2 align-top">
+                  <td className="sticky left-0 z-10 break-words bg-background p-2 align-top">
                     <div className="font-medium">{ing.nome}</div>
                     <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                       {ing.fase ? `Fase ${ing.fase}` : "sem fase"}
