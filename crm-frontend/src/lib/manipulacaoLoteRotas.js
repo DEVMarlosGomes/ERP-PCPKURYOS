@@ -229,6 +229,11 @@ export function createManipulacaoLoteRouter(h) {
       const erroMp = x?.mp_nova ? validarMpNova(x.mp_nova) : null;
       if (erroMp) throw apiError(422, `${x.nome || k}: ${erroMp}`);
     }
+    // MP nova criada no próprio lote (fora das fórmulas de origem): mesmo nome já cadastrado → 409 com a
+    // oferta de vincular (como na aba Manipulação); usada em alguma amostra → entra na fila do Cadastros.
+    const chavesOrigem = new Set(origem.map((it) => M.chaveMaterialFase(M.itemParaIngrediente(it))));
+    const mpNovasDoLote = Object.entries(ingredientes).filter(([, x]) => x?.mp_nova && !chavesOrigem.has(M.chaveMaterialFase(x)));
+    for (const [, x] of mpNovasDoLote) await h.exigirMpNovaInedita(x.mp_nova);
     const origemCel = origemDosMembros(l, ingredientes, ipf);
     const plano = M.planoSalvarLote({ tenantPath: `erp/${t}`, lote: l, rascunho: { ...data, ingredientes }, contexto: { requests: reqs, origem: origemCel },
       agora: now(), autor: { uid: uid(), nome: h.pdUserName(perfil) }, novoId: newId });
@@ -238,6 +243,12 @@ export function createManipulacaoLoteRouter(h) {
     if (plano.resumo.semMudanca) return { sem_mudanca: true, lote: l, pendencias, fechamento };
     await gravar(plano.updates);
     const avisos = [];
+    const usadas = mpNovasDoLote.filter(([k]) => ativos.some((r) => Number(data?.celulas?.[r]?.[k]) > 0));
+    if (usadas.length) {
+      const aviso = await h.sincronizarFilaMpNova(t, { formula: { id: `lote_${id}`, version: 1, development_id: l.membros[ativos[0]]?.development_id },
+        registrar: usadas.map(([k, x]) => ({ id: k, formula_id: `lote_${id}`, ingredient_name: x.nome, inci: x.inci, fornecedor: x.fornecedor, mp_nova: x.mp_nova })) }, perfil);
+      if (aviso) avisos.push(aviso);
+    }
     for (const r of plano.resumo.passaramEmDesenvolvimento) { // um por vez (variações irmãs)
       try { await h.pdSyncRequestStatus(t, reqs.get(r), "IN_PROGRESS"); } catch (e) {
         console.error("[Manipulação em lote] sincronia com o CRM falhou:", e);

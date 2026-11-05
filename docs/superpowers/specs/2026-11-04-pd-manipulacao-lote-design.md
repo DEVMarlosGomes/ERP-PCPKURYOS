@@ -222,3 +222,13 @@ O auditor confirmou no emulador que o controle de crítico se contornava. Corre�
   e reordenar; versões que só foram a Em Testes continuam com o Modo de Preparo editável, como antes.
 - O servidor relê o banco depois de travar o lote. Residuais registrados em `MELHORIAS_FUTURAS.md`.
 
+## 14. Adicionar ingrediente igual à aba Manipulação (05/11/2026, pedido do Marlos)
+
+O "Adicionar ingrediente" do lote passou a ser a mesma linha da aba Manipulação (Fase, Ingrediente com as sugestões
+do banco, INCI, Fornecedor com o preço de cada um, %Fórmula, Preço R$/Kg, Preço US$/Kg, MP nova com o chip MPGR/MPES
+e a oferta de vincular quando o nome já existe) mais **Aplicar em** (o % vai para todas ou para uma amostra). A
+biblioteca de MPs saiu de `pages/PDDetail.js` para `lib/bibliotecaMpPd.js` (e o chip para
+`components/pd/ChipTipoMpNova.js`), usada pelos dois. Sai do §11 a "MP nova criada dentro do editor do lote": ao salvar,
+MP nova com nome já cadastrado dá 409 com o vínculo; usada em alguma amostra, entra na fila do Cadastros com a origem
+`lote_{id}__{ingrediente}`; na ordem, o servidor aceita o ingrediente pela MP nova e soma a versão à mesma solicitação.
+

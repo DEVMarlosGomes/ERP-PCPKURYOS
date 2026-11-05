@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import EditorLote from "@/components/ManipulacaoLote/EditorLote";
 import OrdemLote from "@/components/ManipulacaoLote/OrdemLote";
 import { ordemLoteHtml } from "@/lib/ordemLoteHtml";
+import { LinhaNovoIngrediente, ingredienteDaLinha } from "@/components/ManipulacaoLote/NovoIngredienteLote";
 import { classificarIngredientes, montarMatriz, ordemDoLote } from "@/lib/manipulacaoLote";
 
 vi.mock("@/lib/api", () => ({ default: { get: async () => ({ data: [] }), post: async () => ({ data: {} }), put: async () => ({ data: {} }) } }));
@@ -95,3 +96,20 @@ test("impressão: pré-mistura com porções, adições por amostra e tudo escap
   expect(html).not.toContain("<script>alert");
   expect(html).toContain("&lt;script&gt;");
 });
+
+test("adicionar ingrediente no lote: a mesma linha da aba Manipulação, com Aplicar em", () => {
+  const html = renderToStaticMarkup(<LinhaNovoIngrediente ingredientes={{}} ativos={["R1", "R2"]} codigoDe={(r) => `cod-${r}`} onAdicionar={() => {}} />);
+  for (const rotulo of ["Fase", "Ingrediente", "INCI", "Fornecedor", "%Fórmula", "Preço R$/Kg", "Preço US$/Kg", "Aplicar em", "MP nova (ainda não cadastrada)", "Adicionar"]) {
+    expect(html).toContain(rotulo);
+  }
+  expect(html).toContain("Todas as amostras");
+  expect(html).toContain("cod-R2");
+});
+
+test("ingrediente do lote sai com material mestre, código e tipo do catálogo; MP nova com o nome digitado", () => {
+  const catalogo = [{ id: "C9", master_material_id: "MPGR-00012", codigo_interno: "MPGR-00012", unidade: "kg", tipo_material: "MPGR" }];
+  expect(ingredienteDaLinha({ ingredient_name: "Glicerina ", catalog_id: "C9", phase: "a", price_per_kg: "12.5", price_usd: "", fornecedor: "Forn", inci: "Glycerin" }, catalogo))
+    .toMatchObject({ nome: "Glicerina", master_material_id: "MPGR-00012", codigo: "MPGR-00012", tipo_material: "MPGR", price_per_kg: 12.5, price_usd: null, mp_nova: null });
+  expect(ingredienteDaLinha({ ingredient_name: "Óleo de Pracaxi", mp_nova_on: true, phase: "", price_usd: "" }, catalogo).mp_nova).toEqual({ nome: "Óleo de Pracaxi", tipo: "MPGR" });
+});
+

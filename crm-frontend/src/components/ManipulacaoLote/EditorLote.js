@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertTriangle, CheckCircle2, Copy, Loader2, Plus, Save, Search, ShieldCheck, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Copy, Loader2, Plus, Save, ShieldCheck, X } from "lucide-react";
+import NovoIngredienteLote from "./NovoIngredienteLote";
 import {
   MAX_MEMBROS, MINIMO_PESAVEL_PADRAO_G, MIN_MOTIVO, NIVEL, ROTULO_STATUS_PD, chaveMaterialFase, clonar, fechamentoPorMembro,
   diferencasDoLote, pendencias, quantidadeEmGramas, sugereFragrancia,
@@ -76,49 +77,6 @@ export function MotivoDialog({ titulo, descricao, minimo = 0, rotulo = "Motivo",
             {enviando && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}Confirmar
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function AdicionarIngrediente({ ingredientes, onAdicionar, onFechar }) {
-  const [termo, setTermo] = useState("");
-  const [fase, setFase] = useState("");
-  const [lista, setLista] = useState(null);
-  const [buscando, setBuscando] = useState(false);
-  const buscar = async () => {
-    setBuscando(true);
-    try {
-      const { data } = await api.get("/pd/catalog", { params: { tipo_material: "MPES,MPGR", q: termo.trim() } });
-      setLista((data || []).slice(0, 40));
-    } catch (e) { toast.error(formatApiError(e)); } finally { setBuscando(false); }
-  };
-  const existentes = new Set(Object.values(ingredientes).map(chaveMaterialFase));
-  return (
-    <Dialog open onOpenChange={(v) => { if (!v) onFechar(); }}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader><DialogTitle>Adicionar ingrediente ao lote</DialogTitle>
-          <DialogDescription>Matéria-prima do Cadastros (MPES/MPGR). Entra com 0 % em todas as amostras.</DialogDescription></DialogHeader>
-        <div className="flex gap-2">
-          <Input placeholder="Nome, INCI ou código" value={termo} onChange={(e) => setTermo(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") buscar(); }} />
-          <Button onClick={buscar} disabled={buscando}><Search className="h-4 w-4" /></Button>
-        </div>
-        <div className="flex items-center gap-2"><Label htmlFor="fase-novo">Fase</Label>
-          <Input id="fase-novo" className="w-24" value={fase} onChange={(e) => setFase(e.target.value)} placeholder="A" /></div>
-        <div className="max-h-72 space-y-1 overflow-y-auto">
-          {lista && !lista.length && <p className="text-sm text-muted-foreground">Nada encontrado.</p>}
-          {(lista || []).map((m) => {
-            const ing = { nome: m.nome, codigo: m.codigo_interno || "", catalog_id: m.id, master_material_id: m.master_material_id || m.id, inci: m.inci || "",
-              fase: fase.trim(), funcao: "", price_per_kg: num(m.preco_rs_kg), unit: m.unidade || null, fornecedor: m.fornecedor || "", tipo_material: m.tipo_material || "" };
-            const repetido = existentes.has(chaveMaterialFase(ing));
-            return (
-              <div key={m.id} className="flex items-center justify-between gap-2 rounded border p-2 text-sm">
-                <span><b>{m.nome}</b> <span className="text-xs text-muted-foreground">{m.codigo_interno} {m.inci}</span></span>
-                <Button size="sm" variant="outline" disabled={repetido} title={repetido ? "Já está no lote nesta fase." : ""} onClick={() => onAdicionar(ing)}>Adicionar</Button>
-              </div>
-            );
-          })}
-        </div>
       </DialogContent>
     </Dialog>
   );
@@ -353,10 +311,16 @@ export default function EditorLote({ detalhe, user, recarregar }) {
       </section>
 
       {dialogo?.tipo === "adicionar" && (
-        <AdicionarIngrediente ingredientes={form.ingredientes} onFechar={() => setDialogo(null)} onAdicionar={(ing) => {
-          mudar((f) => ({ ...f, ingredientes: { ...f.ingredientes, [proximaChave(f.ingredientes)]: ing } }));
+        <NovoIngredienteLote ingredientes={form.ingredientes} ativos={ativos} codigoDe={cod} onFechar={() => setDialogo(null)} onAdicionar={(ing, pct, alvos) => {
+          mudar((f) => {
+            const k = proximaChave(f.ingredientes);
+            const celulas = { ...f.celulas };
+            if (pct > 0) for (const r of alvos) celulas[r] = { ...(celulas[r] || {}), [k]: String(pct) };
+            return { ...f, ingredientes: { ...f.ingredientes, [k]: ing }, celulas };
+          });
           setDialogo(null);
-          toast.info(`${ing.nome} entrou com 0 % — preencha nas amostras e salve.`);
+          toast.info(pct > 0 ? `${ing.nome} entrou com ${pct} % em ${alvos.length === ativos.length ? "todas as amostras" : alvos.map(cod).join(", ")} — confira os 100 % e salve.`
+            : `${ing.nome} entrou com 0 % — preencha nas amostras e salve.`);
         }} />
       )}
       {dialogo?.tipo === "remover" && (

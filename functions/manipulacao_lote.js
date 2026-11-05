@@ -156,7 +156,8 @@ function conferirFontes(lote, ctx, problemas) {
     vistas.set(c, k);
     if (M.pct4(mz.celulas && mz.celulas[k]) !== (fonte.get(c) || 0)) problemas.push(`${(ing && ing.nome) || k}: a matriz do lote não confere com a fórmula de origem — monte o lote de novo.`);
     const id = ing && (ing.master_material_id || ing.catalog_id);
-    if (!chavesOrigem.has(c) && !(id && (ctx.materiais.has(id) || ctx.catalogo.has(id)))) {
+    const mpNova = Boolean(ing && ing.mp_nova && texto(ing.mp_nova.nome));
+    if (!chavesOrigem.has(c) && !mpNova && !(id && (ctx.materiais.has(id) || ctx.catalogo.has(id)))) {
       problemas.push(`${(ing && ing.nome) || k}: ingrediente sem material do Cadastros/catálogo e fora das fórmulas de origem — adicione-o pelo catálogo.`);
     }
   }
@@ -217,7 +218,10 @@ function conferirOrdem(lote, ctx) {
 
 // Solicitação de MP nova que já cobre este ingrediente: a que tem como origem o item de mesma
 // chave (material+fase) numa fórmula de origem do lote (PD-03: nunca duplica a solicitação).
-function solicitacaoDaMpNova(ing, itensOrigem, fila) {
+function solicitacaoDaMpNova(ing, itensOrigem, fila, loteId, ingKey) {
+  // MP nova criada no próprio lote: a tela já a registrou na fila com a origem do lote.
+  const doLote = loteId && ingKey ? Object.entries(fila || {}).find(([, s]) => s && s.origens && s.origens[`lote_${loteId}__${ingKey}`]) : null;
+  if (doLote) return doLote[0];
   const k = M.chaveMaterialFase(ing);
   const fontes = itensOrigem.filter((it) => it.mp_nova && M.chaveMaterialFase(M.itemParaIngrediente(it)) === k);
   for (const it of fontes) {
@@ -274,7 +278,7 @@ function montarOrdem({lote, ctx, conf, versoes, novoId, autor, agora, tenant, re
       itens.push(item);
       composicao.push({chave: M.chaveMaterialFase(ing), nome: ing.nome, pct, fragrancia: Boolean(ing.ehFragrancia)});
       if (ing.mp_nova) {
-        const sol = solicitacaoDaMpNova(ing, conf.itensOrigem, ctx.fila);
+        const sol = solicitacaoDaMpNova(ing, conf.itensOrigem, ctx.fila, lote.id, k);
         const req = ctx.requests.get(r) || {};
         if (sol) {
           u[`solicitacoes_cadastro_material/${sol}/origens/${fid}__${item.id}`] = semVazios({pdRequestId: r, formulaId: fid, formulaVersao: versao, itemId: item.id,

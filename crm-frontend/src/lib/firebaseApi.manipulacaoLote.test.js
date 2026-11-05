@@ -21,6 +21,7 @@ const SEED = {
     pcp: { role: "pcp", nome: "PCP", tenant_id: "kuryos" },
   },
   materiais: { FENOXIETANOL: { mpNome: "Fenoxietanol", criticoPd: true } },
+  materiais_chave: { FENOXIETANOL: "FENOXIETANOL" },
   solicitacoes_cadastro_material: { NOME__EXTRATO_NOVO: { status: "PENDENTE_CADASTRO", nome: "Extrato Novo", origens: { "F2__i2c": { pdRequestId: "R2", formulaId: "F2", itemId: "i2c", ativa: true } } } },
   erp: { kuryos: {
     crm_projects: { P1: { id: "P1", numero_projeto: "2026-031", nome_projeto: "Linha Corporal" } },
@@ -174,6 +175,25 @@ describe("salvar (um update, só o rascunho — D-03/A4)", () => {
     memory.write(`${T}/pd_formula_items/i1a/percentage`, 89);
     await expectStatus(api.put(`/pd/manipulacao-lotes/${L}`, { ...corpo, perda_pct: 4, revisao: lote(L).revisao }), 409, /2026-1003-a.*editada fora do lote/);
     memory.write(`${T}/pd_formula_items/i1a/percentage`, 90);
+  });
+  test("MP nova criada no lote: nome já cadastrado → 409 com vínculo; nova e usada → fila do Cadastros com a origem do lote", async () => {
+    const l = lote(L);
+    const k = (nome) => chave(l, nome);
+    const comMp = (mp) => rascunhoDe(l, (r) => {
+      r.ingredientes = { ...l.ingredientes, i09: { nome: mp.nome, fase: "A", mp_nova: mp } };
+      r.celulas.R3 = { ...r.celulas.R3, [k("Água")]: 77, i09: 0.5 };
+      r.motivos.R3 = { ...(r.motivos.R3 || {}), i09: { texto: "ativo novo do briefing" } };
+    });
+    const e = await expectStatus(api.put(`/pd/manipulacao-lotes/${L}`, comMp({ nome: "Fenoxietanol", tipo: "MPGR" })), 409);
+    expect(e.response.data.detail).toMatchObject({ code: "MP_JA_CADASTRADA", materialKey: "FENOXIETANOL" });
+    await api.put(`/pd/manipulacao-lotes/${L}`, comMp({ nome: "Óleo de Pracaxi", tipo: "MPGR" }));
+    const fila = memory.read("solicitacoes_cadastro_material");
+    const sol = Object.values(fila).find((s) => s.nome === "Óleo de Pracaxi");
+    expect(sol).toMatchObject({ status: "PENDENTE_CADASTRO", tipo: "MPGR" });
+    expect(Object.keys(sol.origens)).toEqual([`lote_${L}__i09`]);
+    expect(lote(L).ingredientes.i09.mp_nova).toEqual({ nome: "Óleo de Pracaxi", tipo: "MPGR" });
+    // volta ao estado anterior (sem a MP nova nas células) para os próximos passos
+    await api.put(`/pd/manipulacao-lotes/${L}`, rascunhoDe(lote(L), (r) => { r.celulas.R3 = { ...l.celulas.R3 }; r.motivos.R3 = l.motivos.R3; }));
   });
   test("chave de ingrediente forjada e papel sem P&D são recusados", async () => {
     const l = lote(L);

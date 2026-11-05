@@ -48,7 +48,7 @@ function erp() {
     }
     e.crm_samples[`S${tag}`] = {id: `S${tag}`, projeto_id: proj, variacoes: [{id: `v${tag}a`, codigo: `C${tag}a`, pd_request_id: `R${tag}a`}, {id: `v${tag}b`, codigo: `C${tag}b`, pd_request_id: `R${tag}b`}]};
   };
-  ['A', 'B', 'C', 'D', 'E', 'G', 'X', 'OK'].forEach((t) => par(t));
+  ['A', 'B', 'C', 'D', 'E', 'G', 'X', 'OK', 'J'].forEach((t) => par(t));
   par('Z', 'P2', 'APPROVED');
   return e;
 }
@@ -130,6 +130,20 @@ const salvar = (db, id, rev, u) => db.ref().update(Object.assign({[`${LC}/${id}/
   await recusado(chamar('pd', 'LG', {acao: 'gerar_ordem', revisao: 4}), /Metilisotiazolinona|matriz do lote não confere|material mudou/);
   assert.equal(await ler(`${LC}/LG/status`), 'rascunho');
   passo('G: trocar o material depois da aprovação invalida a aprovação; a ordem não sai');
+
+  // J — MP nova criada no próprio lote (a tela a registrou na fila com a origem do lote): a ordem sai e a
+  //     versão entra na mesma solicitação.
+  await raiz.ref('solicitacoes_cadastro_material/NOME__OLEO_DE_PRACAXI').set({status: 'PENDENTE_CADASTRO', nome: 'Óleo de Pracaxi',
+    origens: {lote_LJ__i03: {pdRequestId: 'RJa', formulaId: 'lote_LJ', itemId: 'i03', ativa: true}}});
+  await pd.ref(`${LC}/LJ`).set(lote('LJ', 'J', 'pd', {ingredientes: {...JSON.parse(JSON.stringify(ING)), i03: {nome: 'Óleo de Pracaxi', fase: '', mp_nova: {nome: 'Óleo de Pracaxi', tipo: 'MPGR'}}}}));
+  await salvar(pd, 'LJ', 2, {[`${LC}/LJ/celulas/RJa`]: {i01: 98.5, i02: 1, i03: 0.5},
+    [`${LC}/LJ/motivos/RJa`]: {i01: {texto: 'abre espaço para o ativo', por: 'pd', valor: 98.5}, i03: {texto: 'ativo novo do briefing', por: 'pd', valor: 0.5}}});
+  await chamar('pd', 'LJ', {acao: 'gerar_ordem', revisao: 2});
+  const lj = await ler(`${LC}/LJ`);
+  const fidJ = lj.membros.RJa.formula_id_lote;
+  assert.equal((await ler(`${T}/pd_formula_items/${fidJ}_i03`)).mp_nova.nome, 'Óleo de Pracaxi');
+  assert.ok((await ler('solicitacoes_cadastro_material/NOME__OLEO_DE_PRACAXI/origens'))[`${fidJ}__${fidJ}_i03`]);
+  passo('J: MP nova criada no lote — a ordem sai e a versão entra na mesma solicitação do Cadastros');
 
   // H — módulo atribuível.
   assert.equal(Ident.MODULOS_VALIDOS.has('aprovar_critico_pd'), true);
