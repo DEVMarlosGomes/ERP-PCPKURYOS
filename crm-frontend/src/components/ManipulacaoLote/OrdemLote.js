@@ -15,6 +15,7 @@ import { MIN_MOTIVO, MIN_MOTIVO_DEPOIS_DA_ORDEM, conciliacaoMassa, desvioPesagem
 import { MotivoDialog } from "./EditorLote";
 
 const num = (v) => { const n = Number(String(v ?? "").replace(",", ".")); return Number.isFinite(n) ? n : 0; };
+const brl = (v) => Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const quando = (iso) => (iso ? new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "");
 const ativosDe = (lote) => Object.keys(lote.membros || {}).filter((r) => lote.membros[r]?.status_membro !== "removido");
 
@@ -217,6 +218,19 @@ export default function OrdemLote({ detalhe, user, recarregar }) {
               await recarregar();
             })}>Tornar a nova base do projeto</Button>
           </div>
+        </section>
+      )}
+
+      {detalhe.custos && (
+        <section className="space-y-1" data-testid="custos-lote">
+          <h4 className="text-sm font-semibold">Custo P&D (versões do lote)</h4>
+          <table className="text-sm"><tbody>
+            {Object.entries(detalhe.custos.por_amostra).map(([r, c]) => (
+              <tr key={r}><td className="pr-4">{cod(r)}</td><td className="pr-4 text-right">{brl(c.brl_kg)}/kg</td><td className="text-right">{brl(c.brl_amostra)} na amostra</td></tr>
+            ))}
+            <tr className="border-t font-medium"><td className="pr-4">Lote</td><td /><td className="text-right">{brl(detalhe.custos.total_brl)}</td></tr>
+          </tbody></table>
+          <p className="text-xs text-muted-foreground">Preço de cada matéria-prima como estava na geração da ordem (dólar do dia para as cotadas em US$).</p>
         </section>
       )}
 

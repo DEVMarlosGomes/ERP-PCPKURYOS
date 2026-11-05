@@ -144,6 +144,7 @@ const porId = (l) => Object.fromEntries(l.map((x) => [x.id, x]));
   assert.equal(s1.variacoes[1].lote_manipulacao.fora_da_base, true);
   assert.deepEqual(s1.variacoes[1].lote_manipulacao.diferencas.sort(), ['Agua', 'Fenoxietanol']);
   assert.equal(s1.variacoes[0].lote_manipulacao.composicao.length, 4);
+  assert.deepEqual(s1.variacoes[0].lote_manipulacao.composicao.filter((c) => c.fragrancia).map((c) => c.nome), ['Fragrancia Rosa']); // o Kickoff separa fragrância do resto
   const origens = Object.keys(await ler('solicitacoes_cadastro_material/NOME__EXTRATO_NOVO/origens'));
   assert.equal(origens.length, 4);
   assert.ok(origens.includes('F2__i2c'));

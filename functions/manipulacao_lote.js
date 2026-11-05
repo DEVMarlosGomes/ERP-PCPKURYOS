@@ -196,7 +196,7 @@ function montarOrdem({lote, ctx, conf, versoes, novoId, autor, agora, tenant, re
       }, custosDoItem(pct, ing, taxa)));
       u[`${T}/pd_formula_items/${item.id}`] = item;
       itens.push(item);
-      composicao.push({chave: M.chaveMaterialFase(ing), nome: ing.nome, pct});
+      composicao.push({chave: M.chaveMaterialFase(ing), nome: ing.nome, pct, fragrancia: Boolean(ing.ehFragrancia)});
       if (ing.mp_nova) {
         const sol = solicitacaoDaMpNova(ing, conf.itensOrigem, ctx.fila);
         const req = ctx.requests.get(r) || {};

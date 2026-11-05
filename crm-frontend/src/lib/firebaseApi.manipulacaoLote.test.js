@@ -263,6 +263,26 @@ describe("servidor, remover, cancelar, base, ações", () => {
   });
 });
 
+describe("integrações (LM-11)", () => {
+  test("custo P&D por amostra e do lote, pela versão travada", async () => {
+    memory.write(`${T}/pd_manipulacao_lotes/${L}/membros/R1/formula_id_lote`, "V1");
+    memory.write(`${T}/pd_manipulacao_lotes/${L}/membros/R2/formula_id_lote`, "V2");
+    memory.write(`${T}/pd_formula_items/V1_i01`, { id: "V1_i01", formula_id: "V1", percentage: 90, cost_brl: 1.8 });
+    memory.write(`${T}/pd_formula_items/V1_i02`, { id: "V1_i02", formula_id: "V1", percentage: 10, cost_brl: 12 });
+    memory.write(`${T}/pd_formula_items/V2_i01`, { id: "V2_i01", formula_id: "V2", percentage: 100, cost_brl: 20 });
+    const { data } = await api.get(`/pd/manipulacao-lotes/${L}`);
+    expect(data.custos).toEqual({ por_amostra: { R1: { brl_kg: 13.8, brl_amostra: 0.69 }, R2: { brl_kg: 20, brl_amostra: 1 } }, total_brl: 1.69 });
+  });
+  test("aprovação do cliente guarda a versão da fórmula que ele avaliou (A4)", async () => {
+    memory.setUser("adm");
+    await api.post("/crm/samples/S1/variacoes/v1/resultado-cliente", { resultado: "aprovada", // relógio do teste: 13/10/2026
+      aprovacao_cliente: { quem_nome: "Maria (cliente)", canal: "whatsapp", aprovado_em: "2026-10-12T15:00:00.000Z" } });
+    expect(memory.read(`${T}/crm_samples/S1/variacoes/0/aprovacao_cliente/formula_aprovada`)).toEqual({ id: "F1", versao: 1 });
+    expect(memory.read(`${T}/crm_samples/S1/variacoes/1/codigo`)).toBe("2026-1003-b");
+    memory.setUser("pd");
+  });
+});
+
 describe("exclusão e versão travada (LM-05, A5)", () => {
   test("fase de versão travada não muda nem some", async () => {
     await expectStatus(api.put("/pd/formula-phases/PH2", { titulo: "Fase B" }), 409, /travada/);

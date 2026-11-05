@@ -170,7 +170,9 @@ export function createManipulacaoLoteRouter(h) {
 
   async function detalhe(t, id, perfil) {
     const l = await lerLote(t, id);
-    const [requests, formulas, cfg] = await Promise.all([all(t, "pd_requests"), all(t, "pd_formulas"), get(ref(firebaseDb, "config/pdLote"))]);
+    const comVersoes = Object.values(l.membros || {}).some((m) => m?.formula_id_lote);
+    const [requests, formulas, cfg, itens] = await Promise.all([all(t, "pd_requests"), all(t, "pd_formulas"), get(ref(firebaseDb, "config/pdLote")),
+      comVersoes ? all(t, "pd_formula_items") : []]);
     const reqs = indexar(requests);
     const vig = vigentePorDev(formulas);
     const estado = {};
@@ -179,7 +181,8 @@ export function createManipulacaoLoteRouter(h) {
       estado[r] = { status_pd: reqs.get(r)?.status || null, versao_vigente: v ? Number(v.version) || 1 : null, formula_vigente_id: v?.id || null,
         fora_do_lote: Boolean(m.formula_id_lote && v && v.id !== m.formula_id_lote) };
     }
-    return { lote: l, estado, conferencia_segundo_usuario: cfg.val()?.conferenciaSegundoUsuario !== false, pode_editar: M.podeManipularLote(perfil), eu: uid() };
+    return { lote: l, estado, conferencia_segundo_usuario: cfg.val()?.conferenciaSegundoUsuario !== false, pode_editar: M.podeManipularLote(perfil), eu: uid(),
+      custos: custosDoLote(l, itens) };
   }
 
   async function salvar(t, id, data, perfil) {
@@ -384,6 +387,23 @@ export function createManipulacaoLoteRouter(h) {
     return NAO_TRATADA;
   }
   return { route };
+}
+
+/* LM-11: custo P&D de cada amostra e do lote, pela versão travada (o servidor grava cost_brl em cada item
+ * com a mesma conta do pdItemCosts: % × R$/kg). R$/kg da fórmula = soma; da amostra = × quantidade em g. */
+export function custosDoLote(lote, itens) {
+  const porFormula = agrupar(itens, "formula_id");
+  const por_amostra = {};
+  let total = 0;
+  for (const r of ativosDe(lote)) {
+    const fid = lote.membros[r]?.formula_id_lote;
+    if (!fid) continue;
+    const brlKg = (porFormula.get(fid) || []).reduce((s, i) => s + (Number(i.cost_brl) || 0), 0);
+    const brlAmostra = brlKg * (Number(lote.membros[r].quantidade_g) || 0) / 1000;
+    por_amostra[r] = { brl_kg: Math.round(brlKg * 100) / 100, brl_amostra: Math.round(brlAmostra * 100) / 100 };
+    total += brlAmostra;
+  }
+  return Object.keys(por_amostra).length ? { por_amostra, total_brl: Math.round(total * 100) / 100 } : null;
 }
 
 /* LM-05: o que a exclusão faz com os lotes. Puro (recebe lotes lidos, devolve caminhos planos).

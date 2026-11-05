@@ -1718,7 +1718,15 @@ async function dispatch(e, t) {
     const aprovacao = validarAprovacaoCliente(r.aprovacao_cliente, { registradoPor: firebaseAuth.currentUser.uid, registradoPorNome: pdUserName(u) });
     if (!aprovacao.ok) throw apiError(422, aprovacao.erros.join(" "));
     const e = await one(_, "crm_samples", O[1]),
-      variacao = ((e && e.variacoes) || []).find((v) => v.id === O[2]),
+      variacao = ((e && e.variacoes) || []).find((v) => v.id === O[2]);
+    // Manipulação em lote (A4/M8): a aprovação guarda a versão da fórmula que o cliente avaliou (a vigente
+    // da solicitação agora); o Kickoff só usa a composição do lote se ela for dessa versão.
+    if ("aprovada" === r.resultado && variacao?.pd_request_id) {
+      const dev = (await all(_, "pd_developments")).find((d) => d.request_id === variacao.pd_request_id || d.pd_request_id === variacao.pd_request_id);
+      const vig = dev ? (await related(_, "pd_formulas", "development_id", dev.id)).sort((a, b) => Number(b.version || 0) - Number(a.version || 0))[0] : null;
+      if (vig) aprovacao.registro = { ...aprovacao.registro, formula_aprovada: { id: vig.id, versao: Number(vig.version) || 1 } };
+    }
+    const
       t = ((null === e || void 0 === e ? void 0 : e.variacoes) || []).map(e => e.id === O[2] ? {
         ...e,
         status: r.resultado,
