@@ -7,6 +7,7 @@ import {
 } from "@/lib/crmRules";
 import { askJustification, isJustificationRequired } from "@/lib/justificationPrompt";
 import { createCommercialRouter, NOT_HANDLED } from "@/lib/firebaseCommercial";
+import { COLECAO_LOTES, NAO_TRATADA, createManipulacaoLoteRouter, historicoDeLote, planoCancelarLotes, planoRemocaoDosLotes, temOrdem } from "@/lib/manipulacaoLoteRotas";
 import { categoriasAtivas } from "@/lib/categoriasProduto";
 import { sugestoesCli4 } from "@/lib/cli4";
 import { amostraDaVersaoFaltando, precoUsd, volumeEmKg } from "@/lib/pdAmostra";
@@ -537,9 +538,18 @@ function pdSampleBatch(e, t, a) {
   };
 }
 
+// Estudo de estabilidade novo de uma solicitação (rota do estudo e estabilidade em lote — LM-11).
+function novoEstudoEstabilidade(req, inicio) {
+  return clean({
+    request_id: req.id, pd_card_id: req.id,
+    amostra_id: req.crm_sample_id || req.linked_amostra_id, amostra_variacao_id: req.crm_variacao_id || req.linked_variacao_id,
+    status: "ativo", started_at: inicio, updated_at: inicio,
+    conditions: PD_STABILITY_CONDITIONS.map((c) => ({ ...c, completed_day_offsets: [], next_due_day_offset: c.checkpoints[0], next_due_at: inicio })),
+    summary: { overall_status: "pendente_d0", completed_readings: 0 },
+  });
+}
+
 async function pdDeleteRequestCascade(e, t) {
-  // PD-03: amostra descartada cancela (não apaga) as solicitações de MP nova que só ela usava.
-  await descartarMpsNovasDaSolicitacao(e, t, "Amostra descartada: solicitação do P&D excluída");
   const a = (await all(e, "pd_developments")).filter(e => e.request_id === t || e.pd_request_id === t),
     r = new Set(a.map(e => e.id)),
     i = (await all(e, "pd_formulas")).filter(e => r.has(e.development_id)),
@@ -548,7 +558,12 @@ async function pdDeleteRequestCascade(e, t) {
     n = new Set(s.map(e => e.id)),
     d = (await all(e, "pd_document_versions")).filter(e => e.request_id === t || e.pd_request_id === t),
     g = new Set(d.map(e => e.id));
-  for (const [a, i] of [["pd_formula_items", e => o.has(e.formula_id)], ["pd_formula_phases", e => o.has(e.formula_id)], ["pd_formula_costs", e => o.has(e.formula_id)], ["pd_formulas", e => r.has(e.development_id)], ["pd_tests", e => r.has(e.development_id)], ["pd_samples", e => r.has(e.development_id)], ["pd_sample_batches", e => r.has(e.development_id)], ["pd_approvals", e => r.has(e.development_id)], ["pd_costs", e => r.has(e.development_id)], ["pd_cost_versions", e => r.has(e.development_id)], ["pd_documents", e => r.has(e.development_id)], ["pd_lab_results", e => r.has(e.development_id)], ["pd_developments", e => r.has(e.id)], ["pd_request_status_history", e => e.request_id === t || e.pd_request_id === t], ["pd_pending_items", e => e.request_id === t || e.pd_request_id === t], ["pd_updates", e => e.request_id === t || e.pd_request_id === t], ["pd_purchase_requests", e => e.request_id === t || e.pd_request_id === t], ["pd_stability_readings", e => n.has(e.study_id)], ["pd_stability_studies", e => e.request_id === t || e.pd_request_id === t || e.pd_card_id === t], ["workflow_tasks", e => "pd_document" === e.entity_type && g.has(e.entity_id)], ["pd_document_versions", e => e.request_id === t || e.pd_request_id === t], ["pd_ficha_tecnica", e => e.request_id === t || e.pd_request_id === t || r.has(e.development_id)], ["pd_cards", e => e.pd_request_id === t]]) for (const r of (await all(e, a)).filter(i)) await erase(e, a, r.id);
+  const alvos = [["pd_formula_items", e => o.has(e.formula_id)], ["pd_formula_phases", e => o.has(e.formula_id)], ["pd_formula_costs", e => o.has(e.formula_id)], ["pd_formulas", e => r.has(e.development_id)], ["pd_tests", e => r.has(e.development_id)], ["pd_samples", e => r.has(e.development_id)], ["pd_sample_batches", e => r.has(e.development_id)], ["pd_approvals", e => r.has(e.development_id)], ["pd_costs", e => r.has(e.development_id)], ["pd_cost_versions", e => r.has(e.development_id)], ["pd_documents", e => r.has(e.development_id)], ["pd_lab_results", e => r.has(e.development_id)], ["pd_developments", e => r.has(e.id)], ["pd_request_status_history", e => e.request_id === t || e.pd_request_id === t], ["pd_pending_items", e => e.request_id === t || e.pd_request_id === t], ["pd_updates", e => e.request_id === t || e.pd_request_id === t], ["pd_purchase_requests", e => e.request_id === t || e.pd_request_id === t], ["pd_stability_readings", e => n.has(e.study_id)], ["pd_stability_studies", e => e.request_id === t || e.pd_request_id === t || e.pd_card_id === t], ["workflow_tasks", e => "pd_document" === e.entity_type && g.has(e.entity_id)], ["pd_document_versions", e => e.request_id === t || e.pd_request_id === t], ["pd_ficha_tecnica", e => e.request_id === t || e.pd_request_id === t || r.has(e.development_id)], ["pd_cards", e => e.pd_request_id === t]];
+  // LM-05: lê tudo antes de apagar — leitura negada no meio não deixa a solicitação pela metade.
+  const lidos = await Promise.all(alvos.map(([a]) => all(e, a)));
+  // PD-03: amostra descartada cancela (não apaga) as solicitações de MP nova que só ela usava.
+  await descartarMpsNovasDaSolicitacao(e, t, "Amostra descartada: solicitação do P&D excluída");
+  for (const [k, [a, i]] of alvos.entries()) for (const r of lidos[k].filter(i)) await erase(e, a, r.id);
   await erase(e, "pd_requests", t);
 }
 
@@ -1198,10 +1213,67 @@ async function crmDependents(tenantId, entity, cardId) {
 
 async function deleteSampleCascade(tenantId, sample) {
   for (const variation of sample.variacoes || []) {
-    if (variation.pd_request_id) await pdDeleteRequestCascade(tenantId, variation.pd_request_id).catch(() => null);
+    if (variation.pd_request_id) {
+      try { await pdDeleteRequestCascade(tenantId, variation.pd_request_id); } catch (error) {
+        // LM-05: a falha não some mais — a amostra fica e o ADM vê o motivo.
+        throw apiError(409, `A amostra ${sample.codigo || sample.nome_produto || sample.id} não foi excluída: a solicitação ${variation.codigo || variation.pd_request_id} do P&D falhou (${error?.response?.data?.detail || error?.message || error}). Tente de novo; o que já tinha sido apagado antes da falha não volta.`);
+      }
+    }
     if (variation.pd_card_id) await erase(tenantId, "pd_cards", variation.pd_card_id);
   }
   await erase(tenantId, "crm_samples", sample.id);
+}
+
+// LM-05: variação em lote com ordem gerada guarda versões e pesagens — o card não é excluído (409).
+// Lotes em rascunho: o projeto excluído cancela os dele; a amostra excluída sai dos lotes (marcada).
+async function prepararLotesParaExclusao(tenantId, entity, cardId, record, projects, samples, profile) {
+  const projetoIds = new Set(entity === "project" ? [cardId] : projects.map((p) => p.id));
+  const reqIds = [...samples, ...(entity === "sample" ? [record] : [])].flatMap((s) => (s.variacoes || []).map((v) => v?.pd_request_id).filter(Boolean));
+  if (!projetoIds.size && !reqIds.length) return;
+  const lotes = await all(tenantId, COLECAO_LOTES);
+  const travados = lotes.filter((l) => temOrdem(l) && (projetoIds.has(l.projeto_id) || reqIds.some((r) => l.membros?.[r])));
+  if (travados.length) {
+    throw apiError(409, `Não dá para excluir: ${travados.map((l) => l.codigo || l.id).join(", ")} já tem ordem de manipulação gerada — as versões e pesagens do lote são histórico. Mantenha o card (marque a amostra como cancelada ou o projeto como perdido) em vez de excluir.`);
+  }
+  const autor = { uid: firebaseAuth.currentUser.uid, nome: pdUserName(profile) };
+  const agora = now();
+  const updates = entity === "sample"
+    ? Object.assign({}, ...reqIds.map((r) => planoRemocaoDosLotes({ tenant: tenantId, lotes, requestId: r, motivo: `Amostra ${record.codigo || cardId} excluída do CRM`, autor, agora, novoId: id })))
+    : planoCancelarLotes({ tenant: tenantId, lotes: lotes.filter((l) => projetoIds.has(l.projeto_id)), motivo: "Projeto excluído do CRM: lote cancelado antes da exclusão", autor, agora, novoId: id });
+  if (Object.keys(updates).length) await update(ref(firebaseDb), updates);
+}
+
+// LM-05: solicitação com versão de lote (ordem gerada) não se apaga — vira Cancelada com motivo e o
+// lote ganha o evento; membro só de rascunho sai do lote (marcado, nunca apagado) e a cascata física segue.
+async function excluirSolicitacaoPd(tenantId, requestId, profile) {
+  const req = await one(tenantId, "pd_requests", requestId);
+  if (!req) throw apiError(404, "Solicitação P&D não encontrada.");
+  const lotes = await all(tenantId, COLECAO_LOTES);
+  const autor = { uid: firebaseAuth.currentUser.uid, nome: pdUserName(profile) };
+  const agora = now();
+  const comHistorico = historicoDeLote(lotes, requestId);
+  if (comHistorico.length) {
+    const T = `${ROOT}/${tenantId}`;
+    const motivo = `Excluída com histórico na manipulação em lote ${comHistorico.map((l) => l.codigo || l.id).join(", ")}: cancelada em vez de apagada (versões e pesagens ficam).`;
+    const hid = id();
+    const updates = {
+      [`${T}/pd_requests/${requestId}/status`]: "CANCELLED", [`${T}/pd_requests/${requestId}/cancelado_motivo`]: motivo, [`${T}/pd_requests/${requestId}/updated_at`]: agora,
+      [`${T}/pd_request_status_history/${hid}`]: { id: hid, request_id: requestId, pd_request_id: requestId, from_status: req.status || "OPEN", to_status: "CANCELLED",
+        comment: motivo, changed_by: autor.uid, changed_by_name: autor.nome, created_at: agora, user_id: autor.uid },
+    };
+    for (const l of comHistorico) {
+      const L = `${T}/${COLECAO_LOTES}/${l.id}`;
+      Object.assign(updates, { [`${L}/revisao`]: Number(l.revisao || 0) + 1, [`${L}/atualizado_em`]: agora,
+        [`${L}/eventos/${id()}`]: { tipo: "solicitacao_cancelada", por: autor.uid, por_nome: autor.nome, em: agora, detalhe: `${l.membros[requestId].codigo_amostra || requestId}: ${motivo}` } });
+    }
+    await update(ref(firebaseDb), updates);
+    await pdSyncRequestStatus(tenantId, { ...req, status: "CANCELLED" }, "CANCELLED");
+    return { deleted: false, cancelled: true, message: motivo };
+  }
+  const remocao = planoRemocaoDosLotes({ tenant: tenantId, lotes, requestId, motivo: "Solicitação excluída no P&D", autor, agora, novoId: id });
+  if (Object.keys(remocao).length) await update(ref(firebaseDb), remocao);
+  await pdDeleteRequestCascade(tenantId, requestId);
+  return { deleted: true, message: "Solicitação removida" };
 }
 
 async function deleteCard(tenantId, entity, cardId, profile, cascade) {
@@ -1213,6 +1285,7 @@ async function deleteCard(tenantId, entity, cardId, profile, cascade) {
   if ((projects.length || samples.length) && !cascade) {
     throw apiError(409, `Este card tem ${projects.length} projeto(s) e ${samples.length} amostra(s) vinculados. Confirme a exclusão em cascata.`);
   }
+  await prepararLotesParaExclusao(tenantId, entity, cardId, record, projects, samples, profile);
   for (const sample of samples) await deleteSampleCascade(tenantId, sample);
   for (const project of projects) await erase(tenantId, "crm_projects", project.id);
   if (entity === "sample") await deleteSampleCascade(tenantId, record);
@@ -1251,6 +1324,13 @@ const commercial = createCommercialRouter({
   all, one, save, patch, create, related, masterAll, masterOne, masterWrite, apiError, now, newId: id, auditCard, syncMasterClients,
   ensureNumeroProjeto, justificationRequired, lerCambio,
   // Chamada interna a outra rota do adaptador (ex.: gerar o EPA do P&D na aprovação do Kickoff).
+  call: (method, url, data) => dispatch(method, url, data, {}),
+});
+
+// Manipulação em lote do P&D (src/lib/manipulacaoLoteRotas.js, spec 2026-11-04).
+const lotesPd = createManipulacaoLoteRouter({
+  all, one, related, masterAll, apiError, now, newId: id, auditCard, pdUserName, ensureNumeroProjeto, pdSyncRequestStatus, isAdmin,
+  novoEstudoEstabilidade,
   call: (method, url, data) => dispatch(method, url, data, {}),
 });
 
@@ -1315,6 +1395,10 @@ async function dispatch(e, t) {
   {
     const handled = await commercial.route({ method: e, path: S, query: q, data: r, profile: u, tenant: _ });
     if (handled !== NOT_HANDLED) return response(handled, i);
+  }
+  {
+    const handled = await lotesPd.route({ method: e, path: S, data: r, profile: u, tenant: _ });
+    if (handled !== NAO_TRATADA) return response(handled, i);
   }
   if ("GET" === e && ("/crm/users-list" === S || "/users" === S)) return response(await async function () {
     // usuarios/ só abre para admin/RH; os demais leem o índice público (nome + papel).
@@ -2142,10 +2226,7 @@ async function dispatch(e, t) {
     const t = Object.keys(fields).length ? await patch(_, "pd_requests", O[1], fields) : await one(_, "pd_requests", O[1]);
     return response(t, i);
   }
-  if (O && "DELETE" === e) return await pdDeleteRequestCascade(_, O[1]), response({
-    deleted: !0,
-    message: "Solicitação removida"
-  }, i);
+  if (O && "DELETE" === e) return response(await excluirSolicitacaoPd(_, O[1], u), i);
   if ("GET" === e && "/pd/formulas/bank" === S) {
     let e = await all(_, "pd_formulas");
     const t = await all(_, "pd_formula_items"),
@@ -2512,6 +2593,12 @@ async function dispatch(e, t) {
       success: !0
     }, i);
   }
+  // A5: fase de versão travada (Em Testes ou ordem de lote) não muda nem some.
+  if (O = j(/^\/pd\/formula-phases\/([^/]+)$/), O && ("PUT" === e || "DELETE" === e)) {
+    const fase = await one(_, "pd_formula_phases", O[1]);
+    const f = fase?.formula_id ? await one(_, "pd_formulas", fase.formula_id) : null;
+    if (f?.locked) throw apiError(409, `A versão v${f.version || 1} está travada${f.origem_lote?.codigo ? ` (ordem do lote ${f.origem_lote.codigo})` : ""}: as fases dela não mudam. Crie uma versão nova para alterar.`);
+  }
   if (O = j(/^\/pd\/formula-phases\/([^/]+)$/), "PUT" === e && O) return response(await patch(_, "pd_formula_phases", O[1], r), i);
   if ("DELETE" === e && O) return await erase(_, "pd_formula_phases", O[1]), response({
     deleted: !0
@@ -2769,7 +2856,9 @@ async function dispatch(e, t) {
   }
   if ("DELETE" === e && O) {
     if (await masterOne("materiais", O[1])) throw apiError(409, "Item originado no Cadastro Mestre. Desative-o em Cadastros, sem excluir pelo P&D.");
-    for (const e of (await all(_, "pd_formula_items")).filter(e => e.catalog_id === O[1])) await patch(_, "pd_formula_items", e.id, {
+    // A5: item de versão travada guarda a referência (histórico); só as editáveis perdem o vínculo.
+    const travadas = new Set((await all(_, "pd_formulas")).filter((f) => f.locked).map((f) => f.id));
+    for (const e of (await all(_, "pd_formula_items")).filter(e => e.catalog_id === O[1] && !travadas.has(e.formula_id))) await patch(_, "pd_formula_items", e.id, {
       catalog_id: null
     });
     for (const e of (await all(_, "pd_catalog_price_history")).filter(e => e.catalog_id === O[1] || e.catalog_item_id === O[1])) await erase(_, "pd_catalog_price_history", e.id);
@@ -3114,28 +3203,7 @@ async function dispatch(e, t) {
     const e = await one(_, "pd_requests", O[1]);
     if (!e) throw apiError(404, "Solicitação P&D não encontrada.");
     let t = (await all(_, "pd_stability_studies")).find(e => e.request_id === O[1] || e.pd_card_id === O[1]) || null;
-    if (!t) {
-      const a = now();
-      t = await create(_, "pd_stability_studies", {
-        request_id: O[1],
-        pd_card_id: O[1],
-        amostra_id: e.crm_sample_id || e.linked_amostra_id,
-        amostra_variacao_id: e.crm_variacao_id || e.linked_variacao_id,
-        status: "ativo",
-        started_at: a,
-        updated_at: a,
-        conditions: PD_STABILITY_CONDITIONS.map(e => ({
-          ...e,
-          completed_day_offsets: [],
-          next_due_day_offset: e.checkpoints[0],
-          next_due_at: a
-        })),
-        summary: {
-          overall_status: "pendente_d0",
-          completed_readings: 0
-        }
-      });
-    }
+    if (!t) t = await create(_, "pd_stability_studies", novoEstudoEstabilidade({ ...e, id: O[1] }, now()));
     const a = (await related(_, "pd_stability_readings", "study_id", t.id)).sort((e, t) => Number(e.day_offset || 0) - Number(t.day_offset || 0));
     return response({
       study: t,
