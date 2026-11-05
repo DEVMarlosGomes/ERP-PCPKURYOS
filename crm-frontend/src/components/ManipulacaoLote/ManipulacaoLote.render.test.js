@@ -40,6 +40,10 @@ test("editor: 100 % por coluna, comum em âmbar e crítico em vermelho; sem caix
   expect(tag(html, "matriz-lote")).toContain('style="width:724px"');
   expect(tag(html, "matriz-lote-table-wrap")).toContain("overflow-x-auto");
   expect(tag(html, "matriz-lote-table-wrap")).toContain("max-w-full");
+  expect(tag(html, "matriz-lote-cabecalho")).toContain("matriz-lote-cabecalho");
+  expect(tag(html, "cabecalho-amostra-R1")).toContain("!h-auto");
+  expect(html).toContain("Quantidade (g)");
+  expect(html).toContain('class="mt-3 grid gap-2 border-t pt-2"');
   expect(html).toContain('<col style="width:220px"/>');
   expect(html).toMatch(/data-testid="soma-R1"[^>]*>100 %/);
   expect(tag(html, `cel-R2-${k("Água")}`)).toContain("bg-amber-50");
