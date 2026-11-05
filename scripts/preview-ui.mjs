@@ -1,7 +1,5 @@
 // Preview local da UI usando os mesmos rewrites do firebase.json.
 // Só serve public/ em loopback; não chama deploy nem escreve no Firebase.
-// A UI continua conectada ao Firebase real. localhost/127.0.0.1 ativam
-// emuladores no app; esta prévia usa nip.io e redireciona esses aliases.
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -10,7 +8,6 @@ import { fileURLToPath } from 'node:url';
 const workspace = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const config = JSON.parse(await readFile(path.join(workspace, 'firebase.json'), 'utf8'));
 const root = path.resolve(workspace, config.hosting.public);
-const previewHostname = '127.0.0.1.nip.io';
 const rewrites = config.hosting.rewrites.map(item => ({
   match: new RegExp('^' + item.source.split('**').map(part => part.split('*').map(text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[^/]*')).join('.*') + '$'),
   destination: item.destination,
@@ -26,23 +23,7 @@ const server = createServer(async (request, response) => {
   try {
     if (!['GET', 'HEAD'].includes(request.method)) { response.writeHead(405); response.end(); return; }
     const url = new URL(request.url, 'http://127.0.0.1');
-    const requestHostname = new URL('http://' + request.headers.host).hostname;
-    if (requestHostname === 'localhost' || requestHostname === '127.0.0.1') {
-      response.writeHead(302, {
-        Location: 'http://' + previewHostname + ':' + server.address().port + url.pathname + url.search,
-        'Cache-Control': 'no-store',
-      });
-      response.end();
-      return;
-    }
-    // Não aceitar outros Host em um serviço que deve ser apenas local.
-    if (requestHostname !== previewHostname) { response.writeHead(403); response.end(); return; }
     const pathname = decodeURIComponent(url.pathname);
-    if (pathname === '/') {
-      response.writeHead(302, { Location: '/login' + url.search, 'Cache-Control': 'no-store' });
-      response.end();
-      return;
-    }
     // Mesmo comportamento do Hosting/Vercel: redirects do firebase.json e
     // cleanUrls (/x.html -> /x com 301; /x serve x.html).
     const redirect = (config.hosting.redirects || []).find(item => item.source === pathname);
