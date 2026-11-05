@@ -266,3 +266,24 @@ dizer por quê e as amostras ficavam com "Nenhuma fórmula criada".
   salvamento devolver pendência; a tela não promete o número da versão (o servidor reserva o maior + 1).
 - Testes: CRM 486 (motor, rota, render — caso de matriz vazia incluso). Emulador (`run_manipulacao_lote_servidor_test.js`,
   `run_manipulacao_lote_auditoria_test.js`) revisados por leitura; rodar no computador antes do deploy.
+
+## 16. Tela dedicada e conclusão aos 100 % (05/11/2026, pedido do Marlos)
+
+> *"Visualização e responsividade completamente bugado; ao atingir 100 % de preenchimento liberar para criar suas
+> variações V1, V2…"*
+
+- **Causa do layout quebrado:** só aparecia em produção. O `auth_check.js` injeta CSS global depois do bundle —
+  `kuryos-apple-system.css` (caixa alta e 11 px em todo `<th>`), `kuryos-ui-components.css` (36 px de altura em
+  `#root table th`), `index.css` (2,5 rem de altura mínima em todo `input`, caixinhas inclusive), `lista-suspensa.js`
+  (redesenha todo `<select>`, daí a seta dupla) e `tabela-fixa.js` (limita a altura do contêiner que rola na horizontal).
+  A vitrine (`scripts/prints-pd-lote.mjs`) agora injeta essas folhas e scripts na ordem da página, abre o lote pelo
+  diálogo real (`?cena=dialogo`, `&vazio=1` = o caso LM-2026-041-2) e confere o fluxo das gramas.
+- **Tela dedicada (Codex, terminada pelo Claude):** o lote abre em tela cheia; amostras numa lista lateral (faixa
+  horizontal abaixo de 1280 px), uma amostra por vez com a matriz ao lado de cada %, fechamento ao vivo. Sem `<table>`
+  nem `<select>` nativo na composição; "Copiar composição de" é um menu.
+- **Os 100 % liberam "Concluir lote".** A quantidade em g não segura mais o botão: só serve à ordem de pesagem, e se o
+  pedido não traz, o clique abre "Quantidade a manipular" (um campo por amostra e um atalho "mesma para todas"); a
+  conclusão grava as gramas no rascunho e só então chama `gerar_ordem`. Servidor e regras **inalterados** — o servidor
+  continua recusando ordem sem gramas, que agora sempre chegam.
+- Testes: CRM 486; vitrine 54 prints (1920/1440/390, claro/escuro) sem erro nem rolagem horizontal, com a conferência
+  de que a conclusão grava 50 g em cada amostra antes de gerar a ordem.

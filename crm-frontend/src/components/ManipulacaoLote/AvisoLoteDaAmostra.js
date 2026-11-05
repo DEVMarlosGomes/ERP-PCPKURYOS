@@ -1,6 +1,6 @@
 /* Aba Manipulação (e Custo P&D) da amostra que está num lote aberto (05/11/2026): enquanto o lote está em
- * rascunho a fórmula ainda não existe aqui — ela nasce quando a química clica em "Concluir e enviar para a
- * manipulação" no lote. Sem este aviso a amostra parecia "não ter ido para a manipulação". */
+ * rascunho a fórmula ainda não existe aqui — ela nasce quando a química clica em "Concluir lote" no lote.
+ * Sem este aviso a amostra parecia "não ter ido para a manipulação". */
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { Layers } from "lucide-react";

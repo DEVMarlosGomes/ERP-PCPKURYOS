@@ -30,31 +30,32 @@ function loteDeExemplo(mut) {
 
 test("editor: 100 % por coluna, comum em âmbar e crítico em vermelho; sem caixa de comentário; crítico da fórmula anterior segura a conclusão", () => {
   const { lote, k } = loteDeExemplo((l, k) => {
-    l.celulas.R2 = { ...l.celulas.R2, [k("Água")]: 79.2, [k("Fenoxietanol")]: 0.8 };
+    l.celulas.R1 = { ...l.celulas.R1, [k("Água")]: 79.2, [k("Fenoxietanol")]: 0.8 };
   });
-  // R2 já tinha fórmula (v1) com o conservante a 1 %: a troca para 0,8 pede o "Aprovar" de outra pessoa.
-  const origem_celulas = { R2: { [k("Água")]: 79, [k("Fenoxietanol")]: 1, [k("Fragrância Lavanda")]: 20 } };
+  // R1 já tinha fórmula (v2) com o conservante a 1 %: a troca para 0,8 pede o "Aprovar" de outra pessoa.
+  const origem_celulas = { R1: { [k("Água")]: 79, [k("Fenoxietanol")]: 1, [k("Fragrância Lavanda")]: 20 } };
   const html = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true, origem_celulas }} user={{ role: "pd" }} recarregar={async () => {}} />);
   expect(html).toContain('data-testid="matriz-lote"');
-  expect(tag(html, "matriz-lote")).toContain("table-fixed");
-  expect(tag(html, "matriz-lote")).toContain('style="width:724px"');
-  expect(tag(html, "matriz-lote-table-wrap")).toContain("overflow-x-auto");
-  expect(tag(html, "matriz-lote-table-wrap")).toContain("max-w-full");
-  expect(tag(html, "matriz-lote-cabecalho")).toContain("matriz-lote-cabecalho");
-  expect(tag(html, "cabecalho-amostra-R1")).toContain("!h-auto");
+  expect(html).toContain('data-testid="workspace-amostras-lote"');
+  expect(html).toContain('data-testid="amostras-lote-nav"');
+  expect(html).toContain('data-testid="amostra-lote-R1"');
+  expect(html).toContain('data-testid="amostra-lote-R2"');
+  expect(tag(html, "matriz-lote")).toContain("div");
+  expect(html).not.toContain("table-fixed");
+  expect(html).not.toContain("<colgroup");
+  expect(tag(html, "cabecalho-amostra-R1")).toContain("rounded-xl");
   expect(html).toContain("Quantidade (g)");
-  expect(html).toContain('class="mt-3 grid gap-2 border-t pt-2"');
-  expect(html).toContain('<col style="width:220px"/>');
-  expect(html).toMatch(/data-testid="soma-R1"[^>]*>100 %/);
-  expect(tag(html, `cel-R2-${k("Água")}`)).toContain("bg-amber-50");
-  expect(tag(html, `cel-R2-${k("Fenoxietanol")}`)).toContain("bg-red-50");
+  expect(html.indexOf("Quantidade (g)")).toBeLessThan(html.indexOf('data-testid="matriz-lote-cabecalho"'));
+  expect(html).toMatch(/data-testid="soma-R1"[^>]*>100%/);
+  expect(tag(html, `cel-R1-${k("Água")}`)).toContain("bg-amber-50");
+  expect(tag(html, `cel-R1-${k("Fenoxietanol")}`)).toContain("bg-red-50");
   expect(html).not.toMatch(/Motivo \(mín/); // não pede comentário
   expect(html).toContain('data-testid="criticos-lote"');
   expect(html).toContain("precisa do &quot;Aprovar&quot; de outra pessoa");
-  expect(html).toContain("Para concluir, falta:");
+  expect(html).toContain("Para concluir:");
   expect(html).toContain("1 ingrediente(s) crítico(s) para outra pessoa aprovar");
   expect(desabilitado(html, "btn-gerar-ordem")).toBe(true);
-  expect(html).toContain("Concluir e enviar para a manipulação");
+  expect(html).toContain("Concluir lote");
   expect(html).toContain("Fase A");
   // A mesma mudança sem fórmula anterior (primeira formulação): nada pendente, botão liberado.
   const novo = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true }} user={{ role: "pd" }} recarregar={async () => {}} />);
@@ -62,21 +63,33 @@ test("editor: 100 % por coluna, comum em âmbar e crítico em vermelho; sem caix
   expect(desabilitado(novo, "btn-gerar-ordem")).toBe(false);
 });
 
-test("editor: matriz vazia (caso LM-2026-041-2) — sem gramas o botão diz o que falta; com gramas e 100 % libera direto, mostrando que cada uma ganha a primeira versão", () => {
+test("editor: matriz vazia (caso LM-2026-041-2) — os 100 % liberam a conclusão; a quantidade em g que falta é pedida no clique", () => {
   const { lote, k } = loteDeExemplo((l, k) => {
     l.matriz = { tipo: "vazia", ref_id: null, codigo: "", celulas: {} };
     for (const r of ["R1", "R2"]) { l.membros[r].versao_antes = null; l.membros[r].quantidade_g = undefined; }
     l.celulas.R2 = { [k("Água")]: 79.5, [k("Fenoxietanol")]: 0.5, [k("Fragrância Lavanda")]: 20 };
   });
   const semG = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true }} user={{ role: "pd" }} recarregar={async () => {}} />);
-  expect(semG).toContain("quantidade em g de 2026-1003-a, 2026-1003-b");
-  expect(desabilitado(semG, "btn-gerar-ordem")).toBe(true);
+  // 05/11 (Marlos): "ao atingir 100 % de preenchimento liberar para criar suas variações V1, V2…" — gramas não seguram o botão.
+  expect(desabilitado(semG, "btn-gerar-ordem")).toBe(false);
+  expect(semG).not.toContain("Para concluir:");
+  expect(semG).toContain("todas começam na V1");
+  expect(semG).toContain("A quantidade em g de todas é pedida no clique (o pedido não traz).");
+  expect(semG.match(/<input[^>]*id="quantidade-R1"[^>]*>/)?.[0]).toContain('placeholder="pedida ao concluir"');
   expect(semG).toContain("Matriz vazia: as amostras sem fórmula anterior são fórmulas novas");
-  expect(tag(semG, `cel-R2-${k("Fenoxietanol")}`)).not.toContain("bg-red-50"); // fórmula nova não tem "diferença"
+  expect(tag(semG, `cel-R1-${k("Fenoxietanol")}`)).not.toContain("bg-red-50"); // fórmula nova não tem "diferença"
+  // Uma amostra fora dos 100 % segura o botão e diz qual.
+  lote.celulas.R2 = { ...lote.celulas.R2, [k("Água")]: 79 };
+  const fora = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true }} user={{ role: "pd" }} recarregar={async () => {}} />);
+  expect(desabilitado(fora, "btn-gerar-ordem")).toBe(true);
+  expect(fora).toContain("2026-1003-b fecha 99,5 % (precisa de 100 %)");
+  // Com as gramas (do pedido ou digitadas no cabeçalho), nada é perguntado.
+  lote.celulas.R2 = { ...lote.celulas.R2, [k("Água")]: 79.5 };
   for (const r of ["R1", "R2"]) lote.membros[r].quantidade_g = 50;
   const pronto = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true }} user={{ role: "pd" }} recarregar={async () => {}} />);
   expect(desabilitado(pronto, "btn-gerar-ordem")).toBe(false);
-  expect(pronto).toContain("2026-1003-a: primeira versão · 2026-1003-b: primeira versão");
+  expect(pronto).toContain("Tudo preenchido. Ao concluir, cada amostra ganha a próxima versão");
+  expect(pronto).not.toContain("é pedida no clique");
 });
 
 test("editor: sem diferença e tudo fechado, conclui direto; perfil sem P&D só consulta", () => {
@@ -86,7 +99,7 @@ test("editor: sem diferença e tudo fechado, conclui direto; perfil sem P&D só 
   expect(tag(html, "btn-gerar-ordem")).toBeTruthy();
   expect(desabilitado(html, "btn-gerar-ordem")).toBe(false);
   const consulta = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pcp", pode_editar: false }} user={{ role: "pcp" }} recarregar={async () => {}} />);
-  expect(consulta).toContain("Seu perfil só consulta.");
+  expect(consulta).toContain("Seu perfil está em modo consulta.");
   expect(desabilitado(consulta, "btn-salvar-lote")).toBe(true);
 });
 
