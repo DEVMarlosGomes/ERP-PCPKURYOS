@@ -13,7 +13,6 @@
  * o contrato em manipulacaoLote.contrato.test.js cai se as duas divergirem. */
 
 import { fechamentoFormula } from "./fechamentoFormula";
-import { chaveSolicitacaoPorNome } from "./filaCadastroMp";
 
 export const MIN_MEMBROS = 2;
 export const MAX_MEMBROS = 20; // D-01 (Marlos, P1): 20, não 12
@@ -47,15 +46,47 @@ export function gramasCg(quantidadeG, percentual) {
 }
 export const gramas = (quantidadeG, percentual) => deCg(gramasCg(quantidadeG, percentual));
 
-/* ── Fragrância, nível da mudança ────────────────────────────────────────────── */
-const FRAGRANCIA = /fragr|parfum|perfum|essenc|aroma/i;
+/* ── Fragrância, nível da mudança (D-02 + auditoria A1) ─────────────────────────
+ * Fragrância é o que o cadastro ou a fórmula de origem dizem: material MPES ou função
+ * "fragrância" no item de origem. Nome/INCI ("óleo essencial…", "Aroma…") só sugerem na tela.
+ * Crítico (materiais/{key}/criticoPd) vence a fragrância. Quem grava (rota e servidor) recalcula
+ * os dois com classificarIngredientes — nunca confia no que a tela mandou. */
+const SUGESTAO_FRAGRANCIA = /fragr|parfum|perfum|essenc|aroma/i;
 export function ehFragrancia(ing) {
   const i = ing || {};
   if (i.ehFragrancia === true) return true;
+  if (String(i.tipo_material || "").toUpperCase() === "MPES") return true;
   if (/^MPES\b/i.test(String(i.codigo || i.material_code || ""))) return true;
-  return [i.funcao, i.function, i.nome, i.ingredient_name, i.inci].some((v) => FRAGRANCIA.test(semAcento(v)));
+  return [i.funcao, i.function].some((v) => /fragr/i.test(semAcento(v)));
 }
-export const nivelDaMudanca = (ing) => (ehFragrancia(ing) ? NIVEL.FRAGRANCIA : ing?.critico ? NIVEL.CRITICO : NIVEL.COMUM);
+export const sugereFragrancia = (ing) => !ehFragrancia(ing) && [ing?.nome, ing?.ingredient_name, ing?.inci].some((v) => SUGESTAO_FRAGRANCIA.test(semAcento(v)));
+export const nivelDaMudanca = (ing) => (ing?.critico ? NIVEL.CRITICO : ehFragrancia(ing) ? NIVEL.FRAGRANCIA : NIVEL.COMUM);
+
+/* Classificação com fonte confiável: materiais = Map(id → materiais/{id}); itensOrigem = itens das
+ * fórmulas de origem (antes de cada membro e matriz). Sem material, só a função de origem vale. */
+export function classificarIngredientes(ingredientes, { materiais = new Map(), itensOrigem = [] } = {}) {
+  const funcaoDe = new Map();
+  for (const it of itensOrigem || []) {
+    const c = chaveMaterialFase(itemParaIngrediente(it));
+    if (/fragr/i.test(semAcento(it.function || it.funcao)) || !funcaoDe.has(c)) funcaoDe.set(c, it.function || it.funcao || "");
+  }
+  return Object.fromEntries(Object.entries(ingredientes || {}).map(([k, x]) => {
+    const mat = materiais.get(x?.master_material_id) || materiais.get(x?.catalog_id) || null;
+    const funcaoOrigem = funcaoDe.get(chaveMaterialFase(x || {})) || "";
+    const frag = String(mat?.tipo || "").toUpperCase() === "MPES" || /^MPES\b/i.test(String(mat?.mpCodigo || "")) || /fragr/i.test(semAcento(funcaoOrigem));
+    return [k, { ...x, ehFragrancia: frag, critico: mat?.criticoPd === true }];
+  }));
+}
+
+/* D-10: ADM e P&D. Mais restrito que effectiveRoles (que dá papéis de P&D ao PCP): a mesma lista
+ * da regra de erp/$tenant/pd_manipulacao_lotes em database.rules.json. */
+export const PAPEIS_LOTE = ["admin", "pd", "lider_pd", "formulador", "engenharia_produto"];
+export function podeManipularLote(perfil) {
+  if (!perfil || perfil.desativado === true) return false;
+  if (PAPEIS_LOTE.includes(String(perfil.role || "").toLowerCase())) return true;
+  if (PAPEIS_LOTE.some((p) => perfil.funcoes?.[p] === true)) return true;
+  return perfil.modulos?.pd === true;
+}
 
 /* ── Elegibilidade (D-01) ───────────────────────────────────────────────────── */
 const decisaoDoCliente = (v) => {
@@ -66,14 +97,21 @@ const decisaoDoCliente = (v) => {
   return "";
 };
 const cancelada = (v) => ["cancelada", "cancelado"].includes(norm(v?.status)) || ["cancelada", "cancelado"].includes(norm(v?.resultado_cliente));
+const aguardandoCliente = (v) => {
+  const s = norm(v?.status).replace(/ /g, "_");
+  return ["enviada", "amostra_enviada", "em_avaliacao", "em_avaliacao_cliente"].includes(s) || s.startsWith("aguardando_retorno");
+};
 
 export function motivoInelegivel({ request, variacao, lotesAbertos = [], loteAtualId = null }) {
   if (!request) return "Sem solicitação no P&D — abra a solicitação desta variação pelo CRM.";
-  const status = request.status || "OPEN";
+  const status = request.status;
+  if (!status) return "Solicitação sem etapa registrada — abra-a no P&D para corrigir antes de pôr no lote.";
   if (!STATUS_PD_ELEGIVEIS.includes(status)) return `Está em ${ROTULO_STATUS_PD[status] || status}; só entram amostras Abertas ou Em Desenvolvimento.`;
   if (cancelada(variacao)) return "Variação cancelada no CRM.";
   const decisao = decisaoDoCliente(variacao);
   if (decisao) return `O cliente já decidiu (${decisao}) — a amostra não volta para a bancada pelo lote.`;
+  // Auditoria A4: enviada e aguardando o retorno do cliente não entra (o cliente avalia a versão que recebeu).
+  if (aguardandoCliente(variacao)) return "Amostra enviada ao cliente, aguardando retorno — registre o retorno antes de pôr no lote.";
   const outro = (lotesAbertos || []).find((l) => l?.id !== loteAtualId && STATUS_LOTE_ABERTO.includes(l?.status || "rascunho")
     && l?.membros?.[request.id] && l.membros[request.id].status_membro !== "removido");
   if (outro) return `Já está no lote ${outro.codigo} — conclua ou tire a amostra de lá.`;
@@ -254,7 +292,8 @@ export function ordemDoLote({ ingredientes, celulas, membros, preMistura = {}, p
       const por = {};
       let baseCg = 0;
       for (const m of ativos) { const c = cg(gDe(m.request_id, k).teorico_g); por[m.request_id] = deCg(c); baseCg += c; }
-      const pesadoCg = Math.max(baseCg, Math.round(baseCg * (1 + p / 100)));
+      // Auditoria B1: excesso sempre para cima, para nenhuma linha ficar sem a sua parte do excesso.
+      const pesadoCg = p > 0 ? Math.ceil(baseCg * (100 + p) / 100 - 1e-9) : baseCg;
       naPreMistura.add(k);
       return { ingKey: k, nome: ingredientes[k].nome, fase, pct: num(celulas[ativos[0].request_id][k]), por_membro: por, base_g: deCg(baseCg), teorico_g: deCg(pesadoCg) };
     });
@@ -309,39 +348,70 @@ function cyrb53(str, seed = 0) {
   h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507); h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
   return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16).padStart(14, "0");
 }
-export function assinaturaItens(itens) {
-  const linhas = (itens || []).filter((i) => pct4(i?.percentage ?? i?.pct) > 0)
-    .map((i) => `${norm(i.ingredient_name ?? i.nome)}|${norm(i.phase ?? i.fase)}|${pct4(i.percentage ?? i.pct)}`).sort();
-  return cyrb53(linhas.join(";"));
+/* Texto canônico de uma versão: material (id do cadastro ou código), nome, fase e % (4 casas),
+ * ordenado (auditoria M2: trocar o material com o mesmo nome muda a assinatura). O cliente usa
+ * cyrb53 para detectar edição fora do lote; o servidor assina a ordem com SHA-256 do mesmo texto. */
+export function textoCanonicoItens(itens) {
+  return (itens || []).filter((i) => pct4(i?.percentage ?? i?.pct) > 0)
+    .map((i) => `${norm(i.master_material_id || i.catalog_id || i.material_code || i.codigo || "")}|${norm(i.ingredient_name ?? i.nome)}|${norm(i.phase ?? i.fase)}|${pct4(i.percentage ?? i.pct)}`)
+    .sort().join(";");
 }
+export const assinaturaItens = (itens) => cyrb53(textoCanonicoItens(itens));
 export const itensDaColuna = (ingredientes, col) => chavesOrdenadas(ingredientes).filter((k) => num(col?.[k]) > 0)
-  .map((k) => ({ ingredient_name: ingredientes[k].nome, phase: ingredientes[k].fase || "", percentage: num(col[k]) }));
+  .map((k) => ({ ingredient_name: ingredientes[k].nome, phase: ingredientes[k].fase || "", percentage: num(col[k]),
+    master_material_id: ingredientes[k].master_material_id || "", catalog_id: ingredientes[k].catalog_id || "", material_code: ingredientes[k].codigo || "" }));
 
-export function conciliacaoMassa({ pesadoG, entregue = {}, retencao = {}, descarteG = 0, perdaDeclaradaG = 0, n = 1 }) {
+/* Conciliação de massa (§5): pesado = entregue + retenção + descarte + perda, dentro de
+ * max(0,05 g × n; 0,5 %). Auditoria M3: a perda declarada tem teto (excesso previsto do lote,
+ * nunca menos que a tolerância); acima disso a sobra é descarte, com motivo. */
+export function conciliacaoMassa({ pesadoG, entregue = {}, retencao = {}, descarteG = 0, perdaDeclaradaG = 0, n = 1, perdaPct = 0 }) {
   const destinosCg = Object.values(entregue).reduce((s, g) => s + cg(g), 0) + Object.values(retencao).reduce((s, r) => s + cg(r?.g), 0) + cg(descarteG) + cg(perdaDeclaradaG);
   const pesadoCg = cg(pesadoG);
   const toleranciaCg = Math.max(5 * Math.max(1, num(n)), Math.round(pesadoCg * 0.005));
+  const perdaMaxCg = Math.max(toleranciaCg, Math.ceil(pesadoCg * Math.max(0, num(perdaPct)) / 100));
   const residuoCg = pesadoCg - destinosCg;
-  return { pesado_g: deCg(pesadoCg), destinos_g: deCg(destinosCg), residuo_g: deCg(residuoCg), tolerancia_g: deCg(toleranciaCg), ok: Math.abs(residuoCg) <= toleranciaCg };
+  const perdaOk = cg(perdaDeclaradaG) <= perdaMaxCg;
+  return { pesado_g: deCg(pesadoCg), destinos_g: deCg(destinosCg), residuo_g: deCg(residuoCg), tolerancia_g: deCg(toleranciaCg),
+    perda_max_g: deCg(perdaMaxCg), perda_ok: perdaOk, ok: perdaOk && Math.abs(residuoCg) <= toleranciaCg };
 }
 
+/* Pesagem por linha (auditoria M4): desvio aceito sem motivo até max(0,01 g; 1 % do teórico). */
+export function toleranciaPesagem(teoricoG) {
+  return deCg(Math.max(1, Math.round(cg(teoricoG) * 0.01)));
+}
+export function desvioPesagem(teoricoG, realG) {
+  const d = deCg(cg(realG) - cg(teoricoG));
+  return { desvio_g: d, tolerancia_g: toleranciaPesagem(teoricoG), dentro: Math.abs(cg(d)) <= cg(toleranciaPesagem(teoricoG)) };
+}
+
+/* Kickoff "o que varia" (auditoria M8): composição gravada pelo servidor ao gerar a ordem (versão
+ * travada). Só vale a composição da versão que o cliente aprovou (aprovacao_cliente.formula_aprovada,
+ * quando registrada); compara por material + fase (chave), não por nome. */
+export function composicaoValida(variacao) {
+  const lm = variacao?.lote_manipulacao;
+  if (!Array.isArray(lm?.composicao)) return null;
+  const aprovada = variacao?.aprovacao_cliente?.formula_aprovada?.id;
+  if (aprovada && lm.formula_id && aprovada !== lm.formula_id) return null;
+  return lm.composicao;
+}
 export function oQueVaria(variacoesAprovadas) {
-  const lista = (variacoesAprovadas || []).map((v) => v?.lote_manipulacao?.composicao).filter(Array.isArray);
+  const lista = (variacoesAprovadas || []).map(composicaoValida).filter(Boolean);
   if (lista.length < 2) return [];
+  const chave = (c) => c.chave || norm(c.nome);
   const nomes = new Map();
-  lista.forEach((comp) => comp.forEach((c) => { if (!nomes.has(norm(c.nome))) nomes.set(norm(c.nome), c.nome); }));
-  const out = [];
+  lista.forEach((comp) => comp.forEach((c) => { if (!nomes.has(chave(c))) nomes.set(chave(c), c.nome); }));
+  const out = new Set();
   for (const [k, nome] of nomes) {
-    const valores = lista.map((comp) => pct4(comp.find((c) => norm(c.nome) === k)?.pct));
-    if (valores.some((v) => v !== valores[0])) out.push(nome);
+    const valores = lista.map((comp) => pct4(comp.find((c) => chave(c) === k)?.pct));
+    if (valores.some((v) => v !== valores[0])) out.add(nome);
   }
-  return out.sort((a, b) => a.localeCompare(b, "pt-BR"));
+  return [...out].sort((a, b) => a.localeCompare(b, "pt-BR"));
 }
 
-/* ── Plano do salvamento: um update() com caminhos planos (§6 da spec) ─────── */
-const CABECALHO_FORA = new Set(["id", "development_id", "version", "locked", "locked_at", "locked_by", "locked_by_name", "locked_motivo",
-  "created_at", "created_by", "created_by_name", "updated_at", "status", "parent_formula_id", "origem_lote", "version_justification", "justification", "items", "tenant_id"]);
-
+/* ── Plano do salvamento: um update() com caminhos planos (§6 da spec) ───────
+ * Auditoria A4: salvar grava só o RASCUNHO no nó do lote (e Aberto → Em Desenvolvimento). As
+ * versões de pd_formulas nascem no servidor ao gerar a ordem, já travadas — antes disso nada no
+ * P&D (vigente, ficha, BOM, SKU) enxerga o rascunho. */
 export function limpo(v) {
   if (Array.isArray(v)) return v.map(limpo);
   if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).filter(([, x]) => x !== undefined).map(([k, x]) => [k, limpo(x)]));
@@ -358,86 +428,38 @@ function assinaturaRascunho(r, membrosAtivos, quantidades) {
   });
 }
 
-export function planoSalvarLote({ tenantPath, lote, rascunho, contexto, novasVersoes = {}, agora, autor, custos = () => ({}), novoId }) {
+// Auditoria B3: cada salvamento leva o de→para de cada célula que mudou.
+export function mudancasDoRascunho(lote, rascunho, membros) {
+  const out = [];
+  for (const r of membros) {
+    const antes = lote.celulas?.[r] || {};
+    const depois = rascunho.celulas?.[r] || {};
+    for (const k of new Set([...Object.keys(antes), ...Object.keys(depois)])) {
+      if (pct4(antes[k]) !== pct4(depois[k])) out.push({ r, k, nome: rascunho.ingredientes?.[k]?.nome || lote.ingredientes?.[k]?.nome || k, de: num(antes[k]), para: num(depois[k]) });
+    }
+  }
+  return out;
+}
+
+export function planoSalvarLote({ tenantPath, lote, rascunho, contexto, agora, autor, novoId }) {
   const L = `${tenantPath}/pd_manipulacao_lotes/${lote.id}`;
+  const T = tenantPath;
   const ativos = Object.entries(lote.membros || {}).filter(([, m]) => m.status_membro !== "removido").map(([r]) => r);
   const ing = rascunho.ingredientes || {};
   const quantidades = rascunho.quantidades || {};
-  const matrizCelulas = lote.matriz?.celulas || {};
-  const difs = diferencas({ ingredientes: ing, celulas: Object.fromEntries(ativos.map((r) => [r, rascunho.celulas?.[r] || {}])), matrizCelulas });
-  const resumo = { semMudanca: false, versoesCriadas: [], passaramEmDesenvolvimento: [], mpNovas: { registrar: [], retirar: [] }, itensGravados: 0, itensRemovidos: 0 };
-
-  // Duplo clique / reenvio com o mesmo conteúdo: nada a gravar.
-  const assinaturaDe = (r) => assinaturaItens(itensDaColuna(ing, rascunho.celulas?.[r]));
+  const celulas = Object.fromEntries(ativos.map((r) => [r, rascunho.celulas?.[r] || {}]));
+  const difs = diferencas({ ingredientes: ing, celulas, matrizCelulas: lote.matriz?.celulas || {} });
+  const resumo = { semMudanca: false, passaramEmDesenvolvimento: [], mudancas: [] };
   const gravado = { ingredientes: lote.ingredientes, celulas: lote.celulas, motivos: lote.motivos, pre_mistura: lote.pre_mistura, perda_pct: lote.perda_pct, minimo_pesavel_g: lote.minimo_pesavel_g };
   const qGravadas = Object.fromEntries(ativos.map((r) => [r, { quantidade_g: lote.membros[r].quantidade_g, densidade: lote.membros[r].densidade }]));
-  if (ativos.every((r) => lote.membros[r].formula_id_lote && lote.membros[r].assinatura_lote === assinaturaDe(r))
-    && assinaturaRascunho(rascunho, ativos, quantidades) === assinaturaRascunho(gravado, ativos, qGravadas)) {
-    return { updates: {}, resumo: { ...resumo, semMudanca: true } };
-  }
+  // Duplo clique / reenvio com o mesmo conteúdo: nada a gravar (nem revisão).
+  if (assinaturaRascunho(rascunho, ativos, quantidades) === assinaturaRascunho(gravado, ativos, qGravadas)) return { updates: {}, resumo: { ...resumo, semMudanca: true } };
 
   const u = {};
-  const T = tenantPath;
   const motivos = {};
   for (const r of ativos) {
-    const m = lote.membros[r];
-    const nova = !m.formula_id_lote;
-    const fid = m.formula_id_lote || novasVersoes[r]?.formulaId;
-    const versao = m.versao_lote || novasVersoes[r]?.versao;
-    if (!fid || !versao) throw new Error(`Versão do lote não reservada para ${m.codigo_amostra || r}.`);
-    const origemLote = { lote_id: lote.id, codigo: lote.codigo, matriz: { tipo: lote.matriz?.tipo || "amostra", ref_id: lote.matriz?.ref_id || null, versao: lote.matriz?.versao || null }, criado_em: agora };
-    if (nova) {
-      const fonte = contexto.formulas.get(m.formula_id_antes) || (lote.matriz?.tipo === "amostra" ? contexto.formulas.get(lote.matriz.ref_id) : null) || {};
-      const cab = Object.fromEntries(Object.entries(fonte).filter(([k]) => !CABECALHO_FORA.has(k)));
-      u[`${T}/pd_formulas/${fid}`] = limpo({
-        ...cab, id: fid, development_id: m.development_id, version: versao, status: "DRAFT", locked: false,
-        parent_formula_id: m.formula_id_antes || null, name: cab.name || cab.nome || `Fórmula ${m.codigo_amostra || ""}`.trim(),
-        version_justification: `Manipulação em lote ${lote.codigo}`, origem_lote: origemLote,
-        created_by: autor.uid, created_by_name: autor.nome, created_at: agora, updated_at: agora,
-      });
-      (contexto.fasesPorFormula.get(fonte.id) || []).forEach((f, i) => {
-        u[`${T}/pd_formula_phases/${fid}_f${i}`] = limpo({ ...f, id: `${fid}_f${i}`, formula_id: fid, created_at: agora, updated_at: agora });
-      });
-      u[`${T}/pd_developments/${m.development_id}/current_version`] = versao;
-      u[`${T}/pd_developments/${m.development_id}/updated_at`] = agora;
-      resumo.versoesCriadas.push({ request_id: r, formula_id: fid, versao });
-    } else {
-      u[`${T}/pd_formulas/${fid}/updated_at`] = agora;
-    }
-    // Itens da versão do lote: id determinístico (versão + chave do ingrediente).
-    const existentes = new Map((contexto.itensPorFormula.get(fid) || []).map((i) => [i.id, i]));
-    const desejados = new Set();
-    const formula = { id: fid, version: versao };
-    for (const [k, p] of Object.entries(rascunho.celulas?.[r] || {})) {
-      if (!(num(p) > 0) || !ing[k]) continue;
-      const iid = `${fid}_${k}`;
-      desejados.add(iid);
-      const d = ing[k];
-      const base = limpo({
-        id: iid, formula_id: fid, ingredient_name: d.nome, phase: d.fase || "", function: d.funcao || (d.ehFragrancia ? "fragrância" : ""),
-        percentage: num(p), catalog_id: d.catalog_id || "", master_material_id: d.master_material_id || "", material_code: d.codigo || "",
-        inci: d.inci || "", price_per_kg: num(d.price_per_kg), price_usd: d.price_usd ?? null, price_currency: d.price_currency || null,
-        unit: d.unit || null, supplier_names: d.fornecedor || "", mp_nova: d.mp_nova || null, origem_lote: lote.id,
-        created_at: existentes.get(iid)?.created_at || agora, updated_at: agora,
-      });
-      const registro = { ...base, ...custos(base, formula) };
-      u[`${T}/pd_formula_items/${iid}`] = registro;
-      resumo.itensGravados += 1;
-      const antes = existentes.get(iid);
-      if (registro.mp_nova && !(antes?.mp_nova && chaveSolicitacaoPorNome(antes.mp_nova.nome) === chaveSolicitacaoPorNome(registro.mp_nova.nome))) resumo.mpNovas.registrar.push(registro);
-      if (antes?.mp_nova && (!registro.mp_nova || chaveSolicitacaoPorNome(antes.mp_nova.nome) !== chaveSolicitacaoPorNome(registro.mp_nova.nome))) {
-        resumo.mpNovas.retirar.push({ chave: chaveSolicitacaoPorNome(antes.mp_nova.nome), chaveOrigem: `${fid}__${iid}`, motivo: `MP trocada na manipulação em lote ${lote.codigo}` });
-      }
-    }
-    for (const [iid, antes] of existentes) {
-      if (desejados.has(iid)) continue;
-      u[`${T}/pd_formula_items/${iid}`] = null;
-      resumo.itensRemovidos += 1;
-      if (antes.mp_nova) resumo.mpNovas.retirar.push({ chave: chaveSolicitacaoPorNome(antes.mp_nova.nome), chaveOrigem: `${fid}__${iid}`, motivo: `Ingrediente retirado na manipulação em lote ${lote.codigo}` });
-    }
-    // Aberto → Em Desenvolvimento, como ao criar a primeira fórmula.
     const req = contexto.requests.get(r);
-    if (req && (req.status || "OPEN") === "OPEN") {
+    if (req && req.status === "OPEN") {
       u[`${T}/pd_requests/${r}/status`] = "IN_PROGRESS";
       u[`${T}/pd_requests/${r}/updated_at`] = agora;
       const hid = novoId();
@@ -445,7 +467,7 @@ export function planoSalvarLote({ tenantPath, lote, rascunho, contexto, novasVer
         comment: `Desenvolvimento iniciado pela manipulação em lote ${lote.codigo}`, changed_by: autor.uid, changed_by_name: autor.nome, created_at: agora, user_id: autor.uid };
       resumo.passaramEmDesenvolvimento.push(r);
     }
-    // Motivos: o carimbo (quem/quando/valor) só muda quando o texto ou o valor mudam.
+    // Motivo: o carimbo (quem/quando/valor) só muda quando o texto ou o valor mudam.
     const dr = (difs[r] || []).filter((x) => x.nivel >= NIVEL.COMUM);
     for (const x of dr) {
       const texto = String(rascunho.motivos?.[r]?.[x.ingKey]?.texto || "").trim();
@@ -455,31 +477,16 @@ export function planoSalvarLote({ tenantPath, lote, rascunho, contexto, novasVer
       motivos[r][x.ingKey] = ant && ant.texto === texto && pct4(ant.valor) === pct4(x.para) ? ant
         : { texto, nivel: x.nivel, valor: x.para, por: autor.uid, por_nome: autor.nome, em: agora };
     }
-    const foraDaBase = dr.some((x) => x.nivel === NIVEL.CRITICO);
-    const nomesDif = dr.map((x) => x.nome);
     const q = quantidades[r] || {};
     const Lm = `${L}/membros/${r}`;
-    u[`${Lm}/formula_id_lote`] = fid;
-    u[`${Lm}/versao_lote`] = versao;
-    u[`${Lm}/assinatura_lote`] = assinaturaDe(r);
     u[`${Lm}/quantidade_g`] = num(q.quantidade_g) > 0 ? num(q.quantidade_g) : null;
     u[`${Lm}/densidade`] = num(q.densidade) > 0 ? num(q.densidade) : null;
-    u[`${Lm}/fora_da_base`] = foraDaBase;
-    u[`${Lm}/diferencas`] = nomesDif.length ? nomesDif : null;
-    // Kickoff "o que varia" lê da variação (a assinatura do motor do Kickoff não muda).
-    const amostra = contexto.samples.get(m.sample_id);
-    const idx = Array.isArray(amostra?.variacoes) ? amostra.variacoes.findIndex((v) => v?.id === m.variacao_id) : -1;
-    if (idx >= 0) {
-      u[`${T}/crm_samples/${m.sample_id}/variacoes/${idx}/lote_manipulacao`] = limpo({
-        lote_id: lote.id, codigo: lote.codigo, formula_id: fid, versao, fora_da_base: foraDaBase, diferencas: nomesDif,
-        composicao: chavesOrdenadas(ing).filter((k) => num(rascunho.celulas?.[r]?.[k]) > 0 && !ehFragrancia(ing[k]))
-          .map((k) => ({ nome: ing[k].nome, pct: num(rascunho.celulas[r][k]) })),
-        atualizado_em: agora,
-      });
-    }
+    u[`${Lm}/fora_da_base`] = dr.some((x) => x.nivel === NIVEL.CRITICO);
+    u[`${Lm}/diferencas`] = dr.length ? dr.map((x) => x.nome) : null;
   }
+  resumo.mudancas = mudancasDoRascunho(lote, rascunho, ativos);
   u[`${L}/ingredientes`] = limpo(ing);
-  u[`${L}/celulas`] = Object.fromEntries(ativos.map((r) => [r, rascunho.celulas?.[r] || {}]).filter(([, c]) => Object.keys(c).length));
+  u[`${L}/celulas`] = Object.fromEntries(Object.entries(celulas).filter(([, c]) => Object.keys(c).length));
   u[`${L}/motivos`] = motivos;
   u[`${L}/pre_mistura`] = Object.fromEntries(Object.entries(rascunho.pre_mistura || {}).filter(([f, v]) => f && v === true));
   u[`${L}/perda_pct`] = Math.max(0, num(rascunho.perda_pct));
@@ -488,8 +495,8 @@ export function planoSalvarLote({ tenantPath, lote, rascunho, contexto, novasVer
   u[`${L}/atualizado_em`] = agora;
   u[`${L}/atualizado_por`] = autor.uid;
   u[`${L}/atualizado_por_nome`] = autor.nome;
-  const ev = novoId();
-  u[`${L}/eventos/${ev}`] = { tipo: "salvo", por: autor.uid, por_nome: autor.nome, em: agora,
-    detalhe: `${ativos.length} amostra(s); ${resumo.versoesCriadas.length} versão(ões) nova(s); ${resumo.itensGravados} item(ns), ${resumo.itensRemovidos} retirado(s).` };
+  u[`${L}/eventos/${novoId()}`] = limpo({ tipo: "salvo", por: autor.uid, por_nome: autor.nome, em: agora,
+    detalhe: `${ativos.length} amostra(s); ${resumo.mudancas.length} célula(s) alterada(s).`,
+    mudancas: resumo.mudancas.slice(0, 300).map((x) => `${lote.membros[x.r]?.codigo_amostra || x.r} · ${x.nome}: ${fmtPct(x.de)} → ${fmtPct(x.para)} %`) });
   return { updates: u, resumo };
 }

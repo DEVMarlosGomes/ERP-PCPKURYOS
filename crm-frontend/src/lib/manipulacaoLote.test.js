@@ -1,9 +1,9 @@
 // LM-01 — motor da Manipulação em Lote (spec 2026-11-04-pd-manipulacao-lote-design.md §4).
 import { describe, expect, test } from "vitest";
 import {
-  MAX_MEMBROS, assinaturaItens, clonar, conciliacaoMassa, diferencas, ehFragrancia, fechamentoPorMembro, gramas,
-  matrizPadrao, montarMatriz, motivoInelegivel, oQueVaria, ordemDoLote, ordemIndividual, pendencias, planoSalvarLote,
-  quantidadeEmGramas, validarSelecao,
+  MAX_MEMBROS, NIVEL, assinaturaItens, classificarIngredientes, clonar, conciliacaoMassa, desvioPesagem, diferencas, ehFragrancia,
+  fechamentoPorMembro, gramas, matrizPadrao, montarMatriz, motivoInelegivel, nivelDaMudanca, oQueVaria, ordemDoLote, ordemIndividual,
+  pendencias, planoSalvarLote, quantidadeEmGramas, sugereFragrancia, validarSelecao,
 } from "./manipulacaoLote";
 
 const item = (nome, pct, extra = {}) => ({ ingredient_name: nome, percentage: pct, phase: "A", master_material_id: nome.toUpperCase(), ...extra });
@@ -26,6 +26,10 @@ describe("elegibilidade (D-01)", () => {
     expect(motivoInelegivel({ ...ok, variacao: { id: "v1", status: "cancelada" } })).toMatch(/cancelada/i);
     expect(motivoInelegivel({ ...ok, lotesAbertos: [{ codigo: "LM-2026-031-1", membros: { R1: { status_membro: "ativo" } } }] })).toMatch(/LM-2026-031-1/);
     expect(motivoInelegivel({ ...ok, lotesAbertos: [{ codigo: "LM-2026-031-1", membros: { R1: { status_membro: "removido" } } }] })).toBe("");
+  });
+  test("auditoria A4/B4: enviada aguardando o cliente e etapa ausente não entram", () => {
+    expect(motivoInelegivel({ ...ok, variacao: { id: "v1", status: "enviada" } })).toMatch(/aguardando retorno/);
+    expect(motivoInelegivel({ ...ok, request: { id: "R1" } })).toMatch(/sem etapa/i);
   });
   test("seleção: mínimo 2, máximo 20, todas elegíveis", () => {
     expect(MAX_MEMBROS).toBe(20);
@@ -61,12 +65,28 @@ describe("matriz padrão (D-04) e montagem", () => {
     expect(m.matrizCelulas[k("Fragrância Rosa")]).toBe(2);
     expect(m.ingredientes[k("Fragrância Rosa")].ehFragrancia).toBe(true);
   });
-  test("fragrância reconhecida por função, nome/INCI ou tipo MPES", () => {
+  test("auditoria A1: fragrância só por cadastro (MPES) ou função de origem; nome/INCI só sugerem; crítico vence", () => {
     expect(ehFragrancia({ funcao: "fragrância" })).toBe(true);
-    expect(ehFragrancia({ nome: "Essência Baunilha" })).toBe(true);
-    expect(ehFragrancia({ inci: "Parfum" })).toBe(true);
     expect(ehFragrancia({ codigo: "MPES-00012" })).toBe(true);
+    expect(ehFragrancia({ nome: "Óleo essencial de melaleuca" })).toBe(false);
+    expect(sugereFragrancia({ nome: "Óleo essencial de melaleuca" })).toBe(true);
+    expect(ehFragrancia({ inci: "Parfum" })).toBe(false);
     expect(ehFragrancia({ nome: "Glicerina", codigo: "MPGR-00002" })).toBe(false);
+    expect(nivelDaMudanca({ ehFragrancia: true, critico: true })).toBe(NIVEL.CRITICO);
+    const materiais = new Map([["M_FRAG", { tipo: "MPES", criticoPd: true }], ["M_MEL", { tipo: "MPGR" }], ["M_ROSA", { tipo: "MPES" }]]);
+    const forjado = {
+      a: { nome: "Fragrância alergênica", master_material_id: "M_FRAG", fase: "C", critico: false, ehFragrancia: true },
+      b: { nome: "Aroma de melaleuca", master_material_id: "M_MEL", fase: "C", ehFragrancia: true, funcao: "fragrância" },
+      c: { nome: "Rosa", master_material_id: "M_ROSA", fase: "C" },
+      d: { nome: "Extrato livre", fase: "A", ehFragrancia: true, codigo: "MPES-99" },
+      e: { nome: "Essência X", fase: "A" },
+    };
+    const c = classificarIngredientes(forjado, { materiais, itensOrigem: [{ ingredient_name: "Essência X", phase: "A", function: "fragrância" }] });
+    expect(nivelDaMudanca(c.a)).toBe(NIVEL.CRITICO);
+    expect(c.b.ehFragrancia).toBe(false);
+    expect(c.c.ehFragrancia).toBe(true);
+    expect(c.d.ehFragrancia).toBe(false);
+    expect(c.e.ehFragrancia).toBe(true);
   });
 });
 
@@ -191,6 +211,7 @@ describe("assinatura, gramas, conciliação, o que varia", () => {
     expect(assinaturaItens([item("Glicerina", 30.00001), item("água", 70)])).toBe(a);
     expect(assinaturaItens([item("Água", 70), item("Glicerina", 30, { phase: "B" })])).not.toBe(a);
     expect(assinaturaItens([item("Água", 70.0001), item("Glicerina", 29.9999)])).not.toBe(a);
+    expect(assinaturaItens([item("Água", 70, { master_material_id: "OUTRA" }), item("Glicerina", 30)])).not.toBe(a);
   });
   test("gramas e quantidade (D-06)", () => {
     expect(gramas(33.33, 5)).toBe(1.67);
@@ -204,79 +225,60 @@ describe("assinatura, gramas, conciliação, o que varia", () => {
     expect(ok).toMatchObject({ ok: true, destinos_g: 199.2, tolerancia_g: 1, residuo_g: 0.8 });
     expect(conciliacaoMassa({ pesadoG: 200, entregue: { a: 90 }, retencao: {}, descarteG: 0, perdaDeclaradaG: 0, n: 2 }).ok).toBe(false);
     expect(conciliacaoMassa({ pesadoG: 4, entregue: { a: 2, b: 1.85 }, retencao: {}, descarteG: 0, perdaDeclaradaG: 0, n: 3 }).tolerancia_g).toBe(0.15);
+    const perda = conciliacaoMassa({ pesadoG: 200, entregue: { a: 90 }, retencao: {}, descarteG: 0, perdaDeclaradaG: 110, n: 2, perdaPct: 3 });
+    expect(perda).toMatchObject({ perda_ok: false, ok: false, perda_max_g: 6 });
+    expect(conciliacaoMassa({ pesadoG: 200, entregue: { a: 97 }, retencao: { a: { g: 98 } }, descarteG: 0, perdaDeclaradaG: 5, n: 2, perdaPct: 3 }).ok).toBe(true);
+  });
+  test("pesagem por linha (M4): tolerância max(0,01 g; 1 %)", () => {
+    expect(desvioPesagem(10, 10.1)).toMatchObject({ desvio_g: 0.1, tolerancia_g: 0.1, dentro: true });
+    expect(desvioPesagem(10, 10.11).dentro).toBe(false);
+    expect(desvioPesagem(0.3, 0.31)).toMatchObject({ tolerancia_g: 0.01, dentro: true });
   });
   test("o que varia entre aprovadas: ingrediente fora da fragrância com % diferente ou ausente", () => {
     const v = (comp) => ({ lote_manipulacao: { composicao: comp } });
+    const aprov = (fid, comp) => ({ aprovacao_cliente: { formula_aprovada: { id: "FV2" } }, lote_manipulacao: { formula_id: fid, composicao: comp } });
+    expect(oQueVaria([aprov("FV1", [{ chave: "m1|a", nome: "Ativo", pct: 1 }]), v([{ chave: "m1|a", nome: "Ativo", pct: 2 }])])).toEqual([]);
+    expect(oQueVaria([v([{ chave: "m1|a", nome: "Ativo", pct: 1 }]), v([{ chave: "m2|a", nome: "Ativo", pct: 1 }])])).toEqual(["Ativo"]);
     expect(oQueVaria([v([{ nome: "Água", pct: 70 }, { nome: "Ativo", pct: 1 }]), v([{ nome: "Água", pct: 70 }, { nome: "Ativo", pct: 2 }]), v([{ nome: "Água", pct: 70 }, { nome: "Ativo", pct: 1 }, { nome: "Mentol", pct: 0.1 }])])).toEqual(["Ativo", "Mentol"]);
     expect(oQueVaria([v([{ nome: "Água", pct: 70 }])])).toEqual([]);
     expect(oQueVaria([{}, {}])).toEqual([]);
   });
 });
 
-describe("plano de salvamento (caminhos planos, um update)", () => {
+describe("plano de salvamento (só o rascunho; versões nascem no servidor — A4)", () => {
   const L = "erp/k/pd_manipulacao_lotes/L1";
-  const ctx = () => ({
-    requests: new Map([["R1", { id: "R1", status: "OPEN", internal_code: "A1" }], ["R2", { id: "R2", status: "IN_PROGRESS", internal_code: "A2" }]]),
-    formulas: new Map([["F1", { id: "F1", development_id: "D1", version: 2, volume: 50, volume_unit: "g", indice_perdas: 3, name: "Fórmula A", locked: true }]]),
-    fasesPorFormula: new Map([["F1", [{ id: "PH1", formula_id: "F1", titulo: "Fase A", ordem: 0 }]]]),
-    itensPorFormula: new Map(),
-    samples: new Map([["S1", { id: "S1", variacoes: [{ id: "v0" }, { id: "v1" }, { id: "v2" }] }]]),
-  });
+  const ctx = () => ({ requests: new Map([["R1", { id: "R1", status: "OPEN" }], ["R2", { id: "R2", status: "IN_PROGRESS" }]]) });
   const lote = {
     id: "L1", codigo: "LM-2026-031-1", revisao: 1, status: "rascunho", matriz: { tipo: "amostra", ref_id: "F1", celulas: { i01: 98, i02: 2 } },
-    membros: {
-      R1: { request_id: "R1", development_id: "D1", sample_id: "S1", variacao_id: "v1", codigo_amostra: "A1", formula_id_antes: "F1", versao_antes: 2, status_membro: "ativo" },
-      R2: { request_id: "R2", development_id: "D2", sample_id: "S1", variacao_id: "v2", codigo_amostra: "A2", formula_id_antes: null, status_membro: "ativo" },
-    },
+    celulas: { R1: { i01: 98, i02: 2 }, R2: { i01: 98, i02: 2 } },
+    membros: { R1: { request_id: "R1", codigo_amostra: "A1", status_membro: "ativo" }, R2: { request_id: "R2", codigo_amostra: "A2", status_membro: "ativo" } },
   };
   const rascunho = {
-    ingredientes: { i01: { nome: "Água", fase: "A", codigo: "MPGR-1", master_material_id: "M1" }, i02: { nome: "Fragrância", fase: "A", ehFragrancia: true, mp_nova: { nome: "Frag Nova", tipo: "MPES" } } },
+    ingredientes: { i01: { nome: "Água", fase: "A", codigo: "MPGR-1", master_material_id: "M1" }, i02: { nome: "Fragrância", fase: "A", ehFragrancia: true } },
     celulas: { R1: { i01: 98, i02: 2 }, R2: { i01: 97, i02: 3 } }, motivos: { R2: { i01: { texto: "mais fragrância" } } },
     pre_mistura: {}, perda_pct: 3, quantidades: { R1: { quantidade_g: 50 }, R2: { quantidade_g: 30 } },
   };
-  const base = { tenantPath: "erp/k", lote, rascunho, agora: "2026-11-04T12:00:00.000Z", autor: { uid: "u1", nome: "Yasmim" }, custos: (i) => ({ cost_brl: i.percentage }), novoId: ((n) => () => `id${++n}`)(0) };
-  test("primeiro salvamento: versão nova por amostra, fases, itens, Aberto→Em Desenvolvimento, variação por índice, revisão", () => {
-    const { updates, resumo } = planoSalvarLote({ ...base, contexto: ctx(), novasVersoes: { R1: { formulaId: "FL1", versao: 3 }, R2: { formulaId: "FL2", versao: 1 } } });
-    expect(updates["erp/k/pd_formulas/FL1"]).toMatchObject({ id: "FL1", development_id: "D1", version: 3, locked: false, status: "DRAFT", parent_formula_id: "F1", volume: 50, indice_perdas: 3,
-      origem_lote: { lote_id: "L1", codigo: "LM-2026-031-1", matriz: { tipo: "amostra", ref_id: "F1" } } });
-    expect(updates["erp/k/pd_formulas/FL1"].locked_at).toBeUndefined();
-    expect(updates["erp/k/pd_formula_phases/FL1_f0"]).toMatchObject({ formula_id: "FL1", titulo: "Fase A" });
-    expect(updates["erp/k/pd_formula_items/FL2_i01"]).toMatchObject({ formula_id: "FL2", ingredient_name: "Água", percentage: 97, phase: "A", material_code: "MPGR-1", cost_brl: 97, origem_lote: "L1" });
-    expect(updates["erp/k/pd_developments/D1/current_version"]).toBe(3);
+  const base = { tenantPath: "erp/k", lote, rascunho, agora: "2026-11-04T12:00:00.000Z", autor: { uid: "u1", nome: "Yasmim" }, novoId: ((n) => () => `id${++n}`)(0) };
+  test("grava o rascunho, Aberto→Em Desenvolvimento, revisão +1 e o de→para no evento; nenhuma fórmula", () => {
+    const { updates, resumo } = planoSalvarLote({ ...base, contexto: ctx() });
+    expect(Object.keys(updates).some((p) => /pd_formulas|pd_formula_items|pd_developments|crm_samples/.test(p))).toBe(false);
     expect(updates["erp/k/pd_requests/R1/status"]).toBe("IN_PROGRESS");
     expect(updates["erp/k/pd_requests/R2/status"]).toBeUndefined();
     expect(Object.values(updates).find((v) => v?.to_status === "IN_PROGRESS")).toMatchObject({ request_id: "R1", from_status: "OPEN" });
-    expect(updates["erp/k/crm_samples/S1/variacoes/2/lote_manipulacao"]).toMatchObject({ lote_id: "L1", codigo: "LM-2026-031-1", composicao: [{ nome: "Água", pct: 97 }] });
     expect(updates[`${L}/revisao`]).toBe(2);
-    expect(updates[`${L}/membros/R2/formula_id_lote`]).toBe("FL2");
-    expect(updates[`${L}/membros/R2/assinatura_lote`]).toBe(assinaturaItens([{ ingredient_name: "Água", phase: "A", percentage: 97 }, { ingredient_name: "Fragrância", phase: "A", percentage: 3 }]));
+    expect(updates[`${L}/membros/R2/quantidade_g`]).toBe(30);
+    expect(updates[`${L}/membros/R2/diferencas`]).toEqual(["Água"]);
     expect(updates[`${L}/motivos`].R2.i01).toMatchObject({ texto: "mais fragrância", por: "u1", por_nome: "Yasmim", em: base.agora, valor: 97, nivel: 2 });
-    expect(Object.keys(updates).filter((p) => p.startsWith(`${L}/eventos/`))).toHaveLength(1);
-    // Nenhum caminho é ancestral de outro (o RTDB recusaria o update).
+    const ev = Object.entries(updates).find(([p]) => p.startsWith(`${L}/eventos/`))[1];
+    expect(ev.mudancas).toEqual(["A2 · Água: 98 → 97 %", "A2 · Fragrância: 2 → 3 %"]);
     const ps = Object.keys(updates);
     expect(ps.filter((p) => ps.some((q) => q !== p && q.startsWith(`${p}/`)))).toEqual([]);
     expect(resumo.passaramEmDesenvolvimento).toEqual(["R1"]);
-    expect(resumo.mpNovas.registrar.map((i) => i.id)).toEqual(["FL1_i02", "FL2_i02"]);
-  });
-  test("re-salvar: substitui itens da versão do lote (id determinístico), apaga o que saiu, sem versão nova", () => {
-    const l2 = { ...lote, revisao: 2, membros: { R1: { ...lote.membros.R1, formula_id_lote: "FL1", versao_lote: 3 }, R2: { ...lote.membros.R2, formula_id_lote: "FL2", versao_lote: 1 } } };
-    const c = ctx();
-    c.formulas.set("FL1", { id: "FL1", version: 3, development_id: "D1" }); c.formulas.set("FL2", { id: "FL2", version: 1, development_id: "D2" });
-    c.itensPorFormula.set("FL1", [{ id: "FL1_i01", formula_id: "FL1", ingredient_name: "Água", phase: "A", percentage: 98 }, { id: "FL1_i02", formula_id: "FL1", ingredient_name: "Fragrância", phase: "A", percentage: 2, mp_nova: { nome: "Frag Nova" } }]);
-    const r = { ...rascunho, celulas: { R1: { i01: 100 }, R2: rascunho.celulas.R2 } };
-    const { updates, resumo } = planoSalvarLote({ ...base, lote: l2, rascunho: r, contexto: c, novasVersoes: {} });
-    expect(updates["erp/k/pd_formulas/FL1"]).toBeUndefined();
-    expect(updates["erp/k/pd_formula_items/FL1_i02"]).toBeNull();
-    expect(updates["erp/k/pd_formula_items/FL1_i01"]).toMatchObject({ percentage: 100 });
-    expect(updates[`${L}/revisao`]).toBe(3);
-    expect(resumo.mpNovas.retirar).toEqual([expect.objectContaining({ chaveOrigem: "FL1__FL1_i02" })]);
   });
   test("mesmo conteúdo: sem mudança, nenhum caminho", () => {
-    const assin = (cel) => assinaturaItens(Object.entries(cel).map(([k, p]) => ({ ingredient_name: rascunho.ingredientes[k].nome, phase: "A", percentage: p })));
-    const l2 = { ...lote, revisao: 2, ...rascunho, membros: { R1: { ...lote.membros.R1, formula_id_lote: "FL1", versao_lote: 3, assinatura_lote: assin(rascunho.celulas.R1), quantidade_g: 50 },
-      R2: { ...lote.membros.R2, formula_id_lote: "FL2", versao_lote: 1, assinatura_lote: assin(rascunho.celulas.R2), quantidade_g: 30 } },
-      motivos: { R2: { i01: { texto: "mais fragrância", por: "u1", por_nome: "Yasmim", em: "x", valor: 97, nivel: 2 } } } };
-    const r = planoSalvarLote({ ...base, lote: l2, contexto: ctx(), novasVersoes: {} });
+    const l2 = { ...lote, revisao: 2, ...rascunho, membros: { R1: { ...lote.membros.R1, quantidade_g: 50 }, R2: { ...lote.membros.R2, quantidade_g: 30 } },
+      motivos: { R2: { i01: { texto: "mais fragrância", por: "u1", em: "x", valor: 97, nivel: 2 } } } };
+    const r = planoSalvarLote({ ...base, lote: l2, contexto: ctx() });
     expect(r.resumo.semMudanca).toBe(true);
     expect(r.updates).toEqual({});
   });
