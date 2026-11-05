@@ -163,14 +163,15 @@ describe("salvar (um update, só o rascunho — D-03/A4)", () => {
     expect(data.sem_mudanca).toBe(true);
     expect(lote(L).revisao).toBe(l.revisao);
   });
-  test("crítico: motivo e aprovação pendentes, amostra fora da base; fórmula editada fora do lote → 409", async () => {
+  test("crítico: só aprovação pendente (sem comentário), amostra fora da base; fórmula editada fora do lote → 409", async () => {
     const l = lote(L);
     const corpo = rascunhoDe(l, (r, k) => {
       r.celulas.R2 = { ...r.celulas.R2, [k("Fenoxietanol")]: 0.8, [k("Água")]: 78.2 };
       r.motivos.R2 = { [k("Água")]: { texto: "ajuste do conservante" } };
     });
     const { data } = await api.put(`/pd/manipulacao-lotes/${L}`, corpo);
-    expect(data.pendencias.map((p) => `${p.request_id}:${p.nome}:${p.tipo}`)).toEqual(["R1:Fenoxietanol:aprovacao", "R2:Fenoxietanol:motivo", "R2:Fenoxietanol:aprovacao"]);
+    expect(data.pendencias.map((p) => `${p.request_id}:${p.nome}:${p.tipo}`)).toEqual(["R1:Fenoxietanol:aprovacao", "R2:Fenoxietanol:aprovacao"]);
+    expect(lote(L).motivos.R2[chave(l, "Fenoxietanol")]).toMatchObject({ por: expect.any(String), valor: 0.8 }); // quem alterou, sozinho
     expect(lote(L).membros.R2.fora_da_base).toBe(true);
     memory.write(`${T}/pd_formula_items/i1a/percentage`, 89);
     await expectStatus(api.put(`/pd/manipulacao-lotes/${L}`, { ...corpo, perda_pct: 4, revisao: lote(L).revisao }), 409, /2026-1003-a.*editada fora do lote/);

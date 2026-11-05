@@ -468,12 +468,14 @@ function aplicarAprovacao(lote, data, autor, agora, novoId, materiais, itensOrig
   const matriz = num(lote.matriz && lote.matriz.celulas && lote.matriz.celulas[k]);
   const fid = lote.membros[r] && lote.membros[r].formula_id_antes;
   const origem = fid ? {[r]: M.celulasDaOrigem(ingredientes, itensDaFormula(fid)).celulas} : {};
-  const difs = M.diferencasDoLote({ingredientes, celulas: {[r]: (lote.celulas && lote.celulas[r]) || {}}, matrizCelulas: (lote.matriz && lote.matriz.celulas) || {}, origem});
-  if (!(difs[r] || []).some((x) => x.ingKey === k)) throw falha("failed-precondition", `${ing.nome} está igual à matriz e à fórmula anterior desta amostra — nada a aprovar.`);
+  // D-1 (05/11/2026): só se aprova o crítico que muda a fórmula ANTERIOR da amostra; sem comentário,
+  // "quem alterou" é o carimbo automático do salvamento (motivos/{r}/{k}/por).
+  if (!fid) throw falha("failed-precondition", `${ing.nome}: esta amostra não tinha fórmula (primeira formulação) — crítico não precisa de aprovação.`);
+  const difs = M.mudancasCriticasDaOrigem({ingredientes, celulas: {[r]: (lote.celulas && lote.celulas[r]) || {}}, origem});
+  if (!(difs[r] || []).some((x) => x.ingKey === k)) throw falha("failed-precondition", `${ing.nome} está igual à fórmula anterior desta amostra — nada a aprovar.`);
   const mot = lote.motivos && lote.motivos[r] && lote.motivos[r][k];
-  if (!mot || texto(mot.texto).length < M.MIN_MOTIVO) throw falha("failed-precondition", `Falta o motivo da mudança de ${ing.nome} — quem formulou escreve antes da aprovação.`);
-  if (!mot.por) throw falha("failed-precondition", `O motivo de ${ing.nome} não tem autor registrado — salve o rascunho de novo.`);
-  if (mot.por === autor.uid) throw falha("failed-precondition", "A aprovação de crítico precisa ser de outra pessoa (você escreveu o motivo).");
+  if (!mot || !mot.por) throw falha("failed-precondition", `A alteração de ${ing.nome} ainda não foi salva — salve o rascunho antes de aprovar.`);
+  if (mot.por === autor.uid) throw falha("failed-precondition", "A aprovação de crítico precisa ser de outra pessoa (foi você quem alterou).");
   lote.aprovacoes_criticas = lote.aprovacoes_criticas || {};
   lote.aprovacoes_criticas[r] = Object.assign({}, lote.aprovacoes_criticas[r], {[k]: semVazios({valor, chave: M.chaveMaterialFase(ing),
     master_material_id: ing.master_material_id || ing.catalog_id || undefined, por: autor.uid, por_nome: autor.nome, em: agora})});

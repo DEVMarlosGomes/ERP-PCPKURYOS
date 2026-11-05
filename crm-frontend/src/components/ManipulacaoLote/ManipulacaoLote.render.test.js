@@ -28,22 +28,49 @@ function loteDeExemplo(mut) {
   return { lote, k };
 }
 
-test("editor: 100 % por coluna, comum em âmbar e crítico em vermelho, pendências seguram a ordem", () => {
+test("editor: 100 % por coluna, comum em âmbar e crítico em vermelho; sem caixa de comentário; crítico da fórmula anterior segura a conclusão", () => {
   const { lote, k } = loteDeExemplo((l, k) => {
     l.celulas.R2 = { ...l.celulas.R2, [k("Água")]: 79.2, [k("Fenoxietanol")]: 0.8 };
   });
-  const html = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true }} user={{ role: "pd" }} recarregar={async () => {}} />);
+  // R2 já tinha fórmula (v1) com o conservante a 1 %: a troca para 0,8 pede o "Aprovar" de outra pessoa.
+  const origem_celulas = { R2: { [k("Água")]: 79, [k("Fenoxietanol")]: 1, [k("Fragrância Lavanda")]: 20 } };
+  const html = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true, origem_celulas }} user={{ role: "pd" }} recarregar={async () => {}} />);
   expect(html).toContain('data-testid="matriz-lote"');
   expect(html).toMatch(/data-testid="soma-R1"[^>]*>100 %/);
   expect(tag(html, `cel-R2-${k("Água")}`)).toContain("bg-amber-50");
   expect(tag(html, `cel-R2-${k("Fenoxietanol")}`)).toContain("bg-red-50");
-  expect(html).toContain("crítico: precisa da aprovação de outra pessoa");
-  expect(html).toContain('data-testid="pendencias-lote"');
+  expect(html).not.toMatch(/Motivo \(mín/); // não pede comentário
+  expect(html).toContain('data-testid="criticos-lote"');
+  expect(html).toContain("precisa do &quot;Aprovar&quot; de outra pessoa");
+  expect(html).toContain("Para concluir, falta:");
+  expect(html).toContain("1 ingrediente(s) crítico(s) para outra pessoa aprovar");
   expect(desabilitado(html, "btn-gerar-ordem")).toBe(true);
+  expect(html).toContain("Concluir e enviar para a manipulação");
   expect(html).toContain("Fase A");
+  // A mesma mudança sem fórmula anterior (primeira formulação): nada pendente, botão liberado.
+  const novo = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true }} user={{ role: "pd" }} recarregar={async () => {}} />);
+  expect(novo).not.toContain('data-testid="criticos-lote"');
+  expect(desabilitado(novo, "btn-gerar-ordem")).toBe(false);
 });
 
-test("editor: sem diferença e tudo fechado, a ordem só espera salvar; perfil sem P&D só consulta", () => {
+test("editor: matriz vazia (caso LM-2026-041-2) — sem gramas o botão diz o que falta; com gramas e 100 % libera direto, mostrando a v1 de cada uma", () => {
+  const { lote, k } = loteDeExemplo((l, k) => {
+    l.matriz = { tipo: "vazia", ref_id: null, codigo: "", celulas: {} };
+    for (const r of ["R1", "R2"]) { l.membros[r].versao_antes = null; l.membros[r].quantidade_g = undefined; }
+    l.celulas.R2 = { [k("Água")]: 79.5, [k("Fenoxietanol")]: 0.5, [k("Fragrância Lavanda")]: 20 };
+  });
+  const semG = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true }} user={{ role: "pd" }} recarregar={async () => {}} />);
+  expect(semG).toContain("quantidade em g de 2026-1003-a, 2026-1003-b");
+  expect(desabilitado(semG, "btn-gerar-ordem")).toBe(true);
+  expect(semG).toContain("Matriz vazia: as amostras sem fórmula anterior são fórmulas novas");
+  expect(tag(semG, `cel-R2-${k("Fenoxietanol")}`)).not.toContain("bg-red-50"); // fórmula nova não tem "diferença"
+  for (const r of ["R1", "R2"]) lote.membros[r].quantidade_g = 50;
+  const pronto = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true }} user={{ role: "pd" }} recarregar={async () => {}} />);
+  expect(desabilitado(pronto, "btn-gerar-ordem")).toBe(false);
+  expect(pronto).toContain("2026-1003-a v1, 2026-1003-b v1");
+});
+
+test("editor: sem diferença e tudo fechado, conclui direto; perfil sem P&D só consulta", () => {
   const { lote } = loteDeExemplo();
   const html = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true }} user={{ role: "pd" }} recarregar={async () => {}} />);
   expect(html).toContain("Todas as amostras iguais à matriz.");

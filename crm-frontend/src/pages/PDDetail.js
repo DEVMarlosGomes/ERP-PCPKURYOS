@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import api from "@/lib/api";
 import LiberacaoAntecipadaPD from "@/components/LiberacaoAntecipadaPD";
 import PainelAmostrasProjeto from "@/components/ManipulacaoLote/PainelAmostrasProjeto";
+import AvisoLoteDaAmostra from "@/components/ManipulacaoLote/AvisoLoteDaAmostra";
 import { normalizeLookup, toFiniteNumber, buildSupplierLookup, normalizeSupplierOption, dedupeSupplierOptions, buildSupplierDirectoryOptions, buildPdIngredientOptions, findSupplierByName, usePdMaterialLibrary, ITEM_VAZIO, tipoMpNovaDoForm } from "@/lib/bibliotecaMpPd";
 import ChipTipoMpNova from "@/components/pd/ChipTipoMpNova";
 import RolagemHorizontalDupla from "@/components/RolagemHorizontalDupla";
@@ -616,7 +617,7 @@ export default function PDDetail() {
                 </Button>
               </div>
               {hasDev ? (
-                <CostsTab devId={dev.id} costVersions={cost_versions} formulas={formulas} formulaCostData={formula_cost_data} onRefresh={fetchData} canEdit={canEdit} canViewCommercial={canViewCommercial} />
+                <><AvisoLoteDaAmostra requestId={req.id} refreshKey={formulas} /><CostsTab devId={dev.id} costVersions={cost_versions} formulas={formulas} formulaCostData={formula_cost_data} onRefresh={fetchData} canEdit={canEdit} canViewCommercial={canViewCommercial} /></>
               ) : (
                 <NeedsDev onAction={() => handleStatusChange("IN_PROGRESS")} status={req.status} canEdit={canEdit} />
               )}
@@ -1913,6 +1914,7 @@ function FormulaTab({ devId, formulas, onRefresh, canEdit, clientInfo, req }) {
 
   return (
     <div className="space-y-4">
+      <AvisoLoteDaAmostra requestId={req?.id} refreshKey={formulas} />
       {/* Briefing técnico (CRM) — alvos para o P&D só preencher MPs/insumos */}
       {clientInfo && clientInfo._source === "crm_sample" && (
         <Card className="border-blue-200 dark:border-blue-900 bg-blue-50/30 dark:bg-blue-950/20" data-testid="formula-briefing-targets">

@@ -103,7 +103,7 @@ describe("clonar, diferenças, motivo e 100%", () => {
     const daMatriz = clonar(c1, { de: "matriz", para: ["R2"], matrizCelulas: m.matrizCelulas });
     expect(daMatriz.R2).toEqual(m.matrizCelulas);
   });
-  test("níveis: fragrância livre, comum com motivo, crítico com aprovação de outro usuário", () => {
+  test("05/11: sem comentário — só o crítico que muda a fórmula anterior da amostra pede aprovação de outra pessoa", () => {
     const ingredientes = { ...m.ingredientes, [k("Fenoxietanol")]: { ...m.ingredientes[k("Fenoxietanol")], critico: true } };
     const celulas = clonar(m.celulas, { de: "R1", para: ["R2", "R3"] });
     celulas.R2 = { ...celulas.R2, [k("Fragrância Rosa")]: 1.5, [k("Água")]: 70.5 };
@@ -113,22 +113,28 @@ describe("clonar, diferenças, motivo e 100%", () => {
     expect(d.R2.map((x) => [x.nome, x.nivel])).toEqual([["Água", 2], ["Fragrância Rosa", 1]]);
     expect(d.R3.find((x) => x.nome === "Fenoxietanol")).toMatchObject({ nivel: 3, de: 0.8, para: 1 });
     const membros = ["R1", "R2", "R3"];
-    let p = pendencias({ ingredientes, celulas, matrizCelulas: m.matrizCelulas, motivos: {}, aprovacoes: {}, membros });
-    expect(p.map((x) => `${x.request_id}:${x.nome}:${x.tipo}`)).toEqual(["R2:Água:motivo", "R3:Água:motivo", "R3:Fenoxietanol:motivo", "R3:Fenoxietanol:aprovacao"]);
-    const motivos = { R2: { [k("Água")]: { texto: "compensa fragrância", por: "u1" } }, R3: { [k("Água")]: { texto: "ajuste", por: "u1" }, [k("Fenoxietanol")]: { texto: "pH baixo pede mais", por: "u1" } } };
-    p = pendencias({ ingredientes, celulas, matrizCelulas: m.matrizCelulas, motivos, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 0.9, por: "adm" } } }, membros });
+    // Sem fórmula anterior (primeira formulação): nada pendente — nem motivo, nem aprovação de crítico.
+    expect(pendencias({ ingredientes, celulas, motivos: {}, aprovacoes: {}, membros })).toEqual([]);
+    // R3 já tinha fórmula (Fenoxietanol 0,8): a troca para 1,0 pede aprovação; água e fragrância não pedem nada.
+    const origem = { R3: { ...m.celulas.R1 } };
+    let p = pendencias({ ingredientes, celulas, motivos: {}, aprovacoes: {}, membros, origem });
+    expect(p.map((x) => `${x.request_id}:${x.nome}:${x.tipo}`)).toEqual(["R3:Fenoxietanol:aprovacao"]);
+    const quem = { R3: { [k("Fenoxietanol")]: { valor: 1, por: "u1" } } }; // carimbo automático do salvamento
+    p = pendencias({ ingredientes, celulas, motivos: quem, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 0.9, por: "adm" } } }, membros, origem });
     expect(p).toEqual([expect.objectContaining({ request_id: "R3", tipo: "aprovacao", motivo: expect.stringMatching(/mudou depois/) })]);
     // A aprovação vale para o material + fase aprovados (auditoria LM-15): sem a chave, não vale.
-    p = pendencias({ ingredientes, celulas, matrizCelulas: m.matrizCelulas, motivos, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 1, por: "adm" } } }, membros });
+    p = pendencias({ ingredientes, celulas, motivos: quem, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 1, por: "adm" } } }, membros, origem });
     expect(p).toEqual([expect.objectContaining({ request_id: "R3", tipo: "aprovacao", motivo: expect.stringMatching(/material mudou/) })]);
     const chave = chaveMaterialFase(ingredientes[k("Fenoxietanol")]);
-    p = pendencias({ ingredientes, celulas, matrizCelulas: m.matrizCelulas, motivos, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 1, por: "adm", chave } } }, membros });
+    p = pendencias({ ingredientes, celulas, motivos: quem, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 1, por: "adm", chave } } }, membros, origem });
     expect(p).toEqual([]);
-    // Motivo sem autor (ou do próprio aprovador) não serve para crítico.
-    const semAutor = { ...motivos, R3: { ...motivos.R3, [k("Fenoxietanol")]: { texto: "pH baixo pede mais" } } };
-    expect(pendencias({ ingredientes, celulas, matrizCelulas: m.matrizCelulas, motivos: semAutor, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 1, por: "adm", chave } } }, membros }))
+    // Alteração ainda não salva (sem carimbo) ou aprovada por quem alterou: não vale.
+    expect(pendencias({ ingredientes, celulas, motivos: {}, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 1, por: "adm", chave } } }, membros, origem }))
       .toEqual([expect.objectContaining({ tipo: "aprovacao", motivo: expect.stringMatching(/outra pessoa/) })]);
-    expect(pendencias({ ingredientes, celulas, matrizCelulas: m.matrizCelulas, motivos: { ...motivos, R2: { [k("Água")]: { texto: "ok" } } }, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 1, chave } } }, membros })[0]).toMatchObject({ request_id: "R2", tipo: "motivo" });
+    expect(pendencias({ ingredientes, celulas, motivos: { R3: { [k("Fenoxietanol")]: { valor: 1, por: "adm" } } }, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 1, por: "adm", chave } } }, membros, origem }))
+      .toEqual([expect.objectContaining({ tipo: "aprovacao", motivo: expect.stringMatching(/outra pessoa/) })]);
+    // Nenhuma pendência é de comentário.
+    expect(pendencias({ ingredientes, celulas, motivos: {}, aprovacoes: {}, membros, origem }).some((x) => x.tipo === "motivo")).toBe(false);
   });
   test("100% por coluna com 4 casas", () => {
     const celulas = { A: { i1: 33.3333, i2: 33.3333, i3: 33.3334 }, B: { i1: 99.99 } };
@@ -283,6 +289,18 @@ describe("plano de salvamento (só o rascunho; versões nascem no servidor — A
     expect(ps.filter((p) => ps.some((q) => q !== p && q.startsWith(`${p}/`)))).toEqual([]);
     expect(resumo.passaramEmDesenvolvimento).toEqual(["R1"]);
   });
+  test("05/11: sem comentário, quem alterou é carimbado sozinho e só muda quando o valor muda", () => {
+    const semTexto = { ...rascunho, motivos: undefined };
+    const { updates } = planoSalvarLote({ ...base, rascunho: semTexto, contexto: ctx() });
+    expect(updates[`${L}/motivos`].R2.i01).toMatchObject({ texto: "", por: "u1", por_nome: "Yasmim", valor: 97, nivel: 2 });
+    // Outra pessoa salva de novo sem mexer no 97: o carimbo continua de quem alterou (u1).
+    const l2 = { ...lote, celulas: { R1: { i01: 98, i02: 2 }, R2: { i01: 97, i02: 3 } }, motivos: { R2: { i01: { texto: "", por: "u1", por_nome: "Yasmim", em: "x", valor: 97, nivel: 2 } } } };
+    const outro = planoSalvarLote({ ...base, lote: l2, rascunho: { ...semTexto, perda_pct: 4 }, autor: { uid: "u2", nome: "Ana" }, contexto: ctx() });
+    expect(outro.updates[`${L}/motivos`].R2.i01).toMatchObject({ por: "u1", valor: 97 });
+    // Mudou o número: o carimbo passa a ser de quem mudou.
+    const mudou = planoSalvarLote({ ...base, lote: l2, rascunho: { ...semTexto, celulas: { R1: { i01: 98, i02: 2 }, R2: { i01: 96, i02: 4 } } }, autor: { uid: "u2", nome: "Ana" }, contexto: ctx() });
+    expect(mudou.updates[`${L}/motivos`].R2.i01).toMatchObject({ por: "u2", valor: 96 });
+  });
   test("mesmo conteúdo: sem mudança, nenhum caminho", () => {
     const l2 = { ...lote, revisao: 2, ...rascunho, membros: { R1: { ...lote.membros.R1, quantidade_g: 50 }, R2: { ...lote.membros.R2, quantidade_g: 30 } },
       motivos: { R2: { i01: { texto: "mais fragrância", por: "u1", em: "x", valor: 97, nivel: 2 } } } };
@@ -307,7 +325,7 @@ describe("auditoria LM-15: crítico não se contorna pelo lote", () => {
     const d = diferencasDoLote({ ingredientes, celulas, matrizCelulas: mm.matrizCelulas, origem });
     expect(d.B).toEqual([expect.objectContaining({ ingKey: kF, de: 0.5, para: 2, nivel: NIVEL.CRITICO, daAmostra: true })]);
     const p = pendencias({ ingredientes, celulas, matrizCelulas: mm.matrizCelulas, membros: ["A", "B"], origem });
-    expect(p.map((x) => `${x.request_id}:${x.tipo}`)).toEqual(["B:motivo", "B:aprovacao"]); // …mas muda a amostra B
+    expect(p.map((x) => `${x.request_id}:${x.tipo}`)).toEqual(["B:aprovacao"]); // …mas muda a amostra B (sem pedir comentário)
   });
   test("crítico também pelo nome do material marcado (tirar o id não descaracteriza)", () => {
     const semId = classificarIngredientes({ i09: { nome: "fenoxietanol", fase: "A" } }, { materiais });

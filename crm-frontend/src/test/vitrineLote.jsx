@@ -18,6 +18,14 @@ const custos = { por_amostra: { R1: { brl_kg: 38.42, brl_amostra: 1.92 }, R2: { 
 function Cena() {
   if (cena === "painel") return <PainelAmostrasProjeto projetoId="P1" requestId="R1" user={user} />;
   if (cena === "editor") return <EditorLote detalhe={{ lote: montarLote("rascunho"), estado: {}, eu: "pd", pode_editar: true }} user={user} recarregar={nada} />;
+  // 05/11: caso do LM-2026-041-2 — amostras sem fórmula, matriz vazia; ?gramas=1 já com as quantidades.
+  if (cena === "editor-vazio") {
+    const lote = montarLote("rascunho");
+    lote.matriz = { tipo: "vazia", ref_id: null, codigo: "", celulas: {} };
+    lote.motivos = {};
+    for (const m of Object.values(lote.membros)) { m.versao_antes = null; if (q.get("gramas") !== "1") m.quantidade_g = undefined; }
+    return <EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true }} user={user} recarregar={nada} />;
+  }
   if (cena === "adicionar") {
     const lote = montarLote("rascunho");
     return <LinhaNovoIngrediente ingredientes={lote.ingredientes} ativos={Object.keys(lote.membros)} codigoDe={(r) => lote.membros[r].codigo_amostra} onAdicionar={() => {}} />;

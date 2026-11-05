@@ -241,23 +241,37 @@ export function diferencasDoLote({ ingredientes, celulas, matrizCelulas = {}, or
   return d;
 }
 
-export function pendencias({ ingredientes, celulas, matrizCelulas, motivos = {}, aprovacoes = {}, membros, origem = {} }) {
-  const d = diferencasDoLote({ ingredientes, celulas, matrizCelulas, origem });
+/* Decisão do Marlos (05/11/2026): o lote NÃO pede comentário de alteração. Quem alterou cada célula é
+ * registrado sozinho no salvamento (motivos/{r}/{k}: valor, por, em — o nome do nó ficou por compatibilidade).
+ * D-1: a única pendência que sobra é o ingrediente CRÍTICO que muda a fórmula ANTERIOR da própria amostra —
+ * precisa de "Aprovar" de um ADM/RT que não seja quem alterou. Amostra sem fórmula anterior (primeira
+ * formulação) não tem o que aprovar: o crítico só aparece com o selo. */
+export function mudancasCriticasDaOrigem({ ingredientes, celulas, origem = {} }) {
+  const out = {};
+  for (const [r, col] of Object.entries(celulas || {})) {
+    const o = origem?.[r];
+    if (!o) continue; // sem fórmula anterior
+    const l = chavesOrdenadas(ingredientes)
+      .filter((k) => nivelDaMudanca(ingredientes[k]) === NIVEL.CRITICO && pct4(col?.[k]) !== pct4(o[k]))
+      .map((k) => ({ ingKey: k, nome: ingredientes[k].nome, de: num(o[k]), para: num(col?.[k]), nivel: NIVEL.CRITICO, daAmostra: true }));
+    if (l.length) out[r] = l;
+  }
+  return out;
+}
+
+export function pendencias({ ingredientes, celulas, motivos = {}, aprovacoes = {}, membros, origem = {} }) {
+  const d = mudancasCriticasDaOrigem({ ingredientes, celulas, origem });
   const out = [];
   for (const r of membros || Object.keys(celulas || {})) {
     for (const x of d[r] || []) {
-      if (x.nivel < NIVEL.COMUM) continue;
-      const mot = motivos?.[r]?.[x.ingKey];
-      const base = { request_id: r, ingKey: x.ingKey, nome: x.nome, nivel: x.nivel };
-      if (String(mot?.texto || "").trim().length < MIN_MOTIVO) out.push({ ...base, tipo: "motivo", motivo: `Escreva o motivo da mudança de ${x.nome} (mín. ${MIN_MOTIVO} letras).` });
-      if (x.nivel !== NIVEL.CRITICO) continue;
+      const quem = motivos?.[r]?.[x.ingKey];
+      const base = { request_id: r, ingKey: x.ingKey, nome: x.nome, nivel: x.nivel, tipo: "aprovacao" };
       const ap = aprovacoes?.[r]?.[x.ingKey];
-      const deQuem = x.daAmostra ? " (muda a fórmula anterior desta amostra)" : "";
-      if (!ap) out.push({ ...base, tipo: "aprovacao", motivo: `${x.nome} é crítico: precisa da aprovação de um RT ou ADM (outra pessoa)${deQuem}.` });
-      else if (pct4(ap.valor) !== pct4(x.para)) out.push({ ...base, tipo: "aprovacao", motivo: `${x.nome}: o valor mudou depois da aprovação — peça de novo.` });
+      if (!ap) out.push({ ...base, motivo: `${x.nome} é crítico e muda a fórmula anterior desta amostra (${fmtPct(x.de)} → ${fmtPct(x.para)} %): falta a aprovação ("Aprovar") de um ADM ou RT que não seja quem alterou.` });
+      else if (pct4(ap.valor) !== pct4(x.para)) out.push({ ...base, motivo: `${x.nome}: o valor mudou depois da aprovação — peça de novo.` });
       // A aprovação vale para o material + fase aprovados, não para a linha (trocar o material invalida).
-      else if (ap.chave !== chaveMaterialFase(ingredientes[x.ingKey] || {})) out.push({ ...base, tipo: "aprovacao", motivo: `${x.nome}: o material mudou depois da aprovação — peça de novo.` });
-      else if (!mot?.por || ap.por === mot.por) out.push({ ...base, tipo: "aprovacao", motivo: `${x.nome}: a aprovação precisa ser de outra pessoa que não a autora do motivo (salve o motivo antes).` });
+      else if (ap.chave !== chaveMaterialFase(ingredientes[x.ingKey] || {})) out.push({ ...base, motivo: `${x.nome}: o material mudou depois da aprovação — peça de novo.` });
+      else if (!quem?.por || ap.por === quem.por) out.push({ ...base, motivo: `${x.nome}: a aprovação precisa ser de outra pessoa que não quem alterou (salve antes de pedir a aprovação).` });
     }
   }
   return out;
@@ -465,7 +479,6 @@ const canon = (v) => JSON.stringify(v, (k, x) => (x && typeof x === "object" && 
 function assinaturaRascunho(r, membrosAtivos, quantidades) {
   return canon({
     ingredientes: r.ingredientes || {}, celulas: Object.fromEntries(membrosAtivos.map((m) => [m, r.celulas?.[m] || {}])),
-    motivos: Object.fromEntries(Object.entries(r.motivos || {}).map(([m, o]) => [m, Object.fromEntries(Object.entries(o || {}).map(([k, x]) => [k, String(x?.texto || "").trim()]))])),
     pre_mistura: r.pre_mistura || {}, perda_pct: num(r.perda_pct), minimo: num(r.minimo_pesavel_g),
     q: Object.fromEntries(membrosAtivos.map((m) => [m, [num(quantidades?.[m]?.quantidade_g), num(quantidades?.[m]?.densidade)]])),
   });
@@ -510,14 +523,15 @@ export function planoSalvarLote({ tenantPath, lote, rascunho, contexto, agora, a
         comment: `Desenvolvimento iniciado pela manipulação em lote ${lote.codigo}`, changed_by: autor.uid, changed_by_name: autor.nome, created_at: agora, user_id: autor.uid };
       resumo.passaramEmDesenvolvimento.push(r);
     }
-    // Motivo: o carimbo (quem/quando/valor) só muda quando o texto ou o valor mudam.
+    // Registro automático da alteração (05/11: sem comentário): quem/quando/valor de cada célula que difere
+    // da matriz ou da fórmula anterior. O carimbo só muda quando o valor muda — assim "quem alterou" é
+    // sempre a última pessoa que mexeu naquele número (base do "aprovar" de crítico da D-1).
     const dr = (difs[r] || []).filter((x) => x.nivel >= NIVEL.COMUM);
     for (const x of dr) {
-      const texto = String(rascunho.motivos?.[r]?.[x.ingKey]?.texto || "").trim();
-      if (!texto) continue;
       const ant = lote.motivos?.[r]?.[x.ingKey];
+      const texto = String(rascunho.motivos?.[r]?.[x.ingKey]?.texto ?? ant?.texto ?? "").trim();
       motivos[r] = motivos[r] || {};
-      motivos[r][x.ingKey] = ant && ant.texto === texto && pct4(ant.valor) === pct4(x.para) ? ant
+      motivos[r][x.ingKey] = ant && ant.por && pct4(ant.valor) === pct4(x.para) ? { ...ant, texto }
         : { texto, nivel: x.nivel, valor: x.para, por: autor.uid, por_nome: autor.nome, em: agora };
     }
     const q = quantidades[r] || {};

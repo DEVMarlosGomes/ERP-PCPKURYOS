@@ -109,6 +109,14 @@ export function createManipulacaoLoteRouter(h) {
   const resumoLote = (l) => ({ id: l.id, codigo: l.codigo, status: l.status, membros: ativosDe(l).length, atualizado_em: l.atualizado_em || l.criado_em || "" });
   const semItens = ({ _itens, ...x }) => x;
 
+  // Aba Manipulação da amostra: em que lote aberto ela está (lê só os lotes — leve).
+  async function loteDaAmostra(t, r) {
+    const lotes = await all(t, COLECAO_LOTES);
+    const l = lotes.filter((x) => M.STATUS_LOTE_ABERTO.includes(x.status) && x.membros?.[r] && x.membros[r].status_membro !== "removido")
+      .sort((a, b) => String(b.atualizado_em || "").localeCompare(String(a.atualizado_em || "")))[0];
+    return { lote: l ? { ...resumoLote(l), versao_lote: l.membros[r].versao_lote || null } : null };
+  }
+
   async function elegiveis(t, proj) {
     const c = await carregarProjeto(t, proj);
     const mp = M.matrizPadrao(c.linhas.filter((l) => l.elegivel).map((l) => ({ request_id: l.request_id, formula: l.formula, itens: l._itens })));
@@ -398,6 +406,7 @@ export function createManipulacaoLoteRouter(h) {
   async function route({ method, path, data, profile, tenant }) {
     let m;
     if ((m = path.match(/^\/pd\/projetos\/([^/]+)\/amostras-elegiveis$/)) && method === "GET") return elegiveis(tenant, decodeURIComponent(m[1]));
+    if ((m = path.match(/^\/pd\/requests\/([^/]+)\/lote-aberto$/)) && method === "GET") return loteDaAmostra(tenant, decodeURIComponent(m[1]));
     if (path === "/pd/manipulacao-lotes" && method === "POST") return criar(tenant, data, profile);
     if (path === "/pd/manipulacao-lotes-config" && ["GET", "PUT"].includes(method)) return config(tenant, data, profile, method);
     if ((m = path.match(/^\/pd\/manipulacao-lotes\/([^/]+)$/))) {
