@@ -53,7 +53,7 @@ test("editor: 100 % por coluna, comum em âmbar e crítico em vermelho; sem caix
   expect(desabilitado(novo, "btn-gerar-ordem")).toBe(false);
 });
 
-test("editor: matriz vazia (caso LM-2026-041-2) — sem gramas o botão diz o que falta; com gramas e 100 % libera direto, mostrando a v1 de cada uma", () => {
+test("editor: matriz vazia (caso LM-2026-041-2) — sem gramas o botão diz o que falta; com gramas e 100 % libera direto, mostrando que cada uma ganha a primeira versão", () => {
   const { lote, k } = loteDeExemplo((l, k) => {
     l.matriz = { tipo: "vazia", ref_id: null, codigo: "", celulas: {} };
     for (const r of ["R1", "R2"]) { l.membros[r].versao_antes = null; l.membros[r].quantidade_g = undefined; }
@@ -67,7 +67,7 @@ test("editor: matriz vazia (caso LM-2026-041-2) — sem gramas o botão diz o qu
   for (const r of ["R1", "R2"]) lote.membros[r].quantidade_g = 50;
   const pronto = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true }} user={{ role: "pd" }} recarregar={async () => {}} />);
   expect(desabilitado(pronto, "btn-gerar-ordem")).toBe(false);
-  expect(pronto).toContain("2026-1003-a v1, 2026-1003-b v1");
+  expect(pronto).toContain("2026-1003-a: primeira versão · 2026-1003-b: primeira versão");
 });
 
 test("editor: sem diferença e tudo fechado, conclui direto; perfil sem P&D só consulta", () => {

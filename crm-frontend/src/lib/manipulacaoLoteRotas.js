@@ -246,7 +246,7 @@ export function createManipulacaoLoteRouter(h) {
     const plano = M.planoSalvarLote({ tenantPath: `erp/${t}`, lote: l, rascunho: { ...data, ingredientes }, contexto: { requests: reqs, origem: origemCel },
       agora: now(), autor: { uid: uid(), nome: h.pdUserName(perfil) }, novoId: newId });
     const motivos = plano.updates[`${P(t, COLECAO_LOTES)}/${id}/motivos`] || l.motivos || {};
-    const pendencias = M.pendencias({ ingredientes, celulas: data?.celulas || {}, matrizCelulas: l.matriz?.celulas || {}, motivos, aprovacoes: l.aprovacoes_criticas || {}, membros: ativos, origem: origemCel });
+    const pendencias = M.pendencias({ ingredientes, celulas: data?.celulas || {}, motivos, aprovacoes: l.aprovacoes_criticas || {}, membros: ativos, origem: origemCel });
     const fechamento = M.fechamentoPorMembro(data?.celulas || {}, ativos, ingredientes);
     if (plano.resumo.semMudanca) return { sem_mudanca: true, lote: l, pendencias, fechamento };
     await gravar(plano.updates);

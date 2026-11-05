@@ -119,7 +119,8 @@ describe("clonar, diferenças, motivo e 100%", () => {
     const origem = { R3: { ...m.celulas.R1 } };
     let p = pendencias({ ingredientes, celulas, motivos: {}, aprovacoes: {}, membros, origem });
     expect(p.map((x) => `${x.request_id}:${x.nome}:${x.tipo}`)).toEqual(["R3:Fenoxietanol:aprovacao"]);
-    const quem = { R3: { [k("Fenoxietanol")]: { valor: 1, por: "u1" } } }; // carimbo automático do salvamento
+    const chaveF = chaveMaterialFase(ingredientes[k("Fenoxietanol")]);
+    const quem = { R3: { [k("Fenoxietanol")]: { valor: 1, chave: chaveF, por: "u1" } } }; // carimbo automático do salvamento
     p = pendencias({ ingredientes, celulas, motivos: quem, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 0.9, por: "adm" } } }, membros, origem });
     expect(p).toEqual([expect.objectContaining({ request_id: "R3", tipo: "aprovacao", motivo: expect.stringMatching(/mudou depois/) })]);
     // A aprovação vale para o material + fase aprovados (auditoria LM-15): sem a chave, não vale.
@@ -131,8 +132,13 @@ describe("clonar, diferenças, motivo e 100%", () => {
     // Alteração ainda não salva (sem carimbo) ou aprovada por quem alterou: não vale.
     expect(pendencias({ ingredientes, celulas, motivos: {}, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 1, por: "adm", chave } } }, membros, origem }))
       .toEqual([expect.objectContaining({ tipo: "aprovacao", motivo: expect.stringMatching(/outra pessoa/) })]);
-    expect(pendencias({ ingredientes, celulas, motivos: { R3: { [k("Fenoxietanol")]: { valor: 1, por: "adm" } } }, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 1, por: "adm", chave } } }, membros, origem }))
+    expect(pendencias({ ingredientes, celulas, motivos: { R3: { [k("Fenoxietanol")]: { valor: 1, chave: chaveF, por: "adm" } } }, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 1, por: "adm", chave } } }, membros, origem }))
       .toEqual([expect.objectContaining({ tipo: "aprovacao", motivo: expect.stringMatching(/outra pessoa/) })]);
+    // Carimbo de outro valor ou de outro material não serve (quem alterou tem que ser desta mudança).
+    for (const outro of [{ valor: 0.9, chave: chaveF, por: "u1" }, { valor: 1, chave: "OUTRO|a", por: "u1" }]) {
+      expect(pendencias({ ingredientes, celulas, motivos: { R3: { [k("Fenoxietanol")]: outro } }, aprovacoes: { R3: { [k("Fenoxietanol")]: { valor: 1, por: "adm", chave } } }, membros, origem }))
+        .toEqual([expect.objectContaining({ tipo: "aprovacao", motivo: expect.stringMatching(/outra pessoa/) })]);
+    }
     // Nenhuma pendência é de comentário.
     expect(pendencias({ ingredientes, celulas, motivos: {}, aprovacoes: {}, membros, origem }).some((x) => x.tipo === "motivo")).toBe(false);
   });
@@ -292,14 +298,18 @@ describe("plano de salvamento (só o rascunho; versões nascem no servidor — A
   test("05/11: sem comentário, quem alterou é carimbado sozinho e só muda quando o valor muda", () => {
     const semTexto = { ...rascunho, motivos: undefined };
     const { updates } = planoSalvarLote({ ...base, rascunho: semTexto, contexto: ctx() });
-    expect(updates[`${L}/motivos`].R2.i01).toMatchObject({ texto: "", por: "u1", por_nome: "Yasmim", valor: 97, nivel: 2 });
+    expect(updates[`${L}/motivos`].R2.i01).toMatchObject({ texto: "", por: "u1", por_nome: "Yasmim", valor: 97, nivel: 2, chave: "M1|a" });
     // Outra pessoa salva de novo sem mexer no 97: o carimbo continua de quem alterou (u1).
-    const l2 = { ...lote, celulas: { R1: { i01: 98, i02: 2 }, R2: { i01: 97, i02: 3 } }, motivos: { R2: { i01: { texto: "", por: "u1", por_nome: "Yasmim", em: "x", valor: 97, nivel: 2 } } } };
+    const l2 = { ...lote, celulas: { R1: { i01: 98, i02: 2 }, R2: { i01: 97, i02: 3 } }, motivos: { R2: { i01: { texto: "", por: "u1", por_nome: "Yasmim", em: "x", valor: 97, nivel: 2, chave: "M1|a" } } } };
     const outro = planoSalvarLote({ ...base, lote: l2, rascunho: { ...semTexto, perda_pct: 4 }, autor: { uid: "u2", nome: "Ana" }, contexto: ctx() });
     expect(outro.updates[`${L}/motivos`].R2.i01).toMatchObject({ por: "u1", valor: 97 });
     // Mudou o número: o carimbo passa a ser de quem mudou.
     const mudou = planoSalvarLote({ ...base, lote: l2, rascunho: { ...semTexto, celulas: { R1: { i01: 98, i02: 2 }, R2: { i01: 96, i02: 4 } } }, autor: { uid: "u2", nome: "Ana" }, contexto: ctx() });
     expect(mudou.updates[`${L}/motivos`].R2.i01).toMatchObject({ por: "u2", valor: 96 });
+    // Trocou o material da linha mantendo o número: também é mudança de quem trocou.
+    const troca = { ...semTexto, ingredientes: { ...semTexto.ingredientes, i01: { nome: "Água deionizada", fase: "A", master_material_id: "M9" } } };
+    const trocou = planoSalvarLote({ ...base, lote: l2, rascunho: troca, autor: { uid: "u2", nome: "Ana" }, contexto: ctx() });
+    expect(trocou.updates[`${L}/motivos`].R2.i01).toMatchObject({ por: "u2", chave: "M9|a" });
   });
   test("mesmo conteúdo: sem mudança, nenhum caminho", () => {
     const l2 = { ...lote, revisao: 2, ...rascunho, membros: { R1: { ...lote.membros.R1, quantidade_g: 50 }, R2: { ...lote.membros.R2, quantidade_g: 30 } },

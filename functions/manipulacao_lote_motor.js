@@ -274,7 +274,8 @@ function pendencias({ ingredientes, celulas, motivos = {}, aprovacoes = {}, memb
       else if (pct4(ap.valor) !== pct4(x.para)) out.push({ ...base, motivo: `${x.nome}: o valor mudou depois da aprovação — peça de novo.` });
       // A aprovação vale para o material + fase aprovados, não para a linha (trocar o material invalida).
       else if (ap.chave !== chaveMaterialFase(ingredientes[x.ingKey] || {})) out.push({ ...base, motivo: `${x.nome}: o material mudou depois da aprovação — peça de novo.` });
-      else if (!quem?.por || ap.por === quem.por) out.push({ ...base, motivo: `${x.nome}: a aprovação precisa ser de outra pessoa que não quem alterou (salve antes de pedir a aprovação).` });
+      // O carimbo tem que ser do valor e do material ATUAIS (senão "quem alterou" é de outra mudança) e o aprovador, outra pessoa.
+      else if (!quem?.por || pct4(quem.valor) !== pct4(x.para) || quem.chave !== chaveMaterialFase(ingredientes[x.ingKey] || {}) || ap.por === quem.por) out.push({ ...base, motivo: `${x.nome}: a aprovação precisa ser de outra pessoa que não quem alterou (salve antes de pedir a aprovação).` });
     }
   }
   return out;
@@ -534,8 +535,9 @@ function planoSalvarLote({ tenantPath, lote, rascunho, contexto, agora, autor, n
       const ant = lote.motivos?.[r]?.[x.ingKey];
       const texto = String(rascunho.motivos?.[r]?.[x.ingKey]?.texto ?? ant?.texto ?? "").trim();
       motivos[r] = motivos[r] || {};
-      motivos[r][x.ingKey] = ant && ant.por && pct4(ant.valor) === pct4(x.para) ? { ...ant, texto }
-        : { texto, nivel: x.nivel, valor: x.para, por: autor.uid, por_nome: autor.nome, em: agora };
+      const chave = chaveMaterialFase(ing[x.ingKey] || {});
+      motivos[r][x.ingKey] = ant && ant.por && pct4(ant.valor) === pct4(x.para) && ant.chave === chave ? { ...ant, texto }
+        : { texto, nivel: x.nivel, valor: x.para, chave, por: autor.uid, por_nome: autor.nome, em: agora };
     }
     const q = quantidades[r] || {};
     const Lm = `${L}/membros/${r}`;

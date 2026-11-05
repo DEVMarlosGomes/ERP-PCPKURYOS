@@ -150,6 +150,12 @@ export default function EditorLote({ detalhe, user, recarregar }) {
     if (sujo) {
       const salvo = await gravarRascunho();
       revisao = salvo.lote?.revisao ?? revisao;
+      // O salvamento recalcula crítico/fragrância pelo Cadastros: se surgiu pendência, para aqui (salvo, sem ordem).
+      if ((salvo.pendencias || []).length) {
+        toast.error(`Rascunho salvo, mas ainda falta: ${salvo.pendencias.map((p) => `${cod(p.request_id)} · ${p.motivo}`).join(" ")}`);
+        await recarregar();
+        return;
+      }
     }
     try {
       const { data } = await api.post(`/pd/manipulacao-lotes/${lote.id}/gerar-ordem`, { revisao });
@@ -193,7 +199,7 @@ export default function EditorLote({ detalhe, user, recarregar }) {
       {pode && (
         <p className={`text-sm ${falta.length ? "text-amber-800 dark:text-amber-300" : "text-emerald-800 dark:text-emerald-300"}`} data-testid="falta-lote" role="status">
           {falta.length ? <><b>Para concluir, falta:</b> {falta.join(" · ")}.</>
-            : <>Tudo preenchido. Ao concluir, cada amostra ganha a próxima versão da fórmula ({ativos.map((r) => `${cod(r)} ${lote.membros[r]?.versao_antes ? `v${Number(lote.membros[r].versao_antes) + 1}` : "v1"}`).join(", ")}) na aba Manipulação.</>}
+            : <>Tudo preenchido. Ao concluir, cada amostra ganha uma versão nova da fórmula na aba Manipulação ({ativos.map((r) => `${cod(r)}: ${lote.membros[r]?.versao_antes ? `depois da v${lote.membros[r].versao_antes}` : "primeira versão"}`).join(" · ")}).</>}
         </p>
       )}
 
@@ -305,7 +311,8 @@ export default function EditorLote({ detalhe, user, recarregar }) {
             const quem = lote.motivos?.[r]?.[x.ingKey];
             const ap = lote.aprovacoes_criticas?.[r]?.[x.ingKey];
             const aprovado = ap && Math.round(num(ap.valor) * 1e4) === Math.round(num(x.para) * 1e4) && ap.chave === chaveMaterialFase(form.ingredientes[x.ingKey] || {});
-            const podeEsteAprovar = podeAprovar && !sujo && quem?.por && quem.por !== eu && Math.round(num(quem.valor) * 1e4) === Math.round(num(x.para) * 1e4);
+            const podeEsteAprovar = podeAprovar && !sujo && quem?.por && quem.por !== eu && Math.round(num(quem.valor) * 1e4) === Math.round(num(x.para) * 1e4)
+              && quem.chave === chaveMaterialFase(form.ingredientes[x.ingKey] || {});
             return (
               <div key={`${r}-${x.ingKey}`} className={`flex flex-wrap items-center gap-2 rounded border p-2 text-sm ${CLASSE_NIVEL[NIVEL.CRITICO]}`}>
                 <span className="sm:min-w-[260px]"><b>{cod(r)}</b> · {x.nome}: {fmt(x.de)} → {fmt(x.para)} %{quem?.por_nome ? <span className="block text-xs">alterado por {quem.por_nome}</span> : null}</span>
