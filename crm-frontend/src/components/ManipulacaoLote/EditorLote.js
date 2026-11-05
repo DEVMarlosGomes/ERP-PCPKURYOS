@@ -25,7 +25,12 @@ const paraNumeros = (celulas) => Object.fromEntries(Object.entries(celulas || {}
 const chaves = (o) => Object.keys(o || {}).sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
 const proximaChave = (ingredientes) => { let n = 1; while (ingredientes[`i${String(n).padStart(2, "0")}`]) n += 1; return `i${String(n).padStart(2, "0")}`; };
 const ativosDe = (lote) => Object.keys(lote.membros || {}).filter((r) => lote.membros[r]?.status_membro !== "removido");
-const CLASSE_NIVEL = { [NIVEL.FRAGRANCIA]: "bg-violet-50 border-violet-300", [NIVEL.COMUM]: "bg-amber-50 border-amber-400", [NIVEL.CRITICO]: "bg-red-50 border-red-500" };
+const CLASSE_NIVEL = {
+  [NIVEL.FRAGRANCIA]: "bg-violet-50 border-violet-300 dark:bg-violet-950/40 dark:border-violet-700",
+  [NIVEL.COMUM]: "bg-amber-50 border-amber-400 dark:bg-amber-950/40 dark:border-amber-600",
+  [NIVEL.CRITICO]: "bg-red-50 border-red-500 dark:bg-red-950/40 dark:border-red-600",
+};
+const SELECT = "rounded-md border border-input bg-background text-foreground";
 
 function estadoDe(lote) {
   const ativos = ativosDe(lote);
@@ -183,7 +188,7 @@ export default function EditorLote({ detalhe, user, recarregar }) {
   return (
     <div className="space-y-4" data-testid="editor-lote">
       {Object.entries(estado).filter(([, s]) => s?.fora_do_lote).map(([r]) => (
-        <p key={r} className="flex items-center gap-1 text-sm text-red-700" role="alert"><AlertTriangle className="h-4 w-4" />{cod(r)}: a fórmula foi editada fora do lote — tire a amostra e inclua de novo.</p>
+        <p key={r} className="flex items-center gap-1 text-sm text-red-700 dark:text-red-400" role="alert"><AlertTriangle className="h-4 w-4" />{cod(r)}: a fórmula foi editada fora do lote — tire a amostra e inclua de novo.</p>
       ))}
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={salvar} disabled={!pode || !sujo || Boolean(ocupado)} data-testid="btn-salvar-lote">
@@ -195,8 +200,8 @@ export default function EditorLote({ detalhe, user, recarregar }) {
         </Button>
         <Button variant="outline" onClick={clonarMatrizParaTodas} disabled={!pode}><Copy className="mr-1 h-4 w-4" />Clonar matriz para todas</Button>
         <Button variant="outline" onClick={() => setDialogo({ tipo: "adicionar" })} disabled={!pode}><Plus className="mr-1 h-4 w-4" />Adicionar ingrediente</Button>
-        <Button variant="ghost" className="text-red-700" onClick={() => setDialogo({ tipo: "cancelar" })} disabled={!pode}>Cancelar lote</Button>
-        {sujo && <span className="text-xs text-amber-700">Alterações não salvas</span>}
+        <Button variant="ghost" className="text-red-700 dark:text-red-400" onClick={() => setDialogo({ tipo: "cancelar" })} disabled={!pode}>Cancelar lote</Button>
+        {sujo && <span className="text-xs text-amber-700 dark:text-amber-300">Alterações não salvas</span>}
         {!pode && <span className="text-xs text-muted-foreground">Seu perfil só consulta.</span>}
       </div>
 
@@ -218,7 +223,7 @@ export default function EditorLote({ detalhe, user, recarregar }) {
         </div>
         {estreito && (
           <div><Label htmlFor="coluna-lote">Amostra</Label>
-            <select id="coluna-lote" className="h-9 rounded-md border px-2" value={visiveis[0]} onChange={(e) => setColuna(e.target.value)}>
+            <select id="coluna-lote" className={`h-9 px-2 ${SELECT}`} value={visiveis[0]} onChange={(e) => setColuna(e.target.value)}>
               {ativos.map((r) => <option key={r} value={r}>{cod(r)}</option>)}
             </select></div>
         )}
@@ -228,13 +233,13 @@ export default function EditorLote({ detalhe, user, recarregar }) {
         <table className="border-collapse text-sm" data-testid="matriz-lote">
           <thead>
             <tr className="border-b align-top">
-              <th className="sticky left-0 z-10 min-w-[200px] bg-background p-2 text-left">Ingrediente</th>
+              <th className="sticky left-0 z-10 min-w-[130px] bg-background p-2 text-left sm:min-w-[200px]">Ingrediente</th>
               <th className="p-2 text-right text-xs font-normal text-muted-foreground">Matriz<div>{lote.matriz?.codigo || lote.matriz?.tipo}</div></th>
               {visiveis.map((r) => {
                 const m = lote.membros[r];
                 const ml = String(m.unidade_pedido || "g").toLowerCase() !== "g";
                 return (
-                  <th key={r} className="min-w-[130px] p-2 text-left font-normal">
+                  <th key={r} className="min-w-[110px] p-2 text-left font-normal sm:min-w-[130px]">
                     <div className="font-semibold">{cod(r)}</div>
                     <div className="text-xs text-muted-foreground">{ROTULO_STATUS_PD[estado[r]?.status_pd] || estado[r]?.status_pd || ""}{m.versao_antes ? ` · v${m.versao_antes}` : " · sem fórmula"}</div>
                     <label className="mt-1 block text-xs">g
@@ -245,12 +250,12 @@ export default function EditorLote({ detalhe, user, recarregar }) {
                         <Input className="h-7" inputMode="decimal" value={form.quantidades[r]?.densidade ?? ""} disabled={!pode}
                           onChange={(e) => mudar((f) => ({ ...f, quantidades: { ...f.quantidades, [r]: { ...f.quantidades[r], densidade: e.target.value } } }))} /></label>
                     )}
-                    <select className="mt-1 h-7 w-full rounded border text-xs" value="" disabled={!pode} aria-label={`Copiar para ${cod(r)}`}
+                    <select className={`mt-1 h-7 w-full text-xs ${SELECT}`} value="" disabled={!pode} aria-label={`Copiar para ${cod(r)}`}
                       onChange={(e) => { const de = e.target.value; if (de) mudar((f) => ({ ...f, celulas: clonar(f.celulas, { de, para: [r], matrizCelulas: matriz }) })); }}>
                       <option value="">Copiar de…</option><option value="matriz">Matriz</option>
                       {ativos.filter((x) => x !== r).map((x) => <option key={x} value={x}>{cod(x)}</option>)}
                     </select>
-                    <Button variant="ghost" size="sm" className="mt-1 h-6 px-1 text-xs text-red-700" disabled={!pode || ativos.length <= 2}
+                    <Button variant="ghost" size="sm" className="mt-1 h-6 px-1 text-xs text-red-700 dark:text-red-400" disabled={!pode || ativos.length <= 2}
                       title={ativos.length <= 2 ? "O lote precisa de pelo menos 2 amostras." : ""} onClick={() => setDialogo({ tipo: "remover", r })}>
                       <X className="mr-1 h-3 w-3" />Tirar do lote
                     </Button>
@@ -268,8 +273,8 @@ export default function EditorLote({ detalhe, user, recarregar }) {
                     <div className="font-medium">{ing.nome}</div>
                     <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                       {ing.fase ? `Fase ${ing.fase}` : "sem fase"}
-                      {ing.critico && <Badge variant="outline" className="border-red-400 text-red-700">crítico</Badge>}
-                      {ing.ehFragrancia && <Badge variant="outline" className="border-violet-400 text-violet-700">fragrância</Badge>}
+                      {ing.critico && <Badge variant="outline" className="border-red-400 text-red-700 dark:text-red-400">crítico</Badge>}
+                      {ing.ehFragrancia && <Badge variant="outline" className="border-violet-400 text-violet-700 dark:text-violet-300">fragrância</Badge>}
                       {!ing.ehFragrancia && sugereFragrancia(ing) && <span className="text-muted-foreground" title="Pelo nome parece fragrância; o que vale é o Cadastros ou a função na fórmula.">parece fragrância?</span>}
                       <button type="button" className="underline disabled:opacity-40" disabled={!pode} title="Usar o % da matriz em todas as amostras"
                         onClick={() => mudar((f) => ({ ...f, celulas: clonar(f.celulas, { de: "matriz", para: ativos, ingKey: k, matrizCelulas: matriz }) }))}>= matriz em todas</button>
@@ -292,7 +297,7 @@ export default function EditorLote({ detalhe, user, recarregar }) {
               <td className="sticky left-0 z-10 bg-background p-2">Soma</td>
               <td className="p-2 text-right text-muted-foreground">{fmt(Object.values(matriz).reduce((s, v) => s + num(v), 0))} %</td>
               {visiveis.map((r) => (
-                <td key={r} className={`p-2 text-right ${fech[r]?.ok ? "text-green-700" : "text-red-600"}`} data-testid={`soma-${r}`}>
+                <td key={r} className={`p-2 text-right ${fech[r]?.ok ? "text-green-700 dark:text-green-400" : "text-red-600 dark:text-red-400"}`} data-testid={`soma-${r}`}>
                   {fmt(fech[r]?.soma)} %{fech[r]?.ok ? <CheckCircle2 className="ml-1 inline h-3 w-3" /> : null}
                 </td>
               ))}
@@ -304,36 +309,44 @@ export default function EditorLote({ detalhe, user, recarregar }) {
       <section className="space-y-2" data-testid="diferencas-lote">
         <h4 className="text-sm font-semibold">Diferenças da matriz</h4>
         {ativos.every((r) => !(difs[r] || []).length) && <p className="text-xs text-muted-foreground">Todas as amostras iguais à matriz.</p>}
-        {ativos.map((r) => (difs[r] || []).map((x) => {
+        {ativos.map((r) => {
+          const frag = (difs[r] || []).filter((x) => x.nivel === NIVEL.FRAGRANCIA);
+          return frag.length ? (
+            <div key={`${r}-frag`} className={`rounded border p-2 text-sm ${CLASSE_NIVEL[NIVEL.FRAGRANCIA]}`}>
+              <b>{cod(r)}</b> · fragrância: {frag.map((x) => `${x.nome} ${fmt(x.de)} → ${fmt(x.para)} %`).join("; ")} <span className="text-xs text-violet-700 dark:text-violet-300">— livre</span>
+            </div>
+          ) : null;
+        })}
+        {ativos.map((r) => (difs[r] || []).filter((x) => x.nivel !== NIVEL.FRAGRANCIA).map((x) => {
           const salvo = lote.motivos?.[r]?.[x.ingKey];
           const ap = lote.aprovacoes_criticas?.[r]?.[x.ingKey];
           const aprovado = ap && Math.round(num(ap.valor) * 1e4) === Math.round(num(x.para) * 1e4);
           const podeEsteAprovar = podeAprovar && !sujo && salvo?.por && salvo.por !== eu && Math.round(num(salvo.valor) * 1e4) === Math.round(num(x.para) * 1e4);
           return (
             <div key={`${r}-${x.ingKey}`} className={`flex flex-wrap items-center gap-2 rounded border p-2 text-sm ${CLASSE_NIVEL[x.nivel] || ""}`}>
-              <span className="min-w-[220px]"><b>{cod(r)}</b> · {x.nome}: {fmt(x.de)} → {fmt(x.para)} %</span>
-              {x.nivel === NIVEL.FRAGRANCIA ? <span className="text-xs text-violet-700">fragrância — livre</span> : (
+              <span className="sm:min-w-[220px]"><b>{cod(r)}</b> · {x.nome}: {fmt(x.de)} → {fmt(x.para)} %</span>
+              {(
                 <>
-                  <Input className="h-8 max-w-sm flex-1" placeholder={`Motivo (mín. ${MIN_MOTIVO} letras)`} disabled={!pode} aria-label={`Motivo ${cod(r)} ${x.nome}`}
+                  <Input className="h-8 w-full sm:max-w-sm sm:flex-1" placeholder={`Motivo (mín. ${MIN_MOTIVO} letras)`} disabled={!pode} aria-label={`Motivo ${cod(r)} ${x.nome}`}
                     value={form.motivos[r]?.[x.ingKey]?.texto || ""}
                     onChange={(e) => mudar((f) => ({ ...f, motivos: { ...f.motivos, [r]: { ...(f.motivos[r] || {}), [x.ingKey]: { texto: e.target.value } } } }))} />
                   {x.nivel === NIVEL.CRITICO && (aprovado
-                    ? <span className="flex items-center gap-1 text-xs text-green-700"><ShieldCheck className="h-3 w-3" />aprovado por {ap.por_nome}</span>
+                    ? <span className="flex items-center gap-1 text-xs text-green-700 dark:text-green-400"><ShieldCheck className="h-3 w-3" />aprovado por {ap.por_nome}</span>
                     : podeEsteAprovar
                       ? <Button size="sm" variant="outline" onClick={() => aprovar(r, x.ingKey)} disabled={Boolean(ocupado)}>Aprovar mudança</Button>
-                      : <span className="text-xs text-red-700">crítico: precisa da aprovação de outra pessoa (ADM ou módulo Aprovar crítico P&D){sujo ? " — salve antes" : ""}</span>)}
+                      : <span className="text-xs text-red-700 dark:text-red-400">crítico: precisa da aprovação de outra pessoa (ADM ou módulo Aprovar crítico P&D){sujo ? " — salve antes" : ""}</span>)}
                 </>
               )}
             </div>
           );
         }))}
         {pend.length > 0 && (
-          <ul className="list-disc pl-5 text-xs text-amber-800" data-testid="pendencias-lote">
+          <ul className="list-disc pl-5 text-xs text-amber-800 dark:text-amber-300" data-testid="pendencias-lote">
             {pend.slice(0, 8).map((p) => <li key={`${p.request_id}-${p.ingKey}-${p.tipo}`}>{cod(p.request_id)}: {p.motivo}</li>)}
             {pend.length > 8 && <li>+{pend.length - 8} pendência(s)</li>}
           </ul>
         )}
-        {semGramas.length > 0 && <p className="text-xs text-amber-800">Sem quantidade em g (salvo): {semGramas.map(cod).join(", ")}.</p>}
+        {semGramas.length > 0 && <p className="text-xs text-amber-800 dark:text-amber-300">Sem quantidade em g (salvo): {semGramas.map(cod).join(", ")}.</p>}
         <p className="text-xs text-muted-foreground">Até {MAX_MEMBROS} amostras por lote. A ordem só sai com 100 % em todas, motivos escritos e críticos aprovados.</p>
       </section>
 

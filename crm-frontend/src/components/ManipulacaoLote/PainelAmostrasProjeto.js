@@ -17,9 +17,9 @@ import OrdemLote from "./OrdemLote";
 export const COR_STATUS_LOTE = {
   rascunho: "bg-slate-500/10 text-slate-700 border-slate-300",
   gerando_ordem: "bg-blue-500/10 text-blue-700 border-blue-300",
-  ordem_gerada: "bg-amber-500/10 text-amber-700 border-amber-300",
-  manipulado: "bg-green-500/10 text-green-700 border-green-300",
-  cancelado: "bg-red-500/10 text-red-700 border-red-300",
+  ordem_gerada: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-300",
+  manipulado: "bg-green-500/10 text-green-700 dark:text-green-400 border-green-300",
+  cancelado: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-300",
 };
 
 /* Abre um lote: carrega o detalhe e mostra o editor (rascunho) ou a ordem (depois). */
@@ -48,7 +48,7 @@ export function LoteDialog({ loteId, user, onClose }) {
             {lote ? `${lote.projeto_numero || ""} ${lote.projeto_nome || ""} · revisão ${lote.revisao}` : "Carregando o lote…"}
           </DialogDescription>
         </DialogHeader>
-        {erro && <p className="text-sm text-red-600" role="alert">{erro}</p>}
+        {erro && <p className="text-sm text-red-600 dark:text-red-400" role="alert">{erro}</p>}
         {!detalhe && !erro && <Loader2 className="h-5 w-5 animate-spin" />}
         {detalhe && lote.status === "rascunho" && <EditorLote detalhe={detalhe} user={user} recarregar={recarregar} />}
         {detalhe && lote.status !== "rascunho" && <OrdemLote detalhe={detalhe} user={user} recarregar={recarregar} />}
@@ -75,7 +75,7 @@ export default function PainelAmostrasProjeto({ projetoId, requestId, user }) {
   }, [projetoId]);
   useEffect(() => { carregar(); }, [carregar]);
 
-  if (erro) return <p className="mt-4 text-sm text-red-600" role="alert">Amostras do projeto: {erro}</p>;
+  if (erro) return <p className="mt-4 text-sm text-red-600 dark:text-red-400" role="alert">Amostras do projeto: {erro}</p>;
   if (!dados || dados.amostras.length < 2) return null; // lote só faz sentido com várias amostras
 
   const alternar = (r) => setSel((s) => { const n = new Set(s); if (n.has(r)) n.delete(r); else n.add(r); return n; });
@@ -110,9 +110,9 @@ export default function PainelAmostrasProjeto({ projetoId, requestId, user }) {
           ajustes por amostra, uma ordem de pesagem só. {elegiveis.length} de {dados.amostras.length} podem entrar agora.
         </p>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm [&_td]:pr-2">
             <thead><tr className="border-b text-left text-xs text-muted-foreground">
-              <th className="w-8 py-1" /><th className="py-1">Amostra</th><th>Etapa no P&D</th><th>Fórmula</th><th>Por que não entra</th>
+              <th className="w-8 py-1" /><th className="py-1">Amostra</th><th>Etapa no P&D</th><th>Fórmula</th><th className="hidden sm:table-cell">Por que não entra</th>
             </tr></thead>
             <tbody>
               {dados.amostras.map((a) => (
@@ -122,11 +122,12 @@ export default function PainelAmostrasProjeto({ projetoId, requestId, user }) {
                       onChange={() => alternar(a.request_id)} data-testid={`sel-${a.request_id || a.variacao_id}`} />
                   </td>
                   <td className="py-1 font-medium">{a.codigo || "—"}{a.request_id === requestId ? <span className="ml-1 text-xs text-muted-foreground">(esta)</span> : null}
-                    <div className="text-xs font-normal text-muted-foreground">{a.produto}</div></td>
+                    <div className="text-xs font-normal text-muted-foreground">{a.produto}</div>
+                    {!a.elegivel && <div className="text-xs font-normal text-amber-800 dark:text-amber-300 sm:hidden">{a.motivo}</div>}</td>
                   <td>{a.status_pd ? ROTULO_STATUS_PD[a.status_pd] || a.status_pd : "—"}</td>
                   <td>{a.formula ? `v${a.formula.version}${a.formula.locked ? " (travada)" : ""}` : "sem fórmula"}
-                    {a.fechamento && !a.fechamento.ok ? <span className="ml-1 text-xs text-amber-700">não fecha 100 %</span> : null}</td>
-                  <td className="text-xs text-muted-foreground">{a.elegivel ? "" : a.motivo}</td>
+                    {a.fechamento && !a.fechamento.ok ? <span className="ml-1 text-xs text-amber-700 dark:text-amber-300">não fecha 100 %</span> : null}</td>
+                  <td className="hidden text-xs text-muted-foreground sm:table-cell">{a.elegivel ? "" : a.motivo}</td>
                 </tr>
               ))}
             </tbody>

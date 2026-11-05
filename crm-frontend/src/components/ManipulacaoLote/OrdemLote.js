@@ -99,19 +99,19 @@ export default function OrdemLote({ detalhe, user, recarregar }) {
     <div className="space-y-5" data-testid="ordem-lote">
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" onClick={() => imprimir(lote)} disabled={!lote.ordem}><Printer className="mr-1 h-4 w-4" />Imprimir ordem</Button>
-        {lote.status === "ordem_gerada" && <Button variant="ghost" className="text-red-700" disabled={!pode} onClick={() => setDialogo({ tipo: "cancelar" })}>Cancelar lote</Button>}
+        {lote.status === "ordem_gerada" && <Button variant="ghost" className="text-red-700 dark:text-red-400" disabled={!pode} onClick={() => setDialogo({ tipo: "cancelar" })}>Cancelar lote</Button>}
         {lote.status === "manipulado" && <Button variant="outline" disabled={!pode} onClick={() => setDialogo({ tipo: "ocorrencia" })}>Registrar ocorrência</Button>}
         <span className="text-xs text-muted-foreground">
           {o.n_amostras} amostra(s) · {fmtG(o.total_teorico_g || 0)} g · conferência por segundo usuário {conferencia ? "ligada" : "desligada"}
         </span>
       </div>
-      {lote.status === "cancelado" && <p className="text-sm text-red-700">Cancelado em {quando(lote.cancelamento?.em)} por {lote.cancelamento?.por_nome}: {lote.cancelamento?.motivo}</p>}
-      {(o.avisos || []).length > 0 && <ul className="list-disc rounded border border-amber-300 bg-amber-50 p-2 pl-6 text-xs text-amber-900">{o.avisos.map((a) => <li key={a}>{a}</li>)}</ul>}
+      {lote.status === "cancelado" && <p className="text-sm text-red-700 dark:text-red-400">Cancelado em {quando(lote.cancelamento?.em)} por {lote.cancelamento?.por_nome}: {lote.cancelamento?.motivo}</p>}
+      {(o.avisos || []).length > 0 && <ul className="list-disc rounded border border-amber-300 bg-amber-50 p-2 pl-6 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">{o.avisos.map((a) => <li key={a}>{a}</li>)}</ul>}
 
       <section className="space-y-2">
         <h4 className="flex items-center gap-1 text-sm font-semibold"><Scale className="h-4 w-4" />Pesagem</h4>
         <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm" data-testid="pesagem-lote">
+          <table className="w-full text-sm [&_td]:px-2 [&_th]:px-2" data-testid="pesagem-lote">
             <thead><tr className="border-b text-left text-xs text-muted-foreground">
               <th className="p-2">Linha</th><th>Ingrediente</th><th className="text-right">Teórico (g)</th><th>Real (g)</th><th>Lote da MP</th><th>Desvio</th><th>Registro</th><th>Conferir</th>
             </tr></thead>
@@ -129,17 +129,17 @@ export default function OrdemLote({ detalhe, user, recarregar }) {
                     <td>{reg ? <b>{fmtG(reg.real_g)}</b> : (
                       <Input className="h-8 w-24" inputMode="decimal" aria-label={`Real ${l.nome} ${l.codigo_amostra || ""}`} disabled={!pode || lote.status !== "ordem_gerada" || fora}
                         value={x.real_g || ""} onChange={(e) => setEntrada((s) => ({ ...s, [id]: { ...s[id], real_g: e.target.value } }))} data-testid={`real-${id}`} />)}</td>
-                    <td>{reg ? (reg.lote_mp_informado ? reg.lote_mp : <span className="text-xs text-amber-700">não informado</span>) : (
+                    <td>{reg ? (reg.lote_mp_informado ? reg.lote_mp : <span className="text-xs text-amber-700 dark:text-amber-300">não informado</span>) : (
                       <Input className="h-8 w-28" aria-label={`Lote MP ${l.nome}`} disabled={!pode || lote.status !== "ordem_gerada" || fora} value={x.lote_mp || ""}
                         onChange={(e) => setEntrada((s) => ({ ...s, [id]: { ...s[id], lote_mp: e.target.value } }))} />)}</td>
                     <td className="text-xs">
                       {reg ? `${reg.desvio_g > 0 ? "+" : ""}${fmtG(reg.desvio_g)} g${reg.motivo_desvio ? ` — ${reg.motivo_desvio}` : ""}` : d ? (
-                        <span className={d.dentro ? "text-green-700" : "text-red-700"}>{d.desvio_g > 0 ? "+" : ""}{fmtG(d.desvio_g)} g (tol. {fmtG(d.tolerancia_g)})
+                        <span className={d.dentro ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}>{d.desvio_g > 0 ? "+" : ""}{fmtG(d.desvio_g)} g (tol. {fmtG(d.tolerancia_g)})
                           {!d.dentro && <Input className="mt-1 h-7 w-44" placeholder={`Motivo (mín. ${MIN_MOTIVO})`} value={x.motivo_desvio || ""}
                             onChange={(e) => setEntrada((s) => ({ ...s, [id]: { ...s[id], motivo_desvio: e.target.value } }))} />}</span>) : ""}
                     </td>
                     <td className="text-xs">{reg ? (
-                      <span>{reg.pesou_nome}{reg.corrige ? " (corrigido)" : ""}{reg.conferiu_nome ? <span className="block text-green-700"><CheckCircle2 className="mr-1 inline h-3 w-3" />conferido por {reg.conferiu_nome}</span> : null}
+                      <span>{reg.pesou_nome}{reg.corrige ? " (corrigido)" : ""}{reg.conferiu_nome ? <span className="block text-green-700 dark:text-green-400"><CheckCircle2 className="mr-1 inline h-3 w-3" />conferido por {reg.conferiu_nome}</span> : null}
                         {pode && lote.status === "ordem_gerada" && <button type="button" className="ml-1 underline" onClick={() => setDialogo({ tipo: "corrigir", id, l })}>Corrigir</button>}</span>
                     ) : fora ? "amostra retirada" : "—"}</td>
                     <td>{reg && !reg.conferiu && conferencia && (
@@ -182,10 +182,14 @@ export default function OrdemLote({ detalhe, user, recarregar }) {
             <div className="min-w-[220px] flex-1 space-y-1"><Label className="text-xs">Observação</Label>
               <Input className="h-8" value={manip.observacao} onChange={(e) => setManip((m) => ({ ...m, observacao: e.target.value }))} /></div>
           </div>
-          <p className={`text-sm ${conc.ok ? "text-green-700" : "text-red-700"}`} data-testid="conciliacao">
-            {conc.ok ? <CheckCircle2 className="mr-1 inline h-4 w-4" /> : <XCircle className="mr-1 inline h-4 w-4" />}
-            Destinos {fmtG(conc.destinos_g)} g · diferença {fmtG(conc.residuo_g)} g (tolerância {fmtG(conc.tolerancia_g)} g){!conc.perda_ok ? " · perda acima do teto" : ""}
-          </p>
+          {faltamPesar.length ? (
+            <p className="text-sm text-muted-foreground" data-testid="conciliacao">A conta da massa aparece quando todas as linhas estiverem pesadas.</p>
+          ) : (
+            <p className={`text-sm ${conc.ok ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`} data-testid="conciliacao">
+              {conc.ok ? <CheckCircle2 className="mr-1 inline h-4 w-4" /> : <XCircle className="mr-1 inline h-4 w-4" />}
+              Destinos {fmtG(conc.destinos_g)} g · diferença {fmtG(conc.residuo_g)} g (tolerância {fmtG(conc.tolerancia_g)} g){!conc.perda_ok ? " · perda acima do teto" : ""}
+            </p>
+          )}
           <Button onClick={registrarManipulacao} disabled={!pode || !prontaParaRegistrar || !conc.ok || Boolean(ocupado)} data-testid="btn-registrar-manipulacao"
             title={!prontaParaRegistrar ? "Pese (e confira) todas as linhas antes." : ""}>Registrar manipulação</Button>
         </section>
@@ -204,12 +208,12 @@ export default function OrdemLote({ detalhe, user, recarregar }) {
             <table className="mt-2 text-sm" data-testid="relatorio-acoes"><tbody>
               {relatorio.resultados.map((x) => (
                 <tr key={x.request_id}><td className="pr-3 font-medium">{x.codigo}</td>
-                  <td className={x.ok ? "text-green-700" : "text-red-700"}>{x.ok ? "ok" : "falhou"}</td><td className="pl-3 text-xs">{x.mensagem}</td></tr>
+                  <td className={x.ok ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}>{x.ok ? "ok" : "falhou"}</td><td className="pl-3 text-xs">{x.mensagem}</td></tr>
               ))}
             </tbody></table>
           )}
           <div className="flex flex-wrap items-center gap-2 pt-2">
-            <select className="h-9 rounded-md border px-2 text-sm" value={base} onChange={(e) => setBase(e.target.value)} aria-label="Amostra que vira a base do projeto">
+            <select className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground" value={base} onChange={(e) => setBase(e.target.value)} aria-label="Amostra que vira a base do projeto">
               {ativos.map((r) => <option key={r} value={r}>{cod(r)}</option>)}
             </select>
             <Button variant="outline" disabled={!pode || Boolean(ocupado)} onClick={() => executar("base", async () => {
