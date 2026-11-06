@@ -1794,3 +1794,70 @@ function _autoAjustarPlanejamentoInterno(db, pedidoKey) {
   }
 })();
 
+
+// --- Sessão encerrada pelo administrador (06/11/2026) ---
+// Definir senha, desativar ou "encerrar sessões" grava security_sessions/{uid}/
+// revokedAfter (segundos). A partir daí o banco recusa tudo de quem entrou antes
+// (regra: auth_time > revokedAfter), mas a tela aberta no celular continua igual
+// e o operador só via "PERMISSION_DENIED" ao salvar (caso do Tom na pesagem, 06/11).
+// Aqui a própria pessoa escuta a sua marca (a regra deixa ler o próprio nó) e,
+// se o login dela for anterior, a tela avisa e oferece entrar de novo.
+(function() {
+  if (typeof firebase === 'undefined' || typeof firebase.auth !== 'function' || typeof firebase.database !== 'function') return;
+  if (/(^|\/)login\.html$/i.test(location.pathname)) return;
+  var refAtual = null, ouvinte = null;
+
+  function sessaoEncerrada(revokedAfter, authTime) {
+    var r = Number(revokedAfter), a = Number(authTime);
+    return r > 0 && a > 0 && a <= r;
+  }
+  function mostrarAviso() {
+    if (document.getElementById('kuryosSessaoEncerrada')) return;
+    var caixa = document.createElement('div');
+    caixa.id = 'kuryosSessaoEncerrada';
+    caixa.setAttribute('role', 'alertdialog');
+    caixa.setAttribute('aria-live', 'assertive');
+    caixa.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+    caixa.innerHTML =
+      '<div style="background:var(--card,#fff);color:var(--text,#111);max-width:420px;width:100%;border-radius:16px;padding:22px 20px;box-shadow:0 20px 50px rgba(0,0,0,.25);font-family:inherit">' +
+        '<div style="font-size:17px;font-weight:700;margin-bottom:8px">Sua sessão foi encerrada</div>' +
+        '<div style="font-size:14px;line-height:1.5;margin-bottom:16px">O administrador encerrou o seu acesso neste aparelho (por exemplo, ao trocar a sua senha). ' +
+          'O que você fizer agora <b>não será salvo</b>. Entre de novo para continuar de onde parou.</div>' +
+        '<button type="button" id="kuryosSessaoEntrar" style="width:100%;min-height:46px;border:0;border-radius:12px;background:var(--primary,#1e3a8a);color:#fff;font-size:15px;font-weight:700;cursor:pointer">Entrar de novo</button>' +
+      '</div>';
+    document.body.appendChild(caixa);
+    document.getElementById('kuryosSessaoEntrar').onclick = function() {
+      Promise.resolve().then(function() { return firebase.auth().signOut(); }).catch(function() {})
+        .then(function() { location.href = 'login.html'; });
+    };
+  }
+  function parar() {
+    if (refAtual && ouvinte) { try { refAtual.off('value', ouvinte); } catch (e) { /* nada */ } }
+    refAtual = null; ouvinte = null;
+  }
+  // A página inicializa o Firebase no próprio script, depois deste arquivo:
+  // espera o DOM, como a cadeia de login acima.
+  function iniciar() {
+    if (!firebase.apps || !firebase.apps.length) return;
+    firebase.auth().onAuthStateChanged(function(user) {
+      parar();
+      if (!user || typeof user.getIdTokenResult !== 'function') return;
+      var ref;
+      try { ref = firebase.database().ref('security_sessions/' + user.uid + '/revokedAfter'); } catch (e) { return; }
+      if (!ref || typeof ref.on !== 'function') return;
+      refAtual = ref;
+      ouvinte = function(snap) {
+        var revokedAfter = snap && typeof snap.val === 'function' ? snap.val() : null;
+        if (!(Number(revokedAfter) > 0)) return;
+        Promise.resolve().then(function() { return user.getIdTokenResult(); }).then(function(t) {
+          if (sessaoEncerrada(revokedAfter, t && t.claims && t.claims.auth_time)) mostrarAviso();
+        }).catch(function() { /* sem token legível: o próprio Auth vai deslogar */ });
+      };
+      ref.on('value', ouvinte, function() { /* leitura negada: nada a mostrar */ });
+    });
+  }
+  function iniciarSeguro() { try { iniciar(); } catch (e) { /* página sem Auth inicializado */ } }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciarSeguro);
+  else iniciarSeguro();
+  if (typeof window !== 'undefined') window.__kuryosSessaoEncerrada = sessaoEncerrada;
+})();
