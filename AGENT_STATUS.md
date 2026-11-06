@@ -7,6 +7,23 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ### Codex — CRM2/Cotações: erro de leitura e paridade com export `prod-kuryos` (05/11/2026)
 
+- **Plano integrado de evolução concluído (05/11/2026):** mapeadas, sem
+  implementação nesta etapa, seis frentes solicitadas por Marlos: KPIs de custo
+  orçado x custo real x lucro real; ativos/manutenção no bloco 6 do Kickoff;
+  menus suspensos claros/escuros; serviços de Cadastros no Kickoff; saneamento
+  de SKU/nomenclatura de Febella Beauty e Bimedic; e independência da Simulação
+  de Orçamento Comercial em relação ao orçamento do CRM. Escopo de leitura:
+  fontes de Custos/Resultado, Kickoff, Ativos, Cadastros, Comercial, componentes
+  compartilhados e auditorias de SKU. Diagnóstico-base: o realizado por OP já
+  calcula materiais, perdas, operação e LP, mas falta congelar a base orçada no
+  fechamento; Ativos já fornece `paraSelecao`, enquanto o Bloco 6 ainda grava
+  texto; Serviços já é lido no Kickoff e requer endurecimento/validação; a
+  Simulação Comercial hoje exige projeto CRM2 e grava em `crm_propostas`;
+  Febella mistura SKU legado e canônico, e Bimedic não aparece com esse nome no
+  export legado. Plano apresentado no chat, com fases, critérios de aceite,
+  auditoria/rollback e ordem de implantação. Nenhuma regra, dado, tela ou
+  produção foi modificada. **Arquivos ativos: nenhum.**
+
 - Pedido: diagnosticar a tela CRM2/Cotações, comparar o export
   `C:\Users\Marlos\Downloads\prod-kuryos-default-rtdb-export (2).json` com o sistema atual
   e migrar somente os dados necessários para obter paridade verificável com o
