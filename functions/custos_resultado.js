@@ -171,7 +171,8 @@ function prepararRazaoOps(base, agora, opcoes) {
     const res = Realizado.custoRealizadoOp({ opKey, op, ficha, apontamentos: porLote[lote] || [],
       perdasPorTipo: Realizado.perdasDoLote((base.perdas || {})[Realizado.loteKey(op.lote)], op),
       consumos: Realizado.consumosDoLote(base.movimentos_estoque, base.estoque_lotes, lote),
-      precos: ctx.precos, idx: ctx.idx, taxa, precoVenda: ficha ? ficha.precoVenda : null, impostosPct: ficha ? ficha.impostosPct : null });
+      precos: ctx.precos, idx: ctx.idx, taxa, precoVenda: ficha ? ficha.precoVenda : null, impostosPct: ficha ? ficha.impostosPct : null,
+      orcamento: ficha && ficha.orcamento ? ficha.orcamento : null });
     // Razão registra fato VALORIZADO: OP com custo incompleto (sem preço, sem custo-hora)
     // não é lançada nem marcada -- tenta de novo na próxima rodada, quando o custo existir.
     if (!res.completo) { pulos++; return; }

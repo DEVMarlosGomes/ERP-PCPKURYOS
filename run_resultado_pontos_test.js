@@ -74,6 +74,13 @@ perto(res.receitaLiquida, 1500 * 5 * 0.9, 'receita líquida');
 perto(res.lp, 6750 - (3000 + 8.9 + 360), 'LP realizado');
 eq(res.unidadesPerdidas, 7, 'unidades perdidas para os pontos');
 ok(res.completo, 'OP completa');
+const comOrcado = R.custoRealizadoOp({ opKey: 'op1', op: ops.op1, ficha, apontamentos: apsL1, perdasPorTipo: { Frascos: 5, Rótulos: 7 },
+  consumos: [], taxa, precoVenda: { valor: 5 }, impostosPct: 10,
+  orcamento: { propostaId: 'PROP-1', custoInsumos: 1.7, operacao: 0.2, precoLiquido: 4.5 } });
+perto(comOrcado.orcado.custoTotal, 2850, 'custo orçado no fechamento × produção real');
+perto(comOrcado.orcado.lucro, 3900, 'lucro orçado para a quantidade produzida');
+perto(comOrcado.comparacaoOrcadoReal.custo, comOrcado.custo.total - 2850, 'desvio de custo real − orçado');
+perto(comOrcado.comparacaoOrcadoReal.lucro, comOrcado.lp - 3900, 'variação do lucro real contra o fechado');
 // Duração da OP nunca entra: mudar dataInicio/Fim não muda nada.
 const res2 = R.custoRealizadoOp({ opKey: 'op1', op: Object.assign({}, ops.op1, { dataInicioReal: '2026-08-01T00:00', dataFimReal: '2026-09-02T23:00' }), ficha, apontamentos: apsL1, perdasPorTipo: {}, taxa, precoVenda: { valor: 5 }, impostosPct: 10 });
 perto(res2.custo.operacao, 360, 'duração de OP (calendário) não entra na operação');
@@ -104,6 +111,9 @@ eq(cli.ops, 2, 'duas OPs do cliente');
 perto(cli.coberturaPct, 50, 'cobertura: metade do produzido com custo');
 ok(!cli.completo, 'nível com OP incompleta não é completo');
 perto(cli.lp, res.lp, 'LP soma só as completas');
+const orcConsolidado = R.consolidar([comOrcado], 'cliente')[0].orcado;
+perto(orcConsolidado.coberturaPct, 100, 'cobertura da comparação orçado × real');
+perto(orcConsolidado.variacaoCusto, comOrcado.custo.total - 2850, 'desvio consolidado de custo');
 eq(R.consolidar([], 'mes').length, 0, 'vazio');
 assert.throws(() => R.consolidar([], 'x')); n++;
 const lanc = R.lancamentosDaOp(res, { em: '2026-09-02', por: 'servidor' });

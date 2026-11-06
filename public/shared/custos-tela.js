@@ -366,7 +366,8 @@
       out.push(R.custoRealizadoOp({opKey: k, op: o, ficha: f, apontamentos: porLote[lote] || [],
         perdasPorTipo: R.perdasDoLote((D.perdas || {})[R.loteKey(o.lote)], o),
         consumos: R.consumosDoLote(S.movimentos || {}, D.estoque_lotes, lote),
-        precos: M.ctx.precos, idx: M.ctx.idx, taxa: M.taxa, precoVenda: pv, impostosPct: C.impostosPct(params, prod && prod.clienteKey)}));
+        precos: M.ctx.precos, idx: M.ctx.idx, taxa: M.taxa, precoVenda: pv, impostosPct: C.impostosPct(params, prod && prod.clienteKey),
+        orcamento: f && f.orcamento ? f.orcamento : null}));
     });
     return out;
   }
@@ -397,6 +398,11 @@
         kpi(tot.lp != null && tot.lp >= 0 ? 'ok' : 'bad', 'LP realizado', brl(tot.lp, 0), tot.lpUnitario != null ? brl(tot.lpUnitario) + ' por unidade' : '') +
         kpi('warn', 'Variações (real − padrão)', brl(somaMedidas(tot.variacoes), 0),
           'preço ' + brl(tot.variacoes.preco, 0) + ' · consumo ' + (tot.variacoes.consumo == null ? 'não medido' : brl(tot.variacoes.consumo, 0)) + ' · perda ' + brl(tot.variacoes.perda, 0) + ' · eficiência ' + brl(tot.variacoes.eficiencia, 0)) + '</div>';
+      h += '<div class="kpis">' +
+        kpi(tot.orcado.coberturaPct >= 60 ? 'ok' : 'warn', 'Cobertura orçado × real', pct(tot.orcado.coberturaPct), inteiro(tot.orcado.produzido) + ' de ' + inteiro(tot.produzido) + ' un com orçamento aprovado') +
+        kpi('info', 'Custo orçado no fechamento', brl(tot.orcado.ops ? tot.orcado.custo : null, 0), tot.orcado.ops + ' OP(s) comparáveis') +
+        kpi(tot.orcado.variacaoCusto != null && tot.orcado.variacaoCusto <= 0 ? 'ok' : 'bad', 'Custo real vs. orçado', brl(tot.orcado.ops ? tot.orcado.custoReal : null, 0), tot.orcado.variacaoCusto == null ? 'sem base fechada' : 'desvio ' + brl(tot.orcado.variacaoCusto, 0) + ' (' + pct(tot.orcado.variacaoCustoPct) + ')') +
+        kpi(tot.orcado.ops && tot.orcado.lucroReal >= 0 ? 'ok' : 'bad', 'Lucro real das OPs', brl(tot.orcado.ops ? tot.orcado.lucroReal : null, 0), tot.orcado.variacaoLucro == null ? 'sem base fechada' : 'orçado ' + brl(tot.orcado.lucro, 0) + ' · variação ' + brl(tot.orcado.variacaoLucro, 0)) + '</div>';
     }
     if (S.nivel === 'op') {
       h += '<div class="tw"><table><thead><tr><th>OP / lote</th><th>SKU</th><th>Linha</th><th>Fim</th><th class="n">Produzido</th><th class="n">Horas</th><th class="n">Material</th><th class="n">Perdas</th><th class="n">Operação</th><th class="n">LP</th><th class="n">LP/un</th><th class="n">Padrão/un</th><th>Avisos</th></tr></thead><tbody>' +

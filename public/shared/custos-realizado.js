@@ -198,6 +198,14 @@
     var receita = preco.valor > 0 ? preco.valor * produzido : null;
     var receitaLiquida = receita != null && imp != null ? receita * (1 - imp / 100) : null;
     var lp = receitaLiquida != null && custoTotal != null ? receitaLiquida - custoTotal : null;
+    // Base fechada no orcamento aprovado do projeto. Nunca substitui ausencia
+    // por zero: sem composicao completa, a comparacao permanece indisponivel.
+    var orc = x.orcamento || null;
+    var custoOrcadoUnit = orc && orc.custoInsumos != null && orc.operacao != null ? num(orc.custoInsumos) + num(orc.operacao) : null;
+    var custoOrcado = custoOrcadoUnit != null ? custoOrcadoUnit * produzido : null;
+    var receitaOrcadaLiquida = orc && orc.precoLiquido != null ? num(orc.precoLiquido) * produzido : null;
+    var lucroOrcado = custoOrcado != null && receitaOrcadaLiquida != null ? receitaOrcadaLiquida - custoOrcado : null;
+    var comparacaoCompleta = custoTotal != null && lp != null && custoOrcado != null && lucroOrcado != null;
 
     return {
       opKey: x.opKey || null, sku: norm(op.sku), lote: op.lote || null, linha: linha || null, cliente: op.cliente || null,
@@ -210,6 +218,11 @@
       variacoes: { preco: variacaoPreco, consumo: variacaoConsumo, perda: variacaoPerda, eficiencia: variacaoEficiencia },
       receita: receita, receitaLiquida: receitaLiquida, lp: lp, lpUnitario: lp != null && produzido > 0 ? lp / produzido : null,
       lpPadraoUnitario: ficha ? ficha.lp : null,
+      orcado: orc ? { propostaId: orc.propostaId || null, custoUnitario: custoOrcadoUnit, custoTotal: custoOrcado,
+        receitaLiquida: receitaOrcadaLiquida, lucro: lucroOrcado, lucroUnitario: lucroOrcado != null && produzido > 0 ? lucroOrcado / produzido : null,
+        completo: comparacaoCompleta } : null,
+      comparacaoOrcadoReal: comparacaoCompleta ? { custo: custoTotal - custoOrcado, lucro: lp - lucroOrcado,
+        custoPct: custoOrcado > 0 ? (custoTotal - custoOrcado) / custoOrcado * 100 : null } : null,
       perdasPorTipo: porTipo, unidadesPerdidas: unidadesPerdidas(porTipo),
       completo: lp != null, avisos: avisos, versao: VERSAO
     };
@@ -298,7 +311,7 @@
       if (!g) g = grupos[k] = { chave: k, ops: 0, produzido: 0, produzidoComCusto: 0, receita: 0, receitaLiquida: 0,
         material: 0, perdas: 0, operacao: 0, custo: 0, lp: 0, padrao: 0,
         variacoes: { preco: 0, consumo: 0, perda: 0, eficiencia: 0 }, medidas: { preco: 0, consumo: 0, perda: 0, eficiencia: 0 },
-        incompletas: 0, materialPorProcedencia: {} };
+        incompletas: 0, materialPorProcedencia: {}, orcado: { ops: 0, produzido: 0, custo: 0, lucro: 0, custoReal: 0, lucroReal: 0 } };
       g.ops++; g.produzido += r.produzido;
       if (r.completo) {
         g.produzidoComCusto += r.produzido; g.receita += r.receita; g.receitaLiquida += r.receitaLiquida;
@@ -307,6 +320,10 @@
         Object.keys(g.variacoes).forEach(function(v) { if (r.variacoes[v] != null) { g.variacoes[v] += r.variacoes[v]; g.medidas[v]++; } });
         var mp = r.custo.materialPorProcedencia || {};
         Object.keys(mp).forEach(function(f) { g.materialPorProcedencia[f] = (g.materialPorProcedencia[f] || 0) + mp[f]; });
+        if (r.orcado && r.orcado.completo) {
+          g.orcado.ops++; g.orcado.produzido += r.produzido; g.orcado.custo += r.orcado.custoTotal; g.orcado.lucro += r.orcado.lucro;
+          g.orcado.custoReal += r.custo.total; g.orcado.lucroReal += r.lp;
+        }
       } else g.incompletas++;
     });
     return Object.keys(grupos).map(function(k) {
@@ -314,6 +331,10 @@
       g.coberturaPct = g.produzido > 0 ? g.produzidoComCusto / g.produzido * 100 : 0;
       g.completo = g.incompletas === 0 && g.ops > 0;
       g.lpUnitario = g.produzidoComCusto > 0 ? g.lp / g.produzidoComCusto : null;
+      g.orcado.coberturaPct = g.produzido > 0 ? g.orcado.produzido / g.produzido * 100 : 0;
+      g.orcado.variacaoCusto = g.orcado.ops ? g.orcado.custoReal - g.orcado.custo : null;
+      g.orcado.variacaoLucro = g.orcado.ops ? g.orcado.lucroReal - g.orcado.lucro : null;
+      g.orcado.variacaoCustoPct = g.orcado.ops && g.orcado.custo > 0 ? g.orcado.variacaoCusto / g.orcado.custo * 100 : null;
       // Variação que nenhuma OP do grupo mediu é null, não zero (zero parece medição).
       Object.keys(g.variacoes).forEach(function(v) { if (!g.medidas[v]) g.variacoes[v] = null; });
       var totMat = Object.keys(g.materialPorProcedencia).reduce(function(s, f) { return s + g.materialPorProcedencia[f]; }, 0);
