@@ -1717,6 +1717,29 @@ export function createCommercialRouter(h) {
     return { id: codigo, ...record };
   }
 
+  // Clientes legados cujo primeiro cadastro definiu um padrão próprio. A
+  // identidade da Febella foi conferida pelo CNPJ 26.747.489/0001-53; seus
+  // primeiros SKUs são FB + família + 4 dígitos (FBBS0001, FBHD0001...).
+  async function skuLegadoEspecial(master, descricao) {
+    const cnpj = String(master?.cnpj || "").replace(/\D/g, "");
+    const febella = cnpj === "26747489000153" || master?.id === "FEBELLABEAUTY" || master?.codigo === "FEBELLABEAUTY";
+    if (!febella) return null;
+    const nome = normalizeName(descricao);
+    const familia = /BODY SPLASH/.test(nome) ? "BS"
+      : /MOUSSE/.test(nome) ? "MF"
+      : /HIDRATANTE|CREME PARA MAOS/.test(nome) ? "HD"
+      : /OLEO CORPORAL/.test(nome) ? "OC" : null;
+    if (!familia) throw apiError(422, `A família do SKU Febella não foi reconhecida em '${descricao}'. Cadastre a nomenclatura antes de gerar o SKU.`);
+    const prefixo = `FB${familia}`;
+    const atuais = await masterAll("produtos");
+    const maior = atuais.reduce((max, produto) => {
+      const achou = String(produto.sku || produto.id || "").match(new RegExp(`^${prefixo}(\\d{4})$`));
+      return achou ? Math.max(max, Number(achou[1])) : max;
+    }, 0);
+    const tx = await runTransaction(ref(firebaseDb, `config/contadores/sku_legado/${prefixo}`), (atual) => Math.max(Number(atual || 0), maior) + 1);
+    return `${prefixo}${String(tx.snapshot.val()).padStart(4, "0")}`;
+  }
+
   /* COM-07 (23/10/2026): a SKU nasce na aprovação do orçamento ("aguardando_cgi", sem pedido nem OP
    * até a assinatura) e a assinatura do CGI só acrescenta o vínculo do contrato. origem = contrato
    * ou { tipo: "orcamento", id, numero_contrato, kickoff_id, numero_kickoff }. Idempotente por
@@ -1771,13 +1794,15 @@ export function createCommercialRouter(h) {
         }
         const master = await ensureMasterClient(tenant, crmClient, contrato);
         const cli = master.codigo || master.id;
-        let code;
-        do {
-          const number = await nextCounter(`config/contadores/sku/${categoria.codigo}_${cli}`);
-          code = `${categoria.codigo}-${cli}-${pad(number)}`;
-        } while (await masterOne("produtos", sanitizeKey(code)));
-        const key = sanitizeKey(code);
         const nomeBase = sample.nome_amostra || sample.nome_produto || project.nome_projeto || "";
+        let code = await skuLegadoEspecial(master, nomeBase);
+        if (!code) {
+          do {
+            const number = await nextCounter(`config/contadores/sku/${categoria.codigo}_${cli}`);
+            code = `${categoria.codigo}-${cli}-${pad(number)}`;
+          } while (await masterOne("produtos", sanitizeKey(code)));
+        }
+        const key = sanitizeKey(code);
         const q0 = kickoff?.questionario_composicao?.bloco0 || {};
         const produto = {
           sku: code, descricao: `${nomeBase}${variation.codigo ? ` - ${variation.codigo}` : ""}`.trim(), cliente: master.nome || crmClient.nome_empresa || "",

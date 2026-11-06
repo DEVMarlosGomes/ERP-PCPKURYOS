@@ -84,9 +84,12 @@
 
   var SETA = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.5l3 3 3-3" fill="none" stroke="#8a8f98" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>');
   var ESTILO = [
+    ':root{--kt-menu-bg:#fff;--kt-menu-fg:#1d1d1f;--kt-menu-line:#d2d2d7}',
+    '@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--kt-menu-bg:#171a21;--kt-menu-fg:#f4f5f7;--kt-menu-line:#3b404b}}',
+    ':root[data-theme="dark"]{--kt-menu-bg:#171a21;--kt-menu-fg:#f4f5f7;--kt-menu-line:#3b404b}',
     '.kt-ac-list{display:none;position:fixed;z-index:2147482000;box-sizing:border-box;min-width:260px;max-height:320px;overflow-y:auto;-webkit-overflow-scrolling:touch;',
-    'padding:6px;border-radius:12px;background:var(--card,var(--panel,#fff));color:var(--text,var(--ink,#1d1d1f));',
-    'border:1px solid var(--border,var(--line,#d2d2d7));',
+    'padding:6px;border-radius:12px;background-color:var(--kt-menu-bg);color:var(--kt-menu-fg);',
+    'border:1px solid var(--kt-menu-line);',
     'box-shadow:0 18px 40px -12px rgba(15,23,42,.30),0 4px 12px rgba(15,23,42,.08);font-family:var(--font-ui,inherit)}',
     '.kt-ac-list.open{display:block;animation:ktAcIn .12s ease-out}',
     '@keyframes ktAcIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}',
@@ -113,9 +116,9 @@
     // navegador permite redesenhá-la (Chrome 135+, "appearance: base-select");
     // nos outros continua a lista nativa. O campo fechado mantém o CSS da tela.
     '@supports (appearance: base-select){',
-    'select:not([multiple]):not([size]){appearance:base-select}',
+    'select:not([multiple]):not([size]){appearance:base-select;background-color:var(--kt-menu-bg);color:var(--kt-menu-fg)}',
     'select:not([multiple]):not([size])::picker(select){appearance:base-select;box-sizing:border-box;padding:6px;margin-top:4px;max-height:min(360px,70vh);',
-    'border-radius:12px;background:var(--card,var(--panel,#fff));color:var(--text,var(--ink,#1d1d1f));border:1px solid var(--border,var(--line,#d2d2d7));',
+    'border-radius:12px;background-color:var(--kt-menu-bg);color:var(--kt-menu-fg);border:1px solid var(--kt-menu-line);',
     'box-shadow:0 18px 40px -12px rgba(15,23,42,.30),0 4px 12px rgba(15,23,42,.08);font-family:var(--font-ui,inherit)}',
     'select:not([multiple]):not([size]) option{padding:8px 12px;border-radius:8px;font-size:13.5px;line-height:1.35;min-height:34px;gap:8px}',
     'select:not([multiple]):not([size]) option:hover,select:not([multiple]):not([size]) option:focus-visible{background:rgba(10,28,105,.07);outline:none}',

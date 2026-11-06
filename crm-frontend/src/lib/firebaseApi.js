@@ -2324,8 +2324,61 @@ async function dispatch(e, t) {
   if ("GET" === e && "/cadastros/fragrancias" === S) return response(await all(_, "fragrancias"), i);
   // KO-08: serviços ativos (Cadastros › Serviços) para o Kickoff escolher.
   if ("GET" === e && "/cadastros/servicos" === S) return response((await masterAll("servicos")).filter((sv) => sv.ativo !== false)
-    .map((sv) => ({ id: sv.id, codigo: sv.codigo || "", nome: sv.nome || sv.id, unidade: sv.unidade || "" }))
+    .map((sv) => ({ id: sv.id, codigo: sv.codigo || "", nome: sv.nome || sv.id, unidade: sv.unidade || "", ativo: sv.ativo !== false }))
     .sort((a, b) => String(a.codigo || a.nome).localeCompare(String(b.codigo || b.nome))), i);
+  if ("GET" === e && "/cadastros/ativos" === S) return response((await masterAll("ativos"))
+    .filter((ativo) => String(ativo.situacao || "OPERACIONAL").toUpperCase() !== "INATIVO")
+    .map((ativo) => ({
+      id: ativo.id, codigo: ativo.codigo || ativo.id, nome: ativo.nome || ativo.id,
+      rotulo: `${ativo.codigo || ativo.id} — ${ativo.nome || ativo.id}`, tipo: ativo.tipo || "OUTRO",
+      area: ativo.area || "OUTRA", linha: ativo.linha || null,
+      situacao: String(ativo.situacao || "OPERACIONAL").toUpperCase(),
+      capacidade: ativo.capacidade ?? null, capacidadeUnidade: ativo.capacidadeUnidade || null,
+    })).sort((a, b) => a.rotulo.localeCompare(b.rotulo, "pt-BR")), i);
+  // Simulacao comercial independente: usa o cadastro historico /orcamentos e nunca
+  // cria/edita proposta, projeto ou etapa no CRM2.
+  if ("GET" === e && "/commercial/simulations" === S) return response((await masterAll("orcamentos"))
+    .sort((a, b) => String(b.criadoEm || b.atualizadoEm || "").localeCompare(String(a.criadoEm || a.atualizadoEm || ""))), i);
+  if ("POST" === e && "/commercial/simulations" === S) {
+    if (!isComercial(u) && !isAdmin(u)) throw apiError(403, "A simulacao de orcamento e restrita ao Comercial.");
+    const itens = (Array.isArray(r.itens) ? r.itens : []).map((item) => ({
+      descricao: String(item.descricao || "").trim(), especificacao: String(item.especificacao || "").trim(),
+      qtd: Number(item.qtd || 0), valorUnitario: Number(item.valorUnitario || 0), desconto: Number(item.desconto || 0),
+    }));
+    if (!String(r.cliente || "").trim() || !r.validade) throw apiError(422, "Informe cliente/prospecto e validade.");
+    if (!itens.length || itens.some((item) => !item.descricao || !(item.qtd > 0))) throw apiError(422, "Cada item precisa de descricao e quantidade positiva.");
+    const tx = await runTransaction(ref(firebaseDb, "config/contadores/orcamento"), (atual) => Number(atual || 0) + 1);
+    const numero = Number(tx.snapshot.val());
+    const numeroFormatado = `ORC-${String(numero).padStart(4, "0")}`;
+    const criadoEm = now();
+    const simulacao = {
+      numero, numeroFormatado, tipo: "ORCAMENTO", status: "EM_ELABORACAO",
+      cliente: String(r.cliente).trim(), clienteKey: r.clienteKey || null, cnpj: String(r.cnpj || "").trim(),
+      contato: String(r.contato || "").trim(), email: String(r.email || "").trim(), validade: r.validade,
+      frete: { tipo: r.frete === "CIF" ? "CIF" : "FOB" }, prazoPagamento: String(r.prazoPagamento || "").trim(),
+      itens, totalValor: itens.reduce((soma, item) => soma + item.qtd * item.valorUnitario - item.desconto, 0),
+      evidencia: String(r.evidencia || "").trim(), observacoes: String(r.observacoes || "").trim(),
+      criadoEm, criadoPor: pdUserName(u), origem: "SIMULACAO_COMERCIAL_INDEPENDENTE",
+      historico: [{ tipo: "EM_ELABORACAO", texto: "Simulacao criada como rascunho", em: criadoEm, por: pdUserName(u) }],
+    };
+    return response(await masterWrite("orcamentos", numeroFormatado, simulacao), i, 201);
+  }
+  {
+    const simulacao = S.match(/^\/commercial\/simulations\/([^/]+)$/);
+    if ("PATCH" === e && simulacao) {
+      if (!isComercial(u) && !isAdmin(u)) throw apiError(403, "A simulacao de orcamento e restrita ao Comercial.");
+      const atual = await masterOne("orcamentos", simulacao[1]);
+      if (!atual) throw apiError(404, "Simulacao nao encontrada.");
+      const status = String(r.status || "").toUpperCase();
+      if (!["EM_ELABORACAO", "ENVIADO", "ACEITO"].includes(status)) throw apiError(422, "Status de simulacao invalido.");
+      const em = now();
+      const historico = Array.isArray(atual.historico) ? atual.historico : Object.values(atual.historico || {});
+      const salvo = { ...atual, status, atualizadoEm: em, atualizadoPor: pdUserName(u), historico: [...historico, { tipo: status, texto: status === "ENVIADO" ? "Simulacao compartilhada com o cliente" : status === "ACEITO" ? "Aceite da simulacao registrado" : "Simulacao reaberta", em, por: pdUserName(u) }] };
+      if (status === "ENVIADO") salvo.enviadoEm = em;
+      if (status === "ACEITO") salvo.aceitoEm = em;
+      return response(await masterWrite("orcamentos", simulacao[1], salvo), i);
+    }
+  }
   if ("GET" === e && "/compras/fornecedores" === S) return response((await masterAll("fornecedores")).map(e => ({
     ...e,
     razao_social: e.razaoSocial || e.razao_social,

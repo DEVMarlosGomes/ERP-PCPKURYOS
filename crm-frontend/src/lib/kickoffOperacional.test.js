@@ -1,4 +1,4 @@
-import { atualizarRitmo, pendenciasOperacional, prodHoraRefParaGravar, totalPessoas, unidadesPorHora } from "./kickoffOperacional";
+import { atualizarRitmo, normalizarEquipamentos, pendenciasOperacional, prodHoraRefParaGravar, totalPessoas, unidadesPorHora } from "./kickoffOperacional";
 import { pendenciasQuestionario } from "./kickoffPendencias";
 import { DONO_DO_BLOCO, estadoDosBlocos } from "./kickoffBlocos";
 
@@ -22,6 +22,13 @@ describe("KO-13: Bloco Operacional", () => {
     expect(pendenciasOperacional(completo())).toEqual([]);
     expect(pendenciasOperacional({}).map((p) => p.campo)).toEqual(["equipamentos", "pessoas", "unidades_por_hora"]);
     expect(pendenciasOperacional({ ...completo(), pessoas: [{ funcao: "", quantidade: "" }] }).map((p) => p.campo)).toEqual(["pessoas[0].funcao", "pessoas[0].quantidade"]);
+  });
+
+  test("ativos da Manutenção preservam identidade e equipamentos legados", () => {
+    const lista = normalizarEquipamentos(["Rosqueadora externa", { id: "a1", codigo: "EV-01", nome: "Envasadora", situacao: "OPERACIONAL", capacidade: 900 }]);
+    expect(lista[0]).toBe("Rosqueadora externa");
+    expect(lista[1]).toMatchObject({ id: "a1", codigo: "EV-01", rotulo: "EV-01 — Envasadora", situacao: "OPERACIONAL", capacidade: 900 });
+    expect(pendenciasOperacional({ ...completo(), equipamentos: [lista[1]] })).toEqual([]);
   });
 
   test("entra nas pendências do questionário, é do dono Engenharia de Produto e tem estado próprio", () => {

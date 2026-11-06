@@ -6,8 +6,6 @@ import { formatApiError } from "@/lib/formatError";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import AprovacaoClienteModal from "@/components/AprovacaoClienteModal";
-import DesatualizadoBanner from "@/components/DesatualizadoBanner";
 
 const TAB_OPTIONS = [
   { id: "ped", label: "Pedidos" },
@@ -59,16 +57,6 @@ function skuLabel(sku) {
   return [sku?.codigo_interno, sku?.nome_produto || sku?.produto_pai_nome].filter(Boolean).join(" — ");
 }
 
-function stageLabel(stage) {
-  const labels = {
-    cotacao: "Cotação",
-    orcamento_completo: "Orçamento completo",
-    em_negociacao: "Em negociação",
-    pedido_aprovado: "Pedido aprovado",
-  };
-  return labels[stage] || stage || "Sem fase";
-}
-
 function emptyPedidoItem() {
   return { skuId: "", qtd: "", valor: "", desconto: "" };
 }
@@ -98,7 +86,6 @@ function defaultPedidoForm() {
 
 function defaultOrcamentoForm() {
   return {
-    projetoId: "",
     clienteId: "",
     cliente: "",
     cnpj: "",
@@ -114,7 +101,6 @@ function defaultOrcamentoForm() {
 
 export default function CommercialBudgetPage() {
   const [tab, setTab] = useState("ped");
-  const [aceitePendente, setAceitePendente] = useState(null); // COM-02: projectId aguardando quem/canal/data
   const [loading, setLoading] = useState(true);
   const [savingPedido, setSavingPedido] = useState(false);
   const [savingOrcamento, setSavingOrcamento] = useState(false);
@@ -124,6 +110,7 @@ export default function CommercialBudgetPage() {
   const [orders, setOrders] = useState([]);
   const [projects, setProjects] = useState([]);
   const [proposals, setProposals] = useState([]);
+  const [simulations, setSimulations] = useState([]);
   const [pedidoForm, setPedidoForm] = useState(defaultPedidoForm);
   const [pedidoItems, setPedidoItems] = useState([emptyPedidoItem()]);
   const [orcamentoForm, setOrcamentoForm] = useState(defaultOrcamentoForm);
@@ -144,11 +131,12 @@ export default function CommercialBudgetPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [{ data: clientData }, { data: skuData }, { data: orderData }, { data: projectData }] = await Promise.all([
+      const [{ data: clientData }, { data: skuData }, { data: orderData }, { data: projectData }, { data: simulationData }] = await Promise.all([
         api.get("/crm/clients"),
         api.get("/crm/skus", { params: { status: "ativo" } }),
         api.get("/orders"),
         api.get("/crm/projects"),
+        api.get("/commercial/simulations"),
       ]);
 
       const normalizedProjects = (Array.isArray(projectData) ? projectData : []).map((project) => ({
@@ -168,6 +156,7 @@ export default function CommercialBudgetPage() {
       setOrders(Array.isArray(orderData) ? orderData : []);
       setProjects(normalizedProjects);
       setProposals(loadedProposals.filter((result) => result.status === "fulfilled").map((result) => result.value));
+      setSimulations(Array.isArray(simulationData) ? simulationData : []);
     } catch (error) {
       toast.error(formatApiError(error));
     } finally {
@@ -195,10 +184,6 @@ export default function CommercialBudgetPage() {
     if (!pedidoForm.clienteId) return [];
     return skus.filter((sku) => sku.cliente_id === pedidoForm.clienteId && sku.status === "ativo");
   }, [skus, pedidoForm.clienteId]);
-
-  const commercialProjects = useMemo(() => (
-    projects.filter((project) => COMMERCIAL_STAGES.includes(project.stage))
-  ), [projects]);
 
   const proposalRows = useMemo(() => (
     proposals
@@ -240,11 +225,11 @@ export default function CommercialBudgetPage() {
   }), [orders]);
 
   const orcamentoKpis = useMemo(() => ({
-    total: proposalRows.length,
-    abertos: proposalRows.filter(({ proposal }) => !proposal || ["rascunho", "em_desenvolvimento"].includes(proposal.status)).length,
-    enviados: proposalRows.filter(({ proposal }) => proposal?.status === "enviado").length,
-    aceitos: proposalRows.filter(({ proposal, project }) => proposal?.negociacao_status === "aprovado" || project.stage === "pedido_aprovado").length,
-  }), [proposalRows]);
+    total: simulations.length,
+    abertos: simulations.filter((item) => item.status === "EM_ELABORACAO").length,
+    enviados: simulations.filter((item) => item.status === "ENVIADO").length,
+    aceitos: simulations.filter((item) => item.status === "ACEITO").length,
+  }), [simulations]);
 
   const applyPedidoClient = (clientId) => {
     const client = clients.find((item) => item.id === clientId);
@@ -260,38 +245,6 @@ export default function CommercialBudgetPage() {
       entrega: [client?.cidade, client?.uf || client?.estado].filter(Boolean).join(" / "),
     }));
     setPedidoItems([emptyPedidoItem()]);
-  };
-
-  const applyOrcamentoProject = (projectId) => {
-    const project = projects.find((item) => item.id === projectId);
-    const client = clients.find((item) => item.id === project?.cliente_id);
-    const contact = clientContact(client);
-    const proposalEntry = proposalRows.find((row) => row.project.id === projectId);
-    const proposal = proposalEntry?.proposal;
-
-    setOrcamentoForm((current) => ({
-      ...current,
-      projetoId: projectId,
-      clienteId: project?.cliente_id || "",
-      cliente: project?.cliente_nome || clientName(client),
-      cnpj: client?.cnpj || "",
-      contato: contact.nome || "",
-      email: contact.email || "",
-      pagamento: proposal?.condicoes_pagamento || client?.condicao_pagamento || "",
-      evidencia: proposal?.observacoes_proposta || "",
-      obs: proposal?.rodape_observacoes || "",
-    }));
-    setOrcamentoItems(
-      (proposal?.items_pedido || []).length
-        ? proposal.items_pedido.map((item) => ({
-            descricao: item.item || "",
-            qtd: item.qtd ?? "",
-            valor: item.valor_unitario ?? item.preco_negociado ?? "",
-            desconto: "",
-            especificacao: [item.codigo_kuryos, item.codigo_cliente, item.prazo_entrega].filter(Boolean).join(" | "),
-          }))
-        : [emptyOrcamentoItem()]
-    );
   };
 
   const applyOrcamentoClient = (clientId) => {
@@ -410,49 +363,39 @@ export default function CommercialBudgetPage() {
   };
 
   const saveOrcamento = async (status = "rascunho") => {
-    const project = projects.find((item) => item.id === orcamentoForm.projetoId);
     const items = orcamentoItems.map((item) => {
       const qtd = parseNumber(item.qtd);
       const valor = parseNumber(item.valor);
       const desconto = parseNumber(item.desconto);
       return {
-        item: item.descricao.trim(),
+        descricao: item.descricao.trim(),
+        especificacao: item.especificacao.trim(),
         qtd,
-        valor_unitario: valor,
-        valor_total: Math.max(0, qtd * valor - desconto),
-        prazo_entrega: orcamentoForm.validade,
-        codigo_kuryos: "",
-        codigo_cliente: "",
+        valorUnitario: valor,
+        desconto,
       };
     });
 
-    if (!project) return showAlert("Selecione o projeto CRM2 do orçamento.", true);
     if (!orcamentoForm.cliente.trim() || !orcamentoForm.validade) return showAlert("Informe cliente/prospecto e validade.", true);
-    if (items.some((item) => !item.item || item.qtd <= 0)) return showAlert("Cada item precisa de descrição e quantidade positiva.", true);
+    if (items.some((item) => !item.descricao || item.qtd <= 0)) return showAlert("Cada item precisa de descrição e quantidade positiva.", true);
 
     setSavingOrcamento(true);
     try {
-      await api.post(`/crm/projects/${project.id}/proposta`, {
-        tipo_produto: items[0]?.item || project.nome_projeto || "",
-        variacao_produto: items.map((item) => item.item).filter(Boolean).join(", "),
-        preco_unitario: items[0]?.valor_unitario || null,
-        insumos_inclusos: [],
-        observacoes_proposta: [
-          orcamentoForm.evidencia,
-          `Cliente/prospecto: ${orcamentoForm.cliente}`,
-          orcamentoForm.cnpj ? `CNPJ: ${orcamentoForm.cnpj}` : "",
-          orcamentoForm.contato ? `Contato: ${orcamentoForm.contato}` : "",
-          orcamentoForm.email ? `E-mail: ${orcamentoForm.email}` : "",
-          `Frete proposto: ${orcamentoForm.frete}`,
-        ].filter(Boolean).join("\n"),
-        items_pedido: items,
-        condicoes_pagamento: orcamentoForm.pagamento,
-        insumos_fabricacao: [],
-        rodape_observacoes: orcamentoForm.obs,
-        status,
-        negociacao_status: status === "enviado" ? "em_negociacao" : "rascunho",
+      const { data } = await api.post("/commercial/simulations", {
+        cliente: orcamentoForm.cliente,
+        clienteKey: orcamentoForm.clienteId || null,
+        cnpj: orcamentoForm.cnpj,
+        contato: orcamentoForm.contato,
+        email: orcamentoForm.email,
+        validade: orcamentoForm.validade,
+        frete: orcamentoForm.frete,
+        prazoPagamento: orcamentoForm.pagamento,
+        evidencia: orcamentoForm.evidencia,
+        observacoes: orcamentoForm.obs,
+        itens,
       });
-      showAlert(status === "enviado" ? "Envio registrado; nenhuma demanda foi criada no PCP." : "Orçamento salvo. Nenhuma demanda foi criada no PCP.");
+      if (status === "enviado") await api.patch(`/commercial/simulations/${data.id}`, { status: "ENVIADO" });
+      showAlert(status === "enviado" ? "Simulação salva e marcada como enviada; o CRM2 não foi alterado." : "Simulação salva; o CRM2 e o PCP não foram alterados.");
       setOrcamentoForm(defaultOrcamentoForm());
       setOrcamentoItems([emptyOrcamentoItem()]);
       await load();
@@ -463,35 +406,14 @@ export default function CommercialBudgetPage() {
     }
   };
 
-  const markProposalSent = async (projectId) => {
-    const proposalEntry = proposalRows.find((row) => row.project.id === projectId);
-    if (!proposalEntry?.proposal) {
-      applyOrcamentoProject(projectId);
-      setTab("orc");
-      showAlert("Preencha e salve o orçamento antes de marcar como enviado.", true);
-      return;
-    }
+  const markSimulation = async (id, status) => {
     try {
-      await api.patch(`/crm/projects/${projectId}/proposta`, { status: "enviado", negociacao_status: "em_negociacao" });
-      showAlert("Envio registrado; a negociação segue no CRM2.");
+      await api.patch(`/commercial/simulations/${id}`, { status });
+      showAlert(status === "ACEITO" ? "Aceite registrado somente na simulação comercial." : "Envio da simulação registrado.");
       await load();
     } catch (error) {
       showAlert(formatApiError(error), true);
     }
-  };
-
-  const editProposal = (projectId) => {
-    applyOrcamentoProject(projectId);
-    setTab("orc");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  // COM-02: o aceite só é registrado com quem aprovou, canal e data/hora (modal).
-  const markProposalAccepted = (projectId) => setAceitePendente(projectId);
-  const registrarAceite = async (aprovacaoCliente) => {
-    await api.patch(`/crm/projects/${aceitePendente}/proposta`, { negociacao_status: "aprovado", aprovacao_cliente: aprovacaoCliente });
-    showAlert("Aceite registrado. O avanço para pedido aprovado continua pelo CRM2.");
-    await load();
   };
 
   const uploadDoc = async () => {
@@ -516,19 +438,11 @@ export default function CommercialBudgetPage() {
 
   return (
     <main className="min-h-screen p-4 md:p-6" data-testid="commercial-budget-page">
-      <AprovacaoClienteModal
-        open={Boolean(aceitePendente)}
-        onOpenChange={(o) => { if (!o) setAceitePendente(null); }}
-        titulo="Aceite do orçamento pelo cliente"
-        origem={aceitePendente ? { tipo: "projeto", id: aceitePendente } : null}
-        rotuloConfirmar="Registrar aceite"
-        onConfirm={registrarAceite}
-      />
       <div className="mx-auto max-w-[1280px] space-y-5 pb-12">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-2xl font-heading font-semibold tracking-tight text-foreground md:text-3xl">Comercial</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Orçamentos comerciais e pedidos liberados para PCP</p>
+            <p className="mt-1 text-sm text-muted-foreground">Simulações comerciais independentes e pedidos liberados para PCP</p>
           </div>
           <Button variant="outline" className="gap-2" onClick={() => { setTab("ped"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
             <Plus className="h-4 w-4" /> Novo documento
@@ -642,22 +556,10 @@ export default function CommercialBudgetPage() {
             </Stats>
             <TwoColumn>
               <Panel>
-                <h2 className="text-xl font-heading font-semibold text-foreground">Novo orçamento</h2>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Pode atender prospecto ou cliente existente e conter produto ainda não cadastrado. Não cria demanda, compra ou OP.</p>
+                <h2 className="text-xl font-heading font-semibold text-foreground">Nova simulação de orçamento</h2>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Documento comercial autônomo para prospecto ou cliente. Não cria nem altera orçamento, projeto ou etapa no CRM2; também não gera demanda, compra ou OP.</p>
                 <SectionTitle>Cliente / prospecto</SectionTitle>
                 <FieldGrid>
-                  <Field label="Projeto CRM2 *" className="md:col-span-3">
-                    <NativeSelect value={orcamentoForm.projetoId} onChange={(event) => applyOrcamentoProject(event.target.value)}>
-                      <option value="">Selecione o projeto em cotação/orçamento...</option>
-                      {commercialProjects.map((project) => <option key={project.id} value={project.id}>{project.nome_projeto} — {project.cliente_nome || "sem cliente"} — {stageLabel(project.stage)}</option>)}
-                    </NativeSelect>
-                  </Field>
-                  {/* AMO-05: orçamento sobre amostra que voltou ao P&D não é enviado nem aprovado até ser revisado. */}
-                  <div className="md:col-span-3">
-                    <DesatualizadoBanner oque="orçamento" onResolvido={load}
-                      desatualizado={proposalRows.find((row) => row.project.id === orcamentoForm.projetoId)?.proposal?.desatualizado}
-                      urlResolver={orcamentoForm.projetoId ? `/crm/projects/${orcamentoForm.projetoId}/proposta/desatualizado/resolver` : null} />
-                  </div>
                   <Field label="Cliente cadastrado (opcional)" className="md:col-span-3">
                     <NativeSelect value={orcamentoForm.clienteId} onChange={(event) => applyOrcamentoClient(event.target.value)}>
                       <option value="">Prospecto / preenchimento manual</option>
@@ -700,9 +602,9 @@ export default function CommercialBudgetPage() {
                 </div>
               </Panel>
               <Panel>
-                <h2 className="text-xl font-heading font-semibold text-foreground">Orçamentos recentes</h2>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">O envio e o aceite ficam registrados. Produto novo aceito abre tarefa para cadastro; nunca entra no PCP.</p>
-                <RecentProposals rows={proposalRows} onEdit={editProposal} onSend={markProposalSent} onAccept={markProposalAccepted} />
+                <h2 className="text-xl font-heading font-semibold text-foreground">Simulações recentes</h2>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Envio e aceite ficam registrados apenas no módulo Comercial. O CRM2 e o PCP permanecem independentes.</p>
+                <RecentSimulations rows={simulations} onSend={(id) => markSimulation(id, "ENVIADO")} onAccept={(id) => markSimulation(id, "ACEITO")} />
               </Panel>
             </TwoColumn>
           </section>
@@ -837,27 +739,22 @@ function RecentOrders({ orders }) {
   );
 }
 
-function RecentProposals({ rows, onEdit, onSend, onAccept }) {
-  if (!rows.length) return <div className="p-6 text-center text-sm text-muted-foreground">Nenhum orçamento.</div>;
+function RecentSimulations({ rows, onSend, onAccept }) {
+  if (!rows.length) return <div className="p-6 text-center text-sm text-muted-foreground">Nenhuma simulação de orçamento.</div>;
   return (
     <table className="mt-5 w-full border-collapse text-sm">
-      <thead>
-        <tr>{["Orçamento", "Cliente", "Situação", ""].map((header) => <th key={header} className="border-b border-border px-2 py-2 text-left text-xs font-semibold uppercase text-muted-foreground">{header}</th>)}</tr>
-      </thead>
-      <tbody>
-        {rows.slice(0, 12).map(({ project, proposal }) => (
-          <tr key={project.id} className="hover:bg-muted/30">
-            <td className="border-b border-border px-2 py-3 align-top"><b>{proposal?.id || project.id}</b><br /><small className="text-muted-foreground">{stageLabel(project.stage)}</small></td>
-            <td className="border-b border-border px-2 py-3 align-top">{project.cliente_nome || proposal?.cliente_nome || "—"}</td>
-            <td className="border-b border-border px-2 py-3 align-top"><StatusBadge status={proposal?.negociacao_status === "aprovado" ? "ACEITO" : proposal?.status || "EM_ELABORACAO"} /></td>
-            <td className="border-b border-border px-2 py-3 align-top">
-              {!proposal && <Button size="sm" variant="outline" onClick={() => onEdit(project.id)}>Abrir</Button>}
-              {proposal && proposal.status !== "enviado" && <Button size="sm" variant="outline" onClick={() => onSend(project.id)}>Marcar enviado</Button>}
-              {proposal?.status === "enviado" && proposal?.negociacao_status !== "aprovado" && <Button size="sm" variant="outline" className="border-green-300 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-900/60 dark:bg-green-950/30 dark:text-green-300 dark:hover:bg-green-950/50" onClick={() => onAccept(project.id)}>Registrar aceite</Button>}
-            </td>
-          </tr>
-        ))}
-      </tbody>
+      <thead><tr>{["Simulação", "Cliente", "Situação", ""].map((header) => <th key={header} className="border-b border-border px-2 py-2 text-left text-xs font-semibold uppercase text-muted-foreground">{header}</th>)}</tr></thead>
+      <tbody>{rows.slice(0, 12).map((item) => (
+        <tr key={item.id} className="hover:bg-muted/30">
+          <td className="border-b border-border px-2 py-3 align-top"><b>{item.numeroFormatado || item.id}</b><br /><small className="text-muted-foreground">Val.: {item.validade || "—"}</small></td>
+          <td className="border-b border-border px-2 py-3 align-top">{item.cliente || "—"}</td>
+          <td className="border-b border-border px-2 py-3 align-top"><StatusBadge status={item.status} /></td>
+          <td className="border-b border-border px-2 py-3 align-top">
+            {item.status === "EM_ELABORACAO" && <Button size="sm" variant="outline" onClick={() => onSend(item.id)}>Marcar enviado</Button>}
+            {item.status === "ENVIADO" && <Button size="sm" variant="outline" className="border-green-300 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-900/60 dark:bg-green-950/30 dark:text-green-300" onClick={() => onAccept(item.id)}>Registrar aceite</Button>}
+          </td>
+        </tr>
+      ))}</tbody>
     </table>
   );
 }

@@ -585,6 +585,23 @@ describe("fluxo comercial completo até a emissão de OP", () => {
     const base = (await api.get(`/crm/projects/${project.id}/cotacao-base`)).data;
     assert.deepEqual(base.servicos_selecionados, ["s2"]);
   });
+
+  test("COM: simulação de orçamento fica fora do CRM2 e do PCP", async () => {
+    as("com");
+    const propostasAntes = Object.keys(db(`${T}/crm_propostas`)).length;
+    const pedidosAntes = Object.keys(db("pedidos_comerciais")).length;
+    const criada = (await api.post("/commercial/simulations", {
+      cliente: "Prospecto Teste", validade: "2026-12-31", frete: "FOB",
+      itens: [{ descricao: "Body splash teste", especificacao: "120 ml", qtd: 1000, valorUnitario: 9.9, desconto: 100 }],
+    })).data;
+    assert.match(criada.id, /^ORC-\d{4}$/);
+    assert.equal(db(`orcamentos/${criada.id}`).origem, "SIMULACAO_COMERCIAL_INDEPENDENTE");
+    assert.equal(db(`orcamentos/${criada.id}`).totalValor, 9800);
+    assert.equal(Object.keys(db(`${T}/crm_propostas`)).length, propostasAntes, "não cria proposta CRM2");
+    assert.equal(Object.keys(db("pedidos_comerciais")).length, pedidosAntes, "não cria pedido/PCP");
+    await api.patch(`/commercial/simulations/${criada.id}`, { status: "ENVIADO" });
+    assert.equal(db(`orcamentos/${criada.id}`).status, "ENVIADO");
+  });
 });
 
 describe("numeração por projeto", () => {

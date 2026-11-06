@@ -177,16 +177,23 @@ function mergeQuestionnaire(value) {
 }
 
 /* KO-13: Bloco Operacional — equipamentos (texto), pessoas por função e ritmo da linha. */
-function BlocoOperacional({ value, onChange }) {
-  const b = value || blocoOperacionalVazio();
+function BlocoOperacional({ value, onChange, ativos = [], ativosErro = "" }) {
+  const b = { ...blocoOperacionalVazio(), ...(value || {}), equipamentos: equipamentosDaLista(value?.equipamentos) };
   const [novoEquip, setNovoEquip] = useState("");
+  const [ativoId, setAtivoId] = useState("");
   const pessoas = b.pessoas || [];
   const set = (campos) => onChange({ ...b, ...campos });
   const addEquip = () => {
     const t = novoEquip.trim();
     if (!t) return;
-    if (!b.equipamentos.includes(t)) set({ equipamentos: [...b.equipamentos, t] });
+    if (!b.equipamentos.some((eq) => (typeof eq === "string" ? eq : eq.rotulo) === t)) set({ equipamentos: [...b.equipamentos, t] });
     setNovoEquip("");
+  };
+  const addAtivo = () => {
+    const ativo = ativos.find((item) => item.id === ativoId);
+    if (!ativo || ativo.situacao !== "OPERACIONAL" || b.equipamentos.some((eq) => typeof eq === "object" && eq.id === ativo.id)) return;
+    set({ equipamentos: [...b.equipamentos, ativo] });
+    setAtivoId("");
   };
   const setPessoa = (i, campos) => set({ pessoas: pessoas.map((p, idx) => (idx === i ? { ...p, ...campos } : p)) });
   const unH = unidadesPorHora(b);
@@ -195,19 +202,28 @@ function BlocoOperacional({ value, onChange }) {
       <div className="space-y-2">
         <Label>Equipamentos da linha</Label>
         <div className="flex flex-wrap gap-2">
-          {b.equipamentos.map((eq) => (
-            <span key={eq} className="inline-flex items-center gap-1 rounded-full border bg-muted/40 px-3 py-1 text-xs">
-              {eq}
-              <button type="button" className="text-muted-foreground hover:text-red-500" aria-label={`Remover ${eq}`} onClick={() => set({ equipamentos: b.equipamentos.filter((x) => x !== eq) })}>×</button>
+          {b.equipamentos.map((eq, index) => {
+            const rotulo = typeof eq === "string" ? eq : eq.rotulo;
+            return <span key={typeof eq === "string" ? `${eq}-${index}` : eq.id} className="inline-flex items-center gap-1 rounded-full border bg-muted/40 px-3 py-1 text-xs">
+              {rotulo}{typeof eq === "object" && eq.situacao !== "OPERACIONAL" ? ` · ${eq.situacao.replaceAll("_", " ")}` : ""}
+              <button type="button" className="text-muted-foreground hover:text-red-500" aria-label={`Remover ${rotulo}`} onClick={() => set({ equipamentos: b.equipamentos.filter((_, i) => i !== index) })}>×</button>
             </span>
-          ))}
+          })}
         </div>
+        <div className="flex max-w-2xl gap-2">
+          <select className="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={ativoId} onChange={(ev) => setAtivoId(ev.target.value)}>
+            <option value="">Selecione um ativo da Manutenção...</option>
+            {ativos.map((ativo) => <option key={ativo.id} value={ativo.id} disabled={ativo.situacao !== "OPERACIONAL"}>{ativo.rotulo}{ativo.situacao !== "OPERACIONAL" ? " — EM MANUTENÇÃO" : ""}</option>)}
+          </select>
+          <Button type="button" variant="outline" size="sm" disabled={!ativoId || ativos.find((item) => item.id === ativoId)?.situacao !== "OPERACIONAL"} onClick={addAtivo}><Plus className="h-3.5 w-3.5" /> Usar ativo</Button>
+        </div>
+        {ativosErro && <p className="text-xs text-destructive">{ativosErro}</p>}
         <div className="flex max-w-md gap-2">
           <Input value={novoEquip} placeholder="Ex.: Envasadora volumétrica 4 bicos" onChange={(ev) => setNovoEquip(ev.target.value)}
             onKeyDown={(ev) => { if (ev.key === "Enter") { ev.preventDefault(); addEquip(); } }} data-testid="novo-equipamento" />
           <Button type="button" variant="outline" size="sm" onClick={addEquip}><Plus className="h-3.5 w-3.5" /> Adicionar</Button>
         </div>
-        <p className="text-[11px] text-muted-foreground">Com o módulo Ativos (Fase 8), a escolha vem do cadastro de ativos; até lá, texto.</p>
+        <p className="text-[11px] text-muted-foreground">Ativos cadastrados em Manutenção aparecem automaticamente. Equipamentos em manutenção ficam visíveis, mas não podem ser adicionados; o campo manual preserva itens externos e históricos.</p>
       </div>
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
@@ -712,6 +728,9 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
   const pend = pendenciasQuestionario(q).status;
   const [materiais, setMateriais] = useState([]);
   const [servicos, setServicos] = useState(null);
+  const [servicosErro, setServicosErro] = useState("");
+  const [ativos, setAtivos] = useState([]);
+  const [ativosErro, setAtivosErro] = useState("");
   const [catalogo, setCatalogo] = useState(CATALOGO_PADRAO);
   const [catalogoAberto, setCatalogoAberto] = useState(false);
   // CRM-01: categoria do Bloco 0 = Cadastros › Categorias de produto (a mesma do CRM e do SKU).
@@ -721,7 +740,10 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
   useEffect(() => {
     api.get("/cadastros/materiais").then(({ data }) => setMateriais(Array.isArray(data) ? data : [])).catch(() => setMateriais([]));
     carregarCatalogo();
-    api.get("/cadastros/servicos").then(({ data }) => setServicos(Array.isArray(data) ? data : [])).catch(() => setServicos([]));
+    api.get("/cadastros/servicos").then(({ data }) => { setServicos(Array.isArray(data) ? data : []); setServicosErro(""); })
+      .catch(() => { setServicos([]); setServicosErro("Não foi possível carregar os serviços de Cadastros. Recarregue a tela."); });
+    api.get("/cadastros/ativos").then(({ data }) => { setAtivos(Array.isArray(data) ? data : []); setAtivosErro(""); })
+      .catch(() => { setAtivos([]); setAtivosErro("Não foi possível carregar os ativos da Manutenção. Recarregue a tela."); });
     api.get("/crm/constants").then(({ data }) => setCategorias(data?.categorias_produto || []))
       .catch((error) => console.error("Kickoff: categorias do Cadastros indisponíveis", error));
   }, []);
@@ -784,10 +806,10 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
           { value: "full_service_marca_propria", label: "Full service / marca propria" },
         ]} />
         {/* KO-08: os serviços marcados aqui são os que a cotação cobra. */}
-        {servicos === null ? null : servicos.length ? (
+        {servicosErro ? <p className="text-xs text-destructive">{servicosErro}</p> : servicos === null ? null : servicos.length ? (
           <CheckboxGroup o="bloco0.servicos_selecionados" label="Serviços contratados (entram na cotação)" values={q.bloco0.servicos_selecionados}
             onChange={(v) => update("bloco0", "servicos_selecionados", v)}
-            options={servicos.map((sv) => ({ value: sv.id, label: sv.codigo ? `${sv.codigo} · ${sv.nome}` : sv.nome }))} />
+            options={servicos.filter((sv) => sv.ativo || q.bloco0.servicos_selecionados.includes(sv.id)).map((sv) => ({ value: sv.id, label: `${sv.codigo ? `${sv.codigo} · ` : ""}${sv.nome}${sv.ativo ? "" : " · inativo"}` }))} />
         ) : <p className="text-xs text-muted-foreground">Serviços contratados: a tabela de serviços está vazia (PCP › Cadastros › Serviços).</p>}
       </Section>
 
@@ -835,7 +857,7 @@ export default function KickoffCompositionQuestionnaire({ value, onChange, onSav
       </Section>
 
       <Section title="Bloco 6 - Operacional (linha de produção)" pendencias={pend.bloco6.pendencias}>
-        <BlocoOperacional value={q.bloco6} onChange={(v) => onChange({ ...q, bloco6: v })} />
+        <BlocoOperacional value={q.bloco6} ativos={ativos} ativosErro={ativosErro} onChange={(v) => onChange({ ...q, bloco6: v })} />
       </Section>
 
       <Section title="Fechamento" pendencias={pend.fechamento.pendencias}>

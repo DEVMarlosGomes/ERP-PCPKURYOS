@@ -41,7 +41,22 @@ export function unidadesPorHora(bloco) {
 
 export const totalPessoas = (pessoas) => (pessoas || []).reduce((s, p) => s + (numero(p?.quantidade) || 0), 0);
 
-const listaDeTexto = (v) => (Array.isArray(v) ? v : Object.values(v || {})).map((x) => String(x ?? "").trim()).filter(Boolean);
+const lista = (v) => (Array.isArray(v) ? v : Object.values(v || {}));
+const rotuloEquipamento = (x) => typeof x === "string" ? x.trim() : String(x?.rotulo || [x?.codigo, x?.nome].filter(Boolean).join(" — ") || "").trim();
+const listaDeTexto = (v) => lista(v).map(rotuloEquipamento).filter(Boolean);
+
+export function normalizarEquipamentos(v) {
+  return lista(v).map((x) => {
+    if (typeof x === "string") return x.trim();
+    if (!x || typeof x !== "object") return "";
+    return {
+      id: String(x.id || ""), codigo: String(x.codigo || ""), nome: String(x.nome || ""),
+      rotulo: rotuloEquipamento(x), tipo: String(x.tipo || ""), area: String(x.area || ""),
+      linha: x.linha || null, situacao: String(x.situacao || "OPERACIONAL"),
+      capacidade: x.capacidade ?? null, capacidadeUnidade: x.capacidadeUnidade || null,
+    };
+  }).filter((x) => typeof x === "string" ? Boolean(x) : Boolean(x.id || x.rotulo));
+}
 
 /* Pendências do bloco (formato de lib/kickoffPendencias): ao menos um equipamento, uma função com
  * quantidade, e o ritmo. */
@@ -65,4 +80,4 @@ export function prodHoraRefParaGravar(atual, bloco) {
   return unidadesPorHora(bloco);
 }
 
-export { listaDeTexto as equipamentosDaLista };
+export { normalizarEquipamentos as equipamentosDaLista };
