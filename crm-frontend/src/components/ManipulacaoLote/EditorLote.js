@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { formatApiError } from "@/lib/formatError";
+import { salvarAntesDeConcluirLote } from "@/lib/conclusaoLote";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -133,6 +134,12 @@ export default function EditorLote({ detalhe, user, recarregar }) {
     setSujo(false);
     setColuna((atual) => (ativos.includes(atual) ? atual : ativos[0]));
   }, [lote, ativos]);
+  useEffect(() => {
+    if (!sujo) return undefined;
+    const proteger = (evento) => { evento.preventDefault(); evento.returnValue = ""; };
+    window.addEventListener("beforeunload", proteger);
+    return () => window.removeEventListener("beforeunload", proteger);
+  }, [sujo]);
 
   const mudar = (f) => { setForm((x) => f(x)); setSujo(true); };
   const matriz = lote.matriz?.celulas || {};
@@ -189,27 +196,25 @@ export default function EditorLote({ detalhe, user, recarregar }) {
   // Um clique: salva o que está na tela e o servidor cria V1/V(n+1) em cada amostra + a ordem de pesagem.
   // `gramas` = { requestId: g } vindas do GramasDialog (o pedido não trazia).
   const concluir = (gramas = null) => executar("concluir", async () => {
-    let revisao = lote.revisao;
     const qs = gramas ? Object.fromEntries(Object.entries(form.quantidades).map(([r, q]) => [r, gramas[r] ? { ...q, quantidade_g: String(gramas[r]) } : q])) : form.quantidades;
     if (gramas) setForm((f) => ({ ...f, quantidades: qs }));
-    if (sujo || gramas) {
-      const salvo = await gravarRascunho(qs);
-      revisao = salvo.lote?.revisao ?? revisao;
-      // O salvamento recalcula crítico/fragrância pelo Cadastros: se surgiu pendência, para aqui (salvo, sem ordem).
-      if ((salvo.pendencias || []).length) {
-        toast.error(`Rascunho salvo, mas ainda falta: ${salvo.pendencias.map((p) => `${cod(p.request_id)} · ${p.motivo}`).join(" ")}`);
-        await recarregar();
-        return;
-      }
+    // Sempre grava o estado visível. Antes, o atalho condicionado a `sujo`
+    // podia tentar gerar a ordem com o lote vazio do servidor; o `finally`
+    // então recarregava a tela e apagava todo o preenchimento local.
+    const resultado = await salvarAntesDeConcluirLote({
+      salvar: () => gravarRascunho(qs),
+      gerar: async (revisao) => (await api.post(`/pd/manipulacao-lotes/${lote.id}/gerar-ordem`, { revisao: revisao ?? lote.revisao })).data,
+    });
+    if (resultado.pendencias.length) {
+      toast.error(`Rascunho salvo, mas ainda falta: ${resultado.pendencias.map((p) => `${cod(p.request_id)} · ${p.motivo}`).join(" ")}`);
+      await recarregar();
+      return;
     }
-    try {
-      const { data } = await api.post(`/pd/manipulacao-lotes/${lote.id}/gerar-ordem`, { revisao });
-      const v = Object.entries(data.versoes || {}).map(([r, x]) => `${cod(r)} v${x?.versao ?? "?"}`).join(", ");
-      toast.success(v ? `Enviado para a manipulação: ${v}.` : "Enviado para a manipulação: cada amostra ganhou a próxima versão da fórmula.");
-      (data.avisos || []).forEach((a) => toast.warning(a));
-    } finally {
-      await recarregar(); // o rascunho já salvo aparece mesmo se o servidor recusar
-    }
+    const data = resultado.ordem;
+    const v = Object.entries(data.versoes || {}).map(([r, x]) => `${cod(r)} v${x?.versao ?? "?"}`).join(", ");
+    toast.success(v ? `Enviado para a manipulação: ${v}.` : "Enviado para a manipulação: cada amostra ganhou a próxima versão da fórmula.");
+    (data.avisos || []).forEach((a) => toast.warning(a));
+    await recarregar();
   });
   const aprovar = (r, k) => executar(`aprovar-${r}-${k}`, async () => {
     await api.post(`/pd/manipulacao-lotes/${lote.id}/aprovar-critico`, { requestId: r, ingKey: k });

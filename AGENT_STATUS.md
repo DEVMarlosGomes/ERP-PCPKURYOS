@@ -5,13 +5,20 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
-### Codex — Pesagem: lentidão e upload de fotos (06/11/2026)
+### Codex — Pesagem e P&D em lote (06/11/2026)
 
-- **Em andamento — frente 1:** diagnosticar e corrigir o fluxo móvel de pesagem que
-  fica preso em `Enviando...` e não anexa a foto. Escopo inicial:
-  `public/manipulacao.html` e testes específicos do fluxo de upload. Não alterar
-  `storage.rules`, que contém mudança não relacionada de outro agente. A frente 2
-  de P&D só começa após validação e aviso de conclusão desta frente.
+- **Frente 1 concluída e publicada:** `5644429` comprime a foto no navegador,
+  mostra progresso, limita esperas e torna a repetição idempotente. Testes da
+  Manipulação/Anexos/Hostinger aprovados; VPS validada nessa versão.
+- **Frente 2 implementada e validada; publicação em andamento:** auditoria somente
+  leitura do `LM-2026-041-4` confirmou que nenhuma composição chegou ao servidor
+  (lote segue rascunho, revisão 1, sem ordem). A conclusão agora sempre persiste o
+  estado visível antes de gerar a ordem, usa a revisão devolvida pelo salvamento,
+  não gera com pendências e não recarrega/apaga o formulário quando salvar ou gerar
+  falha; alterações não salvas também protegem contra recarga da página. Arquivos:
+  `EditorLote.js`, `lib/conclusaoLote.js`, teste novo e bundle do build oficial.
+  Validação: 493 testes CRM aprovados (8 ignorados), build Vite aprovado,
+  `run_hostinger_deploy_test.js` 25/25 e `git diff --check` limpo.
 
 ### Codex — Login personalizado e Minha Conta (06/11/2026)
 
