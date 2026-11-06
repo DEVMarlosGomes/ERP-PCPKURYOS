@@ -5,6 +5,18 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — P&D lote de volta a 05/11 e aviso de sessão encerrada (06/11/2026)
+
+- **Concluído e enviado (`c6ed38c`, `21957dd`):** tela do lote de amostras voltou à
+  versão de 05/11 12:28 (`acb3eea`), a pedido do Marlos (muitos erros na nova);
+  desfeitos na tela `b07b6c5`, `cd7db1a` e `ada99b8`; mantido de `742b20d` salvar
+  antes de concluir e proteção ao sair. Servidor/regras do lote intactos; nenhum
+  arquivo reservado pelo Codex tocado. CRM 493 testes, build oficial integrado,
+  Hostinger 25. `auth_check.js` ganhou bloco isolado que avisa "Sua sessão foi
+  encerrada" quando `security_sessions/{uid}/revokedAfter` ≥ `auth_time`
+  (`run_sessao_encerrada_ui_test.js`). **Deploy da VPS pendente.** Arquivos
+  ativos: nenhum.
+
 ### Codex — rollback emergencial do login (06/11/2026)
 
 - **Rollback concluído e publicado (`601b53f`):** restaurada a interface anterior
