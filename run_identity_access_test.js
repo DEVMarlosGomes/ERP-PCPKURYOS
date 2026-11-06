@@ -125,12 +125,12 @@ let ids = 0;
   await assert.rejects(call("operador", {acao: "criar"}), (error) => error.code === "permission-denied");
 
   await assert.rejects(call("adm", {
-    acao: "criar", nome: "Sem Senha", email: "sem.senha@kuryos.com.br",
+    acao: "criar", nome: "Sem Senha", email: "sem.senha@kuryos.com.br", usuario: "sem.senha",
     funcoes: ["production"], tenant_id: "kuryos",
   }), (error) => error.code === "invalid-argument");
 
   const created = await call("adm", {
-    acao: "criar", nome: "  Maria   da Silva ", email: "MARIA@KURYOS.COM.BR",
+    acao: "criar", nome: "  Maria   da Silva ", email: "MARIA@KURYOS.COM.BR", usuario: "maria.silva",
     funcoes: ["qualidade"], modulos: null, tenant_id: "kuryos", nova_senha: "InicialMaria9!",
   });
   assert.equal(created.ok, true);

@@ -8,8 +8,8 @@ const {criarServicoIdentidade} = require('./functions/identidade_acesso');
 const fixtures = fs.readFileSync('run_identity_access_test.js','utf8').split('const fixed =')[0];
 const {fakeDb,fakeAuth} = vm.runInNewContext(fixtures + '\n;({fakeDb,fakeAuth})', {require,console});
 const time = new Date('2026-11-03T15:00:00Z');
-const admin = {nome:'Synthetic Admin',email:'admin@example.test',role:'admin'};
-const operator = {nome:'Synthetic Operator',email:'operator@example.test',role:'production'};
+const admin = {nome:'Synthetic Admin',email:'admin@example.test',usuario:'synthetic.admin',role:'admin'};
+const operator = {nome:'Synthetic Operator',email:'operator@example.test',usuario:'synthetic.operator',role:'production'};
 function scenario(accounts = {adm:{email:admin.email},op:{email:operator.email}}) {
   const db = fakeDb({usuarios:{adm:admin,op:operator}});
   const auth = fakeAuth(accounts);
@@ -41,7 +41,7 @@ function scenario(accounts = {adm:{email:admin.email},op:{email:operator.email}}
   }
   {
     const {db,call} = scenario({adm:{email:admin.email}});
-    await assert.rejects(call({acao:'criar',nome:operator.nome,email:operator.email,funcoes:['production'],nova_senha:'InicialFicticia9!'}),e=>e.code==='already-exists');
+    await assert.rejects(call({acao:'criar',nome:operator.nome,email:operator.email,usuario:'operador.existente',funcoes:['production'],nova_senha:'InicialFicticia9!'}),e=>e.code==='already-exists');
     assert.equal(Object.values(db.state.usuarios).filter(u=>u.email===operator.email).length,1);
     console.log('OK: servidor bloqueia criação duplicada de perfil órfão.');
   }
@@ -72,7 +72,7 @@ function scenario(accounts = {adm:{email:admin.email},op:{email:operator.email}}
     let release;
     const gate=new Promise(resolve=>{release=resolve;});
     auth.createUser=async data=>{await gate;return create(data);};
-    const payload={acao:'criar',nome:'Novo',email:'novo@example.test',funcoes:['production'],nova_senha:'InicialFicticia9!',requestId:'synthetic_concurrent_001'};
+    const payload={acao:'criar',nome:'Novo',email:'novo@example.test',usuario:'novo.usuario',funcoes:['production'],nova_senha:'InicialFicticia9!',requestId:'synthetic_concurrent_001'};
     const first=call(payload);
     // Esperar a operação chegar ao Auth sem deixar janela de duplicação.
     await new Promise(resolve=>setTimeout(resolve,20));

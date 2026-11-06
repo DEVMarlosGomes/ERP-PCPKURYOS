@@ -17,7 +17,7 @@ const db=getDatabase(app),date=new Date('2026-11-03T18:00:00Z');
   await call({acao:'modulos',uid:'op',modulos:{cadastros:true},requestId:'emulator_modules_0001'});
   assert.equal((await db.ref('usuarios/op/modulos/cadastros').get()).val(),true);
   assert.equal((await db.ref('identidade_locks').get()).exists(),false);
-  const payload={acao:'criar',nome:'Synthetic new',email:'new@example.test',funcoes:['production'],nova_senha:'InicialFicticia9!',requestId:'emulator_concurrent_0001'};
+  const payload={acao:'criar',nome:'Synthetic new',email:'new@example.test',usuario:'synthetic.new',funcoes:['production'],nova_senha:'InicialFicticia9!',requestId:'emulator_concurrent_0001'};
   const results=await Promise.allSettled([call(payload),call(payload)]);
   assert.ok(results.some(r=>r.status==='fulfilled'));
   assert.equal(auth.calls.filter(c=>c[0]==='createUser').length,1);

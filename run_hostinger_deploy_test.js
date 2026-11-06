@@ -33,6 +33,7 @@ ok(/max_size 10MB/.test(caddy) && /read_timeout 120s/.test(caddy), "limite e tim
 ok(/try_files \{path\} \{path\}\.html =404/.test(caddy), "rotas diretas HTML funcionam");
 ok(/pcp-kuryos\.vercel\.app[\s\S]*onrender\.com/.test(auth), "Vercel mantém Render até o corte");
 ok(/location\.origin[\s\S]*\/api/.test(auth), "domínio Hostinger usa API no mesmo domínio");
+ok(/CORS_ORIGINS: https:\/\/\$\{ERP_DOMAIN\},https:\/\/prod-kuryos\.web\.app/.test(compose), "login legado pode usar a API canônica durante a transição");
 ok(/VITE_FUNCTIONS_ORIGIN/.test(crm) && /location\?\.origin[\s\S]*\/api/.test(crm), "CRM usa origem configurável");
 ok(/flock -n/.test(deploy), "deploy concorrente é bloqueado");
 ok(!/compose down|down -v/.test(deploy), "deploy não derruba nem apaga volumes");

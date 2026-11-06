@@ -1,6 +1,7 @@
 "use strict";
 
 const crypto = require("node:crypto");
+const {normalizarUsuario, reservarUsuario, liberarUsuario} = require("./login_personalizado");
 
 const FUNCOES_VALIDAS = [
   "admin", "pcp", "comercial", "pd", "qualidade", "logistica",
@@ -115,6 +116,7 @@ function resumoPerfil(profile) {
   if (!profile) return null;
   return {
     nome: profile.nome || null,
+    usuario: profile.usuario || null,
     email: profile.email || null,
     role: profile.role || null,
     funcoes: profile.funcoes || null,
@@ -122,6 +124,8 @@ function resumoPerfil(profile) {
     modulosDasFuncoes: profile.modulosDasFuncoes === true,
     tenant_id: profile.tenant_id || null,
     desativado: profile.desativado === true,
+    exigir_troca_senha: profile.exigir_troca_senha === true,
+    senha_definida_em: profile.senha_definida_em || null,
   };
 }
 
@@ -236,6 +240,7 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
     if (acao === "criar") {
       const nome = texto(data.nome, "o nome", 120);
       const email = emailValido(data.email);
+      const usuario = normalizarUsuario(data.usuario);
       const senha = data.nova_senha;
       if (typeof senha !== "string" || senha.length < 8 || senha.length > 128 || !/[A-Z]/.test(senha) || !/[a-z]/.test(senha) || !/[0-9]/.test(senha)) {
         throw falha("invalid-argument", "A senha inicial deve ter de 8 a 128 caracteres, maiúscula, minúscula e número. Símbolos são permitidos.");
@@ -247,17 +252,23 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
       const date = now().toISOString();
       let created;
       let profilePersisted = false;
+      let usuarioReservado = false;
       try {
         // O ADM cria o login completo. emailVerified permanece falso porque
         // não houve comprovação do endereço, mas o ERP não exige essa marca
         // para autenticar: a aprovação administrativa é o portão de acesso.
         created = await auth.createUser({email, password: senha, displayName: nome, disabled: false, emailVerified: false});
+        await reservarUsuario(db, usuario, created.uid);
+        usuarioReservado = true;
         const profile = {
-          nome, email, ...acesso,
+          nome, email, usuario, ...acesso,
           created_at: date,
           criado_por: actor.uid,
           criado_por_nome: actor.nome || null,
           identidade_versao: uuid(),
+          senha_definida_em: date,
+          senha_definida_por: actor.uid,
+          exigir_troca_senha: true,
         };
         await db.ref().update({
           [`usuarios/${created.uid}`]: profile,
@@ -274,6 +285,7 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
           }).catch(() => {});
         }
         if (created && created.uid) await auth.deleteUser(created.uid).catch(() => {});
+        if (usuarioReservado && created && created.uid) await liberarUsuario(db, usuario, created.uid).catch(() => {});
         throw error;
       }
     }
@@ -294,7 +306,11 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
       try { account = await auth.getUser(targetUid); } catch (error) {
         if (!CODIGOS_AUTH_SEM_USUARIO.has(codigoAuth(error))) throw error;
       }
-      if (account) return {ok:true, vinculo: String(account.email || '').toLowerCase() === String(before.email || '').toLowerCase() ? 'OK' : 'EMAIL_DIVERGENTE', desativadoAuth:account.disabled === true};
+      if (account) return {ok:true, vinculo: String(account.email || '').toLowerCase() === String(before.email || '').toLowerCase() ? 'OK' : 'EMAIL_DIVERGENTE', desativadoAuth:account.disabled === true,
+        usuario:before.usuario || null, senhaGerenciada:!!before.senha_definida_em,
+        senhaDefinidaEm:before.senha_definida_em || null,
+        exigirTrocaSenha:before.exigir_troca_senha === true,
+        ultimoLoginEm:before.ultimo_login_em || null};
       let porEmail;
       try { porEmail = await auth.getUserByEmail(emailValido(before.email)); } catch (error) {
         if (!CODIGOS_AUTH_SEM_USUARIO.has(codigoAuth(error))) throw error;
@@ -334,14 +350,22 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
     if (acao === "atualizar") {
       const nome = texto(data.nome, "o nome", 120);
       const email = emailValido(data.email);
+      const usuario = normalizarUsuario(data.usuario !== undefined ? data.usuario : before.usuario);
       const tenant = tenantValido(data.tenant_id);
       let authBefore;
       try { authBefore = await auth.getUser(targetUid); } catch (error) {
         if (!CODIGOS_AUTH_SEM_USUARIO.has(codigoAuth(error))) throw error;
         throw falha("failed-precondition", "O perfil existe no banco, mas a conta de login não existe.");
       }
-      await auth.updateUser(targetUid, {displayName: nome, email, emailVerified: authBefore.email === email ? authBefore.emailVerified : false});
-      const after = {...before, nome, email, tenant_id: tenant, atualizado_em: now().toISOString(), atualizado_por: actor.uid, identidade_versao: uuid()};
+      const usuarioMudou = usuario !== before.usuario;
+      if (usuarioMudou) await reservarUsuario(db, usuario, targetUid);
+      try {
+        await auth.updateUser(targetUid, {displayName: nome, email, emailVerified: authBefore.email === email ? authBefore.emailVerified : false});
+      } catch (error) {
+        if (usuarioMudou) await liberarUsuario(db, usuario, targetUid).catch(() => {});
+        throw error;
+      }
+      const after = {...before, nome, email, usuario, tenant_id: tenant, atualizado_em: now().toISOString(), atualizado_por: actor.uid, identidade_versao: uuid()};
       try {
         await db.ref().update({
           [`usuarios/${targetUid}`]: after,
@@ -349,6 +373,7 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
         });
       } catch (error) {
         await auth.updateUser(targetUid, {displayName: authBefore.displayName || undefined, email: authBefore.email, emailVerified: authBefore.emailVerified}).catch(() => {});
+        if (usuarioMudou) await liberarUsuario(db, usuario, targetUid).catch(() => {});
         throw error;
       }
       try {
@@ -359,9 +384,11 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
         if (restored) {
           await auth.updateUser(targetUid,{displayName:authBefore.displayName || undefined,email:authBefore.email,emailVerified:authBefore.emailVerified}).catch(() => {});
           await db.ref(`usuarios_publico/${targetUid}`).set({nome:before.nome || before.email || targetUid,role:before.role || 'pending'}).catch(() => {});
+          if (usuarioMudou) await liberarUsuario(db, usuario, targetUid).catch(() => {});
         }
         throw error;
       }
+      if (usuarioMudou && before.usuario) await liberarUsuario(db, before.usuario, targetUid);
       return {ok: true, email};
     }
 
@@ -473,7 +500,11 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
       await revogar(targetUid);
       try { await auth.updateUser(targetUid,{password:senha,disabled:false}); }
       catch (_) { throw falha('internal','Não foi possível definir a senha no provedor. Confira a operação antes de repetir.'); }
-      await auditar(actor,'DEFINIR_SENHA',targetUid,before,before);
+      const em = now().toISOString();
+      const after = {...before, senha_definida_em:em, senha_definida_por:actor.uid,
+        exigir_troca_senha:true, atualizado_em:em, atualizado_por:actor.uid};
+      await db.ref(`usuarios/${targetUid}`).set(after);
+      await auditar(actor,'DEFINIR_SENHA',targetUid,before,after);
       return {ok:true,uid:targetUid,email,sessoesEncerradas:true,acessoAprovado:true,verificacaoEmailExigida:false};
     }
 
@@ -515,6 +546,7 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
         }
       }
       await db.ref(`usuarios_removidos/${targetUid}/${archiveId}`).update({status: "CONCLUIDO", concluido_em: now().toISOString()});
+      if (beforeAtomic.usuario) await liberarUsuario(db, beforeAtomic.usuario, targetUid);
       await auditar(actor, "EXCLUIR_USUARIO", targetUid, beforeAtomic, null, {arquivo: archiveId});
       return {ok: true};
     }

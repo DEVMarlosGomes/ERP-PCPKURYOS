@@ -24,11 +24,31 @@ const DevolucaoCliente = require("./devolucao_cliente");
 const Titularidade = require("./titularidade");
 const EmissaoOp = require("./emissao_op");
 const {criarServicoIdentidade} = require("./identidade_acesso");
+const {criarServicoLogin} = require("./login_personalizado");
 const ManipulacaoLote = require("./manipulacao_lote");
 
 initializeApp();
 const db = getDatabase();
 const identidadeAcesso = criarServicoIdentidade({db, auth: getAuth()});
+const loginPersonalizado = criarServicoLogin({db, auth: getAuth()});
+
+function erroHttpsSeguro(error, fallback) {
+  if (error instanceof HttpsError) return error;
+  const raw = String(error && error.code || "internal").replace(/^functions\//, "").replace(/^auth\//, "");
+  const allowed = ["unauthenticated", "permission-denied", "invalid-argument", "failed-precondition", "already-exists", "resource-exhausted", "unavailable"];
+  const code = allowed.includes(raw) ? raw : "internal";
+  return new HttpsError(code, code === "internal" ? fallback : error.message, error && error.details);
+}
+
+exports.autenticarIdentificador = onCall({timeoutSeconds: 30, memory: "256MiB"}, async (request) => {
+  try { return await loginPersonalizado.autenticar(request.data || {}); }
+  catch (error) { throw erroHttpsSeguro(error, "Não foi possível autenticar."); }
+});
+
+exports.gerenciarMinhaConta = onCall({timeoutSeconds: 30, memory: "256MiB"}, async (request) => {
+  try { return await loginPersonalizado.minhaConta(request); }
+  catch (error) { throw erroHttpsSeguro(error, "Não foi possível atualizar sua conta."); }
+});
 
 exports.registrarAuditoriaCrm = onCall({timeoutSeconds: 30, memory: "256MiB"}, async request => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Faça login.");

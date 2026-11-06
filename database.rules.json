@@ -91,6 +91,10 @@
         ".validate": "newData.child('role').val() == 'pending' && !newData.child('funcoes').exists() && !newData.child('modulos').exists() && !newData.child('modulosDasFuncoes').exists() && !newData.child('tenant_id').exists()"
       }
     },
+    "login_usuarios": {
+      ".read": false,
+      ".write": false
+    },
     "usuarios_publico": {
       // Nome e papel de cada usuário, legíveis por todos (lista de responsáveis do CRM);
       // usuarios/ continua restrito a admin/RH. O papel tem de bater com usuarios/{uid}.

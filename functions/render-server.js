@@ -143,6 +143,12 @@ function createServer({ fns, admin, corsOrigins = [], log = console, rateLimit =
       res.statusCode = 400;
       return res.end(JSON.stringify({ error: { status: "INVALID_ARGUMENT", message: "Bad Request" } }));
     }
+    // Esta rota e publica por necessidade, com limite proprio. Identificador e
+    // senha nunca entram nos buckets nem nos logs.
+    if (name === "autenticarIdentificador" && !allowed(`login:${ip}`, 12)) {
+      res.statusCode = 429; res.setHeader("Retry-After", "60");
+      return res.end(JSON.stringify({error:{status:"RESOURCE_EXHAUSTED",message:"Muitas tentativas. Aguarde um minuto."}}));
+    }
     let auth;
     const bearer = /^Bearer\s+(.+)$/i.exec(req.headers.authorization || "");
     if (bearer) {
