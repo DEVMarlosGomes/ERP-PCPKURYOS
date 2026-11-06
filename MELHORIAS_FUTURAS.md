@@ -1019,6 +1019,31 @@ Pedido" e MRP só usam material do cliente para a demanda dele. Regras em
 
 ## Qualidade
 
+### Rascunho do laudo e busca da Fila — o que ficou de fora (06/11/2026)
+
+Entregue: porte dos commits `d3a0fcb` (rascunho) e `f609e1e` (busca/filtros) do
+repo `gcallegaro-kur/PCP-Kuryos`, adaptado a esta base: `shared/rascunho-cq.js`,
+nó `qualidade_rascunhos/{chave}` (regra com perfil ativo), selo "✎ Em
+preenchimento", busca única que filtra fila, granel e laudos já decididos.
+
+- **Fotos não entram no rascunho.** Só sobem ao Storage com a decisão
+  (`FotosQualidade.enviar`). Guardá-las exigiria subir ao anexar, numa pasta
+  provisória, e apagar as descartadas (regra hoje proíbe apagar). O aviso do
+  popup avisa a analista.
+- **Duas pessoas no mesmo laudo: a última gravação vence.** Sem trava; o aviso
+  mostra quem salvou por último.
+- **Rascunho órfão.** Lote que sai da fila por outro caminho deixa o rascunho
+  no banco sem aparecer. É texto pequeno; falta uma limpeza dos sem item na fila.
+- **Liberação do granel com restrição** (`cc44503` do repo do Gustavo,
+  08/10/2026) não existe nesta base; o rascunho do granel foi portado sem ela.
+- **Os dois repositórios divergem.** `DEVMarlosGomes/ERP-PCPKURYOS` (este, VPS)
+  e `gcallegaro-kur/PCP-Kuryos` (Vercel) não têm commit em comum; em 06/11
+  diferiam em 195 arquivos de `public/`+`functions/`, com ~20 módulos só no do
+  Gustavo (ex.: `shared/dados-nf.js`, `pesos-volumes.js`, `relatorio-entradas.js`,
+  `painel-movimentos*.js`, `gestao-usuarios.js`). Portar por tema, com teste,
+  como foi feito aqui — nunca copiar arquivo inteiro (cada lado tem coisa que o
+  outro não tem, e o do Gustavo aponta para `prod-kuryos`).
+
 ### Laudos do CQ — o que ficou de fora (2026-09-21)
 
 Entregue: os três laudos saem em PDF do próprio sistema (Relatório de

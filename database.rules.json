@@ -511,6 +511,14 @@
         }
       }
     },
+    // Rascunho do laudo e da análise do granel (porte do commit d3a0fcb do repo do Gustavo, 06/11/2026).
+    "qualidade_rascunhos": {
+      ".read": "(auth != null && root.child('usuarios').child(auth.uid).child('role').exists() && root.child('usuarios').child(auth.uid).child('role').val() != 'pending' && root.child('usuarios').child(auth.uid).child('desativado').val() != true && (!root.child('security_sessions').child(auth.uid).child('revokedAfter').exists() || auth.token.auth_time > root.child('security_sessions').child(auth.uid).child('revokedAfter').val()))",
+      "$chave": {
+        ".write": "(auth != null && root.child('usuarios').child(auth.uid).child('role').exists() && root.child('usuarios').child(auth.uid).child('role').val() != 'pending' && root.child('usuarios').child(auth.uid).child('desativado').val() != true && (!root.child('security_sessions').child(auth.uid).child('revokedAfter').exists() || auth.token.auth_time > root.child('security_sessions').child(auth.uid).child('revokedAfter').val())) && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'qualidade' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('modulos').child('qualidade').val() == true)",
+        ".validate": "!newData.exists() || (newData.hasChildren(['tipo', 'dados', 'atualizadoEm']) && newData.child('dados').isString() && newData.child('dados').val().length <= 200000 && (newData.child('tipo').val() == 'LAUDO' || newData.child('tipo').val() == 'GRANEL'))"
+      }
+    },
     // Liberação de linha (PORT-03, porte do Gustavo e1ac6e6; PLANO_QUALIDADE A3): CK-4 assepsia
     // + CK-5 first article por OP. Operador registra a limpeza; a Qualidade verifica; o líder
     // assina. Inspeção APROVADA não muda mais.
