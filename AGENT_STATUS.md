@@ -5,6 +5,23 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Codex — Login personalizado e Minha Conta (06/11/2026)
+
+- **Concluído:** commits `788edf5` e `2338705`. Login aceita usuário ou e-mail
+  com erro genérico, índice privado e rate limit; `Minha Conta` permite trocar a
+  própria senha e encerrar sessões após reautenticação. ADM vê somente estado da
+  credencial, pode definir senha temporária com troca obrigatória e nunca consulta
+  senha. Testes de serviço, falhas, senha, UI, navegação e 25 contratos Hostinger
+  aprovados; navegador visual do ambiente ficou indisponível, sem reutilizar capturas
+  antigas. Regras RTDB publicadas e relidas com igualdade exata.
+- **Publicado:** `233870597fa1a42def75d6395beca1e267a1d9b8` na VPS; containers
+  saudáveis e `/api/health` com 42 funções. Backfill aplicou usuário a 27 perfis,
+  com backup `/backups/login-usuarios-2026-11-06T13-46-36-061Z.json`; segunda
+  execução: zero alterações. Permanecem cinco perfis sem Auth e três divergências
+  de UID, sem fusão/criação automática. Relatório atualizado em
+  `RELATORIO_RECONCILIACAO_USUARIOS_20261106.md`. `.impeccable/` e `storage.rules`
+  permaneceram fora dos commits deste trabalho. Arquivos ativos: nenhum.
+
 ### Claude — Storage para foto da pesagem (06/11/2026)
 
 - **Concluído:** bucket `gs://erpkuryos.firebasestorage.app` (US-EAST1, criado
