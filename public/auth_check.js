@@ -623,7 +623,9 @@ window.currentUser = null;
     .kt-nav-link:not(.active):hover { background: color-mix(in srgb, var(--ink, #1d1d1f) 6%, transparent); }
     .kt-sidebar-foot { margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--line, #d2d2d7); }
     .kt-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--s2, #c9910a); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex: none; }
-    .kt-sidebar-foot .who { flex: 1; min-width: 0; }
+    .kt-sidebar-foot .who { flex: 1; min-width: 0; color:inherit; text-decoration:none; border-radius:8px; padding:3px 5px; margin:-3px -5px; }
+    .kt-sidebar-foot .who:hover { background:color-mix(in srgb,var(--ink,#1d1d1f) 6%,transparent); }
+    .kt-sidebar-foot .who:focus-visible { outline:2px solid var(--accent,#2456d6); outline-offset:2px; }
     .kt-sidebar-foot .name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .kt-sidebar-foot .role { font-size: 11px; color: var(--ink-mute, #86868b); }
     .kt-sidebar-foot button { background: none; border: none; color: var(--ink-mute, #86868b); cursor: pointer; font-size: 16px; line-height: 1; padding: 4px; }
@@ -720,8 +722,17 @@ window.currentUser = null;
               // exatamente como estavam antes desta mudança.
               modulos: profile.modulos || null,
               funcoes: profile.funcoes || null,
-              modulosDasFuncoes: profile.modulosDasFuncoes === true
+              modulosDasFuncoes: profile.modulosDasFuncoes === true,
+              usuario: profile.usuario || null,
+              exigirTrocaSenha: profile.exigir_troca_senha === true,
+              ultimoLoginEm: profile.ultimo_login_em || null
             };
+
+            if (profile.exigir_troca_senha === true && activePage !== 'minha-conta.html') {
+              clearAuthWatchdog();
+              window.location.href = 'minha-conta?troca=obrigatoria';
+              return;
+            }
 
             // Validação de acessos da página, agora por MÓDULO
             if (!podeAbrirPagina(window.currentUser, activePage)) {
@@ -984,7 +995,7 @@ function renderUnifiedNavbar(user) {
     '</nav>' +
     '<div class="kt-sidebar-foot">' +
       '<span class="kt-avatar">' + initials + '</span>' +
-      '<div class="who"><div class="name">' + user.nome + '</div><div class="role">' + roleLabel + '</div></div>' +
+      '<a class="who" href="minha-conta" title="Abrir Minha Conta"><div class="name">' + user.nome + '</div><div class="role">' + roleLabel + ' · Minha Conta</div></a>' +
       '<button id="kt-theme-toggle" aria-label="Alternar tema" title="' + kuryosThemeLabel(kuryosThemeState()) + '" onclick="cycleKuryosTheme()">' + kuryosThemeIconSvg(kuryosThemeState()) + '</button>' +
       '<button title="Sair" aria-label="Sair" onclick="firebase.auth().signOut().then(() => window.location.href=\'login.html\')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/></svg></button>' +
     '</div>';

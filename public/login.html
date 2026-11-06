@@ -9,6 +9,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-functions-compat.js"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="shared/theme.css">
   <link rel="stylesheet" href="shared/kuryos-apple-system.css?v=20261007-1">
@@ -243,6 +244,22 @@
     .login-welcome p { margin-top: 6px; color: var(--ink-mute); font-size: 14px; }
     .login-foot { margin-top: 36px; color: var(--ink-mute); font-size: 12px; text-align: center; }
     body.login-split label { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--ink); }
+    body.login-split input::placeholder { color: #646469; opacity: 1; }
+    body.login-split .login-welcome p, body.login-split .access-note,
+    body.login-split .form-hint, body.login-split .login-foot { color: #515154; }
+    body.login-split .btn { background: #2456d6; }
+    :root[data-theme="dark"] body.login-split input::placeholder,
+    :root[data-theme="dark"] body.login-split .login-welcome p,
+    :root[data-theme="dark"] body.login-split .access-note,
+    :root[data-theme="dark"] body.login-split .form-hint,
+    :root[data-theme="dark"] body.login-split .login-foot { color: #b8b8bd; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) body.login-split input::placeholder,
+      :root:not([data-theme="light"]) body.login-split .login-welcome p,
+      :root:not([data-theme="light"]) body.login-split .access-note,
+      :root:not([data-theme="light"]) body.login-split .form-hint,
+      :root:not([data-theme="light"]) body.login-split .login-foot { color: #b8b8bd; }
+    }
     @media (max-width: 900px) {
       .login-shell { grid-template-columns: 1fr; }
       .login-hero { gap: 18px; padding: 28px 24px; min-height: 0; }
@@ -290,8 +307,8 @@
   <!-- Form Login -->
   <form id="form-login" onsubmit="handleLogin(event)">
     <div class="form-group">
-      <label for="login-email">E-mail</label>
-      <input type="email" id="login-email" required placeholder="exemplo@kuryos.com" autocomplete="username" maxlength="254">
+      <label for="login-email">Usuário ou e-mail</label>
+      <input type="text" id="login-email" required placeholder="seu.usuario ou exemplo@kuryos.com" autocomplete="username" maxlength="254" autocapitalize="none" spellcheck="false">
     </div>
     <div class="form-group">
       <label for="login-password">Senha</label>
@@ -364,6 +381,12 @@
 
   const auth = firebase.auth();
   const db = firebase.database();
+  var KURYOS_FUNCTIONS_ORIGIN = window.KURYOS_FUNCTIONS_ORIGIN ||
+    (location.hostname === 'pcp-kuryos.vercel.app' ? 'https://pcp-kuryos-functions.onrender.com' :
+      location.hostname === 'prod-kuryos.web.app' ? 'https://kuryoserp.com.br/api' :
+      location.origin.replace(/\/$/, '') + '/api');
+  var autenticarIdentificador = firebase.functions().httpsCallableFromURL(
+    KURYOS_FUNCTIONS_ORIGIN.replace(/\/$/, '') + '/autenticarIdentificador');
   // E-mail de troca de senha no idioma do navegador (pt-BR na fábrica).
   auth.useDeviceLanguage();
 
@@ -396,7 +419,8 @@
               auth.signOut();
             } else if (profile && profile.role !== 'pending') {
               // Already approved, redirect
-              redirectUser(profile.role);
+              if (profile.exigir_troca_senha === true) window.location.href = 'minha-conta?troca=obrigatoria';
+              else redirectUser(profile.role);
             }
           })
           .catch(err => {
@@ -418,7 +442,7 @@
     if (mode === 'forgot') {
       // Traz o e-mail que a pessoa já digitou no login, se houver.
       const digitado = document.getElementById('login-email').value.trim();
-      if (digitado) document.getElementById('forgot-email').value = digitado;
+      if (digitado.indexOf('@') !== -1) document.getElementById('forgot-email').value = digitado;
       document.getElementById('forgot-email').focus();
     }
   }
@@ -554,15 +578,17 @@
   function handleLogin(e) {
     e.preventDefault();
     if (enviando) return;
-    const email = document.getElementById('login-email').value.trim();
+    const identificador = document.getElementById('login-email').value.trim();
     const pass = document.getElementById('login-password').value;
     const feedback = document.getElementById('feedback');
     
     feedback.style.display = 'none';
     
     travarEnvio('btn-login', 'Entrando...');
-    auth.signInWithEmailAndPassword(email, pass)
+    autenticarIdentificador({identificador: identificador, senha: pass})
+      .then(function(response) { return auth.signInWithCustomToken(response.data.token); })
       .then(cred => {
+        const email = cred.user.email || '';
         return db.ref('usuarios/' + cred.user.uid).once('value')
           .then(snap => {
             const profile = snap.val();
@@ -584,7 +610,8 @@
               }).catch(err => console.warn('Perfil pendente não criado:', err.message));
               criarPendente.then(() => auth.signOut());
             } else {
-              redirectUser(profile.role);
+              if (profile.exigir_troca_senha === true) window.location.href = 'minha-conta?troca=obrigatoria';
+              else redirectUser(profile.role);
             }
           })
           .catch(err => {
@@ -594,21 +621,23 @@
       })
       .catch(err => {
         liberarEnvio('btn-login');
-        let msg = 'Erro ao realizar login. Verifique seu e-mail e senha.';
+        let msg = 'Usuário/e-mail ou senha incorretos.';
         // invalid-credential: o que o Firebase devolve hoje no lugar dos dois
         // códigos antigos, com a proteção contra enumeração de e-mail ligada.
         if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-login-credentials') {
-          msg = 'E-mail ou senha incorretos. Se esqueceu a senha, use "Esqueci minha senha".';
+          msg = 'Usuário/e-mail ou senha incorretos. Se esqueceu a senha, use "Esqueci minha senha".';
         } else if (err.code === 'auth/invalid-email') {
-          msg = 'Formato de e-mail inválido.';
+          msg = 'Informe um usuário ou e-mail válido.';
         } else if (err.code === 'auth/user-disabled') {
           msg = MSG_DESATIVADO;
         } else if (err.code === 'auth/too-many-requests') {
           msg = 'Muitas tentativas seguidas. Aguarde alguns minutos ou redefina sua senha.';
         } else if (err.code === 'auth/network-request-failed') {
           msg = 'Sem conexão com o servidor. Confira a rede e tente novamente.';
-        } else {
-          msg = 'Erro ao realizar login: ' + err.message + ' (' + err.code + ')';
+        } else if (err.code === 'functions/resource-exhausted') {
+          msg = 'Muitas tentativas seguidas. Aguarde um minuto e tente novamente.';
+        } else if (err.code === 'functions/unavailable') {
+          msg = 'Não foi possível validar o acesso agora. Confira a rede e tente novamente.';
         }
         showFeedback('error', msg);
       });

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Minha Conta — Kuryos ERP</title>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-functions-compat.js"></script>
+  <script src="shared/utils.js"></script>
+  <link rel="stylesheet" href="shared/theme.css">
+  <style>
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-ui,-apple-system,"Segoe UI",sans-serif)}
+    main{max-width:1060px;margin:0 auto;padding:38px 34px 64px}.page-head{margin-bottom:28px}.page-head h1{font-size:32px;letter-spacing:-.025em;margin:0 0 8px}.page-head p{margin:0;color:var(--ink-soft);line-height:1.5}
+    .forced{display:none;margin:0 0 22px;padding:14px 16px;border-radius:14px;background:color-mix(in srgb,var(--s2,#c9910a) 13%,var(--panel));color:var(--ink);line-height:1.45}.forced.on{display:block}
+    .layout{display:grid;grid-template-columns:minmax(260px,.8fr) minmax(390px,1.2fr);gap:22px;align-items:start}.surface{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;box-shadow:0 12px 28px -24px rgba(0,0,0,.35)}
+    h2{font-size:19px;margin:0 0 18px;letter-spacing:-.015em}.identity{display:grid;gap:16px}.datum{display:grid;gap:4px}.datum span{font-size:11px;text-transform:uppercase;letter-spacing:.055em;color:var(--ink-mute);font-weight:700}.datum strong{font-size:15px;overflow-wrap:anywhere}.badge{display:inline-flex;width:max-content;padding:5px 9px;border-radius:999px;background:color-mix(in srgb,var(--accent) 12%,var(--panel));color:var(--accent);font-size:12px;font-weight:700}
+    .field{display:grid;gap:7px;margin-bottom:16px}.field label{font-size:13px;font-weight:650}.field input{width:100%;min-height:44px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);padding:10px 12px;font:inherit;outline:none}.field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}.hint{font-size:12px;line-height:1.45;color:var(--ink-mute)}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}.btn{min-height:42px;border:0;border-radius:12px;padding:10px 16px;font:inherit;font-weight:700;cursor:pointer;background:#2456d6;color:#fff}.btn.secondary{background:var(--bg);color:var(--ink);border:1px solid var(--line)}.btn:disabled{opacity:.55;cursor:not-allowed}.feedback{display:none;margin:0 0 16px;padding:12px 14px;border-radius:12px;font-size:13px;line-height:1.45}.feedback.on{display:block}.feedback.ok{background:color-mix(in srgb,#16834b 13%,var(--panel));color:var(--ink)}.feedback.error{background:color-mix(in srgb,#c93400 12%,var(--panel));color:var(--ink)}
+    .page-head p,.hint{color:#515154}.datum span{color:#515154}
+    :root[data-theme="dark"] .page-head p,:root[data-theme="dark"] .hint,:root[data-theme="dark"] .datum span{color:#b8b8bd}
+    @media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .page-head p,:root:not([data-theme="light"]) .hint,:root:not([data-theme="light"]) .datum span{color:#b8b8bd}}
+    ::selection{background:color-mix(in srgb,var(--accent) 28%,transparent)}
+    @media(max-width:980px){main{padding:76px 20px 44px}.layout{grid-template-columns:1fr}.page-head h1{font-size:27px}}
+  </style>
+</head>
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
+<main>
+  <header class="page-head"><h1>Minha Conta</h1><p>Confira sua identidade e mantenha sua senha sob seu controle.</p></header>
+  <div class="forced" id="forced" role="status"><strong>Troca de senha obrigatória.</strong> A senha temporária só libera esta página. Defina uma senha pessoal para continuar no ERP.</div>
+  <div class="layout">
+    <section class="surface" aria-labelledby="identidadeTitulo"><h2 id="identidadeTitulo">Sua identidade</h2><div class="identity">
+      <div class="datum"><span>Nome</span><strong id="contaNome">Carregando…</strong></div>
+      <div class="datum"><span>Usuário</span><strong id="contaUsuario">—</strong></div>
+      <div class="datum"><span>E-mail de recuperação</span><strong id="contaEmail">—</strong></div>
+      <div class="datum"><span>Função principal</span><strong class="badge" id="contaFuncao">—</strong></div>
+      <div class="datum"><span>Último acesso conhecido</span><strong id="contaUltimo">—</strong></div>
+    </div></section>
+    <section class="surface" aria-labelledby="segurancaTitulo"><h2 id="segurancaTitulo">Alterar minha senha</h2>
+      <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
+      <form id="senhaForm">
+        <div class="field"><label for="senhaAtual">Senha atual</label><input type="password" id="senhaAtual" autocomplete="current-password" required maxlength="128"></div>
+        <div class="field"><label for="senhaNova">Nova senha</label><input type="password" id="senhaNova" autocomplete="new-password" required minlength="8" maxlength="128"><div class="hint">Use de 8 a 128 caracteres, com maiúscula, minúscula e número. Símbolos são permitidos.</div></div>
+        <div class="field"><label for="senhaConfirmar">Confirmar nova senha</label><input type="password" id="senhaConfirmar" autocomplete="new-password" required maxlength="128"></div>
+        <div class="actions"><button class="btn" id="salvarSenha" type="submit">Alterar minha senha</button><button class="btn secondary" id="encerrarSessoes" type="button">Encerrar sessões em todos os dispositivos</button></div>
+      </form>
+    </section>
+  </div>
+</main>
+<script>
+  var firebaseConfig={apiKey:"AIzaSyBvASzcbKyv3uW7NBzDFDyLsKls3An3UUs",authDomain:"erpkuryos.firebaseapp.com",databaseURL:kuryosDatabaseURL("https://erpkuryos-default-rtdb.firebaseio.com"),projectId:"erpkuryos",storageBucket:"erpkuryos.firebasestorage.app",messagingSenderId:"272752392739",appId:"1:272752392739:web:047a6c4aa60145d77f4f96"};
+  firebase.initializeApp(firebaseConfig);kuryosConnectEmulatorsIfLocal();
+</script>
+<script src="auth_check.js"></script>
+<script>
+  var auth=firebase.auth(),db=firebase.database();
+  var minhaContaServidor=firebase.functions().httpsCallable('gerenciarMinhaConta');
+  var perfilAtual=null;
+  function feedback(tipo,texto){var el=document.getElementById('feedback');el.className='feedback on '+tipo;el.textContent=texto;}
+  function senhaValida(s){return typeof s==='string'&&s.length>=8&&s.length<=128&&/[A-Z]/.test(s)&&/[a-z]/.test(s)&&/[0-9]/.test(s);}
+  auth.onAuthStateChanged(function(user){if(!user)return;db.ref('usuarios/'+user.uid).once('value').then(function(snap){
+    perfilAtual=snap.val()||{};document.getElementById('contaNome').textContent=perfilAtual.nome||user.displayName||'—';
+    document.getElementById('contaUsuario').textContent=perfilAtual.usuario?'@'+perfilAtual.usuario:'Ainda não definido pelo administrador';
+    document.getElementById('contaEmail').textContent=user.email||perfilAtual.email||'—';document.getElementById('contaFuncao').textContent=perfilAtual.role||'—';
+    document.getElementById('contaUltimo').textContent=perfilAtual.ultimo_login_em?new Date(perfilAtual.ultimo_login_em).toLocaleString('pt-BR'):'Não registrado';
+    if(perfilAtual.exigir_troca_senha===true||new URLSearchParams(location.search).get('troca')==='obrigatoria')document.getElementById('forced').classList.add('on');
+  });});
+  document.getElementById('senhaForm').addEventListener('submit',async function(e){e.preventDefault();var atual=document.getElementById('senhaAtual').value,nova=document.getElementById('senhaNova').value,confirmar=document.getElementById('senhaConfirmar').value,btn=document.getElementById('salvarSenha');
+    if(!senhaValida(nova))return feedback('error','A nova senha não atende à política informada.');if(nova!==confirmar)return feedback('error','As novas senhas não coincidem.');if(nova===atual)return feedback('error','A nova senha deve ser diferente da atual.');
+    btn.disabled=true;btn.textContent='Alterando…';try{var user=auth.currentUser;var cred=firebase.auth.EmailAuthProvider.credential(user.email,atual);await user.reauthenticateWithCredential(cred);await user.updatePassword(nova);await user.getIdToken(true);await minhaContaServidor({acao:'registrar_troca_senha'});this.reset();document.getElementById('forced').classList.remove('on');feedback('ok','Senha alterada com segurança. Você já pode continuar no ERP.');history.replaceState(null,'',location.pathname);}catch(err){var msg='Não foi possível alterar a senha.';if(err.code==='auth/wrong-password'||err.code==='auth/invalid-credential')msg='A senha atual está incorreta.';else if(err.code==='auth/too-many-requests')msg='Muitas tentativas. Aguarde alguns minutos.';else if(err.code==='auth/requires-recent-login'||(err.details&&err.details.requiresRecentLogin))msg='Confirme novamente sua senha atual.';feedback('error',msg);}finally{atual='';nova='';confirmar='';btn.disabled=false;btn.textContent='Alterar minha senha';}}
+  );
+  document.getElementById('encerrarSessoes').addEventListener('click',async function(){var atual=document.getElementById('senhaAtual').value;if(!atual)return feedback('error','Informe sua senha atual para encerrar as sessões.');if(!confirm('Encerrar todas as sessões, inclusive esta? Você precisará entrar novamente.'))return;this.disabled=true;try{var user=auth.currentUser;await user.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(user.email,atual));await user.getIdToken(true);await minhaContaServidor({acao:'encerrar_sessoes'});await auth.signOut();location.href='login';}catch(err){this.disabled=false;feedback('error',err.code==='auth/wrong-password'||err.code==='auth/invalid-credential'?'A senha atual está incorreta.':'Não foi possível encerrar as sessões. Entre novamente e tente de novo.');}finally{atual='';document.getElementById('senhaAtual').value='';}});
+</script>
+</body>
+</html>
