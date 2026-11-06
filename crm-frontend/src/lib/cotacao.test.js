@@ -13,6 +13,16 @@ const ENVASE = { id: "s1", codigo: "SRV-002", nome: "Envase líquido", unidade: 
 const CELOFANE = { id: "s6", codigo: "SRV-006", nome: "Celofane", unidade: "milheiro", preco: 90, descontoPct: 0, setupLote: 0, minimoPedido: 500 };
 const ROTULO = { id: "s5", codigo: "SRV-005", nome: "Rotulagem", unidade: "un", preco: null };
 
+describe("compatibilidade de cotação legada", () => {
+  test("mantém a cotação congelada e normaliza a lista de serviços ausente", () => {
+    const legado = { qtd_pedido: 1000, insumos: [{ bom_id: "MP1", preco: 8 }] };
+    const mesclada = mesclarComposicao(legado, { servicos: [ENVASE] }, { congelada: true });
+
+    expect(mesclada).toEqual({ ...legado, servicos: [] });
+    expect(calcularCotacao(mesclada, 5).servicos).toEqual([]);
+  });
+});
+
 describe("preço sugerido do serviço", () => {
   test("custo-hora ÷ produtividade × (1 + margem), na unidade de cobrança", () => {
     expect(precoSugerido({ unidade: "un", custoHora: 300, produtividade: 600, margemPct: 20 })).toBe(0.6);

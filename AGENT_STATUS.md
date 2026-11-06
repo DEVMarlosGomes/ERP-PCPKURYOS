@@ -5,6 +5,25 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Codex — CRM2/Cotações: erro de leitura e paridade com export `prod-kuryos` (05/11/2026)
+
+- Pedido: diagnosticar a tela CRM2/Cotações, comparar o export
+  `C:\Users\Marlos\Downloads\prod-kuryos-default-rtdb-export (2).json` com o sistema atual
+  e migrar somente os dados necessários para obter paridade verificável com o
+  `dashboard_analise.html` legado.
+- Escopo inicial: investigação em `crm-frontend/`, adaptadores Firebase do CRM,
+  scripts de migração/auditoria a identificar e este bloco. O JSON e os bancos são
+  somente leitura até mapear origem, destino, conflitos, backup e validação pós-carga.
+- Não tocar nos arquivos do lote de P&D nem em `.impeccable/`. Nenhum deploy ou
+  escrita de dados feita até aqui.
+- Causa do erro confirmada na base real: 3 das 6 `crm_propostas` são aprovadas e
+  congeladas com `composicao.insumos`, mas sem `composicao.servicos`; a abertura
+  devolve o formato legado cru e a UI quebra em `servicos.map(...)`.
+- **Arquivos ativos:** `crm-frontend/src/lib/cotacao.js`,
+  `crm-frontend/src/lib/cotacao.test.js`, bundle oficial gerado em
+  `public/static/crm/**`, referência gerada em `public/crm-app.html` e
+  `AGENT_STATUS.md`.
+
 ### Claude (sessão na nuvem, 05/11/2026) — Lote de amostras: sem comentário e concluir num clique
 
 - Pedido do Marlos (05/11, 12:06): concluir o preenchimento do lote manda as amostras direto para a Manipulação

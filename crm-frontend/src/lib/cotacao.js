@@ -84,7 +84,13 @@ export function linhaDeServico(servico) {
 export function mesclarComposicao(salva, base, { congelada = false } = {}) {
   const s = salva || {};
   const b = base || {};
-  if (congelada && s.insumos) return s;
+  // Cotações aprovadas antes da cobrança por serviço possuem `insumos`, mas não
+  // `servicos`. Elas continuam congeladas como saíram; apenas completamos o
+  // contrato estrutural para a tela não quebrar ao executar `.map()`.
+  if (congelada && Array.isArray(s.insumos)) {
+    if (Array.isArray(s.servicos)) return s;
+    return { ...s, insumos: s.insumos, servicos: [] };
+  }
   const salvos = new Map((s.insumos || []).map((l) => [l.bom_id, l]));
   const insumos = (b.insumos || []).map((l) => {
     const antes = salvos.get(l.bom_id);
