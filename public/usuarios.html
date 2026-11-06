@@ -411,12 +411,7 @@
       <div class="campo">
         <label for="novoEmail">E-mail</label>
         <input type="email" id="novoEmail" autocomplete="off" placeholder="nome@kuryos.com.br">
-        <div class="dica">O e-mail continua sendo usado para recuperação. O sistema não enviará mensagem de confirmação.</div>
-      </div>
-      <div class="campo">
-        <label for="novoUsuario">Usuário</label>
-        <input type="text" id="novoUsuario" maxlength="32" autocomplete="off" placeholder="nome.sobrenome" autocapitalize="none" spellcheck="false">
-        <div class="dica">De 3 a 32 caracteres: letras minúsculas, números, ponto, hífen ou sublinhado.</div>
+        <div class="dica">O e-mail será o identificador de login; o sistema não enviará mensagem de confirmação.</div>
       </div>
       <div class="campo">
         <label for="novoSenha">Senha inicial</label>
@@ -465,11 +460,6 @@
         <label for="editEmail">E-mail</label>
         <input type="email" id="editEmail" maxlength="254" autocomplete="off">
         <div class="dica">Alterar o e-mail muda o login e exige que a pessoa confirme o novo endereço.</div>
-      </div>
-      <div class="campo">
-        <label for="editUsuario">Usuário</label>
-        <input type="text" id="editUsuario" maxlength="32" autocomplete="off" autocapitalize="none" spellcheck="false">
-        <div class="dica">Identificador único para entrar sem digitar o e-mail.</div>
       </div>
       <div class="campo">
         <label for="editTenant">Empresa / tenant</label>
@@ -689,7 +679,7 @@
         const noteSelf = selfLogged ? ' <span style="font-size:10px; color:var(--ink-mute); font-style:italic;">(Você)</span>' : '';
         
         tr.innerHTML = `
-          <td><strong>${escapeHtml(u.nome || '-')}</strong>${noteSelf}<div class="mod-resumo">${u.usuario ? '@' + escapeHtml(u.usuario) : 'Usuário ainda não definido'}</div></td>
+          <td><strong>${escapeHtml(u.nome || '-')}</strong>${noteSelf}</td>
           <td>${escapeHtml(u.email || '-')}</td>
           <td>${dateStr}</td>
           <td>${badgesHtml}</td>
@@ -981,7 +971,7 @@
   }
 
   function abrirNovo() {
-    ['novoNome', 'novoEmail', 'novoUsuario', 'novoSenha', 'novoConfirmarSenha'].forEach(function(id) { document.getElementById(id).value = ''; });
+    ['novoNome', 'novoEmail', 'novoSenha', 'novoConfirmarSenha'].forEach(function(id) { document.getElementById(id).value = ''; });
     document.getElementById('novoTenant').value = 'kuryos';
     document.getElementById('novoFuncoes').innerHTML = htmlFuncoes([]);
     erroForm('novoErro', '');
@@ -994,14 +984,12 @@
     if (!window.currentUser || window.currentUser.role !== 'admin') { alert('Acesso Negado: apenas administradores criam usuários.'); return; }
     var nome = document.getElementById('novoNome').value.trim().replace(/\s+/g, ' ');
     var email = document.getElementById('novoEmail').value.trim().toLowerCase();
-    var usuario = document.getElementById('novoUsuario').value.trim().toLowerCase();
     var senha = document.getElementById('novoSenha').value;
     var confirmarSenha = document.getElementById('novoConfirmarSenha').value;
     var tenant = document.getElementById('novoTenant').value.trim().toLowerCase();
     var marcadas = funcoesMarcadas('novoFuncoes');
     if (!nome) return erroForm('novoErro', 'Informe o nome.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return erroForm('novoErro', 'E-mail inválido.');
-    if (!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(usuario)) return erroForm('novoErro', 'Usuário inválido. Use de 3 a 32 caracteres: letras minúsculas, números, ponto, hífen ou sublinhado.');
     if (senha.length < 8 || senha.length > 128 || !/[A-Z]/.test(senha) || !/[a-z]/.test(senha) || !/[0-9]/.test(senha)) return erroForm('novoErro', 'A senha deve ter de 8 a 128 caracteres, maiúscula, minúscula e número.');
     if (senha !== confirmarSenha) return erroForm('novoErro', 'As senhas não coincidem.');
     if (!marcadas.length) return erroForm('novoErro', 'Marque pelo menos uma função.');
@@ -1017,7 +1005,7 @@
     btn.textContent = 'Criando...';
     var acesso = perfilDasFuncoes(marcadas, { tenant_id: tenant || null });
     acaoIdentidade({
-      acao: 'criar', nome: nome, email: email, usuario: usuario, funcoes: marcadas,
+      acao: 'criar', nome: nome, email: email, funcoes: marcadas,
       modulos: acesso.modulos, modulosDasFuncoes: acesso.modulosDasFuncoes === true,
       tenant_id: tenant || null, nova_senha: senha
     })
@@ -1026,7 +1014,7 @@
         document.getElementById('novoConfirmarSenha').value = '';
         fecharNovo();
         showToast(nome + ' criado como ' + marcadas.map(rotuloFuncao).join(' + ') + '.' +
-          ' Login aprovado com senha temporária; a troca será obrigatória no primeiro acesso.', 7000);
+          ' Login aprovado com a senha inicial; nenhuma validação de e-mail foi enviada.', 7000);
       })
       .catch(function(err) {
         console.error(err);
@@ -1058,7 +1046,6 @@
       : (u.created_at ? 'Cadastrado em ' + new Date(u.created_at).toLocaleDateString('pt-BR') : '');
     document.getElementById('editNome').value = u.nome || '';
     document.getElementById('editEmail').value = u.email || '';
-    document.getElementById('editUsuario').value = u.usuario || '';
     document.getElementById('editTenant').value = u.tenant_id || '';
     document.getElementById('editLinkSenha').disabled = !u.email;
     document.getElementById('editRevogar').disabled = proprio || u.desativado;
@@ -1096,14 +1083,6 @@
         CONFLITO_EMAIL:'Este e-mail tem login em outro cadastro. Use Editar cadastro vinculado ao login para alterar senha e permissões. Este registro histórico não será apagado nem fundido automaticamente.',
         EMAIL_DIVERGENTE:'O e-mail do login diverge do cadastro. Confira a identidade antes de salvar qualquer alteração.'
       }[r.vinculo] || 'Vínculo não identificado. Solicite conferência administrativa.';
-      if (r.vinculo === 'OK') {
-        var detalhes = [];
-        detalhes.push(r.usuario ? 'usuário @' + r.usuario : 'usuário ainda não definido');
-        detalhes.push(r.senhaGerenciada ? 'senha redefinida pelo ERP' + (r.senhaDefinidaEm ? ' em ' + new Date(r.senhaDefinidaEm).toLocaleDateString('pt-BR') : '') : 'senha existente no provedor; data não conhecida');
-        if (r.exigirTrocaSenha) detalhes.push('troca obrigatória no próximo acesso');
-        if (r.ultimoLoginEm) detalhes.push('último login ' + new Date(r.ultimoLoginEm).toLocaleString('pt-BR'));
-        document.getElementById('editVinculoStatus').textContent += ' ' + detalhes.join(' · ') + '.';
-      }
     } catch (err) { if (editUidAtual === uid) erroForm('editErro',mensagemErroIdentidade(err)); }
     finally { btn.disabled = false; }
   }
@@ -1138,17 +1117,15 @@
     if (!window.currentUser || window.currentUser.role !== 'admin') { alert('Acesso Negado.'); return; }
     var nome = document.getElementById('editNome').value.trim().replace(/\s+/g, ' ');
     var email = document.getElementById('editEmail').value.trim().toLowerCase();
-    var usuario = document.getElementById('editUsuario').value.trim().toLowerCase();
     var tenant = document.getElementById('editTenant').value.trim().toLowerCase();
     if (!nome) return erroForm('editErro', 'Informe o nome.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return erroForm('editErro', 'Informe um e-mail válido.');
-    if (!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(usuario)) return erroForm('editErro', 'Informe um usuário válido de 3 a 32 caracteres.');
     var uid = editUidAtual;
     var anterior = usuariosCache[uid] || {};
-    if (nome === anterior.nome && email === String(anterior.email || '').toLowerCase() && usuario === String(anterior.usuario || '') && tenant === (anterior.tenant_id || '')) { fecharEdicao(); return; }
+    if (nome === anterior.nome && email === String(anterior.email || '').toLowerCase() && tenant === (anterior.tenant_id || '')) { fecharEdicao(); return; }
     var btn = document.getElementById('editSalvar');
     btn.disabled = true;
-    acaoIdentidade({ acao: 'atualizar', uid: uid, nome: nome, email: email, usuario: usuario, tenant_id: tenant || null })
+    acaoIdentidade({ acao: 'atualizar', uid: uid, nome: nome, email: email, tenant_id: tenant || null })
       .then(function() { btn.disabled = false; fecharEdicao(); showToast('Cadastro e login atualizados.'); })
       .catch(function(err) { btn.disabled = false; erroForm('editErro', 'Erro ao salvar: ' + mensagemErroIdentidade(err)); });
   }
@@ -1182,7 +1159,7 @@
     try {
       await acaoIdentidade({acao:'definir_senha',uid:uid,confirmacao_email:u.email,nova_senha:senha});
       if(editUidAtual===uid)erroForm('editErro','');
-      showToast('Senha temporária definida. As sessões foram encerradas e a troca será obrigatória no próximo acesso.',7000);
+      showToast('Senha definida e acesso aprovado. O usuário já pode entrar sem validar o e-mail.',7000);
     } catch(err){if(editUidAtual===uid)erroForm('editErro',mensagemErroIdentidade(err));}
     finally {senha='';confirmar='';btn.disabled=false;}
   }
