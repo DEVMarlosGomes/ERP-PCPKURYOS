@@ -7,8 +7,8 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ### Codex — CRM2/Cotações: erro de leitura e paridade com export `prod-kuryos` (05/11/2026)
 
-- **Cadastro direto de usuários concluído localmente, sem publicação
-  (06/11/2026):** commit `ff59f24`. O ADM agora informa senha inicial e
+- **Cadastro direto de usuários concluído (06/11/2026):** commit `ff59f24`. O
+  ADM agora informa senha inicial e
   confirmação no próprio sistema; o servidor cria Auth + perfil no mesmo UID,
   mantém `emailVerified=false` por honestidade e não exige essa marca para o
   login. Definir senha em perfil legado também cria o Auth no UID preservado,
@@ -22,6 +22,13 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   24 contratos Hostinger aprovados. Emuladores não executados nesta máquina por
   ausência da CLI operacional; regras não mudaram. `.impeccable/` permanece
   intocada. Arquivos ativos: somente este registro até o commit documental.
+- **Publicado na VPS (06/11/2026, 07:01 BRT):** `8cbed46f8b6def5f317bb18ee1a4378351bdef3e`
+  está em `/opt/kuryos/current-version`; containers `functions` e `web`
+  saudáveis, `/api/health` respondeu `ok` com 40 funções. `usuarios.html` no ar
+  tem SHA-256 `12114538...7820b`, idêntico à fonte local, e o serviço
+  `identidade_acesso.js` tem SHA-256 `c486e5c1...a1128` idêntico no release.
+  Nenhum usuário, senha, permissão, regra ou dado real foi criado/alterado pelo
+  deploy. `.impeccable/` segue fora dos commits. Arquivos ativos: nenhum.
 
 - **Plano integral entregue (06/11/2026):** commits `1c23655`, `34b97e4` e
   `596af73`. A Simulação Comercial passou a usar `/orcamentos`, sem criar/alterar
