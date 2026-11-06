@@ -1,12 +1,14 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Capacidades assinadas pelo servidor; ausentes = negar. Não confiar em
-    // metadados enviados pelo navegador. Ativar somente após provisionar o bucket.
+    // Bucket provisionado em 06/11/2026. Decisão do usuário (06/11): qualquer
+    // login válido envia, para a pesagem voltar a ter foto já. Conta desativada
+    // não renova token. O vínculo por área (claim `erp_storage[area]` emitida
+    // pelo servidor conforme os módulos) está em MELHORIAS_FUTURAS.md; quando
+    // existir, volte a exigir `request.auth.token.erp_storage[area] == true`.
+    // Sobrescrita e exclusão de evidência continuam proibidas abaixo.
     function acesso(area) {
-      return request.auth != null
-        && request.auth.token.erp_storage is map
-        && request.auth.token.erp_storage[area] == true;
+      return request.auth != null && request.auth.uid != null;
     }
     function imagem() {
       return request.resource.contentType.matches('image/(jpeg|png|webp)');

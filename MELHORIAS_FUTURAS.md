@@ -645,6 +645,20 @@ dedicado por tela em vez de fixes pontuais:
 
 ## Segurança / Regras de Acesso
 
+- **Storage por área (claim `erp_storage`), adiado em 06/11/2026.** O bucket
+  `gs://erpkuryos.firebasestorage.app` (US-EAST1) foi criado em 06/11 e, por
+  decisão do usuário, `storage.rules` libera **qualquer login válido** a enviar
+  (só JPEG/PNG/WebP < 10 MB nas pastas do sistema; Comercial aceita PDF/Office
+  < 20 MB; nada se sobrescreve nem se apaga, exceto a logo do cliente). Falta
+  o vínculo por função: `gerenciarUsuario` (`functions/identidade_acesso.js`)
+  emitir `setCustomUserClaims({erp_storage: {manipulacao, qualidade, cadastros,
+  comercial}})` a partir dos módulos efetivos (mesma resolução de
+  `KURYOS_MODULOS` em `public/auth_check.js`: manipulacao/conferencia_pesagem →
+  manipulacao; qualidade/apontamento → qualidade; cadastros; comercial),
+  reemitir ao mudar função e forçar `getIdToken(true)` no navegador. Depois
+  disso, restaure em `acesso(area)` a exigência `request.auth.token.erp_storage[area] == true`.
+  Não foi feito em 06/11 porque o Codex estava com os arquivos de identidade ativos.
+
 - **Contas de usuário: o que ficou de fora do CRUD do ADM (20/10/2026).**
   `usuarios.html` cria, edita o nome, manda link de senha e desativa/reativa
   sem servidor (conta nasce numa segunda instância do Firebase no navegador).

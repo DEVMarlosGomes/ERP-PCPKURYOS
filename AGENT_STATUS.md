@@ -5,6 +5,15 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Storage para foto da pesagem (06/11/2026)
+
+- **Concluído:** bucket `gs://erpkuryos.firebasestorage.app` (US-EAST1, criado
+  pelo usuário no Console) recebeu `storage.rules` com envio para qualquer login
+  válido (decisão do usuário); 9 casos aprovados na API de teste de regras antes
+  da publicação (`deploy --only storage --project erpkuryos`, 12:39 UTC). Claim
+  `erp_storage` por área adiada em `MELHORIAS_FUTURAS.md` por sobreposição com o
+  bloco do Codex acima. Arquivos ativos: nenhum.
+
 ### Codex — CRM2/Cotações: erro de leitura e paridade com export `prod-kuryos` (05/11/2026)
 
 - **Cadastro direto de usuários concluído (06/11/2026):** commit `ff59f24`. O

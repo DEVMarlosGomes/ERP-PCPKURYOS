@@ -103,6 +103,11 @@ recuperação de senhas, certificado/segredos, Storage futuro nem backup externo
 5. **Storage:** não existe bucket de produção; precisa ser provisionado e ganhar
    fluxo de autorização/capacidades antes de liberar uploads. Regras preparadas
    não representam serviço ativo nem foram publicadas em bucket inexistente.
+   **Atualização 06/11/2026:** bucket `erpkuryos.firebasestorage.app` (US-EAST1)
+   criado; regras publicadas com envio para qualquer login válido (tipo, tamanho
+   e proibição de sobrescrita/exclusão mantidos), por decisão do usuário, para
+   destravar a foto da pesagem. O vínculo por área via claim `erp_storage`
+   segue pendente (`MELHORIAS_FUTURAS.md`, Segurança).
 
 Estas dependências são pendências reais. As correções publicadas reduzem os riscos
 demonstrados, mas não autorizam declarar os doze itens integralmente encerrados.
