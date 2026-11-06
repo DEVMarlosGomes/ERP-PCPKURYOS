@@ -398,7 +398,7 @@
     <div class="modal-head" data-ui="dialog-head">
       <div>
         <h2>Novo usuário</h2>
-        <div class="sub">A conta nasce liberada e a pessoa cria a senha pelo link recebido.</div>
+        <div class="sub">O administrador aprova o acesso e define a senha inicial. Não há validação por e-mail.</div>
       </div>
       <button class="modal-x" id="novoFechar" title="Fechar" aria-label="Fechar">×</button>
     </div>
@@ -411,6 +411,16 @@
       <div class="campo">
         <label for="novoEmail">E-mail</label>
         <input type="email" id="novoEmail" autocomplete="off" placeholder="nome@kuryos.com.br">
+        <div class="dica">O e-mail será o identificador de login; o sistema não enviará mensagem de confirmação.</div>
+      </div>
+      <div class="campo">
+        <label for="novoSenha">Senha inicial</label>
+        <input type="password" id="novoSenha" minlength="8" maxlength="128" autocomplete="new-password">
+        <div class="dica">8 a 128 caracteres, com maiúscula, minúscula e número. Símbolos são permitidos.</div>
+      </div>
+      <div class="campo">
+        <label for="novoConfirmarSenha">Confirmar senha inicial</label>
+        <input type="password" id="novoConfirmarSenha" maxlength="128" autocomplete="new-password">
       </div>
       <div class="campo">
         <label for="novoTenant">Empresa / tenant</label>
@@ -961,7 +971,7 @@
   }
 
   function abrirNovo() {
-    ['novoNome', 'novoEmail'].forEach(function(id) { document.getElementById(id).value = ''; });
+    ['novoNome', 'novoEmail', 'novoSenha', 'novoConfirmarSenha'].forEach(function(id) { document.getElementById(id).value = ''; });
     document.getElementById('novoTenant').value = 'kuryos';
     document.getElementById('novoFuncoes').innerHTML = htmlFuncoes([]);
     erroForm('novoErro', '');
@@ -974,10 +984,14 @@
     if (!window.currentUser || window.currentUser.role !== 'admin') { alert('Acesso Negado: apenas administradores criam usuários.'); return; }
     var nome = document.getElementById('novoNome').value.trim().replace(/\s+/g, ' ');
     var email = document.getElementById('novoEmail').value.trim().toLowerCase();
+    var senha = document.getElementById('novoSenha').value;
+    var confirmarSenha = document.getElementById('novoConfirmarSenha').value;
     var tenant = document.getElementById('novoTenant').value.trim().toLowerCase();
     var marcadas = funcoesMarcadas('novoFuncoes');
     if (!nome) return erroForm('novoErro', 'Informe o nome.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return erroForm('novoErro', 'E-mail inválido.');
+    if (senha.length < 8 || senha.length > 128 || !/[A-Z]/.test(senha) || !/[a-z]/.test(senha) || !/[0-9]/.test(senha)) return erroForm('novoErro', 'A senha deve ter de 8 a 128 caracteres, maiúscula, minúscula e número.');
+    if (senha !== confirmarSenha) return erroForm('novoErro', 'As senhas não coincidem.');
     if (!marcadas.length) return erroForm('novoErro', 'Marque pelo menos uma função.');
     var existente = Object.keys(usuariosCache).filter(function(uid) { return String(usuariosCache[uid].email || '').toLowerCase() === email; })[0];
     if (existente) {
@@ -989,28 +1003,26 @@
     var btn = document.getElementById('novoSalvar');
     btn.disabled = true;
     btn.textContent = 'Criando...';
-    var aviso = '';
     var acesso = perfilDasFuncoes(marcadas, { tenant_id: tenant || null });
     acaoIdentidade({
       acao: 'criar', nome: nome, email: email, funcoes: marcadas,
       modulos: acesso.modulos, modulosDasFuncoes: acesso.modulosDasFuncoes === true,
-      tenant_id: tenant || null
+      tenant_id: tenant || null, nova_senha: senha
     })
       .then(function() {
-        return mandarLinkSenha(firebase.auth(), email).catch(function(err) {
-          aviso = ' Mas o e-mail com o link não saiu (' + err.code + '): use Editar › Enviar link para nova senha.';
-        });
-      })
-      .then(function() {
+        document.getElementById('novoSenha').value = '';
+        document.getElementById('novoConfirmarSenha').value = '';
         fecharNovo();
         showToast(nome + ' criado como ' + marcadas.map(rotuloFuncao).join(' + ') + '.' +
-          (aviso || ' Link para criar a senha enviado para ' + email + '.'), aviso ? 9000 : 6000);
+          ' Login aprovado com a senha inicial; nenhuma validação de e-mail foi enviada.', 7000);
       })
       .catch(function(err) {
         console.error(err);
         erroForm('novoErro', 'Não foi possível criar: ' + mensagemErroIdentidade(err));
       })
       .then(function() {
+        senha = '';
+        confirmarSenha = '';
         btn.disabled = false;
         btn.textContent = 'Criar usuário';
       });
@@ -1147,7 +1159,7 @@
     try {
       await acaoIdentidade({acao:'definir_senha',uid:uid,confirmacao_email:u.email,nova_senha:senha});
       if(editUidAtual===uid)erroForm('editErro','');
-      showToast('Nova senha definida. Login preservado no mesmo cadastro; valide as permissões para continuar.',7000);
+      showToast('Senha definida e acesso aprovado. O usuário já pode entrar sem validar o e-mail.',7000);
     } catch(err){if(editUidAtual===uid)erroForm('editErro',mensagemErroIdentidade(err));}
     finally {senha='';confirmar='';btn.disabled=false;}
   }

@@ -69,7 +69,6 @@ function fakeAuth(seed) {
     calls,
     createUser: async (data) => {
       calls.push(["createUser", clone(data)]);
-      assert.equal("password" in data, false, "administrador nunca define ou recebe senha");
       if (Object.values(users).some((user) => user.email === data.email)) throw Object.assign(new Error("e-mail existe"), {code: "auth/email-already-exists"});
       const uid = data.uid || `u${++sequence}`;
       if (users[uid]) throw Object.assign(new Error('UID existe'),{code:'auth/uid-already-exists'});
@@ -125,14 +124,23 @@ let ids = 0;
 
   await assert.rejects(call("operador", {acao: "criar"}), (error) => error.code === "permission-denied");
 
+  await assert.rejects(call("adm", {
+    acao: "criar", nome: "Sem Senha", email: "sem.senha@kuryos.com.br",
+    funcoes: ["production"], tenant_id: "kuryos",
+  }), (error) => error.code === "invalid-argument");
+
   const created = await call("adm", {
     acao: "criar", nome: "  Maria   da Silva ", email: "MARIA@KURYOS.COM.BR",
-    funcoes: ["qualidade"], modulos: null, tenant_id: "kuryos",
+    funcoes: ["qualidade"], modulos: null, tenant_id: "kuryos", nova_senha: "InicialMaria9!",
   });
   assert.equal(created.ok, true);
   assert.equal(db.state.usuarios[created.uid].nome, "Maria da Silva");
   assert.equal(db.state.usuarios_publico[created.uid].role, "qualidade");
   assert.equal(auth.users[created.uid].email, "maria@kuryos.com.br");
+  assert.equal(auth.users[created.uid].password, "InicialMaria9!");
+  assert.equal(auth.users[created.uid].emailVerified, false);
+  assert.equal(created.verificacaoEmailExigida, false);
+  assert.ok(!JSON.stringify(db.state).includes("InicialMaria9!"), "senha inicial não persiste no RTDB/auditoria");
 
   await call("adm", {acao: "atualizar", uid: created.uid, nome: "Maria Souza", email: "maria.souza@kuryos.com.br", tenant_id: "kuryos"});
   assert.equal(auth.users[created.uid].email, "maria.souza@kuryos.com.br");

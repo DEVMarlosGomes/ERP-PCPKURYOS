@@ -29,6 +29,9 @@ ok(/pass\.length < 8/.test(login) && /!\/\[a-z\]\//.test(login) && /!\/\[A-Z\]\/
 ok(/firebase-functions-compat/.test(users), "gestão usa callable autenticada");
 ok(/httpsCallable\('gerenciarUsuario'\)/.test(users), "CRUD aponta para serviço privilegiado");
 ok(/acao: 'criar'/.test(users) && /acao: 'atualizar'/.test(users), "criação e edição cobertas");
+ok(/id="novoSenha"/.test(users) && /id="novoConfirmarSenha"/.test(users), "cadastro direto exige senha inicial e confirmação");
+ok(/nova_senha: senha/.test(users) && /nenhuma validação de e-mail foi enviada/.test(users), "cadastro aprova login sem depender de validação por e-mail");
+ok(/Senha definida e acesso aprovado/.test(users), "definir senha aprova perfil existente sem validação de e-mail");
 ok(/acao: 'desativar'/.test(users) && /acao: 'funcoes'/.test(users), "desativação e reativação cobertas");
 ok(/acao: 'revogar_sessoes'/.test(users), "administrador encerra sessões");
 ok(/acao: 'excluir'/.test(users) && /confirmacao_email/.test(users), "exclusão definitiva exige confirmação");

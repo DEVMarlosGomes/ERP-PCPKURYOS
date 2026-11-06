@@ -236,6 +236,10 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
     if (acao === "criar") {
       const nome = texto(data.nome, "o nome", 120);
       const email = emailValido(data.email);
+      const senha = data.nova_senha;
+      if (typeof senha !== "string" || senha.length < 8 || senha.length > 128 || !/[A-Z]/.test(senha) || !/[a-z]/.test(senha) || !/[0-9]/.test(senha)) {
+        throw falha("invalid-argument", "A senha inicial deve ter de 8 a 128 caracteres, maiúscula, minúscula e número. Símbolos são permitidos.");
+      }
       if (Object.values(users).some(u => String(u.email || '').trim().toLowerCase() === email)) {
         throw falha('already-exists', 'Este e-mail já tem perfil. Use Editar e verificar vínculo de login; não crie um segundo usuário.');
       }
@@ -244,7 +248,10 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
       let created;
       let profilePersisted = false;
       try {
-        created = await auth.createUser({email, displayName: nome, disabled: false, emailVerified: false});
+        // O ADM cria o login completo. emailVerified permanece falso porque
+        // não houve comprovação do endereço, mas o ERP não exige essa marca
+        // para autenticar: a aprovação administrativa é o portão de acesso.
+        created = await auth.createUser({email, password: senha, displayName: nome, disabled: false, emailVerified: false});
         const profile = {
           nome, email, ...acesso,
           created_at: date,
@@ -258,7 +265,7 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
         });
         profilePersisted = true;
         await auditar(actor, "CRIAR_USUARIO", created.uid, null, profile);
-        return {ok: true, uid: created.uid, email, enviarRedefinicao: true};
+        return {ok: true, uid: created.uid, email, senhaDefinida: true, verificacaoEmailExigida: false};
       } catch (error) {
         if (profilePersisted && created && created.uid) {
           await db.ref().update({
@@ -464,10 +471,10 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
       await auditar(actor,'DEFINIR_SENHA_SOLICITADA',targetUid,before,before);
       if(!account) await executarInterno({...request,data:{acao:'regularizar_login',uid:targetUid,confirmacao_email:email}});
       await revogar(targetUid);
-      try { await auth.updateUser(targetUid,{password:senha}); }
+      try { await auth.updateUser(targetUid,{password:senha,disabled:false}); }
       catch (_) { throw falha('internal','Não foi possível definir a senha no provedor. Confira a operação antes de repetir.'); }
       await auditar(actor,'DEFINIR_SENHA',targetUid,before,before);
-      return {ok:true,uid:targetUid,email,sessoesEncerradas:true};
+      return {ok:true,uid:targetUid,email,sessoesEncerradas:true,acessoAprovado:true,verificacaoEmailExigida:false};
     }
 
     if (acao === "excluir") {

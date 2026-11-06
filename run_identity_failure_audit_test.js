@@ -41,7 +41,7 @@ function scenario(accounts = {adm:{email:admin.email},op:{email:operator.email}}
   }
   {
     const {db,call} = scenario({adm:{email:admin.email}});
-    await assert.rejects(call({acao:'criar',nome:operator.nome,email:operator.email,funcoes:['production']}),e=>e.code==='already-exists');
+    await assert.rejects(call({acao:'criar',nome:operator.nome,email:operator.email,funcoes:['production'],nova_senha:'InicialFicticia9!'}),e=>e.code==='already-exists');
     assert.equal(Object.values(db.state.usuarios).filter(u=>u.email===operator.email).length,1);
     console.log('OK: servidor bloqueia criação duplicada de perfil órfão.');
   }
@@ -72,7 +72,7 @@ function scenario(accounts = {adm:{email:admin.email},op:{email:operator.email}}
     let release;
     const gate=new Promise(resolve=>{release=resolve;});
     auth.createUser=async data=>{await gate;return create(data);};
-    const payload={acao:'criar',nome:'Novo',email:'novo@example.test',funcoes:['production'],requestId:'synthetic_concurrent_001'};
+    const payload={acao:'criar',nome:'Novo',email:'novo@example.test',funcoes:['production'],nova_senha:'InicialFicticia9!',requestId:'synthetic_concurrent_001'};
     const first=call(payload);
     // Esperar a operação chegar ao Auth sem deixar janela de duplicação.
     await new Promise(resolve=>setTimeout(resolve,20));
