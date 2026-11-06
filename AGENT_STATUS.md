@@ -7,6 +7,27 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ### Codex — CRM2/Cotações: erro de leitura e paridade com export `prod-kuryos` (05/11/2026)
 
+- **Plano integral entregue (06/11/2026):** commits `1c23655`, `34b97e4` e
+  `596af73`. A Simulação Comercial passou a usar `/orcamentos`, sem criar/alterar
+  proposta, etapa ou projeto CRM2; Ativos operacionais da Manutenção e Serviços
+  ativos de Cadastros populam o Kickoff, com erros explícitos e preservação do
+  legado; selects/dropdowns são superfícies opacas de alto contraste em claro e
+  escuro. Custos e Resultado mostram cobertura, custo orçado no fechamento,
+  custo real, desvio R$/%, lucro orçado e lucro real, sem converter ausência em
+  zero. CRM: 489 testes verdes, build Vite (2.582 módulos) e integrador oficial;
+  Custos: 118 asserções e cópias navegador/servidor idênticas.
+- **Febella regularizada em produção com backup integral prévio:** CNPJ confirmado
+  pelo fornecedor vinculado `26.747.489/0001-53`; padrão original `FB` + família
+  + quatro dígitos. Atualização atômica de 226 caminhos, gatilhos desativados:
+  `FBMF0003`, `FBHD0003`–`FBHD0008` e `FBBS0007`, incluindo produtos, fórmulas,
+  BOMs, especificações, pedidos, OPs, programação, empenhos e aliases. Snapshot
+  pós-carga validado por `migrar-sku-febella.js --verify`: `ok: true`, zero
+  referência operacional antiga. Novos SKUs Febella seguem esse padrão por CNPJ.
+  **Bimedic não existe por nome/CNPJ** no banco atual nem no export fornecido;
+  nenhuma identidade foi inventada e nenhum dado de terceiro foi alterado.
+  Arquivos ativos: somente este registro até o commit final; `.impeccable/`
+  continua intocada.
+
 - **Plano integrado de evolução concluído (05/11/2026):** mapeadas, sem
   implementação nesta etapa, seis frentes solicitadas por Marlos: KPIs de custo
   orçado x custo real x lucro real; ativos/manutenção no bloco 6 do Kickoff;
