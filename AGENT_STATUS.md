@@ -5,6 +5,22 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Codex — rollback emergencial do login (06/11/2026)
+
+- **Rollback concluído e publicado (`601b53f`):** restaurada a interface anterior
+  ao commit `2338705`, após relato
+  de bloqueio geral. Escopo reservado: `public/login.html`, `public/auth_check.js`,
+  `public/usuarios.html`, remoção da tela `minha-conta.html` e documentos/testes
+  exclusivos daquele incremento. O backend personalizado ficará inativo, sem apagar
+  usuários, senhas, perfis, índices ou auditoria; pesagem e P&D foram preservados.
+  O login voltou a usar `signInWithEmailAndPassword` diretamente. Validação local:
+  identidade UI 27 contratos, serviço de identidade, política de senha, Hostinger
+  25 contratos e navegação de 39 perfis aprovados; `git diff --check` limpo. VPS
+  saudável na versão `601b53ffcfb5de6ff4773ab0d1c80b55ebd36963`; releitura HTTP
+  confirmou `signInWithEmailAndPassword`, ausência da função personalizada e do
+  redirecionamento obrigatório, com `/api/health` OK (42 funções). Arquivos ativos:
+  nenhum.
+
 ### Codex — Pesagem e P&D em lote (06/11/2026)
 
 - **Frente 1 concluída e publicada:** `5644429` comprime a foto no navegador,
