@@ -32,8 +32,8 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 - O `erpkuryos` possui registros adicionais válidos fora do export (inclusive OPs
   e pedidos nascidos do CRM); foram preservados, pois apagá-los seria exclusão de
   produção e não faz parte da migração.
-- **Arquivos ativos:** `AUDITORIA_MERGE_DADOS_20261101.md` e `AGENT_STATUS.md`
-  apenas para o registro final; implementação liberada.
+- Registro de auditoria publicado em `ab8bf83` no `origin/hostinger-deploy`.
+  **Arquivos ativos: nenhum;** implementação e documentação liberadas.
 
 ### Claude (sessão na nuvem, 05/11/2026) — Lote de amostras: sem comentário e concluir num clique
 
