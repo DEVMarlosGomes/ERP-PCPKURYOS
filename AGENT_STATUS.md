@@ -10,7 +10,7 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 - **Frente 1 concluída e publicada:** `5644429` comprime a foto no navegador,
   mostra progresso, limita esperas e torna a repetição idempotente. Testes da
   Manipulação/Anexos/Hostinger aprovados; VPS validada nessa versão.
-- **Frente 2 implementada e validada; publicação em andamento:** auditoria somente
+- **Frente 2 concluída e publicada:** auditoria somente
   leitura do `LM-2026-041-4` confirmou que nenhuma composição chegou ao servidor
   (lote segue rascunho, revisão 1, sem ordem). A conclusão agora sempre persiste o
   estado visível antes de gerar a ordem, usa a revisão devolvida pelo salvamento,
@@ -18,7 +18,10 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   falha; alterações não salvas também protegem contra recarga da página. Arquivos:
   `EditorLote.js`, `lib/conclusaoLote.js`, teste novo e bundle do build oficial.
   Validação: 493 testes CRM aprovados (8 ignorados), build Vite aprovado,
-  `run_hostinger_deploy_test.js` 25/25 e `git diff --check` limpo.
+  `run_hostinger_deploy_test.js` 25/25 e `git diff --check` limpo. Commit
+  `742b20d` enviado a `origin/hostinger-deploy` e implantado na VPS; containers
+  saudáveis, `/api/health` retornou `ok` com 42 funções, entrada CRM e chunk P&D
+  HTTP 200. Arquivos ativos: nenhum.
 
 ### Codex — Login personalizado e Minha Conta (06/11/2026)
 
