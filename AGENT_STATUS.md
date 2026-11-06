@@ -5,6 +5,14 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Codex — Pesagem: lentidão e upload de fotos (06/11/2026)
+
+- **Em andamento — frente 1:** diagnosticar e corrigir o fluxo móvel de pesagem que
+  fica preso em `Enviando...` e não anexa a foto. Escopo inicial:
+  `public/manipulacao.html` e testes específicos do fluxo de upload. Não alterar
+  `storage.rules`, que contém mudança não relacionada de outro agente. A frente 2
+  de P&D só começa após validação e aviso de conclusão desta frente.
+
 ### Codex — Login personalizado e Minha Conta (06/11/2026)
 
 - **Concluído:** commits `788edf5` e `2338705`. Login aceita usuário ou e-mail

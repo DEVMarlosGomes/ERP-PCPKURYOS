@@ -137,6 +137,7 @@
     .fp-peso span{font-size:18px;color:var(--muted);font-weight:700}
     #formParcela input[type=text]{font-size:16px;padding:10px}
     .fp-faltando{font-size:12.5px;color:var(--tint-red-fg);margin:10px 0 0;min-height:16px}
+    .fp-envio{font-size:12.5px;color:var(--primary);font-weight:700;margin:10px 0 0;min-height:18px}
     .obrig{color:var(--tint-red-fg);font-weight:700}
     #mPesagemRodape{position:sticky;bottom:0;z-index:5;background:var(--card);padding:10px 0 4px}
     .modo-mp #mPesagemRodape,.modo-form #mPesagemRodape,.modo-mp #mPesagemErros,.modo-form #mPesagemErros,.modo-mp .pz-intro,.modo-form .pz-intro{display:none!important}
@@ -296,6 +297,10 @@ firebase.initializeApp(firebaseConfig);
 kuryosConnectEmulatorsIfLocal();
 var db = firebase.database();
 var storage = firebase.storage();
+// A SDK tenta novamente por muitos minutos por padrão. Na fábrica isso deixava
+// o formulário preso em "Enviando..." quando o Wi-Fi oscilava.
+if (storage.setMaxUploadRetryTime) storage.setMaxUploadRetryTime(60000);
+if (storage.setMaxOperationRetryTime) storage.setMaxOperationRetryTime(20000);
 
 var allOps = {}, allProdutos = {}, allFormulas = {}, allBom = {}, allMateriais = {};
 var opAtual = null;   // chave em ops/
@@ -903,10 +908,11 @@ function telaForm(pes, l) {
       '<div class="field-hint">' + (l.pesado ? (l.falta > 0 ? 'Faltam ' + fmtNum(l.falta) + ' ' + un + ' desta MP.' : 'O previsto desta MP já foi atingido.') : 'Previsto: ' + fmtNum(l.previsto) + ' ' + un + '.') + '</div>' +
       loteHtml +
       '<div class="fp-faltando" id="fpFaltando"></div>' +
+      '<div class="fp-envio" id="fpEnvioStatus" role="status" aria-live="polite">' + escapeHtml(fp.envioTexto || '') + '</div>' +
     '</div>' +
     '<div class="pz-acoes">' +
-      '<button type="button" class="btn ' + (outras ? 'btn-ghost' : 'btn-green') + '" id="fpSalvar"' + (fp.enviando ? ' disabled' : '') + '>' + (fp.enviando ? 'Enviando...' : '✓ Salvar') + '</button>' +
-      (outras ? '<button type="button" class="btn btn-green" id="fpSalvarProxima"' + (fp.enviando ? ' disabled' : '') + '>' + (fp.enviando ? 'Enviando...' : 'Salvar e próxima ›') + '</button>' : '') +
+      '<button type="button" class="btn ' + (outras ? 'btn-ghost' : 'btn-green') + '" id="fpSalvar"' + (fp.enviando ? ' disabled' : '') + '>' + (fp.enviando ? escapeHtml(fp.envioTexto || 'Enviando...') : '✓ Salvar') + '</button>' +
+      (outras ? '<button type="button" class="btn btn-green" id="fpSalvarProxima"' + (fp.enviando ? ' disabled' : '') + '>' + (fp.enviando ? escapeHtml(fp.envioTexto || 'Enviando...') : 'Salvar e próxima ›') + '</button>' : '') +
     '</div>';
 }
 
@@ -1025,6 +1031,10 @@ function receberFoto(input, itemKey) {
     if (formParcela.previewUrl && URL.revokeObjectURL) { try { URL.revokeObjectURL(formParcela.previewUrl); } catch (e) { /* nada */ } }
     // Conseguiu anexar depois de começar por escrito: vale a foto.
     formParcela.arquivo = arquivo; formParcela.previewUrl = url; formParcela.modo = 'foto';
+    // "Refazer a foto" invalida qualquer etapa concluída do envio anterior.
+    delete formParcela.arquivoOtimizado; delete formParcela.caminhoArq;
+    delete formParcela.refUpload; delete formParcela.uploadConcluido;
+    delete formParcela.urlUpload; delete formParcela.parcelaRef; delete formParcela.enviadoEm;
   } else {
     descartarFormParcela();
     var plano = planoDaMp(itemKey);
@@ -1034,6 +1044,126 @@ function receberFoto(input, itemKey) {
   renderPainel();
   var campo = document.getElementById('fpPeso');
   if (campo) campo.focus();
+}
+
+function atualizarEnvioParcela(fp, texto) {
+  fp.envioTexto = texto;
+  if (formParcela !== fp) return;
+  var status = document.getElementById('fpEnvioStatus');
+  if (status) status.textContent = texto;
+  ['fpSalvar', 'fpSalvarProxima'].forEach(function(id) {
+    var botao = document.getElementById(id);
+    if (botao) { botao.disabled = true; botao.textContent = texto; }
+  });
+}
+
+// Fotos de câmera chegavam com 3,3–3,5 MB e uma delas levou mais de quatro
+// minutos no Wi-Fi da fábrica. Para prova visual da balança, 1600 px preserva
+// os dígitos e reduz drasticamente o tempo de envio.
+function otimizarFotoPesagem(arquivo) {
+  var tiposCanvas = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!arquivo || tiposCanvas.indexOf(String(arquivo.type || '').toLowerCase()) < 0 ||
+      arquivo.size <= 900 * 1024 || typeof document === 'undefined') return Promise.resolve(arquivo);
+
+  function carregarComImg() {
+    return new Promise(function(resolve, reject) {
+      var url = URL.createObjectURL(arquivo), img = new Image();
+      img.onload = function() { resolve({fonte: img, largura: img.naturalWidth, altura: img.naturalHeight,
+        fechar: function() { URL.revokeObjectURL(url); }}); };
+      img.onerror = function() { URL.revokeObjectURL(url); reject(new Error('Não foi possível ler a foto.')); };
+      img.src = url;
+    });
+  }
+
+  var carregar = typeof createImageBitmap === 'function'
+    ? createImageBitmap(arquivo).then(function(bitmap) { return {fonte: bitmap, largura: bitmap.width, altura: bitmap.height,
+      fechar: function() { if (bitmap.close) bitmap.close(); }}; }).catch(carregarComImg)
+    : carregarComImg();
+
+  return carregar.then(function(imagem) {
+    var maior = Math.max(imagem.largura, imagem.altura), escala = Math.min(1, 1600 / maior);
+    var canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(imagem.largura * escala));
+    canvas.height = Math.max(1, Math.round(imagem.altura * escala));
+    var contexto = canvas.getContext('2d', {alpha: false});
+    if (!contexto) { imagem.fechar(); return arquivo; }
+    contexto.drawImage(imagem.fonte, 0, 0, canvas.width, canvas.height);
+    imagem.fechar();
+    return new Promise(function(resolve) {
+      canvas.toBlob(function(blob) {
+        if (!blob || blob.size >= arquivo.size) { resolve(arquivo); return; }
+        var nome = String(arquivo.name || 'balanca.jpg').replace(/\.[^.]+$/, '') + '.jpg';
+        try { resolve(new File([blob], nome, {type: 'image/jpeg', lastModified: arquivo.lastModified || Date.now()})); }
+        catch (e) {
+          try { Object.defineProperty(blob, 'name', {value: nome}); } catch (ignorado) { /* SDK aceita Blob sem nome */ }
+          resolve(blob);
+        }
+      }, 'image/jpeg', 0.78);
+    });
+  }).catch(function() { return arquivo; });
+}
+
+function enviarArquivoPesagem(ref, arquivo, fp) {
+  return new Promise(function(resolve, reject) {
+    var tarefa;
+    try { tarefa = ref.put(arquivo, {contentType: arquivo.type}); }
+    catch (e) { reject(e); return; }
+
+    // Mantém compatibilidade com o simulador dos testes e SDKs antigos.
+    if (!tarefa || typeof tarefa.on !== 'function') {
+      Promise.resolve(tarefa).then(resolve, reject);
+      return;
+    }
+
+    var terminou = false;
+    function concluir(fn, valor) {
+      if (terminou) return;
+      terminou = true;
+      clearTimeout(limite);
+      fn(valor);
+    }
+    var limite = setTimeout(function() {
+      var erro = new Error('A conexão parou durante o envio. A foto continua na tela para tentar novamente.');
+      erro.code = 'storage/retry-limit-exceeded';
+      concluir(reject, erro);
+      try { tarefa.cancel(); } catch (e) { /* a tarefa já pode ter terminado */ }
+    }, 65000);
+
+    tarefa.on('state_changed', function(snapshot) {
+      var total = Number(snapshot && snapshot.totalBytes) || arquivo.size || 1;
+      var enviados = Number(snapshot && snapshot.bytesTransferred) || 0;
+      var pct = Math.max(1, Math.min(99, Math.round(enviados / total * 100)));
+      atualizarEnvioParcela(fp, 'Enviando foto ' + pct + '%');
+    }, function(erro) { concluir(reject, erro); }, function() { concluir(resolve, tarefa.snapshot); });
+  });
+}
+
+function obterUrlPesagem(ref) {
+  return new Promise(function(resolve, reject) {
+    var terminou = false;
+    var limite = setTimeout(function() {
+      if (terminou) return;
+      terminou = true;
+      var erro = new Error('A foto foi enviada, mas a confirmação demorou. Toque em salvar novamente.');
+      erro.code = 'storage/url-timeout';
+      reject(erro);
+    }, 20000);
+    ref.getDownloadURL().then(function(url) {
+      if (terminou) return;
+      terminou = true; clearTimeout(limite); resolve(url);
+    }, function(erro) {
+      if (terminou) return;
+      terminou = true; clearTimeout(limite); reject(erro);
+    });
+  });
+}
+
+function mensagemErroPesagem(erro) {
+  var codigo = String(erro && erro.code || '');
+  if (codigo === 'storage/retry-limit-exceeded' || codigo === 'storage/canceled' || codigo === 'storage/url-timeout')
+    return erro.message || 'A rede interrompeu o envio. Tente novamente.';
+  if (codigo === 'storage/unauthorized') return 'Sua sessão não está autorizada a enviar a foto. Saia, entre novamente e tente de novo.';
+  return (erro && erro.message) || 'Falha de rede ao enviar a foto.';
 }
 
 function salvarParcela(irParaProxima) {
@@ -1047,26 +1177,57 @@ function salvarParcela(irParaProxima) {
   if (!v.ok) { showAlert(v.erros.join(' '), 'danger'); return; }
   var opKey = opAtual, itemKey = fp.itemKey;
   var mp = (previstos[itemKey] || {}).mpCodigo || itemKey;
-  var arquivo = fp.arquivo;
-  // Sem arquivo só chega aqui no registro retroativo autorizado pela
-  // Qualidade (validarParcela barra o resto): a parcela fica marcada.
-  var caminhoArq = arquivo ? Anexos.caminho('manipulacao', opKey, itemKey + '_' + arquivo.name) : null;
-  var ref = arquivo ? storage.ref(caminhoArq) : null;
+  var arquivoOriginal = fp.arquivo;
+  var arquivo = fp.arquivoOtimizado || arquivoOriginal;
   var noPlano = plano.some(function(x) { return x.loteInterno === String(fp.lote).trim(); });
   fp.enviando = true;
+  fp.envioTexto = arquivo ? 'Preparando foto...' : 'Salvando...';
   renderPainel();
   Promise.resolve()
-    .then(function() { return ref ? ref.put(arquivo, {contentType: arquivo.type}) : null; })
-    .then(function() { return ref ? ref.getDownloadURL() : null; })
-    .then(function(url) {
+    .then(function() {
+      if (!arquivoOriginal || fp.arquivoOtimizado) return;
+      return otimizarFotoPesagem(arquivoOriginal).then(function(otimizado) {
+        fp.arquivoOtimizado = otimizado;
+        arquivo = otimizado;
+      });
+    })
+    .then(function() {
+      arquivo = fp.arquivoOtimizado || arquivoOriginal;
+      if (!arquivo) return;
+      if (!fp.caminhoArq) {
+        fp.caminhoArq = Anexos.caminho('manipulacao', opKey, itemKey + '_' + arquivo.name);
+        fp.refUpload = storage.ref(fp.caminhoArq);
+      }
+      if (fp.uploadConcluido) return;
+      var reduziu = arquivoOriginal && arquivo.size < arquivoOriginal.size;
+      atualizarEnvioParcela(fp, reduziu
+        ? 'Foto reduzida para ' + Anexos.tamanhoLegivel(arquivo.size) + ' · enviando 0%'
+        : 'Enviando foto 0%');
+      return enviarArquivoPesagem(fp.refUpload, arquivo, fp).then(function() { fp.uploadConcluido = true; });
+    })
+    .then(function() {
+      if (!arquivo || fp.urlUpload) return;
+      atualizarEnvioParcela(fp, 'Confirmando foto...');
+      return obterUrlPesagem(fp.refUpload).then(function(url) { fp.urlUpload = url; });
+    })
+    .then(function() {
       var foto = null;
-      if (arquivo) { foto = Anexos.registro(arquivo, caminhoArq, url, eu()); foto.mpCodigo = mp; }
-      return db.ref('ops/' + opKey + '/manipulacao/pesagem/parcelas/' + itemKey).push({
+      if (arquivo) {
+        foto = Anexos.registro(arquivo, fp.caminhoArq, fp.urlUpload, eu());
+        foto.nomeOriginal = arquivoOriginal.name;
+        foto.bytesOriginais = arquivoOriginal.size;
+        foto.otimizada = arquivo.size < arquivoOriginal.size;
+        foto.mpCodigo = mp;
+      }
+      atualizarEnvioParcela(fp, 'Salvando pesagem...');
+      if (!fp.parcelaRef) fp.parcelaRef = db.ref('ops/' + opKey + '/manipulacao/pesagem/parcelas/' + itemKey).push();
+      if (!fp.enviadoEm) fp.enviadoEm = new Date().toISOString();
+      return fp.parcelaRef.set({
         peso: peso, loteMaterial: String(fp.lote).trim(), foto: foto,
         semFotoRetroativo: (!arquivo && fp.modo === 'retro') ? true : null,
         semFotoMotivo: (!arquivo && motivoEscrito) ? motivoEscrito : null,
         motivoForaFefo: (!noPlano && plano.length) ? (fp.motivoForaFefo || null) : null,
-        por: eu(), em: new Date().toISOString(), mpCodigo: mp
+        por: eu(), em: fp.enviadoEm, mpCodigo: mp
       });
     })
     .then(function() {
@@ -1080,8 +1241,9 @@ function salvarParcela(irParaProxima) {
     })
     .catch(function(e) {
       fp.enviando = false;
+      fp.envioTexto = '';
       renderPainel();
-      showAlert('Não foi possível salvar a pesagem de ' + mp + ': ' + e.message, 'danger');
+      showAlert('Não foi possível salvar a pesagem de ' + mp + ': ' + mensagemErroPesagem(e), 'danger');
     });
 }
 
