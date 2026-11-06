@@ -30,6 +30,19 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   `RELATORIO_RECONCILIACAO_USUARIOS_20261106.md`. `.impeccable/` e `storage.rules`
   permaneceram fora dos commits deste trabalho. Arquivos ativos: nenhum.
 
+### Claude — Qualidade: foto, rascunho e busca da inspeção (06/11/2026)
+
+- **Concluído:** `6effc14` (Storage aceita HEIC e PDF de autorização na pasta
+  `qualidade/`; publicado) e `4bbb8b7` (porte de `d3a0fcb`+`f609e1e` do repo
+  `gcallegaro-kur/PCP-Kuryos`: rascunho do laudo/granel em `qualidade_rascunhos`
+  e busca única de lote/produto/SKU sobre fila, granel e laudos decididos).
+  Regra `qualidade_rascunhos` publicada no `erpkuryos` a partir de worktree limpo;
+  regras no ar relidas iguais ao arquivo. **Deploy da VPS pendente (Marlos):**
+  `cd /opt/kuryos/repo && ./scripts/hostinger/deploy.sh 4bbb8b7` ou posterior.
+  `firebase-admin` 14 removeu `app.database()`: testes de regra antigos que usam
+  a API namespaced quebram; `run_rascunho_cq_rules_test.js` já usa a modular.
+  Arquivos ativos: nenhum.
+
 ### Claude — Storage para foto da pesagem (06/11/2026)
 
 - **Concluído:** bucket `gs://erpkuryos.firebasestorage.app` (US-EAST1, criado
