@@ -7,6 +7,22 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ### Codex — CRM2/Cotações: erro de leitura e paridade com export `prod-kuryos` (05/11/2026)
 
+- **Cadastro direto de usuários concluído localmente, sem publicação
+  (06/11/2026):** commit `ff59f24`. O ADM agora informa senha inicial e
+  confirmação no próprio sistema; o servidor cria Auth + perfil no mesmo UID,
+  mantém `emailVerified=false` por honestidade e não exige essa marca para o
+  login. Definir senha em perfil legado também cria o Auth no UID preservado,
+  ativa a conta e aprova o acesso, sem link/verificação de e-mail. Senhas não
+  entram em RTDB, journal, auditoria ou assinatura idempotente. Auditoria
+  somente-leitura do export: 16 perfis; destino atual com 20 perfis e 10 contas
+  Auth; 6 perfis legados ainda sem login, 3 identidades divididas por e-mail e
+  7 ausentes em ambos. Nenhum usuário/dado real foi criado, alterado ou
+  reativado. Provas: serviço/acesso/falhas/senha e 27 contratos UI aprovados;
+  Playwright desktop/mobile de senha e recuperação aprovado; rota da callable e
+  24 contratos Hostinger aprovados. Emuladores não executados nesta máquina por
+  ausência da CLI operacional; regras não mudaram. `.impeccable/` permanece
+  intocada. Arquivos ativos: somente este registro até o commit documental.
+
 - **Plano integral entregue (06/11/2026):** commits `1c23655`, `34b97e4` e
   `596af73`. A Simulação Comercial passou a usar `/orcamentos`, sem criar/alterar
   proposta, etapa ou projeto CRM2; Ativos operacionais da Manutenção e Serviços
