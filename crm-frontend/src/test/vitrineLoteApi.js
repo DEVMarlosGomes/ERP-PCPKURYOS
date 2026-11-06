@@ -66,29 +66,12 @@ const catalogo = [
 const api = {
   get: async (url) => {
     if (url.includes("amostras-elegiveis")) return { data: elegiveis };
-    if (/\/pd\/manipulacao-lotes\/[^/]+$/.test(url)) {
-      const lote = montarLote("rascunho");
-      // ?vazio=1: o caso do LM-2026-041-2 — amostras sem fórmula anterior, matriz vazia e sem gramas no pedido.
-      if (new URLSearchParams(window.location.search).get("vazio") === "1") {
-        lote.matriz = { tipo: "vazia", ref_id: null, codigo: "", celulas: {} };
-        lote.motivos = {};
-        for (const m of Object.values(lote.membros)) { m.versao_antes = null; m.quantidade_g = undefined; m.quantidade_pedido = null; }
-      }
-      return { data: { lote, estado: {}, eu: "pd", pode_editar: true, origem_celulas: {}, conferencia_segundo_usuario: true } };
-    }
     if (url.includes("/pd/catalog")) return { data: catalogo };
     if (url.includes("/compras/fornecedores")) return { data: { fornecedores: [{ id: "F1", razao_social: "Fornecedor Alfa (fictício)" }, { id: "F2", razao_social: "Fornecedor Beta (fictício)" }] } };
     if (url.includes("/pd/homologacao")) return { data: [] };
     return { data: {} };
   },
-  // As gravações ficam em window.__vitrineEscritas para o script de prints conferir o fluxo (ex.: gramas no concluir).
-  post: async (url, body) => {
-    (window.__vitrineEscritas ||= []).push({ metodo: "post", url, body });
-    return { data: { resultados: amostras.map(([r, cod], i) => ({ request_id: r, codigo: cod, ok: i !== 2, mensagem: i !== 2 ? "Em Testes" : "A fórmula precisa fechar 100% para concluir." })) } };
-  },
-  put: async (url, body) => {
-    (window.__vitrineEscritas ||= []).push({ metodo: "put", url, body });
-    return { data: {} };
-  },
+  post: async () => ({ data: { resultados: amostras.map(([r, cod], i) => ({ request_id: r, codigo: cod, ok: i !== 2, mensagem: i !== 2 ? "Em Testes" : "A fórmula precisa fechar 100% para concluir." })) } }),
+  put: async () => ({ data: {} }),
 };
 export default api;
