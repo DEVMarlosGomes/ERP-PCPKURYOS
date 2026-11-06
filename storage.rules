@@ -10,8 +10,14 @@ service firebase.storage {
     function acesso(area) {
       return request.auth != null && request.auth.uid != null;
     }
+    // Mesmo critério das telas (shared/anexos.js aceita `image/*`): foto da
+    // galeria do iPhone chega como HEIC. SVG fica de fora (pode levar script).
     function imagem() {
-      return request.resource.contentType.matches('image/(jpeg|png|webp)');
+      return request.resource.contentType.matches('image/.*')
+        && !request.resource.contentType.matches('image/svg.*');
+    }
+    function pdf() {
+      return request.resource.contentType == 'application/pdf';
     }
     // Foto de prova da pesagem do granel (manipulacao.html). Só imagem, e
     // menor que o documento comercial: é foto de celular, não anexo de proposta.
@@ -24,9 +30,13 @@ service firebase.storage {
     // Fotos das análises da Qualidade (laudo de insumo/embalagem/PA, bulk e RNC):
     // até 6 por registro, só imagem, menor que 10 MB. Um nível de pasta:
     // qualidade/{contexto}_{chave}/{arquivo} (shared/fotos-qualidade.js).
+    // PDF (até 20 MB): autorização do cliente na concessão da RNC
+    // (FotosQualidade perfil 'documento', 28/10/2026).
     match /qualidade/{pasta}/{arquivo} {
       allow read: if acesso('qualidade');
-      allow create: if acesso('qualidade') && request.resource.size < 10 * 1024 * 1024 && imagem();
+      allow create: if acesso('qualidade')
+        && ((imagem() && request.resource.size < 10 * 1024 * 1024)
+          || (pdf() && request.resource.size < 20 * 1024 * 1024));
       allow update, delete: if false;
     }
 
