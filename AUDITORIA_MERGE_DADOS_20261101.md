@@ -1,5 +1,26 @@
 # Auditoria da união de dados reais — 01/11/2026
 
+## Atualização do export e paridade — 05/11/2026
+
+O export `prod-kuryos-default-rtdb-export (2).json`, com 29.497.680 bytes e
+SHA-256 `c2db3dfad4ceb819a912ffecd0475ffaf644c26ad8091378723b8fcdd3c0fd6d`,
+foi comparado com uma fotografia nova do `erpkuryos`. A simulação conservadora
+encontrou 71.145 folhas ausentes e 1.087 divergências. Como o pedido definiu o
+`prod-kuryos` como referência para o pareamento, a execução autorizada usou a
+fonte como vencedora e preservou referências históricas inválidas com pendência.
+
+A execução `merge-81d3b789beced4b4` aplicou **72.232 campos** com backup,
+checkpoint e `--disable-triggers`: 244 registros novos, 159 complementados e
+321 atualizados pela fonte. Onze OPs antigas referenciam SKU inexistente; elas
+foram preservadas e sinalizadas para Cadastros, sem inventar produto.
+
+A auditoria pós-carga `merge-9e7baa817db62361` obteve **9.303 registros
+idênticos, zero inclusão, zero conflito, zero sobrescrita e zero rejeição**.
+Proveniência: `importacoes_dados/merge-81d3b789beced4b4`. Configuração, usuários,
+índices públicos e estados técnicos de notificação/e-mail continuaram excluídos.
+Registros adicionais já existentes no ERP, como pedidos/OPs originados pelo CRM,
+foram mantidos: removê-los seria exclusão operacional, não migração do export.
+
 ## Aplicação autorizada — 01/11/2026
 
 O usuário confirmou que o export de 01/11 é a fonte mais atual e autorizou a publicação. A execução `merge-7d3744273b64c678` foi aplicada ao `erpkuryos` com backup, checkpoint e `--disable-triggers`: **269.237 campos**, em 27 lotes, todos confirmados pelo Firebase. IDs iguais foram atualizados no mesmo caminho; nenhum registro idêntico foi duplicado.

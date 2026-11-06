@@ -15,14 +15,25 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   scripts de migração/auditoria a identificar e este bloco. O JSON e os bancos são
   somente leitura até mapear origem, destino, conflitos, backup e validação pós-carga.
 - Não tocar nos arquivos do lote de P&D nem em `.impeccable/`. Nenhum deploy ou
-  escrita de dados feita até aqui.
+  alteração nessa pasta foi feita.
 - Causa do erro confirmada na base real: 3 das 6 `crm_propostas` são aprovadas e
   congeladas com `composicao.insumos`, mas sem `composicao.servicos`; a abertura
   devolve o formato legado cru e a UI quebra em `servicos.map(...)`.
-- **Arquivos ativos:** `crm-frontend/src/lib/cotacao.js`,
-  `crm-frontend/src/lib/cotacao.test.js`, bundle oficial gerado em
-  `public/static/crm/**`, referência gerada em `public/crm-app.html` e
-  `AGENT_STATUS.md`.
+- Correção validada: CRM 487 aprovados/8 ignorados; build Vite (2.582 módulos),
+  integrador oficial e 24 contratos Hostinger aprovados. Commit `ffa4e80` enviado
+  a `origin/hostinger-deploy`. **Deploy da VPS pendente**, pois a chave exige senha:
+  `cd /opt/kuryos/repo && ./scripts/hostinger/deploy.sh ffa4e80`.
+- Export de 05/11 aplicado ao `erpkuryos` com fonte vencedora, referências órfãs
+  preservadas e gatilhos desativados: execução `merge-81d3b789beced4b4`, 72.232
+  campos, backup e checkpoint locais. Auditoria pós-carga
+  `merge-9e7baa817db62361`: 9.303 registros idênticos, zero inclusão, conflito,
+  sobrescrita ou rejeição pendente. As 11 OPs com SKU órfão foram importadas com
+  pendência de Cadastros. Raízes técnicas/de acesso continuaram excluídas.
+- O `erpkuryos` possui registros adicionais válidos fora do export (inclusive OPs
+  e pedidos nascidos do CRM); foram preservados, pois apagá-los seria exclusão de
+  produção e não faz parte da migração.
+- **Arquivos ativos:** `AUDITORIA_MERGE_DADOS_20261101.md` e `AGENT_STATUS.md`
+  apenas para o registro final; implementação liberada.
 
 ### Claude (sessão na nuvem, 05/11/2026) — Lote de amostras: sem comentário e concluir num clique
 
