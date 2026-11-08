@@ -1,0 +1,9 @@
+node_modules/
+crm-frontend/node_modules/
+public/static/
+crm-frontend/build/
+scratch/
+backups/
+*.log
+*.env*
+firebase-service-account*.json
