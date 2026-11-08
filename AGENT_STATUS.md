@@ -5,6 +5,20 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Trava de fórmulas aprovadas e P&D concluído (08/11/2026)
+
+- **Em andamento (pedido do Marlos):** após aprovação/conclusão, só quem tem o módulo
+  novo "Alterar aprovados" (Adlai, Gustavo Callegaro, Yasmim) altera Fórmula/BOM/
+  Especificação aprovadas e fórmulas travadas do P&D, sempre com justificativa e
+  histórico (data/hora/autor). Nova versão de produto aprovado também só por eles.
+  Granel para de gerar versão de especificação aprovada. Dados já corrigidos:
+  MRARHD03 v1 linha 5 = ALCALIN (segue APROVADA); FBBS0004 v2 removida (v1 3/3).
+  **Arquivos ativos:** `database.rules.json` (nós formulas/bom/especificacoes),
+  `public/cadastros.html`, `public/qualidade.html`, `public/auth_check.js` (registro
+  do módulo), `functions/identidade_acesso.js` (lista de módulos),
+  `crm-frontend/src/lib/firebaseApi.js` (fórmulas P&D), `crm-frontend/src/pages/PDDetail.js`,
+  testes novos e build `public/static/crm`.
+
 ### Claude — Lote de amostras conclui direto na Manipulação (08/11/2026)
 
 - **Concluído (`85374c0`), assumindo a reserva do Codex com autorização do Marlos:** o P&D não
