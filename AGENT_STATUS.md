@@ -7,14 +7,14 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ### Claude — Lote de amostras conclui direto na Manipulação (08/11/2026)
 
-- **Em andamento, com autorização do Marlos para assumir a reserva do Codex**
-  (bloco "resultados da Manipulação", sem commit desde 06/11): concluir o lote cria
-  V1/V2… editáveis em cada amostra, não gera mais ordem de pesagem do lote e move os
-  cards para Em desenvolvimento; LM-2026-040-2 terá só a ordem cancelada (backup antes).
-  **Arquivos ativos:** `functions/manipulacao_lote.js`,
-  `crm-frontend/src/lib/manipulacaoLoteRotas.js`, `crm-frontend/src/lib/manipulacaoLote.js`,
-  `crm-frontend/src/components/ManipulacaoLote/*`, testes do lote, build `public/static/crm`.
-  Codex: não editar esses arquivos até este bloco dizer "Arquivos ativos: nenhum".
+- **Concluído (), assumindo a reserva do Codex com autorização do Marlos:** o P&D não
+  pesa (pesagem é da Produção). Concluir o lote cria V1/V2… EDITÁVEIS em cada amostra, sem ordem de
+  pesagem do lote, sem gramas/mínimo pesável/pré-mistura; amostra Aberta vai a Em Desenvolvimento pela
+  rota de status do P&D; lote vira  (não cancela nem perde amostra). Testes: servidor
+  no emulador 7, auditoria 12, regras 10, CRM 493, Hostinger 25. **LM-2026-040-2** voltou a rascunho
+  preenchido (backup local; ordem e 24 pesagens em ; V1 destravadas viraram
+  fórmula anterior;  real: zero problemas). **Deploy da VPS obrigatório antes de
+  alguém concluir um lote:** o servidor antigo ainda gera ordem. Arquivos ativos: nenhum.
 
 ### Claude — P&D lote de volta a 05/11 e aviso de sessão encerrada (06/11/2026)
 
