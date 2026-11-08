@@ -15,6 +15,7 @@
   <script src="shared/conciliacao-pedidos.js"></script>
   <script src="shared/situacao-op.js"></script>
   <script src="shared/entrega-pcp.js"></script>
+  <script src="shared/pedidos-kpis.js"></script>
   <script src="auth_check.js"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="shared/theme.css">
@@ -655,7 +656,6 @@
 
     var statusFilter = document.getElementById('filterStatusComercial').value;
     var search = normalizeSearch(document.getElementById('searchInput').value);
-    var nAberto = 0, nParcial = 0, nCompleto = 0;
 
     // 1) Monta as linhas com os valores já calculados (separado do HTML,
     //    pra poder ordenar por qualquer coluna antes de renderizar).
@@ -703,9 +703,6 @@
 
       var pct = qtdPedida > 0 ? Math.min(100, Math.round((produzido / qtdPedida) * 100)) : 0;
       var categoria = todosSkusConcluidos || (pct >= 100 && qtdPedida > 0) ? 'completo' : 'aberto'; // aberto cobre tanto parcial quanto sem produção ainda
-      if (categoria === 'completo') nCompleto++;
-      else if (produzido > 0) nParcial++;
-      else nAberto++;
 
       // Pedidos 100% atendidos ficam escondidos por padrão — só poluíam a
       // lista sem precisar de ação; ainda dá pra ver escolhendo o filtro.
@@ -784,11 +781,12 @@
     }).join('');
 
     tbody.innerHTML = html || '<tr><td colspan="11" class="no-data">Nenhum pedido comercial nesse filtro.</td></tr>';
+    var totaisFiltrados = PedidosKpis.comerciais(rows);
     document.getElementById('pcTableCount').textContent = rows.length + ' de ' + ids.length + ' Pedido(s) Comercial(is)';
-    document.getElementById('pcStatTotal').textContent = fmtNum(ids.length);
-    document.getElementById('pcStatAberto').textContent = fmtNum(nAberto);
-    document.getElementById('pcStatParcial').textContent = fmtNum(nParcial);
-    document.getElementById('pcStatCompleto').textContent = fmtNum(nCompleto);
+    document.getElementById('pcStatTotal').textContent = fmtNum(totaisFiltrados.total);
+    document.getElementById('pcStatAberto').textContent = fmtNum(totaisFiltrados.aberto);
+    document.getElementById('pcStatParcial').textContent = fmtNum(totaisFiltrados.parcial);
+    document.getElementById('pcStatCompleto').textContent = fmtNum(totaisFiltrados.completo);
   }
 
   document.querySelector('#tabPanelComerciais thead').addEventListener('click', function(e) {
@@ -1194,12 +1192,13 @@
       });
     }
 
-    // Stats from ALL pedidos (unfiltered)
-    var all = Object.values(allPedidos);
-    document.getElementById('statTotal').textContent = all.length;
-    document.getElementById('statAndamento').textContent = all.filter(function(p){ return pedidoStatus(p) === 'andamento'; }).length;
-    document.getElementById('statConcluido').textContent = all.filter(function(p){ return pedidoStatus(p) === 'concluido'; }).length;
-    document.getElementById('statEncerrado').textContent = all.filter(function(p){ return pedidoStatus(p) === 'encerrado'; }).length;
+    // O consolidado acompanha exatamente a lista visível. Antes estes cards
+    // usavam allPedidos e não reagiam a busca/status/linha/conferência.
+    var totaisFiltrados = PedidosKpis.ops(list, pedidoStatus);
+    document.getElementById('statTotal').textContent = totaisFiltrados.total;
+    document.getElementById('statAndamento').textContent = totaisFiltrados.andamento;
+    document.getElementById('statConcluido').textContent = totaisFiltrados.concluido;
+    document.getElementById('statEncerrado').textContent = totaisFiltrados.encerrado;
 
     document.getElementById('tableCount').textContent = list.length + ' pedido' + (list.length !== 1 ? 's' : '');
 
