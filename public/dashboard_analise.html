@@ -424,6 +424,14 @@ function loadFirebaseAndRun() {
     subtitleEl.textContent = 'Carregando dados em tempo real do Firebase...';
   }
 
+  // A análise deve contar produção exatamente como o Dashboard Diário:
+  // somente Envase. Sem o cadastro das linhas, Rotulagem e postos eram
+  // somados novamente ao mesmo lote e inflavam todos os KPIs de produção.
+  db.ref('config').once('value', function(configSnap) {
+    RAW.configLive = configSnap.val() || {};
+    if (typeof apply === 'function') apply();
+  }, handleLoadError);
+
   db.ref('pedidos_comerciais').once('value', function(pcSnap) {
     RAW.pedidosComerciais = Object.values(pcSnap.val() || {});
     if (typeof apply === 'function') apply(); // re-renderiza o KPI assim que chegar (chega depois do restante)
@@ -970,8 +978,19 @@ function fmtSnapshotDate(iso) {
   return d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
 }
 
+function isLinhaDeProducaoAnalise(name) {
+  const config = RAW.configLive || {};
+  const linhas = config.linhas || ['Linha 01', 'Linha 02', 'Linha 03', 'Linha 04'];
+  const postos = (config.postosTrabalho || []).concat(config.rotulagem || []);
+  if (!name) return true;
+  if (linhas.includes(name)) return true;
+  if (postos.includes(name)) return false;
+  return String(name).toLowerCase().indexOf('linha') === 0;
+}
+
 function filterProducao() {
   return RAW.producao.filter(p => {
+    if (!isLinhaDeProducaoAnalise(p.lin)) return false;
     if (filters.dateFrom && p._ymd && p._ymd < filters.dateFrom) return false;
     if (filters.dateTo && p._ymd && p._ymd > filters.dateTo) return false;
     if (filters.cliente.length && !filters.cliente.includes(p.cli)) return false;
