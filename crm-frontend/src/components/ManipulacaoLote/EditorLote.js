@@ -4,7 +4,9 @@
  * quem alterou cada célula é registrado sozinho no salvamento. Única trava que sobra (D-1): crítico que
  * muda a fórmula ANTERIOR da amostra precisa do "Aprovar" de outra pessoa (ADM ou módulo "Aprovar
  * crítico P&D"). "Concluir e enviar para a manipulação" salva o que estiver na tela e, no servidor, cria a
- * próxima versão de cada amostra (V1 para quem não tinha fórmula, V(n+1) para quem tinha) + a ordem. */
+ * próxima versão EDITÁVEL de cada amostra (V1 para quem não tinha fórmula, V(n+1) para quem tinha) e a
+ * amostra vai para "Em Desenvolvimento" no pipeline. Fluxo do Marlos (08/11/2026): o P&D não pesa — a
+ * pesagem é da Produção —, então o lote não tem mais gramas, pré-mistura, mínimo pesável nem ordem. */
 import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
@@ -20,7 +22,7 @@ import { AlertTriangle, CheckCircle2, Copy, FlaskConical, Loader2, Plus, Save, S
 import NovoIngredienteLote from "./NovoIngredienteLote";
 import {
   MAX_MEMBROS, MINIMO_PESAVEL_PADRAO_G, NIVEL, ROTULO_STATUS_PD, chaveMaterialFase, clonar, fechamentoPorMembro,
-  diferencasDoLote, mudancasCriticasDaOrigem, pendencias, quantidadeEmGramas, sugereFragrancia,
+  diferencasDoLote, mudancasCriticasDaOrigem, pendencias, sugereFragrancia,
 } from "@/lib/manipulacaoLote";
 
 const num = (v) => { const n = Number(String(v ?? "").replace(",", ".")); return Number.isFinite(n) ? n : 0; };
@@ -117,15 +119,10 @@ export default function EditorLote({ detalhe, user, recarregar }) {
     [form.ingredientes, celN, lote.motivos, lote.aprovacoes_criticas, ativos, origem]);
   const fech = useMemo(() => fechamentoPorMembro(celN, ativos, form.ingredientes), [celN, ativos, form.ingredientes]);
   const keys = chaves(form.ingredientes);
-  const fases = [...new Set(keys.map((k) => String(form.ingredientes[k].fase || "").trim()).filter(Boolean))].sort();
   const cod = (r) => lote.membros[r]?.codigo_amostra || r;
-  // Gramas do que está NA TELA (o clique de concluir salva antes): sem "salve primeiro".
-  const semGramas = ativos.filter((r) => quantidadeEmGramas({ ...lote.membros[r],
-    quantidade_g: num(form.quantidades[r]?.quantidade_g) || null, densidade: num(form.quantidades[r]?.densidade) || null }) == null);
   const foraDos100 = ativos.filter((r) => !fech[r]?.ok);
   const falta = [
     ...(ativos.length < 2 ? ["o lote precisa de pelo menos 2 amostras"] : []),
-    ...(semGramas.length ? [`quantidade em g de ${semGramas.map(cod).join(", ")}`] : []),
     ...foraDos100.map((r) => `${cod(r)} fecha ${fmt(fech[r]?.soma)} % (precisa de 100 %)`),
     ...(pend.length ? [`${pend.length} ingrediente(s) crítico(s) para outra pessoa aprovar`] : []),
   ];
@@ -134,6 +131,17 @@ export default function EditorLote({ detalhe, user, recarregar }) {
   const visiveis = estreito ? [ativos.includes(coluna) ? coluna : ativos[0]] : ativos;
   const nivelDe = (r, k) => (formulaNova(r) ? 0 : (difs[r] || []).find((x) => x.ingKey === k)?.nivel || 0);
 
+  // As versões já existem: uma falha aqui não desfaz a conclusão, só avisa.
+  const moverParaEmDesenvolvimento = async (requestIds) => {
+    const falhas = [];
+    for (const r of requestIds) {
+      try {
+        await api.put(`/pd/requests/${encodeURIComponent(r)}/status`, { new_status: "IN_PROGRESS", is_backward: false,
+          comment: `Desenvolvida no lote ${lote.codigo}` });
+      } catch (e) { falhas.push({ r, erro: formatApiError(e) }); }
+    }
+    return falhas;
+  };
   const executar = async (rotulo, fn) => {
     setOcupado(rotulo);
     try { await fn(); } catch (e) { toast.error(formatApiError(e)); } finally { setOcupado(""); }
@@ -152,10 +160,10 @@ export default function EditorLote({ detalhe, user, recarregar }) {
     else toast.success(`Rascunho salvo (revisão ${data.lote?.revisao ?? ""}).`);
     await recarregar();
   });
-  // Um clique: salva o que está na tela e o servidor cria V1/V(n+1) em cada amostra + a ordem de pesagem.
-  // Sempre grava o estado visível antes de gerar a ordem (742b20d, mantido na volta à versão de 05/11):
-  // o atalho condicionado a `sujo` podia gerar a ordem com o lote vazio do servidor, e o recarregar
-  // do `finally` apagava todo o preenchimento local.
+  // Um clique: salva o que está na tela, o servidor cria V1/V(n+1) editável em cada amostra e a
+  // amostra que ainda estava "Aberta" passa a "Em Desenvolvimento" pela mesma rota da tela do P&D
+  // (que também atualiza o card e a variação no CRM). Sempre grava o estado visível antes (742b20d):
+  // o atalho condicionado a `sujo` podia concluir com o lote vazio do servidor.
   const concluir = () => executar("concluir", async () => {
     const resultado = await salvarAntesDeConcluirLote({
       salvar: () => gravarRascunho(),
@@ -170,6 +178,8 @@ export default function EditorLote({ detalhe, user, recarregar }) {
     const v = Object.entries(data.versoes || {}).map(([r, x]) => `${cod(r)} v${x?.versao ?? "?"}`).join(", ");
     toast.success(v ? `Enviado para a manipulação: ${v}.` : "Enviado para a manipulação: cada amostra ganhou a próxima versão da fórmula.");
     (data.avisos || []).forEach((a) => toast.warning(a));
+    const naoMovidas = await moverParaEmDesenvolvimento(ativos.filter((r) => estado[r]?.status_pd === "OPEN"));
+    if (naoMovidas.length) toast.warning(`Não foi possível mover para Em Desenvolvimento: ${naoMovidas.map((x) => `${cod(x.r)} (${x.erro})`).join("; ")}. Mude pelo pipeline.`);
     await recarregar();
   });
   const aprovar = (r, k) => executar(`aprovar-${r}-${k}`, async () => {
@@ -193,7 +203,7 @@ export default function EditorLote({ detalhe, user, recarregar }) {
         </Button>
         <Button onClick={concluir} disabled={!podeConcluir || Boolean(ocupado)} data-testid="btn-gerar-ordem"
           className="bg-emerald-700 text-white hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500"
-          title={falta.length ? `Falta: ${falta.join(" · ")}` : "Cria a próxima versão da fórmula em cada amostra e a ordem de pesagem."}>
+          title={falta.length ? `Falta: ${falta.join(" · ")}` : "Cria a próxima versão da fórmula em cada amostra (aba Manipulação) e a coloca em Em Desenvolvimento."}>
           {ocupado === "concluir" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <FlaskConical className="mr-1 h-4 w-4" />}Concluir e enviar para a manipulação
         </Button>
         <Button variant="outline" onClick={clonarMatrizParaTodas} disabled={!pode}><Copy className="mr-1 h-4 w-4" />Clonar matriz para todas</Button>
@@ -209,22 +219,8 @@ export default function EditorLote({ detalhe, user, recarregar }) {
         </p>
       )}
 
+      {/* Sem pesagem no P&D (08/11/2026): saíram excesso de pré-mistura, mínimo pesável e pré-mistura por fase. */}
       <div className="flex flex-wrap items-end gap-4 text-sm">
-        <div><Label htmlFor="perda-lote">Excesso nas pré-misturas (%)</Label>
-          <Input id="perda-lote" className="w-24" inputMode="decimal" value={form.perda_pct} disabled={!pode} onChange={(e) => mudar((f) => ({ ...f, perda_pct: e.target.value }))} /></div>
-        <div><Label htmlFor="minimo-lote">Mínimo pesável (g)</Label>
-          <Input id="minimo-lote" className="w-24" inputMode="decimal" value={form.minimo_pesavel_g} disabled={!pode} onChange={(e) => mudar((f) => ({ ...f, minimo_pesavel_g: e.target.value }))} /></div>
-        <div>
-          <span className="text-xs text-muted-foreground">Pré-mistura por fase (só ingredientes iguais em todas):</span>
-          <div className="flex flex-wrap gap-3">
-            {fases.length ? fases.map((fase) => (
-              <label key={fase} className="flex items-center gap-1">
-                <input type="checkbox" disabled={!pode} checked={form.pre_mistura[fase] === true}
-                  onChange={(e) => mudar((f) => ({ ...f, pre_mistura: { ...f.pre_mistura, [fase]: e.target.checked } }))} />Fase {fase}
-              </label>
-            )) : <span className="text-xs text-muted-foreground">sem fase nomeada — tudo é pesado por amostra</span>}
-          </div>
-        </div>
         {estreito && (
           <div><Label htmlFor="coluna-lote">Amostra</Label>
             <select id="coluna-lote" className={`h-9 px-2 ${SELECT}`} value={visiveis[0]} onChange={(e) => setColuna(e.target.value)}>
@@ -241,19 +237,10 @@ export default function EditorLote({ detalhe, user, recarregar }) {
               <th className="p-2 text-right text-xs font-normal text-muted-foreground">Matriz<div>{lote.matriz?.codigo || lote.matriz?.tipo}</div></th>
               {visiveis.map((r) => {
                 const m = lote.membros[r];
-                const ml = String(m.unidade_pedido || "g").toLowerCase() !== "g";
                 return (
                   <th key={r} className="min-w-[110px] p-2 text-left font-normal sm:min-w-[130px]">
                     <div className="font-semibold">{cod(r)}</div>
                     <div className="text-xs text-muted-foreground">{ROTULO_STATUS_PD[estado[r]?.status_pd] || estado[r]?.status_pd || ""}{m.versao_antes ? ` · v${m.versao_antes}` : " · sem fórmula"}</div>
-                    <label className="mt-1 block text-xs">g
-                      <Input className="h-7" inputMode="decimal" aria-label={`Quantidade em g de ${cod(r)}`} value={form.quantidades[r]?.quantidade_g ?? ""} disabled={!pode}
-                        onChange={(e) => mudar((f) => ({ ...f, quantidades: { ...f.quantidades, [r]: { ...f.quantidades[r], quantidade_g: e.target.value } } }))} /></label>
-                    {ml && (
-                      <label className="block text-xs">densidade (g/mL) — pedido {m.quantidade_pedido} {m.unidade_pedido}
-                        <Input className="h-7" inputMode="decimal" value={form.quantidades[r]?.densidade ?? ""} disabled={!pode}
-                          onChange={(e) => mudar((f) => ({ ...f, quantidades: { ...f.quantidades, [r]: { ...f.quantidades[r], densidade: e.target.value } } }))} /></label>
-                    )}
                     <select className={`mt-1 h-7 w-full text-xs ${SELECT}`} value="" disabled={!pode} aria-label={`Copiar para ${cod(r)}`}
                       onChange={(e) => { const de = e.target.value; if (de) mudar((f) => ({ ...f, celulas: clonar(f.celulas, { de, para: [r], matrizCelulas: matriz }) })); }}>
                       <option value="">Copiar de…</option><option value="matriz">Matriz</option>

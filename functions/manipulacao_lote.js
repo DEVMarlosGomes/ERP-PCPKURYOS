@@ -2,8 +2,11 @@
 /* Manipulação em lote do P&D — o que só o servidor grava (spec 2026-11-04 §7; D-03, D-11, D-12).
  *
  * Callable manipulacaoLoteServidor({tenant, loteId, acao, ...}):
- *   gerar_ordem           versão nova JÁ TRAVADA de pd_formulas por amostra + ordem do lote (pré-mistura
- *                         por fase + adições por amostra), montada dos itens dessas versões, num update()
+ *   gerar_ordem           CONCLUI o lote (08/11/2026, fluxo do Marlos): versão nova EDITÁVEL de pd_formulas
+ *                         por amostra (V1, V2…) num update() e o lote vira "concluido". Não monta mais ordem
+ *                         de pesagem do lote (nem exige gramas/mínimo pesável): cada amostra segue pela aba
+ *                         Manipulação. O nome da ação ficou por compatibilidade com a rota /gerar-ordem.
+ *                         As ações abaixo só servem a lotes antigos que já têm ordem gerada.
  *   registrar_pesagens    pesagem por linha da ordem; desvio acima de max(0,01 g; 1 %) exige motivo
  *   corrigir_pesagem      registro novo que aponta o anterior (estorno) — nunca sobrescreve
  *   conferir_pesagem      segundo usuário (≠ quem pesou); ligado por padrão (config/pdLote)
@@ -200,7 +203,7 @@ function conferirOrdem(lote, ctx) {
     } else if (m.formula_id_antes && M.assinaturaItens(ctx.itensPorFormula.get(m.formula_id_antes) || []) !== m.assinatura_antes) {
       problemas.push(`${cod}: a fórmula v${m.versao_antes} foi editada fora do lote. Tire a amostra do lote e inclua de novo.`);
     }
-    if (M.quantidadeEmGramas(m) == null) problemas.push(`${cod}: informe a quantidade em g (ou a densidade, se o pedido é em ml).`);
+    // Sem ordem de pesagem do lote (08/11/2026), a quantidade em g não é mais exigida aqui.
   }
   const itensOrigem = itensDeOrigem(lote, ctx);
   const ingredientes = M.classificarIngredientes(lote.ingredientes || {}, {materiais: ctx.materiais, itensOrigem});
@@ -210,10 +213,8 @@ function conferirOrdem(lote, ctx) {
   }
   const fech = M.fechamentoPorMembro(lote.celulas || {}, ativos, ingredientes);
   for (const r of ativos) if (!fech[r].ok) problemas.push(`${codigoDe(lote, r)}: a soma dá ${fmt(fech[r].soma)} % — a fórmula precisa fechar 100 %.`);
-  const membros = ativos.map((r) => Object.assign({}, lote.membros[r], {request_id: r}));
-  const ordem = M.ordemDoLote({ingredientes, celulas: lote.celulas || {}, membros, preMistura: lote.pre_mistura || {}, perdaPct: lote.perda_pct, minimoPesavelG: lote.minimo_pesavel_g});
-  if (!ordem.reconciliacao.ok) problemas.push("A ordem do lote não bate com as ordens individuais — nada foi gravado; avise o suporte.");
-  return {problemas, ativos, ingredientes, ordem, itensOrigem, matrizCelulas};
+  // Conclusão sem ordem de pesagem do lote (08/11/2026): nada de pré-diluição/mínimo pesável aqui.
+  return {problemas, ativos, ingredientes, ordem: {avisos: []}, itensOrigem, matrizCelulas};
 }
 
 // Solicitação de MP nova que já cobre este ingrediente: a que tem como origem o item de mesma
@@ -256,7 +257,8 @@ function montarOrdem({lote, ctx, conf, versoes, novoId, autor, agora, tenant, re
     const meta = Object.fromEntries(Object.entries(base).filter(([k]) => !SEM_COPIA.has(k)));
     u[`${T}/pd_formulas/${fid}`] = semVazios(Object.assign(meta, {
       id: fid, tenant_id: tenant, development_id: m.development_id, version: versao, status: "DRAFT",
-      indice_perdas: num(lote.perda_pct), locked: true, locked_motivo: "ordem_lote", locked_at: agora, locked_by: autor.uid, locked_by_name: autor.nome,
+      // Editável na aba Manipulação como qualquer versão (08/11/2026): sem trava "ordem_lote".
+      indice_perdas: num(lote.perda_pct),
       parent_formula_id: m.formula_id_antes || null, origem_lote: origemLote,
       created_at: agora, created_by: autor.uid, created_by_name: autor.nome, updated_at: agora,
     }));
@@ -313,21 +315,17 @@ function montarOrdem({lote, ctx, conf, versoes, novoId, autor, agora, tenant, re
       avisos.push(`${cod}: variação não encontrada no CRM — a composição não aparece lá.`);
     }
   }
-  const o = conf.ordem;
-  u[`${L}/ordem`] = semVazios({
-    gerada_em: agora, gerada_por: autor.uid, gerada_por_nome: autor.nome, assinaturas, versoes: versoesOrdem,
-    fases: o.fases, pre_misturas: o.fases.filter((f) => o.pre_misturas[f]).map((f) => o.pre_misturas[f]), adicoes: o.adicoes, passos: o.passos,
-    linhas_pesagem: o.linhas_pesagem, avisos, total_teorico_g: o.total_teorico_g, n_amostras: conf.ativos.length, conferencia_segundo_usuario: ctx.conferencia,
-  });
+  // Conclusão (08/11/2026): registra as versões criadas; não há ordem de pesagem do lote.
+  u[`${L}/conclusao`] = semVazios({em: agora, por: autor.uid, por_nome: autor.nome, assinaturas, versoes: versoesOrdem, avisos, n_amostras: conf.ativos.length});
   u[`${L}/ingredientes`] = semVazios(conf.ingredientes);
-  u[`${L}/status`] = "ordem_gerada";
+  u[`${L}/status`] = "concluido";
   u[`${L}/gerando`] = null;
   u[`${L}/revisao`] = revisao + 1;
   u[`${L}/atualizado_em`] = agora;
   u[`${L}/atualizado_por`] = autor.uid;
   u[`${L}/atualizado_por_nome`] = autor.nome;
-  u[`${L}/eventos/${novoId()}`] = {tipo: "ordem_gerada", por: autor.uid, por_nome: autor.nome, em: agora,
-    detalhe: `${conf.ativos.length} amostra(s); ${Object.keys(o.linhas_pesagem).length} linha(s) de pesagem; ${fmt(o.total_teorico_g)} g no total.`};
+  u[`${L}/eventos/${novoId()}`] = {tipo: "concluido", por: autor.uid, por_nome: autor.nome, em: agora,
+    detalhe: `${conf.ativos.length} amostra(s) enviadas para a manipulação: ${conf.ativos.map((r) => `${codigoDe(lote, r)} v${versoes[r]}`).join(", ")}.`};
   return {updates: u, versoes: versoesOrdem, avisos};
 }
 

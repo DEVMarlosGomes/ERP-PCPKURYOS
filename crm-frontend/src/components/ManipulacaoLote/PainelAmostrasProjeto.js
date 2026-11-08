@@ -19,10 +19,42 @@ export const COR_STATUS_LOTE = {
   gerando_ordem: "bg-blue-500/10 text-blue-700 border-blue-300",
   ordem_gerada: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-300",
   manipulado: "bg-green-500/10 text-green-700 dark:text-green-400 border-green-300",
+  concluido: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-300",
   cancelado: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-300",
 };
 
-/* Abre um lote: carrega o detalhe e mostra o editor (rascunho) ou a ordem (depois). */
+/* Lote concluído (08/11/2026): não há ordem nem pesagem no P&D; mostra a versão que cada amostra
+ * ganhou — a fórmula segue (editável) pela aba Manipulação da amostra. */
+function LoteConcluido({ lote }) {
+  const c = lote.conclusao || {};
+  const ativos = Object.keys(lote.membros || {}).filter((r) => lote.membros[r]?.status_membro !== "removido");
+  return (
+    <div className="space-y-3 text-sm" data-testid="lote-concluido">
+      <p className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100">
+        Concluído{c.por_nome ? ` por ${c.por_nome}` : ""}{c.em ? ` em ${new Date(c.em).toLocaleString("pt-BR")}` : ""}. Cada amostra
+        ganhou a sua versão na aba <b>Manipulação</b> e está em <b>Em Desenvolvimento</b>. A pesagem é da Produção.
+      </p>
+      <ul className="divide-y rounded-md border">
+        {ativos.map((r) => {
+          const m = lote.membros[r] || {};
+          const v = (c.versoes || {})[r]?.versao ?? m.versao_lote;
+          return (
+            <li key={r} className="flex flex-wrap items-center justify-between gap-2 p-2">
+              <span className="font-medium">{m.codigo_amostra || r}</span>
+              <span className="flex items-center gap-3">
+                {v ? <Badge variant="outline">v{v}</Badge> : null}
+                <a className="text-primary underline" href={`/pd/${encodeURIComponent(r)}`}>Abrir a amostra</a>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      {(c.avisos || []).length > 0 && <ul className="list-disc pl-5 text-amber-800 dark:text-amber-300">{c.avisos.map((a) => <li key={a}>{a}</li>)}</ul>}
+    </div>
+  );
+}
+
+/* Abre um lote: carrega o detalhe e mostra o editor (rascunho), o resumo (concluído) ou a ordem (lotes antigos). */
 export function LoteDialog({ loteId, user, onClose }) {
   const [detalhe, setDetalhe] = useState(null);
   const [erro, setErro] = useState("");
@@ -51,7 +83,8 @@ export function LoteDialog({ loteId, user, onClose }) {
         {erro && <p className="text-sm text-red-600 dark:text-red-400" role="alert">{erro}</p>}
         {!detalhe && !erro && <Loader2 className="h-5 w-5 animate-spin" />}
         {detalhe && lote.status === "rascunho" && <EditorLote detalhe={detalhe} user={user} recarregar={recarregar} />}
-        {detalhe && lote.status !== "rascunho" && <OrdemLote detalhe={detalhe} user={user} recarregar={recarregar} />}
+        {detalhe && lote.status === "concluido" && <LoteConcluido lote={lote} />}
+        {detalhe && !["rascunho", "concluido"].includes(lote.status) && <OrdemLote detalhe={detalhe} user={user} recarregar={recarregar} />}
       </DialogContent>
     </Dialog>
   );

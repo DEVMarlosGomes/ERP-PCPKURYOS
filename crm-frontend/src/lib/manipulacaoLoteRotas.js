@@ -273,7 +273,7 @@ export function createManipulacaoLoteRouter(h) {
     const m = l.membros?.[r];
     if (!m) throw apiError(404, "Esta amostra não está no lote.");
     if (m.status_membro === "removido") return l;
-    if (["cancelado", "manipulado"].includes(l.status)) throw apiError(409, `Lote ${M.ROTULO_STATUS_LOTE[l.status]}: não se tira amostra dele.`);
+    if (["cancelado", "manipulado", "concluido"].includes(l.status)) throw apiError(409, `Lote ${M.ROTULO_STATUS_LOTE[l.status]}: não se tira amostra dele.`);
     exigirRevisao(l, data?.revisao);
     const motivo = String(data?.motivo || "").trim();
     if (l.status === "ordem_gerada" && motivo.length < M.MIN_MOTIVO_DEPOIS_DA_ORDEM) throw apiError(422, `Depois da ordem, tirar uma amostra exige motivo (mín. ${M.MIN_MOTIVO_DEPOIS_DA_ORDEM} letras).`);
@@ -293,6 +293,8 @@ export function createManipulacaoLoteRouter(h) {
     exigirPapel(perfil);
     const l = await lerLote(t, id);
     if (l.status === "cancelado") return l;
+    // Concluído (08/11/2026): as versões já estão em cada amostra e seguem pela aba Manipulação.
+    if (l.status === "concluido") throw apiError(409, "Lote concluído não se cancela: cada amostra já tem a sua versão na aba Manipulação e segue por lá.");
     if (l.status === "manipulado") throw apiError(409, "Lote já manipulado não se cancela: as amostras existem. Cada uma segue (ou é descartada) pelo próprio fluxo.");
     if (l.status === "gerando_ordem" && !gerandoVencido(l)) throw apiError(409, "O servidor está gerando a ordem agora — espere 2 minutos e recarregue antes de cancelar.");
     exigirRevisao(l, data?.revisao);

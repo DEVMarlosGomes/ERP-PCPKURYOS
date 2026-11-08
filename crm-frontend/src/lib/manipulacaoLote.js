@@ -28,7 +28,9 @@ export const ROTULO_STATUS_PD = {
   OPEN: "Aberto", IN_PROGRESS: "Em Desenvolvimento", IN_TESTS: "Em Testes", WAITING_APPROVAL: "Aguardando Aprovação",
   APPROVED: "Aprovada", COMPLETED: "Concluída", REJECTED: "Reprovada", CANCELLED: "Cancelada",
 };
-export const ROTULO_STATUS_LOTE = { rascunho: "Rascunho", gerando_ordem: "Gerando a ordem", ordem_gerada: "Ordem gerada", manipulado: "Manipulado", cancelado: "Cancelado" };
+// concluido (08/11/2026, fluxo do Marlos): o lote fecha 100 % e cria V1/V2… EDITÁVEIS em cada amostra,
+// sem ordem de pesagem do lote; a pesagem segue pela aba Manipulação de cada amostra. Conta como fechado.
+export const ROTULO_STATUS_LOTE = { rascunho: "Rascunho", gerando_ordem: "Concluindo", ordem_gerada: "Ordem gerada", manipulado: "Manipulado", concluido: "Concluído", cancelado: "Cancelado" };
 
 const semAcento = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "");
 const norm = (s) => semAcento(s).trim().toLowerCase().replace(/\s+/g, " ");

@@ -2,13 +2,11 @@
 /* Manipulação em lote — a callable real (functions/index.js → manipulacao_lote.js) no emulador:
      firebase emulators:exec --project demo-pd-lote --only database --config firebase.pdlote-test.json "node run_manipulacao_lote_servidor_test.js"
    (--project igual ao projectId daqui; sem isso o emulador não aplica database.rules.json.)
-   - gerar_ordem: perfil/tenant pelo uid; revisão velha e pendência recusadas sem gravar nada; versão nova
-     JÁ TRAVADA por amostra (itens = rascunho, fases copiadas, current_version), ordem com assinatura
-     SHA-256, CRM com a composição sem perder a variação irmã, MP nova na mesma solicitação.
+   - gerar_ordem (= concluir, 08/11/2026): perfil/tenant pelo uid; revisão velha e pendência recusadas sem
+     gravar nada; versão nova EDITÁVEL por amostra (itens = rascunho, fases copiadas, current_version), sem
+     gramas e sem ordem de pesagem (o P&D não pesa), assinatura SHA-256 na conclusão, CRM com a composição sem perder a variação irmã, MP nova na mesma solicitação.
    - crítico: só ADM/aprovar_critico_pd e nunca quem escreveu o motivo.
-   - pesagem: tolerância max(0,01 g; 1 %) com motivo, correção = registro novo, conferência por outra pessoa.
-   - registrar_manipulacao: conferência e massa conciliada; versão alterada depois da ordem é recusada.
-   - liberarEtapaPd: Em Testes só depois da manipulação; assinatura da versão reconferida. */
+   - liberarEtapaPd: lote concluído não segura Em Testes. */
 const assert = require('assert/strict');
 if (process.env.FIREBASE_DATABASE_EMULATOR_HOST !== '127.0.0.1:9063') throw new Error('Teste exige emulador local 9063.');
 process.env.GCLOUD_PROJECT = 'demo-pd-lote';
@@ -116,18 +114,19 @@ const porId = (l) => Object.fromEntries(l.map((x) => [x.id, x]));
   assert.equal(await ler(`${L}/revisao`), 5);
   passo('crítico: só ADM/módulo e outra pessoa; aprovação amarrada ao material; clonar a matriz que muda a amostra também pede aprovação');
 
-  // Ordem.
+  // Conclusão (08/11/2026): sem ordem de pesagem do lote — o P&D não pesa — e sem exigir gramas.
+  await raiz.ref(`${L}/membros/R3/quantidade_g`).remove();
   const r = await chamar('pd', { acao: 'gerar_ordem', revisao: 5 });
   assert.equal(r.ok, true);
   const lote = await ler(L);
-  assert.equal(lote.status, 'ordem_gerada');
-  assert.equal(lote.revisao, 7); // trava (+1) e ordem (+1)
+  assert.equal(lote.status, 'concluido');
+  assert.equal(lote.revisao, 7); // trava (+1) e conclusão (+1)
   assert.equal(lote.gerando, undefined); // a trava saiu
+  assert.equal(lote.ordem, undefined); // não há ordem de pesagem
   const f = async (rq) => ({ formula: await ler(`${T}/pd_formulas/${lote.membros[rq].formula_id_lote}`), id: lote.membros[rq].formula_id_lote });
   const v1 = await f('R1'); const v2 = await f('R2'); const v3 = await f('R3');
   assert.deepEqual([v1.formula.version, v2.formula.version, v3.formula.version], [2, 3, 1]);
-  for (const v of [v1, v2, v3]) assert.equal(v.formula.locked, true);
-  assert.equal(v1.formula.locked_motivo, 'ordem_lote');
+  for (const v of [v1, v2, v3]) { assert.equal(v.formula.locked, undefined); assert.equal(v.formula.locked_motivo, undefined); } // editáveis na aba Manipulação
   assert.equal(v1.formula.parent_formula_id, 'F1');
   assert.deepEqual(v1.formula.origem_lote, { lote_id: 'LM1', codigo: 'LM-2026-031-1', matriz: { tipo: 'amostra', ref_id: 'F2', versao: 2 } });
   assert.equal(v2.formula.name, 'Base manteiga');
@@ -140,10 +139,12 @@ const porId = (l) => Object.fromEntries(l.map((x) => [x.id, x]));
   assert.deepEqual(itensDe(v3.id).map((i) => [i.ingredient_name, i.percentage]).sort(), [['Agua', 77.5], ['Extrato', 1], ['Fenoxietanol', 1], ['Fragrancia Lavanda', 20.5]]);
   assert.ok(itensDe(v1.id).every((i) => i.id.startsWith(`${v1.id}_`) && typeof i.cost_brl === 'number'));
   assert.equal(Object.values(await ler(`${T}/pd_formula_phases`)).filter((p) => p.formula_id === v2.id).length, 1);
-  assert.equal(lote.ordem.assinaturas.R1, Srv.sha256(M.textoCanonicoItens(itensDe(v1.id))));
+  assert.equal(lote.conclusao.assinaturas.R1, Srv.sha256(M.textoCanonicoItens(itensDe(v1.id))));
+  assert.deepEqual(Object.keys(lote.conclusao.versoes).sort(), ['R1', 'R2', 'R3']);
   assert.equal(lote.membros.R1.assinatura_lote, M.assinaturaItens(itensDe(v1.id)));
   assert.equal(lote.membros.R2.fora_da_base, true);
-  passo('ordem: versões travadas por amostra com os itens do rascunho, fases e current_version; a anterior intacta');
+  assert.ok(Object.values(lote.eventos).some((e) => e.tipo === 'concluido' && /2026-1003-a v2/.test(e.detalhe)));
+  passo('conclusão: versões EDITÁVEIS por amostra com os itens do rascunho, fases e current_version; sem gramas e sem ordem; a anterior intacta');
   const s1 = await ler(`${T}/crm_samples/S1`);
   assert.deepEqual(s1.variacoes.map((v) => v.codigo), ['2026-1003-a', '2026-1003-b']);
   assert.equal(s1.variacoes[1].lote_manipulacao.codigo, 'LM-2026-031-1');
@@ -156,59 +157,16 @@ const porId = (l) => Object.fromEntries(l.map((x) => [x.id, x]));
   assert.ok(origens.includes('F2__i2c'));
   assert.equal(Object.keys(await ler('solicitacoes_cadastro_material')).length, 1);
   passo('CRM: composição na variação, irmã preservada; MP nova acrescenta origens na mesma solicitação');
-  const linhas = lote.ordem.linhas_pesagem;
-  const soma = Object.values(linhas).reduce((s, l) => s + Math.round(l.teorico_g * 100), 0) / 100;
-  assert.ok(soma >= 190 && soma <= 190.2, `total ${soma}`);
-  assert.ok(lote.ordem.pre_misturas.length >= 1);
-  await recusa(chamar('pd', { acao: 'gerar_ordem', revisao: 7 }), 'failed-precondition', /Ordem gerada/);
-  passo(`ordem com ${Object.keys(linhas).length} linhas (${soma} g, pré-mistura da fase A); gerar de novo é recusado`);
+  await recusa(chamar('pd', { acao: 'gerar_ordem', revisao: 7 }), 'failed-precondition', /Concluído/);
+  passo('concluir de novo é recusado (lote "Concluído")');
 
-  // Em Testes antes da manipulação: recusado.
-  await recusa(liberar('pd', { requestId: 'R1', novoStatus: 'IN_TESTS' }), 'failed-precondition', /registre a manipulação/);
-  passo('liberarEtapaPd segura Em Testes com a ordem gerada e ainda não manipulada');
-
-  // Pesagem.
-  const ids = Object.keys(linhas);
-  const agua = `ad_R1_${k('Agua')}`;
-  assert.ok(linhas[agua]);
-  const tudo = Object.fromEntries(ids.filter((id) => id !== agua).map((id) => [id, { real_g: linhas[id].teorico_g, lote_mp: id.includes('pm') ? 'L-123' : '' }]));
-  await recusa(chamar('pd', { acao: 'registrar_pesagens', linhas: { [agua]: { real_g: linhas[agua].teorico_g + 0.5 } } }), 'failed-precondition', /tolerância/);
-  await chamar('pd', { acao: 'registrar_pesagens', linhas: { ...tudo, [agua]: { real_g: linhas[agua].teorico_g + 0.5, motivo_desvio: 'escorreu do béquer' } } });
-  const pes = await ler(`${L}/pesagens`);
-  assert.equal(pes[agua].registros.r1.desvio_g, 0.5);
-  assert.equal(pes[ids.find((x) => x.startsWith('ad_'))].registros.r1.lote_mp, 'nao_informado');
-  await recusa(chamar('pd', { acao: 'registrar_pesagens', linhas: { [agua]: { real_g: 1 } } }), 'failed-precondition', /Corrigir/);
-  await recusa(chamar('pd', { acao: 'corrigir_pesagem', linhaId: agua, real_g: linhas[agua].teorico_g, motivo: 'erro' }), 'invalid-argument', /10/);
-  await chamar('pd', { acao: 'corrigir_pesagem', linhaId: agua, real_g: linhas[agua].teorico_g + 0.2, motivo: 'balança recalibrada e repesado' });
-  const corr = await ler(`${L}/pesagens/${agua}`);
-  assert.equal(corr.atual, 'r2');
-  assert.equal(corr.registros.r2.corrige, 'r1');
-  assert.equal(corr.registros.r1.real_g, Math.round((linhas[agua].teorico_g + 0.5) * 100) / 100);
-  passo('pesagem: desvio fora da tolerância exige motivo; repetir exige Corrigir; correção é registro novo');
-
-  // Conferência e registro.
-  await recusa(chamar('pd', { acao: 'registrar_manipulacao', entregue: { R1: 50, R2: 50, R3: 90 } }), 'failed-precondition', /sem conferência/);
-  await recusa(chamar('pd', { acao: 'conferir_pesagem', linhas: ids }), 'failed-precondition', /outra pessoa/);
-  await chamar('pd2', { acao: 'conferir_pesagem', linhas: ids });
-  const pesado = Object.values(await ler(`${L}/pesagens`)).reduce((s, p) => s + Math.round(p.registros[p.atual].real_g * 100), 0) / 100;
-  const antesDoRegistro = await ler(L);
-  assert.throws(() => Srv.aplicarManipulacao(JSON.parse(JSON.stringify(antesDoRegistro)), { entregue: { R1: 50, R2: 50, R3: 90 } }, { uid: 'pd', nome: 'Y' }, 'x', () => 'id',
-    { R1: 'outra', R2: antesDoRegistro.ordem.assinaturas.R2, R3: antesDoRegistro.ordem.assinaturas.R3 }), /alterada depois da ordem/);
-  await recusa(chamar('pd', { acao: 'registrar_manipulacao', entregue: { R1: 50, R2: 50, R3: 80 } }), 'failed-precondition', /não fecha/);
-  const perda = Math.round((pesado - 190) * 100) / 100;
-  const reg = await chamar('pd', { acao: 'registrar_manipulacao', entregue: { R1: 50, R2: 50, R3: 90 }, perda_declarada_g: perda, observacao: 'tudo certo' });
-  assert.equal(reg.conciliacao.ok, true);
-  const feito = await ler(L);
-  assert.equal(feito.status, 'manipulado');
-  assert.equal(feito.manipulacao.conciliacao.pesado_g, pesado);
-  passo(`conferência por outra pessoa; massa conciliada (${pesado} g, perda ${perda} g) → manipulado; versão alterada é recusada`);
-
-  // Depois da manipulação: Em Testes liberado; versão adulterada (mesma soma) recusada.
+  // Sem pesagem no P&D: Em Testes sai pela própria amostra, sem esperar "manipulação do lote".
   assert.deepEqual(await liberar('pd', { requestId: 'R1', novoStatus: 'IN_TESTS' }), { ok: true });
+  // A versão é editável na aba Manipulação: mexer nela não trava a etapa (não há ordem com assinatura).
   const alvo = itensDe(v2.id).find((i) => i.ingredient_name === 'Agua');
   await raiz.ref(`${T}/pd_formula_items/${alvo.id}/phase`).set('B');
-  await recusa(liberar('pd', { requestId: 'R2', novoStatus: 'IN_TESTS' }), 'failed-precondition', /alterada depois da ordem/);
-  passo('liberarEtapaPd: manipulado libera; versão do lote mexida depois da ordem não libera');
+  assert.deepEqual(await liberar('pd', { requestId: 'R2', novoStatus: 'IN_TESTS' }), { ok: true });
+  passo('liberarEtapaPd: lote concluído não segura Em Testes; versão editada depois continua livre');
 
   console.log(`run_manipulacao_lote_servidor_test: OK (${n} passos)`);
   process.exit(0);

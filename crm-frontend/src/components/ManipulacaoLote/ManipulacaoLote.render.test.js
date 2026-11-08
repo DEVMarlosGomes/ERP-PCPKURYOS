@@ -53,21 +53,20 @@ test("editor: 100 % por coluna, comum em âmbar e crítico em vermelho; sem caix
   expect(desabilitado(novo, "btn-gerar-ordem")).toBe(false);
 });
 
-test("editor: matriz vazia (caso LM-2026-041-2) — sem gramas o botão diz o que falta; com gramas e 100 % libera direto, mostrando que cada uma ganha a primeira versão", () => {
+test("editor: matriz vazia (caso LM-2026-041-2) — sem gramas nem pesagem no P&D (08/11): com 100 % libera direto e cada uma ganha a primeira versão", () => {
   const { lote, k } = loteDeExemplo((l, k) => {
     l.matriz = { tipo: "vazia", ref_id: null, codigo: "", celulas: {} };
     for (const r of ["R1", "R2"]) { l.membros[r].versao_antes = null; l.membros[r].quantidade_g = undefined; }
     l.celulas.R2 = { [k("Água")]: 79.5, [k("Fenoxietanol")]: 0.5, [k("Fragrância Lavanda")]: 20 };
   });
-  const semG = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true }} user={{ role: "pd" }} recarregar={async () => {}} />);
-  expect(semG).toContain("quantidade em g de 2026-1003-a, 2026-1003-b");
-  expect(desabilitado(semG, "btn-gerar-ordem")).toBe(true);
-  expect(semG).toContain("Matriz vazia: as amostras sem fórmula anterior são fórmulas novas");
-  expect(tag(semG, `cel-R2-${k("Fenoxietanol")}`)).not.toContain("bg-red-50"); // fórmula nova não tem "diferença"
-  for (const r of ["R1", "R2"]) lote.membros[r].quantidade_g = 50;
-  const pronto = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true }} user={{ role: "pd" }} recarregar={async () => {}} />);
-  expect(desabilitado(pronto, "btn-gerar-ordem")).toBe(false);
-  expect(pronto).toContain("2026-1003-a: primeira versão · 2026-1003-b: primeira versão");
+  const html = renderToStaticMarkup(<EditorLote detalhe={{ lote, estado: {}, eu: "pd", pode_editar: true }} user={{ role: "pd" }} recarregar={async () => {}} />);
+  expect(html).not.toContain("quantidade em g");
+  expect(html).not.toContain("Mínimo pesável");
+  expect(html).not.toContain("Pré-mistura por fase");
+  expect(html).toContain("Matriz vazia: as amostras sem fórmula anterior são fórmulas novas");
+  expect(tag(html, `cel-R2-${k("Fenoxietanol")}`)).not.toContain("bg-red-50"); // fórmula nova não tem "diferença"
+  expect(desabilitado(html, "btn-gerar-ordem")).toBe(false);
+  expect(html).toContain("2026-1003-a: primeira versão · 2026-1003-b: primeira versão");
 });
 
 test("editor: sem diferença e tudo fechado, conclui direto; perfil sem P&D só consulta", () => {
