@@ -392,7 +392,7 @@ export default function CommercialBudgetPage() {
         prazoPagamento: orcamentoForm.pagamento,
         evidencia: orcamentoForm.evidencia,
         observacoes: orcamentoForm.obs,
-        itens,
+        itens: items, // era `itens,` sem variável declarada: salvar a simulação dava ReferenceError (08/11/2026)
       });
       if (status === "enviado") await api.patch(`/commercial/simulations/${data.id}`, { status: "ENVIADO" });
       showAlert(status === "enviado" ? "Simulação salva e marcada como enviada; o CRM2 não foi alterado." : "Simulação salva; o CRM2 e o PCP não foram alterados.");

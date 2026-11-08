@@ -1692,6 +1692,9 @@ function ClientDetailSheet({ client, constants, isAdmin = false, canEdit = false
     );
     const detailLeadOriginOptions = constants?.origem_lead || [];
     const detailCargoOptions = constants?.cargo_decisor || [];
+    // CRM-01 usou `categorias` aqui sem declarar (só existia no CRM1Page): cliente com projeto que tem
+    // categoria (ex.: Miss Rose, 08/11/2026) derrubava a tela inteira com ReferenceError.
+    const categorias = constants?.categorias_produto || [];
 
     useEffect(() => {
         if (client) {

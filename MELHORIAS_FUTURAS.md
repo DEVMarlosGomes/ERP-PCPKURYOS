@@ -630,6 +630,16 @@ dedicado por tela em vez de fixes pontuais:
 
 ## Limpeza de código (stubs legados)
 
+- **Checar `no-undef` no CRM antes do build (08/11/2026).** Três variáveis usadas
+  sem declaração passaram pelos 493 testes e chegaram à produção: `categorias` na
+  ficha do cliente do CRM1 (`2df7b1d`, apagava a tela ao abrir cliente com projeto
+  categorizado, ex. Miss Rose), `navigate` no CRM3 (abrir card do P&D) e `itens` ao
+  salvar simulação no Orçamento Comercial (`1c23655`). Corrigidos no mesmo dia. O
+  `crm-frontend` não tem ESLint; a varredura foi feita com `eslint@9` avulso e a
+  regra `no-undef` (falsos positivos só de globais do navegador: `FormData`, `File`,
+  `atob`, `ResizeObserver`, `WebSocket`). Falta transformar isso num teste do Vitest
+  ou num passo do `integrar-crm-build`.
+
 - **`produtos.html`/`clientes.html`/`formulas.html`/`materiais.html`
   são stubs de redirect** (`location.replace(...)` pra `cadastros.html`)
   que ainda carregam ~1000 linhas cada da implementação antiga completa

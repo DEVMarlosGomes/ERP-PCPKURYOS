@@ -80,6 +80,8 @@ function canRegisterClientResult(variacao = {}) {
 }
 
 export default function CRM3Page() {
+    // openPdCard usava `navigate` declarado só em outro componente deste arquivo (no-undef, 08/11/2026).
+    const navigate = useNavigate();
     const { user: authUser } = useAuth();
     const isAdmin = authUser?.role === "admin";
     const wsRef = useRef(null);
