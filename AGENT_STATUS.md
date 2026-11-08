@@ -7,13 +7,13 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ### Claude — Lote de amostras conclui direto na Manipulação (08/11/2026)
 
-- **Concluído (), assumindo a reserva do Codex com autorização do Marlos:** o P&D não
+- **Concluído (`85374c0`), assumindo a reserva do Codex com autorização do Marlos:** o P&D não
   pesa (pesagem é da Produção). Concluir o lote cria V1/V2… EDITÁVEIS em cada amostra, sem ordem de
   pesagem do lote, sem gramas/mínimo pesável/pré-mistura; amostra Aberta vai a Em Desenvolvimento pela
-  rota de status do P&D; lote vira  (não cancela nem perde amostra). Testes: servidor
+  rota de status do P&D; lote vira `concluido` (não cancela nem perde amostra). Testes: servidor
   no emulador 7, auditoria 12, regras 10, CRM 493, Hostinger 25. **LM-2026-040-2** voltou a rascunho
-  preenchido (backup local; ordem e 24 pesagens em ; V1 destravadas viraram
-  fórmula anterior;  real: zero problemas). **Deploy da VPS obrigatório antes de
+  preenchido (backup local; ordem e 24 pesagens em `historico_ordens`; V1 destravadas viraram
+  fórmula anterior; `conferirOrdem` real: zero problemas). **Deploy da VPS obrigatório antes de
   alguém concluir um lote:** o servidor antigo ainda gera ordem. Arquivos ativos: nenhum.
 
 ### Claude — P&D lote de volta a 05/11 e aviso de sessão encerrada (06/11/2026)
