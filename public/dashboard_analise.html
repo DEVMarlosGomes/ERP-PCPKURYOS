@@ -270,9 +270,10 @@ table tr:hover { background: #f8fafc; }
   </section>
 
   <section id="logistica" class="pane hidden">
-    <div class="card" style="margin-bottom:12px;border-left:3px solid #dc2626;background:#fef2f2" data-ui="surface">
-      <strong style="color:#991b1b">⚠️ Dados congelados:</strong>
-      <span style="color:#991b1b">esta aba (estoque, expedições, entradas) mostra um retrato exportado manualmente em <strong id="snapshot-date-logistica">—</strong> e NÃO reflete movimentações depois dessa data. A integração ao vivo de estoque de produto acabado ainda não existe neste sistema.</span>
+    <div class="card" style="margin-bottom:12px;border-left:3px solid #16a34a;background:#f0fdf4" data-ui="surface">
+      <strong style="color:#166534">Dados operacionais:</strong>
+      <span id="logistica-fonte-status" style="color:#166534">carregando expedições e estoque de produto acabado…</span>
+      <strong id="snapshot-date-logistica" style="display:none">—</strong>
     </div>
     <!-- Qualidade dos cadastros -->
     <div class="card" style="margin-bottom:12px;border-left:3px solid #f59e0b" data-ui="surface">
@@ -390,6 +391,7 @@ table tr:hover { background: #f8fafc; }
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
 <script src="shared/dashboard-showcase.js?v=20261020-1"></script>
+<script src="shared/dashboard-logistica.js?v=20261108-1"></script>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://erpkuryos-default-rtdb.firebaseio.com">
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
@@ -455,6 +457,32 @@ function loadFirebaseAndRun() {
       const p = produtos[k];
       const sku = p.sku || k;
       skuMap[sku] = p;
+    });
+
+    // A aba de Logística usa a operação atual: saídas confirmadas e saldo
+    // físico de produto acabado. O retrato de maio permanece apenas como
+    // fallback caso uma das leituras falhe.
+    Promise.all([
+      db.ref('expedicoes_comerciais').once('value'),
+      db.ref('estoque_lotes').once('value')
+    ]).then(function(snaps) {
+      RAW.expedicoes = DashboardLogistica.montar(
+        snaps[0].val() || {}, snaps[1].val() || {}, produtos,
+        new Date().toISOString().slice(0, 10)
+      );
+      RAW.logisticaLive = true;
+      preprocessRawData();
+      var fonteLog = document.getElementById('logistica-fonte-status');
+      if (fonteLog) fonteLog.textContent = 'expedições e saldo de produto acabado atualizados agora pelo Firebase.';
+      var snapLog = document.getElementById('snapshot-date-logistica');
+      if (snapLog) snapLog.textContent = 'dados atuais';
+      var subtitle = document.getElementById('subtitle');
+      if (subtitle) subtitle.textContent = 'Produção/Pedidos/Logística atualizados agora (' + new Date().toLocaleString('pt-BR') + ') · OPs: retrato de ' + fmtSnapshotDate(RAW.generated_at);
+      if (typeof apply === 'function') apply();
+    }).catch(function(err) {
+      console.error('Falha ao carregar Logística ao vivo; mantendo retrato:', err);
+      var fonteLog = document.getElementById('logistica-fonte-status');
+      if (fonteLog) fonteLog.textContent = 'falha ao carregar a fonte atual; exibindo temporariamente o retrato de ' + fmtSnapshotDate(RAW.generated_at) + '.';
     });
     
     db.ref('pedidos').once('value', function(pedSnap) {
@@ -662,11 +690,12 @@ function loadFirebaseAndRun() {
         // Preprocess all raw data fields (setting up _d, _ymd, etc.)
         preprocessRawData();
 
-        // Produção/Pedidos são recarregados ao vivo do Firebase a cada load;
-        // Logística/OPs continuam presas ao retrato estático de RAW.generated_at
-        // (ver banners de aviso nessas duas abas) até existir uma integração real.
+        // Produção/Pedidos são recarregados ao vivo. Logística ganha a fonte
+        // atual assim que as duas leituras independentes acima chegam.
+        // OPs continua presa ao retrato porque mede arquivos antigos, informação
+        // que não existe no RTDB.
         if (subtitleEl) {
-          subtitleEl.textContent = 'Produção/Pedidos atualizados agora (' + new Date().toLocaleString('pt-BR') + ') · Logística/OPs: retrato de ' + fmtSnapshotDate(RAW.generated_at);
+          subtitleEl.textContent = 'Produção/Pedidos atualizados agora (' + new Date().toLocaleString('pt-BR') + ') · carregando Logística · OPs: retrato de ' + fmtSnapshotDate(RAW.generated_at);
         }
         var snapLog = document.getElementById('snapshot-date-logistica');
         var snapOps = document.getElementById('snapshot-date-ops');
