@@ -62,6 +62,13 @@ describe("P&D não mexe enquanto a amostra está com o cliente", () => {
   test("ADM passa (avanço administrativo)", () => {
     expect(bloqueioPdComCliente("WAITING_APPROVAL", { admin: true })).toBeNull();
   });
+  test("aprovada/concluída: ADM não passa; só o módulo Alterar aprovados", () => {
+    for (const s of ["APPROVED", "COMPLETED"]) {
+      expect(bloqueioPdComCliente(s, { admin: true })).toMatch(/Alterar aprovados/);
+      expect(bloqueioPdComCliente(s, { alterarAprovados: true })).toBeNull();
+    }
+    expect(bloqueioPdComCliente("WAITING_APPROVAL", { alterarAprovados: true })).toMatch(/com o cliente/);
+  });
 });
 
 describe("cards do quadro", () => {

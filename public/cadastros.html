@@ -5175,9 +5175,103 @@ document.addEventListener('DOMContentLoaded', function() {
   // 3 -- BOM e Especificação nunca tiveram esse conceito, e o usuário não
   // pediu pra criar um novo pros outros dois).
   function toggleRevisadoFormula(key) {
+    // Só em versão existente: em 08/11 o clique numa versão sem fórmula criou o "v2" fantasma da FBBS0004.
+    if (!allFormulas[key]) return;
     var revisado = (allFormulas[key] || {}).revisado !== false;
-    db.ref('formulas/' + key + '/revisado').set(!revisado)
+    gravarComponente('formulas', key, { revisado: !revisado }, 'Marcou a Fórmula como ' + (!revisado ? 'Revisado' : 'Pendente'))
       .catch(function(err) { showAlert('Erro ao atualizar revisão: ' + err.message, 'danger'); });
+  }
+
+  /* ── Trava do aprovado (08/11/2026, pedido do Marlos) ─────────────────
+     Depois de APROVADA, Fórmula/BOM/Especificação só mudam por quem tem o
+     módulo "Alterar aprovados" (Adlai, Gustavo Callegaro, Yasmim), que abre
+     a alteração com uma justificativa. Toda gravação numa versão aprovada
+     leva, no mesmo update, ultimaAlteracao (horário do servidor) e uma linha
+     em historicoAlteracoes (quem, quando, o quê, por quê) -- a regra do
+     banco recusa o que vier sem isso. A versão continua APROVADA. */
+  var alteracoesAbertas = {}; // 'tipo|key' -> { justificativa }
+  function podeAlterarAprovados() {
+    return Boolean(window.currentUser && window.currentUser.modulos && window.currentUser.modulos.alterar_aprovados === true);
+  }
+  function statusComponente(tipo, key) { return registroComponente(tipo, key).status || 'RASCUNHO'; }
+  function emAlteracao(tipo, key) { return Boolean(alteracoesAbertas[tipo + '|' + key]); }
+  function componenteEditavel(tipo, key) {
+    var st = statusComponente(tipo, key);
+    return st === 'RASCUNHO' || (st === 'APROVADA' && emAlteracao(tipo, key));
+  }
+  function pedirJustificativa(oQue) {
+    var j = prompt(oQue + '\n\nJustificativa (obrigatória, mínimo 10 letras). Fica no histórico com data, hora e o seu nome:');
+    if (j == null) return null;
+    j = j.trim();
+    if (j.length < 10) { showAlert('A justificativa precisa de pelo menos 10 letras.', 'danger'); return null; }
+    return j;
+  }
+  function rerenderVersao() { if (versaoAtual) selecionarVersao(versaoAtual); }
+  function abrirAlteracaoAprovada(tipo, key) {
+    if (!podeAlterarAprovados()) { showAlert('Só quem tem o módulo "Alterar aprovados" altera versão aprovada.', 'danger'); return; }
+    var j = pedirJustificativa('Alterar ' + APROVACAO_CONFIG[tipo].nome + ' APROVADA (' + key.replace('__', ' ') + ')?');
+    if (!j) return;
+    alteracoesAbertas[tipo + '|' + key] = { justificativa: j };
+    showAlert('Alteração aberta: cada mudança fica no histórico com esta justificativa. A versão continua APROVADA.', 'success');
+    rerenderVersao();
+  }
+  function concluirAlteracaoAprovada(tipo, key) {
+    delete alteracoesAbertas[tipo + '|' + key];
+    rerenderVersao();
+  }
+  // Carimbo da alteração em versão aprovada: devolve os caminhos a somar ao update.
+  function carimboAlteracao(tipo, key, descricao, justificativa, acao) {
+    var base = tipo + '/' + key + '/';
+    var id = db.ref().push().key;
+    var ts = firebase.database.ServerValue.TIMESTAMP;
+    var u = {};
+    u[base + 'ultimaAlteracao'] = { id: id, por: currentUserNome(), porUid: currentUserUid(), em_ms: ts, justificativa: justificativa };
+    u[base + 'historicoAlteracoes/' + id] = { em_ms: ts, em: new Date().toISOString(), por: currentUserNome(), porUid: currentUserUid(),
+      acao: acao || 'ALTERAR_APROVADA', descricao: descricao || '', justificativa: justificativa };
+    return u;
+  }
+  // Toda gravação num componente passa aqui. `rel`: caminhos relativos ao registro.
+  function gravarComponente(tipo, key, rel, descricao) {
+    var base = tipo + '/' + key + '/';
+    var u = {};
+    Object.keys(rel).forEach(function(k) { u[base + k] = rel[k]; });
+    if (statusComponente(tipo, key) === 'APROVADA') {
+      var a = alteracoesAbertas[tipo + '|' + key];
+      if (!a) return Promise.reject(new Error(APROVACAO_CONFIG[tipo].nome + ' aprovada: só quem tem "Alterar aprovados" muda, clicando em "Alterar aprovada" e justificando.'));
+      Object.assign(u, carimboAlteracao(tipo, key, descricao, a.justificativa));
+    }
+    return db.ref().update(u);
+  }
+  // Algum componente de alguma versão deste produto já foi aprovado?
+  function versaoAprovadaDoProduto() {
+    var out = null;
+    versoesDoProduto().forEach(function(v) {
+      if (out) return;
+      var k = chaveVersao(produtoSelecionadoKey, v.versao);
+      ['formulas', 'bom', 'especificacoes'].forEach(function(t) { if (!out && statusComponente(t, k) === 'APROVADA' && registroComponente(t, k).codProduto) out = { tipo: t, key: k, versao: v.versao }; });
+    });
+    return out;
+  }
+  // Nova versão de produto que já tem versão aprovada = alteração após aprovação.
+  function liberarNovaVersao(oQue) {
+    var ap = versaoAprovadaDoProduto();
+    if (!ap) return { ok: true, extra: {}, justificativa: null };
+    if (!podeAlterarAprovados()) {
+      showAlert('Este produto já tem versão aprovada (' + ap.versao + '): nova versão só por quem tem o módulo "Alterar aprovados" (Adlai, Gustavo Callegaro, Yasmim).', 'danger');
+      return { ok: false };
+    }
+    var j = pedirJustificativa(oQue + ' — o produto já tem a ' + ap.versao + ' aprovada.');
+    if (!j) return { ok: false };
+    return { ok: true, justificativa: j, extra: carimboAlteracao(ap.tipo, ap.key, oQue, j, 'NOVA_VERSAO') };
+  }
+  function historicoHtml(reg) {
+    var h = Object.values(reg.historicoAlteracoes || {}).sort(function(a, b) { return (b.em_ms || 0) - (a.em_ms || 0); });
+    if (!h.length) return '';
+    return ' <details class="hist-aprovada" style="display:inline-block;vertical-align:top"><summary class="field-hint" style="cursor:pointer">Histórico de alterações (' + h.length + ')</summary>' +
+      '<ul style="margin:6px 0 0;padding-left:18px;font-size:12.5px;max-width:640px">' + h.map(function(x) {
+        return '<li><b>' + escapeHtml(fmtData(x.em || (x.em_ms ? new Date(x.em_ms).toISOString() : ''))) + '</b> · ' + escapeHtml(x.por || '') +
+          (x.descricao ? ' — ' + escapeHtml(x.descricao) : '') + '<br><span class="field-hint">Justificativa: ' + escapeHtml(x.justificativa || '') + '</span></li>';
+      }).join('') + '</ul></details>';
   }
   function renderAcoesComponente(tipo, key) {
     var cfg = APROVACAO_CONFIG[tipo];
@@ -5189,11 +5283,12 @@ document.addEventListener('DOMContentLoaded', function() {
     var badgeClass = status === 'APROVADA' ? 'badge-aprovada' : (status === 'OBSOLETA' ? 'badge-obsoleta' : 'badge-rascunho');
     var html = '<span class="badge ' + badgeClass + '">' + escapeHtml(status) + '</span>';
 
-    if (tipo === 'formulas') {
+    if (tipo === 'formulas' && allFormulas[key]) {
       var revisado = reg.revisado !== false;
+      var clicavel = componenteEditavel(tipo, key);
       html += revisado
-        ? ' <span class="badge badge-green fv-toggle-revisado" style="cursor:pointer" title="Clique pra marcar como pendente">✓ Revisado</span>'
-        : ' <span class="badge badge-orange fv-toggle-revisado" style="cursor:pointer" title="Clique pra marcar como revisado">Pendente</span>';
+        ? ' <span class="badge badge-green' + (clicavel ? ' fv-toggle-revisado" style="cursor:pointer" title="Clique pra marcar como pendente"' : '"') + '>✓ Revisado</span>'
+        : ' <span class="badge badge-orange' + (clicavel ? ' fv-toggle-revisado" style="cursor:pointer" title="Clique pra marcar como revisado"' : '"') + '>Pendente</span>';
     }
 
     if (status === 'RASCUNHO') {
@@ -5206,9 +5301,20 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     } else if (status === 'APROVADA') {
       html += ' <span class="field-hint">' + cfg.rotulo1 + ': ' + escapeHtml((reg[cfg.campo1] || {}).nome || '') + ' · ' + cfg.rotulo2 + ': ' + escapeHtml((reg[cfg.campo2] || {}).nome || '') + ' em ' + fmtData(reg.dataAprovacao) + '</span>';
+      if (emAlteracao(tipo, key)) {
+        html += ' <span class="badge badge-orange" title="' + escapeAttr('Justificativa: ' + alteracoesAbertas[tipo + '|' + key].justificativa) + '">✎ Alterando (fica no histórico)</span>' +
+          ' <button type="button" class="btn btn-ghost btn-sm alt-fim" data-tipo="' + tipo + '">Concluir alteração</button>';
+      } else if (podeAlterarAprovados()) {
+        html += ' <button type="button" class="btn btn-ghost btn-sm alt-ini" data-tipo="' + tipo + '" title="Abre a edição desta versão aprovada com uma justificativa; ela continua APROVADA">✎ Alterar aprovada</button>';
+      } else {
+        html += ' <span class="field-hint" title="Depois de aprovada, só Adlai, Gustavo Callegaro e Yasmim (módulo Alterar aprovados) alteram, com justificativa">🔒 Travada</span>';
+      }
+      html += historicoHtml(reg);
     }
 
     el.innerHTML = html;
+    el.querySelectorAll('.alt-ini').forEach(function(btn) { btn.addEventListener('click', function() { abrirAlteracaoAprovada(btn.getAttribute('data-tipo'), key); }); });
+    el.querySelectorAll('.alt-fim').forEach(function(btn) { btn.addEventListener('click', function() { concluirAlteracaoAprovada(btn.getAttribute('data-tipo'), key); }); });
     el.querySelectorAll('.ac-btn').forEach(function(btn) {
       btn.addEventListener('click', function() { aprovarComponente(btn.getAttribute('data-tipo'), parseInt(btn.getAttribute('data-etapa'), 10)); });
     });
@@ -5240,7 +5346,7 @@ document.addEventListener('DOMContentLoaded', function() {
       bDel.addEventListener('click', excluirVersaoRascunho);
       el.appendChild(bDel);
     }
-    if (todasAprovadas) {
+    if (todasAprovadas && podeAlterarAprovados()) {
       var b3 = document.createElement('button');
       b3.className = 'btn btn-purple btn-sm';
       b3.textContent = '+ Nova versão a partir desta';
@@ -5296,6 +5402,8 @@ document.addEventListener('DOMContentLoaded', function() {
     var versoes = versoesDoProduto();
     var maxN = versoes.reduce(function(m, f) { return Math.max(m, parseVersaoNum(f.versao)); }, 0);
     var novaVersao = 'v' + (maxN + 1);
+    var lib = liberarNovaVersao('Criar a versão ' + novaVersao + ' em branco');
+    if (!lib.ok) return;
     var key = chaveVersao(produtoSelecionadoKey, novaVersao);
     var data = {
       codProduto: produtoSelecionadoKey,
@@ -5318,9 +5426,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // leitura que precisasse do campo (não da CHAVE) -- ex: "Usado em"
     // em Materiais. Cria os 3 juntos agora, mesmo formato.
     var updates = {};
+    var motivo = lib.justificativa ? { justificativa: lib.justificativa, por: currentUserNome(), porUid: currentUserUid(), em: new Date().toISOString() } : null;
+    data.motivoNovaVersao = motivo;
     updates['formulas/' + key] = data;
-    updates['bom/' + key] = { codProduto: produtoSelecionadoKey, versao: novaVersao, status: 'RASCUNHO', itens: {} };
-    updates['especificacoes/' + key] = { codProduto: produtoSelecionadoKey, versao: novaVersao, status: 'RASCUNHO', itens: {} };
+    updates['bom/' + key] = { codProduto: produtoSelecionadoKey, versao: novaVersao, status: 'RASCUNHO', itens: {}, motivoNovaVersao: motivo };
+    updates['especificacoes/' + key] = { codProduto: produtoSelecionadoKey, versao: novaVersao, status: 'RASCUNHO', itens: {}, motivoNovaVersao: motivo };
+    Object.assign(updates, lib.extra);
     db.ref().update(updates).then(function() {
       showAlert('Versão ' + novaVersao + ' criada (rascunho).', 'success');
     }).catch(function(err) { showAlert('Erro: ' + err.message, 'danger'); });
@@ -5337,6 +5448,9 @@ document.addEventListener('DOMContentLoaded', function() {
     var origemFormula = allFormulas[origemKey] || {};
     var origemBom = allBom[origemKey] || {};
     var origemEspec = allEspecificacoes[origemKey] || {};
+    var lib = liberarNovaVersao('Criar a versão ' + novaVersao + ' a partir da ' + origemVersao);
+    if (!lib.ok) return;
+    var motivo = lib.justificativa ? { justificativa: lib.justificativa, por: currentUserNome(), porUid: currentUserUid(), em: new Date().toISOString() } : null;
 
     var updates = {};
     updates['formulas/' + novaKey] = {
@@ -5348,10 +5462,11 @@ document.addEventListener('DOMContentLoaded', function() {
       // pedir ajuste manual em emitir_op.html até alguém remarcar.
       itemAjusteKey: origemFormula.itemAjusteKey || null,
       aprovadoPD: null, aprovadoQualidade: null, substituiVersao: origemVersao,
-      criadoPor: currentUserNome(), criadoEm: new Date().toISOString()
+      criadoPor: currentUserNome(), criadoEm: new Date().toISOString(), motivoNovaVersao: motivo
     };
-    updates['bom/' + novaKey] = { codProduto: produtoSelecionadoKey, versao: novaVersao, status: 'RASCUNHO', itens: origemBom.itens || {} };
-    updates['especificacoes/' + novaKey] = { codProduto: produtoSelecionadoKey, versao: novaVersao, status: 'RASCUNHO', itens: origemEspec.itens || {} };
+    updates['bom/' + novaKey] = { codProduto: produtoSelecionadoKey, versao: novaVersao, status: 'RASCUNHO', itens: origemBom.itens || {}, motivoNovaVersao: motivo };
+    updates['especificacoes/' + novaKey] = { codProduto: produtoSelecionadoKey, versao: novaVersao, status: 'RASCUNHO', itens: origemEspec.itens || {}, motivoNovaVersao: motivo };
+    Object.assign(updates, lib.extra);
 
     db.ref().update(updates).then(function() {
       showAlert('Versão ' + novaVersao + ' criada a partir de ' + origemVersao + '.', 'success');
@@ -5362,7 +5477,7 @@ document.addEventListener('DOMContentLoaded', function() {
   function renderFormulaTab(key, f) {
     var itens = f.itens || {};
     var tbody = document.getElementById('formulaBody-form');
-    var editavel = f.status === 'RASCUNHO';
+    var editavel = componenteEditavel('formulas', key); // rascunho, ou aprovada com alteração aberta (trava 08/11)
     var entries = Object.entries(itens);
     if (!entries.length) {
       tbody.innerHTML = '<tr><td colspan="6" class="no-data">Nenhum item na fórmula ainda.</td></tr>';
@@ -5394,7 +5509,7 @@ document.addEventListener('DOMContentLoaded', function() {
         hintEl.innerHTML = '💡 Sugestão de item de ajuste (QSP): <b>' + escapeHtml(sug[1].mpNome || sug[1].mpCodigo || '') + '</b> (' + fmtNum(sug[1].percentualMM || 0) + '%) — ' +
           '<button type="button" class="btn btn-ghost btn-sm" id="btnUsarSugestaoAjuste-form">Usar esta sugestão</button>';
         document.getElementById('btnUsarSugestaoAjuste-form').addEventListener('click', function() {
-          db.ref('formulas/' + key + '/itemAjusteKey').set(sug[0])
+          gravarComponente('formulas', key, { itemAjusteKey: sug[0] }, 'Item de ajuste (QSP): ' + (sug[1].mpNome || sug[1].mpCodigo || ''))
             .catch(function(err) { showAlert('Erro ao definir item de ajuste: ' + err.message, 'danger'); });
         });
       } else {
@@ -5407,7 +5522,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     removerBtn.style.display = (editavel && f.itemAjusteKey) ? 'inline-flex' : 'none';
     removerBtn.onclick = function() {
-      db.ref('formulas/' + key + '/itemAjusteKey').remove()
+      gravarComponente('formulas', key, { itemAjusteKey: null }, 'Removeu o item de ajuste (QSP)')
         .catch(function(err) { showAlert('Erro ao remover item de ajuste: ' + err.message, 'danger'); });
     };
   }
@@ -5511,7 +5626,7 @@ document.addEventListener('DOMContentLoaded', function() {
     wireMaterialBuscaForm('#formulaBody-form', 'f-mp-busca', 'f-mp', ['MPGR', 'MPES'], function(itemKey) { salvarItemFormula(formKey, itemKey); });
     document.querySelectorAll('#formulaBody-form .f-ajuste').forEach(function(el) {
       el.addEventListener('change', function() {
-        db.ref('formulas/' + formKey + '/itemAjusteKey').set(el.getAttribute('data-item'))
+        gravarComponente('formulas', formKey, { itemAjusteKey: el.getAttribute('data-item') }, 'Item de ajuste (QSP): ' + descreverItemFormula(formKey, el.getAttribute('data-item')))
           .catch(function(err) { showAlert('Erro ao definir item de ajuste: ' + err.message, 'danger'); });
       });
     });
@@ -5523,16 +5638,16 @@ document.addEventListener('DOMContentLoaded', function() {
         // era justamente a única sem nenhum tratamento de erro no arquivo --
         // falha silenciosa aqui (rede instável, permissão) some sem aviso.
         var updates = {};
-        updates['formulas/' + formKey + '/itens/' + itemKey] = null;
+        updates['itens/' + itemKey] = null;
+        updates.somaPercentual = somaSem(formKey, itemKey, null);
         // Remover o item marcado como ajuste (QSP) tem que limpar a marcação
         // junto -- senão fica um itemAjusteKey apontando pra um item que não
         // existe mais (recomputarItemAjuste em emitir_op.html ignora isso com
         // segurança, mas fica um dado órfão sem necessidade).
         if ((allFormulas[formKey] || {}).itemAjusteKey === itemKey) {
-          updates['formulas/' + formKey + '/itemAjusteKey'] = null;
+          updates.itemAjusteKey = null;
         }
-        db.ref().update(updates)
-          .then(recalcularSomaFormula.bind(null, formKey))
+        gravarComponente('formulas', formKey, updates, 'Removeu ' + descreverItemFormula(formKey, itemKey))
           .catch(function(err) { showAlert('Erro ao remover item da fórmula: ' + err.message, 'danger'); });
       });
     });
@@ -5581,16 +5696,23 @@ document.addEventListener('DOMContentLoaded', function() {
       data.textoOriginalGeradorOPs = itemAtual.textoOriginalGeradorOPs || null;
       data.sugestaoMatch = itemAtual.sugestaoMatch || null;
     }
-    db.ref('formulas/' + formKey + '/itens/' + itemKey).set(data)
-      .then(function() { recalcularSomaFormula(formKey); })
+    var rel = {};
+    rel['itens/' + itemKey] = data;
+    rel.somaPercentual = somaSem(formKey, itemKey, data); // soma no mesmo update (uma linha de histórico por mudança)
+    gravarComponente('formulas', formKey, rel, (itemAtual.mpCodigo ? 'Alterou ' : 'Definiu ') + (data.mpCodigo || '—') + ' ' + (data.mpNome || '') + ': ' + fmtNum(data.percentualMM) + '% fase ' + data.fase +
+      (itemAtual.mpCodigo && (itemAtual.mpCodigo !== data.mpCodigo || Number(itemAtual.percentualMM) !== data.percentualMM) ? ' (antes ' + itemAtual.mpCodigo + ' ' + fmtNum(itemAtual.percentualMM || 0) + '%)' : ''))
       .catch(function(err) { showAlert('Erro ao salvar item da fórmula: ' + err.message, 'danger'); });
   }
-  function recalcularSomaFormula(formKey) {
-    db.ref('formulas/' + formKey + '/itens').once('value').then(function(snap) {
-      var itens = snap.val() || {};
-      var soma = Object.values(itens).reduce(function(s, it) { return s + (parseFloat(it.percentualMM) || 0); }, 0);
-      return db.ref('formulas/' + formKey + '/somaPercentual').set(Math.round(soma * 1000) / 1000);
-    });
+  // Soma da fórmula com o item `itemKey` trocado por `novo` (null = removido), a partir do que está carregado.
+  function somaSem(formKey, itemKey, novo) {
+    var itens = Object.assign({}, (allFormulas[formKey] || {}).itens || {});
+    if (novo) itens[itemKey] = novo; else delete itens[itemKey];
+    var soma = Object.values(itens).reduce(function(s, it) { return s + (parseFloat(it.percentualMM) || 0); }, 0);
+    return Math.round(soma * 1000) / 1000;
+  }
+  function descreverItemFormula(formKey, itemKey) {
+    var it = (((allFormulas[formKey] || {}).itens) || {})[itemKey] || {};
+    return (it.mpCodigo || '—') + ' ' + (it.mpNome || '') + ' (' + fmtNum(it.percentualMM || 0) + '%)';
   }
   function atualizarSomaBar(f) {
     var soma = f.somaPercentual || 0;
@@ -5604,7 +5726,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var b = allBom[key] || { itens: {} };
     // Editável enquanto o BOM (não a Fórmula) estiver em rascunho -- cada
     // componente trava sozinho quando SUA PRÓPRIA aprovação conclui.
-    var editavel = (b.status || 'RASCUNHO') === 'RASCUNHO';
+    var editavel = componenteEditavel('bom', key); // rascunho, ou aprovado com alteração aberta (trava 08/11)
     var itens = b.itens || {};
     var tbody = document.getElementById('bomBody-form');
     var entries = Object.entries(itens);
@@ -5649,7 +5771,9 @@ document.addEventListener('DOMContentLoaded', function() {
     wireMaterialBuscaForm('#bomBody-form', 'b-mat-busca', 'b-mat', ['EP', 'ES', 'ET'], function(itemKey) { salvarItemBom(key, itemKey); });
     document.querySelectorAll('#bomBody-form .b-remove').forEach(function(btn) {
       btn.addEventListener('click', function() {
-        db.ref('bom/' + key + '/itens/' + btn.getAttribute('data-item')).remove()
+        var relB = {}; relB['itens/' + btn.getAttribute('data-item')] = null;
+        var itB = (((allBom[key] || {}).itens) || {})[btn.getAttribute('data-item')] || {};
+        gravarComponente('bom', key, relB, 'Removeu do BOM ' + (itB.materialCodigo || '—') + ' ' + (itB.materialNome || ''))
           .catch(function(err) { showAlert('Erro ao remover item do BOM: ' + err.message, 'danger'); });
       });
     });
@@ -5696,7 +5820,9 @@ document.addEventListener('DOMContentLoaded', function() {
       data.textoOriginalGeradorOPs = itemAtual.textoOriginalGeradorOPs || null;
       data.sugestaoMatch = itemAtual.sugestaoMatch || null;
     }
-    db.ref('bom/' + key + '/itens/' + itemKey).set(data)
+    var relB = {}; relB['itens/' + itemKey] = data;
+    gravarComponente('bom', key, relB, 'BOM: ' + (data.materialCodigo || '—') + ' ' + (data.materialNome || '') + ' = ' + (data.pecasPorUnidade ? '1 a cada ' + data.pecasPorUnidade + ' peças' : fmtNum(data.qtdPorPeca) + ' por peça') +
+      (itemAtual.materialCodigo ? ' (antes ' + itemAtual.materialCodigo + ' ' + (itemAtual.pecasPorUnidade ? '1/' + itemAtual.pecasPorUnidade : fmtNum(itemAtual.qtdPorPeca || 0)) + ')' : ''))
       .catch(function(err) { showAlert('Erro ao salvar item do BOM: ' + err.message, 'danger'); });
   }
 
@@ -5724,7 +5850,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Editável enquanto a Especificação (não a Fórmula) estiver em
     // rascunho -- cada componente trava sozinho quando SUA PRÓPRIA
     // aprovação conclui.
-    var editavel = (e.status || 'RASCUNHO') === 'RASCUNHO';
+    var editavel = componenteEditavel('especificacoes', key); // rascunho, ou aprovada com alteração aberta (trava 08/11)
     var itens = e.itens || {};
     var tbody = document.getElementById('especBody-form');
     var entries = Object.entries(itens);
@@ -5753,7 +5879,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     document.querySelectorAll('#especBody-form .e-remove').forEach(function(btn) {
       btn.addEventListener('click', function() {
-        db.ref('especificacoes/' + key + '/itens/' + btn.getAttribute('data-item')).remove()
+        var relE = {}; relE['itens/' + btn.getAttribute('data-item')] = null;
+        var itE = (((allEspecificacoes[key] || {}).itens) || {})[btn.getAttribute('data-item')] || {};
+        gravarComponente('especificacoes', key, relE, 'Removeu o ensaio ' + (itE.ensaio || '—'))
           .catch(function(err) { showAlert('Erro ao remover ensaio: ' + err.message, 'danger'); });
       });
     });
@@ -5767,14 +5895,18 @@ document.addEventListener('DOMContentLoaded', function() {
     if (critico && !minimo && !maximo) {
       showAlert('Ensaio crítico precisa ter faixa mínima ou máxima definida.', 'danger');
     }
-    db.ref('especificacoes/' + key + '/itens/' + itemKey).set({
+    var ensaio = {
       ensaio: row.querySelector('.e-ensaio').value.trim(),
       especificacaoTexto: row.querySelector('.e-texto').value.trim(),
       minimo: minimo,
       maximo: maximo,
       metodo: row.querySelector('.e-metodo').value.trim(),
       critico: critico
-    }).catch(function(err) { showAlert('Erro ao salvar ensaio: ' + err.message, 'danger'); });
+    };
+    var antesE = (((allEspecificacoes[key] || {}).itens) || {})[itemKey] || {};
+    var relE = {}; relE['itens/' + itemKey] = ensaio;
+    gravarComponente('especificacoes', key, relE, 'Ensaio ' + (ensaio.ensaio || '—') + ': ' + (minimo || '—') + ' a ' + (maximo || '—') + (ensaio.critico ? ' (crítico)' : '') +
+      (antesE.ensaio ? ' (antes ' + (antesE.minimo || '—') + ' a ' + (antesE.maximo || '—') + ')' : '')).catch(function(err) { showAlert('Erro ao salvar ensaio: ' + err.message, 'danger'); });
   }
 
   document.addEventListener('DOMContentLoaded', function() {
@@ -5793,15 +5925,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('btnAddFormulaItem-form').addEventListener('click', function() {
       var key = chaveVersao(produtoSelecionadoKey, versaoAtual);
-      db.ref('formulas/' + key + '/itens').push({ mpCodigo: '', mpNome: '', fase: 'A', ordemAdicao: 1, percentualMM: 0 });
+      var relF = {}; relF['itens/' + db.ref().push().key] = { mpCodigo: '', mpNome: '', fase: 'A', ordemAdicao: 1, percentualMM: 0 };
+      gravarComponente('formulas', key, relF, 'Adicionou uma linha na fórmula').catch(function(err) { showAlert('Erro: ' + err.message, 'danger'); });
     });
     document.getElementById('btnAddBomItem-form').addEventListener('click', function() {
       var key = chaveVersao(produtoSelecionadoKey, versaoAtual);
-      db.ref('bom/' + key + '/itens').push({ materialCodigo: '', materialNome: '', qtdPorPeca: 0, posicao: 1 });
+      var relB = {}; relB['itens/' + db.ref().push().key] = { materialCodigo: '', materialNome: '', qtdPorPeca: 0, posicao: 1 };
+      gravarComponente('bom', key, relB, 'Adicionou uma linha no BOM').catch(function(err) { showAlert('Erro: ' + err.message, 'danger'); });
     });
     document.getElementById('btnAddEspecItem-form').addEventListener('click', function() {
       var key = chaveVersao(produtoSelecionadoKey, versaoAtual);
-      db.ref('especificacoes/' + key + '/itens').push({ ensaio: '', especificacaoTexto: '', minimo: '', maximo: '', metodo: '', critico: false });
+      var relE = {}; relE['itens/' + db.ref().push().key] = { ensaio: '', especificacaoTexto: '', minimo: '', maximo: '', metodo: '', critico: false };
+      gravarComponente('especificacoes', key, relE, 'Adicionou um ensaio').catch(function(err) { showAlert('Erro: ' + err.message, 'danger'); });
     });
 
     document.addEventListener('click', function(e) {

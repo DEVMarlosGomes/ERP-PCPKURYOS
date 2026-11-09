@@ -2098,18 +2098,12 @@ function decidirGranel(decisao) {
       Object.assign(u, specNova.updates);
       u['ops/' + granelAtual.opKey + '/manipulacao/analise/especificacaoKey'] = specNova.chave;
     }
-  } else if (temEspecGranel()) {
-    // Especificação com ensaio sem faixa: a faixa digitada preenche a
-    // lacuna numa nova versão (usuário, 29/09: "gravando nas
-    // especificações"). O lote segue apontando para a versão com que foi
-    // analisado; a nova fica em especificacaoGerada.
-    specNova = AnaliseGranel.especificacaoComLacunas(granelAtual.espec, aval,
-      {agora: new Date().toISOString(), por: currentUserNome(), lote: granelAtual.op.lote || null});
-    if (specNova) {
-      Object.assign(u, specNova.updates);
-      u['ops/' + granelAtual.opKey + '/manipulacao/analise/especificacaoGerada'] = specNova.chave;
-    }
   }
+  // Trava do aprovado (08/11/2026): especificação com ensaio sem faixa NÃO gera
+  // mais versão nova sozinha (foi o que criou a v2 da FBBS0004 em 03/11). A
+  // faixa digitada fica só nesta análise (analise/ensaios); mudar a
+  // especificação aprovada é com quem tem "Alterar aprovados", no Cadastros,
+  // com justificativa e histórico.
   var op = granelAtual.op;
   var rncCorrecao = Manipulacao.ehCorrecao(op.manipulacao) ? ((op.manipulacao.correcao || {}).rncNumero || null) : null;
   decidindoGranel = true;

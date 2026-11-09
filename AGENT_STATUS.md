@@ -7,17 +7,16 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ### Claude — Trava de fórmulas aprovadas e P&D concluído (08/11/2026)
 
-- **Em andamento (pedido do Marlos):** após aprovação/conclusão, só quem tem o módulo
-  novo "Alterar aprovados" (Adlai, Gustavo Callegaro, Yasmim) altera Fórmula/BOM/
-  Especificação aprovadas e fórmulas travadas do P&D, sempre com justificativa e
-  histórico (data/hora/autor). Nova versão de produto aprovado também só por eles.
-  Granel para de gerar versão de especificação aprovada. Dados já corrigidos:
-  MRARHD03 v1 linha 5 = ALCALIN (segue APROVADA); FBBS0004 v2 removida (v1 3/3).
-  **Arquivos ativos:** `database.rules.json` (nós formulas/bom/especificacoes),
-  `public/cadastros.html`, `public/qualidade.html`, `public/auth_check.js` (registro
-  do módulo), `functions/identidade_acesso.js` (lista de módulos),
-  `crm-frontend/src/lib/firebaseApi.js` (fórmulas P&D), `crm-frontend/src/pages/PDDetail.js`,
-  testes novos e build `public/static/crm`.
+- **Concluído:** Fórmula/BOM/Especificação APROVADA só muda por quem tem o módulo
+  "Alterar aprovados" (`modulos/alterar_aprovados`), com justificativa ≥10, `ultimaAlteracao`
+  em horário do servidor e linha em `historicoAlteracoes` no mesmo update (regra do banco);
+  nova versão de produto já aprovado idem. Granel não gera mais versão de especificação.
+  P&D: solicitação APROVADA/CONCLUÍDA trava a bancada até para o ADM; com o módulo libera e
+  cada escrita grava `pd_requests/{id}/alteracoes_aprovado` (data, autor, rota). Testes: regras
+  no emulador 5 passos, UI da trava, Manipulação, crítico P&D, CRM 495, navegação 39, Hostinger 25.
+  **Pendente (Marlos):** publicar regras (`firebase deploy --only database --project erpkuryos`),
+  marcar o módulo em Adlai/Gustavo Callegaro/Yasmim no `usuarios.html` e deploy da VPS.
+  Arquivos ativos: nenhum (Codex pode retomar `PDDetail.js`/`firebaseApi.js`).
 
 ### Claude — Lote de amostras conclui direto na Manipulação (08/11/2026)
 
@@ -41,6 +40,49 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   encerrada" quando `security_sessions/{uid}/revokedAfter` ≥ `auth_time`
   (`run_sessao_encerrada_ui_test.js`). **Deploy da VPS pendente.** Arquivos
   ativos: nenhum.
+
+### Codex — resultados da Manipulação e etapa da Qualidade (06/11/2026)
+
+- **Em investigação:** auditar em produção, somente leitura, o envio dos resultados
+  da manipulação em lote e a passagem das amostras para Em Testes/Qualidade; depois
+  reproduzir com fixtures e corrigir o ponto confirmado. Escopo inicialmente reservado:
+  `crm-frontend/src/components/ManipulacaoLote/OrdemLote.js`,
+  `crm-frontend/src/lib/manipulacaoLoteRotas.js`, `functions/manipulacao_lote.js` e
+  testes específicos. A tela legada `public/qualidade.html` permanece somente leitura
+  até a auditoria demonstrar relação com a falha. Nenhum lote real será alterado.
+- **Diagnóstico confirmado em 08/11:** a etapa real é P&D › Testes/Estabilidade,
+  não `qualidade.html`. O banco aceita o papel `qualidade`, mas `PDDetail.js` entrega
+  `canEdit=false` a `TestsTab` e `StabilityGridPanel` porque só reconhece
+  admin/gestor/formulador/líder P&D/engenharia. Nas três amostras A5 do lote 041,
+  duas seguem sem resultado; a terceira tem `pd_lab_results` sem campos técnicos
+  (apenas metadado/tenant), embora possua estudo e 5 leituras. Também foi confirmado
+  que `TestsTab` não zera o formulário ao trocar para uma amostra sem resultado e
+  esconde a mensagem real de falha. **Coordenação:** `PDDetail.js`, `firebaseApi.js`
+  e o build estão reservados pelo Claude na trava de fórmulas; não editar nem
+  publicar esses arquivos até ele liberar. Assim que liberados, aplicar permissão
+  restrita a Testes/Estabilidade para `qualidade|qa`, reset seguro e erro detalhado,
+  sem conceder edição de fórmula/BOM.
+- **Dashboard em correção independente:** a fotografia atual confirma em 03/11
+  `21.038` unidades no Dashboard Análise contra `8.803` no Diário: os `12.235`
+  excedentes são Rotulagem 01/02 e Celofane. Reservados
+  `public/dashboard_analise.html` e `run_dashboard_analise_envase_test.js` para
+  aplicar a mesma classificação de Envase já usada no Diário a todos os KPIs
+  de produção; sem tocar dados nem arquivos ativos do Claude.
+- **Pedidos em correção independente:** a própria fonte confirma que os quatro
+  cards usam `allPedidos` mesmo depois de montar `list` com busca/status/linha/
+  conferência; Pedidos Comerciais também mantém `ids.length` e categorias de
+  fora do filtro. Reservados `public/pedidos.html`,
+  `public/shared/pedidos-kpis.js` e `run_pedidos_kpis_filtro_test.js` para
+  restaurar o consolidado dinâmico conforme todos os filtros visíveis;
+  o teste UI histórico permaneceu intacto porque já possui uma flutuação não
+  relacionada na data de entrega.
+- **Vibe Coding Toolkit — adoção compatível:** fonte fixada na revisão
+  `7ef68dd7`; não existe `SKILL.md`, então não foi simulada instalação como skill.
+  Reservados somente `README.md`, `PRODUCT.md`, `.graphifyignore` e
+  `docs/{architecture,design,onboarding,quality,setup}.md`. A documentação mapeia
+  o stack Firebase/Vite real, preserva AGENTS/CLAUDE e registra como não aplicáveis
+  Next/Drizzle/PostgreSQL/shadcn; nenhum pacote global, conta, serviço ou deploy
+  foi alterado.
 
 ### Codex — rollback emergencial do login (06/11/2026)
 

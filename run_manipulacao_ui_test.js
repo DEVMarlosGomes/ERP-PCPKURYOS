@@ -532,13 +532,12 @@ async function campo(page, seletor, valor) {
     assert.deepEqual([e3.minimo, e3.maximo, e3.faixaNova, e3.faixaAlterada, e3.cnc], [0.85, 0.95, true, false, 'C'], 'faixa nova registrada');
     assert.equal(dbCq.ops['26260-01'].manipulacao.analise.ensaios.e2.faixaAlterada, true, 'pH ajustado fica só no lote');
     assert.equal(dbCq.ops['26260-01'].manipulacao.analise.ensaios.e1.na, false);
-    const v2 = dbCq.especificacoes.MRARBS04__v2;
-    assert.ok(v2, 'lacuna de faixa gravada numa nova versão da especificação');
-    assert.deepEqual([v2.itens.e3.minimo, v2.itens.e3.maximo, v2.baseadaEm, v2.faixasPreenchidas], [0.85, 0.95, 'MRARBS04__v1', ['DENSIDADE']]);
-    assert.deepEqual([v2.itens.e2.minimo, v2.itens.e2.maximo], [5, 7], 'o ajuste do pH no lote não vai para a especificação');
-    assert.equal(dbCq.especificacoes.MRARBS04__v1.itens.e3.minimo, undefined, 'a versão anterior fica intacta');
+    // Trava do aprovado (08/11/2026): a faixa da lacuna fica SÓ no lote; a especificação aprovada não ganha
+    // versão nova sozinha (foi o que criou a v2 da FBBS0004). Quem muda especificação aprovada é o Cadastros.
+    assert.equal(dbCq.especificacoes.MRARBS04__v2, undefined, 'sem versão nova automática da especificação');
+    assert.equal(dbCq.especificacoes.MRARBS04__v1.itens.e3.minimo, undefined, 'a versão aprovada fica intacta');
     assert.equal(dbCq.ops['26260-01'].manipulacao.analise.especificacaoKey, 'MRARBS04__v1', 'o lote aponta para a versão com que foi analisado');
-    assert.equal(dbCq.ops['26260-01'].manipulacao.analise.especificacaoGerada, 'MRARBS04__v2');
+    assert.equal(dbCq.ops['26260-01'].manipulacao.analise.especificacaoGerada, undefined);
     assert.ok(!avisosCq.some((m) => /densidade do bulk não foi apontada/.test(m)), 'com densidade, não pergunta');
     assert.deepEqual(cq.errors, [], 'erros na tela da Qualidade: ' + cq.errors.join(' | '));
     await cq.page.close();

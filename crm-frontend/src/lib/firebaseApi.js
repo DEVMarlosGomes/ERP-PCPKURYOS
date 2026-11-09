@@ -29,7 +29,7 @@ import {
   EVENTO_RETRABALHO, PD_FECHADO, SOLICITANTES, entradaRetrabalhos, marcaDesatualizado, validarPedidoRetrabalho, variacaoEmRetrabalho,
 } from "@/lib/retrabalhoAprovada";
 import { TRECHO_AMOSTRA, etapaPelaAmostra, passosAte } from "@/lib/etapaPelaAmostra";
-import { bloqueioPdComCliente, cardParaSolicitacao, cardsVisiveis, entradaHistoricoSync, rotaDeBancada, statusComercialPeloPd, statusPeloRetornoDoCliente } from "@/lib/pdCards";
+import { STATUS_APROVADO_PD, bloqueioPdComCliente, cardParaSolicitacao, cardsVisiveis, entradaHistoricoSync, rotaDeBancada, statusComercialPeloPd, statusPeloRetornoDoCliente } from "@/lib/pdCards";
 import {
   anoDe, caminhoContadorProjeto, codigoVariacao, formatarNumeroProjeto, numeroAmostra, proximoIndiceAmostra, sequenciaDoNumero,
 } from "@/lib/numeracaoProjeto";
@@ -1393,8 +1393,17 @@ async function dispatch(e, t) {
     const bancada = ["POST", "PUT", "DELETE"].includes(e) ? rotaDeBancada(e, S) : null;
     if (bancada) {
       const pedido = await pdBancadaRequest(_, bancada);
-      const trava = pedido && bloqueioPdComCliente(pedido.status, { admin: isAdmin(u) });
+      const alterarAprovados = u?.modulos?.alterar_aprovados === true;
+      const trava = pedido && bloqueioPdComCliente(pedido.status, { admin: isAdmin(u), alterarAprovados });
       if (trava) throw apiError(423, trava);
+      // Trava do aprovado (08/11/2026): mudança na bancada de solicitação aprovada/concluída fica no histórico dela.
+      if (pedido && STATUS_APROVADO_PD.has(pedido.status)) {
+        const id = `alt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        await patch(_, "pd_requests", pedido.id, { alteracoes_aprovado: { ...(pedido.alteracoes_aprovado || {}), [id]: {
+          em: now(), por: pdUserName(u), por_uid: firebaseAuth.currentUser?.uid || null, metodo: e, rota: S,
+          justificativa: String(r?.justification || r?.justificativa || "").trim() || null, status_solicitacao: pedido.status,
+        } } });
+      }
     }
   }
   {

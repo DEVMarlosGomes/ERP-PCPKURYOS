@@ -261,8 +261,10 @@ export default function PDDetail() {
   const { request: req, development: dev, formulas, tests, samples, approval, costs, documents, history, client_info, formula_cost_data, cost_versions, lab_results, updates, pending } = data;
   // Fase 2.1: com a amostra no cliente (ou aprovada) a bancada fica só leitura; o adaptador também recusa.
   const travaCliente = bloqueioPdComCliente(req.status);
-  const admPassa = Boolean(travaCliente && isAdmin(authUser));
-  const canEditBancada = Boolean(canEdit && (!travaCliente || admPassa));
+  // Trava do aprovado (08/11/2026): aprovada/concluída só o módulo "Alterar aprovados" destrava (o adaptador confere).
+  const admPassa = Boolean(travaCliente && !bloqueioPdComCliente(req.status, { admin: isAdmin(authUser), alterarAprovados: authUser?.modulos?.alterar_aprovados === true }));
+  const alteraAprovado = Boolean(authUser?.modulos?.alterar_aprovados === true && ["APPROVED", "COMPLETED"].includes(req.status));
+  const canEditBancada = Boolean((canEdit || alteraAprovado) && (!travaCliente || admPassa));
   const statusConfig = STATUS_CONFIG[req.status] || { label: req.status, color: "bg-gray-500/10 text-gray-600 border-gray-200", dotColor: "bg-gray-400" };
   const allowedNext = ALLOWED_TRANSITIONS[req.status] || [];
   const hasDev = !!dev;
@@ -524,7 +526,7 @@ export default function PDDetail() {
         {travaCliente && (
           <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-300" data-testid="pd-trava-cliente">
             {travaCliente}
-            {admPassa && <span className="block mt-1 text-xs opacity-80">Como ADM você pode editar mesmo assim (avanço administrativo).</span>}
+            {admPassa && <span className="block mt-1 text-xs opacity-80">{alteraAprovado ? "Você tem o módulo \"Alterar aprovados\": pode editar, e cada mudança fica no histórico da solicitação com data, hora e o seu nome." : "Como ADM você pode editar mesmo assim (avanço administrativo)."}</span>}
           </div>
         )}
         {/* Tabs */}

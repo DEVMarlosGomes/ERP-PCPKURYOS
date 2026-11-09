@@ -316,6 +316,12 @@ const KURYOS_MODULOS = {
   // Manipulação em lote do P&D (D-02/A2): aprovar a mudança de ingrediente crítico (criticoPd) de outra
   // pessoa. Sem tela própria; fora de MODULOS_POR_PAPEL: só o ADM marca (a callable confere de novo).
   aprovar_critico_pd: { rotulo: 'Aprovar crítico P&D', desc: 'Aprovar, na manipulação em lote, a mudança de ingrediente crítico feita por outra pessoa (RT)',
+                  paginas: [] },
+  // Trava do aprovado (08/11/2026, pedido do Marlos): depois de aprovada/concluída, Fórmula/BOM/
+  // Especificação (Cadastros) e fórmula travada do P&D só mudam — ou ganham versão nova — por quem tem
+  // este módulo, sempre com justificativa e histórico. Sem tela própria; fora de MODULOS_POR_PAPEL:
+  // nem o ADM ganha sozinho (as regras do banco e a API conferem). Padrão: Adlai, Gustavo Callegaro, Yasmim.
+  alterar_aprovados: { rotulo: 'Alterar aprovados', desc: 'Alterar fórmula/BOM/especificação aprovada e fórmula travada do P&D (com justificativa e histórico)',
                   paginas: [] }
 };
 

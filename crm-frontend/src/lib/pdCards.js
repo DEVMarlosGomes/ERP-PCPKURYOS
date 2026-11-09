@@ -58,7 +58,15 @@ const TRAVADO = {
   COMPLETED: "Desenvolvimento concluído: a fórmula segue para o Kickoff. Mudança agora só por retrabalho pedido pelo Comercial.",
 };
 
-export function bloqueioPdComCliente(statusSolicitacao, { admin = false } = {}) {
+// Trava do aprovado (08/11/2026): depois de APROVADA/CONCLUÍDA, nem o ADM passa
+// sozinho -- só quem tem o módulo "Alterar aprovados" (Adlai, Gustavo Callegaro,
+// Yasmim), e a alteração fica no histórico da solicitação (alteracoes_aprovado).
+export const STATUS_APROVADO_PD = new Set(["APPROVED", "COMPLETED"]);
+export function bloqueioPdComCliente(statusSolicitacao, { admin = false, alterarAprovados = false } = {}) {
+  if (STATUS_APROVADO_PD.has(statusSolicitacao)) {
+    if (alterarAprovados) return null;
+    return TRAVADO[statusSolicitacao] + " Depois de aprovada, só quem tem o módulo \"Alterar aprovados\" altera (fica no histórico).";
+  }
   if (admin) return null;
   return TRAVADO[statusSolicitacao] || null;
 }
