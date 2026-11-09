@@ -1,17 +1,24 @@
 'use strict';
 /* GAP-02 no servidor: receberDevolucaoCliente (functions/index.js) contra o
    emulador de banco, e as regras novas de devolucoes_cliente.
-     firebase emulators:exec --only database --config firebase.retrabalhos-test.json --project demo-operacao "node run_devolucao_cliente_server_test.js" */
+     firebase emulators:exec --only database --config firebase.retrabalhos-test.json --project demo-operacao "node run_devolucao_cliente_server_test.js"
+   Com a 9023 ocupada, use firebase.trava-test.json (porta 9073): mesmas regras. */
 const assert = require('assert/strict');
-if (process.env.FIREBASE_DATABASE_EMULATOR_HOST !== '127.0.0.1:9023') throw new Error('Teste exige emulador local 9023.');
+// O emulators:exec define o host; qualquer porta serve (a 9023 pode estar ocupada por outro emulador).
+const HOST = process.env.FIREBASE_DATABASE_EMULATOR_HOST;
+if (!/^(127\.0\.0\.1|localhost):\d+$/.test(HOST || '')) throw new Error('Teste exige o emulador local (rode pelo firebase emulators:exec do cabeçalho).');
 const NS = 'demo-operacao-default-rtdb'; // as regras do config só valem no namespace do projeto
-const URL = 'http://127.0.0.1:9023?ns=' + NS;
+const URL = 'http://' + HOST + '?ns=' + NS;
 process.env.FIREBASE_CONFIG = JSON.stringify({projectId: 'demo-operacao', databaseURL: URL});
 process.env.GCLOUD_PROJECT = 'demo-operacao';
 const fn = require('./functions/index.js');
-const admin = require('./functions/node_modules/firebase-admin');
-const raiz = admin.apps.find(a => a && a.name === '[DEFAULT]') || admin.initializeApp({projectId: 'demo-operacao', databaseURL: URL});
-const como = uid => admin.initializeApp({projectId: 'demo-operacao', databaseURL: URL, databaseAuthVariableOverride: {uid}}, 'u-' + uid).database();
+// firebase-admin 14 não expõe mais admin.apps / app.database() na importação raiz: API modular.
+const reqFn = require('node:module').createRequire(require('node:path').resolve('functions/package.json'));
+const {getApps, initializeApp} = reqFn('firebase-admin/app');
+const {getDatabase} = reqFn('firebase-admin/database');
+const appRaiz = getApps().find(a => a && a.name === '[DEFAULT]') || initializeApp({projectId: 'demo-operacao', databaseURL: URL});
+const raiz = {database: () => getDatabase(appRaiz)};
+const como = uid => getDatabase(initializeApp({projectId: 'demo-operacao', databaseURL: URL, databaseAuthVariableOverride: {uid}}, 'u-' + uid));
 
 const dev = {numero: 'DEV-2026-001', status: 'AUTORIZADA', pedidoComercialId: 'PED-0002', cliente: 'MISS RÔSE', cargaKey: 'exp_A',
   motivoTipo: 'AVARIA_TRANSPORTE', motivo: 'Caixas amassadas', totalAutorizado: 120,

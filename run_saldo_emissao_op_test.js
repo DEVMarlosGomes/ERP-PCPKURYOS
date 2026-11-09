@@ -24,10 +24,16 @@ const estoque = {
 };
 
 // ── Saldo do dono certo ─────────────────────────────────────────────────
-deq(S.saldoParaOp(estoque['EP-1'], null), {registrado: true, total: 1000, geral: 300, parteCliente: 0, disponivel: 300, unidade: 'un'}, 'OP sem cliente: só o geral (total − partes)');
-deq(S.saldoParaOp(estoque['EP-1'], 'MR'), {registrado: true, total: 1000, geral: 300, parteCliente: 600, disponivel: 900, unidade: 'un'}, 'OP do cliente MR: geral + a parte dele');
+deq(S.saldoParaOp(estoque['EP-1'], null), {registrado: true, total: 1000, geral: 300, parteCliente: 0, empenhado: 0, disponivel: 300, unidade: 'un'}, 'OP sem cliente: só o geral (total − partes)');
+deq(S.saldoParaOp(estoque['EP-1'], 'MR'), {registrado: true, total: 1000, geral: 300, parteCliente: 600, empenhado: 0, disponivel: 900, unidade: 'un'}, 'OP do cliente MR: geral + a parte dele');
+// 563ade1: OP emitida empenha saldo; o empenhado sai do disponível (nunca abaixo de zero).
+deq(S.saldoParaOp(Object.assign({}, estoque['EP-1'], {saldoEmpenhado: 250}), 'MR').disponivel, 650, 'empenho de OPs emitidas reduz o disponível');
+deq(S.saldoParaOp(Object.assign({}, estoque['EP-1'], {saldoEmpenhado: 5000}), null).disponivel, 0, 'empenho maior que o saldo não deixa disponível negativo');
 eq(S.saldoParaOp(estoque['EP-1'], 'XX').disponivel, 400, 'cliente XX não usa a parte do MR');
-eq(S.saldoParaOp({saldoAtual: 100, porCliente: {MR: {saldoAtual: 150}}}, 'XX').disponivel, -50, 'geral negativo (material de cliente usado por outro) aparece');
+// Desde 563ade1 o disponível para em zero (igual a functions/emissao_op.js:availableForOrder);
+// o geral negativo (material de cliente usado por outro) continua à vista no campo `geral`.
+eq(S.saldoParaOp({saldoAtual: 100, porCliente: {MR: {saldoAtual: 150}}}, 'XX').geral, -50, 'geral negativo (material de cliente usado por outro) aparece');
+eq(S.saldoParaOp({saldoAtual: 100, porCliente: {MR: {saldoAtual: 150}}}, 'XX').disponivel, 0, 'disponível não fica negativo');
 eq(S.saldoParaOp(null, 'MR').registrado, false, 'sem registro: saldo 0, não registrado');
 eq(S.registroEstoque('ES-9', estoque).saldoAtual, 5, 'acha o registro pelo materialCodigo');
 ok(S.semControle('MPGR-AGUA', materiais), 'controlaEstoque=false: sem controle');

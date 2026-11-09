@@ -134,6 +134,12 @@ function materialPorNome(db, nome) { return Object.values(db.materiais).find((m)
     const {page, errors} = await abrir(browser, dados(), 'cadastros.html?tab=materiais');
     await page.waitForSelector('#solicitacoesCadastro-mat .btn-cadastrar-solic-mat');
 
+    // 0. A fila já mostra INCI e fornecedor (casado com o cadastro) sem abrir a tarefa.
+    const fila = await page.locator('#solicitacoesCadastro-mat').innerText();
+    assert.match(fila, /INCI: Bixa Orellana Seed Extract · Fornecedor: Lunagreen → LUNAGREEN BIOATIVOS/);
+    assert.match(fila, /INCI: não informado no P&D · Fornecedor: Hope \(não cadastrado\)/);
+    assert.match(fila, /Fornecedor: TC \(mais de um cadastro: escolher\)/);
+
     // 1. MP Geral com fornecedor cadastrado por outro nome: entra na lista de homologados, com o custo do P&D.
     await abrirTarefa(page, 'URU');
     assert.equal(await page.inputValue('#fInci-mat'), 'BIXA ORELLANA SEED EXTRACT', 'INCI veio do P&D');

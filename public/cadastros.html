@@ -1823,6 +1823,18 @@ document.addEventListener('DOMContentLoaded', function() {
   var indiceMat = {}; // CAD-01: materiais_chave (tipo|NOME → material), regra do banco recusa duplicata
   var solicitacaoMatEmCurso = null;
 
+  // Fornecedores de matéria-prima ativos (mesmo filtro de refreshFhFornecedorOptions para MPGR/MPES).
+  function fornecedoresDeMp() {
+    var out = {};
+    Object.keys(allFornecedores || {}).forEach(function(k) {
+      var f = allFornecedores[k] || {};
+      var tipos = tiposFornecedor(f);
+      if (f.ativo === false || (tipos.length && tipos.indexOf('mp') === -1)) return;
+      out[k] = f;
+    });
+    return out;
+  }
+
   function renderSolicitacoesMat() {
     var box = document.getElementById('solicitacoesCadastro-mat');
     if (!box) return;
@@ -1843,7 +1855,19 @@ document.addEventListener('DOMContentLoaded', function() {
             (t.marca ? '<span class="badge" style="background:' + (t.amostra_em_desenvolvimento ? '#fef3c7;color:#92400e' : '#dcfce7;color:#166534') + '">' + escapeHtml(t.marca) + '</span>' : '') +
             '<span style="color:var(--muted)">' + escapeHtml([o.projetoNumero, o.projeto].filter(Boolean).join(' ') || '—') +
               (o.amostra ? ' · amostra ' + escapeHtml(o.amostra) : '') + (o.cliente ? ' · ' + escapeHtml(o.cliente) : '') +
-              (t.fornecedor ? ' · fornecedor ' + escapeHtml(t.fornecedor) : '') + '</span>' +
+              '</span>' +
+            // 09/11/2026: o que o P&D mandou já à vista na fila (antes só aparecia ao abrir).
+            (function() {
+              var c = IngredienteCampos.camposDaSolicitacao(t);
+              var partes = ['<b>INCI:</b> ' + (c.inci ? escapeHtml(c.inci) : '<span style="color:#b45309">não informado no P&D</span>')];
+              if (c.fornecedor) {
+                var r = IngredienteCampos.fornecedorDoPd(c.fornecedor, fornecedoresDeMp());
+                var nomeCad = r.key ? ((allFornecedores[r.key] || {}).nomeFantasia || (allFornecedores[r.key] || {}).razaoSocial) : '';
+                partes.push('<b>Fornecedor:</b> ' + escapeHtml(c.fornecedor) + (nomeCad ? ' → ' + escapeHtml(nomeCad)
+                  : ' <span style="color:#b45309">' + (r.candidatos.length ? '(mais de um cadastro: escolher)' : '(não cadastrado)') + '</span>'));
+              } else partes.push('<b>Fornecedor:</b> <span style="color:#b45309">não informado no P&D</span>');
+              return '<span class="solic-mat-pd" style="font-size:12px">' + partes.join(' · ') + '</span>';
+            })() +
             (function() {
               // CAD-01: já avisa na fila quando existe material igual (abrir a tarefa mostra "Vincular").
               var dup = DuplicidadeMaterial.duplicataExata(DuplicidadeMaterial.candidatos({ tipo: t.tipo, nome: t.nome, inci: t.inci }, allMateriais));
@@ -2999,6 +3023,7 @@ document.addEventListener('DOMContentLoaded', function() {
       allFornecedores = snap.val() || {};
       refreshFhFornecedorOptions();
       renderTable();
+      renderSolicitacoesMat(); // a fila mostra o fornecedor do P&D já casado com o cadastro
     });
     dbOnValue(db.ref('formulas'), function(snap) {
       allFormulasMat = snap.val() || {};

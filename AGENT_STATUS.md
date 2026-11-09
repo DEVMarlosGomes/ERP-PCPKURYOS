@@ -16,6 +16,10 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   entra na lista de homologados (aguardando) e o nome livre casa com o cadastro
   (`IngredienteCampos.fornecedorDoPd`), com aviso quando não acha ou acha mais de um.
   **Pendente (Marlos):** deploy da VPS. Arquivos ativos: nenhum.
+- **Complemento (09/11 noite):** a fila de MP nova no Cadastros mostra INCI e fornecedor do P&D já casado
+  com o cadastro (antes só ao abrir a tarefa). Três testes antigos consertados: saldo na emissão (campo
+  `empenhado` de 563ade1), contagem de funções do Render (30 callables desde 788edf5) e devolução no
+  emulador (firebase-admin 14 sem `admin.apps`; aceita qualquer porta, a 9023 tem emulador órfão de 05/11).
 
 ### Claude — Amostras duplicadas no P&D pela sincronização de 08/11 (09/11/2026)
 
