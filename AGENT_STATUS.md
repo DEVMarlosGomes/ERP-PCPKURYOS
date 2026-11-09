@@ -5,6 +5,17 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Amostras duplicadas no P&D pela sincronização de 08/11 (09/11/2026)
+
+- **Código concluído:** o botão ADM "Sincronizar amostras com o P&D" (`/crm/samples/sync-missing-pd-cards`)
+  criou em 08/11 17:10 96 solicitações OPEN vazias para variações migradas do Mongo que já tinham
+  solicitação (ligada só por `crm_variacao_id`) ou card legado; as duas disputavam o espelho e a
+  variação oscilava solicitada/enviada a cada abertura. Agora o botão liga o que existe antes de criar
+  (`crm-frontend/src/lib/vinculoAmostrasPd.js`, 8 testes; emulador 2). **Dados ainda não corrigidos:**
+  `scripts/correcao-amostras-duplicadas-20261108.js` gera o update (91 religadas à original, 5 voltam ao
+  status do card legado; 985 caminhos planos); gravação em produção bloqueada pelo classificador.
+  Não clicar no botão antes do deploy da VPS. Arquivos ativos: nenhum.
+
 ### Claude — Card do cliente ↔ Cadastros e KPIs faltantes (08/11/2026)
 
 - **Concluído:** card do cliente (CRM1) e `clientes/` (Cadastros) são o mesmo registro nos dois sentidos:

@@ -31,6 +31,7 @@ import {
 } from "@/lib/retrabalhoAprovada";
 import { TRECHO_AMOSTRA, etapaPelaAmostra, passosAte } from "@/lib/etapaPelaAmostra";
 import { STATUS_APROVADO_PD, bloqueioPdComCliente, cardParaSolicitacao, cardsVisiveis, entradaHistoricoSync, rotaDeBancada, statusComercialPeloPd, statusPeloRetornoDoCliente } from "@/lib/pdCards";
+import { planoVinculoAmostrasPd } from "@/lib/vinculoAmostrasPd";
 import {
   anoDe, caminhoContadorProjeto, codigoVariacao, formatarNumeroProjeto, numeroAmostra, proximoIndiceAmostra, sequenciaDoNumero,
 } from "@/lib/numeracaoProjeto";
@@ -864,7 +865,8 @@ async function pdFullDetail(e, t) {
   };
 }
 
-async function createPdFlow(e, t, a, r, i, o) {
+// opts (09/11/2026): status inicial e card legado (Mongo) a reaproveitar em vez de criar outro.
+async function createPdFlow(e, t, a, r, i, o, opts = {}) {
   var s;
   const d = id(),
     c = id(),
@@ -884,7 +886,7 @@ async function createPdFlow(e, t, a, r, i, o) {
       references: t.referencia_formula || (null === r || void 0 === r ? void 0 : r.referencia_mercado) || "",
       restrictions: Array.isArray(null === r || void 0 === r ? void 0 : r.restricoes_tecnicas) ? r.restricoes_tecnicas.join(", ") : "",
       deadline: t.prazo_entrega_cliente || (null === r || void 0 === r ? void 0 : r.prazo_desejado_amostra) || "",
-      status: "OPEN",
+      status: opts.status || "OPEN",
       priority: t.prioridade || "Normal",
       request_type: "CLIENT",
       created_by: null === (s = firebaseAuth.currentUser) || void 0 === s ? void 0 : s.uid,
@@ -898,6 +900,10 @@ async function createPdFlow(e, t, a, r, i, o) {
     created_at: _,
     updated_at: _
   });
+  if (opts.cardId) {
+    await patch(e, "pd_cards", opts.cardId, { pd_request_id: d, development_id: c, updated_at: _ });
+    return { request: m, card: await one(e, "pd_cards", opts.cardId) };
+  }
   return {
     request: m,
     card: await save(e, "pd_cards", u, {
@@ -1672,22 +1678,34 @@ async function dispatch(e, t) {
     };
   }(_, r, u), i);
   if ("POST" === e && "/crm/samples/sync-missing-pd-cards" === S) {
-    // Variações sem card no P&D (criadas antes da integração ou com falha): cria o fluxo P&D que faltou.
+    // Variações sem vínculo com o P&D (criadas antes da integração ou com falha). 09/11/2026: antes de
+    // criar, liga a solicitação/card que já existem (vinculoAmostrasPd.js) -- em 08/11 a versão antiga
+    // criou 96 solicitações vazias por cima de amostras migradas do Mongo já produzidas e aprovadas.
     requireAdmin(u, "Sincronizar amostras com o P&D");
+    await pdReconcileStatusMirrors(_);
     const projects = new Map((await all(_, "crm_projects")).map((p) => [p.id, p]));
     const clients = new Map((await all(_, "crm_clients")).map((c) => [c.id, c]));
-    let created = 0;
+    const samples = await all(_, "crm_samples");
+    const plano = planoVinculoAmostrasPd({ samples, requests: await all(_, "pd_requests"), cards: await all(_, "pd_cards") });
+    let created = 0, linked = 0;
     const errors = [];
-    for (const sample of await all(_, "crm_samples")) {
-      const missing = (sample.variacoes || []).filter((v) => !v.pd_card_id || !v.pd_request_id);
-      if (!missing.length) continue;
+    for (const sample of samples) {
+      const acoes = new Map(plano.filter((p) => p.sampleId === sample.id).map((p) => [p.variacaoId, p]));
+      if (!acoes.size) continue;
       const project = projects.get(sample.projeto_id) || null;
       const client = clients.get(sample.cliente_id || project?.cliente_id) || null;
       const variacoes = [];
       for (const variation of sample.variacoes || []) {
-        if (variation.pd_card_id && variation.pd_request_id) { variacoes.push(variation); continue; }
+        const acao = acoes.get(variation && variation.id);
+        if (!acao) { variacoes.push(variation); continue; }
         try {
-          const flow = await createPdFlow(_, sample, variation, project, client, u);
+          if (acao.acao === "ligar") {
+            variacoes.push({ ...variation, pd_request_id: acao.requestId, ...(acao.cardId ? { pd_card_id: acao.cardId } : {}) });
+            linked += 1;
+            continue;
+          }
+          const flow = await createPdFlow(_, sample, variation, project, client, u,
+            acao.acao === "criar_para_card" ? { cardId: acao.cardId, status: acao.status } : {});
           variacoes.push({ ...variation, pd_card_id: flow.card.id, pd_request_id: flow.request.id, status_pd_raw: variation.status_pd_raw || "solicitado" });
           created += 1;
         } catch (error) {
@@ -1697,7 +1715,8 @@ async function dispatch(e, t) {
       }
       await patch(_, "crm_samples", sample.id, { variacoes });
     }
-    return response({ created, errors, message: created ? `${created} variação(ões) enviada(s) ao P&D.` : "Nenhuma amostra pendente de envio ao P&D." }, i);
+    const partes = [created && `${created} variação(ões) enviada(s) ao P&D`, linked && `${linked} ligada(s) à solicitação que já existia`].filter(Boolean);
+    return response({ created, linked, errors, message: partes.length ? partes.join("; ") + "." : "Nenhuma amostra pendente de envio ao P&D." }, i);
   }
   if ("GET" === e && "/crm/samples" === S) {
     await pdReconcileStatusMirrors(_);
