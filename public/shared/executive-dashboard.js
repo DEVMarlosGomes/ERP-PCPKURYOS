@@ -32,6 +32,12 @@
     if (!date) return false;
     return date >= new Date(Date.now() - number(state.period) * 86400000);
   }
+  // Expedição: a data da saída é `data` (criadoEm das legadas é o dia da importação).
+  function shippedInPeriod(row) {
+    if (state.period === 'all') return true;
+    var date = parseDate(row && (row.data || row.criadoEm));
+    return !!date && date >= new Date(Date.now() - number(state.period) * 86400000);
+  }
   function groupBy(list, getter) {
     return list.reduce(function (acc, item) { var key = getter(item) || 'Sem status'; acc[key] = (acc[key] || 0) + 1; return acc; }, {});
   }
@@ -46,6 +52,10 @@
       return read(paths[key]).then(function (value) { state.data[key] = value; delete state.unavailable[key]; })
         .catch(function (error) { state.data[key] = {}; state.unavailable[key] = error && (error.code || error.message) || 'indisponível'; });
     })).then(function () {
+      // Expedições (1,26 MB, quase tudo histórico) chegam depois da primeira pintura, sem atrasar a tela
+      // e sem depender de o resto do render dar certo.
+      if (state.data.shipments === undefined) read('expedicoes_comerciais').then(function (value) { state.data.shipments = value; })
+        .catch(function () { state.data.shipments = {}; }).then(function () { renderKpis(); });
       render();
       document.getElementById('executive-live').textContent = 'Atualizado às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     }).catch(function () {
@@ -67,15 +77,24 @@
     var pd = rows(state.data.pd).filter(function (row) { return !done(row) && !canceled(row); });
     var lots = lotRows(state.data.lots), quarantine = lots.filter(function (row) { return status(row) === 'QUARENTENA'; });
     var planned = sum(opsPeriod, function (row) { return row.qtdPlanejada; }), produced = sum(opsPeriod, function (row) { return row.produzido; });
+    // 08/11/2026: expedição entra no painel (antes nenhum KPI mostrava as saídas) e a carteira diz quantos pedidos têm valor.
+    var shipments = rows(state.data.shipments).filter(function (row) { return !canceled(row) && shippedInPeriod(row); });
+    var shippedUnits = sum(shipments, function (row) { return row.totalUnidades != null ? row.totalUnidades : sum(rows(row.itens), function (i) { return i.qtd; }); });
+    var shipmentsPending = state.data.shipments === undefined;
+    var lastShip = rows(state.data.shipments).filter(function (row) { return !canceled(row); }).map(function (row) { return String(row.data || row.criadoEm || '').slice(0, 10); }).filter(Boolean).sort().pop();
+    var lastShipLabel = lastShip ? lastShip.split('-').reverse().join('/') : 'nenhuma';
+    var allCommercial = rows(state.data.commercial).filter(function (row) { return !canceled(row) && inPeriod(row); });
+    var withValue = allCommercial.filter(function (row) { return number(row.totalValor) > 0; }).length;
     var adherence = planned > 0 ? Math.round(produced / planned * 100) + '%' : 'N/D';
     var cards = [
       kpi('Pedidos em carteira', formatInt(activeOrders.length), 'Fonte: pedidos/ · estado atual', 'pedidos.html', activeOrders.length > 70 ? 'warning' : 'brand'),
-      kpi('Carteira comercial registrada', formatCurrency(sum(commercial, function (row) { return row.totalValor; })), 'Fonte: pedidos_comerciais/ · ' + dateLabel(), 'gestao_comercial.html', 'brand'),
+      kpi('Carteira comercial registrada', formatCurrency(sum(commercial, function (row) { return row.totalValor; })), withValue + ' de ' + allCommercial.length + ' pedidos com valor · ' + dateLabel(), 'gestao_comercial.html', withValue < allCommercial.length ? 'warning' : 'brand'),
       kpi('Aderência das OPs concluídas', adherence, planned ? formatInt(produced) + ' de ' + formatInt(planned) + ' un · ' + dateLabel() : 'Sem OP concluída com quantidade no período', 'dashboard_analise.html?tab=planejamento', adherence === 'N/D' ? 'warning' : 'success', adherence === 'N/D'),
       kpi('OPs em execução ou fila', formatInt(activeOps.length), 'Fonte: ops/ · exclui concluídas e canceladas', 'ops.html', activeOps.length > 35 ? 'warning' : 'brand'),
       kpi('Pedidos de compra abertos', formatInt(purchases.length), 'Enviados e recebidos parcialmente', 'compras.html', purchases.length ? 'warning' : 'success'),
       kpi('Projetos P&D ativos', formatInt(pd.length), 'Fonte: erp/kuryos/pd_requests', 'pd.html', 'brand'),
       kpi('Lotes em quarentena', state.unavailable.lots ? 'Sem acesso' : formatInt(quarantine.length), state.unavailable.lots ? 'A fonte não está autorizada para este perfil' : 'Fonte: estoque_lotes/ · decisão da Qualidade', 'qualidade.html?tab=fila', quarantine.length ? 'warning' : 'success', !!state.unavailable.lots),
+      kpi('Expedido no período', shipmentsPending ? 'Carregando' : formatInt(shippedUnits) + ' un', shipmentsPending ? 'Lendo expedicoes_comerciais/' : formatInt(shipments.length) + ' cargas · ' + dateLabel() + ' · última saída registrada: ' + lastShipLabel, 'relatorio_expedicao.html', shipments.length ? 'brand' : 'warning', shipmentsPending),
       kpi('Entregas OTIF', 'N/D', 'Datas prometida e efetiva não estão completas na mesma fonte', '', 'warning', true),
       kpi('Estoque crítico', 'N/D', 'Saldo não confiável até o inventário físico Dia D', 'consulta_estoque.html', 'warning', true),
       kpi('Faturamento realizado', 'N/D', 'Não existe razão financeira transacional confiável no sistema', '', 'warning', true)
