@@ -23,10 +23,11 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   criou em 08/11 17:10 96 solicitações OPEN vazias para variações migradas do Mongo que já tinham
   solicitação (ligada só por `crm_variacao_id`) ou card legado; as duas disputavam o espelho e a
   variação oscilava solicitada/enviada a cada abertura. Agora o botão liga o que existe antes de criar
-  (`crm-frontend/src/lib/vinculoAmostrasPd.js`, 8 testes; emulador 2). **Dados ainda não corrigidos:**
-  `scripts/correcao-amostras-duplicadas-20261108.js` gera o update (91 religadas à original, 5 voltam ao
-  status do card legado; 985 caminhos planos); gravação em produção bloqueada pelo classificador.
-  Não clicar no botão antes do deploy da VPS. Arquivos ativos: nenhum.
+  (`crm-frontend/src/lib/vinculoAmostrasPd.js`, 8 testes; emulador 2). `scripts/correcao-amostras-duplicadas-20261108.js` gerou o update (91 religadas à original, 5 no
+  status do card legado). **Dados corrigidos em 09/11** (1 amostra conferida, depois 95 num update
+  atômico; backups em `scratch/amostras-20261109/`): 167 solicitações, OPEN só as 14 da Vyra, zero
+  variação sem vínculo ou com duas solicitações, zero card/desenvolvimento órfão. Não clicar no botão
+  antes do deploy da VPS. Arquivos ativos: nenhum.
 
 ### Claude — Card do cliente ↔ Cadastros e KPIs faltantes (08/11/2026)
 
