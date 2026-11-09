@@ -4,7 +4,7 @@ import {createRequire} from 'node:module';
 if (process.env.FIREBASE_DATABASE_EMULATOR_HOST !== '127.0.0.1:9063' || process.env.GCLOUD_PROJECT !== 'demo-pd-lote') throw Error('Exige demo-pd-lote no emulador 9063');
 const req = createRequire(new URL('../../../functions/package.json', import.meta.url));
 const {initializeApp, getApp, getApps, deleteApp} = req('firebase-admin/app');
-const {getDatabase} = req('firebase-admin/database');
+const {getDatabase, ServerValue} = req('firebase-admin/database');
 const databaseURL = 'http://127.0.0.1:9063?ns=demo-pd-lote-default-rtdb';
 process.env.FIREBASE_CONFIG = JSON.stringify({projectId: 'demo-pd-lote', databaseURL});
 const fns = req('./index.js'); // O módulo real inicializa o app padrão (servidor) pelo FIREBASE_CONFIG.
@@ -22,7 +22,7 @@ export const comoUsuario = (uid) => { atual = uid; };
 export const databaseModule = {
   ref: (_db, path) => (path ? cliente().ref(path) : cliente().ref()), get: (r) => r.get(), set: (r, v) => r.set(v),
   update: (r, v) => r.update(v), remove: (r) => r.remove(), push: (r) => r.push(),
-  runTransaction: (r, fn) => r.transaction(fn),
+  runTransaction: (r, fn) => r.transaction(fn), serverTimestamp: () => ServerValue.TIMESTAMP,
 };
 export const firebaseModule = {firebaseDb: {}, firebaseStorage: {}, firebaseAuth: {get currentUser() { return {uid: atual, email: `${atual}@example.test`}; }}};
 export const storageModule = {ref: () => { throw Error('Storage não faz parte deste teste'); }, uploadBytes: () => { throw Error('Não permitido'); }, getDownloadURL: () => { throw Error('Não permitido'); }};

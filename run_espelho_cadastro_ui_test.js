@@ -88,6 +88,8 @@ async function abrir(browser, estadoInicial, pagina) {
         return {ref: (p) => ref(p || '')};
       }
     };
+    // Como no SDK real (o histórico do cliente usa o horário do servidor desde 08/11/2026).
+    window.firebase.database.ServerValue = {TIMESTAMP: {'.sv': 'timestamp'}};
   }, estadoInicial || dados());
   await page.route('**/*', async (route) => {
     const url = new URL(route.request().url());
@@ -160,6 +162,18 @@ async function abrir(browser, estadoInicial, pagina) {
     assert.equal(await page.locator('#modalFornecedor-forn.open').count(), 0);
     await page.click('#modalSaveBtn-cli');
     await page.waitForFunction(() => window.__db.clientes.GLOW.fornecedorVinculadoKey === 'f2');
+    // Rastreabilidade (08/11/2026): a gravação deixa quem/quando/o quê no histórico do cliente, que o card do CRM espelha.
+    const glow = await page.evaluate(() => window.__db.clientes.GLOW);
+    const hGlow = Object.values(glow.historicoAlteracoes || {});
+    assert.equal(hGlow.length, 1, 'uma linha de histórico por gravação');
+    assert.deepEqual([hGlow[0].origem, hGlow[0].porUid, hGlow[0].campos], ['cadastros', 'u1', ['Fornecedor vinculado']]);
+    assert.ok(hGlow[0].em && glow.atualizadoEm && glow.ultimaAlteracao.origem === 'cadastros');
+    await page.click('#tableBody-cli .btn-edit-cli[data-key="GLOW"]');
+    await page.waitForSelector('#modalBg-cli.open');
+    assert.match(await page.locator('#cliHistorico-cli summary').innerText(), /Histórico de alterações \(1\)/);
+    assert.match(await page.locator('#cliHistoricoLista-cli').textContent(), /no Cadastros — Fornecedor vinculado/);
+    await page.click('#modalBg-cli .btn-ghost, #modalBg-cli [data-close], #modalCancelBtn-cli').catch(() => {});
+    await page.evaluate(() => document.getElementById('modalBg-cli').classList.remove('open'));
 
     // ── Fornecedor -> Cliente ──
     await page.click('[data-maintab="fornecedores"]');

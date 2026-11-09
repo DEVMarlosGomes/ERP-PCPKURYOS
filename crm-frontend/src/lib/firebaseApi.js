@@ -1,4 +1,4 @@
-import { get, push, ref, remove, runTransaction, set, update } from "firebase/database";
+import { get, push, ref, remove, runTransaction, serverTimestamp, set, update } from "firebase/database";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { firebaseAuth, firebaseDb, firebaseStorage } from "@/lib/firebase";
 import {
@@ -10,6 +10,7 @@ import { createCommercialRouter, NOT_HANDLED } from "@/lib/firebaseCommercial";
 import { COLECAO_LOTES, NAO_TRATADA, createManipulacaoLoteRouter, historicoDeLote, planoCancelarLotes, planoRemocaoDosLotes, temOrdem } from "@/lib/manipulacaoLoteRotas";
 import { categoriasAtivas } from "@/lib/categoriasProduto";
 import { sugestoesCli4 } from "@/lib/cli4";
+import { CAMPOS_CARD_CADASTRO, assinaturaCadastro, contatosCardDoCadastro, mudancasCadastroDoCard, rotulosMudancas, rotulosMudancasNoCard } from "@/lib/clienteCadastroSync";
 import { amostraDaVersaoFaltando, precoUsd, volumeEmKg } from "@/lib/pdAmostra";
 import { eventoMpNova, htmlFichaTecnica, montarFichaTecnica, validarMpNova } from "@/lib/fichaTecnica";
 import { chaveSolicitacaoMp, chaveSolicitacaoPorNome, daSolicitacaoPd, normalizarNomeMp, planoDaFila, retiradaDoItem } from "@/lib/filaCadastroMp";
@@ -163,7 +164,9 @@ function onlyDigits(e) {
 
 function masterClientAsCrm(e, t, a) {
   const r = t.nome || t.nomeFantasia || t.razaoSocial || e,
-    i = `${r}|${onlyDigits(t.cnpj)}|${t.contatoComNome || ""}|${t.contatoComEmail || ""}|${t.contatoComTelefone || ""}|${t.cidade || ""}|${t.uf || ""}|${false !== t.ativo}`;
+    // 08/11/2026: assinatura cobre a lista de contatos e os demais campos espelhados (cliente <-> card).
+    i = assinaturaCadastro(t),
+    contatosDoCadastro = contatosCardDoCadastro(t, a);
   return {
     ...(a || {}),
     id: (null === a || void 0 === a ? void 0 : a.id) || e,
@@ -183,10 +186,13 @@ function masterClientAsCrm(e, t, a) {
       email: t.contatoTecEmail || "",
       telefone: t.contatoTecTelefone || ""
     },
+    ...(contatosDoCadastro || {}),
     cidade: t.cidade || "",
     regiao: t.uf || (null === a || void 0 === a ? void 0 : a.regiao) || "",
     site: t.site || (null === a || void 0 === a ? void 0 : a.site) || "",
     condicao_pagamento: t.condicaoPagamento || "",
+    endereco_entrega: t.enderecoEntrega || (a && a.endereco_entrega) || "",
+    endereco_faturamento: t.enderecoFaturamento || (a && a.endereco_faturamento) || "",
     ativo: false !== t.ativo,
     stage: (null === a || void 0 === a ? void 0 : a.stage) || "cliente_fechado",
     origem_integracao: "cadastro_clientes",
@@ -194,6 +200,44 @@ function masterClientAsCrm(e, t, a) {
     created_at: (null === a || void 0 === a ? void 0 : a.created_at) || now(),
     updated_at: now()
   };
+}
+
+// 08/11/2026: card do cliente salvo -> mesmos campos no Cadastros (clientes/{id}), com histórico nos dois lados.
+async function salvarCardCliente(tenantId, cardId, updates, profile) {
+  const antes = await one(tenantId, "crm_clients", cardId);
+  if (!antes) throw apiError(404, "Registro não encontrado.");
+  const quem = pdUserName(profile || {});
+  const uid = firebaseAuth.currentUser?.uid || null;
+  const depoisCard = { ...antes, ...updates };
+  const master = antes.cadastro_cliente_id ? await masterOne("clientes", antes.cadastro_cliente_id) : null;
+  const rel = master ? mudancasCadastroDoCard(updates, depoisCard, master, () => `crm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`) : null;
+  const camposCard = rotulosMudancasNoCard(antes, depoisCard);
+  const outros = Object.keys(updates || {}).filter((k) => !["contato_principal", "contatos_adicionais", ...Object.keys(CAMPOS_CARD_CADASTRO)].includes(k));
+  const historico = Array.isArray(antes.historico_alteracoes) ? antes.historico_alteracoes.slice(-199) : [];
+  const resumo = [...camposCard, ...outros.map((k) => k.replace(/_/g, " "))];
+  if (resumo.length) historico.push({ data: now(), usuario: quem, usuario_id: uid, origem: "crm_card", campos: resumo, cadastro: rel ? "atualizado" : (master ? "sem mudança" : "sem vínculo") });
+  let salvo = await patch(tenantId, "crm_clients", cardId, { ...updates, historico_alteracoes: historico });
+  if (!rel) return salvo;
+  const id = push(ref(firebaseDb, `clientes/${master.id}/historicoAlteracoes`)).key;
+  const base = `clientes/${master.id}`;
+  const u = {};
+  Object.entries(rel).forEach(([k, v]) => { u[`${base}/${k}`] = v; });
+  const em = new Date().toISOString();
+  u[`${base}/atualizadoEm`] = em;
+  u[`${base}/atualizadoPor`] = quem;
+  u[`${base}/ultimaAlteracao`] = { id, origem: "crm_card", por: quem, porUid: uid, em, em_ms: serverTimestamp() };
+  u[`${base}/historicoAlteracoes/${id}`] = { em, em_ms: serverTimestamp(), por: quem, porUid: uid, origem: "crm_card", cardId, campos: rotulosMudancas(rel) };
+  try {
+    await update(ref(firebaseDb), u);
+    const novoMaster = await masterOne("clientes", master.id);
+    // Contato novo ganhou id no Cadastros: o card passa a usá-lo (senão o próximo salvar duplicaria lá).
+    salvo = await patch(tenantId, "crm_clients", cardId, { ...(contatosCardDoCadastro(novoMaster, depoisCard) || {}), master_sync_signature: assinaturaCadastro(novoMaster), cadastro_sync_pendente: null });
+  } catch (error) {
+    console.error("[CRM1] card salvo, Cadastros não atualizado:", error);
+    salvo = await patch(tenantId, "crm_clients", cardId, { cadastro_sync_pendente: { em: now(), por: quem, erro: String(error?.code || error?.message || error) } });
+    salvo.aviso_cadastro = "Card salvo, mas o Cadastros não foi atualizado (" + String(error?.code || error?.message || "erro") + "). Peça ao ADM/Cadastros para conferir.";
+  }
+  return salvo;
 }
 
 async function syncMasterClients(e) {
@@ -204,10 +248,14 @@ async function syncMasterClients(e) {
     const t = r.get(o.id) || i.get(onlyDigits(o.cnpj)) || null,
       a = masterClientAsCrm(o.id, o, t),
       s = (null === t || void 0 === t ? void 0 : t.id) || o.id;
-    (!t || t.master_sync_signature !== a.master_sync_signature || t.cadastro_cliente_id !== o.id) && (await save(e, "crm_clients", s, {
-      ...a,
-      id: s
-    }));
+    if (!t || t.master_sync_signature !== a.master_sync_signature || t.cadastro_cliente_id !== o.id) {
+      // Rastreabilidade: mudança vinda do Cadastros entra no histórico do card (quem alterou lá e quando).
+      const campos = t ? rotulosMudancasNoCard(t, a) : [];
+      const historico = Array.isArray(t?.historico_alteracoes) ? t.historico_alteracoes.slice(-199) : [];
+      if (campos.length) historico.push({ data: (o.ultimaAlteracao && o.ultimaAlteracao.em) || o.atualizadoEm || now(), sincronizado_em: now(),
+        usuario: (o.ultimaAlteracao && o.ultimaAlteracao.por) || o.atualizadoPor || "Cadastros", origem: "cadastros", campos });
+      await save(e, "crm_clients", s, { ...a, id: s, ...(historico.length ? { historico_alteracoes: historico } : {}) });
+    }
   }
   return all(e, "crm_clients");
 }
@@ -1492,7 +1540,7 @@ async function dispatch(e, t) {
   }
   if (O = j(/^\/crm\/clients\/([^/]+)$/), O && "GET" === e) return response(await one(_, "crm_clients", O[1]), i);
   if (O && "DELETE" === e) return response(await deleteCard(_, "client", O[1], u, ["1", "true"].includes(String(q.cascade))), i);
-  if (O && "PUT" === e) return response(await patch(_, "crm_clients", O[1], r), i);
+  if (O && "PUT" === e) return response(await salvarCardCliente(_, O[1], r, u), i);
   if ("GET" === e && "/crm/projects" === S) {
     try { await parearEtapasPelaAmostra(_, u); } catch (error) { console.error("[CRM2] pareamento com a amostra falhou:", error); }
     let e = await all(_, "crm_projects");

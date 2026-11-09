@@ -17,7 +17,7 @@ import {
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
-import { Plus, GripVertical, User, Trash2, Search, ChevronRight, AlertTriangle, Tag } from "lucide-react";
+import { Plus, Loader2, GripVertical, User, Trash2, Search, ChevronRight, AlertTriangle, Tag } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1679,6 +1679,57 @@ export default function CRM1Page() {
 }
 
 
+// ======= Contatos editáveis do card (08/11/2026) =======
+// Principal + adicionais. Contato com cadastro_contato_id é o mesmo do Cadastros (clientes/): salvar aqui
+// atualiza lá, com histórico (data, hora, usuário). Áreas vêm do Cadastros; cargo e decisor são do card.
+const ROTULO_AREA = { COMERCIAL: "Comercial", COMPRAS: "Compras", TECNICO: "Técnico", LOGISTICA: "Logística", FINANCEIRO: "Financeiro", OUTRA: "Outra" };
+function ContatosCardEditor({ principal, adicionais, cargoOptions, onChange }) {
+    const lista = [principal || { ...EMPTY_ADDITIONAL_CONTACT }, ...(adicionais || [])];
+    const emitir = (nova) => onChange(nova[0] || { ...EMPTY_ADDITIONAL_CONTACT }, nova.slice(1));
+    const mudar = (idx, campo, valor) => emitir(lista.map((c, i) => (i === idx ? { ...c, [campo]: valor } : c)));
+    const tornarPrincipal = (idx) => { const nova = lista.slice(); const [c] = nova.splice(idx, 1); emitir([c, ...nova]); };
+    const remover = (idx) => emitir(lista.filter((_, i) => i !== idx));
+    return (
+        <div className="space-y-3" data-testid="contatos-card-editor">
+            {lista.map((c, idx) => (
+                <div key={c.cadastro_contato_id || `n${idx}`} className="rounded-lg border border-border p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-medium text-muted-foreground">{idx === 0 ? "Contato principal" : `Contato ${idx + 1}`}</span>
+                            {(c.areas || []).map((a) => <Badge key={a} variant="secondary" className="text-[10px]">{ROTULO_AREA[a] || a}</Badge>)}
+                            {!c.cadastro_contato_id && <Badge variant="outline" className="text-[10px]">novo — vai ao Cadastros ao salvar</Badge>}
+                        </div>
+                        <div className="flex items-center gap-1">
+                            {idx > 0 && <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => tornarPrincipal(idx)}>Tornar principal</Button>}
+                            {lista.length > 1 && <Button type="button" variant="ghost" size="sm" className="h-7" onClick={() => remover(idx)} aria-label="Remover contato"><Trash2 className="h-3.5 w-3.5 text-red-500" /></Button>}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                        <Input placeholder="Nome" value={c.nome || ""} onChange={(e) => mudar(idx, "nome", e.target.value)} />
+                        <Select value={c.cargo || ""} onValueChange={(v) => mudar(idx, "cargo", v)}>
+                            <SelectTrigger><SelectValue placeholder="Cargo" /></SelectTrigger>
+                            <SelectContent>
+                                {cargoOptions.map((o) => <SelectItem key={o} value={o}>{formatSlugLabel(o)}</SelectItem>)}
+                                <SelectItem value="outro">Outro</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        {c.cargo === "outro" && <Input placeholder="Especifique o cargo" value={c.cargo_custom || ""} onChange={(e) => mudar(idx, "cargo_custom", e.target.value)} />}
+                        <Input placeholder="WhatsApp / telefone" value={c.whatsapp || ""} onChange={(e) => mudar(idx, "whatsapp", e.target.value)} />
+                        <Input placeholder="E-mail" value={c.email || ""} onChange={(e) => mudar(idx, "email", e.target.value)} />
+                        <label className="flex items-center gap-2 text-sm cursor-pointer">
+                            <input type="checkbox" className="h-3.5 w-3.5 accent-primary" checked={Boolean(c.decisor)} onChange={(e) => mudar(idx, "decisor", e.target.checked)} />
+                            É decisor
+                        </label>
+                    </div>
+                </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={() => emitir([...lista, { ...EMPTY_ADDITIONAL_CONTACT }])} data-testid="add-contato-card">
+                <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar contato
+            </Button>
+        </div>
+    );
+}
+
 // ======= Client Detail Sheet =======
 function ClientDetailSheet({ client, constants, isAdmin = false, canEdit = false, onClose, onCreateProject, onDelete }) {
     const [data, setData] = useState(null);
@@ -1728,7 +1779,8 @@ function ClientDetailSheet({ client, constants, isAdmin = false, canEdit = false
                 const resp = await api.put(`/crm/clients/${data.id}`, updates);
                 setData(resp.data);
                 setFullData((prev) => (prev ? { ...prev, client: resp.data } : prev));
-                toast.success("Cliente atualizado!");
+                if (resp.data?.aviso_cadastro) toast.warning(resp.data.aviso_cadastro);
+                else toast.success(resp.data?.cadastro_cliente_id ? "Cliente atualizado no card e no Cadastros!" : "Cliente atualizado!");
             }
             setEditing({});
         } catch (e) {
@@ -2056,6 +2108,27 @@ function ClientDetailSheet({ client, constants, isAdmin = false, canEdit = false
                     </TabsContent>
 
                     <TabsContent value="contatos" className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 mt-3">
+                        {canEdit ? (
+                            <div className="space-y-3">
+                                <p className="text-xs text-muted-foreground">
+                                    {data.cadastro_cliente_id
+                                        ? <>Ligado ao Cadastros (<b>{data.cadastro_cliente_id}</b>): o que salvar aqui vai para lá, e o que mudarem lá aparece aqui. Fica no histórico com data, hora e usuário.</>
+                                        : "Cliente ainda sem cadastro mestre: os contatos ficam só no card."}
+                                </p>
+                                {data.cadastro_sync_pendente && <p className="text-xs text-amber-700">Última gravação não chegou ao Cadastros ({data.cadastro_sync_pendente.erro}). Salve de novo ou peça ao ADM.</p>}
+                                <ContatosCardEditor
+                                    principal={val("contato_principal") || data.contato_principal}
+                                    adicionais={Array.isArray(val("contatos_adicionais")) ? val("contatos_adicionais") : (data.contatos_adicionais || [])}
+                                    cargoOptions={detailCargoOptions}
+                                    onChange={(p, a) => setEditing({ ...editing, contato_principal: p, contatos_adicionais: a })}
+                                />
+                                {Object.keys(editing).length > 0 && (
+                                    <Button onClick={handleSave} disabled={saving} className="w-full" data-testid="salvar-contatos-card">
+                                        {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Salvar contatos
+                                    </Button>
+                                )}
+                            </div>
+                        ) : (
                         <div className="space-y-4">
                             {data.contato_principal?.nome && (
                                 <div className="rounded-lg border border-border p-3 space-y-1">
@@ -2092,6 +2165,7 @@ function ClientDetailSheet({ client, constants, isAdmin = false, canEdit = false
                                 <p className="text-sm text-muted-foreground">Nenhum contato cadastrado.</p>
                             )}
                         </div>
+                        )}
                     </TabsContent>
 
                     <TabsContent value="timeline" className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 mt-3">
@@ -2122,6 +2196,18 @@ function ClientDetailSheet({ client, constants, isAdmin = false, canEdit = false
                             ))}
                             {(!data.historico_movimentacoes || data.historico_movimentacoes.length === 0) && (
                                 <p className="text-sm text-muted-foreground">Nenhuma movimentação registrada.</p>
+                            )}
+                            {(data.historico_alteracoes || []).length > 0 && (
+                                <div className="pt-3 border-t border-border space-y-2" data-testid="historico-alteracoes-card">
+                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Alterações do cadastro</p>
+                                    {data.historico_alteracoes.slice().reverse().map((h, idx) => (
+                                        <div key={idx} className="text-sm">
+                                            <p><span className="font-medium">{(h.campos || []).join(", ") || "Alteração"}</span>
+                                                <span className="text-xs text-muted-foreground"> · {h.origem === "cadastros" ? "no Cadastros" : "no card"}{h.origem === "crm_card" && h.cadastro === "atualizado" ? " (enviado ao Cadastros)" : ""}</span></p>
+                                            <p className="text-xs text-muted-foreground">{h.usuario} · {new Date(h.data).toLocaleString("pt-BR")}</p>
+                                        </div>
+                                    ))}
+                                </div>
                             )}
                         </div>
                     </TabsContent>

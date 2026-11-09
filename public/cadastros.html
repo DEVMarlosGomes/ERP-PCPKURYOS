@@ -1105,6 +1105,8 @@
           <div class="section-label">Contatos por área</div>
           <div class="field-hint">Adicione as pessoas necessárias. Uma pessoa pode atender várias áreas; cada área pode ter um contato principal.</div>
           <div id="contatosClienteEditor"></div>
+          <div class="field-hint" id="cliVinculoCard-cli" style="margin-top:6px">Contatos e dados deste cliente são os mesmos do card no CRM: o que mudar aqui aparece lá, e o que mudarem no card aparece aqui.</div>
+          <details id="cliHistorico-cli" style="margin:6px 0 10px;display:none"><summary class="field-hint" style="cursor:pointer">Histórico de alterações</summary><ul id="cliHistoricoLista-cli" style="margin:6px 0 0;padding-left:18px;font-size:12.5px"></ul></details>
           <div class="section-label">Localização</div>
           <div class="form-grid" data-ui="form-grid">
             <div class="form-group">
@@ -3103,6 +3105,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('fCnpj-cli').value = c.cnpj || '';
     if (!editorContatosCliente) editorContatosCliente = ContatosClienteUI.editor(document.getElementById('contatosClienteEditor'));
     editorContatosCliente.carregar(c);
+    renderHistoricoCliente(c);
     document.getElementById('fEnderecoEntrega-cli').value = ClienteComercial.dados(c).pEntrega;
     document.getElementById('fEnderecoFaturamento-cli').value = ClienteComercial.dados(c).pFaturamento;
     document.getElementById('fCidade-cli').value = c.cidade || '';
@@ -3268,11 +3271,59 @@ document.addEventListener('DOMContentLoaded', function() {
       .finally(function() { document.getElementById('modalSaveBtn-cli').disabled = false; });
   }
 
+  /* Rastreabilidade cliente <-> card do CRM (08/11/2026, pedido do Marlos): toda gravação
+     leva quem/quando/o quê em historicoAlteracoes; o card mostra o mesmo histórico ao sincronizar. */
+  var ROTULOS_CLIENTE = {nome: 'Nome', codigo: 'Código', cnpj: 'CNPJ', enderecoEntrega: 'Endereço de entrega', enderecoFaturamento: 'Endereço de faturamento',
+    cidade: 'Cidade', uf: 'UF', condicaoPagamento: 'Condição de pagamento', site: 'Site', detentorAnvisa: 'Detentor Anvisa', ativo: 'Ativo',
+    matrizKey: 'Matriz', fornecedorVinculadoKey: 'Fornecedor vinculado', contatos: 'Contatos', logoEtiquetaUrl: 'Logo da etiqueta'};
+  function nomeUsuarioCli() { return (window.currentUser && window.currentUser.nome) || (firebase.auth().currentUser && firebase.auth().currentUser.email) || 'Desconhecido'; }
+  function uidUsuarioCli() { return firebase.auth().currentUser ? firebase.auth().currentUser.uid : ''; }
+  function camposAlteradosCliente(antes, depois) {
+    if (!antes) return ['Cadastro criado'];
+    var out = [];
+    Object.keys(ROTULOS_CLIENTE).forEach(function(k) {
+      if (k === 'contatos') {
+        if (JSON.stringify(ContatosCliente.lista(antes)) !== JSON.stringify(ContatosCliente.lista(depois))) out.push(ROTULOS_CLIENTE.contatos);
+        return;
+      }
+      var a = antes[k] == null ? '' : antes[k], d = depois[k] == null ? '' : depois[k];
+      if (k === 'ativo') { a = antes.ativo !== false; d = depois.ativo !== false; }
+      if (k === 'detentorAnvisa') { a = antes[k] === 'kuryos' ? 'kuryos' : 'cliente'; d = depois[k] === 'kuryos' ? 'kuryos' : 'cliente'; } // vazio = padrão do formulário
+      if (k === 'enderecoEntrega' || k === 'enderecoFaturamento') { a = String(a).trim(); d = String(d).trim(); }
+      if (String(a) !== String(d)) out.push(ROTULOS_CLIENTE[k]);
+    });
+    return out;
+  }
+  function carimbarCliente(key, data) {
+    var antes = editingKey ? (allClientes[editingKey] || null) : null;
+    var campos = camposAlteradosCliente(antes, Object.assign({}, antes || {}, data));
+    if (!campos.length) return null;
+    var id = db.ref().push().key, em = new Date().toISOString();
+    data.atualizadoEm = em;
+    data.atualizadoPor = nomeUsuarioCli();
+    data.ultimaAlteracao = {id: id, origem: 'cadastros', por: nomeUsuarioCli(), porUid: uidUsuarioCli(), em: em, em_ms: firebase.database.ServerValue.TIMESTAMP};
+    return {id: id, linha: {em: em, em_ms: firebase.database.ServerValue.TIMESTAMP, por: nomeUsuarioCli(), porUid: uidUsuarioCli(), origem: 'cadastros', campos: campos}};
+  }
+  function renderHistoricoCliente(c) {
+    var h = Object.values((c && c.historicoAlteracoes) || {}).sort(function(a, b) { return String(b.em || '').localeCompare(String(a.em || '')); });
+    var box = document.getElementById('cliHistorico-cli');
+    box.style.display = h.length ? '' : 'none';
+    box.querySelector('summary').textContent = 'Histórico de alterações (' + h.length + ')';
+    document.getElementById('cliHistoricoLista-cli').innerHTML = h.map(function(x) {
+      var quando = x.em ? new Date(x.em).toLocaleString('pt-BR') : '';
+      return '<li><b>' + escapeHtml(quando) + '</b> · ' + escapeHtml(x.por || '') + ' · ' + (x.origem === 'crm_card' ? 'no card do CRM' : 'no Cadastros') +
+        ' — ' + escapeHtml((x.campos || []).join(', ')) + '</li>';
+    }).join('');
+  }
+
   function gravarCliente(key, data) {
     var promise;
+    var carimbo = carimbarCliente(key, data);
     if (editingKey && editingKey !== key) {
       var updates = {};
-      updates['clientes/' + key] = data;
+      var historicoAntigo = Object.assign({}, (allClientes[editingKey] || {}).historicoAlteracoes || {});
+      if (carimbo) historicoAntigo[carimbo.id] = carimbo.linha;
+      updates['clientes/' + key] = Object.assign({}, data, {historicoAlteracoes: historicoAntigo});
       updates['clientes/' + editingKey] = null;
       promise = db.ref().update(updates);
     } else if (espelhoOrigemForn && data.fornecedorVinculadoKey === espelhoOrigemForn.key) {
@@ -3280,9 +3331,11 @@ document.addEventListener('DOMContentLoaded', function() {
       // senão um lado fica ligado e o outro não.
       var espelho = {};
       espelho['clientes/' + key] = Object.assign({}, allClientes[key] || {}, data);
+      if (carimbo) espelho['clientes/' + key].historicoAlteracoes = Object.assign({}, (allClientes[key] || {}).historicoAlteracoes || {}, (function(o) { o[carimbo.id] = carimbo.linha; return o; })({}));
       espelho['fornecedores/' + espelhoOrigemForn.key + '/clienteVinculadoKey'] = key;
       promise = db.ref().update(espelho);
     } else {
+      if (carimbo) data['historicoAlteracoes/' + carimbo.id] = carimbo.linha;
       promise = db.ref('clientes/' + key).update(data);
     }
     return promise;

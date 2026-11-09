@@ -1,5 +1,17 @@
 # Melhorias Futuras — Sistema PCP Kuryos
 
+## Card do cliente ↔ Cadastros — o que ficou para depois (08/11/2026)
+
+- **Projetos/amostras do cliente dentro do Cadastros.** O card (CRM1 › aba Projetos) já lista e cria
+  projetos do cliente; o modal de cliente em `cadastros.html` não mostra essa lista porque o perfil do
+  Cadastros nem sempre lê `erp/{tenant}/crm_projects` (regra por tenant). Retomar em
+  `cadastros.html:openModal` (aba clientes) lendo `crm_projects` por `cliente_id` = card ligado.
+- **Card → Cadastros só para cliente com cadastro mestre.** Card sem `cadastro_cliente_id` grava só no
+  card (aviso na aba Contatos). Criar o mestre a partir do card segue pelo fluxo do CGI
+  (`firebaseCommercial.js`, `origemCrmClienteId`).
+- **Áreas do contato editáveis no card.** O card mostra as áreas (Comercial, Financeiro…) vindas do
+  Cadastros, mas só o Cadastros as edita; contato novo criado no card entra como Comercial.
+
 ## Fechamento da virada — pendências de 03/11/2026
 
 Estes itens são portões de fechamento, **não melhorias opcionais**. A entrega

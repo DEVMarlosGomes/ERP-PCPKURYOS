@@ -5,6 +5,20 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Card do cliente ↔ Cadastros e KPIs faltantes (08/11/2026)
+
+- **Concluído:** card do cliente (CRM1) e `clientes/` (Cadastros) são o mesmo registro nos dois sentidos:
+  contatos (lista inteira, principal, cargo/decisor preservados pelo `cadastro_contato_id`), cidade, UF,
+  site, condição de pagamento e endereços. Salvar no card grava em `clientes/` com `ultimaAlteracao`
+  (origem `crm_card`, horário do servidor) e `historicoAlteracoes`; salvar no Cadastros grava o mesmo
+  histórico, que o card mostra na aba Histórico. Aba Contatos do card virou editável (adicionar,
+  remover, tornar principal). Regra de `clientes/$clienteKey` libera o comercial só com esse carimbo
+  e sem mexer em código/matriz/fornecedor/ativo. Painéis: Executivo ganhou "Expedido no período"
+  (pela data da saída; a última saída registrada em produção é 11/09) e a cobertura de valor da
+  carteira; Setorial › Produção lê `perdas/`. Testes: módulo 9, emulador do card 4, regras 4+5,
+  CRM 503, UI espelho/contatos/trava/crítico, painéis, navegação 39, Hostinger 25.
+  **Pendente (Marlos):** publicar regras e deploy da VPS. Arquivos ativos: nenhum.
+
 ### Claude — Trava de fórmulas aprovadas e P&D concluído (08/11/2026)
 
 - **Concluído:** Fórmula/BOM/Especificação APROVADA só muda por quem tem o módulo
