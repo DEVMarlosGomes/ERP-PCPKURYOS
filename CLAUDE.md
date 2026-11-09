@@ -206,6 +206,12 @@ antes de fechar.
   Compras e Histórico (`9f30bbd`), mascarado só porque as telas mantêm listener.
   Use `if (!atual) return atual;`, detecte nó inexistente por `snapshot.exists()` e
   zere variáveis de fechamento a cada passada. `run_transacoes_null_test.js` varre o repo.
+- **Transação na raiz do banco morre acima de 16 MB** (09/11/2026). Ela reescreve o banco
+  inteiro; com 29,7 MB após o merge de 01/11, o servidor derrubava a conexão: Montar carga
+  dava 500 desde a VPS e emitir OP dava 403 "Permissão de emissão revogada." (callback com
+  null). Operação multi-nó do servidor usa `functions/transacao_raiz.js` (fila no processo,
+  leitura fresca, update só dos caminhos mudados); `run_agenda_expedicao_test.js` recusa
+  transação na raiz e `run_transacao_raiz_emulator_test.js` prova o limite no emulador.
 - **`.catch()` não protege contra throw síncrono** (cache velho após deploy quebrava
   consumo e perdas) — envolva com `Promise.resolve().then(...)`.
 - **Buscar `db.ref` por regex não acha escrita mediada por função** (`ajustarEstoque`,

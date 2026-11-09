@@ -54,5 +54,30 @@
     };
   }
 
-  return { CAMPOS_MATERIAL: CAMPOS_MATERIAL, camposDaSolicitacao: camposDaSolicitacao, paraFormularioMaterial: paraFormularioMaterial };
+  // O P&D digita o fornecedor livre ("Lunagreen", "phyto", "TC"); o Cadastros tem a razão
+  // social ("LUNAGREEN BIOATIVOS", "PHYTOATTIVE", "TC QUIMICA"). Casa pelo nome inteiro e,
+  // se não houver, pelo começo do nome. Só devolve chave quando há UM candidato: com dois
+  // ou mais, quem cadastra escolhe (a lista vem em `candidatos`). `fornecedores` já vem
+  // filtrado pelo tipo do material (ativos, MP x embalagem).
+  function chaveNome(v) {
+    return txt(v).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+  }
+  function fornecedorDoPd(nome, fornecedores) {
+    var alvo = chaveNome(nome);
+    var vazio = { key: '', candidatos: [] };
+    if (!alvo) return vazio;
+    var lista = Object.keys(fornecedores || {}).map(function(k) {
+      var f = fornecedores[k] || {};
+      return { key: k, nome: txt(f.nomeFantasia) || txt(f.razaoSocial), nomes: [chaveNome(f.nomeFantasia), chaveNome(f.razaoSocial)].filter(Boolean) };
+    });
+    var exatos = lista.filter(function(f) { return f.nomes.indexOf(alvo) !== -1; });
+    var achados = exatos.length ? exatos : lista.filter(function(f) {
+      return f.nomes.some(function(n) { return n.indexOf(alvo) === 0; });
+    });
+    if (achados.length === 1) return { key: achados[0].key, candidatos: achados };
+    return { key: '', candidatos: achados };
+  }
+
+  return { CAMPOS_MATERIAL: CAMPOS_MATERIAL, camposDaSolicitacao: camposDaSolicitacao, paraFormularioMaterial: paraFormularioMaterial,
+    fornecedorDoPd: fornecedorDoPd };
 });

@@ -5,6 +5,17 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Fornecedor do P&D perdido no cadastro de MP nova e 500 na Montar carga (09/11/2026)
+
+- **Concluído (commit abaixo).** (1) Sete callables faziam transação na RAIZ do banco (emitir OP,
+  titularidade, agenda/faturamento/saída de carga, rearranjo, retrabalho). Com 29,7 MB (> 16 MB do SDK)
+  a gravação caía: Montar carga 500 (nenhuma agenda desde 23/10) e emitir OP 403 "Permissão de emissão
+  revogada." (Diego; nenhuma OP emitida pelo servidor até hoje). Agora `functions/transacao_raiz.js`
+  (fila no processo + update só dos caminhos mudados); emulador com 20 MB prova antes/depois.
+  (2) MP nova do P&D: fornecedor ia para o bloco oculto na MP Geral e se perdia; agora entra nos
+  homologados (com custo do P&D) e o nome livre casa com o cadastro (`IngredienteCampos.fornecedorDoPd`).
+  **Pendente (Marlos):** deploy da VPS (`scripts/hostinger/deploy.sh`). Arquivos ativos: nenhum.
+
 ### Claude — Amostras duplicadas no P&D pela sincronização de 08/11 (09/11/2026)
 
 - **Código concluído:** o botão ADM "Sincronizar amostras com o P&D" (`/crm/samples/sync-missing-pd-cards`)

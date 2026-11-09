@@ -541,6 +541,7 @@
             <div class="form-group"><label>Peso líquido da unidade de compra (kg)</label><input type="number" id="fPesoLiquidoCompra-mat" min="0" step="any"></div>
           </div>
 
+          <div id="avisoFornecedorPd-mat" class="field-hint" style="display:none;margin:10px 0 4px;padding:8px;border:1px solid #f0c36d;border-radius:6px;background:#fff7e6"></div>
           <div class="tipo-fields" data-tipo-for="MPGR,MU">
             <div class="section-label">Fornecedores homologados</div>
             <div class="section-note">Cada material pode ter vários fornecedores homologados -- o Pedido de Compra escolhe entre eles. Cadastro de fornecedor em si fica na aba Fornecedores, aqui mesmo em Cadastros.</div>
@@ -1880,16 +1881,43 @@ document.addEventListener('DOMContentLoaded', function() {
       if (el && el.classList.contains('uc')) el.value = stripAccents(el.value).toUpperCase();
     });
     setTimeout(renderDuplicidadeMat, 0);
-    if (d.fornecedorNome) {
-      var alvo = norm(d.fornecedorNome);
-      var fKey = Object.keys(allFornecedores || {}).find(function(key) {
-        var fo = allFornecedores[key] || {};
-        return norm(fo.nomeFantasia) === alvo || norm(fo.razaoSocial) === alvo;
-      }) || '';
-      document.getElementById('fuFornecedor-mat').value = fKey ? ((allFornecedores[fKey] || {}).nomeFantasia || (allFornecedores[fKey] || {}).razaoSocial || d.fornecedorNome) : d.fornecedorNome;
-      document.getElementById('fuFornecedorKey-mat').value = fKey;
-    }
+    preencherFornecedorDoPd(c.fornecedorNome || d.fornecedorNome, d.tipo, c.custoReferencia);
     document.getElementById('modalTitle-mat').textContent = 'Novo Material — do P&D';
+  }
+
+  /* Fornecedor que o P&D digitou (09/11/2026). MP Geral grava a lista de homologados
+     (fornecedoresHomologadosStaged); o bloco de fornecedor único (fu*) só existe para
+     fragrância e embalagem. Antes o nome ia sempre para o fu*, que fica oculto na MP
+     Geral, e o material nascia sem fornecedor. O nome livre do P&D ("Lunagreen") casa
+     com o cadastro ("LUNAGREEN BIOATIVOS") por IngredienteCampos.fornecedorDoPd. */
+  function preencherFornecedorDoPd(nome, tipo, custo) {
+    var aviso = document.getElementById('avisoFornecedorPd-mat');
+    aviso.style.display = 'none'; aviso.innerHTML = '';
+    if (!nome) return;
+    var permitidos = {};
+    fhFornecedorItems.forEach(function(it) { permitidos[it.key] = allFornecedores[it.key]; });
+    var r = IngredienteCampos.fornecedorDoPd(nome, permitidos);
+    var umSo = tipo === 'MPES' || tipo === 'EP' || tipo === 'ES' || tipo === 'ET';
+    var nomeCadastro = r.key ? ((allFornecedores[r.key] || {}).nomeFantasia || (allFornecedores[r.key] || {}).razaoSocial || nome) : '';
+    if (r.key && umSo) {
+      document.getElementById('fuFornecedor-mat').value = nomeCadastro;
+      document.getElementById('fuFornecedorKey-mat').value = r.key;
+    } else if (r.key) {
+      fornecedoresHomologadosStaged[r.key] = { nomeComercial: '', codigoFornecedor: '', statusHomologacao: 'aguardando_homologacao',
+        custoReferencia: custo != null ? custo : null };
+      renderFornecedoresHomologados();
+    } else {
+      // Sem cadastro único: deixa o nome digitado no campo de busca para quem cadastra escolher.
+      document.getElementById(umSo ? 'fuFornecedor-mat' : 'fhFornecedor-mat').value = stripAccents(nome).toUpperCase();
+      if (!umSo && custo != null) document.getElementById('fhCustoRef-mat').value = custo;
+    }
+    var msg = r.key
+      ? 'Fornecedor do P&D: <b>' + escapeHtml(nome) + '</b> → <b>' + escapeHtml(nomeCadastro) + '</b>' + (umSo ? '' : ' (homologação: aguardando)') + '. Confira antes de salvar.'
+      : r.candidatos.length
+        ? '⚠ O P&D informou o fornecedor <b>' + escapeHtml(nome) + '</b>, que corresponde a mais de um cadastro (' + r.candidatos.map(function(c) { return escapeHtml(c.nome); }).join(', ') + '). Escolha na lista' + (umSo ? '' : ' e clique em "+ Adicionar"') + '.'
+        : '⚠ O P&D informou o fornecedor <b>' + escapeHtml(nome) + '</b>, que não está cadastrado. Cadastre-o na aba Fornecedores e depois selecione aqui' + (umSo ? '' : ' (+ Adicionar)') + '.';
+    aviso.innerHTML = msg;
+    aviso.style.display = 'block';
   }
 
   /* CAD-01 (22/10/2026): parecidos já cadastrados, regras em shared/duplicidade-material.js.
@@ -2522,6 +2550,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('fCriticoPd-mat').disabled = !ehAdminCadastro();
 
     solicitacaoMatEmCurso = null;
+    document.getElementById('avisoFornecedorPd-mat').style.display = 'none';
+    document.getElementById('avisoFornecedorPd-mat').innerHTML = '';
     setTimeout(renderDuplicidadeMat, 0);
     var skuEst = SkuEntrada.estado(m);
     // Material antigo: o "Código deles" que já existia vira o SKU de aprovação.

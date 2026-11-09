@@ -27,5 +27,17 @@ assert.equal(C.paraFormularioMaterial(antiga, 'MPGR').referenciaPd, '');
 // Preço zero ou texto não vira preço.
 assert.equal(C.camposDaSolicitacao({ campos: { preco_brl_kg: 0, preco_usd_kg: 'abc' } }).preco_brl_kg, null);
 
+// Fornecedor livre do P&D x cadastro (09/11/2026): nome inteiro, depois começo do nome; ambíguo não escolhe.
+const forn = { lun: { razaoSocial: 'LUNAGREEN BIOATIVOS' }, phy: { nomeFantasia: 'PHYTOATTIVE' },
+  tcq: { nomeFantasia: 'TC QUIMICA' }, tcm: { nomeFantasia: 'TC MATERIAS PRIMAS' }, shp: { nomeFantasia: 'SHOPEE MARKETPLACE' },
+  sab: { nomeFantasia: 'Saber', razaoSocial: 'SABER QUIMICA LTDA' }, sab2: { nomeFantasia: 'SABERES DIGITAIS' } };
+assert.equal(C.fornecedorDoPd('Lunagreen', forn).key, 'lun');
+assert.equal(C.fornecedorDoPd('phyto', forn).key, 'phy');
+assert.equal(C.fornecedorDoPd('Hope', forn).key, '', 'SHOPEE contém HOPE, mas não começa com ele');
+assert.deepEqual(C.fornecedorDoPd('TC', forn).candidatos.map((c) => c.key).sort(), ['tcm', 'tcq']);
+assert.equal(C.fornecedorDoPd('TC', forn).key, '');
+assert.equal(C.fornecedorDoPd('Sabér', forn).key, 'sab', 'nome inteiro vence o prefixo de SABERES');
+assert.equal(C.fornecedorDoPd('', forn).key, '');
+
 assert.deepEqual(C.CAMPOS_MATERIAL.map((c) => c.chave), ['inci', 'funcao', 'fornecedor', 'preco_brl_kg', 'preco_usd_kg']);
 console.log('run_ingrediente_campos_test: OK');

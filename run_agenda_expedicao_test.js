@@ -47,23 +47,34 @@ console.log('OK agenda PA: criação, transporte compartilhado, revisão concorr
 // Handler real: o retry da transação relê a revisão e as permissões atuais.
 async function testarHandler(){
   const fs=require('node:fs'), vm=require('node:vm');
-  let state=fixture(), race=null;
-  state.usuarios={u1:{role:'logistica',nome:'Logística'}};
-  const db={ref(path=''){return {once:async()=>({val:()=>path?path.split('/').reduce((n,k)=>n&&n[k],state):structuredClone(state)}),
-    transaction:async cb=>{assert.equal(cb(null),null);let result=cb(structuredClone(state));if(race){race(state);race=null;result=cb(structuredClone(state));}if(result){state=result;return {committed:true};}return {committed:false};}};}};
+  const h={state:fixture(),race:null};
+  h.state.usuarios={u1:{role:'logistica',nome:'Logística'}};
+  h.state.agendamentos_expedicao={antiga:{status:'CANCELADO',revisao:2,paletes:[]}};
+  const db=require('./run_fake_rtdb_raiz').criarFakeDb(h);
   const src=fs.readFileSync('functions/index.js','utf8'), code=src.slice(src.indexOf('exports.salvarAgendamentoExpedicaoPA ='),src.indexOf('// A transação engloba'));
-  const ctx={exports:{},db,prepararAgenda,onCall:(_,fn)=>fn,HttpsError:class extends Error{constructor(code,msg){super(msg);this.code=code;}},Date:class extends Date{constructor(...args){super(...(args.length?args:[agora]));}}};
+  const ctx={exports:{},db,prepararAgenda,transacaoRaiz:require('./functions/transacao_raiz').transacaoRaiz,onCall:(_,fn)=>fn,HttpsError:class extends Error{constructor(code,msg){super(msg);this.code=code;}},Date:class extends Date{constructor(...args){super(...(args.length?args:[agora]));}}};
   vm.runInNewContext(code,ctx);const handler=ctx.exports.salvarAgendamentoExpedicaoPA;
   await assert.rejects(()=>handler({data:dados}),/Faça login/);
   const req={auth:{uid:'u1',token:{}},data:dados};
-  const r=await handler(req);assert.equal(r.revisao,1);assert.equal(state.estoque_lotes.SKU.p1.saldoLote,7);
-  race=s=>{s.agendamentos_expedicao.agenda_001.revisao=2;};
+  const r=await handler(req);assert.equal(r.revisao,1);assert.equal(h.state.estoque_lotes.SKU.p1.saldoLote,7);
+  assert.ok(h.updates.at(-1).every(p=>p.startsWith('agendamentos_expedicao/agenda_001')),'grava só a agenda nova: '+h.updates.at(-1));
+  assert.equal(h.state.agendamentos_expedicao.antiga.status,'CANCELADO','agenda antiga intacta');
+  h.race=s=>{s.agendamentos_expedicao.agenda_001.revisao=2;};
   await assert.rejects(()=>handler({...req,data:{...dados,revisao:1}}),/mudou/);
-  assert.equal(state.agendamentos_expedicao.agenda_001.revisao,2);
-  race=s=>{s.usuarios.u1.role='production';};
+  assert.equal(h.state.agendamentos_expedicao.agenda_001.revisao,2);
+  h.race=s=>{s.usuarios.u1.role='production';};
   await assert.rejects(()=>handler({...req,data:{...dados,revisao:2}}),/revogada/);
-  assert.equal(state.agendamentos_expedicao.agenda_001.revisao,2);
+  assert.equal(h.state.agendamentos_expedicao.agenda_001.revisao,2);
   assert.equal(require('./ler_regras').lerRegras().rules.agendamentos_expedicao['.write'],false);
   console.log('OK handler agenda: autenticação, permissão atual, revisão concorrente e estoque preservado.');
 }
 testarHandler().catch(err=>{console.error(err);process.exitCode=1;});
+
+// 09/11/2026: transação do SDK na raiz reescreve o banco inteiro e falha acima de 16 MB
+// (produção: 29,7 MB). Toda operação multi-nó do servidor passa por transacaoRaiz.
+{
+  const fs=require('node:fs'),path=require('node:path');
+  const achados=fs.readdirSync('functions').filter(f=>f.endsWith('.js')).filter(f=>/\.ref\(\s*(['"]\/?['"])?\s*\)\s*\.transaction\(/.test(fs.readFileSync(path.join('functions',f),'utf8')));
+  assert.deepEqual(achados,[],'transação na raiz do banco: use functions/transacao_raiz.js');
+  console.log('OK nenhuma transação na raiz em functions/.');
+}

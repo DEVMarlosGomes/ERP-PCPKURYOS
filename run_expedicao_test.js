@@ -92,25 +92,21 @@ assert.equal(require('./ler_regras').lerRegras().rules.expedicoes_comerciais['.w
 // Executa o handler real com um RTDB simulado; força nova tentativa depois
 // de uma mudança concorrente, como faz a transaction do Firebase.
 async function testarHandler() {
-  let state=fixture(), race=null, txs=0;
-  const fakeDb={ref(path=''){return {
-    once:async()=>({val:()=>path?path.split('/').reduce((n,k)=>n&&n[k],state):clone(state)}),
-    transaction:async cb=>{txs++;let proposed=cb(null);assert.equal(proposed,null);proposed=cb(clone(state));
-      if(race){race(state);race=null;proposed=cb(clone(state));}
-      if(proposed){state=proposed;return{committed:true};}return{committed:false};}
-  };}};
+  const h={state:fixture(),race:null};
+  const fakeDb=require('./run_fake_rtdb_raiz').criarFakeDb(h);
   const src=fs.readFileSync('functions/index.js','utf8');
   const trecho=src.slice(src.indexOf('exports.confirmarExpedicaoPA ='),src.indexOf('const OPS_API_KEY'));
-  const ctx={exports:{},onCall:(_options,fn)=>fn,db:fakeDb,HttpsError:class extends Error{constructor(code,msg){super(msg);this.code=code;}},prepararSaida,Date:class extends Date {constructor(...args){super(...(args.length?args:[agora]));}}};
+  const ctx={exports:{},onCall:(_options,fn)=>fn,db:fakeDb,HttpsError:class extends Error{constructor(code,msg){super(msg);this.code=code;}},prepararSaida,transacaoRaiz:require('./functions/transacao_raiz').transacaoRaiz,Date:class extends Date {constructor(...args){super(...(args.length?args:[agora]));}}};
   vm.runInNewContext(trecho,ctx);
   const req={auth:{uid:'u1',token:{}},data:dados}, handler=ctx.exports.confirmarExpedicaoPA;
   await assert.rejects(()=>handler({data:dados}),/Faça login/);
-  const ok=await handler(req);assert.equal(ok.ok,true);assert.equal(state.estoque_lotes.PA001.pa_op1_p1.saldoLote,0);
-  await handler(req);assert.equal(state.pedidos['PED-001__PA001'].expedido,295);assert.equal(Object.keys(state.expedicoes_comerciais).length,1);
-  state=fixture();race=b=>{b.estoque_lotes.PA001.pa_op1_p1.status='RETIDO';};
-  await assert.rejects(()=>handler(req),/Qualidade/);assert.equal(state.estoque_lotes.PA001.pa_op1_p1.saldoLote,295);assert.equal(state.expedicoes_comerciais,undefined);
-  state=fixture();race=b=>{b.usuarios.u1.role='production';};await assert.rejects(()=>handler(req),/revogada/);
-  assert.ok(txs>=3);
+  const ok=await handler(req);assert.equal(ok.ok,true);assert.equal(h.state.estoque_lotes.PA001.pa_op1_p1.saldoLote,0);
+  assert.ok(h.updates.at(-1).includes('estoque_lotes/PA001/pa_op1_p1/saldoLote'),'grava campo a campo no nó existente: '+h.updates.at(-1));assert.ok(!h.updates.at(-1).includes('estoque_lotes'),'nunca regrava o nó inteiro');
+  await handler(req);assert.equal(h.state.pedidos['PED-001__PA001'].expedido,295);assert.equal(Object.keys(h.state.expedicoes_comerciais).length,1);
+  h.state=fixture();h.race=b=>{b.estoque_lotes.PA001.pa_op1_p1.status='RETIDO';};
+  await assert.rejects(()=>handler(req),/Qualidade/);assert.equal(h.state.estoque_lotes.PA001.pa_op1_p1.saldoLote,295);assert.equal(h.state.expedicoes_comerciais,undefined);
+  h.state=fixture();h.race=b=>{b.usuarios.u1.role='production';};await assert.rejects(()=>handler(req),/revogada/);
+  assert.equal((h.state.locks||{}).transacao_raiz,undefined,'trava liberada');
 }
 testarHandler().then(()=>console.log('OK Expedição PA: conferência real → paletes, rastreabilidade, baixas atômicas, concorrência, idempotência, permissões, CQ, WMS e legado.')).catch(e=>{console.error(e);process.exitCode=1;});
 module.exports = {fixture, dados};

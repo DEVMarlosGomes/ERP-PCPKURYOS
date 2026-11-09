@@ -120,47 +120,34 @@ erro(() => T.preparar(base(), op({qtd: 100, novoLoteKey: ''}), ctx), /novo lote/
 
 // 7. A Cloud Function real: só admin ou quem tem o módulo; transaction; idempotência; revogação no meio.
 async function handler() {
-  let state = base(), race = null, pushes = 0;
-  const db = {ref(path = '') {
-    return {
-      once: async () => ({val: () => path ? path.split('/').reduce((n, k) => n && n[k], state) : structuredClone(state)}),
-      push() { pushes++; return {key: 'pk' + String(pushes).padStart(6, '0')}; },
-      transaction: async (cb) => {
-        assert.equal(cb(null), null);
-        let result = cb(structuredClone(state));
-        if (race) { race(state); race = null; result = cb(structuredClone(state)); }
-        if (result) { state = result; return {committed: true}; }
-        return {committed: false};
-      }
-    };
-  }};
-  db.ref = ((orig) => (p) => { const r = orig(p); if (!p) r.push = () => { pushes++; return {key: 'pk' + String(pushes).padStart(6, '0')}; }; return r; })(db.ref);
+  const hh = {state: base(), race: null};
+  const db = require('./run_fake_rtdb_raiz').criarFakeDb(hh);
   const src = fs.readFileSync('functions/index.js', 'utf8');
   const code = src.slice(src.indexOf('exports.alterarTitularidadeEstoque ='), src.indexOf('// fim titularidade'));
-  const sandbox = {exports: {}, db, Titularidade: T, onCall: (_, fn) => fn, HttpsError: class extends Error { constructor(c, m) { super(m); this.code = c; } },
+  const sandbox = {exports: {}, db, Titularidade: T, transacaoRaiz: require('./functions/transacao_raiz').transacaoRaiz, onCall: (_, fn) => fn, HttpsError: class extends Error { constructor(c, m) { super(m); this.code = c; } },
     Date: class extends Date { constructor(...a) { super(...(a.length ? a : [AGORA])); } }};
   vm.runInNewContext(code, sandbox);
   const h = sandbox.exports.alterarTitularidadeEstoque;
   const req = (uid, data) => ({auth: uid ? {uid, token: {}} : null, data});
   await assert.rejects(() => h(req(null, op())), /Faça login/);
   await assert.rejects(() => h(req('u2', op())), (e) => e.code === 'permission-denied' && /administrador/.test(e.message));
-  assert.equal(state.estoque_lotes['ET-1'].a.propriedade.tipo, 'KURYOS', 'logística não alterou nada');
+  assert.equal(hh.state.estoque_lotes['ET-1'].a.propriedade.tipo, 'KURYOS', 'logística não alterou nada');
   const r = await h(req('u1', op({qtd: 400})));
   assert.deepEqual([r.ok, r.ja, r.qtd], [true, false, 400]);
-  assert.equal(state.estoque_lotes['ET-1'].a.saldoLote, 1100);
-  const filhos = Object.keys(state.estoque_lotes['ET-1']).filter((k) => k !== 'a' && k !== 'b');
-  assert.equal(filhos.length, 1); assert.equal(state.estoque_lotes['ET-1'][filhos[0]].saldoLote, 400);
-  assert.equal(state.estoque['ET-1'].porCliente.FEB.saldoAtual, 400);
-  assert.equal(Object.values(state.movimentos_estoque['ET-1']).length, 1);
+  assert.equal(hh.state.estoque_lotes['ET-1'].a.saldoLote, 1100);
+  const filhos = Object.keys(hh.state.estoque_lotes['ET-1']).filter((k) => k !== 'a' && k !== 'b');
+  assert.equal(filhos.length, 1); assert.equal(hh.state.estoque_lotes['ET-1'][filhos[0]].saldoLote, 400);
+  assert.equal(hh.state.estoque['ET-1'].porCliente.FEB.saldoAtual, 400);
+  assert.equal(Object.values(hh.state.movimentos_estoque['ET-1']).length, 1);
   const r2 = await h(req('u1', op({qtd: 400})));                 // mesma operacaoKey: nada de novo
   assert.equal(r2.ja, true);
-  assert.equal(state.estoque_lotes['ET-1'].a.saldoLote, 1100); assert.equal(Object.keys(state.estoque_lotes['ET-1']).length, 3);
+  assert.equal(hh.state.estoque_lotes['ET-1'].a.saldoLote, 1100); assert.equal(Object.keys(hh.state.estoque_lotes['ET-1']).length, 3);
   const r3 = await h(req('u3', op({operacaoKey: 'op-000002', loteKey: 'b', qtd: 500, novoDono: {tipo: 'KURYOS'}})));   // módulo concedido
-  assert.equal(r3.ok, true); assert.equal(state.estoque_lotes['ET-1'].b.propriedade.tipo, 'KURYOS');
-  race = (s) => { s.usuarios.u1.role = 'logistica'; };                                                                    // revogado no meio
+  assert.equal(r3.ok, true); assert.equal(hh.state.estoque_lotes['ET-1'].b.propriedade.tipo, 'KURYOS');
+  hh.race = (s) => { s.usuarios.u1.role = 'logistica'; };                                                                    // revogado no meio
   await assert.rejects(() => h(req('u1', op({operacaoKey: 'op-000003', qtd: 100, novoDono: {tipo: 'CLIENTE', clienteKey: 'MISS'}}))), /revogada/);
   await assert.rejects(() => h(req('u3', op({operacaoKey: 'op-000004', qtd: 99999}))), (e) => e.code === 'failed-precondition' && /passa do saldo/.test(e.message));
-  assert.equal(PE.saldoPorDono(state.estoque['ET-1']).total, 2000, 'o total físico nunca mudou em nenhuma troca');
+  assert.equal(PE.saldoPorDono(hh.state.estoque['ET-1']).total, 2000, 'o total físico nunca mudou em nenhuma troca');
 }
 handler().then(() => console.log('OK titularidade: regra (inteiro, parcial, sem lote, recusas, idempotência), cópias iguais e Cloud Function com permissão, transaction e revogação.'))
   .catch((e) => { console.error(e); process.exit(1); });

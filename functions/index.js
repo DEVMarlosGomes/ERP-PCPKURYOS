@@ -26,6 +26,7 @@ const EmissaoOp = require("./emissao_op");
 const {criarServicoIdentidade} = require("./identidade_acesso");
 const {criarServicoLogin} = require("./login_personalizado");
 const ManipulacaoLote = require("./manipulacao_lote");
+const {transacaoRaiz} = require("./transacao_raiz");
 
 initializeApp();
 const db = getDatabase();
@@ -99,8 +100,7 @@ exports.emitirOpServidor = onCall({timeoutSeconds: 120, memory: "512MiB"}, async
   const data = Object.assign({}, request.data || {}, {alertKey: db.ref().push().key});
   let plan;
   let failure;
-  await db.ref().once("value");
-  const result = await db.ref().transaction(base => {
+  const result = await transacaoRaiz(db, base => {
     failure = null;
     try {
       const current = ((base || {}).usuarios || {})[uid] || {};
@@ -112,7 +112,7 @@ exports.emitirOpServidor = onCall({timeoutSeconds: 120, memory: "512MiB"}, async
       failure = error;
       return;
     }
-  }, undefined, false);
+  });
   if (failure) throw new HttpsError(failure.code || "failed-precondition", failure.message, failure.details);
   if (!result.committed || !plan) throw new HttpsError("aborted", "O estoque mudou durante a emissão. Tente novamente.");
   return {ok: true, lote: plan.lote, op: plan.op};
@@ -133,8 +133,7 @@ exports.alterarTitularidadeEstoque = onCall({timeoutSeconds: 120, memory: "512Mi
   const agora = new Date().toISOString();
   const dados = Object.assign({}, request.data || {}, {novoLoteKey: db.ref().push().key, movKey: db.ref().push().key});
   let plano, falha;
-  await db.ref().once("value");
-  const result = await db.ref().transaction((base) => {
+  const result = await transacaoRaiz(db, (base) => {
     falha = null;
     if (!base) return base;
     try {
@@ -148,7 +147,7 @@ exports.alterarTitularidadeEstoque = onCall({timeoutSeconds: 120, memory: "512Mi
       }
       return base;
     } catch (e) { falha = e; return; }
-  }, undefined, false);
+  });
   if (falha) throw new HttpsError(falha.code || "failed-precondition", falha.message);
   if (!result.committed || !plano) throw new HttpsError("aborted", "O estoque mudou durante a troca. Atualize a tela e tente de novo.");
   return {ok: true, ja: !!plano.ja, resumo: plano.resumo, qtd: plano.qtd, novoLoteKey: plano.novoLoteKey || null};
@@ -164,8 +163,7 @@ exports.salvarAgendamentoExpedicaoPA = onCall({timeoutSeconds: 120, memory: "512
   const autor = user.nome || request.auth.token.email || uid;
   const agora = new Date().toISOString();
   let agenda, falha;
-  await db.ref().once("value");
-  const result = await db.ref().transaction(base => {
+  const result = await transacaoRaiz(db, base => {
     falha = null;
     if (!base) return base;
     try {
@@ -175,7 +173,7 @@ exports.salvarAgendamentoExpedicaoPA = onCall({timeoutSeconds: 120, memory: "512
       base.agendamentos_expedicao[agenda.agendaKey] = agenda;
       return base;
     } catch (e) { falha = e; return; }
-  }, undefined, false);
+  });
   if (falha) throw new HttpsError(falha.code || "failed-precondition", falha.message);
   if (!result.committed || !agenda) throw new HttpsError("aborted", "A agenda mudou. Reabra a carga e tente novamente.");
   return {ok: true, agendaKey: agenda.agendaKey, revisao: agenda.revisao, status: agenda.status};
@@ -193,9 +191,7 @@ exports.confirmarExpedicaoPA = onCall({timeoutSeconds: 120, memory: "512MiB"}, a
   const autor = user.nome || request.auth.token.email || uid;
   const agora = new Date().toISOString();
   let plano, falha;
-  // Prefetch evita que o primeiro callback aborte por cache vazio no Admin SDK.
-  await db.ref().once("value");
-  const result = await db.ref().transaction((base) => {
+  const result = await transacaoRaiz(db, (base) => {
     falha = null;
     if (!base) return base;
     try {
@@ -210,7 +206,7 @@ exports.confirmarExpedicaoPA = onCall({timeoutSeconds: 120, memory: "512MiB"}, a
       }
       return base;
     } catch (e) { falha = e; return; }
-  }, undefined, false);
+  });
   if (falha) throw new HttpsError(falha.code || "failed-precondition", falha.message);
   if (!result.committed || !plano) throw new HttpsError("aborted", "O estoque mudou. Atualize a seleção e tente novamente.");
   return {ok: true, cargaKey: plano.cargaKey, numero: plano.carga.numero, repetida: plano.repetida};
@@ -669,8 +665,7 @@ exports.faturamentoCargaPA = onCall({timeoutSeconds: 120, memory: "512MiB"}, asy
   const autor = user.nome || request.auth.token.email || uid;
   const agora = new Date().toISOString();
   let plano, falha;
-  await db.ref().once("value");
-  const result = await db.ref().transaction((base) => {
+  const result = await transacaoRaiz(db, (base) => {
     falha = null;
     plano = null;
     if (!base) return base;
@@ -681,7 +676,7 @@ exports.faturamentoCargaPA = onCall({timeoutSeconds: 120, memory: "512MiB"}, asy
       base.agendamentos_expedicao[request.data.agendaKey] = plano.agenda;
       return base;
     } catch (e) { falha = e; return; }
-  }, undefined, false);
+  });
   if (falha) throw new HttpsError(falha.code || "failed-precondition", falha.message);
   if (plano && plano.repetida) return {ok: true, repetida: true, revisao: plano.agenda.revisao, status: (plano.agenda.faturamento || {}).status};
   if (!result.committed || !plano) throw new HttpsError("aborted", "A carga mudou. Reabra e tente novamente.");
@@ -2447,13 +2442,12 @@ exports.rearranjarLinhas = onCall({timeoutSeconds:120,memory:'512MiB'}, async re
   if (!['admin','pcp'].includes((await db.ref('usuarios/'+uid+'/role').get()).val())) throw new HttpsError('permission-denied','Somente PCP ou administradores podem rearranjar linhas.');
   const agora=new Date().toISOString();
   let evento, falha;
-  await db.ref().once('value');
-  const result=await db.ref().transaction(base=>{
+  const result=await transacaoRaiz(db, base=>{
     evento=null; falha=null;
     if(!base) return base;
     try { evento=require('./rearranjo_linhas').rearranjar(base,request.data || {},uid,agora); return base; }
     catch(e) { falha=e; return; }
-  },undefined,false);
+  });
   if(falha) throw new HttpsError('failed-precondition',falha.message);
   if(!result.committed || !evento) throw new HttpsError('aborted','As linhas mudaram. Atualize o painel.');
   return {ok:true,operacaoId:request.data.operacaoId};
@@ -2533,12 +2527,11 @@ exports.apontarRetrabalho = onCall({timeoutSeconds:120,memory:'512MiB'}, async r
   // que a spec põe como responsável pela reinspeção nem chegaria à função.
   if(!['admin','production','pcp','qualidade'].includes(user.role) && !(user.modulos && user.modulos.apontamento)) throw new HttpsError('permission-denied','Perfil sem acesso a retrabalho.');
   const agora=new Date().toISOString();let rt,falha;
-  await db.ref().once('value');
-  const result=await db.ref().transaction(base=>{
+  const result=await transacaoRaiz(db, base=>{
     rt=null;falha=null;if(!base)return base;
     try {rt=require('./retrabalhos').executar(base,request.data || {},uid,agora);return base;}
     catch(e){falha=e;return;}
-  },undefined,false);
+  });
   if(falha) throw new HttpsError('failed-precondition',falha.message);
   if(!result.committed || !rt) throw new HttpsError('aborted','Registro alterado. Reabra o retrabalho.');
   return {ok:true,retrabalhoId:rt.id,revisao:rt.revisao};
