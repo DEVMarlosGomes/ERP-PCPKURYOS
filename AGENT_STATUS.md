@@ -5,6 +5,16 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Faturamento da carga chega ao Financeiro (10/11/2026)
+
+- **Concluído:** o e-mail da solicitação de faturamento ficava SEM_DESTINATARIOS (`config/emailFinanceiro`
+  vazio). Agora vai a todo usuário ativo com o módulo **Financeiro** (+ `config/emailFinanceiro`, se houver);
+  quem tem o módulo abre `faturamento.html` (link no bloco Financeiro quando não vê a Expedição) e registra
+  a NF pela `faturamentoCargaPA`. Solicitação SEM_DESTINATARIOS/ERRO ganhou "Reenviar e-mail" (ação
+  `REENVIAR_EMAIL` na mesma callable). **Pendente (Marlos):** marcar o módulo Financeiro em Larissa e Lucca
+  (Usuários) com e-mail no perfil, deploy da VPS e clicar "Reenviar e-mail" na carga já solicitada.
+  Arquivos ativos: nenhum.
+
 ### Claude — Usuários, RNC e destino da carga (10/11/2026)
 
 - **Concluído e publicado na VPS** (`hostinger-deploy`). Arquivos ativos: nenhum.

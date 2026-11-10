@@ -38,6 +38,8 @@ const ETAPAS_EXPEDICAO = ['faturamento', 'cargas'];
 const NOVAS_FASE8 = ['ativos', 'manual_ativos', 'auditoria_5s', 'manual_auditoria_5s', 'rh_temporarios', 'manual_temporarios',
   'feedback', 'rh_feedback', 'manual_feedback', 'backlog', 'pesagens', 'checklists_cq', 'liberacao_linha', 'painel', 'titularidade',
   'auditoria', 'manual_auditoria', 'inspecao_total'];
+// Financeiro sem Expedição registra a NF da carga (10/11/2026).
+const novasDoPerfil = (u) => (u.modulos && u.modulos.financeiro === true ? ['faturamento'] : []);
 
 // O fixture cobre todos os perfis do aceite.
 ['admin', 'pcp', 'gestor', 'qualidade', 'rotulagem', 'logistica', 'comercial', 'pd', 'production', 'rh', 'tv',
@@ -71,7 +73,7 @@ Object.keys(PERFIS).forEach((nome) => {
   antigos.forEach((l) => { rotuloAntigo[l.href] = l.rotulo; });
   const setAntigo = new Set(antigos.map((l) => l.href));
   const setNovo = new Set(hrefsNovos);
-  const sobrando = [...setNovo].filter((h) => !setAntigo.has(h) && !NOVAS_FASE8.includes(h));
+  const sobrando = [...setNovo].filter((h) => !setAntigo.has(h) && !NOVAS_FASE8.includes(h) && !novasDoPerfil(PERFIS[nome]).includes(h));
   assert.deepEqual(sobrando, [], nome + ': link novo que o menu antigo não oferecia');
   const faltando = [...setAntigo].filter((h) => !setNovo.has(h));
   const faltaAceita = faltando.filter((h) => ETAPAS_EXPEDICAO.includes(h) && setNovo.has('expedicao'));
@@ -79,7 +81,7 @@ Object.keys(PERFIS).forEach((nome) => {
   // Mesmo rótulo, salvo o link que passou a representar as três etapas.
   novo.forEach((l) => {
     if (l.href === 'expedicao') { assert.equal(l.rotulo, 'Expedição de Vendas'); return; }
-    if (NOVAS_FASE8.includes(l.href)) return; // tela nova: não havia rótulo antigo
+    if (NOVAS_FASE8.includes(l.href) || novasDoPerfil(PERFIS[nome]).includes(l.href)) return; // tela nova: não havia rótulo antigo
     assert.equal(l.rotulo, rotuloAntigo[l.href], nome + ': rótulo mudou em ' + l.href);
   });
   comparados++;

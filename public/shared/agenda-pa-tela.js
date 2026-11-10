@@ -9,7 +9,7 @@
     var pendente = function(p) { return Math.max(Number(p.quantidade || 0) - Number(p.embarcado || 0), 0); };
     var dataBR = function(v) { var s = String(v || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s.split('-').reverse().join('/') : '—'; };
     var hojeISO = function() { return new Date().toLocaleDateString('en-CA', {timeZone: 'America/Sao_Paulo'}); };
-    var EMAIL = {ENVIADO: 'e-mail enviado', ENVIANDO: 'enviando e-mail…', SEM_DESTINATARIOS: 'e-mail NÃO enviado: configure o e-mail do Financeiro', ERRO: 'falha no e-mail'};
+    var EMAIL = {ENVIADO: 'e-mail enviado', ENVIANDO: 'enviando e-mail…', SEM_DESTINATARIOS: 'e-mail NÃO enviado: ninguém com o módulo Financeiro', ERRO: 'falha no e-mail'};
     function faturamentoHTML(a) {
       var f = a.faturamento || {}, html = '';
       if (!f.status) html = '<span class="agenda-fat agenda-fat-nao">Faturamento não solicitado</span>';

@@ -279,7 +279,7 @@ const KURYOS_MODULOS = {
   // Financeiro e Controladoria (28/10/2026, PROMPT_FINANCEIRO.md e PROMPT_CONTROLADORIA.md):
   // padrão só do ADM; o ADM marca para quem opera. As regras do banco leem estes módulos.
   financeiro:   { rotulo: 'Financeiro',            desc: 'Contas a pagar e a receber, bancos, conciliação e fluxo de caixa (dado sensível)',
-                  paginas: ['financeiro.html'] },
+                  paginas: ['financeiro.html', 'faturamento.html'] },
   controladoria:{ rotulo: 'Controladoria',         desc: 'Razão gerencial, DRE, rentabilidade, orçamento e fechamento do mês (dado sensível)',
                   paginas: ['controladoria.html'] },
   // ── Fase 8 (reunião 28/10/2026), portes do repositório do Gustavo -- Dev 3 (PORT-06 a PORT-09).

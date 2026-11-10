@@ -185,6 +185,8 @@
     // ── Cadastros, Financeiro, ADM
     {p: 'cadastros.html', r: 'Cadastros', i: 'tag', b: 'Cadastros'},
     {p: 'financeiro.html', r: 'Financeiro', i: 'bank', b: 'Financeiro'},
+    // Financeiro sem Expedição (10/11): recebe o e-mail e registra a NF na carga.
+    {p: 'faturamento.html', r: 'Faturamento de cargas', i: 'clipboard', b: 'Financeiro', q: function(c) { return !c.podeAbrir('expedicao.html'); }},
     {p: 'controladoria.html', r: 'Controladoria', i: 'scale', b: 'Financeiro'},
     {p: 'admin.html', r: 'Ajustes / Config', i: 'sliders', b: 'ADM'},
     {p: 'usuarios.html', r: 'Usuários', i: 'people', b: 'ADM'},

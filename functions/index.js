@@ -656,12 +656,21 @@ async function sendMailViaGraph(to, subject, body, opts) {
 
 // Faturamento da carga (functions/faturamento_carga.js): solicitar e registrar
 // NF. Mesma transação na raiz da agenda -- revisão e permissão relidas no retry.
-exports.faturamentoCargaPA = onCall({timeoutSeconds: 120, memory: "512MiB"}, async (request) => {
+exports.faturamentoCargaPA = onCall({timeoutSeconds: 120, memory: "512MiB", secrets: [MS_GRAPH_TENANT_ID, MS_GRAPH_CLIENT_ID, MS_GRAPH_CLIENT_SECRET, MS_GRAPH_SENDER_EMAIL]}, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para faturar a carga.");
   const uid = request.auth.uid;
-  const permitido = (user) => ["admin", "pcp", "logistica"].includes(user.role) || (user.modulos && user.modulos.logistica === true);
+  // Financeiro (módulo marcado em Usuários) também registra a NF: é quem fatura.
+  const permitido = (user) => ["admin", "pcp", "logistica"].includes(user.role) || !!(user.modulos && (user.modulos.logistica === true || user.modulos.financeiro === true));
   const user = (await db.ref("usuarios/" + uid).once("value")).val() || {};
   if (!permitido(user)) throw new HttpsError("permission-denied", "Seu perfil não pode faturar cargas de PA.");
+  if ((request.data || {}).acao === "REENVIAR_EMAIL") {
+    const {agendaKey, solicitacaoId} = request.data;
+    if (!/^[A-Za-z0-9_-]{1,120}$/.test(String(agendaKey || "")) || !/^[A-Za-z0-9_-]{1,120}$/.test(String(solicitacaoId || ""))) {
+      throw new HttpsError("invalid-argument", "Solicitação inválida.");
+    }
+    const status = await enviarEmailFaturamento(agendaKey, solicitacaoId, true);
+    return {ok: true, email: status};
+  }
   const autor = user.nome || request.auth.token.email || uid;
   const agora = new Date().toISOString();
   let plano, falha;
@@ -691,31 +700,45 @@ exports.onSolicitacaoFaturamentoPA = onValueCreated(
     secrets: [MS_GRAPH_TENANT_ID, MS_GRAPH_CLIENT_ID, MS_GRAPH_CLIENT_SECRET, MS_GRAPH_SENDER_EMAIL],
   },
   async (event) => {
-    const {agendaKey, sid} = event.params;
-    const statusRef = db.ref("agendamentos_expedicao/" + agendaKey + "/faturamento/solicitacoes/" + sid + "/email");
-    const reserva = await statusRef.transaction((atual) => {
-      if (atual) return; // já processado por outra entrega do mesmo evento
-      return {status: "ENVIANDO", em: new Date().toISOString()};
-    });
-    if (!reserva.committed) return;
-    try {
-      const solicitacao = event.data.val() || {};
-      const config = (await db.ref("config").once("value")).val() || {};
-      const dest = FaturamentoEmail.destinatarios(config);
-      if (!dest.para.length) {
-        await statusRef.set({status: "SEM_DESTINATARIOS", em: new Date().toISOString()});
-        return;
-      }
-      const email = FaturamentoEmail.montarEmail(solicitacao, agendaKey);
-      const pdf = await FaturamentoEmail.gerarPdf(solicitacao, agendaKey);
-      await sendMailViaGraph(dest.para, email.assunto, email.corpo, {html: true, cc: dest.copia, anexos: [{nome: email.arquivo, tipo: "application/pdf", conteudo: pdf}]});
-      await statusRef.set({status: "ENVIADO", em: new Date().toISOString(), para: dest.para, copia: dest.copia, assunto: email.assunto});
-    } catch (e) {
-      await statusRef.set({status: "ERRO", erro: String(e.message || e).slice(0, 500), em: new Date().toISOString()}).catch(() => null);
-      throw e;
-    }
+    await enviarEmailFaturamento(event.params.agendaKey, event.params.sid, false);
   },
 );
+
+// Reserva idempotente em .../email. reenviar=true (botão na tela) só retoma
+// solicitação que ficou SEM_DESTINATARIOS ou ERRO; ENVIADO/ENVIANDO não repete.
+async function enviarEmailFaturamento(agendaKey, sid, reenviar) {
+  const solRef = db.ref("agendamentos_expedicao/" + agendaKey + "/faturamento/solicitacoes/" + sid);
+  const statusRef = solRef.child("email");
+  if (reenviar && !(await solRef.child("id").once("value")).exists()) throw new HttpsError("not-found", "Solicitação de faturamento não encontrada.");
+  const reserva = await statusRef.transaction((atual) => {
+    if (atual && !(reenviar && ["SEM_DESTINATARIOS", "ERRO"].includes(atual.status))) return; // já processado
+    return {status: "ENVIANDO", em: new Date().toISOString()};
+  });
+  if (!reserva.committed) {
+    if (reenviar) throw new HttpsError("failed-precondition", "Este e-mail já foi enviado ou está sendo enviado.");
+    return null;
+  }
+  try {
+    const [solSnap, configSnap, usuariosSnap] = await Promise.all([solRef.once("value"), db.ref("config").once("value"), db.ref("usuarios").once("value")]);
+    const solicitacao = solSnap.val() || {};
+    const dest = FaturamentoEmail.destinatarios(configSnap.val() || {}, usuariosSnap.val() || {});
+    if (!dest.para.length) {
+      const sem = {status: "SEM_DESTINATARIOS", em: new Date().toISOString()};
+      await statusRef.set(sem);
+      return sem;
+    }
+    const email = FaturamentoEmail.montarEmail(solicitacao, agendaKey);
+    const pdf = await FaturamentoEmail.gerarPdf(solicitacao, agendaKey);
+    await sendMailViaGraph(dest.para, email.assunto, email.corpo, {html: true, cc: dest.copia, anexos: [{nome: email.arquivo, tipo: "application/pdf", conteudo: pdf}]});
+    const ok = {status: "ENVIADO", em: new Date().toISOString(), para: dest.para, copia: dest.copia, assunto: email.assunto};
+    await statusRef.set(ok);
+    return ok;
+  } catch (e) {
+    await statusRef.set({status: "ERRO", erro: String(e.message || e).slice(0, 500), em: new Date().toISOString()}).catch(() => null);
+    if (reenviar) throw new HttpsError("internal", "Falha no envio do e-mail: " + String(e.message || e).slice(0, 200));
+    throw e;
+  }
+}
 
 // ── Compras: rascunho de cotação por e-mail (Fase 4) ───────────────────
 // Chamada pelo botão "Solicitar Cotação" em compras.html. Cria um RASCUNHO

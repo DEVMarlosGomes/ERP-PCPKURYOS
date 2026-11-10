@@ -74,6 +74,20 @@ assert.equal(prepararFaturamento(b, {agendaKey: 'ag1', revisao: 2, acao: 'SOLICI
 assert.deepEqual(FaturamentoEmail.destinatarios({emailFinanceiro: 'fin@k.com.br', emailDiretoria: ['dir@k.com.br', 'fin@k.com.br']}), {para: ['fin@k.com.br'], copia: ['dir@k.com.br']});
 assert.deepEqual(FaturamentoEmail.destinatarios({emailDiretoria: 'dir@k.com.br'}).para, [], 'sem Financeiro não envia');
 {
+  // Módulo Financeiro em Usuários basta (10/11/2026); desativado, pendente ou sem o módulo fica de fora.
+  const usuarios = {
+    lar: {nome: 'Larissa', email: 'Larissa@K.com.br', role: 'pcp', modulos: {financeiro: true}},
+    luc: {nome: 'Lucca', email: 'lucca@k.com.br', role: 'logistica', modulos: {financeiro: true, logistica: true}},
+    off: {email: 'off@k.com.br', role: 'pcp', desativado: true, modulos: {financeiro: true}},
+    pen: {email: 'pen@k.com.br', role: 'pending', modulos: {financeiro: true}},
+    adm: {email: 'adm@k.com.br', role: 'admin'},
+    sem: {email: 'invalido', role: 'pcp', modulos: {financeiro: true}}
+  };
+  assert.deepEqual(FaturamentoEmail.destinatarios({emailDiretoria: 'dir@k.com.br'}, usuarios), {para: ['larissa@k.com.br', 'lucca@k.com.br'], copia: ['dir@k.com.br']});
+  assert.deepEqual(FaturamentoEmail.destinatarios({emailFinanceiro: 'lucca@k.com.br; extra@k.com.br', emailDiretoria: 'lucca@k.com.br'}, usuarios),
+    {para: ['larissa@k.com.br', 'lucca@k.com.br', 'extra@k.com.br'], copia: []}, 'sem duplicar e sem copiar quem já recebe');
+}
+{
   const e = FaturamentoEmail.montarEmail(sol.solicitacao, 'ag1');
   assert.match(e.assunto, /Solicitação de faturamento: Cliente A — coleta 18\/09\/2026 — 535 un/);
   assert.match(e.corpo, /26254\/01/);

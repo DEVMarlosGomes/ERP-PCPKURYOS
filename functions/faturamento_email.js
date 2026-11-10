@@ -1,14 +1,14 @@
 "use strict";
 /* E-mail + PDF da solicitação de faturamento da carga (2026-09-17).
-   Para o Financeiro (config/emailFinanceiro), cópia à diretoria
-   (config/emailDiretoria). Sem Financeiro configurado não envia: registra
+   Para o Financeiro (usuários com o módulo Financeiro + config/emailFinanceiro),
+   cópia à diretoria (config/emailDiretoria). Sem Financeiro não envia: registra
    SEM_DESTINATARIOS -- adivinhar endereço para dado fiscal seria pior. */
 
 const PDFDocument = require("pdfkit");
 const {destinatarios: listaEmails} = require("./pedido_diretoria");
 
 const AZUL = "#0a1c69", CINZA = "#6e6e73", LINHA = "#d2d2d7";
-const URL_EXPEDICAO = "https://pcp-kuryos.vercel.app/expedicao.html";
+const URL_EXPEDICAO = "https://kuryoserp.com.br/faturamento.html";
 
 function texto(v) { return v == null ? "" : String(v); }
 function n(v) { const x = Number(v); return isFinite(x) ? x : 0; }
@@ -19,9 +19,16 @@ function kg(v) { return n(v) ? n(v).toLocaleString("pt-BR", {maximumFractionDigi
 function paraPdf(s) { return texto(s).replace(/→/g, "->").replace(/[“”]/g, "\"").replace(/[‘’]/g, "'"); }
 function escHtml(s) { return texto(s).replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"}[c])); }
 
-function destinatarios(config) {
+// Quem tem o módulo Financeiro marcado em Usuários recebe (10/11/2026: Larissa e
+// Lucca resolvem o faturamento); config/emailFinanceiro soma endereços extras.
+function temFinanceiro(u) {
+  return !!u && u.role !== "pending" && u.desativado !== true && !!(u.modulos && u.modulos.financeiro === true);
+}
+
+function destinatarios(config, usuarios) {
   config = config || {};
-  const para = listaEmails({emailDiretoria: config.emailFinanceiro});
+  const doModulo = Object.values(usuarios || {}).filter(temFinanceiro).map((u) => u.email);
+  const para = listaEmails({emailDiretoria: doModulo.concat(listaEmails({emailDiretoria: config.emailFinanceiro}))});
   const copia = listaEmails({emailDiretoria: config.emailDiretoria}).filter((e) => !para.includes(e));
   return {para, copia};
 }
@@ -54,7 +61,7 @@ function montarEmail(s, agendaKey) {
     "<table style=\"border-collapse:collapse;font-size:13px;width:100%\"><thead><tr>" +
     ["Pedido", "Produto", "Lote / validade", "Caixas", "Unidades", "Preço un.", "Valor"].map((h, k) => "<th style=\"text-align:" + (k >= 4 ? "right" : "left") + ";padding:6px 8px;background:#f5f5f7;color:#6e6e73;font-size:11px\">" + h + "</th>").join("") +
     "</tr></thead><tbody>" + linhas + "</tbody></table>" +
-    "<p style=\"margin-top:16px\">Depois de emitida, registre a NF na carga em <a href=\"" + URL_EXPEDICAO + "\">Expedição de Vendas</a>. Se parte da carga não couber no veículo, o saldo segue na próxima viagem com a mesma NF.</p>" +
+    "<p style=\"margin-top:16px\">Depois de emitida, registre a NF na carga em <a href=\"" + URL_EXPEDICAO + "\">Faturamento</a>. Se parte da carga não couber no veículo, o saldo segue na próxima viagem com a mesma NF.</p>" +
     "<p style=\"color:#6e6e73;font-size:12px\">E-mail automático do sistema PCP Kuryos · carga " + escHtml(agendaKey) + "</p></div>";
   const arquivo = "Faturamento " + texto(s.cliente).replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "") + " " + texto(s.dataAgendada) + ".pdf";
   return {assunto, corpo, arquivo};
@@ -110,4 +117,4 @@ function gerarPdf(s, agendaKey) {
   });
 }
 
-module.exports = {destinatarios, montarEmail, gerarPdf, composicao};
+module.exports = {destinatarios, temFinanceiro, montarEmail, gerarPdf, composicao};

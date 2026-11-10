@@ -17,7 +17,7 @@
   function dataBR(v) { var s = String(v || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s.split('-').reverse().join('/') : '—'; }
   function hoje() { return new Date().toLocaleDateString('en-CA', {timeZone: 'America/Sao_Paulo'}); }
   function aviso(html, erro) { var r = el('resultado'); r.className = 'notice' + (erro ? ' error' : ''); r.innerHTML = html; }
-  var EMAIL = {ENVIADO: 'e-mail enviado ao Financeiro', ENVIANDO: 'enviando e-mail…', SEM_DESTINATARIOS: 'e-mail NÃO enviado: configure o e-mail do Financeiro', ERRO: 'falha no envio do e-mail'};
+  var EMAIL = {ENVIADO: 'e-mail enviado ao Financeiro', ENVIANDO: 'enviando e-mail…', SEM_DESTINATARIOS: 'e-mail NÃO enviado: ninguém com o módulo Financeiro', ERRO: 'falha no envio do e-mail'};
 
   function itensHTML(a) {
     var sol = CargasPA.ultimaSolicitacao(a);
@@ -51,7 +51,26 @@
     if (!sol) return '';
     var em = sol.email || {};
     return '<div class="sub">Solicitado em ' + dataBR(sol.em) + ' por ' + e(sol.por) + (sol.observacoes ? ' · "' + e(sol.observacoes) + '"' : '') +
-      (em.status ? ' · <span' + (em.status === 'ENVIADO' ? '' : ' style="color:#b42318"') + '>' + e(EMAIL[em.status] || em.status) + '</span>' : '') + '</div>';
+      (em.status ? ' · <span' + (em.status === 'ENVIADO' ? '' : ' style="color:#b42318"') + '>' + e(EMAIL[em.status] || em.status) + '</span>' : '') +
+      (em.status === 'ENVIADO' && em.para ? ' para ' + e([].concat(em.para).join(', ')) : '') +
+      ((em.status === 'SEM_DESTINATARIOS' || em.status === 'ERRO') && sol.id
+        ? ' <button class="btn ghost" data-reenviar="' + e(a._key) + '" data-sol="' + e(sol.id) + '">Reenviar e-mail</button>' : '') + '</div>';
+  }
+
+  async function reenviar(botao) {
+    if (ocupado) return;
+    ocupado = true; botao.disabled = true; botao.textContent = 'Enviando…';
+    try {
+      var r = await fn.httpsCallable('faturamentoCargaPA')({acao: 'REENVIAR_EMAIL', agendaKey: botao.dataset.reenviar, solicitacaoId: botao.dataset.sol});
+      var st = (r.data && r.data.email && r.data.email.status) || '';
+      if (st === 'ENVIADO') aviso('E-mail do faturamento enviado para ' + e([].concat(r.data.email.para || []).join(', ')) + '.');
+      else aviso('E-mail não enviado: ninguém tem o módulo <b>Financeiro</b> com e-mail. Marque-o em Usuários (ADM) e reenvie.', true);
+    } catch (err) {
+      aviso(e(err.message || 'Não foi possível reenviar o e-mail.'), true);
+    } finally {
+      ocupado = false;
+      render();
+    }
   }
 
   function formHTML(k, a) {
@@ -125,6 +144,7 @@
     });
     document.querySelectorAll('[data-form] [data-fechar]').forEach(function(b) { b.onclick = function() { if (!ocupado) { formAberto = null; render(); } }; });
     document.querySelectorAll('[data-form] [data-enviar]').forEach(function(b) { b.onclick = function() { enviar(b.dataset.enviar, b); }; });
+    document.querySelectorAll('[data-reenviar]').forEach(function(b) { b.onclick = function() { reenviar(b); }; });
   }
 
   async function enviar(acao, botao) {
