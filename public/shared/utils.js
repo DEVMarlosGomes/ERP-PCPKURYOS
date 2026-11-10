@@ -2704,6 +2704,9 @@ function abrirRnc(dbRef, dados, autor) {
         qtdEnvolvida: d.qtdEnvolvida != null ? d.qtdEnvolvida : null,
         loteKey: d.loteKey || null,
         loteOrigem: d.loteOrigem || null,
+        // O formulário sempre mandou o cliente (lote ou cadastro do SKU), mas
+        // ele não era gravado; o relatório da RNC já o lê (10/11/2026).
+        cliente: d.cliente || null,
         fornecedorKey: d.fornecedorKey || null,
         fornecedorNome: d.fornecedorNome || null,
         pedidoKey: d.pedidoKey || null,

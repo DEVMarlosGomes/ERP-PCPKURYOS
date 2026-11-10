@@ -16,6 +16,7 @@
   <script src="shared/fotos-qualidade.js"></script>
   <script src="shared/rascunho-cq.js"></script>
   <script src="shared/filtro-qualidade.js"></script>
+  <script src="shared/rnc-itens.js"></script>
   <script src="shared/inspecao-pa.js"></script>
   <script src="shared/laudo-pa-lote.js"></script>
   <script src="shared/retrabalho-op.js"></script>
@@ -164,6 +165,14 @@
     .granel-faixa .plano-val{width:64px}
     .granel-faixa span{font-size:11px;color:var(--muted)}
     .granel-res{font-weight:700;border-color:var(--primary)}
+    .rnc-item-box{position:relative}
+    .rnc-sug{position:absolute;left:0;right:0;top:100%;z-index:30;margin-top:2px;max-height:260px;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+    .rnc-sug[hidden]{display:none}
+    .rnc-sug button{display:block;width:100%;text-align:left;padding:7px 10px;border:0;background:none;color:inherit;font:inherit;font-size:12px;cursor:pointer;line-height:1.35}
+    .rnc-sug button:hover,.rnc-sug button.ativo{background:var(--surface-2)}
+    .rnc-sug .sug-cod{font-weight:700}
+    .rnc-sug .sug-meta{display:block;color:var(--muted);font-size:11px}
+    .rnc-sug .sug-vazio{padding:8px 10px;font-size:12px;color:var(--muted)}
     .rnc-det{background:var(--surface-2)}
     .rnc-det td{padding:0}
     .rnc-det-inner{padding:10px 18px 14px 34px;font-size:12px;line-height:1.6}
@@ -920,8 +929,11 @@
         </div>
         <div class="form-grid" data-ui="form-grid">
           <div class="form-group">
-            <label>Item (código)</label>
-            <input type="text" id="rncItemCodigo" placeholder="Ex: EP-00053 ou WKBS0001">
+            <label for="rncItemCodigo">Item (produto/SKU ou material)</label>
+            <div class="rnc-item-box">
+              <input type="text" id="rncItemCodigo" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-controls="rncItemSug" aria-expanded="false" placeholder="Código, SKU, nome, EAN ou cliente">
+              <div class="rnc-sug" id="rncItemSug" role="listbox" hidden></div>
+            </div>
             <div class="field-hint" id="rncItemHint"></div>
           </div>
           <div class="form-group">
@@ -1218,6 +1230,12 @@ var allEspecificacoes = {};
 var allProdutos = {};
 var allMateriais = {};
 var allFornecedores = {};
+var catalogoRnc = null;   // produtos + materiais para a busca do item da RNC
+var itemRncAtual = null;  // item resolvido no formulário de abertura
+function catalogoItensRnc() {
+  if (!catalogoRnc) catalogoRnc = RncItens.catalogoItens(allProdutos, allMateriais);
+  return catalogoRnc;
+}
 
 dbOnValue(db.ref('estoque_lotes'), function(snap) {
   allEstoqueLotes = snap.val() || {};
@@ -1243,10 +1261,10 @@ dbOnValue(db.ref('especificacoes'), function(snap) {
   allEspecificacoes = snap.val() || {};
   renderEspecificacoes();
 });
-dbOnValue(db.ref('produtos'), function(snap) { allProdutos = snap.val() || {}; renderEspecificacoes(); });
+dbOnValue(db.ref('produtos'), function(snap) { allProdutos = snap.val() || {}; catalogoRnc = null; renderEspecificacoes(); });
 // O tipo de cada lote na fila (matéria-prima x embalagem) vem do cadastro de
 // materiais: a fila se redesenha quando ele chega.
-dbOnValue(db.ref('materiais'), function(snap) { allMateriais = snap.val() || {}; materiaisCarregados = true; renderEspecificacoes(); renderFila(); atenderEmissaoPedida(); });
+dbOnValue(db.ref('materiais'), function(snap) { allMateriais = snap.val() || {}; catalogoRnc = null; materiaisCarregados = true; renderEspecificacoes(); renderFila(); atenderEmissaoPedida(); });
 
 /* Link direto do Histórico e Indicadores (qualidade_historico.html):
    ?emitir={item}&lote={loteKey} abre a emissão do laudo daquele lote assim
@@ -1296,16 +1314,24 @@ function mostrarRnc(chave, numero) {
 
 dbOnValue(db.ref('fornecedores'), function(snap) {
   allFornecedores = snap.val() || {};
-  var sel = document.getElementById('rncFornecedor');
-  var atual = sel.value;
-  sel.innerHTML = '<option value="">— não se aplica —</option>' +
-    Object.keys(allFornecedores).sort(function(a, b) {
-      return norm((allFornecedores[a] || {}).nome) < norm((allFornecedores[b] || {}).nome) ? -1 : 1;
-    }).map(function(k) {
-      return '<option value="' + escapeAttr(k) + '">' + escapeHtml((allFornecedores[k] || {}).nome || k) + '</option>';
-    }).join('');
-  sel.value = atual;
+  preencherFornecedoresRnc();
 });
+// O nome do fornecedor vive em nomeFantasia/razaoSocial (nenhum cadastro tem
+// `nome`): ler `.nome` listava as chaves internas. Os fornecedores que o
+// cadastro do material liga ao item escolhido vêm primeiro.
+function preencherFornecedoresRnc() {
+  var sel = document.getElementById('rncFornecedor');
+  if (!sel) return;
+  var atual = sel.value;
+  var doItem = RncItens.fornecedoresDoItem(itemRncAtual, allFornecedores);
+  var opt = function(f) { return '<option value="' + escapeAttr(f.key) + '">' + escapeHtml(f.nome) + '</option>'; };
+  var todos = RncItens.listaFornecedores(allFornecedores, atual).map(opt).join('');
+  sel.innerHTML = '<option value="">— não se aplica —</option>' +
+    (doItem.length ? '<optgroup label="Fornecedores deste item">' + doItem.map(opt).join('') + '</optgroup>' +
+      '<optgroup label="Todos os fornecedores">' + todos + '</optgroup>' : todos);
+  sel.value = atual;
+}
+function nomeFornecedorRnc(k) { return k ? (RncItens.nomeFornecedor(allFornecedores[k], k) || null) : null; }
 
 // Nome legível de um item, venha ele de produtos ou de materiais.
 function nomeItem(codigo) {
@@ -3899,6 +3925,9 @@ function abrirModalNovaRnc() {
   });
   document.getElementById('rncFornecedor').value = '';
   document.getElementById('rncItemHint').textContent = '';
+  itemRncAtual = null;
+  fecharSugestoesRnc();
+  preencherFornecedoresRnc();
   if (fotosRncAbertura) fotosRncAbertura.limpar();
   fotosRncAbertura = FotosQualidade.montar(document.getElementById('rncFotosAbertura'), {});
   document.getElementById('modalRncBg').classList.add('open');
@@ -4019,16 +4048,77 @@ document.getElementById('modalRncCancel').addEventListener('click', fecharModalR
 
 // Confere o código digitado contra o cadastro -- mesma regra do resto do
 // sistema: o dado mestre já existe, ninguém redigita o nome do item.
-document.getElementById('rncItemCodigo').addEventListener('input', function() {
-  var cod = this.value.trim();
+// Busca por código, SKU, nome, EAN ou cliente (10/11/2026): antes só o
+// código exato era reconhecido e não havia lista para escolher.
+var sugRnc = [], sugRncAtivo = -1;
+function fecharSugestoesRnc() {
+  var box = document.getElementById('rncItemSug');
+  box.hidden = true; box.innerHTML = ''; sugRnc = []; sugRncAtivo = -1;
+  document.getElementById('rncItemCodigo').setAttribute('aria-expanded', 'false');
+}
+function mostrarSugestoesRnc(texto) {
+  if (!String(texto || '').trim()) { fecharSugestoesRnc(); return; }
+  var box = document.getElementById('rncItemSug');
+  sugRnc = RncItens.buscarItens(catalogoItensRnc(), texto, 30);
+  sugRncAtivo = -1;
+  box.innerHTML = sugRnc.length ? sugRnc.map(function(i, n) {
+    var meta = [i.tipo === 'produto' ? 'Produto / SKU' : 'Material', i.cliente, i.inativo ? 'inativo' : null].filter(Boolean).join(' · ');
+    return '<button type="button" role="option" data-n="' + n + '"><span class="sug-cod">' + escapeHtml(i.codigo) + '</span> — ' +
+      escapeHtml(i.nome || '(sem nome)') + '<span class="sug-meta">' + escapeHtml(meta) + '</span></button>';
+  }).join('') : '<div class="sug-vazio">Nada no cadastro com esse texto.</div>';
+  box.hidden = false;
+  document.getElementById('rncItemCodigo').setAttribute('aria-expanded', 'true');
+}
+function marcarSugestaoRnc(n) {
+  var bts = document.querySelectorAll('#rncItemSug button');
+  if (!bts.length) return;
+  sugRncAtivo = (n + bts.length) % bts.length;
+  bts.forEach(function(b, i) { b.classList.toggle('ativo', i === sugRncAtivo); });
+  bts[sugRncAtivo].scrollIntoView({block: 'nearest'});
+}
+function escolherItemRnc(item) {
+  document.getElementById('rncItemCodigo').value = RncItens.rotuloItem(item);
+  fecharSugestoesRnc();
+  aplicarItemRnc();
+}
+// Liga o texto do campo ao cadastro: aviso, lotes e fornecedores do item.
+function aplicarItemRnc() {
+  var texto = document.getElementById('rncItemCodigo').value.trim();
   var hint = document.getElementById('rncItemHint');
-  if (!cod) { hint.textContent = ''; return; }
-  var k = sanitizeKey(cod);
-  if (allProdutos[k]) hint.textContent = '✓ Produto: ' + nomeItem(cod);
-  else if (allMateriais[k]) hint.textContent = '✓ Material: ' + nomeItem(cod);
-  else hint.textContent = '⚠ Não encontrado no cadastro — a RNC será aberta com o código como digitado.';
-  preencherLotesRnc(cod);
-});
+  var item = RncItens.resolverItem(catalogoItensRnc(), texto);
+  itemRncAtual = item;
+  if (!texto) hint.textContent = '';
+  else if (item) {
+    hint.textContent = '✓ ' + (item.tipo === 'produto' ? 'Produto' : 'Material') + ' ' + item.codigo + ': ' + (item.nome || '') +
+      (item.cliente ? ' · ' + item.cliente : '');
+  } else hint.textContent = '⚠ Escolha um item da lista. Sem isso a RNC abre com o texto digitado, sem lote nem fornecedor ligados.';
+  preencherLotesRnc(item ? item.key : texto);
+  var sel = document.getElementById('rncFornecedor');
+  var antes = sel.value;
+  preencherFornecedoresRnc();
+  var doItem = RncItens.fornecedoresDoItem(item, allFornecedores);
+  // Um fornecedor só no cadastro do material: já vem marcado.
+  if (!antes && doItem.length === 1) sel.value = doItem[0].key;
+}
+(function() {
+  var inp = document.getElementById('rncItemCodigo');
+  inp.addEventListener('input', function() { mostrarSugestoesRnc(this.value); aplicarItemRnc(); });
+  inp.addEventListener('focus', function() { if (this.value.trim() && !itemRncAtual) mostrarSugestoesRnc(this.value); });
+  inp.addEventListener('keydown', function(e) {
+    var aberto = !document.getElementById('rncItemSug').hidden;
+    if (e.key === 'ArrowDown' && aberto) { e.preventDefault(); marcarSugestaoRnc(sugRncAtivo + 1); }
+    else if (e.key === 'ArrowUp' && aberto) { e.preventDefault(); marcarSugestaoRnc(sugRncAtivo - 1); }
+    else if (e.key === 'Enter' && aberto && sugRnc.length) { e.preventDefault(); escolherItemRnc(sugRnc[sugRncAtivo < 0 ? 0 : sugRncAtivo]); }
+    else if (e.key === 'Escape' && aberto) { e.preventDefault(); e.stopPropagation(); fecharSugestoesRnc(); }
+  });
+  inp.addEventListener('blur', function() { setTimeout(fecharSugestoesRnc, 150); });
+  document.getElementById('rncItemSug').addEventListener('mousedown', function(e) {
+    var b = e.target.closest('button[data-n]');
+    if (!b) return;
+    e.preventDefault();
+    escolherItemRnc(sugRnc[Number(b.getAttribute('data-n'))]);
+  });
+})();
 
 /* Os lotes do item, para escolher em vez de digitar. Mostra o status junto:
    quem abre a RNC está olhando para o material parado, e é o status que diz
@@ -4130,7 +4220,10 @@ document.getElementById('rncBtnSalvar').addEventListener('click', function() {
     return;
   }
   var fornKey = document.getElementById('rncFornecedor').value;
-  var codigo = document.getElementById('rncItemCodigo').value.trim();
+  var textoItem = document.getElementById('rncItemCodigo').value.trim();
+  var itemSel = RncItens.resolverItem(catalogoItensRnc(), textoItem);
+  // Item do cadastro grava a chave e o nome do cadastro; texto solto segue como digitado.
+  var codigo = itemSel ? itemSel.key : textoItem;
   var qtd = document.getElementById('rncQtd').value;
   var loteSel = document.getElementById('rncLote').value;
   var loteObj = loteSel && codigo ? (allEstoqueLotes[sanitizeKey(codigo)] || {})[loteSel] : null;
@@ -4144,16 +4237,16 @@ document.getElementById('rncBtnSalvar').addEventListener('click', function() {
     descricao: document.getElementById('rncDescricao').value,
     acaoImediata: document.getElementById('rncAcaoImediata').value.trim() || null,
     itemCodigo: codigo || null,
-    itemNome: codigo ? nomeItem(codigo) : null,
+    itemNome: itemSel ? (itemSel.nome || itemSel.codigo) : (codigo ? nomeItem(codigo) : null),
     qtdEnvolvida: qtd === '' ? null : Number(qtd),
     opLote: document.getElementById('rncOp').value.trim() || null,
     // O lote é o que torna a disposição capaz de agir lá na ponta.
     loteKey: loteSel || null,
     loteOrigem: loteObj ? (loteObj.loteOrigem || loteSel) : null,
-    itemTipo: loteObj ? (loteObj.itemTipo || null) : (codigo && allProdutos[sanitizeKey(codigo)] ? 'produto' : codigo ? 'material' : null),
-    cliente: loteObj ? (loteObj.cliente || null) : null,
+    itemTipo: loteObj ? (loteObj.itemTipo || null) : itemSel ? itemSel.tipo : (codigo && allProdutos[sanitizeKey(codigo)] ? 'produto' : codigo ? 'material' : null),
+    cliente: loteObj ? (loteObj.cliente || null) : (itemSel && itemSel.cliente) || null,
     fornecedorKey: fornKey || null,
-    fornecedorNome: fornKey ? ((allFornecedores[fornKey] || {}).nome || null) : null
+    fornecedorNome: nomeFornecedorRnc(fornKey)
   }, currentUserNome());
   })
     .then(function(r) { terminar(r, function(x) { return 'Não conformidade ' + x.numero + ' aberta.'; }); })
