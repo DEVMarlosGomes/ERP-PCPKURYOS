@@ -7,7 +7,7 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ### Claude — Devolver OP à produção (10/11/2026)
 
-- **Concluído:** OP fechada por engano (26309/04: "Fechamento OP" na Rotulagem 01) volta pela ação
+- **Concluído (`ee9a4e7`):** OP fechada por engano (26309/04: "Fechamento OP" na Rotulagem 01) volta pela ação
   `DEVOLVER_PRODUCAO` da callable `rearranjarLinhas` (ADM/PCP; contagem de callables inalterada). Motor
   `functions/devolucao_producao.js`: justificativa ≥60, status volta a Programado/Em Produção, a etapa
   fechada sai de `confirmacaoEtapas` (guardada em `ops/{op}/historicoAlteracoes/{requestId}` com de/para),
