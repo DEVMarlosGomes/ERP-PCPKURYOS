@@ -110,9 +110,16 @@
     if (na && nb) return na === nb;
     return !na && !nb && (a.clienteKey || '') === (b.clienteKey || '');
   }
+  // Mesma regra de mesmoDestino em shared/expedicao.js (a grade também roda
+  // no estoque.html, sem aquele arquivo): grafia não muda o destino.
+  function chaveDestino(e) {
+    if (e != null && typeof e === 'object') e = Object.keys(e).sort().map(function(k) { return e[k]; }).join(' ');
+    return String(e == null ? '' : e).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase()
+      .replace(/[^A-Z0-9]+/g, ' ').trim();
+  }
   function compativel(a, b) {
     if (!mesmoCliente(a, b)) return false;
-    if (JSON.stringify((a.frete || {}).enderecoEntrega || '') !== JSON.stringify((b.frete || {}).enderecoEntrega || '')) return false;
+    if (chaveDestino((a.frete || {}).enderecoEntrega) !== chaveDestino((b.frete || {}).enderecoEntrega)) return false;
     var ta = (a.frete || {}).tipo || '', tb = (b.frete || {}).tipo || '';
     return !ta || !tb || ta === tb;
   }

@@ -37,6 +37,17 @@
     if (na && nb) return na === nb;
     return !na && !nb && (a.clienteKey || '') === (b.clienteKey || '');
   }
+  // Destino da carga (10/11/2026). O mesmo endereço da Miss Rose estava em três
+  // grafias nos pedidos ("RUA LAGOA TAI GRANDE, 1130", "Rua Lagoa Taí Grande,
+  // 1130"...) e a comparação exata recusava a carga. Maiúscula, acento,
+  // pontuação e espaço não mudam o destino. Pedido sem endereço continua
+  // separado de pedido com endereço: não se presume para onde ele vai.
+  function chaveDestino(e) {
+    if (e != null && typeof e === 'object') e = Object.keys(e).sort().map(function(k) { return e[k]; }).join(' ');
+    return String(e == null ? '' : e).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase()
+      .replace(/[^A-Z0-9]+/g, ' ').trim();
+  }
+  function mesmoDestino(a, b) { return chaveDestino(a) === chaveDestino(b); }
   // Chave de /pedidos é "<número>__<sku>", e o número aparece nos DOIS
   // formatos na base: 174 OPs gravam '17__PRF-AFEE-0014' para um pedido que
   // existe como '0017__PRF-AFEE-0014', e 17 pedidos reais existem só sem zero
@@ -126,5 +137,5 @@
     });
     return linhas.sort(function(a, b) { return Number(b.disponivel) - Number(a.disponivel) || String(validadeDoLote(a.lote) || '9999').localeCompare(String(validadeDoLote(b.lote) || '9999')) || String(a.lote.identificadorPalete).localeCompare(String(b.lote.identificadorPalete)); });
   }
-  return {analisar: analisar, listar: listar, validadeDoLote: validadeDoLote, normalizarChavePedido: normalizarChavePedido, resolverChavePedido: resolverChavePedido, mesmoCliente: mesmoCliente};
+  return {analisar: analisar, listar: listar, validadeDoLote: validadeDoLote, normalizarChavePedido: normalizarChavePedido, resolverChavePedido: resolverChavePedido, mesmoCliente: mesmoCliente, mesmoDestino: mesmoDestino};
 });
