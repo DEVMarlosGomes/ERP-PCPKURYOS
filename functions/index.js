@@ -26,7 +26,12 @@ const EmissaoOp = require("./emissao_op");
 const {criarServicoIdentidade} = require("./identidade_acesso");
 const {criarServicoLogin} = require("./login_personalizado");
 const ManipulacaoLote = require("./manipulacao_lote");
-const {transacaoRaiz} = require("./transacao_raiz");
+const {transacaoRaiz, criarFila} = require("./transacao_raiz");
+// Financeiro F5.0 (10/11/2026): baixa, estorno, títulos e lote leem o saldo e gravam um
+// de cada vez. Sem a fila, duas baixas simultâneas no mesmo título liam o mesmo saldo e
+// pagavam além do devido. O cache das escutas já reflete a gravação anterior quando a
+// próxima operação lê (escrita local atualiza a escuta na hora).
+const filaFinanceiro = criarFila();
 
 initializeApp();
 const db = getDatabase();
@@ -2799,26 +2804,37 @@ exports.derivarGestaoFinanceira = onSchedule(
 
 exports.finBaixar = onCall({timeoutSeconds: 60, memory: "512MiB"}, comoHttps(async (request) => {
   const quem = await exigirFinanceiro(request);
-  const r = FinanceiroSrv.prepararBaixa(await baseGestao(false), request.data, quem, new Date().toISOString());
-  if (Object.keys(r.updates).length) await db.ref().update(r.updates);
+  const r = await filaFinanceiro(async () => {
+    const x = FinanceiroSrv.prepararBaixa(await baseGestao(false), request.data, quem, new Date().toISOString());
+    if (Object.keys(x.updates).length) await db.ref().update(x.updates);
+    return x;
+  });
   return {ok: true, id: r.id, repetida: r.repetida};
 }));
 exports.finEstornarBaixa = onCall({timeoutSeconds: 60, memory: "512MiB"}, comoHttps(async (request) => {
   const quem = await exigirFinanceiro(request);
-  const r = FinanceiroSrv.prepararEstorno(await baseGestao(false), request.data, quem, new Date().toISOString());
-  await db.ref().update(r.updates);
+  await filaFinanceiro(async () => {
+    const x = FinanceiroSrv.prepararEstorno(await baseGestao(false), request.data, quem, new Date().toISOString());
+    await db.ref().update(x.updates);
+  });
   return {ok: true};
 }));
 exports.finLancarTitulos = onCall({timeoutSeconds: 120, memory: "512MiB"}, comoHttps(async (request) => {
   const quem = await exigirFinanceiro(request);
-  const r = FinanceiroSrv.prepararTitulos(await baseGestao(false), request.data, quem, new Date().toISOString());
-  if (Object.keys(r.updates).length) await db.ref().update(r.updates);
+  const r = await filaFinanceiro(async () => {
+    const x = FinanceiroSrv.prepararTitulos(await baseGestao(false), request.data, quem, new Date().toISOString());
+    if (Object.keys(x.updates).length) await db.ref().update(x.updates);
+    return x;
+  });
   return {ok: true, criados: r.criados, repetidos: r.repetidos, erros: r.erros};
 }));
 exports.finDecidirLote = onCall({timeoutSeconds: 120, memory: "512MiB"}, comoHttps(async (request) => {
   const quem = await exigirFinanceiro(request);
-  const r = FinanceiroSrv.prepararDecisaoLote(await baseGestao(false), request.data, quem, new Date().toISOString());
-  await db.ref().update(r.updates);
+  const r = await filaFinanceiro(async () => {
+    const x = FinanceiroSrv.prepararDecisaoLote(await baseGestao(false), request.data, quem, new Date().toISOString());
+    await db.ref().update(x.updates);
+    return x;
+  });
   return {ok: true, baixas: r.baixas || 0};
 }));
 

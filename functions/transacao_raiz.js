@@ -72,4 +72,18 @@ function transacaoRaiz(db, fn) {
   return vez;
 }
 
-module.exports = {transacaoRaiz, diferencas};
+/* Fila de execução no processo (10/11/2026, Financeiro F5.0). Cada fila roda uma
+ * operação por vez: quem lê saldo e grava (baixa, estorno, lote) não cruza com outra
+ * operação da MESMA fila entre a leitura e o update. Filas diferentes não se esperam
+ * (o financeiro não atrasa a expedição). Erro de uma operação não trava a fila.
+ * Mesma premissa da transacaoRaiz: a API roda num único processo. */
+function criarFila() {
+  let cauda = Promise.resolve();
+  return function emFila(fn) {
+    const vez = cauda.then(() => fn());
+    cauda = vez.catch(() => null);
+    return vez;
+  };
+}
+
+module.exports = {transacaoRaiz, diferencas, criarFila};
