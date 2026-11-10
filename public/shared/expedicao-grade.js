@@ -119,7 +119,9 @@
   }
   function compativel(a, b) {
     if (!mesmoCliente(a, b)) return false;
-    if (chaveDestino((a.frete || {}).enderecoEntrega) !== chaveDestino((b.frete || {}).enderecoEntrega)) return false;
+    // Pedido sem endereço acompanha o destino dos outros (mesmo cliente, conferido acima).
+    var da = chaveDestino((a.frete || {}).enderecoEntrega), db = chaveDestino((b.frete || {}).enderecoEntrega);
+    if (da && db && da !== db) return false;
     var ta = (a.frete || {}).tipo || '', tb = (b.frete || {}).tipo || '';
     return !ta || !tb || ta === tb;
   }

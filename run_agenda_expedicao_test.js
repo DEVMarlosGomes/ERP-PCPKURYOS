@@ -16,7 +16,7 @@ assert.equal(agenda.contatoCliente.nome,'Lia');assert.equal(agenda.historico.r1.
 assert.equal(b.estoque_lotes.SKU.p1.saldoLote,7,'Agendar não baixa nem reserva estoque físico');
 b.agendamentos_expedicao={agenda_001:agenda};
 assert.throws(()=>salvar(b),/mudou/);
-assert.throws(()=>salvar(b,{...dados,agendaKey:'agenda_002'}),/outra carga/);
+assert.throws(()=>salvar(b,{...dados,agendaKey:'agenda_002'}),/já está na carga de .*O que fazer/);
 assert.throws(()=>agendaDaSaida(b,{paletes}),/Abra o agendamento/);
 assert.throws(()=>agendaDaSaida(b,{agendaKey:'agenda_001',agendaRevisao:0,paletes}),/mudaram/);
 assert.equal(agendaDaSaida(b,{agendaKey:'agenda_001',agendaRevisao:1,paletes}).motorista,'João');
@@ -40,7 +40,7 @@ assert.throws(()=>salvar(fixture(),{...dados,paletes:[...paletes,...paletes]}),/
     f.pedidos.PED2__SKU={...f.pedidos.PED__SKU,id:'PED2',parentPedidoId:'PED2',cliente:clienteB};return f;};
   const dois=[...paletes,{...paletes[0],loteKey:'p2',skuPedidoKey:'PED2__SKU'}];
   assert.equal(salvar(duas('MISS ROSE'),{...dados,paletes:dois}).paletes.length,2,'Miss Rose e MISS ROSE são o mesmo cliente');
-  assert.throws(()=>salvar(duas('Bria Beauty'),{...dados,paletes:dois}),/mesmo cliente/);
+  assert.throws(()=>salvar(duas('Bria Beauty'),{...dados,paletes:dois}),/é do cliente .*Uma carga leva paletes de um cliente só/);
 }
 console.log('OK agenda PA: criação, transporte compartilhado, revisão concorrente, duplicidade, cancelamento e seleção integral.');
 

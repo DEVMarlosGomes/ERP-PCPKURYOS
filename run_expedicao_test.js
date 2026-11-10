@@ -66,7 +66,7 @@ assert.throws(()=>executar(fixture(),{...dados,paletes:[...dados.paletes,...dado
 assert.throws(()=>executar(fixture(),{...dados,data:'2026-09-12'}),/futura/);
 assert.throws(()=>executar(fixture(),{...dados,data:'2026-02-30'}),/data válida/);
 assert.throws(()=>executar(fixture(),{...dados,valorFaturado:'abc'}),/Valor/);
-assert.throws(()=>executar(fixture(),{...dados,tipo:'COLETA'}),/CIF\/FOB/);
+assert.throws(()=>executar(fixture(),{...dados,tipo:'COLETA'}),/é CIF \(a Kuryos entrega\), mas a carga está como Coleta FOB/);
 const concessao=fixture();concessao.estoque_lotes.PA001.pa_op1_p1.status='APROVADO_CONCESSAO';concessao.estoque_lotes.PA001.pa_op1_p1.qualidade.decisao='APROVADO_CONCESSAO';assert.equal(executar(concessao).carga.totalPaletes,1);
 const legado=fixture();delete legado.pedidos_comerciais['PED-001'];delete legado.estoque_lotes.PA001.pa_op1_p1.skuPedidoKey;
 assert.equal(executar(legado).carga.pedidos['PED-001'].origem,'pedidos');
@@ -81,9 +81,9 @@ multi.pedidos['PED-002__PA001']={...multi.pedidos['PED-001__PA001'],id:'PED-002'
 multi.pedidos_comerciais['PED-002']={...clone(multi.pedidos_comerciais['PED-001']),numeroFormatado:'PED-002'};
 dupla.paletes[1].skuPedidoKey='PED-002__PA001';
 assert.equal(Object.keys(executar(multi,dupla).carga.pedidos).length,2,'Carga pode agrupar pedidos compatíveis');
-multi.pedidos_comerciais['PED-002'].clienteKey='c2';assert.throws(()=>executar(multi,dupla),/mesmo cliente/);
-multi.pedidos_comerciais['PED-002'].clienteKey='c1';multi.pedidos_comerciais['PED-002'].frete.enderecoEntrega='Rua B';assert.throws(()=>executar(multi,dupla),/destinos diferentes/);
-multi.pedidos_comerciais['PED-002'].frete.enderecoEntrega='Rua A, 100';multi.pedidos_comerciais['PED-002'].frete.tipo='FOB';assert.throws(()=>executar(multi,dupla),/CIF\/FOB/);
+multi.pedidos_comerciais['PED-002'].clienteKey='c2';assert.throws(()=>executar(multi,dupla),/de outro cadastro de cliente \(código c2 × c1\).*O que fazer/);
+multi.pedidos_comerciais['PED-002'].clienteKey='c1';multi.pedidos_comerciais['PED-002'].frete.enderecoEntrega='Rua B';assert.throws(()=>executar(multi,dupla),/endereços diferentes e não podem ir na mesma carga.*O que fazer/);
+multi.pedidos_comerciais['PED-002'].frete.enderecoEntrega='Rua A, 100';multi.pedidos_comerciais['PED-002'].frete.tipo='FOB';assert.throws(()=>executar(multi,dupla),/Troque o tipo de transporte/);
 assert.equal(listar(fixture(),'2026-09-11').length,1);
 assert.equal(analisar(fixture(),'PA001','pa_op1_p1','2026-09-11').disponivel,true);
 assert.equal(fs.readFileSync('functions/expedicao_regras.js','utf8'),fs.readFileSync('public/shared/expedicao.js','utf8'),'Regras da UI e do servidor devem ser iguais');

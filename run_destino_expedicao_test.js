@@ -18,10 +18,23 @@ assert.equal(R.mesmoDestino({rua: 'Rua Á', numero: '1'}, {numero: '1', rua: 'RU
 const linha = (end) => ({cliente: 'MISS ROSE', clienteKey: 'MISS', frete: {tipo: 'CIF', enderecoEntrega: end}});
 if (typeof G.compativel === 'function') {
   assert.ok(G.compativel(linha(grafias[0]), linha(grafias[2]))); n++;
-  assert.equal(G.compativel(linha(grafias[0]), linha('')), false); n++;
+  assert.equal(G.compativel(linha(grafias[0]), linha('')), true, 'pedido sem endereço acompanha o destino (mesmo cliente)'); n++;
+  assert.equal(G.compativel(linha(grafias[0]), linha('Av. Paulista, 1000')), false, 'endereço diferente continua fora'); n++;
+  assert.equal(G.compativel(linha(''), {cliente: 'OUTRO', clienteKey: 'OUT', frete: {enderecoEntrega: ''}}), false, 'outro cliente continua fora'); n++;
 }
 const sel = G.selecionarTodos([linha(grafias[0]), linha(grafias[1]), linha(grafias[2])], []);
 assert.equal(sel.selecionar.length, 3, 'selecionar todos junta as três grafias: ' + JSON.stringify(sel)); n++;
+// destinoDaCarga: o caso do Marcos (pedido 27 sem endereço junto com o 30).
+const pal = (id, ped, end, extra) => Object.assign({lote: {identificadorPalete: id}, pedidoNumero: ped, cliente: 'Miss Rose', frete: {tipo: 'CIF', enderecoEntrega: end}}, extra || {});
+let d = R.destinoDaCarga([pal('PA-26273-03-P1', '27', ''), pal('PA-26303-02-P1', '30', grafias[2]), pal('PA-26246-03-P1', '0023', grafias[0])]);
+assert.deepEqual([d.conflito, d.endereco, d.semEndereco], [null, grafias[2], ['27']]); n++;
+d = R.destinoDaCarga([pal('PA-1', '27', ''), pal('PA-2', '28', '')]);
+assert.deepEqual([d.conflito, d.endereco, d.semEndereco], [null, '', ['27', '28']], 'todos sem endereço: carga sem destino informado'); n++;
+d = R.destinoDaCarga([pal('PA-1', '30', grafias[0]), pal('PA-9', '41', 'Av. Paulista, 1000')]);
+assert.match(d.conflito, /PA-1 \(pedido 30\) → "RUA LAGOA TAI GRANDE, 1130"; PA-9 \(pedido 41\) → "Av\. Paulista, 1000"\. O que fazer: monte uma carga para cada endereço/); n++;
+assert.match(R.mensagemOutroCliente(pal('PA-1', '30', ''), pal('PA-7', '12', '', {cliente: 'Bria Beauty'})), /O palete PA-7 \(pedido 12\) é do cliente Bria Beauty, e a carga já tem paletes de Miss Rose\. .*tire esse palete da seleção/); n++;
+assert.match(R.mensagemFrete(pal('PA-3', '30', '', {frete: {tipo: 'FOB'}}), 'ENTREGA'), /é FOB \(o cliente coleta\), mas a carga está como Entrega CIF\. Troque o tipo de transporte para Coleta FOB/); n++;
+
 // As três cópias da regra não podem divergir.
 assert.equal(fs.readFileSync('functions/expedicao_regras.js', 'utf8'), fs.readFileSync('public/shared/expedicao.js', 'utf8')); n++;
 for (const f of ['functions/agenda_expedicao.js', 'functions/expedicao.js', 'public/shared/expedicao-grade.js']) {

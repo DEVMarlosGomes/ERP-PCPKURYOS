@@ -1,5 +1,5 @@
 'use strict';
-const {analisar, mesmoCliente, mesmoDestino} = require('./expedicao_regras');
+const {analisar, mesmoCliente, destinoDaCarga, mensagemOutroCliente, mensagemFrete} = require('./expedicao_regras');
 function falhar(message, code = 'failed-precondition') { throw Object.assign(new Error(message), {code}); }
 function chave(v) { return typeof v === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(v); }
 function texto(v, limite = 200) { return String(v || '').trim().slice(0, limite); }
@@ -42,7 +42,9 @@ function prepararAgenda(base, dados, autor, uid, agora) {
   // A saída física sempre revalida a disponibilidade e a seleção completa.
   let cliente = anterior && anterior.cliente, clienteKey = anterior && anterior.clienteKey;
   let destino = anterior && anterior.enderecoEntrega;
+  let semEndereco = (anterior && anterior.pedidosSemEndereco) || null;
   const pedidos = anterior ? anterior.pedidos : {};
+  const analisadas = [];
   const lista = paletes.map(p => {
     if (!chave(p.loteKey) || typeof p.itemKey !== 'string' || /[.#$[\]/]/.test(p.itemKey)) falhar('Referência do palete inválida.', 'invalid-argument');
     const ref = p.itemKey + '/' + p.loteKey;
@@ -52,18 +54,31 @@ function prepararAgenda(base, dados, autor, uid, agora) {
     const l = analisar(base, p.itemKey, p.loteKey, hoje);
     if (!l.disponivel) falhar((l.lote.identificadorPalete || p.loteKey) + ': ' + l.motivo);
     if (Number(p.quantidade) !== Number(l.lote.saldoLote) || p.enderecoKey !== l.lote.enderecoKey || p.skuPedidoKey !== l.skuPedidoKey) falhar('O palete mudou. Atualize a seleção antes de agendar.');
-    if (cliente && !mesmoCliente({cliente, clienteKey}, l)) falhar('Agende paletes do mesmo cliente.');
-    const endereco = l.frete.enderecoEntrega || '';
-    if (destino != null && !mesmoDestino(destino, endereco)) falhar('Separe cargas com destinos diferentes.');
-    if (l.frete.tipo && (l.frete.tipo === 'FOB' ? 'COLETA' : 'ENTREGA') !== dados.tipo) falhar('Respeite o CIF/FOB do pedido.');
-    cliente = l.cliente; clienteKey = l.clienteKey; destino = endereco;
+    if (cliente && !mesmoCliente({cliente, clienteKey}, l)) falhar(mensagemOutroCliente(analisadas[0] || {cliente}, l));
+    if (l.frete.tipo && (l.frete.tipo === 'FOB' ? 'COLETA' : 'ENTREGA') !== dados.tipo) falhar(mensagemFrete(l, dados.tipo));
+    cliente = l.cliente; clienteKey = l.clienteKey;
+    analisadas.push(l);
     pedidos[l.pedidoId] = l.pedidoNumero;
     return {itemKey: p.itemKey, loteKey: p.loteKey, quantidade: Number(p.quantidade), enderecoKey: p.enderecoKey,
       skuPedidoKey: p.skuPedidoKey, identificadorPalete: l.lote.identificadorPalete, sku: l.lote.itemCodigo,
       descricao: l.lote.itemNome || '', pedidoId: l.pedidoId, pedidoNumero: l.pedidoNumero};
   });
+  if (!anterior) {
+    const d = destinoDaCarga(analisadas);
+    if (d.conflito) falhar(d.conflito);
+    destino = d.endereco;
+    semEndereco = d.semEndereco.length ? d.semEndereco : null;
+  }
   for (const [k, agenda] of Object.entries(base.agendamentos_expedicao || {})) {
-    if (k !== dados.agendaKey && ativa(agenda) && paletesPendentes(agenda).some(p => vistos.has(p.itemKey + '/' + p.loteKey))) falhar('Um palete já está em outra carga agendada. Abra essa agenda ou cancele-a antes de reagendar.');
+    if (k === dados.agendaKey || !ativa(agenda)) continue;
+    const preso = paletesPendentes(agenda).find(p => vistos.has(p.itemKey + '/' + p.loteKey));
+    if (preso) {
+      const quando = String(agenda.dataAgendada || '').split('-').reverse().join('/');
+      falhar('O palete ' + (preso.identificadorPalete || preso.loteKey) + ' já está na carga de ' + (agenda.cliente || 'outro cliente') +
+        (quando ? ' agendada para ' + quando : '') + (agenda.faturamento && agenda.faturamento.status === 'FATURADO' ? ' (já faturada)' : '') +
+        '. O que fazer: tire esse palete da seleção, ou abra essa carga no Acompanhamento e confirme a saída' +
+        ' (se ela já saiu) ou cancele-a (se não vai sair).');
+    }
   }
   const transporte = {transportadora: texto(dados.transportadora), motorista: texto(dados.motorista), contatoMotorista: texto(dados.contatoMotorista, 60), placa: texto(dados.placa, 20).toUpperCase()};
   const contatoCliente = snapshotContato(dados.contatoCliente === undefined ? anterior && anterior.contatoCliente : dados.contatoCliente);
@@ -75,7 +90,7 @@ function prepararAgenda(base, dados, autor, uid, agora) {
   const acumulado = {};
   if (anterior) ['faturamento', 'viagens', 'expedicoes', 'expedicaoId'].forEach(k => { if (anterior[k] !== undefined) acumulado[k] = anterior[k]; });
   return {...acumulado, agendaKey: dados.agendaKey, status: anterior ? anterior.status : 'AGENDADO', revisao, cliente, clienteKey: clienteKey || '',
-    enderecoEntrega: destino || '', pedidos, paletes: lista, tipo: dados.tipo, dataAgendada: dados.dataAgendada,
+    enderecoEntrega: destino || '', pedidosSemEndereco: semEndereco, pedidos, paletes: lista, tipo: dados.tipo, dataAgendada: dados.dataAgendada,
     janela: texto(dados.janela, 80), ...transporte, contatoCliente, observacoes: texto(dados.observacoes, 2000), historico,
     criadoEm: anterior ? anterior.criadoEm : agora, criadoPor: anterior ? anterior.criadoPor : autor,
     criadoPorUid: anterior ? anterior.criadoPorUid : uid, atualizadoEm: agora, atualizadoPor: autor};

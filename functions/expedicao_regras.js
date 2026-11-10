@@ -40,14 +40,65 @@
   // Destino da carga (10/11/2026). O mesmo endereço da Miss Rose estava em três
   // grafias nos pedidos ("RUA LAGOA TAI GRANDE, 1130", "Rua Lagoa Taí Grande,
   // 1130"...) e a comparação exata recusava a carga. Maiúscula, acento,
-  // pontuação e espaço não mudam o destino. Pedido sem endereço continua
-  // separado de pedido com endereço: não se presume para onde ele vai.
+  // pontuação e espaço não mudam o destino.
   function chaveDestino(e) {
     if (e != null && typeof e === 'object') e = Object.keys(e).sort().map(function(k) { return e[k]; }).join(' ');
     return String(e == null ? '' : e).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase()
       .replace(/[^A-Z0-9]+/g, ' ').trim();
   }
   function mesmoDestino(a, b) { return chaveDestino(a) === chaveDestino(b); }
+  function textoDestino(e) {
+    if (e != null && typeof e === 'object') return Object.keys(e).sort().map(function(k) { return e[k]; }).join(', ');
+    return String(e == null ? '' : e).trim();
+  }
+  function rotuloPalete(l) {
+    l = l || {};
+    var id = (l.lote && l.lote.identificadorPalete) || l.identificadorPalete || l.loteKey || 'palete';
+    var ped = l.pedidoNumero || l.pedidoId;
+    return id + (ped ? ' (pedido ' + ped + ')' : '');
+  }
+  // Destino de UMA carga a partir das linhas (resultado de analisar) -- 10/11/2026.
+  // Pedido sem endereço não bloqueia: o cliente já é o mesmo (conferido antes),
+  // então ele segue o endereço informado nos outros pedidos e fica listado em
+  // `semEndereco` para a Logística ver. Endereços preenchidos e diferentes
+  // recusam, com mensagem que diz quais paletes, os dois endereços e o que fazer.
+  function destinoDaCarga(linhas) {
+    var ref = null, semEndereco = [], conflito = null;
+    (linhas || []).forEach(function(l) {
+      if (conflito) return;
+      var e = (l && l.frete && l.frete.enderecoEntrega) || '';
+      if (!chaveDestino(e)) {
+        var ped = l && (l.pedidoNumero || l.pedidoId);
+        if (ped && semEndereco.indexOf(String(ped)) < 0) semEndereco.push(String(ped));
+        return;
+      }
+      if (!ref) { ref = {linha: l, endereco: e}; return; }
+      if (!mesmoDestino(ref.endereco, e)) {
+        conflito = 'Estes paletes vão para endereços diferentes e não podem ir na mesma carga: ' +
+          rotuloPalete(ref.linha) + ' → "' + textoDestino(ref.endereco) + '"; ' +
+          rotuloPalete(l) + ' → "' + textoDestino(e) + '". ' +
+          'O que fazer: monte uma carga para cada endereço. Se for o mesmo local escrito de outro jeito, ' +
+          'corrija o endereço de entrega no pedido (Comercial › Pedidos e Orçamentos) e tente de novo.';
+      }
+    });
+    return {endereco: ref ? ref.endereco : '', semEndereco: semEndereco, conflito: conflito};
+  }
+  function mensagemOutroCliente(base, l) {
+    if (chaveNomeCliente(base && base.cliente) && chaveNomeCliente(base && base.cliente) === chaveNomeCliente(l && l.cliente)) {
+      return 'O palete ' + rotuloPalete(l) + ' é de "' + l.cliente + '", mas de outro cadastro de cliente (código ' +
+        ((l && l.clienteKey) || '—') + ' × ' + ((base && base.clienteKey) || '—') + ') que os demais paletes. ' +
+        'O que fazer: confira no Comercial qual cadastro está certo para esse pedido; até lá, monte uma carga separada para ele.';
+    }
+    return 'O palete ' + rotuloPalete(l) + ' é do cliente ' + ((l && l.cliente) || 'sem cliente') +
+      ', e a carga já tem paletes de ' + ((base && base.cliente) || 'outro cliente') +
+      '. Uma carga leva paletes de um cliente só: tire esse palete da seleção ou monte outra carga para ele.';
+  }
+  function mensagemFrete(l, tipoCarga) {
+    var fob = l && l.frete && l.frete.tipo === 'FOB';
+    return 'O pedido de ' + rotuloPalete(l) + ' é ' + (fob ? 'FOB (o cliente coleta)' : 'CIF (a Kuryos entrega)') +
+      ', mas a carga está como ' + (tipoCarga === 'COLETA' ? 'Coleta FOB' : 'Entrega CIF') +
+      '. Troque o tipo de transporte para ' + (fob ? 'Coleta FOB' : 'Entrega CIF') + ' ou monte uma carga separada para esse pedido.';
+  }
   // Chave de /pedidos é "<número>__<sku>", e o número aparece nos DOIS
   // formatos na base: 174 OPs gravam '17__PRF-AFEE-0014' para um pedido que
   // existe como '0017__PRF-AFEE-0014', e 17 pedidos reais existem só sem zero
@@ -137,5 +188,6 @@
     });
     return linhas.sort(function(a, b) { return Number(b.disponivel) - Number(a.disponivel) || String(validadeDoLote(a.lote) || '9999').localeCompare(String(validadeDoLote(b.lote) || '9999')) || String(a.lote.identificadorPalete).localeCompare(String(b.lote.identificadorPalete)); });
   }
-  return {analisar: analisar, listar: listar, validadeDoLote: validadeDoLote, normalizarChavePedido: normalizarChavePedido, resolverChavePedido: resolverChavePedido, mesmoCliente: mesmoCliente, mesmoDestino: mesmoDestino};
+  return {analisar: analisar, listar: listar, validadeDoLote: validadeDoLote, normalizarChavePedido: normalizarChavePedido, resolverChavePedido: resolverChavePedido, mesmoCliente: mesmoCliente, mesmoDestino: mesmoDestino,
+    destinoDaCarga: destinoDaCarga, mensagemOutroCliente: mensagemOutroCliente, mensagemFrete: mensagemFrete};
 });

@@ -138,7 +138,7 @@ assert.equal(analisar(b, 'PA001', 'pa_op1_p1', '2026-09-17').disponivel, true, '
 assert.equal(prepararSaida(b, viagem1, 'Logística', 'u1', agora).repetida, true, 'retry da mesma viagem não baixa de novo');
 
 // Saldo reservado: não entra em outra agenda nem sai sem a agenda.
-assert.throws(() => prepararAgenda(b, {agendaKey: 'ag2', revisao: 0, dataAgendada: '2026-09-19', tipo: 'COLETA', paletes: [ref(b, 'pa_op1_p2')]}, 'L', 'u1', agora), /outra carga/);
+assert.throws(() => prepararAgenda(b, {agendaKey: 'ag2', revisao: 0, dataAgendada: '2026-09-19', tipo: 'COLETA', paletes: [ref(b, 'pa_op1_p2')]}, 'L', 'u1', agora), /já está na carga de .*(já faturada)/);
 assert.throws(() => prepararSaida(b, {idempotencyKey: 'avulsa-0000000001', data: '2026-09-17', tipo: 'COLETA', paletes: [ref(b, 'pa_op1_p2')]}, 'L', 'u1', agora), /Abra o agendamento/);
 // Cancelar com parte já expedida é bloqueado.
 assert.throws(() => prepararAgenda(b, {agendaKey: 'ag1', revisao: rev(), cancelar: true, motivo: 'cancelar resto'}, 'L', 'u1', agora), /Parte desta carga já saiu/);
