@@ -23,6 +23,8 @@ function dados() {
     },
     estoque_lotes: {'EP-00001': {L1: {itemTipo: 'material', itemCodigo: 'EP-00001', status: 'QUARENTENA', saldoLote: 500, unidade: 'un',
       loteOrigem: 'F-123', criadoEm: '2026-11-01T10:00:00.000Z'}}},
+    ops: {'26302-01': {sku: 'AMABBS01', lote: '26302/01', status: 'Concluído', produzido: 900, dataFimReal: '2026-10-30T10:00:00'},
+      '26252-03': {sku: 'AMABBS01', lote: '26252/03', status: 'Cancelado'}},
     nao_conformidades: {}
   };
 }
@@ -127,12 +129,19 @@ async function abrir(browser, caminho) {
     assert.equal(await page.inputValue('#rncFornecedor'), '', 'formulário novo começa sem fornecedor');
     await page.fill('#rncItemCodigo', 'AMABBS01');
     await page.press('#rncItemCodigo', 'Enter');
+    // Produto: o lote é o da OP; escolher preenche a OP relacionada.
+    const optsLote = await page.locator('#rncLote option').allInnerTexts();
+    assert.ok(optsLote.some((t) => /OP 26302\/01 · Concluído · 900 un · 30\/10\/2026/.test(t)), optsLote.join(' | '));
+    assert.ok(!optsLote.some((t) => /26252/.test(t)), 'OP cancelada fora');
+    await page.selectOption('#rncLote', 'op:26302-01');
+    assert.equal(await page.inputValue('#rncOp'), '26302/01');
     await page.selectOption('#rncFornecedor', '-P-uHFokL0wJsZZkBciM');
     await page.fill('#rncDescricao', 'Vazamento no cliente');
     await page.click('#rncBtnSalvar');
     await page.waitForFunction(() => Object.keys(window.__db.nao_conformidades || {}).length === 2, null, {timeout: 8000});
     const r2 = await page.evaluate(() => Object.values(window.__db.nao_conformidades).find((x) => x.itemCodigo === 'AMABBS01'));
     assert.deepEqual([r2.itemTipo, r2.itemNome, r2.cliente, r2.fornecedorNome], ['produto', 'BODY MIST TESOURO DO OASIS 250ML', 'AMEERATI', 'TC QUIMICA LTDA']);
+    assert.deepEqual([r2.opLote, r2.loteKey], ['26302/01', null], 'OP vai para opLote, não para loteKey');
 
     // Texto que não é item avisa; nada no cadastro mostra a mensagem.
     await page.click('#btnNovaRnc');

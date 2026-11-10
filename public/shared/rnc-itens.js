@@ -113,10 +113,45 @@
     });
   }
 
+  // Lotes do item para a RNC. Produto quase nunca tem lote em estoque_lotes
+  // (em 10/11/2026: 46 de 408 SKUs; 268 têm OP): o lote dele é o da OP. Então
+  // vêm os dois -- lotes em estoque e OPs do SKU (canceladas fora), mais
+  // recentes primeiro. `chave` é o código digitado quando não há item.
+  var PREFIXO_OP = 'op:';
+  function lotesDoItem(item, chaveTexto, estoqueLotes, ops) {
+    var k = item ? item.key : chaveTexto;
+    var doItem = (k && (estoqueLotes || {})[k]) || {};
+    var estoque = Object.keys(doItem).map(function(lk) {
+      var l = doItem[lk] || {};
+      return {key: lk, rotulo: String(l.loteOrigem || l.loteInterno || lk), status: l.status || null,
+        saldo: l.saldoLote != null ? l.saldoLote : null, unidade: l.unidade || '',
+        opKey: l.opKey || null, opLote: l.opLote || null, criadoEm: String(l.criadoEm || '')};
+    }).sort(function(a, b) { return b.criadoEm.localeCompare(a.criadoEm); });
+    var listaOps = [];
+    if (k && (!item || item.tipo === 'produto')) {
+      Object.keys(ops || {}).forEach(function(ok) {
+        var o = (ops || {})[ok];
+        if (!o || o.sku !== k || /^cancel/i.test(String(o.status || ''))) return;
+        listaOps.push({key: ok, valor: PREFIXO_OP + ok, lote: String(o.lote || ok), status: o.status || null,
+          produzido: o.produzido != null ? o.produzido : null, quando: String(o.dataFimReal || o.dataInicioReal || '')});
+      });
+      listaOps.sort(function(a, b) { return b.quando.localeCompare(a.quando) || b.key.localeCompare(a.key); });
+    }
+    return {estoque: estoque, ops: listaOps};
+  }
+  // O valor escolhido no <select>: lote de estoque (chave) ou OP ("op:<chave>").
+  function lerEscolhaLote(valor) {
+    valor = String(valor || '');
+    if (!valor) return {loteKey: null, opKey: null};
+    if (valor.indexOf(PREFIXO_OP) === 0) return {loteKey: null, opKey: valor.slice(PREFIXO_OP.length)};
+    return {loteKey: valor, opKey: null};
+  }
+
   var api = {
     nomeFornecedor: nomeFornecedor, listaFornecedores: listaFornecedores,
     catalogoItens: catalogoItens, resolverItem: resolverItem, buscarItens: buscarItens,
-    rotuloItem: rotuloItem, fornecedoresDoItem: fornecedoresDoItem
+    rotuloItem: rotuloItem, fornecedoresDoItem: fornecedoresDoItem,
+    lotesDoItem: lotesDoItem, lerEscolhaLote: lerEscolhaLote
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else raiz.RncItens = api;

@@ -1243,6 +1243,7 @@ dbOnValue(db.ref('estoque_lotes'), function(snap) {
   setStatus(true, 'Conectado');
   renderFila(); renderFornecedores();
   if (rncExpandida) renderRncs(); // o botão "Laudo do lote" do detalhe depende dos lotes
+  atualizarLotesRncAberta();
   atenderEmissaoPedida();
 }, { onError: function(e) { setStatus(false, 'Erro de conexão'); showAlert('Não foi possível ler os lotes: ' + e.message, 'danger'); } });
 
@@ -1526,7 +1527,7 @@ window.addEventListener('pagehide', gravarRascunhosPendentes);
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'hidden') gravarRascunhosPendentes();
 });
-dbOnValue(db.ref('ops'), function(snap) { allOpsQualidade = snap.val() || {}; renderFilaGranel(); renderFilaCorrecao(); });
+dbOnValue(db.ref('ops'), function(snap) { allOpsQualidade = snap.val() || {}; renderFilaGranel(); renderFilaCorrecao(); atualizarLotesRncAberta(); });
 dbOnValue(db.ref('parametros_pa'), function(snap) { allParametrosPa = snap.val() || {}; });
 
 /* ── Fila por tipo de análise (29/09) ──
@@ -4092,7 +4093,7 @@ function aplicarItemRnc() {
     hint.textContent = '✓ ' + (item.tipo === 'produto' ? 'Produto' : 'Material') + ' ' + item.codigo + ': ' + (item.nome || '') +
       (item.cliente ? ' · ' + item.cliente : '');
   } else hint.textContent = '⚠ Escolha um item da lista. Sem isso a RNC abre com o texto digitado, sem lote nem fornecedor ligados.';
-  preencherLotesRnc(item ? item.key : texto);
+  preencherLotesRnc(item, texto);
   var sel = document.getElementById('rncFornecedor');
   var antes = sel.value;
   preencherFornecedoresRnc();
@@ -4124,26 +4125,47 @@ function aplicarItemRnc() {
    quem abre a RNC está olhando para o material parado, e é o status que diz
    qual deles é. Mais recente primeiro -- é quase sempre o que acabou de dar
    problema. */
-function preencherLotesRnc(cod) {
+// 10/11/2026: produto quase nunca tem lote em estoque_lotes -- o lote dele é
+// o da OP. A lista traz os dois grupos; escolher uma OP preenche "OP relacionada".
+function preencherLotesRnc(item, texto) {
   var sel = document.getElementById('rncLote');
   if (!sel) return;
   var atual = sel.value;
-  var lotes = cod ? (allEstoqueLotes[sanitizeKey(cod)] || {}) : {};
-  var keys = Object.keys(lotes).sort(function(a, b) {
-    return String((lotes[b] || {}).criadoEm || '').localeCompare(String((lotes[a] || {}).criadoEm || ''));
-  });
-  if (!keys.length) {
-    sel.innerHTML = '<option value="">' + (cod ? '— este item não tem lote em estoque —' : '— digite o item acima para listar os lotes —') + '</option>';
+  var chave = item ? item.key : (texto ? sanitizeKey(texto) : '');
+  var r = RncItens.lotesDoItem(item, chave, allEstoqueLotes, allOpsQualidade);
+  if (!r.estoque.length && !r.ops.length) {
+    var msg = !chave ? '— digite o item acima para listar os lotes —'
+      : item && item.tipo === 'material' ? '— nenhum lote deste material no estoque (entrada só pelo recebimento de PC) —'
+      : '— nenhum lote em estoque nem OP para este item —';
+    sel.innerHTML = '<option value="">' + msg + '</option>';
     return;
   }
-  sel.innerHTML = '<option value="">— não se aplica —</option>' + keys.map(function(k) {
-    var l = lotes[k] || {};
-    return '<option value="' + escapeAttr(k) + '">' + escapeHtml(l.loteOrigem || k) +
+  var htmlEstoque = r.estoque.map(function(l) {
+    return '<option value="' + escapeAttr(l.key) + '">' + escapeHtml(l.rotulo) +
       ' · ' + escapeHtml(rotuloStatusLote(l.status)) +
-      (l.saldoLote != null ? ' · ' + fmtNum(l.saldoLote) + ' ' + escapeHtml(l.unidade || '') : '') + '</option>';
+      (l.saldo != null ? ' · ' + fmtNum(l.saldo) + ' ' + escapeHtml(l.unidade) : '') + '</option>';
   }).join('');
-  if (atual && lotes[atual]) sel.value = atual;
+  var htmlOps = r.ops.map(function(o) {
+    return '<option value="' + escapeAttr(o.valor) + '">OP ' + escapeHtml(o.lote) + ' · ' + escapeHtml(o.status || '—') +
+      (o.produzido ? ' · ' + fmtNum(o.produzido) + ' un' : '') + (o.quando ? ' · ' + o.quando.slice(8, 10) + '/' + o.quando.slice(5, 7) + '/' + o.quando.slice(0, 4) : '') + '</option>';
+  }).join('');
+  sel.innerHTML = '<option value="">— não se aplica —</option>' +
+    (htmlEstoque ? '<optgroup label="Lotes em estoque">' + htmlEstoque + '</optgroup>' : '') +
+    (htmlOps ? '<optgroup label="Lotes de produção (OP)">' + htmlOps + '</optgroup>' : '');
+  if (atual && sel.querySelector('option[value="' + CSS.escape(atual) + '"]')) sel.value = atual;
 }
+function atualizarLotesRncAberta() {
+  if (!document.getElementById('modalRncBg').classList.contains('open') || rncModo !== 'ABRIR') return;
+  preencherLotesRnc(itemRncAtual, document.getElementById('rncItemCodigo').value.trim());
+}
+// Escolher o lote preenche a OP relacionada (OP direta ou a OP do palete de PA).
+document.getElementById('rncLote').addEventListener('change', function() {
+  var esc = RncItens.lerEscolhaLote(this.value);
+  var op = null;
+  if (esc.opKey) op = (allOpsQualidade[esc.opKey] || {}).lote || esc.opKey;
+  else if (esc.loteKey && itemRncAtual) op = (((allEstoqueLotes[itemRncAtual.key] || {})[esc.loteKey]) || {}).opLote || null;
+  if (op) document.getElementById('rncOp').value = op;
+});
 
 document.getElementById('rncBtnSalvar').addEventListener('click', function() {
   var btn = this;
@@ -4225,7 +4247,8 @@ document.getElementById('rncBtnSalvar').addEventListener('click', function() {
   // Item do cadastro grava a chave e o nome do cadastro; texto solto segue como digitado.
   var codigo = itemSel ? itemSel.key : textoItem;
   var qtd = document.getElementById('rncQtd').value;
-  var loteSel = document.getElementById('rncLote').value;
+  // "op:<chave>" é OP (vai para opLote); o resto é lote de estoque.
+  var loteSel = RncItens.lerEscolhaLote(document.getElementById('rncLote').value).loteKey;
   var loteObj = loteSel && codigo ? (allEstoqueLotes[sanitizeKey(codigo)] || {})[loteSel] : null;
   FotosQualidade.enviar(storage, fotosRncAbertura ? fotosRncAbertura.pendentes() : [], {
     contexto: 'rnc', chave: 'nova-' + Date.now(), autor: currentUserNome()

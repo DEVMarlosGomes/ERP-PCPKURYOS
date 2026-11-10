@@ -57,6 +57,25 @@ assert.equal(R.fornecedoresDoItem(R.resolverItem(cat, 'MPGR-010'), fornecedores)
 assert.deepEqual(R.fornecedoresDoItem(prod, fornecedores), []); n++;
 assert.deepEqual(R.fornecedoresDoItem(null, fornecedores), []); n++;
 
+// Lotes: estoque + OPs do SKU (produto quase nunca tem lote em estoque).
+const lotes = {AMABBS01: {pa1: {loteOrigem: '26302/01', status: 'LIBERADO', saldoLote: 10, opKey: '26302-01', opLote: '26302/01', criadoEm: '2026-11-02'}},
+  'EP-00001': {L1: {loteOrigem: 'F-1', status: 'QUARENTENA', criadoEm: '2026-11-01'}, L2: {loteOrigem: 'F-2', criadoEm: '2026-11-05'}}};
+const ops = {'26302-01': {sku: 'AMABBS01', lote: '26302/01', status: 'Concluído', produzido: 900, dataFimReal: '2026-10-30T10:00:00'},
+  '26310-02': {sku: 'AMABBS01', lote: '26310/02', status: 'Em Produção', dataInicioReal: '2026-11-06T08:00:00'},
+  '26252-03': {sku: 'AMABBS01', lote: '26252/03', status: 'Cancelado'},
+  '26999-01': {sku: 'OUTRO', lote: '26999/01', status: 'Concluído'}};
+const lp = R.lotesDoItem(prod, null, lotes, ops);
+assert.deepEqual(lp.estoque.map((l) => l.key), ['pa1']); n++;
+assert.deepEqual(lp.ops.map((o) => o.lote), ['26310/02', '26302/01'], 'OPs do SKU, sem cancelada, mais recente primeiro'); n++;
+assert.equal(lp.ops[0].valor, 'op:26310-02'); n++;
+const lm = R.lotesDoItem(R.resolverItem(cat, 'EP-00001'), null, lotes, ops);
+assert.deepEqual([lm.estoque.map((l) => l.rotulo), lm.ops.length], [['F-2', 'F-1'], 0], 'material: só estoque, recente primeiro'); n++;
+assert.deepEqual(R.lotesDoItem(null, 'AMABBS01', lotes, ops).ops.length, 2, 'código digitado sem cadastro também acha'); n++;
+assert.deepEqual(R.lotesDoItem(null, '', lotes, ops), {estoque: [], ops: []}); n++;
+assert.deepEqual(R.lerEscolhaLote('op:26302-01'), {loteKey: null, opKey: '26302-01'}); n++;
+assert.deepEqual(R.lerEscolhaLote('pa1'), {loteKey: 'pa1', opKey: null}); n++;
+assert.deepEqual(R.lerEscolhaLote(''), {loteKey: null, opKey: null}); n++;
+
 // Base real, quando a cópia local existe.
 const arq = 'scratch/full-post-sku-20261106.json';
 if (fs.existsSync(arq)) {
