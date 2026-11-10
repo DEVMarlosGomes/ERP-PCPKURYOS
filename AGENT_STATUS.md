@@ -5,6 +5,17 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Devolver OP à produção (10/11/2026)
+
+- **Concluído:** OP fechada por engano (26309/04: "Fechamento OP" na Rotulagem 01) volta pela ação
+  `DEVOLVER_PRODUCAO` da callable `rearranjarLinhas` (ADM/PCP; contagem de callables inalterada). Motor
+  `functions/devolucao_producao.js`: justificativa ≥60, status volta a Programado/Em Produção, a etapa
+  fechada sai de `confirmacaoEtapas` (guardada em `ops/{op}/historicoAlteracoes/{requestId}` com de/para),
+  programa linha + `dataInicioPlanejada/Fim` (Brasília), idempotente; transação só no nó da OP. NÃO desfaz
+  apontamentos, produzido, baixas de estoque nem e-mail. Tela: botão "↩️ Devolver à produção" no Controle
+  de OPs (`ops.html`). Teste `run_devolucao_producao_test.js`. **Pendente (Marlos):** deploy da VPS e
+  devolver a 26309/04 pela tela. Arquivos ativos: nenhum.
+
 ### Claude — Faturamento da carga chega ao Financeiro (10/11/2026)
 
 - **Concluído:** o e-mail da solicitação de faturamento ficava SEM_DESTINATARIOS (`config/emailFinanceiro`

@@ -2458,11 +2458,39 @@ async function checkNotificacoesComercial(destinatarios) {
   }
 }
 
+// Devolver OP à produção (10/11/2026): OP fechada por engano volta e é programada
+// numa linha. Ação DEVOLVER_PRODUCAO da rearranjarLinhas (mesmo dono: ADM/PCP).
+// Transação só no nó da OP (nunca na raiz); regras em functions/devolucao_producao.js.
+const DevolucaoProducao = require('./devolucao_producao');
+async function devolverOpProducao(data, uid) {
+  const opKey = String((data || {}).opKey || '');
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(opKey)) throw new HttpsError('invalid-argument', 'OP inválida.');
+  const [userSnap, linhasSnap] = await Promise.all([db.ref('usuarios/' + uid).get(), db.ref('config/linhas').get()]);
+  const user = userSnap.val() || {};
+  const agora = new Date().toISOString();
+  let plano = null, falha = null;
+  const result = await db.ref('ops/' + opKey).transaction((op) => {
+    plano = null; falha = null;
+    if (!op) return op; // cache local vazio: o servidor reexecuta com o valor real
+    try {
+      plano = DevolucaoProducao.prepararDevolucao(op, data, {linhas: linhasSnap.val() || [], autor: user.nome || user.email || uid, uid, agora});
+      if (plano.repetida) return;
+      return DevolucaoProducao.aplicarPatch(op, plano.patch);
+    } catch (e) { falha = e; return; }
+  });
+  if (falha) throw new HttpsError(falha.code || 'failed-precondition', falha.message);
+  if (!result.snapshot.exists()) throw new HttpsError('not-found', 'OP não encontrada.');
+  if (plano && plano.repetida) return {ok: true, repetida: true, resumo: plano.resumo};
+  if (!result.committed || !plano) throw new HttpsError('aborted', 'A OP mudou. Atualize a tela e tente de novo.');
+  return {ok: true, status: plano.resumo.para.status, linha: plano.resumo.para.linha, inicio: plano.resumo.para.dataInicioPlanejada, aviso: plano.aviso || ''};
+}
+
 // Rearranjo (admin e PCP): alocações e pausas mudam juntas; registros permanecem na linha original.
 exports.rearranjarLinhas = onCall({timeoutSeconds:120,memory:'512MiB'}, async request => {
   if (!request.auth) throw new HttpsError('unauthenticated','Faça login.');
   const uid=request.auth.uid;
   if (!['admin','pcp'].includes((await db.ref('usuarios/'+uid+'/role').get()).val())) throw new HttpsError('permission-denied','Somente PCP ou administradores podem rearranjar linhas.');
+  if ((request.data || {}).acao === 'DEVOLVER_PRODUCAO') return devolverOpProducao(request.data, uid);
   const agora=new Date().toISOString();
   let evento, falha;
   const result=await transacaoRaiz(db, base=>{

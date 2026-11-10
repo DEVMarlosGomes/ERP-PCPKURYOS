@@ -9,6 +9,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-functions-compat.js"></script>
   <script src="shared/utils.js"></script>
   <script src="shared/qrcode-lib.js"></script>
   <script src="shared/etiqueta-caixa.js"></script>
@@ -1125,6 +1126,7 @@
             ? `<button class="btn-confirm-op" onclick="confirmarEtapaOp('${escapedKeyAttr}', '${escapeAttr(p.etapa)}')" title="Confirmar a quantidade encerrada neste setor">${rotBotao}</button>`
             : `<span style="font-size:11.5px;color:var(--muted)">Aguardando PCP</span>`}
           <button class="btn-edit-inline" onclick="abrirApontamentoParaEdicao('${escapedKeyAttr}')" title="Abrir esta OP no Histórico de Apontamentos pra corrigir algum lançamento antes de confirmar">📝</button>
+          ${canConfirmOp() ? `<button class="btn-edit-inline" data-devolver-producao="${escapedKeyAttr}" onclick="abrirDevolverProducaoModal('${escapedKeyAttr}', '${escapeAttr(p.etapa)}')" title="Fechada por engano? Devolver à produção e programar numa linha">↩️ Devolver à produção</button>` : ''}
         </td>
       </tr>
     `;
@@ -1164,6 +1166,7 @@
             ? `<button class="btn-confirm-op" onclick="confirmarConclusaoOp('${escapedKeyAttr}')" title="Confirmar que essa OP está de fato concluída">✅ Confirmar conclusão</button>`
             : `<span style="font-size:11.5px;color:var(--muted)">Aguardando PCP</span>`}
           <button class="btn-edit-inline" onclick="abrirApontamentoParaEdicao('${escapedKeyAttr}')" title="Abrir esta OP no Histórico de Apontamentos pra corrigir algum lançamento antes de confirmar">📝</button>
+          ${canConfirmOp() ? `<button class="btn-edit-inline" data-devolver-producao="${escapedKeyAttr}" onclick="abrirDevolverProducaoModal('${escapedKeyAttr}', 'envase')" title="Fechada por engano? Devolver à produção e programar numa linha">↩️ Devolver à produção</button>` : ''}
         </td>
       </tr>
     `;
@@ -1899,6 +1902,9 @@
           ${op.materiaisConsumo
             ? `<button class="btn-edit-inline" onclick="reimprimirEtiquetas('${escapedKeyAttr}')" title="Reimprimir etiquetas de caixa de embarque desta OP">🏷️</button>`
             : ``}
+          ${!isCancelada && canConfirmOp() && !op.abertaDesde && Object.keys(op.confirmacaoEtapas || {}).length
+            ? `<button class="btn-edit-inline" data-devolver-producao="${escapedKeyAttr}" onclick="abrirDevolverProducaoModal('${escapedKeyAttr}', '${escapeAttr(Object.keys(op.confirmacaoEtapas)[0])}')" title="Etapa fechada por engano? Devolver à produção e programar numa linha">↩️</button>`
+            : ``}
           ${!isCancelada && !RetrabalhoOp.ehRetrabalho(op)
             ? `<button class="btn-edit-inline" onclick="abrirRetrabalhoModal('${escapedKeyAttr}')" title="Abrir uma OP de retrabalho deste lote — não cria produção nova">♻️</button>`
             : ``}
@@ -1957,6 +1963,88 @@
     document.getElementById('rtNovoBg').classList.add('open');
   }
   window.abrirRetrabalhoModal = abrirRetrabalhoModal;
+
+  // Devolver OP à produção (10/11/2026): fechamento por engano volta e a OP é
+  // programada numa linha. Só o servidor grava (rearranjarLinhas, ação
+  // DEVOLVER_PRODUCAO, functions/devolucao_producao.js). Não desfaz apontamentos
+  // nem baixas de estoque.
+  const MIN_JUST_DEVOLUCAO = 60;
+  function abrirDevolverProducaoModal(opKey, etapaSugerida) {
+    const op = opsGlobal[opKey];
+    if (!op || !canConfirmOp() || document.getElementById('devProdOverlay')) return;
+    const linhas = recursosDoDestino('linha');
+    const amanha = new Date(); amanha.setDate(amanha.getDate() + 1);
+    const etapas = op.confirmacaoEtapas || {};
+    const requestId = 'dev' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    const overlay = document.createElement('div');
+    overlay.id = 'devProdOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px';
+    const campo = 'width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;margin-bottom:12px;background:var(--card);color:var(--text)';
+    const rot = 'font-size:12px;font-weight:700;display:block;margin-bottom:4px';
+    const etapaTxt = (k) => (ConfirmacaoEtapas.ROTULOS[k] || k) + (etapas[k] ? ' (' + (etapas[k].status === 'CONFIRMADO' ? 'confirmada' : 'aguardando PCP') + ', ' + Number(etapas[k].quantidade || 0).toLocaleString('pt-BR') + ' un)' : '');
+    const box = document.createElement('div');
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.style.cssText = 'background:var(--card);border-radius:16px;padding:22px;max-width:460px;width:100%;box-shadow:var(--shadow);max-height:92vh;overflow:auto';
+    box.innerHTML = `
+      <div style="font-weight:800;font-size:16px;margin-bottom:6px">↩️ Devolver OP ${escapeHtml(op.lote || opKey)} à produção</div>
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">${escapeHtml(op.produto || '')} · status atual: <b>${escapeHtml(op.status || '-')}</b>.
+        A OP volta a ficar alocável e é programada na linha escolhida. Apontamentos, quantidades e baixas de estoque <b>não</b> são desfeitos: corrija quantidade errada no Histórico.</div>
+      <label style="${rot}" for="devProdEtapa">Etapa fechada por engano</label>
+      <select id="devProdEtapa" style="${campo}">${['envase', 'rotulagem'].map(k => `<option value="${k}" ${k === etapaSugerida ? 'selected' : ''}>${escapeHtml(etapaTxt(k))}</option>`).join('')}</select>
+      <label style="${rot}" for="devProdLinha">Linha de envase</label>
+      <select id="devProdLinha" style="${campo}">${linhas.length ? linhas.map(l => `<option value="${escapeAttr(l)}" ${l === op.linha ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('') : '<option value="">— nenhuma linha cadastrada em Ajustes —</option>'}</select>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px">
+        <div><label style="${rot}" for="devProdData">Data</label><input type="date" id="devProdData" value="${toLocalISODate(amanha)}" style="${campo}"></div>
+        <div><label style="${rot}" for="devProdHora">Início</label><input type="time" id="devProdHora" value="07:00" step="900" style="${campo}"></div>
+        <div><label style="${rot}" for="devProdDur">Duração (h)</label><input type="number" id="devProdDur" value="8" min="0.25" max="72" step="0.25" style="${campo}"></div>
+      </div>
+      <label style="${rot}" for="devProdJust">Justificativa (mínimo ${MIN_JUST_DEVOLUCAO} caracteres)</label>
+      <textarea id="devProdJust" rows="3" maxlength="1000" style="${campo};resize:vertical;margin-bottom:4px"></textarea>
+      <div id="devProdCont" aria-live="polite" style="font-size:11.5px;color:var(--muted);margin-bottom:12px">0 / ${MIN_JUST_DEVOLUCAO}</div>
+      <div id="devProdErro" role="alert" style="color:var(--danger);font-size:12px;margin-bottom:10px;display:none"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+        <button type="button" id="devProdVoltar" class="btn-sync" style="background:var(--card);color:var(--text);border:1.5px solid var(--border)">Voltar</button>
+        <button type="button" id="devProdConfirmar" class="btn-sync" disabled>Devolver à produção</button>
+      </div>`;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    const el = (id) => document.getElementById(id);
+    let enviando = false;
+    const fechar = () => { if (!enviando && overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+    el('devProdVoltar').onclick = fechar;
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) fechar(); });
+    const just = el('devProdJust');
+    const atualizar = () => {
+      const n = just.value.trim().length;
+      el('devProdCont').textContent = n + ' / ' + MIN_JUST_DEVOLUCAO + (n < MIN_JUST_DEVOLUCAO ? ' — faltam ' + (MIN_JUST_DEVOLUCAO - n) : ' ✓');
+      el('devProdCont').style.color = n < MIN_JUST_DEVOLUCAO ? 'var(--muted)' : 'var(--success)';
+      el('devProdConfirmar').disabled = enviando || n < MIN_JUST_DEVOLUCAO || !linhas.length;
+    };
+    just.addEventListener('input', atualizar);
+    just.focus();
+    el('devProdConfirmar').onclick = () => {
+      const erro = el('devProdErro');
+      erro.style.display = 'none';
+      const dados = {acao: 'DEVOLVER_PRODUCAO', opKey, requestId, etapa: el('devProdEtapa').value, linha: el('devProdLinha').value,
+        data: el('devProdData').value, hora: el('devProdHora').value, duracaoHoras: Number(el('devProdDur').value), justificativa: just.value.trim()};
+      if (dados.justificativa.length < MIN_JUST_DEVOLUCAO) { erro.textContent = 'Justificativa com pelo menos ' + MIN_JUST_DEVOLUCAO + ' caracteres.'; erro.style.display = 'block'; return; }
+      enviando = true; atualizar();
+      el('devProdConfirmar').textContent = 'Devolvendo...';
+      firebase.functions().httpsCallable('rearranjarLinhas')(dados).then((r) => {
+        enviando = false; fechar();
+        const d = (r && r.data) || {};
+        showToast('OP ' + (op.lote || opKey) + ' devolvida à produção: ' + (d.linha || dados.linha) + (d.inicio ? ', ' + fmtDataHoraCurta(d.inicio) : '') + '.' + (d.aviso ? ' ' + d.aviso : ''));
+      }).catch((err) => {
+        enviando = false;
+        el('devProdConfirmar').textContent = 'Devolver à produção';
+        erro.textContent = err.message || 'Não foi possível devolver a OP.';
+        erro.style.display = 'block';
+        atualizar();
+      });
+    };
+  }
+  window.abrirDevolverProducaoModal = abrirDevolverProducaoModal;
 
   function fecharRetrabalhoModal() {
     document.getElementById('rtNovoBg').classList.remove('open');
