@@ -147,7 +147,7 @@ async function abrir(browser, largura) {
     assert.match(op1Txt, /200 un\/h/, '1.600 un em 8h; o antigo sem término fica fora');
     assert.match(op1Txt, /sem 202 un\. de 1 reg\. sem término/);
     assert.match(op1Txt, /1 registro sem término/);
-    assert.match(op1Txt, /✓ confere/, 'acumulado 1.600 bate com a soma até o checkpoint; total da OP 1.802 bate com tudo');
+    assert.match(op1Txt, /^\s*✓?\s*confere$/m, 'acumulado 1.600 bate com a soma até o checkpoint; total da OP 1.802 bate com tudo');
     const troca = page.locator('tr.cond-row', {hasText: '26219/03'});
     assert.match(await troca.getAttribute('class'), /erro/);
     assert.match(await troca.innerText(), /Acumulado informado 4272, soma dos apontamentos até ali 4416/);

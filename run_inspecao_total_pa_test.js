@@ -240,7 +240,9 @@ function bancoFalso(dados) {
   assert.equal(ctxU.rotuloStatusLote('INSPECAO_TOTAL'), 'Em inspeção total'); assert.equal(ctxU.loteDisponivel('INSPECAO_TOTAL'), false);
   assert.equal(ctxU.rotuloStatusLote('EM_RETRABALHO'), 'Em retrabalho'); assert.equal(ctxU.loteDisponivel('EM_RETRABALHO'), false);
   const regras = fs.readFileSync('database.rules.json', 'utf8');
-  assert.match(regras, /"inspecaoTotal": \{\s*"\.write": "auth != null && \(root\.child\('usuarios'\)\.child\(auth\.uid\)\.child\('role'\)\.val\(\) == 'qualidade'/);
+  // Desde bf1f39d (03/11) toda regra começa pela verificação de perfil ativo e sessão; o que importa
+  // aqui é quem escreve: Qualidade e o chão de fábrica.
+  assert.match(regras, /"inspecaoTotal": \{\s*"\.write": "[^"]*security_sessions[^"]*&& \(root\.child\('usuarios'\)\.child\(auth\.uid\)\.child\('role'\)\.val\(\) == 'qualidade'/);
   assert.match(regras, /!data\.exists\(\) && newData\.child\('tipoOrdem'\)\.val\(\) == 'RETRABALHO'/, 'Qualidade só CRIA OP, e só de retrabalho');
   const auth = fs.readFileSync('public/auth_check.js', 'utf8');
   assert.equal((auth.match(/'inspecao_total\.html'/g) || []).length, 3, 'página nas três permissões de módulo');

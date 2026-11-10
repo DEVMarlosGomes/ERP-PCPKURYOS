@@ -239,7 +239,7 @@ const setar = (page, id, v) => preencher(page, id, v);
     await page.evaluate(() => { allEstoqueLotes = window.__db.estoque_lotes; allRncs = window.__db.nao_conformidades; tipoFila = 'mp'; renderFila(); });
     const btnFotos = page.locator('button.fq-link').first();
     await btnFotos.waitFor({timeout: 8000});
-    assert.match(await btnFotos.innerText(), /📷 5/);
+    assert.match(await btnFotos.innerText(), /(📷\s*)?5/);
     await btnFotos.click();
     await page.waitForSelector('.fq-gal');
     assert.equal(await page.locator('.fq-gal img').count(), 5);

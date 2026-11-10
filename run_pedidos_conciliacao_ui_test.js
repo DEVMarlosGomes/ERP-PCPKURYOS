@@ -106,7 +106,8 @@ const linha = (page, texto) => page.locator('#tableBody tr', {hasText: texto});
     const glowPad = page.locator('#tableBody tr', {hasText: 'GLOW MICELAR'});
     assert.equal(await glowPad.locator('input.entrega-input').inputValue(), '2026-09-20');
     assert.match(await glowPad.innerText(), /em atraso/);
-    assert.match(await glowPad.innerText(), /Comercial: 10\/09\/2026 ⚠/, 'PCP entrega depois do Comercial: aviso');
+    // O ⚠ virou ícone (kuryos-icon-system): o aviso é o ícone de alerta ao lado da previsão.
+    assert.match(await glowPad.innerHTML(), /Comercial: 10\/09\/2026\s*<span[^>]*data-icon="warning"/, 'PCP entrega depois do Comercial: aviso');
     const semData = page.locator('#tableBody tr', {hasText: 'ITEM SEM SAIDA'}).locator('input.entrega-input');
     assert.equal(await semData.inputValue(), '');
     await semData.fill('2099-01-01');
@@ -137,14 +138,14 @@ const linha = (page, texto) => page.locator('#tableBody tr', {hasText: texto});
     const glow = linha(page, 'GLOW MICELAR');
     assert.match(await glow.innerText(), /800 \/ 1\.000/, 'expedido = 750 de fato + 50 furto');
     assert.match(await glow.innerText(), /80%/);
-    assert.match(await glow.innerText(), /✓ OK\b/);
+    assert.match(await glow.innerText(), /(✓\s*)?OK\b/);
     assert.match(await glow.innerText(), /Em estoque: 200/);
     const tituloExp = await glow.locator('td .prog-wrap[title]').last().getAttribute('title');
     assert.match(tituloExp, /Furto: 50/, 'hover do expedido abre os motivos');
 
     // ── 2. Divergência apontada pela Logística fecha a conta ───────────
     const zaf = linha(page, 'ZAFIYR 30ML');
-    assert.match(await zaf.innerText(), /✓ OK · divergência apontada/);
+    assert.match(await zaf.innerText(), /(✓\s*)?OK · divergência apontada/);
     const tituloConf = await zaf.locator('.badge[title*="Conferência"]').last().getAttribute('title');
     assert.match(tituloConf, /Apontado na Conferência \(OP 26251\/15\): -1 · PERDA_OU_AVARIA/);
     assert.match(tituloConf, /Expedido \+ Em estoque: 2\.915/);
@@ -154,7 +155,7 @@ const linha = (page, texto) => page.locator('#tableBody tr', {hasText: texto});
     assert.match(await nada.innerText(), /Sem registro de saída/);
     assert.equal(await nada.locator('.badge-gray', {hasText: 'Sem registro'}).count(), 1);
     const div = linha(page, 'ITEM DIVERGENTE');
-    assert.match(await div.innerText(), /⚠ Diferença -10/);
+    assert.match(await div.innerText(), /(⚠\s*)?Diferença -10/);
     assert.equal(await div.locator('.badge-red', {hasText: 'Diferença'}).count(), 1);
 
     // ── 4. Filtro da conferência ────────────────────────────────────────
@@ -189,8 +190,8 @@ const linha = (page, texto) => page.locator('#tableBody tr', {hasText: texto});
     assert.match(await pc17.innerText(), /1\.020 \/ 4\.000/);
     assert.match(await pc17.innerText(), /Sem registro de saída/, 'um item OK e outro sem registro: vale o pior');
     assert.match(await pc17.innerText(), /Em estoque: 1\.895/);
-    assert.match(await page.locator('#pcTableBody tr', {hasText: '#0019'}).innerText(), /✓ OK\b/);
-    assert.match(await page.locator('#pcTableBody tr', {hasText: '#0021'}).innerText(), /⚠ Diferença -10/);
+    assert.match(await page.locator('#pcTableBody tr', {hasText: '#0019'}).innerText(), /(✓\s*)?OK\b/);
+    assert.match(await page.locator('#pcTableBody tr', {hasText: '#0021'}).innerText(), /(⚠\s*)?Diferença -10/);
 
     // ── 8. Detalhe OP por OP (pedido do usuário em 22/09) ──────────────
     // No pedido comercial agregado: abre pela célula de conferência.

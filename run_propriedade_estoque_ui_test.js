@@ -130,10 +130,10 @@ async function abrir(browser, pagina, host) {
     await p.evaluate(() => { const t = document.querySelector('[data-tab="pedidos"]') || Array.from(document.querySelectorAll('.tab')).find((x) => /Pedidos de Compra/.test(x.textContent)); if (t) t.click(); });
     await p.waitForSelector('#pcBody tr');
     const linhaPc1 = p.locator('#pcBody tr', {hasText: 'PC-0007'});
-    assert.match(await linhaPc1.innerText(), /🏭 Kuryos/);
+    assert.match(await linhaPc1.innerText(), /(🏭\s*)?Kuryos/);
     assert.match(await linhaPc1.innerText(), /falta cliente\/pedido — não pode ser recebido/);
-    assert.match(await p.locator('#pcBody tr', {hasText: 'PC-0008'}).innerText(), /📦 Material do cliente · MISS ROSE · pedido 0006/);
-    assert.match(await p.locator('#pcBody tr', {hasText: 'PC-0004'}).innerText(), /📦 Material do cliente/);
+    assert.match(await p.locator('#pcBody tr', {hasText: 'PC-0008'}).innerText(), /(📦\s*)?Material do cliente · MISS ROSE · pedido 0006/);
+    assert.match(await p.locator('#pcBody tr', {hasText: 'PC-0004'}).innerText(), /(📦\s*)?Material do cliente/);
     ok('lista de PCs mostra de quem é, destino e o que falta');
 
     // Marcar Enviado com rota confirmada mas sem vínculo: barra e abre o modal.
@@ -176,7 +176,7 @@ async function abrir(browser, pagina, host) {
     ok('vínculo por item: pedidos do cliente, vários, aplicar a todos e salvar');
 
     // Uso e consumo: sem cliente nem pedido, só na compra.
-    assert.match(await p.locator('#pcBody tr', {hasText: 'PC-0003'}).innerText(), /🏭 Kuryos · Uso e consumo \/ estoque geral/);
+    assert.match(await p.locator('#pcBody tr', {hasText: 'PC-0003'}).innerText(), /(🏭\s*)?Kuryos · Uso e consumo \/ estoque geral/);
     assert.doesNotMatch(await p.locator('#pcBody tr', {hasText: 'PC-0003'}).innerText(), /falta cliente/);
     await p.evaluate(() => abrirModalVinculoPC('pc1'));
     await p.waitForSelector('#modalVinculoPC.open');

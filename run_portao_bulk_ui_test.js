@@ -93,9 +93,11 @@ async function abrir(browser, pagina) {
     await page.waitForSelector('#alocarOpModal.open');
     let txt = await lista();
     for (const l of ['26270/02', '26270/03', '26264/12']) assert.ok(txt.includes(l), l + ' disponível');
-    assert.match(txt, /OP\(s\) com granel não liberado pela Qualidade/, 'aviso das travadas');
-    assert.ok(txt.includes('26270/04 (bulk aguardando análise)'), 'fase pendente no aviso');
-    assert.ok(txt.includes('26270/01 (bulk ainda não passou pela Manipulação)'), 'a nova sem fase aparece no aviso com o que falta');
+    assert.match(txt, /OP\(s\) ainda não disponíveis/, 'aviso das travadas (texto do OndeOp)');
+    // O aviso virou painel recolhível do OndeOp: o detalhe está no conteúdo (textContent), não no visível.
+    const detalhe = await page.locator('#alocarOpModal .alocar-op-indisp').textContent();
+    assert.match(detalhe, /OP 26270\/04[\s\S]*Na Qualidade — bulk aguardando análise/, 'fase pendente no aviso');
+    assert.match(detalhe, /OP 26270\/01[\s\S]*Ainda não entrou na Manipulação/, 'a nova sem fase aparece no aviso com o que falta');
     passos++;
 
     // 2. Lote fora da lista (campo oculto preenchido antes do bulk mudar): recusa com o motivo.

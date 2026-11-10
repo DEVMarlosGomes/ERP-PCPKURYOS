@@ -1,7 +1,7 @@
 'use strict';
-/* Login e cadastro com duplo clique (PORT-10, porte do Gustavo 6d63a68): o
-   segundo clique durante o envio não cria uma segunda conta nem dispara um
-   segundo login; o botão volta a funcionar depois de um erro. Firebase simulado. */
+/* Login com duplo clique (PORT-10, porte do Gustavo 6d63a68): o segundo clique
+   durante o envio não dispara um segundo login; o botão volta a funcionar depois
+   de um erro. E o login não oferece cadastro (só o ADM cria contas). Firebase simulado. */
 const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const fs = require('node:fs');
 const assert = require('node:assert/strict');
@@ -36,16 +36,10 @@ const assert = require('node:assert/strict');
     });
     await page.goto('https://app.test/login.html');
 
-    // Cadastro: três cliques seguidos -> uma conta só.
-    await page.evaluate(() => switchTab('register'));
-    await page.fill('#reg-name', 'Luana Teste');
-    await page.fill('#reg-email', 'luana@kuryos.com');
-    await page.fill('#reg-password', 'segredo123');
-    await page.evaluate(() => { const f = document.getElementById('form-register'); for (let i = 0; i < 3; i++) f.requestSubmit(); });
-    assert.equal(await page.locator('#btn-register').isDisabled(), true, 'botão travado durante o envio');
-    assert.equal(await page.locator('#btn-register').innerText(), 'Criando conta...');
-    await page.waitForFunction(() => /Cadastro realizado/.test(document.getElementById('feedback').innerText));
-    assert.equal(await page.evaluate(() => window.__chamadas.criar), 1, 'uma conta, não três');
+    // Cadastro público foi retirado (11fcdc6): só o ADM cria contas em Usuários.
+    // A tela de login não pode oferecer formulário nem chamada de cadastro.
+    assert.equal(await page.locator('#form-register, #reg-email, #btn-register').count(), 0, 'login sem formulário de cadastro');
+    assert.equal(await page.evaluate(() => window.__chamadas.criar), 0, 'nenhuma conta criada pela tela de login');
 
     // Login com erro: duplo clique -> um envio; o botão volta depois do erro.
     await page.fill('#login-email', 'x@kuryos.com');
@@ -56,6 +50,6 @@ const assert = require('node:assert/strict');
     assert.equal(await page.locator('#btn-login').isDisabled(), false, 'botão liberado depois do erro');
     assert.equal(await page.locator('#btn-login').innerText(), 'Entrar no Sistema');
     assert.deepEqual(erros, []);
-    console.log('OK Login: duplo clique não cria conta repetida nem dispara dois logins; o botão volta depois do erro.');
+    console.log('OK Login: sem cadastro público; duplo clique não dispara dois logins; o botão volta depois do erro.');
   } finally { await browser.close(); }
 })().catch((e) => { console.error(e); process.exit(1); });

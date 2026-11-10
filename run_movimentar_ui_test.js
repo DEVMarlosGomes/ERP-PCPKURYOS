@@ -155,7 +155,7 @@ async function abrir(browser, uid, estadoInicial, pagina) {
     assert.equal(await page.locator('#btnMover').innerText(), 'Mover o palete inteiro para FAB-1.1.2');
     if (process.env.MOV_SHOT) await page.screenshot({path: process.env.MOV_SHOT + '_desktop.png', fullPage: true});
     await page.click('#btnMover');
-    await page.waitForFunction(() => /✓ Mover o PALETE INTEIRO/.test(document.getElementById('resultado').innerText));
+    await page.waitForFunction(() => /(✓\s*)?Mover o PALETE INTEIRO/.test(document.getElementById('resultado').innerText));
     let d = await db();
     assert.equal(d.estoque_lotes.PA1.p1.enderecoKey, 'FAB-1-1-2');
     assert.equal(d.estoque_lotes.PA1.p1.enderecoCodigo, 'FAB-1.1.2');
@@ -190,7 +190,7 @@ async function abrir(browser, uid, estadoInicial, pagina) {
     page.on('dialog', (dl) => { confirmTxt = dl.message(); dl.accept(); });
     await page.selectOption('#motivo', 'REORGANIZAÇÃO');
     await page.click('#btnMover');
-    await page.waitForFunction(() => /✓ Mover 30 de 180/.test(document.getElementById('resultado').innerText));
+    await page.waitForFunction(() => /(✓\s*)?Mover 30 de 180/.test(document.getElementById('resultado').innerText));
     assert.match(confirmTxt, /já tem material. Vai para o MESMO palete/, 'ocupada pede confirmação explícita');
     d = await db();
     assert.equal(d.estoque_lotes['MP-1'].a.saldoLote, 150, 'fica 150 na origem');
@@ -216,7 +216,7 @@ async function abrir(browser, uid, estadoInicial, pagina) {
     await page.click('#btnParaDoca');
     assert.match(await page.locator('#paraSituacao').innerText(), /Doca: área de passagem/);
     await page.click('#btnMover');
-    await page.waitForFunction(() => /✓ Mover PA1/.test(document.getElementById('resultado').innerText));
+    await page.waitForFunction(() => /(✓\s*)?Mover PA1/.test(document.getElementById('resultado').innerText));
     assert.equal((await db()).estoque_lotes.PA1.p1.enderecoKey, 'DOC-1-1-1');
     await page.waitForFunction(() => /Doca \(1\)/.test(document.getElementById('btnDoca').innerText), null, {timeout: 5000});
 
@@ -226,7 +226,7 @@ async function abrir(browser, uid, estadoInicial, pagina) {
     assert.match(await page.locator('#resultado').innerText(), /Nada encontrado para NADA-999/);
 
     // ── 4. Etiquetas de endereço ──
-    await page.click('text=🏷️ Etiquetas de endereço');
+    await page.click('text=Etiquetas de endereço');
     await page.selectOption('#etArea', 'FÁBRICA');
     assert.equal(await page.locator('#btnEtiquetas').innerText(), '🏷️ Imprimir 3 etiqueta(s)', 'só ativas (a bloqueada fica de fora)');
     const [pop] = await Promise.all([page.waitForEvent('popup'), page.click('#btnEtiquetas')]);

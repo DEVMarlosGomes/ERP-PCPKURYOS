@@ -102,6 +102,7 @@ async function abrir(browser, estadoInicial, pagina) {
         }};
       }
     };
+    window.firebase.database.ServerValue = {TIMESTAMP: {'.sv': 'timestamp'}}; // carimbo do histórico do cliente (0066f33)
   }, estadoInicial || dados());
   await page.route('**/*', async (route) => {
     const url = new URL(route.request().url());

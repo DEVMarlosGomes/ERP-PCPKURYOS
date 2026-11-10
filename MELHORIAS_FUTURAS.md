@@ -1,5 +1,31 @@
 # Melhorias Futuras — Sistema PCP Kuryos
 
+## Auditoria geral de 10/11/2026 — o que ficou para depois
+
+Corrigido no código na mesma data: FEFO sugeria lote vencido em primeiro lugar
+(`sugerirAlocacaoFefo`, `shared/utils.js`); Pedidos não mostrava o campo de entrega ao
+ADM/PCP quando a tabela chegava antes do perfil (`pedidos.html`, `kuryos-auth-pronto`);
+destino da carga e mensagens da expedição (`ad0cdf2`). Ficou aberto:
+
+- **Dados (operação, não código):**
+  - 57 materiais com saldo negativo (eram 11): só a saída existe até o Dia D.
+  - Lote vencido ainda `LIBERADO`: MPES-00142 / AK-2026-000630 (62,84 kg, venceu em 03/10). A Qualidade precisa bloquear ou descartar; a separação já o deixa de fora.
+  - Agenda da Miss Rose de 23/10, faturada (NF 012) e sem saída confirmada, prendendo PA-26282-01-P2, PA-26282-01-P3 e PA-26282-03-P1. Falta confirmar a saída ou cancelar.
+  - OPs não iniciadas apontando para pedido inexistente: 26240-02 (`19__ESF-SEUN-0001`; o pedido existe como 26), 26254-02 e 26254-03 (`28__BFBBBS05`; existe como `01_08`) e 26245-01 (`0__USO-PROP-0001`).
+  - Pedido 26 com SKUs fora do cadastro de produtos (AGU/BSP/HID/SRM-SEUN-*); `0020__KUBPBA01_-_2` com chave divergente.
+  - 77 materiais ativos fora de `materiais_chave`: a trava anti-duplicidade não os cobre. Precisa de um script que acrescente as chaves livres (backup, um registro, conferir, resto), conforme a armadilha do `database:update`. Há ainda uma duplicata com os dois cadastros ativos: EP-00034 e EP-00002.
+  - Palete HIG-NEXT-0001 / AV-25086-02-REG001 `LIBERADO_EXPEDICAO` sem OP nem pedido (entrada avulsa). A expedição já o bloqueia.
+  - 12 OPs concluídas com produzido > 120% do planejado (ex.: 26224-01, 960 → 6.800): apontamento de lote inteiro, que infla `mediaPorHora`.
+  - Cerca de 50 pedidos comerciais sem endereço de entrega, e só 2 de 64 clientes com endereço no cadastro.
+  - 5 usuários ativos sem `tenant_id`, entre eles Robert Briz (production).
+- **Testes que ficaram para reescrever:** `run_inspecao_pa_ui_test.js` cobre o laudo por palete; desde `9b807c0` o laudo de PA é por lote da OP, já coberto por `run_laudo_pa_lote_test.js` e `run_laudo_pa_lote_ui_test.js`. `run_fluxo_ponta_a_ponta_test.js` segue falhando como antes.
+- **Testes que dependem do ambiente:**
+  - Precisam de emulador e não declaram isso no cabeçalho: `run_cambio_test.js`, `run_custos_servidor_test.js`, `run_op_encerrada_email_test.js` e `run_pesagem_fechada_email_test.js`.
+  - Exige credencial: `run_crm_rules_published_test.js`.
+  - Exige o Chromium do Playwright: `run_tabela_fixa_test.js`.
+  - Ignoram `PLAYWRIGHT_MODULE` e quebram sem o pacote: `run_rearranjo_linhas_ui_test.js` e `run_retrabalhos_ui_test.js`.
+- **Desempenho:** `auditoria_geral` já tem 7,8 MB e cresce sem limite (banco em 32 MB). `movimentos_estoque` e `expedicoes_comerciais` (1,3 MB cada) são lidos inteiros por Movimentar, Custos, Expedição e Relatório de Expedição.
+
 ## Card do cliente ↔ Cadastros — o que ficou para depois (08/11/2026)
 
 - **Projetos/amostras do cliente dentro do Cadastros.** O card (CRM1 › aba Projetos) já lista e cria

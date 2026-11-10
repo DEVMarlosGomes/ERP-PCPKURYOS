@@ -1,13 +1,307 @@
 {
  "fonte": "MELHORIAS_FUTURAS.md (seções e tópicos)",
- "geradoEm": "2026-11-01T13:07:24.466Z",
- "commit": "1f58dfb",
+ "geradoEm": "2026-11-10T18:48:21.178Z",
+ "commit": "78f6bf6",
  "atualizadoEm": null,
  "secoes": [
   {
    "letra": "A",
    "titulo": "Código: o que está adiado (MELHORIAS_FUTURAS.md)",
    "itens": [
+    {
+     "id": "3d6926a362",
+     "grupo": "Auditoria geral de 10/11/2026 — o que ficou para depois",
+     "texto": "Dados (operação, não código)",
+     "subitens": [
+      "57 materiais com saldo negativo (eram 11): só a saída existe até o Dia D.",
+      "Lote vencido ainda `LIBERADO`: MPES-00142 / AK-2026-000630 (62,84 kg, venceu em 03/10). A Qualidade precisa bloquear ou descartar; a separação já o deixa de fora.",
+      "Agenda da Miss Rose de 23/10, faturada (NF 012) e sem saída confirmada, prendendo PA-26282-01-P2, PA-26282-01-P3 e PA-26282-03-P1. Falta confirmar a saída ou cancelar.",
+      "OPs não iniciadas apontando para pedido inexistente: 26240-02 (`19__ESF-SEUN-0001`; o pedido existe como 26), 26254-02 e 26254-03 (`28__BFBBBS05`; existe como `01_08`) e 26245-01 (`0__USO-PROP-0001`).",
+      "Pedido 26 com SKUs fora do cadastro de produtos (AGU/BSP/HID/SRM-SEUN-*); `0020__KUBPBA01_-_2` com chave divergente.",
+      "77 materiais ativos fora de `materiais_chave`: a trava anti-duplicidade não os cobre. Precisa de um script que acrescente as chaves livres (backup, um registro, conferir, resto), conforme a armadilha do `database:update`. Há ainda uma duplicata com os dois cadastros ativos: EP-00034 e EP-00002.",
+      "Palete HIG-NEXT-0001 / AV-25086-02-REG001 `LIBERADO_EXPEDICAO` sem OP nem pedido (entrada avulsa). A expedição já o bloqueia.",
+      "12 OPs concluídas com produzido > 120% do planejado (ex.: 26224-01, 960 → 6.800): apontamento de lote inteiro, que infla `mediaPorHora`.",
+      "Cerca de 50 pedidos comerciais sem endereço de entrega, e só 2 de 64 clientes com endereço no cadastro.",
+      "5 usuários ativos sem `tenant_id`, entre eles Robert Briz (production)."
+     ],
+     "extras": {},
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "87b095d82f",
+     "grupo": "Auditoria geral de 10/11/2026 — o que ficou para depois",
+     "texto": "Testes que ficaram para reescrever",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "`run_inspecao_pa_ui_test.js` cobre o laudo por palete; desde `9b807c0` o laudo de PA é por lote da OP, já coberto por `run_laudo_pa_lote_test.js` e `run_laudo_pa_lote_ui_test.js`. `run_fluxo_ponta_a_ponta_test.js` segue falhando como antes."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "6f9e7b11b1",
+     "grupo": "Auditoria geral de 10/11/2026 — o que ficou para depois",
+     "texto": "Testes que dependem do ambiente",
+     "subitens": [
+      "Precisam de emulador e não declaram isso no cabeçalho: `run_cambio_test.js`, `run_custos_servidor_test.js`, `run_op_encerrada_email_test.js` e `run_pesagem_fechada_email_test.js`.",
+      "Exige credencial: `run_crm_rules_published_test.js`.",
+      "Exige o Chromium do Playwright: `run_tabela_fixa_test.js`.",
+      "Ignoram `PLAYWRIGHT_MODULE` e quebram sem o pacote: `run_rearranjo_linhas_ui_test.js` e `run_retrabalhos_ui_test.js`."
+     ],
+     "extras": {},
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "101530b964",
+     "grupo": "Auditoria geral de 10/11/2026 — o que ficou para depois",
+     "texto": "Desempenho",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "`auditoria_geral` já tem 7,8 MB e cresce sem limite (banco em 32 MB). `movimentos_estoque` e `expedicoes_comerciais` (1,3 MB cada) são lidos inteiros por Movimentar, Custos, Expedição e Relatório de Expedição."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "93ff3c3618",
+     "grupo": "Card do cliente ↔ Cadastros — o que ficou para depois",
+     "texto": "Projetos/amostras do cliente dentro do Cadastros",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O card (CRM1 › aba Projetos) já lista e cria projetos do cliente; o modal de cliente em `cadastros.html` não mostra essa lista porque o perfil do Cadastros nem sempre lê `erp/{tenant}/crm_projects` (regra por tenant). Retomar em `cadastros.html:openModal` (aba clientes) lendo `crm_projects` por `cliente_id` = card l…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "b341ba848c",
+     "grupo": "Card do cliente ↔ Cadastros — o que ficou para depois",
+     "texto": "Card → Cadastros só para cliente com cadastro mestre",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Card sem `cadastro_cliente_id` grava só no card (aviso na aba Contatos). Criar o mestre a partir do card segue pelo fluxo do CGI (`firebaseCommercial.js`, `origemCrmClienteId`)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "0a0f7c3ab4",
+     "grupo": "Card do cliente ↔ Cadastros — o que ficou para depois",
+     "texto": "Áreas do contato editáveis no card",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O card mostra as áreas (Comercial, Financeiro…) vindas do Cadastros, mas só o Cadastros as edita; contato novo criado no card entra como Comercial."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "ca332614b1",
+     "grupo": "Fechamento da virada — pendências de 03/11/2026",
+     "texto": "Documentos com números repetidos",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "PC-0018/PC-0019, SC-0010 e COT-0014; dois registros por número. Novas reservas já usam contadores alinhados e piso histórico nas telas de Compras. Antes de renumerar registros antigos, Marlos precisa confirmar circulação externa e a forma de retificação. Script de conferência/reparo de contador: `scripts/auditoria-v…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "95ce88af80",
+     "grupo": "Fechamento da virada — pendências de 03/11/2026",
+     "texto": "Automações duráveis/corte",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "`functions/render-server.js` mantém filas de gatilhos em memória e não recupera alterações feitas enquanto desligado. Definir recuperação, retry/idempotência, remetente/destinatários e ensaio financeiro antes de ativar os seis gatilhos/quatro agendas. Não restaurar filas históricas para simular processamento. Flags …"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "8b872478c4",
+     "grupo": "Fechamento da virada — pendências de 03/11/2026",
+     "texto": "Recuperação administrativa de operações parciais",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "`functions/identidade_acesso.js` grava `REQUER_CONFERENCIA` e trava por identidade. Falha definitiva ou queda do processo exige conferência técnica do journal/Auth/perfil; falta uma tela de reconciliação/desbloqueio seguro. Não expirar a trava automaticamente sem garantia de que a execução anterior terminou. A regul…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "6085159e7b",
+     "grupo": "Fechamento da virada — pendências de 03/11/2026",
+     "texto": "Piso histórico no helper independente do CRM",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "não alterado nesta frente por escopo ativo registrado de outro agente; os contadores compartilhados já foram corrigidos diretamente. Ao retomar `nextCounter` do CRM, adicionar a mesma conferência de máximo histórico e ensaio de concorrência antes de qualquer nova importação, sem editar o bundle compilado manualmente."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "d99735e35e",
+     "grupo": "P&D — Manipulação em lote",
+     "texto": "Fases nas fórmulas (operação, não código)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "no ensaio com a base real (18 amostras), nenhum item tinha fase, então a pré-mistura não se aplicou e a bancada pesa cada ingrediente por amostra (216 pesagens). Nomear as fases nas fórmulas de maior giro é o que traz o ganho da pré-mistura (D-05: só fase com nome)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "ebfea914d2",
+     "grupo": "P&D — Manipulação em lote",
+     "texto": "Roteiro cronometrado na tela",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "5 amostras × 25 ingredientes em < 5 min, gravado, com quem vai usar (o ensaio automático levou ~23 s do painel à aprovação no CRM 3, mas não substitui a medição com pessoa)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "386ef4e273",
+     "grupo": "P&D — Manipulação em lote",
+     "texto": "LM-09 kanban do P&D",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "com filtro por projeto e modo de seleção — fora por conflito com o Codex em `PDPage.js`."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "ab38e11649",
+     "grupo": "P&D — Manipulação em lote",
+     "texto": "Matriz (c): amostra aprovada como matriz",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "do lote."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "00d817cabd",
+     "grupo": "P&D — Manipulação em lote",
+     "texto": "MP nova de lote cancelado",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "a MP nova criada no editor do lote entra na fila do Cadastros quando alguma amostra a usa (origem `lote_{id}__{ingrediente}`); se o lote for cancelado ou a célula voltar a 0, a solicitação fica pendente (a retirada automática da origem do lote não existe). A fila tem o tratamento manual de sempre."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "669b081cb7",
+     "grupo": "P&D — Manipulação em lote",
+     "texto": "Estoque do laboratório",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "baixar as MPs pesadas no lote (a pesagem já guarda o lote da MP)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "183a01e1d3",
+     "grupo": "P&D — Manipulação em lote",
+     "texto": "Rótulo/laudo/INCI da amostra \"fora da base\"",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(os dados ficam gravados no lote e na versão)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "0eb979fa1f",
+     "grupo": "P&D — Manipulação em lote",
+     "texto": "Pré-diluição como linha da ordem",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(B2): hoje a ordem só avisa abaixo do mínimo pesável."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "fc4f3c8cdd",
+     "grupo": "P&D — Manipulação em lote",
+     "texto": "`locked` na regra",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "com coleções nomeadas `pd_formulas`/`pd_formula_items`/`pd_formula_phases` e fechar a escrita direta de `erp/$tenant` (A5.3) — decisão do Marlos; hoje a trava é das rotas e do `liberarEtapaPd`."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "3e1b40c635",
+     "grupo": "P&D — Manipulação em lote",
+     "texto": "Transição em lote no servidor",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(hoje: rota real, uma amostra por vez, com relatório)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "83e517d25e",
+     "grupo": "P&D — Manipulação em lote",
+     "texto": "Assinatura da versão conferida também na ficha/BOM/SKU",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "gerados no cliente."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "e611d78b33",
+     "grupo": "P&D — Manipulação em lote",
+     "texto": "Nome de fase com `.`, `#`, `$`, `[`, `]` ou `/`",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "a chave de `pre_mistura` no rascunho não aceita esses caracteres (o RTDB recusa a gravação inteira). Codificar a chave em `planoSalvarLote`/`ordemDoLote` se aparecer."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "79ebd8c78d",
+     "grupo": "P&D — Manipulação em lote",
+     "texto": "Residuais da auditoria final (LM-15, 05/11/2026)",
+     "subitens": [
+      "`criticoPd` some se um PCP/módulo Cadastros **apagar** o material (o `.validate` não roda na exclusão e o `.write` vem do pai `materiais`). Inativar mantém a marca. Para fechar: guardar a marca num nó só do ADM.",
+      "O número da versão do lote vem de `sequences/pd_formula_version_{dev}`, mas a \"nova versão\" individual do P&D usa `max+1` sem a sequência: uma versão criada no mesmo segundo da ordem pode repetir o número. A ordem confere a vigente depois da trava; falta a rota individual reservar pela mesma sequência.",
+      "`lote_manipulacao` é gravado pelo índice da variação no array do CRM; se alguém mexer no array no mesmo instante, cai na vizinha. Mesmo padrão do resto do CRM (arrays de variações).",
+      "O texto canônico da assinatura junta campos com `|`/`;` sem escapar; colisão forjada é contida pela conferência dos 100 % no `liberarEtapaPd`.",
+      "O painel \"Amostras deste projeto\" lê 7 coleções inteiras a cada abertura da Overview (igual às outras rotas do adaptador); otimizar quando o P&D crescer.",
+      "`formula_aprovada` grava a versão vigente na hora da aprovação, não a que saiu fisicamente para o cliente (são a mesma no fluxo normal: a vigente é a que foi a Em Testes e ao Comercial)."
+     ],
+     "extras": {
+      "Detalhe": "— aceitos para a publicação, cada um com o porquê:"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "5e2c17df16",
+     "grupo": "P&D — Manipulação em lote",
+     "texto": "Painel na tela da ordem para o lote cancelado depois da ordem",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "hoje mostra a ordem e o motivo; reabrir como rascunho não existe de propósito (versões travadas são histórico)."
+     },
+     "feito": false,
+     "hash": null
+    },
     {
      "id": "5a7c81b1ef",
      "grupo": "Expedição — complemento do desmembramento de palete",
@@ -707,6 +1001,17 @@
      "hash": null
     },
     {
+     "id": "11357071f3",
+     "grupo": "Limpeza de código (stubs legados)",
+     "texto": "Checar `no-undef` no CRM antes do build (08/11/2026)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Três variáveis usadas sem declaração passaram pelos 493 testes e chegaram à produção: `categorias` na ficha do cliente do CRM1 (`2df7b1d`, apagava a tela ao abrir cliente com projeto categorizado, ex. Miss Rose), `navigate` no CRM3 (abrir card do P&D) e `itens` ao salvar simulação no Orçamento Comercial (`1c23655`).…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
      "id": "2e7e5b36d7",
      "grupo": "Limpeza de código (stubs legados)",
      "texto": "`produtos.html`/`clientes.html`/`formulas.html`/`materiais.html` são stubs de redirect",
@@ -724,6 +1029,17 @@
      "subitens": [],
      "extras": {
       "Detalhe": ": `calcDias(ini, fim)` definida mas nunca chamada (`calcDiasUteis()` é usada no lugar) — código morto, remover."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "955bc847d2",
+     "grupo": "Segurança / Regras de Acesso",
+     "texto": "Storage por área (claim `erp_storage`), adiado em 06/11/2026",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O bucket `gs://erpkuryos.firebasestorage.app` (US-EAST1) foi criado em 06/11 e, por decisão do usuário, `storage.rules` libera **qualquer login válido** a enviar (só JPEG/PNG/WebP < 10 MB nas pastas do sistema; Comercial aceita PDF/Office < 20 MB; nada se sobrescreve nem se apaga, exceto a logo do cliente). Falta o …"
      },
      "feito": false,
      "hash": null
@@ -1241,6 +1557,61 @@
      "subitens": [],
      "extras": {
       "Detalhe": "— `config/categoriasProduto` existe como cadastro real (e o gerador de SKU usa), mas o campo gravado no produto continua sendo texto livre com datalist montado dos valores já usados. Mesma mecânica que gerou 67% de clientes órfãos, em escala menor. A correção é a mesma já aplicada em Cliente (`8c2166f`): resolver um…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "25b1977720",
+     "grupo": "Qualidade",
+     "texto": "Fotos não entram no rascunho",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Só sobem ao Storage com a decisão (`FotosQualidade.enviar`). Guardá-las exigiria subir ao anexar, numa pasta provisória, e apagar as descartadas (regra hoje proíbe apagar). O aviso do popup avisa a analista."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "df372d370d",
+     "grupo": "Qualidade",
+     "texto": "Duas pessoas no mesmo laudo: a última gravação vence",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Sem trava; o aviso mostra quem salvou por último."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "4715461f10",
+     "grupo": "Qualidade",
+     "texto": "Rascunho órfão",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Lote que sai da fila por outro caminho deixa o rascunho no banco sem aparecer. É texto pequeno; falta uma limpeza dos sem item na fila."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "f5041d2228",
+     "grupo": "Qualidade",
+     "texto": "Liberação do granel com restrição",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(`cc44503` do repo do Gustavo, 08/10/2026) não existe nesta base; o rascunho do granel foi portado sem ela."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "c2633bb1e5",
+     "grupo": "Qualidade",
+     "texto": "Os dois repositórios divergem",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "`DEVMarlosGomes/ERP-PCPKURYOS` (este, VPS) e `gcallegaro-kur/PCP-Kuryos` (Vercel) não têm commit em comum; em 06/11 diferiam em 195 arquivos de `public/`+`functions/`, com ~20 módulos só no do Gustavo (ex.: `shared/dados-nf.js`, `pesos-volumes.js`, `relatorio-entradas.js`, `painel-movimentos*.js`, `gestao-usuarios.j…"
      },
      "feito": false,
      "hash": null
@@ -2606,7 +2977,7 @@
  "resumo": {
   "A": {
    "titulo": "Código: o que está adiado (MELHORIAS_FUTURAS.md)",
-   "total": 227,
+   "total": 259,
    "feitos": 23
   },
   "B": {

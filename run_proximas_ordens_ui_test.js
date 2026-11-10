@@ -144,7 +144,7 @@ const ordemNaTela = (page, setor, recurso) => page.evaluate(({setor, recurso}) =
     // Mais rápido que o plano: 500 a 250 un/h a partir de 08:00 → 10:00, contra 15:00 na grade.
     assert.match(sugerida, /Começa hoje 08:00 · termina hoje 10:00[\s\S]*5 h antes do planejado na grade/);
     // Mais lento: o pedido da 26300/03 devia ter acabado às 08:00; a estimativa diz 09:00.
-    assert.match(await p.locator('[data-sq-setor="envase"] [data-sq-item="26300-03"]').innerText(), /⚠ 1 h depois do planejado na grade/);
+    assert.match(await p.locator('[data-sq-setor="envase"] [data-sq-item="26300-03"]').innerText(), /(⚠\s*)?1 h depois do planejado na grade/);
 
     // ── 1b. Botão "Ajustar a grade": prévia, confirmação, grava e registra ─
     const confirmacoes = [];

@@ -160,9 +160,9 @@ async function abrir(browser, pagina) {
     await page.evaluate(() => { fecharModalTransferir(); document.querySelector('.tab[data-tab="lotes"]').click(); });
     await page.waitForFunction(() => document.querySelectorAll('#slBody tr').length >= 5);
     const saldo = await page.locator('#slBody tr').allInnerTexts();
-    assert.match(saldo.find(t => /MP-QUA/.test(t)), /📦 guardar/);
-    assert.match(saldo.find(t => /PA1/.test(t)), /🚚 na Doca/);
-    assert.doesNotMatch(saldo.find(t => /PA1/.test(t)), /📦 guardar/);
+    assert.match(saldo.find(t => /MP-QUA/.test(t)), /(📦\s*)?guardar/);
+    assert.match(saldo.find(t => /PA1/.test(t)), /(🚚\s*)?na Doca/);
+    assert.doesNotMatch(saldo.find(t => /PA1/.test(t)), /(📦\s*)?guardar/);
     assert.doesNotMatch(saldo.find(t => /MP-POS/.test(t)), /guardar|na Doca/);
     assert.match(await page.textContent('#slAvisoAguardando'), /2 lote\(s\) na Doca aguardando guardar/);
     await page.check('#slSoAguardando');

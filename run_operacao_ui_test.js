@@ -191,7 +191,9 @@ async function textoOperacao(page) {
       const {page, errors} = await abrir(browser, 'adm', null, 'estoque_setor.html');
       const r = await page.evaluate(() => {
         const U = window.__db.usuarios;
-        const mods = (u) => window.modulosDoUsuario(u).sort();
+        // placar (896ad25) e feedback (cbea45e) vieram depois e valem para todo perfil operacional:
+        // o assunto aqui são os setores, então ficam fora da comparação.
+        const mods = (u) => window.modulosDoUsuario(u).filter((m) => m !== 'placar' && m !== 'feedback').sort();
         return {
           prod: mods(U.prod), rot: mods(U.rot), man: mods(U.man), cq: mods(U.cq), antigo: mods(U.antigo), soLinha: mods(U.soLinha),
           abreManRot: window.podeAbrirPagina(U.rot, 'manipulacao.html'), abreFormRot: window.podeAbrirPagina(U.rot, 'form.html'),
@@ -405,7 +407,7 @@ async function textoOperacao(page) {
       // Parar a rotuladora: modal da rotulagem, OP da rotuladora já escolhida, grava com setor.
       await page.locator('#turnoGridRotulagem [data-parar="Rotuladora 1"]').click();
       await page.waitForSelector('#andonStopModal.open');
-      assert.equal(await page.locator('#andonModalTitle').innerText(), '🛑 Registrar Parada da Rotulagem');
+      assert.match(await page.locator('#andonModalTitle').innerText(), /^\s*(🛑\s*)?Registrar Parada da Rotulagem$/);
       assert.equal(await page.inputValue('#andonPedido'), '26260/01', 'OP alocada na rotuladora (não a da linha)');
       await page.selectOption('#andonMotivo', 'Falta de Material');
       await page.click('#andonStopForm button[type="submit"]');

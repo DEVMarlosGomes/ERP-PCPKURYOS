@@ -75,7 +75,16 @@ async function abrirTela(browser, pagina, dados, papel, viewport, tema) {
       apps: [], // admin.html confere firebase.apps antes de inicializar
       initializeApp() {},
       auth() { return {currentUser: {uid: 'u1', email: 'adm@kuryos.com'}, onAuthStateChanged(cb) { setTimeout(() => cb({uid: 'u1', email: 'adm@kuryos.com', displayName: 'Gustavo'}), 0); }, signOut() { return Promise.resolve(); }}; },
-      functions() { return {httpsCallable() { return () => Promise.resolve({data: {ok: true}}); }}; },
+      // Desde 563ade1 a OP nasce no servidor (emitirOpServidor): o simulado grava como ele,
+      // com a liberação que a tela decidiu (o servidor a refaz a partir do motivo).
+      functions() { return {httpsCallable(nome) { return (dados) => {
+        if (nome !== 'emitirOpServidor') return Promise.resolve({data: {ok: true}});
+        const lote = '26999/' + String(++seq).padStart(2, '0');
+        const op = Object.assign({}, (dados || {}).op, {lote, liberacaoSemSaldo: window.liberacaoSemSaldoAtual || null});
+        if (!op.liberacaoSemSaldo) delete op.liberacaoSemSaldo;
+        gravar('ops/' + lote.replace('/', '-'), op);
+        return Promise.resolve({data: {lote, op}});
+      }; }}; },
       storage() { return {ref() { return {getDownloadURL: () => Promise.resolve('')}; }}; },
       database() {
         const ref = (p) => {
