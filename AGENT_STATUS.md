@@ -5,6 +5,21 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Usuários, RNC e destino da carga (10/11/2026)
+
+- **Concluído e publicado na VPS** (`hostinger-deploy`). Arquivos ativos: nenhum.
+- `b666cb4` Usuários: o servidor exigia "usuário" mas a tela voltou a login por e-mail em 601b53f;
+  criar e editar falhavam. Agora é opcional (validado se vier). Confirmado: perfil de manipulação criado.
+- `c2e3c6b` RNC: item com busca (SKU, código, nome, EAN, cliente; `shared/rnc-itens.js`); fornecedor pelo
+  nome (o cadastro não tem `nome`, só nomeFantasia/razaoSocial) e sugerido pelo material; `abrirRnc` grava
+  `cliente` (era enviado e descartado).
+- `940fbe1` RNC: lote lista também as OPs do SKU (46 de 408 produtos tinham lote em estoque; 270 com OP);
+  OP escolhida vai para `opLote`.
+- `2341f99` Expedição: `mesmoDestino` (shared/expedicao.js = functions/expedicao_regras.js) ignora
+  maiúscula/acento/pontuação; mesmo endereço da Miss Rose estava em 3 grafias. Pedido sem endereço segue
+  separado (pedido 27 da Miss Rose).
+- `513d8c9` (09/11 noite) também não estava registrado aqui: ver complemento do bloco abaixo.
+
 ### Claude — Fornecedor do P&D no cadastro de MP nova e 500 na Montar carga (09/11/2026)
 
 - **Concluído.** Expedição: as callables faziam `db.ref().transaction` na RAIZ; com o banco em 29,7 MB
