@@ -142,6 +142,20 @@ let ids = 0;
   assert.equal(created.verificacaoEmailExigida, false);
   assert.ok(!JSON.stringify(db.state).includes("InicialMaria9!"), "senha inicial não persiste no RTDB/auditoria");
 
+  // A tela cria e edita sem "usuário" desde que o login voltou a ser por e-mail (601b53f).
+  const semUsuario = await call("adm", {
+    acao: "criar", nome: "manipulacao", email: "manipulacaokuryos@gmail.com",
+    funcoes: ["production"], modulos: null, tenant_id: "kuryos", nova_senha: "Manipula9x",
+  });
+  assert.equal(semUsuario.ok, true, "criar sem nome de usuário (payload da tela)");
+  assert.equal(db.state.usuarios[semUsuario.uid].usuario, undefined);
+  await call("adm", {acao: "atualizar", uid: semUsuario.uid, nome: "Manipulação", email: "manipulacaokuryos@gmail.com", tenant_id: "kuryos"});
+  assert.equal(db.state.usuarios[semUsuario.uid].nome, "Manipulação", "editar sem nome de usuário");
+  await assert.rejects(call("adm", {
+    acao: "criar", nome: "X", email: "x.invalido@kuryos.com.br", usuario: "A B",
+    funcoes: ["production"], tenant_id: "kuryos", nova_senha: "Inicial9x",
+  }), (error) => error.code === "invalid-argument", "usuário preenchido continua validado");
+
   await call("adm", {acao: "atualizar", uid: created.uid, nome: "Maria Souza", email: "maria.souza@kuryos.com.br", tenant_id: "kuryos"});
   assert.equal(auth.users[created.uid].email, "maria.souza@kuryos.com.br");
   assert.equal(auth.users[created.uid].emailVerified, false);

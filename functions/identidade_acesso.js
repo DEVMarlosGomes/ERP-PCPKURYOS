@@ -2,6 +2,7 @@
 
 const crypto = require("node:crypto");
 const {normalizarUsuario, reservarUsuario, liberarUsuario} = require("./login_personalizado");
+const vazio = (v) => v === undefined || v === null || String(v).trim() === "";
 
 const FUNCOES_VALIDAS = [
   "admin", "pcp", "comercial", "pd", "qualidade", "logistica",
@@ -240,7 +241,9 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
     if (acao === "criar") {
       const nome = texto(data.nome, "o nome", 120);
       const email = emailValido(data.email);
-      const usuario = normalizarUsuario(data.usuario);
+      // Login é por e-mail (601b53f): o nome de usuário é opcional e só é
+      // reservado quando vier preenchido.
+      const usuario = vazio(data.usuario) ? null : normalizarUsuario(data.usuario);
       const senha = data.nova_senha;
       if (typeof senha !== "string" || senha.length < 8 || senha.length > 128 || !/[A-Z]/.test(senha) || !/[a-z]/.test(senha) || !/[0-9]/.test(senha)) {
         throw falha("invalid-argument", "A senha inicial deve ter de 8 a 128 caracteres, maiúscula, minúscula e número. Símbolos são permitidos.");
@@ -258,8 +261,10 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
         // não houve comprovação do endereço, mas o ERP não exige essa marca
         // para autenticar: a aprovação administrativa é o portão de acesso.
         created = await auth.createUser({email, password: senha, displayName: nome, disabled: false, emailVerified: false});
-        await reservarUsuario(db, usuario, created.uid);
-        usuarioReservado = true;
+        if (usuario) {
+          await reservarUsuario(db, usuario, created.uid);
+          usuarioReservado = true;
+        }
         const profile = {
           nome, email, usuario, ...acesso,
           created_at: date,
@@ -350,14 +355,14 @@ function criarServicoIdentidade({db, auth, now = () => new Date(), uuid = () => 
     if (acao === "atualizar") {
       const nome = texto(data.nome, "o nome", 120);
       const email = emailValido(data.email);
-      const usuario = normalizarUsuario(data.usuario !== undefined ? data.usuario : before.usuario);
+      const usuario = vazio(data.usuario) ? (before.usuario || null) : normalizarUsuario(data.usuario);
       const tenant = tenantValido(data.tenant_id);
       let authBefore;
       try { authBefore = await auth.getUser(targetUid); } catch (error) {
         if (!CODIGOS_AUTH_SEM_USUARIO.has(codigoAuth(error))) throw error;
         throw falha("failed-precondition", "O perfil existe no banco, mas a conta de login não existe.");
       }
-      const usuarioMudou = usuario !== before.usuario;
+      const usuarioMudou = !!usuario && usuario !== before.usuario;
       if (usuarioMudou) await reservarUsuario(db, usuario, targetUid);
       try {
         await auth.updateUser(targetUid, {displayName: nome, email, emailVerified: authBefore.email === email ? authBefore.emailVerified : false});
