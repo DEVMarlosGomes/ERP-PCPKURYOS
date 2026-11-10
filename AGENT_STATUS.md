@@ -29,6 +29,12 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   maiúscula/acento/pontuação; mesmo endereço da Miss Rose estava em 3 grafias. Pedido sem endereço segue
   separado (pedido 27 da Miss Rose).
 - `513d8c9` (09/11 noite) também não estava registrado aqui: ver complemento do bloco abaixo.
+- `ad0cdf2` Expedição: pedido sem endereço acompanha o destino da carga (mesmo cliente);
+  mensagens de destino/cliente/CIF-FOB/palete preso dizem o que fazer (`destinoDaCarga`).
+- Auditoria geral: `dea29f1` FEFO não sugere lote vencido; Pedidos redesenha em
+  `kuryos-auth-pronto`. `b9189f1` 15 testes desatualizados em dia; dados a regularizar em
+  MELHORIAS_FUTURAS ("Auditoria geral de 10/11/2026"). README novo aguardando revisão do Marlos
+  (não commitado).
 
 ### Claude — Fornecedor do P&D no cadastro de MP nova e 500 na Montar carga (09/11/2026)
 
