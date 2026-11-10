@@ -12,7 +12,7 @@
   // Fatos dos outros módulos: lidos uma vez (botão "Recarregar"). O fin/ é ao vivo.
   var NOS_UMA_VEZ = ['pedidos_compra', 'processos_cotacao', 'fornecedores', 'clientes', 'estoque_lotes', 'pedidos_comerciais', 'agendamentos_expedicao'];
   var D = {}, fin = {}, fechamentos = {}, avisos = [];
-  var S = {aba: 'painel', q: '', filtro: 'abertos', conta: '', sel: {}, extratoConta: ''};
+  var S = {aba: 'painel', q: '', filtro: 'abertos', conta: '', sel: {}, extratoConta: '', previaNotas: []};
   var pronto = {fatos: false, fin: false};
 
   function el(id) { return document.getElementById(id); }
@@ -63,7 +63,7 @@
   function render() {
     Array.prototype.forEach.call(document.querySelectorAll('.aba'), function(b) { b.setAttribute('aria-selected', b.dataset.aba === S.aba ? 'true' : 'false'); });
     var h = avisos.length ? '<div class="alerta warn"><div><b>Parte da base não carregou.</b> ' + avisos.map(e).join('<br>') + '</div></div>' : '';
-    h += ({painel: abaPainel, pagar: function() { return abaTitulos('PAGAR'); }, receber: function() { return abaTitulos('RECEBER'); }, lotes: abaLotes,
+    h += ({painel: abaPainel, pagar: function() { return abaTitulos('PAGAR'); }, receber: function() { return abaTitulos('RECEBER'); }, notas: abaNotas, lotes: abaLotes,
       conciliacao: abaConciliacao, fluxo: abaFluxo, complementos: abaComplementos, cadastros: abaCadastros}[S.aba] || abaPainel)();
     el('conteudo').innerHTML = h;
   }
@@ -129,6 +129,8 @@
       '<div class="linha-kv"><span>Parceiro</span><b>' + e(t.parceiro && t.parceiro.nome) + (t.parceiro && t.parceiro.cnpj ? ' · ' + e(t.parceiro.cnpj) : '') + '</b></div>' +
       '<div class="linha-kv"><span>Natureza</span><b>' + e(t.natureza) + '</b></div>' +
       '<div class="linha-kv"><span>Condição</span><b>' + e((fin.condicoes || {})[id] ? ((fin.condicoes[id].condicao || 'vence ' + dataBR(fin.condicoes[id].vencimento)) + ' (informada no Financeiro)') : (t.condicao || (t.vencimentoFixo ? 'vence ' + dataBR(t.vencimentoFixo) : '—')) + (t.condicaoFonte ? ' · ' + t.condicaoFonte : '')) + '</b></div>';
+    if (s.nota) h += '<div class="linha-kv"><span>Nota fiscal (XML)</span><b>NF ' + e(s.nota.numero) + (s.nota.serie && s.nota.serie !== '0' ? '/' + e(s.nota.serie) : '') +
+      (s.fonteParcelas === 'NF_XML' ? ' · vencimentos pelas duplicatas da nota' : '') + ' <span class="mut">' + e(s.nota.chave) + '</span></b></div>';
     if (s.avisos.length) h += '<div class="alerta warn" style="margin-top:10px"><div>' + s.avisos.map(e).join('<br>') + '</div></div>';
     if (s.semVencimento) h += '<div class="alerta warn" style="margin-top:10px"><div><b>Sem vencimento:</b> ' + e(s.motivoVencimento) + '. Informe a condição em <b>Complementos</b>.</div></div>';
     h += '<h3 style="margin-top:14px">Parcelas</h3><div class="tw"><table><thead><tr><th>Parcela</th><th>Vencimento</th><th class="n">Valor</th><th class="n">Em aberto</th></tr></thead><tbody>' +
@@ -153,6 +155,51 @@
       '<div style="grid-column:1/-1"><label for="bxHist">Histórico</label><input class="inp" id="bxHist" placeholder="opcional"></div></div>' +
       '<div style="margin-top:14px;display:flex;gap:8px"><button class="btn pri" id="bxOk" data-tit="' + e(id) + '"' + (extrato ? ' data-extrato="' + e(JSON.stringify({conta: extrato.conta, fitid: extrato.fitid})) + '"' : '') + '>Confirmar ' + (s.titulo.tipo === 'PAGAR' ? 'pagamento' : 'recebimento') + '</button></div>';
     abrir((s.titulo.tipo === 'PAGAR' ? 'Pagar' : 'Receber') + ' título', h);
+  }
+
+  /* ── Notas de entrada (XML) — F5 ───────────────────────────────────────── */
+  var ROT_CASA = {VINCULADA: ['ok', 'casa com o recebimento'], SEM_RECEBIMENTO: ['info', 'aguardando recebimento'], SEM_PEDIDO: ['warn', 'sem pedido de compra'],
+    FORNECEDOR_NAO_CADASTRADO: ['warn', 'fornecedor não cadastrado'], AMBIGUA: ['warn', 'mais de um recebimento'], RECEBIMENTO_SEM_TITULO: ['info', 'recebimento sem título']};
+  function dupResumo(n) {
+    var ds = n.duplicatas || [];
+    if (!ds.length) return '<span class="mut">sem duplicatas</span>';
+    return ds.map(function(d) { return dataBR(d.vencimento) + ' ' + brl(d.valorCentavos); }).join('<br>');
+  }
+  function rotNf(n) { return e(n.numero) + (n.serie && n.serie !== '0' ? '/' + e(n.serie) : ''); }
+  function abaNotas() {
+    var b = base(), notas = fin.notas_entrada || {}, porTit = F.notasPorTitulo(fin), comTitulo = {};
+    Object.keys(porTit).forEach(function(id) { comTitulo[porTit[id].chave] = id; });
+    var validas = S.previaNotas.filter(function(x) { return x.r.ok && !x.repetida; }).length;
+    var h = '<div class="card"><h3>Importar XML de NF-e</h3><div class="sub" style="margin-bottom:10px">Envie o XML que o fornecedor manda (um ou vários). ' +
+      'A nota casa com o <b>recebimento</b> pelo CNPJ e pelo número; as <b>duplicatas</b> passam a ser os vencimentos do título. A mesma nota não entra duas vezes. ' +
+      'O XML <b>não</b> dá entrada no estoque: isso continua sendo do recebimento.</div>' +
+      '<div class="barra"><label class="btn sm pri">Escolher XML<input type="file" id="nfArquivos" accept=".xml,text/xml,application/xml" multiple hidden></label>' +
+      (S.previaNotas.length ? '<button class="btn sm pri" id="nfImportar"' + (validas ? '' : ' disabled') + '>Importar ' + validas + ' nota(s)</button><button class="btn sm" id="nfLimpar">Limpar</button>' : '') + '</div>';
+    if (S.previaNotas.length) {
+      h += '<div class="tw"><table><thead><tr><th>Arquivo</th><th>NF</th><th>Emitente</th><th>Emissão</th><th class="n">Valor</th><th>Duplicatas</th><th>Situação</th></tr></thead><tbody>' +
+        S.previaNotas.map(function(x) {
+          if (!x.r.ok) return '<tr><td>' + e(x.nome) + '</td><td colspan="6"><span class="tg bad">não lido</span> ' + e(x.r.motivo) + '</td></tr>';
+          var n = x.r.nota, c = F.casarNotaEntrada(n, b), st = ROT_CASA[c.tipo] || ['mute', c.tipo];
+          return '<tr><td>' + e(x.nome) + '</td><td>' + rotNf(n) + '</td><td>' + e(n.emitente.nome) + '<br><span class="mut">' + e(n.emitente.cnpj) + '</span></td><td>' + dataBR(n.emissao) + '</td><td class="n">' + brl(n.valorTotalCentavos) + '</td><td>' + dupResumo(n) + '</td>' +
+            '<td>' + (x.repetida ? '<span class="tg mute">já importada</span>' : '<span class="tg ' + st[0] + '">' + st[1] + '</span>' + (c.pc ? ' <span class="mut">' + e(c.pc) + '</span>' : '')) +
+            (x.r.avisos.length ? '<div class="dica">' + x.r.avisos.map(e).join(' ') + '</div>' : '') + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }
+    h += '</div>';
+    var ks = Object.keys(notas).sort(function(a, c) { return String((notas[c] || {}).emissao).localeCompare(String((notas[a] || {}).emissao)); });
+    h += '<div class="card"><h3>Notas importadas (' + ks.length + ')</h3><div class="tw"><table><thead><tr><th>Emissão</th><th>NF</th><th>Emitente</th><th class="n">Valor</th><th>Duplicatas</th><th>Título</th><th>Importada</th></tr></thead><tbody>' +
+      (ks.length ? ks.map(function(k) {
+        var n = notas[k], tid = comTitulo[k], sit;
+        if (tid) sit = '<a href="#" data-det="' + e(tid) + '">' + e(((fin.titulos || {})[tid] || {}).documento || tid) + '</a>';
+        else {
+          var c = F.casarNotaEntrada(n, b), st = ROT_CASA[c.tipo] || ['mute', c.tipo];
+          sit = '<span class="tg ' + st[0] + '">' + (c.tipo === 'VINCULADA' ? 'a vincular' : st[1]) + '</span>' +
+            (c.tipo === 'SEM_PEDIDO' || c.tipo === 'FORNECEDOR_NAO_CADASTRADO' ? ' <button class="btn sm" data-manual-nf="' + e(k) + '">Lançar título</button>' : '') +
+            (c.tipo === 'VINCULADA' ? ' <button class="btn sm" data-vincular-nf="1">Vincular agora</button>' : '');
+        }
+        return '<tr><td>' + dataBR(n.emissao) + '</td><td>' + rotNf(n) + '</td><td>' + e(n.emitente && n.emitente.nome) + '</td><td class="n">' + brl(n.valorTotalCentavos) + '</td><td>' + dupResumo(n) + '</td><td>' + sit + '</td><td>' + dataBR(n.importadoEm) + ' <span class="mut">' + e(n.importadoPor) + '</span></td></tr>';
+      }).join('') : '<tr><td colspan="7"><div class="vazio"><b>Nenhuma nota importada.</b>Escolha os XMLs acima.</div></td></tr>') + '</tbody></table></div></div>';
+    return h;
   }
 
   function abaLotes() {
@@ -230,12 +277,17 @@
 
   function abaComplementos() {
     var lista = F.complementos(base());
-    var rot = {SEM_VALOR: ['bad', 'Sem valor'], SEM_VENCIMENTO: ['warn', 'Sem prazo'], DIFERENCA_FISCAL: ['info', 'Diferença fiscal']};
+    var rot = {SEM_VALOR: ['bad', 'Sem valor'], SEM_VENCIMENTO: ['warn', 'Sem prazo'], DIFERENCA_FISCAL: ['info', 'Diferença fiscal'],
+      NF_DIVERGENTE: ['bad', 'NF ≠ recebimento'], NF_SEM_PEDIDO: ['warn', 'NF sem pedido'], NF_SEM_FORNECEDOR: ['warn', 'NF sem fornecedor'],
+      NF_SEM_RECEBIMENTO: ['info', 'NF aguardando recebimento'], NF_AMBIGUA: ['warn', 'NF ambígua'], NF_SEM_TITULO: ['info', 'NF sem título'], NF_A_VINCULAR: ['info', 'NF a vincular']};
     return '<div class="card"><h3>Complementos</h3><div class="sub" style="margin-bottom:10px">O que a derivação não completou sozinha. Nenhum outro módulo é alterado: o Financeiro resolve aqui. Corrigido na origem (ex.: preço no PC), o item some sozinho na próxima rodada.</div>' +
       '<div class="tw"><table><thead><tr><th>Tipo</th><th>O que falta</th><th class="n">Valor</th><th>Resolver</th></tr></thead><tbody>' +
       (lista.length ? lista.map(function(c) {
         var r = rot[c.tipo] || ['mute', c.tipo], acao;
-        if (c.tipo === 'SEM_VENCIMENTO') acao = '<div class="mini-acoes"><input class="inp" style="width:130px" placeholder="ex.: 28/42" data-cond-txt="' + e(c.titulo) + '"><span class="mut">ou</span><input class="inp" type="date" data-cond-venc="' + e(c.titulo) + '"><button class="btn sm pri" data-cond-ok="' + e(c.titulo) + '">Salvar</button></div>';
+        if (c.tipo === 'NF_SEM_PEDIDO' || c.tipo === 'NF_SEM_FORNECEDOR') acao = '<button class="btn sm pri" data-manual-nf="' + e(c.nota) + '">Lançar título da nota</button> <span class="mut">' + e(c.acao) + '</span>';
+        else if (c.tipo === 'NF_A_VINCULAR') acao = '<button class="btn sm pri" data-vincular-nf="1">Vincular agora</button>';
+        else if (c.tipo.indexOf('NF_') === 0) acao = '<span class="mut">' + e(c.acao) + '</span>';
+        else if (c.tipo === 'SEM_VENCIMENTO') acao = '<div class="mini-acoes"><input class="inp" style="width:130px" placeholder="ex.: 28/42" data-cond-txt="' + e(c.titulo) + '"><span class="mut">ou</span><input class="inp" type="date" data-cond-venc="' + e(c.titulo) + '"><button class="btn sm pri" data-cond-ok="' + e(c.titulo) + '">Salvar</button></div>';
         else acao = '<button class="btn sm" data-manual="' + (c.origem && c.origem.tipo === 'RECEBIMENTO' ? 'PAGAR' : 'RECEBER') + '">Lançar título manual</button> <span class="mut">' + e(c.acao) + '</span>';
         return '<tr><td><span class="tg ' + r[0] + '">' + r[1] + '</span></td><td>' + e(c.texto) + '</td><td class="n">' + brl(c.valorCentavos) + '</td><td>' + acao + '</td></tr>';
       }).join('') : '<tr><td colspan="4"><div class="vazio"><b>Nada pendente.</b>Todos os fatos viraram títulos com valor e prazo.</div></td></tr>') + '</tbody></table></div></div>';
@@ -257,8 +309,10 @@
       '<div class="dica">Naturezas: ' + F.NATUREZAS.join(', ') + '.</div></div>';
     return h;
   }
-  function formManual(tipo) {
-    var h = '<div class="form"><div><label for="mParc">' + (tipo === 'PAGAR' ? 'Fornecedor' : 'Cliente') + '</label><input class="inp" id="mParc"></div><div><label for="mCnpj">CNPJ</label><input class="inp" id="mCnpj"></div>' +
+  function formManual(tipo, nota) {
+    var h = (nota ? '<div class="alerta info" style="margin-bottom:10px"><div>Título da <b>NF ' + e(nota.numero) + '</b> de ' + e(nota.emitente && nota.emitente.nome) + '. ' +
+      ((nota.duplicatas || []).length ? 'Os vencimentos seguem as ' + nota.duplicatas.length + ' duplicata(s) da nota: deixe vencimento e condição em branco.' : 'A nota não tem duplicatas: informe o vencimento ou a condição.') + '</div></div>' : '') +
+      '<input type="hidden" id="mNota" value="' + e(nota ? nota.chave : '') + '"><div class="form"><div><label for="mParc">' + (tipo === 'PAGAR' ? 'Fornecedor' : 'Cliente') + '</label><input class="inp" id="mParc"></div><div><label for="mCnpj">CNPJ</label><input class="inp" id="mCnpj"></div>' +
       '<div><label for="mDoc">Documento</label><input class="inp" id="mDoc" placeholder="NF 123"></div><div><label for="mValor">Valor (R$)</label><input class="inp" id="mValor"></div>' +
       '<div><label for="mEmi">Emissão</label><input class="inp" type="date" id="mEmi" value="' + hojeISO() + '"></div><div><label for="mVenc">Vencimento único</label><input class="inp" type="date" id="mVenc"><div class="dica">Preenchido, vale ele e o parcelamento é ignorado.</div></div>' +
       '<div><label for="mNParc">Nº de parcelas</label><input class="inp" type="number" inputmode="numeric" min="1" max="60" id="mNParc" placeholder="2"></div>' +
@@ -270,16 +324,25 @@
       '<div style="grid-column:1/-1"><label for="mHist">Histórico</label><input class="inp" id="mHist"></div></div>' +
       '<div style="margin-top:12px"><button class="btn pri" id="mOk" data-tipo="' + tipo + '">Lançar</button> <span class="dica">Título manual vira lançamento na Controladoria pela natureza.</span></div>';
     abrir('Título ' + (tipo === 'PAGAR' ? 'a pagar' : 'a receber') + ' manual', h);
+    if (nota) {
+      el('mParc').value = (nota.emitente && nota.emitente.nome) || ''; el('mCnpj').value = (nota.emitente && nota.emitente.cnpj) || '';
+      el('mDoc').value = 'NF ' + nota.numero + (nota.serie && nota.serie !== '0' ? '/' + nota.serie : '');
+      var somaDup = (nota.duplicatas || []).reduce(function(s2, d2) { return s2 + num(d2.valorCentavos); }, 0) || num(nota.valorTotalCentavos);
+      el('mValor').value = (somaDup / 100).toFixed(2).replace('.', ','); el('mEmi').value = nota.emissao || hojeISO();
+    }
     previaManual();
   }
   function linhaManual(tipo) {
     return {tipo: tipo, parceiro: el('mParc').value, cnpj: el('mCnpj').value, documento: el('mDoc').value, valor: el('mValor').value, emissao: el('mEmi').value,
-      vencimento: el('mVenc').value || null, condicao: el('mCond').value, natureza: el('mNat').value, historico: el('mHist').value};
+      vencimento: el('mVenc').value || null, condicao: el('mCond').value, natureza: el('mNat').value, historico: el('mHist').value,
+      notaChave: (el('mNota') && el('mNota').value) || null};
   }
   // Prévia das parcelas (n/de, vencimento, valor) pelo mesmo motor que o servidor usa.
   function previaManual() {
     var alvo = el('mPrev'); if (!alvo) return;
-    var p = F.previaParcelas(linhaManual(''));
+    var lm = linhaManual(''), nt = lm.notaChave && (fin.notas_entrada || {})[lm.notaChave];
+    var p = nt && !lm.vencimento && !String(lm.condicao || '').trim() && (nt.duplicatas || []).length
+      ? {ok: true, parcelas: F.parcelasDaNota(nt, F.centavos(lm.valor) || 0), avisos: ['Vencimentos das duplicatas da nota.']} : F.previaParcelas(lm);
     if (!p.ok) { alvo.innerHTML = '<div class="alerta info"><div><b>Prévia das parcelas:</b> ' + e(p.motivo) + '</div></div>'; return; }
     alvo.innerHTML = '<h3 style="margin:4px 0 6px">Prévia das parcelas</h3><div class="tw"><table><thead><tr><th>Parcela</th><th>Vencimento</th><th class="n">Valor</th></tr></thead><tbody>' +
       p.parcelas.map(function(x) { return '<tr><td>' + x.n + '/' + x.de + (x.tipo !== 'PRAZO' ? ' <span class="mut">' + e(x.tipo === 'A_VISTA' ? 'à vista' : x.tipo) + '</span>' : '') + '</td><td>' + dataBR(x.vencimento) + '</td><td class="n">' + brl(x.valorCentavos) + '</td></tr>'; }).join('') +
@@ -301,6 +364,17 @@
     if (d.det) { ev.preventDefault(); detalhe(d.det); return; }
     if (d.baixar) { formBaixa(d.baixar); return; }
     if (d.manual) { formManual(d.manual); return; }
+    if (d.manualNf) { var nt = (fin.notas_entrada || {})[d.manualNf]; if (nt) formManual('PAGAR', nt); return; }
+    if (d.vincularNf) { travar(t, chamar('finImportarNfEntrada', {xmls: []})).then(function(r) { toast(r.vinculadas ? r.vinculadas + ' nota(s) vinculada(s).' : 'Nada novo para vincular.'); }); return; }
+    if (t.id === 'nfLimpar') { S.previaNotas = []; render(); return; }
+    if (t.id === 'nfImportar') {
+      var envio = S.previaNotas.filter(function(x) { return x.r.ok && !x.repetida; }).map(function(x) { return {nome: x.nome, texto: x.texto}; });
+      travar(t, chamar('finImportarNfEntrada', {xmls: envio})).then(function(r) {
+        S.previaNotas = []; render();
+        toast(r.importadas + ' nota(s) importada(s)' + (r.vinculadas ? ', ' + r.vinculadas + ' vinculada(s) ao recebimento' : '') + (r.repetidas.length ? ', ' + r.repetidas.length + ' já existia(m)' : '') + (r.erros.length ? '. Erros: ' + r.erros.slice(0, 3).join(' ') : '.'));
+      });
+      return;
+    }
     if (t.id === 'bxOk') {
       var conta = el('bxConta').value; S.conta = conta;
       var dados = {chave: chave(), titulo: d.tit, valorCentavos: lerReais(el('bxValor').value), data: el('bxData').value, conta: conta,
@@ -376,6 +450,7 @@
     }
     if (t.id === 'mOk') {
       var linha = linhaManual(d.tipo);
+      if (!linha.notaChave) delete linha.notaChave;
       var v = F.validarTituloManual(linha, 'MANUAL'); if (!v.ok) { toast(v.motivo); return; }
       travar(t, chamar('finLancarTitulos', {origem: 'MANUAL', titulos: [linha]})).then(function(res) { fechar(); toast(res.criados ? 'Título lançado.' : 'Já existia um título igual.'); });
       return;
@@ -387,6 +462,21 @@
     if (d.sel) { if (t.checked) S.sel[d.sel] = Number(d.valor); else delete S.sel[d.sel]; render(); }
     if (t.id === 'ltConta') { S.conta = t.value; render(); }
     if (t.id === 'exConta') { S.extratoConta = t.value; render(); }
+    if (t.id === 'nfArquivos' && t.files && t.files.length) {
+      var arquivos = Array.prototype.slice.call(t.files, 0, 50), notasJa = fin.notas_entrada || {};
+      Promise.all(arquivos.map(function(f) {
+        return new Promise(function(ok) { var r = new FileReader(); r.onload = function() { ok({nome: f.name, texto: String(r.result || '')}); }; r.onerror = function() { ok({nome: f.name, texto: ''}); }; r.readAsText(f, 'utf-8'); });
+      })).then(function(lidos) {
+        var vistos = {};
+        S.previaNotas = lidos.map(function(x) {
+          var r = F.lerXmlNfe(x.texto), k = r.ok ? r.nota.chave : null;
+          var repetida = !!(k && (notasJa[k] || vistos[k])); if (k) vistos[k] = true;
+          return {nome: x.nome, texto: x.texto, r: r, repetida: repetida};
+        });
+        render();
+      });
+      return;
+    }
     if (t.id === 'exArquivo' && t.files && t.files[0]) {
       var leitor = new FileReader();
       leitor.onload = function() {
