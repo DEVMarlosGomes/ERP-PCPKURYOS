@@ -371,6 +371,10 @@ function renderPainelSeparacaoMateriais(op) {
       ' <span style="font-weight:400;color:var(--muted)">· necessário: ' + fmtNum(it.quantidade) + ' ' + escapeHtml(it.unidade || '') +
       (jaLevado > 0 ? ' · já separado na consolidada: ' + fmtNum(jaLevado) : '') + '</span>' +
       (sugestao.faltante > 0 ? '<div class="field-hint" style="color:var(--danger)">Faltam ' + fmtNum(sugestao.faltante) + ' ' + escapeHtml(it.unidade || '') + ' -- só ' + fmtNum(sugestao.qtdTotal) + ' disponíveis em endereços liberados.</div>' : '') +
+      // Vencido não entra na sugestão (10/11/2026): aqui só o aviso para a Qualidade tratar.
+      ((sugestao.vencidos || []).length ? '<div class="field-hint" style="color:var(--danger)" data-sep-vencidos>' + sugestao.vencidos.length +
+        ' lote(s) vencido(s) fora da separação (' + escapeHtml(sugestao.vencidos.map(function(v) { return fmtNum(v.saldo) + ' venc. ' + fmtData(v.dataValidade) + (v.enderecoCodigo ? ' em ' + v.enderecoCodigo : ''); }).join('; ')) +
+        '). Encaminhe à Qualidade para bloquear ou descartar.</div>' : '') +
       '</td></tr>';
     if (!sugestao.alocacoes.length) {
       if (qtdPedir <= 0) return cabecalho + '<tr><td colspan="3" class="no-data" style="padding:8px">Já separado.</td></tr>';

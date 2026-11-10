@@ -255,17 +255,24 @@ assert.ok(ctx.PropriedadeEstoque, 'módulo carregado como global no navegador');
   });
 
   t('FEFO: material de cliente só para ele, e antes do geral; sem cliente, fica de fora', () => {
+    // Data fixa antes das validades do cenário: o assunto aqui é o dono, não o vencimento
+    // (lote vencido sai da sugestão desde 10/11/2026).
+    const H = '2026-09-01';
     const lotes = {
       k1: {itemCodigo: 'VAL-1', status: 'LIBERADO', saldoLote: 100, dataValidade: '2026-10-01', enderecoKey: 'A'},
       c1: {itemCodigo: 'VAL-1', status: 'LIBERADO', saldoLote: 80, dataValidade: '2027-01-01', enderecoKey: 'B', propriedade: {tipo: 'CLIENTE', clienteKey: 'MRAR'}},
       c2: {itemCodigo: 'VAL-1', status: 'LIBERADO', saldoLote: 500, dataValidade: '2026-09-20', enderecoKey: 'C', propriedade: {tipo: 'CLIENTE', clienteKey: 'SEUNO'}}
     };
-    const mrar = ctx.sugerirAlocacaoFefo('VAL-1', 150, lotes, {}, {clienteKey: 'MRAR'});
+    const mrar = ctx.sugerirAlocacaoFefo('VAL-1', 150, lotes, {}, {clienteKey: 'MRAR', hoje: H});
     assert.deepEqual(J(mrar.alocacoes.map((a) => [a.loteKey, a.qtdSugerida, a.doCliente])), [['c1', 80, 'MRAR'], ['k1', 70, null]]);
-    const outro = ctx.sugerirAlocacaoFefo('VAL-1', 1000, lotes, {}, {clienteKey: 'PROP'});
+    const outro = ctx.sugerirAlocacaoFefo('VAL-1', 1000, lotes, {}, {clienteKey: 'PROP', hoje: H});
     assert.deepEqual(J(outro.alocacoes.map((a) => a.loteKey)), ['k1']);
     assert.equal(outro.faltante, 900, 'o SEUNO tem 500 parados, mas não servem');
-    const semCliente = ctx.sugerirAlocacaoFefo('VAL-1', 1000, lotes, {});
+    const semCliente = ctx.sugerirAlocacaoFefo('VAL-1', 1000, lotes, {}, {hoje: H});
+    const venc = ctx.sugerirAlocacaoFefo('VAL-1', 150, lotes, {}, {clienteKey: 'MRAR', hoje: '2026-11-10'});
+    assert.deepEqual(J(venc.alocacoes.map((a) => a.loteKey)), ['c1'], 'vencido (k1) não entra na sugestão');
+    assert.deepEqual(J(venc.vencidos.map((v) => v.loteKey)), ['k1'], 'e volta em vencidos para a tela avisar');
+    assert.deepEqual(J(ctx.sugerirAlocacaoFefo('VAL-1', 150, lotes, {}, {clienteKey: 'MRAR', hoje: '2026-11-10', permitirVencido: true}).alocacoes.map((a) => a.loteKey)), ['c1', 'k1'], 'baixa de consumo já feito: vencido por último');
     assert.deepEqual(J(semCliente.alocacoes.map((a) => a.loteKey)), ['k1'], 'chamada antiga, sem cliente: padrão seguro');
   });
 

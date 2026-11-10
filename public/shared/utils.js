@@ -2059,7 +2059,8 @@ function baixarLotesFefo(dbRef, itemTipo, itemCodigo, qtd, motivo, autor, origem
       Object.keys(enderecos).forEach(function(k) {
         if (enderecos[k] && enderecos[k].ativo === false) bloqueados[k] = true;
       });
-      var plano = sugerirAlocacaoFefo(itemCodigo, restante, lotesDoItem, bloqueados, opcoes);
+      // Baixa de consumo JÁ realizado: o vencido pode sair (por último).
+      var plano = sugerirAlocacaoFefo(itemCodigo, restante, lotesDoItem, bloqueados, Object.assign({}, opcoes || {}, {permitirVencido: true}));
       if (!plano.alocacoes.length) {
         return {
           baixado: Math.round(acumuladoBaixado * 1000) / 1000,
@@ -3519,8 +3520,28 @@ function aplicarAjusteInventario(dbRef, contagem, autor) {
 // propriedade de um cliente só serve a ESSE cliente, e vem antes dos lotes da
 // Kuryos. Sem clienteKey, lote de cliente fica de fora -- o padrão seguro: uma
 // tela que esquecer de informar o cliente nunca entrega material alheio.
+// Lote VENCIDO (10/11/2026): a ordem FEFO punha o vencido em PRIMEIRO lugar
+// (é o "mais próximo de vencer"), e a separação/pesagem mandava buscar
+// material vencido para a produção. Agora ele fica fora da sugestão e volta em
+// `vencidos` para a tela avisar. Só a baixa de consumo já realizado
+// (baixarLotesFefo) passa `permitirVencido`: o material já foi usado e o saldo
+// precisa sair de algum lugar -- e ainda assim o vencido vem por último.
+function validadeFefo(lote) {
+  var v = String((lote && (lote.dataValidade || lote.validade || lote.validadeLote)) || '').trim();
+  var br = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(v);
+  if (br) v = br[3] + '-' + br[2] + '-' + br[1];
+  return /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : null;
+}
+function hojeFefo() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
 function sugerirAlocacaoFefo(itemCodigo, qtdNecessaria, lotesDoItem, enderecosBloqueados, opcoes) {
   var bloqueados = enderecosBloqueados || {};
+  var hoje = (opcoes && opcoes.hoje) || hojeFefo();
+  var permitirVencido = !!(opcoes && opcoes.permitirVencido);
+  var vencido = function(lote) { var v = validadeFefo(lote); return !!v && v < hoje; };
+  var vencidos = [];
   var consumidor = (opcoes && opcoes.clienteKey) || null;
   var preferLote = (opcoes && opcoes.loteInterno) || null;
   var preferRef = (opcoes && opcoes.separadoPara) || null;
@@ -3540,6 +3561,10 @@ function sugerirAlocacaoFefo(itemCodigo, qtdNecessaria, lotesDoItem, enderecosBl
       if (lote.enderecoKey && bloqueados[lote.enderecoKey]) return false;
       var dono = donoCliente(lote);
       if (dono && dono !== consumidor) return false;
+      if (vencido(lote) && !permitirVencido) {
+        vencidos.push({loteKey: entry[0], dataValidade: validadeFefo(lote), saldo: lote.saldoLote || 0, enderecoCodigo: lote.enderecoCodigo || null});
+        return false;
+      }
       return true;
     })
     .map(function(entry) { return { loteKey: entry[0], lote: entry[1] }; })
@@ -3548,6 +3573,9 @@ function sugerirAlocacaoFefo(itemCodigo, qtdNecessaria, lotesDoItem, enderecosBl
       var pa = consumidor && donoCliente(a.lote) === consumidor ? 0 : 1;
       var pb = consumidor && donoCliente(b.lote) === consumidor ? 0 : 1;
       if (pa !== pb) return pa - pb;
+      // Vencido (só presente com permitirVencido) sempre por último.
+      var xa = vencido(a.lote) ? 1 : 0, xb = vencido(b.lote) ? 1 : 0;
+      if (xa !== xb) return xa - xb;
       // Pesagem do granel (18/09): o que o operador DISSE que usou vem antes
       // do FEFO -- o lote informado na balança e, dentro dele, o pedaço que a
       // Separação já levou para esta OP. Sem isso a baixa podia sair de outro
@@ -3585,7 +3613,8 @@ function sugerirAlocacaoFefo(itemCodigo, qtdNecessaria, lotesDoItem, enderecosBl
   var qtdTotal = Math.round(alocacoes.reduce(function(s, a) { return s + a.qtdSugerida; }, 0) * 1000) / 1000;
   return {
     alocacoes: alocacoes, qtdTotal: qtdTotal,
-    faltante: Math.max(0, Math.round(((qtdNecessaria || 0) - qtdTotal) * 1000) / 1000)
+    faltante: Math.max(0, Math.round(((qtdNecessaria || 0) - qtdTotal) * 1000) / 1000),
+    vencidos: vencidos
   };
 }
 

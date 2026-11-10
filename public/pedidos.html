@@ -1050,6 +1050,9 @@
     var u = window.currentUser;
     return !!u && (u.role === 'admin' || u.role === 'pcp');
   }
+  // A tabela costuma chegar antes do perfil: sem redesenhar, ADM/PCP via a
+  // data de entrega só como texto, sem o campo para editar (10/11/2026).
+  window.addEventListener('kuryos-auth-pronto', function() { try { renderTable(); } catch (e) { console.error(e); } });
   var ROTULO_PRAZO = {ATRASADO: ['#b91c1c', '#fee2e2'], HOJE: ['#b45309', '#fef3c7'], PROXIMO: ['#b45309', '#fef3c7'], NO_PRAZO: ['#166534', '#dcfce7']};
   function seloPrazoHtml(prazo) {
     if (!ROTULO_PRAZO[prazo.estado]) return '';
