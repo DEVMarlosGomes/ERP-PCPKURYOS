@@ -30,10 +30,16 @@
   var NA = 'NA';
   function texto(v) { return String(v == null ? '' : v).trim(); }
   // Aceita vírgula (é como se digita no Brasil) e ignora o que não é número.
+  // Base real (11/11/2026): o Cadastros guarda faixa com unidade nas colunas
+  // ("60°G/L", "190g"); um número seguido só de unidade vale o número.
+  var RE_NUM_UNID = /^(-?\d+(?:[.,]\d+)?)\s*[a-zA-Z%°º µ/]*$/;
   function num(v) {
     if (v == null || v === '') return null;
-    var x = Number(String(v).trim().replace(',', '.'));
-    return isFinite(x) ? x : null;
+    var s = String(v).trim();
+    var x = Number(s.replace(',', '.'));
+    if (isFinite(x) && s !== '') return x;
+    var m = RE_NUM_UNID.exec(s);
+    return m ? Number(m[1].replace(',', '.')) : null;
   }
   function semAcento(v) { return texto(v).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
   function nomeNumerico(nome) { return /\bph\b|densidade|alco|teor/.test(semAcento(nome)); }
@@ -65,10 +71,55 @@
     return null;
   }
 
+  /* Ensaio repetido na especificação (achado 11/11/2026, lote 26309/08):
+     52 repetições em 34 especificações -- a importação trouxe imp1..impN e
+     depois o mesmo ensaio foi digitado de novo no Cadastros, ou a importação
+     trouxe o mesmo ensaio duas vezes. A análise mostrava tudo em dobro.
+     Fica UM por nome (sem acento/caixa): o digitado no Cadastros (chave
+     push, mais recente) vence o importado (impN); entre iguais, o último.
+     Campo vazio no vencedor é completado pelo outro; a faixa só vem como
+     par, para não misturar mínimo de um com máximo de outro. Nome vazio não
+     se junta. Não altera o cadastro: só o que a tela mostra/grava. */
+  function nomeChave(v) { return semAcento(v).replace(/\s+/g, ' ').toUpperCase(); }
+  function temFaixaItem(e) {
+    return num(e.minimo) != null || num(e.maximo) != null || !!faixaDoTexto(e.especificacaoTexto);
+  }
+  function itensSemRepeticao(itens) {
+    var src = itens || {};
+    var grupos = {}, ordem = [];
+    Object.keys(src).forEach(function(k) {
+      var nome = nomeChave((src[k] || {}).ensaio);
+      var g = nome ? 'n:' + nome : 'k:' + k;
+      if (!grupos[g]) { grupos[g] = []; ordem.push(g); }
+      grupos[g].push(k);
+    });
+    var out = {};
+    ordem.forEach(function(g) {
+      var ks = grupos[g];
+      if (ks.length === 1) { out[ks[0]] = src[ks[0]]; return; }
+      var digitados = ks.filter(function(k) { return !/^imp\d+$/.test(k); });
+      var vence = (digitados.length ? digitados : ks).slice(-1)[0];
+      var it = Object.assign({}, src[vence]);
+      ks.forEach(function(k) {
+        if (k === vence) return;
+        var o = src[k] || {};
+        if (!temFaixaItem(it) && temFaixaItem(o)) {
+          it.minimo = o.minimo; it.maximo = o.maximo;
+          if (!texto(it.especificacaoTexto) || /^(N\/?A|N\.A\.?|-)$/i.test(texto(it.especificacaoTexto).replace(/\s/g, ''))) it.especificacaoTexto = o.especificacaoTexto;
+        }
+        if (!texto(it.especificacaoTexto) && texto(o.especificacaoTexto)) it.especificacaoTexto = o.especificacaoTexto;
+        if (!texto(it.metodo) && texto(o.metodo)) it.metodo = o.metodo;
+        if (o.critico) it.critico = true;
+      });
+      out[vence] = it;
+    });
+    return out;
+  }
+
   /* As linhas da análise. `itensEspec` = especificacoes/{sku}__vN/itens do
      produto; sem ele, o `planoPadrao` (os seis do SpecMaterial.PLANO_MP). */
   function linhas(itensEspec, planoPadrao) {
-    var espec = itensEspec || {};
+    var espec = itensSemRepeticao(itensEspec);
     var temEspec = Object.keys(espec).length > 0;
     var origem = temEspec ? espec : {};
     if (!temEspec) {
@@ -222,6 +273,6 @@
     return {updates: u, chave: chave, ensaios: reg.faixasPreenchidas};
   }
 
-  return {NA: NA, especificacaoComLacunas: especificacaoComLacunas, num: num, faixaDoTexto: faixaDoTexto, linhas: linhas, avaliar: avaliar, registro: registro,
+  return {NA: NA, especificacaoComLacunas: especificacaoComLacunas, num: num, itensSemRepeticao: itensSemRepeticao, faixaDoTexto: faixaDoTexto, linhas: linhas, avaliar: avaliar, registro: registro,
     especificacaoDaAnalise: especificacaoDaAnalise, faixaTexto: faixaTexto};
 });

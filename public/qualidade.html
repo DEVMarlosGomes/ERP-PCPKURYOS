@@ -3227,7 +3227,7 @@ function linhasFqDoLaudo(op, sku) {
     });
   }
   var espec = especificacaoVigente(allEspecificacoes, sku);
-  var itens = espec && espec.registro && espec.registro.itens;
+  var itens = espec && espec.registro && espec.registro.itens && AnaliseGranel.itensSemRepeticao(espec.registro.itens); // ensaio repetido no cadastro sai uma vez (11/11)
   if (!itens || !Object.keys(itens).length) return [];
   return Object.keys(itens).map(function(k) {
     var e = itens[k] || {};
@@ -3249,7 +3249,7 @@ function iniciarResultadosPa() {
   var op = opPorLote(lote.opLote || lote.loteOrigem);
   var ensaiosBulk = (((op || {}).manipulacao || {}).analise || {}).ensaios || null;
   var espec = especificacaoVigente(allEspecificacoes, laudoAtual.itemCodigo);
-  var itensEspec = espec && espec.registro && espec.registro.itens;
+  var itensEspec = espec && espec.registro && espec.registro.itens && AnaliseGranel.itensSemRepeticao(espec.registro.itens);
   var salvo = (lote.qualidade || {}).resultadosPa;
   var micro = salvo && salvo.micro ? salvo.micro : LaudoPaResultados.microInicial();
   laudoAtual.resPa = {

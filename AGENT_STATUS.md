@@ -5,6 +5,16 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Análise do granel com ensaio em dobro (11/11/2026)
+
+- **Concluído:** o modal "Análise do granel" (lote 26309/08, FBBS0005__v1) mostrava cada ensaio duas vezes.
+  Causa no cadastro: 52 repetições em 34 especificações (importação `impN` + mesmo ensaio digitado de novo no
+  Cadastros; ou "APLICAÇÃO EM MECHA" importada 2×). `AnaliseGranel.itensSemRepeticao` deixa um por nome (o
+  digitado vence o importado; campo vazio completado; faixa só em par); usado no granel e no laudo de PA.
+  `num` passa a ler faixa com unidade ("60°G/L", "190g"), que gerava falsa "Sem faixa na especificação".
+  Cadastro não foi alterado (limpar as 34 é operação). `run_analise_granel_test` 68 OK; base real: 0 specs
+  com repetido na tela. Pendente: deploy da VPS. Arquivos ativos: nenhum.
+
 ### Claude — Editar, excluir e substituir itens de Fórmula/BOM/Especificação com histórico (11/11/2026)
 
 - **Código concluído em `f987879`** na branch `cadastros/itens-historico` (worktree `../PCP-Kuryos-cad-itens`),

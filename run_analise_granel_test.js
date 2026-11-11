@@ -117,4 +117,26 @@ eq(G.especificacaoComLacunas(especV, G.avaliar(LV, {ph: {valor: '6'}}), {}), nul
 eq(G.linhas(v4.itens, S.PLANO_MP).find(l => l.key === 'dens').minimo, 0.85);
 eq(G.avaliar(G.linhas(v4.itens, S.PLANO_MP), {}).faixasNovas, [], 'nada mais a preencher');
 
+// Ensaio repetido (11/11/2026, lote 26309/08, FBBS0005__v1): importado + digitado de novo.
+const dup = {
+  '-P4a': {ensaio: 'DENSIDADE', especificacaoTexto: '', minimo: '0,80', maximo: '0,90', metodo: 'PA03'},
+  '-P4b': {ensaio: 'TEOR DE ÁLCOOL', especificacaoTexto: '', minimo: '60°G/L', maximo: '70°G/L', metodo: 'PA09'},
+  '-P4c': {ensaio: 'COR', especificacaoTexto: 'TRANSLUCIDO', metodo: ''},
+  '-P4d': {ensaio: 'PH', especificacaoTexto: '', minimo: '', maximo: ''},
+  imp3: {ensaio: 'DENSIDADE', especificacaoTexto: '0,80 - 0,90', minimo: 0.8, maximo: 0.9, metodo: 'PA 03'},
+  imp6: {ensaio: 'Teor de alcool', especificacaoTexto: '60°G/L – 70°G/L', metodo: 'PA 08'},
+  imp2: {ensaio: 'COR', especificacaoTexto: 'TRANSLÚCIDO', metodo: 'PA 09', critico: true},
+  imp5: {ensaio: 'PH', especificacaoTexto: '4,5 - 5,0', minimo: 4.5, maximo: 5},
+  imp7: {ensaio: 'CONTEÚDO LÍQUIDO MÉDIO', minimo: 170, maximo: 190},
+  x1: {ensaio: ''}, x2: {ensaio: ''}
+};
+const LD = G.linhas(dup, S.PLANO_MP);
+eq(LD.map(l => l.key), ['-P4a', '-P4b', '-P4c', '-P4d', 'imp7', 'x1', 'x2'], 'um por ensaio; digitado vence importado; nome vazio não se junta');
+eq([LD[1].minimo, LD[1].maximo], [60, 70], 'faixa com unidade ("60°G/L") é lida');
+eq([LD[2].metodo, LD[2].critico], ['PA 09', true], 'campo vazio completado pelo repetido; crítico de qualquer um vale');
+eq([LD[3].minimo, LD[3].maximo], [4.5, 5], 'faixa vazia no vencedor vem do repetido, em par');
+eq(G.avaliar(LD, {}).faixasNovas, [], 'repetido não gera falsa "faixa nova"');
+eq(Object.keys(G.itensSemRepeticao({imp1: {ensaio: 'APLICAÇÃO EM MECHA'}, imp9: {ensaio: 'APLICACAO EM MECHA'}})), ['imp9'], 'importado duas vezes: fica o último');
+eq(G.num('190g'), 190); eq(G.num('0,88'), 0.88); eq(G.num('abc'), null); eq(G.num('4,5 - 5,0'), null);
+
 console.log('run_analise_granel_test: ' + n + ' verificações OK');
