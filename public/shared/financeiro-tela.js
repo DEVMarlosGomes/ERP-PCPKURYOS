@@ -12,7 +12,7 @@
   // Fatos dos outros módulos: lidos uma vez (botão "Recarregar"). O fin/ é ao vivo.
   var NOS_UMA_VEZ = ['pedidos_compra', 'processos_cotacao', 'fornecedores', 'clientes', 'estoque_lotes', 'pedidos_comerciais', 'agendamentos_expedicao'];
   var D = {}, fin = {}, fechamentos = {}, avisos = [];
-  var S = {aba: 'painel', q: '', filtro: 'abertos', conta: '', sel: {}, extratoConta: '', previaNotas: [], extConta: '', extDe: '', extAte: ''};
+  var S = {aba: 'painel', q: '', filtro: 'abertos', conta: '', sel: {}, extratoConta: '', previaNotas: [], extConta: '', extDe: '', extAte: '', flG: 'SEMANA', flConta: '', flNat: '', dfcDe: '', dfcAte: ''};
   var pronto = {fatos: false, fin: false};
 
   function el(id) { return document.getElementById(id); }
@@ -324,9 +324,59 @@
       '<div class="leg"><span><b>Atrasado</b> a pagar ' + brl(fl.atrasado.saidas) + ' · a receber ' + brl(fl.atrasado.entradas) + ' (entra no saldo desta semana)</span>' +
       '<span><b>Sem data</b> a pagar ' + brl(fl.semData.saidas + fl.semData.saidasPrevistas) + ' · a receber ' + brl(fl.semData.entradas + fl.semData.entradasPrevistas) + ' (fora do saldo projetado)</span></div>';
   }
+  /* ── Fluxo de caixa por período e DFC — F7 ─────────────────────────────── */
+  var ROT_NAT = {MATERIA_PRIMA: 'Matéria-prima', EMBALAGEM: 'Embalagem', USO_E_CONSUMO: 'Uso e consumo', OUTROS: 'Outros', FRETE: 'Frete', FOLHA: 'Folha',
+    CUSTO_FIXO_PRODUCAO: 'Custo fixo da produção', CUSTO_FIXO_ADM: 'Custo fixo administrativo', DESPESA_COMERCIAL: 'Despesa comercial', PLR: 'PLR',
+    IMPOSTOS: 'Impostos', RECEITA_VENDA: 'Receita de vendas', OUTRAS_RECEITAS: 'Outras receitas', RESULTADO_FINANCEIRO: 'Resultado financeiro (juros, multas, descontos, tarifas, IOF, rendimentos)'};
+  function rotNat(n) { return ROT_NAT[n] || n; }
+  var MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  function rotMes(m) { return MESES[Number(String(m).slice(5, 7)) - 1] + '/' + String(m).slice(2, 4); }
+  function rotColuna(c, g) { return g === 'MES' ? rotMes(c.inicio) : g === 'DIA' ? dataBR(c.inicio).slice(0, 5) : dataBR(c.inicio).slice(0, 5); }
   function abaFluxo() {
-    var fl = F.fluxoDeCaixa(base(), hojeISO(), 13);
-    return '<div class="card"><h3>Fluxo de caixa — 4 semanas realizadas e 13 projetadas</h3><div class="sub" style="margin-bottom:10px">Título é <b>fato</b> (recebimento, nota, operação); "previsto" é <b>expectativa</b> (pedido de compra ainda não recebido e carteira comercial ainda não faturada) e aparece separado. Valor sem data fica de fora do saldo projetado — inventar data daria um caixa preciso e falso.</div>' + tabelaFluxo(fl, false) + '</div>';
+    var fl = F.fluxoCaixa(base(), hojeISO(), {granularidade: S.flG, conta: S.flConta || null, natureza: S.flNat || null}), g = fl.granularidade;
+    var cols = fl.colunas;
+    function linha(rot, f, cls) { return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + rot + '</td>' + cols.map(function(c) { return '<td class="n">' + f(c) + '</td>'; }).join('') + '</tr>'; }
+    var h = '<div class="card"><h3>Fluxo de caixa</h3><div class="barra">' +
+      '<select class="sel" id="flG" aria-label="Período">' + [['DIA', 'Por dia'], ['SEMANA', 'Por semana'], ['MES', 'Por mês']].map(function(o) { return '<option value="' + o[0] + '"' + (g === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+      '<select class="sel" id="flConta" aria-label="Conta"><option value="">Todas as contas</option>' + Object.keys(fin.contas_bancarias || {}).map(function(k) { return '<option value="' + e(k) + '"' + (S.flConta === k ? ' selected' : '') + '>' + e(fin.contas_bancarias[k].nome || k) + '</option>'; }).join('') + '</select>' +
+      '<select class="sel" id="flNat" aria-label="Natureza"><option value="">Todas as naturezas</option>' + F.NATUREZAS.concat(['RESULTADO_FINANCEIRO']).map(function(n) { return '<option value="' + n + '"' + (S.flNat === n ? ' selected' : '') + '>' + e(rotNat(n)) + '</option>'; }).join('') + '</select></div>' +
+      '<div class="sub" style="margin-bottom:10px">Título é <b>fato</b> (recebimento, nota, operação); "previsto" é <b>expectativa</b> (pedido de compra ainda não recebido e carteira comercial ainda não faturada) e aparece separado. Valor sem data fica de fora do saldo projetado — inventar data daria um caixa preciso e falso.</div>' +
+      (fl.avisos.length ? '<div class="alerta info"><div>' + fl.avisos.map(e).join('<br>') + '</div></div>' : '') +
+      '<div class="tw"><table class="dre"><thead><tr><th>' + ({DIA: 'Dia', SEMANA: 'Semana de', MES: 'Mês'}[g]) + '</th>' + cols.map(function(c) { return '<th class="n">' + rotColuna(c, g) + (c.passada ? '<br><span class="mut">realizado</span>' : '') + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      linha('Entradas' + (fl.projetado ? ' (títulos)' : ''), function(c) { return brl(c.entradas); }) +
+      (fl.projetado ? linha('Entradas previstas (carteira)', function(c) { return c.passada ? '' : brl(c.entradasPrevistas); }) : '') +
+      linha('Saídas' + (fl.projetado ? ' (títulos)' : ''), function(c) { return brl(-c.saidas); }) +
+      (fl.projetado ? linha('Saídas previstas (pedidos de compra)', function(c) { return c.passada ? '' : brl(-c.saidasPrevistas); }) : '') +
+      (S.flNat ? '' : linha('<b>Saldo projetado</b>', function(c) { return c.passada || c.saldoProjetadoCentavos == null ? '' : '<b>' + brl(c.saldoProjetadoCentavos) + '</b>'; }, 'tot')) +
+      '</tbody></table></div>' +
+      (fl.projetado ? '<div class="leg"><span><b>Atrasado</b> a pagar ' + brl(fl.atrasado.saidas) + ' · a receber ' + brl(fl.atrasado.entradas) + ' (entra no saldo do período atual)</span>' +
+        '<span><b>Sem data</b> a pagar ' + brl(fl.semData.saidas + fl.semData.saidasPrevistas) + ' · a receber ' + brl(fl.semData.entradas + fl.semData.entradasPrevistas) + ' (fora do saldo projetado)</span></div>' : '') + '</div>';
+    return h + cardDfc();
+  }
+  function cardDfc() {
+    if (!S.dfcAte) S.dfcAte = hojeISO().slice(0, 7);
+    if (!S.dfcDe) S.dfcDe = F.somarPeriodo(S.dfcAte + '-01', 'MES', -5).slice(0, 7);
+    var d = F.dfc(fin, S.dfcDe, S.dfcAte);
+    var h = '<div class="card"><h3>Demonstrativo de fluxo de caixa (método direto)</h3><div class="barra">' +
+      '<label class="mut">de <input class="inp" type="month" id="dfcDe" value="' + e(S.dfcDe) + '"></label><label class="mut">até <input class="inp" type="month" id="dfcAte" value="' + e(S.dfcAte) + '"></label>' +
+      '<span class="dica">Realizado: o que passou pelas contas. Transferência entre contas não entra (é interna). A atividade de cada natureza se ajusta em Cadastros.</span></div>';
+    if (!d.ok) return h + '<div class="alerta warn"><div>' + e(d.motivo) + '</div></div></div>';
+    var ms = d.meses;
+    function lin(rot, f, cls) { return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + rot + '</td>' + ms.map(function(m, i) { return '<td class="n">' + f(m, i) + '</td>'; }).join('') + '</tr>'; }
+    h += '<div class="tw"><table class="dre"><thead><tr><th></th>' + ms.map(function(m) { return '<th class="n">' + rotMes(m) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      lin('<b>Saldo inicial</b>', function(m, i) { return brl(d.colunas[i].saldoInicialCentavos); }, 'tot');
+    if (d.colunas.some(function(c) { return c.aberturaContasCentavos; })) h += lin('Saldo de abertura de conta nova', function(m, i) { return d.colunas[i].aberturaContasCentavos ? brl(d.colunas[i].aberturaContasCentavos) : ''; });
+    d.grupos.forEach(function(gr) {
+      h += '<tr><td colspan="' + (ms.length + 1) + '"><b>' + e(gr.rotulo) + '</b>' + (gr.atividade === 'NAO_CLASSIFICADO' ? ' <span class="tg warn">defina a atividade em Cadastros</span>' : '') + '</td></tr>';
+      gr.linhas.forEach(function(l) { h += lin('&nbsp;&nbsp;' + e(rotNat(l.natureza)), function(m) { return l.meses[m] ? brl(l.meses[m]) : '<span class="mut">—</span>'; }); });
+      h += lin('<i>Caixa líquido — ' + e(gr.rotulo.toLowerCase()) + '</i>', function(m) { return '<i>' + brl(gr.totais[m]) + '</i>'; });
+    });
+    if (!d.grupos.length) h += '<tr><td colspan="' + (ms.length + 1) + '" class="mut">Nenhuma entrada ou saída realizada no período.</td></tr>';
+    h += lin('<b>Variação do caixa</b>', function(m, i) { return '<b>' + brl(d.colunas[i].variacaoCentavos) + '</b>'; }, 'tot') +
+      lin('<b>Saldo final</b>', function(m, i) { return '<b>' + brl(d.colunas[i].saldoFinalCentavos) + '</b>'; }, 'tot') +
+      lin('Conferência com os bancos', function(m, i) { var c = d.colunas[i]; return c.confere ? '<span class="tg ok">confere</span>' : '<span class="tg bad">dif. ' + brl(c.diferencaCentavos) + '</span>'; }) +
+      '</tbody></table></div></div>';
+    return h;
   }
 
   function abaComplementos() {
@@ -360,6 +410,15 @@
       '<div><label for="pFixos">Custos fixos vencem no dia (mês seguinte)</label><input class="inp" id="pFixos" type="number" min="1" max="28" value="' + e(par.vencimentoFixosDia || 10) + '"></div>' +
       '<div><label for="pTol">Tolerância da conciliação (dias)</label><input class="inp" id="pTol" type="number" min="0" max="15" value="' + e(par.toleranciaConciliacaoDias || 3) + '"></div></div>' +
       '<div style="margin-top:10px"><button class="btn sm" id="pSalvar">Salvar parâmetros</button></div></div></div>';
+    var atvMap = par.dfcAtividades || {};
+    h += '<div class="card"><h3>Demonstrativo de fluxo de caixa — atividade de cada natureza</h3><div class="sub" style="margin-bottom:8px">Padrão: tudo operacional. Empréstimo, financiamento ou compra de máquina pedem natureza própria (lançamento manual) marcada aqui como financiamento ou investimento.</div>' +
+      '<div class="tw"><table><thead><tr><th>Natureza</th><th>Atividade no DFC</th></tr></thead><tbody>' +
+      F.NATUREZAS.concat(['RESULTADO_FINANCEIRO']).map(function(n) {
+        var atual = F.atividadeDe(n, par);
+        return '<tr><td>' + e(rotNat(n)) + '</td><td><select class="sel" data-dfc-nat="' + n + '" aria-label="Atividade de ' + e(rotNat(n)) + '">' +
+          Object.keys(F.ATIVIDADES).filter(function(a) { return a !== 'NAO_CLASSIFICADO'; }).map(function(a) { return '<option value="' + a + '"' + (atual === a ? ' selected' : '') + '>' + e(F.ATIVIDADES[a]) + '</option>'; }).join('') +
+          '</select>' + (atvMap[n] && atvMap[n] !== F.ATIVIDADE_PADRAO[n] ? ' <span class="tg info">alterado</span>' : '') + '</td></tr>';
+      }).join('') + '</tbody></table></div></div>';
     h += '<div class="card"><h3>Importar títulos em aberto (planilha)</h3><div class="sub" style="margin-bottom:8px">Para começar com a carteira de hoje. Cole do Excel uma linha por título: <code>tipo;parceiro;cnpj;documento;emissão;vencimento;valor;natureza</code> (tipo PAGAR ou RECEBER, datas DD/MM/AAAA, valor 1.234,56). Entra como <b>saldo de abertura</b>. Importar a mesma linha de novo não duplica.</div>' +
       '<textarea class="inp" id="impTxt" rows="6" style="width:100%;font-family:monospace"></textarea><div style="margin-top:8px;display:flex;gap:8px;align-items:center"><button class="btn sm" id="impVer">Conferir</button><button class="btn pri sm" id="impOk" disabled>Importar</button><span id="impRes" class="mut"></span></div>' +
       '<div class="dica">Naturezas: ' + F.NATUREZAS.join(', ') + '.</div></div>';
@@ -538,6 +597,12 @@
     if (t.id === 'ltConta') { S.conta = t.value; render(); }
     if (t.id === 'exConta') { S.extratoConta = t.value; render(); }
     if (t.id === 'extConta') { S.extConta = t.value; render(); }
+    if (t.id === 'flG') { S.flG = t.value; render(); }
+    if (t.id === 'flConta') { S.flConta = t.value; render(); }
+    if (t.id === 'flNat') { S.flNat = t.value; render(); }
+    if (t.id === 'dfcDe' && t.value) { S.dfcDe = t.value; render(); }
+    if (t.id === 'dfcAte' && t.value) { S.dfcAte = t.value; render(); }
+    if (d.dfcNat) { db.ref('fin/parametros/dfcAtividades/' + d.dfcNat).set(t.value).then(function() { toast('Atividade salva.'); }, function(err) { toast(erroMsg(err)); }); }
     if (t.id === 'extDe') { S.extDe = t.value; render(); }
     if (t.id === 'extAte') { S.extAte = t.value; render(); }
     if (d.tipoConta) { db.ref('fin/contas_bancarias/' + d.tipoConta + '/tipo').set(t.value).then(function() { toast('Tipo da conta salvo.'); }, function(err) { toast(erroMsg(err)); }); }
