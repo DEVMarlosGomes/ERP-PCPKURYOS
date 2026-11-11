@@ -4,7 +4,8 @@
    - rascunho e criação seguem com as permissões de antes (PCP/Qualidade/Cadastros);
    - versão APROVADA: só quem tem modulos/alterar_aprovados, com ultimaAlteracao (horário do servidor,
      < 2 min, justificativa >= 10, uid próprio) e a linha de historicoAlteracoes no mesmo update;
-   - ninguém apaga versão aprovada pelo navegador; o ADM sem o módulo também não altera. */
+   - ninguém apaga versão aprovada pelo navegador;
+   - desde 11/11/2026 o ADM (role ou funcoes/admin) altera sem o módulo, com as MESMAS exigências. */
 const assert = require('assert/strict');
 const path = require('path');
 const reqFn = require('module').createRequire(path.resolve(process.env.FUNCTIONS_DIR || (__dirname + '/functions'), 'x.js'));
@@ -33,7 +34,7 @@ const prefixar = (base, o) => Object.fromEntries(Object.entries(o).map(([k, v]) 
   await getDatabase(raiz).ref().set({
     usuarios: {
       pcp: {role: 'pcp'}, cq: {role: 'qualidade'}, cad: {role: 'production', modulos: {cadastros: true}},
-      adm: {role: 'admin'},
+      adm: {role: 'admin'}, admFuncao: {role: 'pcp', funcoes: {admin: true}},
       adlai: {role: 'pcp', modulos: {alterar_aprovados: true}},
       yasmim: {role: 'comercial', modulos: {pd: true, qualidade: true, alterar_aprovados: true}},
       gustavo: {role: 'admin', modulos: {alterar_aprovados: true}},
@@ -57,9 +58,10 @@ const prefixar = (base, o) => Object.fromEntries(Object.entries(o).map(([k, v]) 
   await negado(pcp.ref('formulas/MRARHD03__v1/revisado').set(false));
   await negado(como('cad').ref('bom/MRARHD03__v1/itens/b1/qtdPorPeca').set(2));
   await negado(como('cq').ref('especificacoes/MRARHD03__v1/itens/e1/minimo').set('4'));
-  await negado(como('adm').ref().update(prefixar('formulas/MRARHD03__v1', Object.assign({'itens/imp5/mpCodigo': 'MPGR-00129'}, alteracao('adm', 'h0', 'ADM sem o módulo tentando')))));
   await negado(pcp.ref('formulas/RASC__v1/itens/x/percentualMM').set(99), 'RASC__v1 foi aprovada no passo 1');
-  passo('aprovada: PCP, Cadastros, Qualidade e ADM sem o módulo não alteram (nem o Revisado)');
+  await negado(como('adm').ref('formulas/MRARHD03__v1/itens/imp5/mpCodigo').set('MPGR-00129'), 'ADM sem justificativa');
+  await negado(como('adm').ref().update(prefixar('formulas/MRARHD03__v1', Object.assign({'itens/imp5/mpCodigo': 'MPGR-00129'}, alteracao('adm', 'h0', 'curta')))), 'ADM com justificativa curta');
+  passo('aprovada: PCP, Cadastros e Qualidade não alteram (nem o Revisado); ADM sem justificativa válida também não');
 
   // 3. Com o módulo: só com justificativa, horário do servidor e histórico no mesmo update.
   const base = 'formulas/MRARHD03__v1';
@@ -82,6 +84,17 @@ const prefixar = (base, o) => Object.fromEntries(Object.entries(o).map(([k, v]) 
   await yasmim.ref().update(prefixar('especificacoes/MRARHD03__v1', Object.assign({'itens/e1/minimo': '4,5'}, alteracao('yasmim', 'h6', 'Faixa de pH revisada pelo P&D'))));
   await gustavo.ref().update(prefixar('bom/MRARHD03__v1', Object.assign({'itens/b1/qtdPorPeca': 2}, alteracao('gustavo', 'h7', 'Duas tampas por peça, conferido na linha'))));
   passo('Yasmim altera a Especificação e Gustavo o BOM aprovados, cada um com justificativa');
+
+  // ADM sem o módulo (11/11/2026): grava com justificativa + histórico, pelo papel ou pela função.
+  await como('adm').ref().update(prefixar('bom/MRARHD03__v1', Object.assign({'itens/b1/materialCodigo': 'EP-2'}, alteracao('adm', 'h9', 'Tampa substituída pela do fornecedor novo'))));
+  await como('admFuncao').ref().update(prefixar('especificacoes/MRARHD03__v1', Object.assign({'itens/e1/maximo': '7'}, alteracao('admFuncao', 'h10', 'Faixa de pH revisada pela Qualidade'))));
+  await negado(como('admFuncao').ref().update(prefixar('formulas/MRARHD03__v1', Object.assign({'itens/imp5/percentualMM': 0.3}, alteracao('adlai', 'h11', 'Assinando como se fosse o Adlai')))), 'ADM em nome de outro');
+  await negado(como('adm').ref('bom/MRARHD03__v1').remove(), 'ADM também não apaga aprovada');
+  const b = (await getDatabase(raiz).ref('bom/MRARHD03__v1').get()).val();
+  assert.equal(b.status, 'APROVADA');
+  assert.equal(b.itens.b1.materialCodigo, 'EP-2');
+  assert.equal(b.historicoAlteracoes.h9.porUid, 'adm');
+  passo('ADM sem o módulo (papel ou função) altera aprovada com justificativa e histórico; em nome de outro ou apagando, não');
 
   // 4. Ninguém apaga aprovada pelo navegador; perfil desativado com o módulo não grava.
   await negado(adlai.ref('formulas/FBBS0004__v1').remove(), 'apagar aprovada');

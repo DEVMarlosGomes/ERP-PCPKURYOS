@@ -20,6 +20,7 @@
   <script src="shared/importacao-json-pendencias-ui.js"></script>
   <script src="shared/itens-cadastro.js"></script>
   <script src="shared/diff-versao.js"></script>
+  <script src="shared/historico-itens.js"></script>
   <script src="shared/historico-cadastro.js"></script>
   <script>
   /* Histórico do cadastro vivo nos modais de Materiais, Produtos e Fornecedores (10/11/2026).
@@ -1046,7 +1047,7 @@
             <th style="width:90px">Ordem</th>
             <th style="width:120px">% m/m</th>
             <th style="width:110px">Ajuste (QSP)</th>
-            <th style="width:40px"></th>
+            <th style="width:84px"><span class="sr-only">Ações</span></th>
           </tr></thead>
           <tbody id="formulaBody-form"></tbody>
         </table>
@@ -1062,7 +1063,7 @@
           <thead><tr>
             <th style="min-width:160px">Material (Embalagem)</th>
             <th style="width:190px" title="Para caixa de embarque e afins, use &quot;1 a cada N peças&quot; em vez da fração">Qtd. por peça · ou 1 a cada N peças</th>
-            <th style="width:40px"></th>
+            <th style="width:84px"><span class="sr-only">Ações</span></th>
           </tr></thead>
           <tbody id="bomBody-form"></tbody>
         </table>
@@ -1079,11 +1080,44 @@
             <th style="width:90px">Máximo</th>
             <th style="width:110px">Método</th>
             <th style="width:70px">Crítico</th>
-            <th style="width:40px"></th>
+            <th style="width:84px"><span class="sr-only">Ações</span></th>
           </tr></thead>
           <tbody id="especBody-form"></tbody>
         </table>
         <button class="btn btn-ghost btn-sm" id="btnAddEspecItem-form" style="margin-top:10px">+ Adicionar ensaio</button>
+      </div>
+    </div>
+
+    <!-- Substituir item (11/11/2026): troca o material (ou o ensaio) da linha, mantendo a posição e o QSP;
+         antes → depois vai para o histórico da versão. -->
+    <div class="modal-bg" id="modalBg-subst">
+      <div class="modal" style="max-width:620px" role="dialog" aria-modal="true" aria-labelledby="modalTitle-subst">
+        <div class="modal-header" data-ui="dialog-head">
+          <h2 id="modalTitle-subst">Substituir item</h2>
+          <button class="modal-close" id="modalClose-subst" title="Fechar" aria-label="Fechar">×</button>
+        </div>
+        <div class="modal-body" data-ui="dialog-body">
+          <div class="section-note" id="substAtual-form" style="margin-bottom:12px"></div>
+          <div class="form-group" id="substMaterialBox-form" style="margin-bottom:12px">
+            <label for="substBusca-form">Novo material *</label>
+            <input type="text" id="substBusca-form" placeholder="Buscar por código, nome ou fornecedor..." autocomplete="off">
+            <input type="hidden" id="substCodigo-form">
+          </div>
+          <div class="form-group" id="substEnsaioBox-form" style="margin-bottom:12px">
+            <label for="substEnsaio-form">Novo ensaio *</label>
+            <select id="substEnsaio-form"></select>
+          </div>
+          <div id="substCampos-form"></div>
+          <div class="form-group">
+            <label for="substMotivo-form">Motivo da substituição</label>
+            <textarea id="substMotivo-form" rows="2" maxlength="300"></textarea>
+            <div class="field-hint" id="substMotivoHint-form"></div>
+          </div>
+        </div>
+        <div class="modal-footer" data-ui="dialog-foot">
+          <button class="btn btn-ghost" id="substCancelar-form">Cancelar</button>
+          <button class="btn btn-primary" id="substConfirmar-form">⇄ Substituir</button>
+        </div>
       </div>
     </div>
   </div>
@@ -5392,7 +5426,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Só em versão existente: em 08/11 o clique numa versão sem fórmula criou o "v2" fantasma da FBBS0004.
     if (!allFormulas[key]) return;
     var revisado = (allFormulas[key] || {}).revisado !== false;
-    gravarComponente('formulas', key, { revisado: !revisado }, 'Marcou a Fórmula como ' + (!revisado ? 'Revisado' : 'Pendente'))
+    gravarComponente('formulas', key, { revisado: !revisado }, 'Marcou a Fórmula como ' + (!revisado ? 'Revisado' : 'Pendente'), { acao: 'AJUSTE' })
       .catch(function(err) { showAlert('Erro ao atualizar revisão: ' + err.message, 'danger'); });
   }
 
@@ -5404,9 +5438,16 @@ document.addEventListener('DOMContentLoaded', function() {
      em historicoAlteracoes (quem, quando, o quê, por quê) -- a regra do
      banco recusa o que vier sem isso. A versão continua APROVADA. */
   var alteracoesAbertas = {}; // 'tipo|key' -> { justificativa }
-  function podeAlterarAprovados() {
-    return Boolean(window.currentUser && window.currentUser.modulos && window.currentUser.modulos.alterar_aprovados === true);
+  // 11/11/2026 (Marlos): o ADM também altera aprovada, além de quem tem o
+  // módulo -- mesma regra no banco (database.rules.json, formulas/bom/especificacoes).
+  function ehAdminCadastro() {
+    var u = window.currentUser;
+    return Boolean(u && (u.role === 'admin' || (u.funcoes && u.funcoes.admin === true)));
   }
+  function podeAlterarAprovados() {
+    return ehAdminCadastro() || Boolean(window.currentUser && window.currentUser.modulos && window.currentUser.modulos.alterar_aprovados === true);
+  }
+  var QUEM_ALTERA_APROVADA = 'o ADM e quem tem o módulo "Alterar aprovados"';
   function statusComponente(tipo, key) { return registroComponente(tipo, key).status || 'RASCUNHO'; }
   function emAlteracao(tipo, key) { return Boolean(alteracoesAbertas[tipo + '|' + key]); }
   function componenteEditavel(tipo, key) {
@@ -5422,7 +5463,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   function rerenderVersao() { if (versaoAtual) selecionarVersao(versaoAtual); }
   function abrirAlteracaoAprovada(tipo, key) {
-    if (!podeAlterarAprovados()) { showAlert('Só quem tem o módulo "Alterar aprovados" altera versão aprovada.', 'danger'); return; }
+    if (!podeAlterarAprovados()) { showAlert('Só ' + QUEM_ALTERA_APROVADA + ' alteram versão aprovada.', 'danger'); return; }
     var j = pedirJustificativa('Alterar ' + APROVACAO_CONFIG[tipo].nome + ' APROVADA (' + key.replace('__', ' ') + ')?');
     if (!j) return;
     alteracoesAbertas[tipo + '|' + key] = { justificativa: j, base: baseDe(tipo, registroComponente(tipo, key)) };
@@ -5461,14 +5502,33 @@ document.addEventListener('DOMContentLoaded', function() {
     return u;
   }
   // Toda gravação num componente passa aqui. `rel`: caminhos relativos ao registro.
-  function gravarComponente(tipo, key, rel, descricao) {
+  // `ev` (HistoricoItens.evento, 11/11/2026): a ação no item (INCLUIR/EDITAR/
+  // EXCLUIR/SUBSTITUIR) com antes → depois. Vai para historicoAlteracoes no
+  // MESMO update, em rascunho e em aprovada -- nada muda sem deixar rastro.
+  function anexarEvento(entrada, ev) {
+    if (!ev) return entrada;
+    if (ev.itemKey) entrada.itemKey = ev.itemKey;
+    if (ev.antes) entrada.antes = ev.antes;
+    if (ev.depois) entrada.depois = ev.depois;
+    if (ev.mudancas && ev.mudancas.length) entrada.mudancas = ev.mudancas;
+    if (ev.motivo) entrada.motivo = ev.motivo;
+    return entrada;
+  }
+  function gravarComponente(tipo, key, rel, descricao, ev) {
     var base = tipo + '/' + key + '/';
     var u = {};
     Object.keys(rel).forEach(function(k) { u[base + k] = rel[k]; });
+    var texto = (ev && ev.descricao) || descricao || '';
     if (statusComponente(tipo, key) === 'APROVADA') {
       var a = alteracoesAbertas[tipo + '|' + key];
-      if (!a) return Promise.reject(new Error(APROVACAO_CONFIG[tipo].nome + ' aprovada: só quem tem "Alterar aprovados" muda, clicando em "Alterar aprovada" e justificando.'));
-      Object.assign(u, carimboAlteracao(tipo, key, descricao, a.justificativa));
+      if (!a) return Promise.reject(new Error(APROVACAO_CONFIG[tipo].nome + ' aprovada: só ' + QUEM_ALTERA_APROVADA + ' mudam, clicando em "Alterar aprovada" e justificando.'));
+      var c = carimboAlteracao(tipo, key, texto, (ev && ev.motivo) || a.justificativa, ev && ev.acao);
+      var hk = Object.keys(c).find(function(k) { return k.indexOf('/historicoAlteracoes/') > 0; });
+      anexarEvento(c[hk], ev);
+      c[hk].emAprovada = true;
+      Object.assign(u, c);
+    } else if (ev) {
+      u[base + 'historicoAlteracoes/' + db.ref().push().key] = anexarEvento(entradaHistorico(ev.acao || 'AJUSTE', texto), ev);
     }
     return db.ref().update(u);
   }
@@ -5482,10 +5542,13 @@ document.addEventListener('DOMContentLoaded', function() {
     var h = Object.values(reg.historicoAlteracoes || {}).sort(function(a, b) { return (b.em_ms || 0) - (a.em_ms || 0); });
     if (!h.length) return '';
     return ' <details class="hist-aprovada" style="display:inline-block;vertical-align:top"><summary class="field-hint" style="cursor:pointer">Histórico de alterações (' + h.length + ')</summary>' +
-      '<ul style="margin:6px 0 0;padding-left:18px;font-size:12.5px;max-width:720px">' + h.map(function(x) {
+      '<ul style="margin:6px 0 0;padding-left:18px;font-size:12.5px;max-width:720px;max-height:420px;overflow-y:auto">' + h.map(function(x) {
         var mud = Array.isArray(x.mudancas) ? x.mudancas : Object.values(x.mudancas || {});
+        // Item a item (11/11): a descrição já diz o quê; a lista repetiria a mesma frase.
+        if (x.itemKey && mud.length === 1 && x.descricao) mud = [];
         return '<li style="margin-bottom:6px"><b>' + escapeHtml(fmtData(x.em || (x.em_ms ? new Date(x.em_ms).toISOString() : ''))) + '</b> · ' + escapeHtml(x.por || '') +
           (x.descricao ? ' — ' + escapeHtml(x.descricao) : '') +
+          (x.motivo && x.motivo !== x.justificativa ? '<br><span class="field-hint">Motivo: ' + escapeHtml(x.motivo) + '</span>' : '') +
           (x.justificativa ? '<br><span class="field-hint">Justificativa: ' + escapeHtml(x.justificativa) + '</span>' : '') +
           (mud.length ? '<ul style="margin:3px 0 0;padding-left:16px">' + mud.map(function(t) { return '<li>' + escapeHtml(t) + '</li>'; }).join('') + '</ul>' : '') +
           '</li>';
@@ -5580,9 +5643,9 @@ document.addEventListener('DOMContentLoaded', function() {
         html += ' <span class="badge badge-orange" title="' + escapeAttr('Justificativa: ' + alteracoesAbertas[tipo + '|' + key].justificativa) + '">✎ Alterando (fica no histórico)</span>' +
           ' <button type="button" class="btn btn-ghost btn-sm alt-fim" data-tipo="' + tipo + '">Concluir alteração</button>';
       } else if (podeAlterarAprovados()) {
-        html += ' <button type="button" class="btn btn-ghost btn-sm alt-ini" data-tipo="' + tipo + '" title="Abre a edição desta versão aprovada com uma justificativa; ela continua APROVADA">✎ Alterar aprovada</button>';
+        html += ' <button type="button" class="btn btn-ghost btn-sm alt-ini" data-tipo="' + tipo + '" title="Abre a edição desta versão aprovada com uma justificativa: editar, excluir e substituir itens, cada ação no histórico. Ela continua APROVADA">✎ Alterar aprovada</button>';
       } else {
-        html += ' <span class="field-hint" title="Depois de aprovada, só Adlai, Gustavo Callegaro e Yasmim (módulo Alterar aprovados) alteram, com justificativa">🔒 Travada</span>';
+        html += ' <span class="field-hint" title="' + escapeAttr('Depois de aprovada, só ' + QUEM_ALTERA_APROVADA + ' (Adlai, Gustavo Callegaro, Yasmim) alteram, com justificativa. Para mudar sem eles: "+ Nova versão a partir desta".') + '">🔒 Travada</span>';
       }
       html += historicoHtml(reg);
     }
@@ -5804,7 +5867,7 @@ document.addEventListener('DOMContentLoaded', function() {
         hintEl.innerHTML = '💡 Sugestão de item de ajuste (QSP): <b>' + escapeHtml(sug[1].mpNome || sug[1].mpCodigo || '') + '</b> (' + fmtNum(sug[1].percentualMM || 0) + '%) — ' +
           '<button type="button" class="btn btn-ghost btn-sm" id="btnUsarSugestaoAjuste-form">Usar esta sugestão</button>';
         document.getElementById('btnUsarSugestaoAjuste-form').addEventListener('click', function() {
-          gravarComponente('formulas', key, { itemAjusteKey: sug[0] }, 'Item de ajuste (QSP): ' + (sug[1].mpNome || sug[1].mpCodigo || ''))
+          gravarComponente('formulas', key, { itemAjusteKey: sug[0] }, 'Item de ajuste (QSP): ' + (sug[1].mpNome || sug[1].mpCodigo || ''), { acao: 'AJUSTE' })
             .catch(function(err) { showAlert('Erro ao definir item de ajuste: ' + err.message, 'danger'); });
         });
       } else {
@@ -5817,7 +5880,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     removerBtn.style.display = (editavel && f.itemAjusteKey) ? 'inline-flex' : 'none';
     removerBtn.onclick = function() {
-      gravarComponente('formulas', key, { itemAjusteKey: null }, 'Removeu o item de ajuste (QSP)')
+      gravarComponente('formulas', key, { itemAjusteKey: null }, 'Removeu o item de ajuste (QSP)', { acao: 'AJUSTE' })
         .catch(function(err) { showAlert('Erro ao remover item de ajuste: ' + err.message, 'danger'); });
     };
   }
@@ -5911,7 +5974,15 @@ document.addEventListener('DOMContentLoaded', function() {
       '<td><input type="number" class="f-ordem" data-item="' + escapeAttr(itemKey) + '" min="1" step="1" value="' + (it.ordemAdicao != null ? it.ordemAdicao : '') + '"></td>' +
       '<td><input type="number" class="f-pct" data-item="' + escapeAttr(itemKey) + '" min="0" step="0.001" value="' + (it.percentualMM != null ? it.percentualMM : '') + '"></td>' +
       '<td style="text-align:center"><input type="radio" name="f-ajuste-radio" class="f-ajuste" data-item="' + escapeAttr(itemKey) + '" title="Marcar como item de ajuste (QSP)"' + (ehAjuste ? ' checked' : '') + '></td>' +
-      '<td><button class="btn btn-danger-ghost btn-sm f-remove" data-item="' + escapeAttr(itemKey) + '" title="Remover item" aria-label="Remover item">×</button></td></tr>';
+      acoesLinhaHtml('f', itemKey, it.mpCodigo, 'item') + '</tr>';
+  }
+  // ⇄ Substituir (só com algo para trocar) e × Excluir, nas três abas (11/11/2026).
+  function acoesLinhaHtml(prefixo, itemKey, codigoAtual, nome) {
+    var k = escapeAttr(itemKey);
+    return '<td><div style="display:flex;gap:4px;justify-content:flex-end">' +
+      (codigoAtual ? '<button type="button" class="btn btn-ghost btn-sm ' + prefixo + '-subst" data-item="' + k + '" title="Substituir este ' + nome + ' por outro (fica no histórico)" aria-label="Substituir ' + nome + '">⇄</button>' : '') +
+      '<button type="button" class="btn btn-danger-ghost btn-sm ' + prefixo + '-remove" data-item="' + k + '" title="Excluir ' + nome + ' (fica no histórico)" aria-label="Excluir ' + nome + '">×</button>' +
+      '</div></td>';
   }
   function wireFormulaRowEvents(formKey, editavel) {
     if (!editavel) return;
@@ -5921,7 +5992,7 @@ document.addEventListener('DOMContentLoaded', function() {
     wireMaterialBuscaForm('#formulaBody-form', 'f-mp-busca', 'f-mp', ['MPGR', 'MPES'], function(itemKey) { salvarItemFormula(formKey, itemKey); });
     document.querySelectorAll('#formulaBody-form .f-ajuste').forEach(function(el) {
       el.addEventListener('change', function() {
-        gravarComponente('formulas', formKey, { itemAjusteKey: el.getAttribute('data-item') }, 'Item de ajuste (QSP): ' + descreverItemFormula(formKey, el.getAttribute('data-item')))
+        gravarComponente('formulas', formKey, { itemAjusteKey: el.getAttribute('data-item') }, 'Item de ajuste (QSP): ' + descreverItemFormula(formKey, el.getAttribute('data-item')), { acao: 'AJUSTE' })
           .catch(function(err) { showAlert('Erro ao definir item de ajuste: ' + err.message, 'danger'); });
       });
     });
@@ -5932,6 +6003,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // é a área mais sensível do cadastro (entra direto na emissão de OP) e
         // era justamente a única sem nenhum tratamento de erro no arquivo --
         // falha silenciosa aqui (rede instável, permissão) some sem aviso.
+        var antes = (((allFormulas[formKey] || {}).itens) || {})[itemKey];
+        if (!antes || !confirm('Excluir da Fórmula: ' + descreverItemFormula(formKey, itemKey) + '?\n\nA exclusão fica no histórico com data, hora e o seu nome.')) return;
         var updates = {};
         updates['itens/' + itemKey] = null;
         updates.somaPercentual = somaSem(formKey, itemKey, null);
@@ -5942,9 +6015,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if ((allFormulas[formKey] || {}).itemAjusteKey === itemKey) {
           updates.itemAjusteKey = null;
         }
-        gravarComponente('formulas', formKey, updates, 'Removeu ' + descreverItemFormula(formKey, itemKey))
+        gravarComponente('formulas', formKey, updates, 'Removeu ' + descreverItemFormula(formKey, itemKey), HistoricoItens.evento('formulas', itemKey, antes, null))
           .catch(function(err) { showAlert('Erro ao remover item da fórmula: ' + err.message, 'danger'); });
       });
+    });
+    document.querySelectorAll('#formulaBody-form .f-subst').forEach(function(btn) {
+      btn.addEventListener('click', function() { abrirSubstituicao('formulas', formKey, btn.getAttribute('data-item')); });
     });
     document.querySelectorAll('#formulaBody-form .f-usar-sugestao').forEach(function(btn) {
       btn.addEventListener('click', function() {
@@ -5981,7 +6057,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Escolher um material de verdade resolve a pendência do import sozinho;
     // deixar em branco preserva o texto original/sugestão pra não perder
     // contexto de revisão só por causa de um clique sem querer.
-    var itemAtual = ((allFormulas[formKey] || {}).itens || {})[itemKey] || {};
+    var itemExiste = ((allFormulas[formKey] || {}).itens || {})[itemKey];
+    var itemAtual = itemExiste || {};
+    var ev = HistoricoItens.evento('formulas', itemKey, itemExiste || null, data);
+    if (!ev) return; // nada que conte mudou: nenhuma gravação, nenhuma linha vazia no histórico
     if (mpCodigo) {
       data.pendente = null;
       data.textoOriginalGeradorOPs = null;
@@ -5994,8 +6073,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var rel = {};
     rel['itens/' + itemKey] = data;
     rel.somaPercentual = somaSem(formKey, itemKey, data); // soma no mesmo update (uma linha de histórico por mudança)
-    gravarComponente('formulas', formKey, rel, (itemAtual.mpCodigo ? 'Alterou ' : 'Definiu ') + (data.mpCodigo || '—') + ' ' + (data.mpNome || '') + ': ' + fmtNum(data.percentualMM) + '% fase ' + data.fase +
-      (itemAtual.mpCodigo && (itemAtual.mpCodigo !== data.mpCodigo || Number(itemAtual.percentualMM) !== data.percentualMM) ? ' (antes ' + itemAtual.mpCodigo + ' ' + fmtNum(itemAtual.percentualMM || 0) + '%)' : ''))
+    gravarComponente('formulas', formKey, rel, '', ev)
       .catch(function(err) { showAlert('Erro ao salvar item da fórmula: ' + err.message, 'danger'); });
   }
   // Soma da fórmula com o item `itemKey` trocado por `novo` (null = removido), a partir do que está carregado.
@@ -6045,7 +6123,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return '<td><input type="number" class="b-qtd" data-item="' + escapeAttr(itemKey) + '" min="0" step="any" value="' + (n ? '' : (it.qtdPorPeca != null ? it.qtdPorPeca : '')) + '"' + (n ? ' placeholder="—"' : '') + ' aria-label="Quantidade por peça">' +
               '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;font-size:12px;color:var(--muted)">ou 1 a cada <input type="number" class="b-pecas" data-item="' + escapeAttr(itemKey) + '" min="1" step="1" style="width:72px" value="' + (n || '') + '" aria-label="Peças por unidade"> peças</div></td>';
           })() +
-          '<td><button class="btn btn-danger-ghost btn-sm b-remove" data-item="' + escapeAttr(itemKey) + '" title="Remover item" aria-label="Remover item">×</button></td></tr>';
+          acoesLinhaHtml('b', itemKey, it.materialCodigo, 'item') + '</tr>';
       }).join('');
     }
     document.getElementById('btnAddBomItem-form').style.display = editavel ? 'inline-flex' : 'none';
@@ -6066,11 +6144,16 @@ document.addEventListener('DOMContentLoaded', function() {
     wireMaterialBuscaForm('#bomBody-form', 'b-mat-busca', 'b-mat', ['EP', 'ES', 'ET'], function(itemKey) { salvarItemBom(key, itemKey); });
     document.querySelectorAll('#bomBody-form .b-remove').forEach(function(btn) {
       btn.addEventListener('click', function() {
-        var relB = {}; relB['itens/' + btn.getAttribute('data-item')] = null;
-        var itB = (((allBom[key] || {}).itens) || {})[btn.getAttribute('data-item')] || {};
-        gravarComponente('bom', key, relB, 'Removeu do BOM ' + (itB.materialCodigo || '—') + ' ' + (itB.materialNome || ''))
+        var itemKey = btn.getAttribute('data-item');
+        var itB = (((allBom[key] || {}).itens) || {})[itemKey];
+        if (!itB || !confirm('Excluir do BOM: ' + ((itB.materialCodigo || '—') + ' ' + (itB.materialNome || '')).trim() + '?\n\nA exclusão fica no histórico com data, hora e o seu nome.')) return;
+        var relB = {}; relB['itens/' + itemKey] = null;
+        gravarComponente('bom', key, relB, '', HistoricoItens.evento('bom', itemKey, itB, null))
           .catch(function(err) { showAlert('Erro ao remover item do BOM: ' + err.message, 'danger'); });
       });
+    });
+    document.querySelectorAll('#bomBody-form .b-subst').forEach(function(btn) {
+      btn.addEventListener('click', function() { abrirSubstituicao('bom', key, btn.getAttribute('data-item')); });
     });
     document.querySelectorAll('#bomBody-form .b-usar-sugestao').forEach(function(btn) {
       btn.addEventListener('click', function() {
@@ -6105,7 +6188,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     // Mesmo raciocínio de salvarItemFormula: material escolhido resolve a
     // pendência sozinho; em branco preserva o texto original/sugestão.
-    var itemAtual = ((allBom[key] || {}).itens || {})[itemKey] || {};
+    var itemExisteB = ((allBom[key] || {}).itens || {})[itemKey];
+    var itemAtual = itemExisteB || {};
+    var evB = HistoricoItens.evento('bom', itemKey, itemExisteB || null, data);
+    if (!evB) return; // nada que conte mudou
     if (materialCodigo) {
       data.pendente = null;
       data.textoOriginalGeradorOPs = null;
@@ -6116,8 +6202,7 @@ document.addEventListener('DOMContentLoaded', function() {
       data.sugestaoMatch = itemAtual.sugestaoMatch || null;
     }
     var relB = {}; relB['itens/' + itemKey] = data;
-    gravarComponente('bom', key, relB, 'BOM: ' + (data.materialCodigo || '—') + ' ' + (data.materialNome || '') + ' = ' + (data.pecasPorUnidade ? '1 a cada ' + data.pecasPorUnidade + ' peças' : fmtNum(data.qtdPorPeca) + ' por peça') +
-      (itemAtual.materialCodigo ? ' (antes ' + itemAtual.materialCodigo + ' ' + (itemAtual.pecasPorUnidade ? '1/' + itemAtual.pecasPorUnidade : fmtNum(itemAtual.qtdPorPeca || 0)) + ')' : ''))
+    gravarComponente('bom', key, relB, '', evB)
       .catch(function(err) { showAlert('Erro ao salvar item do BOM: ' + err.message, 'danger'); });
   }
 
@@ -6164,7 +6249,7 @@ document.addEventListener('DOMContentLoaded', function() {
           '<td><input type="text" class="e-max" data-item="' + escapeAttr(itemKey) + '" value="' + escapeAttr(it.maximo || '') + '"></td>' +
           '<td><input type="text" class="e-metodo uc" data-item="' + escapeAttr(itemKey) + '" value="' + escapeAttr(it.metodo || '') + '"></td>' +
           '<td style="text-align:center"><input type="checkbox" class="e-critico" data-item="' + escapeAttr(itemKey) + '"' + (it.critico ? ' checked' : '') + '></td>' +
-          '<td><button class="btn btn-danger-ghost btn-sm e-remove" data-item="' + escapeAttr(itemKey) + '" title="Remover ensaio" aria-label="Remover ensaio">×</button></td></tr>';
+          acoesLinhaHtml('e', itemKey, it.ensaio, 'ensaio') + '</tr>';
       }).join('');
     }
     document.getElementById('btnAddEspecItem-form').style.display = editavel ? 'inline-flex' : 'none';
@@ -6174,11 +6259,16 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     document.querySelectorAll('#especBody-form .e-remove').forEach(function(btn) {
       btn.addEventListener('click', function() {
-        var relE = {}; relE['itens/' + btn.getAttribute('data-item')] = null;
-        var itE = (((allEspecificacoes[key] || {}).itens) || {})[btn.getAttribute('data-item')] || {};
-        gravarComponente('especificacoes', key, relE, 'Removeu o ensaio ' + (itE.ensaio || '—'))
+        var itemKey = btn.getAttribute('data-item');
+        var itE = (((allEspecificacoes[key] || {}).itens) || {})[itemKey];
+        if (!itE || !confirm('Excluir o ensaio ' + (itE.ensaio || '(sem ensaio)') + '?\n\nA exclusão fica no histórico com data, hora e o seu nome.')) return;
+        var relE = {}; relE['itens/' + itemKey] = null;
+        gravarComponente('especificacoes', key, relE, '', HistoricoItens.evento('especificacoes', itemKey, itE, null))
           .catch(function(err) { showAlert('Erro ao remover ensaio: ' + err.message, 'danger'); });
       });
+    });
+    document.querySelectorAll('#especBody-form .e-subst').forEach(function(btn) {
+      btn.addEventListener('click', function() { abrirSubstituicao('especificacoes', key, btn.getAttribute('data-item')); });
     });
   }
   function salvarItemEspec(key, itemKey) {
@@ -6198,10 +6288,128 @@ document.addEventListener('DOMContentLoaded', function() {
       metodo: row.querySelector('.e-metodo').value.trim(),
       critico: critico
     };
-    var antesE = (((allEspecificacoes[key] || {}).itens) || {})[itemKey] || {};
+    var antesE = (((allEspecificacoes[key] || {}).itens) || {})[itemKey] || null;
+    var evE = HistoricoItens.evento('especificacoes', itemKey, antesE, ensaio);
+    if (!evE) return; // nada que conte mudou
     var relE = {}; relE['itens/' + itemKey] = ensaio;
-    gravarComponente('especificacoes', key, relE, 'Ensaio ' + (ensaio.ensaio || '—') + ': ' + (minimo || '—') + ' a ' + (maximo || '—') + (ensaio.critico ? ' (crítico)' : '') +
-      (antesE.ensaio ? ' (antes ' + (antesE.minimo || '—') + ' a ' + (antesE.maximo || '—') + ')' : '')).catch(function(err) { showAlert('Erro ao salvar ensaio: ' + err.message, 'danger'); });
+    gravarComponente('especificacoes', key, relE, '', evE).catch(function(err) { showAlert('Erro ao salvar ensaio: ' + err.message, 'danger'); });
+  }
+
+  /* ── ⇄ Substituir item (11/11/2026, pedido do Marlos) ─────────────────
+     Troca o material da linha (Fórmula: MPGR/MPES; BOM: EP/ES/ET) ou o ensaio
+     (Especificação) mantendo a MESMA chave do item -- o QSP e a ordem continuam
+     valendo e o DiffVersao lê como TROCA, não remoção + inclusão. Antes → depois
+     e o motivo vão para historicoAlteracoes no mesmo update. Em versão aprovada
+     só com a alteração aberta (ADM ou módulo "Alterar aprovados"); o motivo é
+     obrigatório e já vem com a justificativa da alteração. */
+  var substEstado = null; // { tipo, key, itemKey }
+  var SUBST_TIPOS_MATERIAL = { formulas: ['MPGR', 'MPES'], bom: ['EP', 'ES', 'ET'] };
+  function itemDoComponente(tipo, key, itemKey) { return ((registroComponente(tipo, key).itens) || {})[itemKey] || null; }
+  function textoItemAtual(tipo, it) {
+    if (tipo === 'formulas') return (it.mpCodigo || '—') + ' — ' + (it.mpNome || '') + ' · ' + fmtNum(it.percentualMM || 0) + '% · fase ' + (it.fase || '—');
+    if (tipo === 'bom') {
+      var n = pecasPorUnidadeBom(it);
+      return (it.materialCodigo || '—') + ' — ' + (it.materialNome || '') + ' · ' + (n ? '1 a cada ' + fmtNum(n) + ' peças' : fmtNum(it.qtdPorPeca || 0) + ' por peça');
+    }
+    return (it.ensaio || '—') + ' · ' + (it.minimo || '—') + ' a ' + (it.maximo || '—') + (it.critico ? ' · crítico' : '');
+  }
+  function campoSubst(id, rotulo, html) {
+    return '<div class="form-group" style="margin-bottom:12px"><label for="' + id + '">' + rotulo + '</label>' + html + '</div>';
+  }
+  function abrirSubstituicao(tipo, key, itemKey) {
+    var it = itemDoComponente(tipo, key, itemKey);
+    if (!it) return;
+    if (!componenteEditavel(tipo, key)) { showAlert(APROVACAO_CONFIG[tipo].nome + ' aprovada: só ' + QUEM_ALTERA_APROVADA + ' substituem, depois de "Alterar aprovada".', 'danger'); return; }
+    substEstado = { tipo: tipo, key: key, itemKey: itemKey };
+    var aprovada = statusComponente(tipo, key) === 'APROVADA';
+    document.getElementById('modalTitle-subst').textContent = 'Substituir ' + (tipo === 'especificacoes' ? 'ensaio' : 'item') + ' — ' + APROVACAO_CONFIG[tipo].nome + ' ' + key.split('__')[1];
+    document.getElementById('substAtual-form').innerHTML = 'Atual: <b>' + escapeHtml(textoItemAtual(tipo, it)) + '</b>';
+    var ehMaterial = tipo !== 'especificacoes';
+    document.getElementById('substMaterialBox-form').style.display = ehMaterial ? '' : 'none';
+    document.getElementById('substEnsaioBox-form').style.display = ehMaterial ? 'none' : '';
+    document.getElementById('substBusca-form').value = '';
+    document.getElementById('substCodigo-form').value = '';
+    var campos = '';
+    if (tipo === 'formulas') {
+      campos = campoSubst('substPct-form', '% m/m', '<input type="number" id="substPct-form" min="0" step="0.001" value="' + escapeAttr(it.percentualMM != null ? it.percentualMM : '') + '">');
+    } else if (tipo === 'bom') {
+      var n = pecasPorUnidadeBom(it);
+      campos = campoSubst('substQtd-form', 'Qtd. por peça', '<input type="number" id="substQtd-form" min="0" step="any" value="' + escapeAttr(n ? '' : (it.qtdPorPeca != null ? it.qtdPorPeca : '')) + '">') +
+        campoSubst('substPecas-form', 'ou 1 a cada N peças', '<input type="number" id="substPecas-form" min="1" step="1" value="' + escapeAttr(n || '') + '">');
+    } else {
+      document.getElementById('substEnsaio-form').innerHTML = opcoesTiposEnsaio('');
+      campos = campoSubst('substTexto-form', 'Especificação', '<input type="text" id="substTexto-form" class="uc" value="' + escapeAttr(it.especificacaoTexto || '') + '">') +
+        '<div style="display:flex;gap:10px">' +
+        campoSubst('substMin-form', 'Mínimo', '<input type="text" id="substMin-form" value="' + escapeAttr(it.minimo || '') + '">') +
+        campoSubst('substMax-form', 'Máximo', '<input type="text" id="substMax-form" value="' + escapeAttr(it.maximo || '') + '">') + '</div>' +
+        campoSubst('substMetodo-form', 'Método', '<input type="text" id="substMetodo-form" class="uc" value="' + escapeAttr(it.metodo || '') + '">') +
+        '<label style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><input type="checkbox" id="substCritico-form"' + (it.critico ? ' checked' : '') + '> Crítico</label>';
+    }
+    document.getElementById('substCampos-form').innerHTML = campos;
+    var a = alteracoesAbertas[tipo + '|' + key];
+    document.getElementById('substMotivo-form').value = aprovada && a ? a.justificativa : '';
+    document.getElementById('substMotivoHint-form').textContent = aprovada
+      ? 'Obrigatório (mínimo 10 letras): versão aprovada. Fica no histórico com data, hora e o seu nome.'
+      : 'Opcional. Fica no histórico junto com o antes → depois; a justificativa do lote vem no "Finalizar edição".';
+    document.getElementById('modalBg-subst').classList.add('open');
+    (ehMaterial ? document.getElementById('substBusca-form') : document.getElementById('substEnsaio-form')).focus();
+  }
+  function fecharSubstituicao() {
+    substEstado = null;
+    document.getElementById('modalBg-subst').classList.remove('open');
+  }
+  function confirmarSubstituicao() {
+    var s = substEstado;
+    if (!s) return;
+    var antes = itemDoComponente(s.tipo, s.key, s.itemKey);
+    if (!antes) { fecharSubstituicao(); return; }
+    var aprovada = statusComponente(s.tipo, s.key) === 'APROVADA';
+    var motivo = document.getElementById('substMotivo-form').value.trim();
+    if (aprovada && motivo.length < 10) { showAlert('Versão aprovada: o motivo precisa de pelo menos 10 letras.', 'danger'); return; }
+    var cfgD = DiffVersao.COMPONENTES[s.tipo];
+    var novo = Object.assign({}, antes, { pendente: null, textoOriginalGeradorOPs: null, sugestaoMatch: null });
+    if (s.tipo === 'especificacoes') {
+      var ens = document.getElementById('substEnsaio-form').value.trim();
+      if (!ens) { showAlert('Escolha o novo ensaio.', 'danger'); return; }
+      novo.ensaio = ens;
+      novo.especificacaoTexto = document.getElementById('substTexto-form').value.trim();
+      novo.minimo = document.getElementById('substMin-form').value.trim();
+      novo.maximo = document.getElementById('substMax-form').value.trim();
+      novo.metodo = document.getElementById('substMetodo-form').value.trim();
+      novo.critico = document.getElementById('substCritico-form').checked;
+      if (novo.critico && !novo.minimo && !novo.maximo) { showAlert('Ensaio crítico precisa ter faixa mínima ou máxima definida.', 'danger'); return; }
+    } else {
+      var codigo = document.getElementById('substCodigo-form').value;
+      var mat = codigo ? findMaterialByCodigo(codigo) : null;
+      if (!mat) { showAlert('Escolha o novo material na lista.', 'danger'); return; }
+      if (SUBST_TIPOS_MATERIAL[s.tipo].indexOf(mat.tipo) === -1) { showAlert('Material ' + codigo + ' é ' + (mat.tipo || 'sem tipo') + '; aqui só ' + SUBST_TIPOS_MATERIAL[s.tipo].join('/') + '.', 'danger'); return; }
+      novo[cfgD.codigo] = mat.mpCodigo;
+      novo[cfgD.descricao] = mat.mpNome || '';
+      if (s.tipo === 'formulas') {
+        novo.percentualMM = parseFloat(document.getElementById('substPct-form').value) || 0;
+      } else {
+        var nP = parseInt(document.getElementById('substPecas-form').value, 10);
+        novo.pecasPorUnidade = nP > 0 ? nP : null;
+        novo.qtdPorPeca = nP > 0 ? Math.round(1e6 / nP) / 1e6 : (parseFloat(document.getElementById('substQtd-form').value) || 0);
+      }
+    }
+    if (novo[cfgD.codigo] === antes[cfgD.codigo]) { showAlert('Escolha um ' + (s.tipo === 'especificacoes' ? 'ensaio' : 'material') + ' diferente do atual; para mudar só a quantidade ou a faixa, edite na própria linha.', 'danger'); return; }
+    var outros = Object.keys(registroComponente(s.tipo, s.key).itens || {}).filter(function(k) {
+      return k !== s.itemKey && (registroComponente(s.tipo, s.key).itens[k] || {})[cfgD.codigo] === novo[cfgD.codigo];
+    });
+    if (outros.length && !confirm(novo[cfgD.codigo] + ' já está em outra linha desta ' + APROVACAO_CONFIG[s.tipo].nome + '. Substituir mesmo assim?')) return;
+    var rel = {};
+    rel['itens/' + s.itemKey] = novo;
+    if (s.tipo === 'formulas') rel.somaPercentual = somaSem(s.key, s.itemKey, novo);
+    var ev = HistoricoItens.evento(s.tipo, s.itemKey, antes, novo, { acao: 'SUBSTITUIR' });
+    if (motivo) ev.motivo = motivo;
+    var btn = document.getElementById('substConfirmar-form');
+    btn.disabled = true;
+    gravarComponente(s.tipo, s.key, rel, '', ev).then(function() {
+      fecharSubstituicao();
+      showAlert(ev.descricao + '. Registrado no histórico.', 'success');
+    }).catch(function(err) { showAlert('Erro ao substituir: ' + err.message, 'danger'); })
+      .then(function() { btn.disabled = false; });
   }
 
   document.addEventListener('DOMContentLoaded', function() {
@@ -6218,21 +6426,37 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     });
 
-    document.getElementById('btnAddFormulaItem-form').addEventListener('click', function() {
+    // Inclusão de linha também entra no histórico (11/11/2026).
+    function incluirLinha(tipo, novo) {
       var key = chaveVersao(produtoSelecionadoKey, versaoAtual);
-      var relF = {}; relF['itens/' + db.ref().push().key] = { mpCodigo: '', mpNome: '', fase: 'A', ordemAdicao: 1, percentualMM: 0 };
-      gravarComponente('formulas', key, relF, 'Adicionou uma linha na fórmula').catch(function(err) { showAlert('Erro: ' + err.message, 'danger'); });
+      var itemKey = db.ref().push().key;
+      var rel = {}; rel['itens/' + itemKey] = novo;
+      gravarComponente(tipo, key, rel, '', HistoricoItens.evento(tipo, itemKey, null, novo)).catch(function(err) { showAlert('Erro: ' + err.message, 'danger'); });
+    }
+    document.getElementById('btnAddFormulaItem-form').addEventListener('click', function() {
+      incluirLinha('formulas', { mpCodigo: '', mpNome: '', fase: 'A', ordemAdicao: 1, percentualMM: 0 });
     });
     document.getElementById('btnAddBomItem-form').addEventListener('click', function() {
-      var key = chaveVersao(produtoSelecionadoKey, versaoAtual);
-      var relB = {}; relB['itens/' + db.ref().push().key] = { materialCodigo: '', materialNome: '', qtdPorPeca: 0, posicao: 1 };
-      gravarComponente('bom', key, relB, 'Adicionou uma linha no BOM').catch(function(err) { showAlert('Erro: ' + err.message, 'danger'); });
+      incluirLinha('bom', { materialCodigo: '', materialNome: '', qtdPorPeca: 0, posicao: 1 });
     });
     document.getElementById('btnAddEspecItem-form').addEventListener('click', function() {
-      var key = chaveVersao(produtoSelecionadoKey, versaoAtual);
-      var relE = {}; relE['itens/' + db.ref().push().key] = { ensaio: '', especificacaoTexto: '', minimo: '', maximo: '', metodo: '', critico: false };
-      gravarComponente('especificacoes', key, relE, 'Adicionou um ensaio').catch(function(err) { showAlert('Erro: ' + err.message, 'danger'); });
+      incluirLinha('especificacoes', { ensaio: '', especificacaoTexto: '', minimo: '', maximo: '', metodo: '', critico: false });
     });
+
+    // Modal ⇄ Substituir: busca de material com o mesmo autocomplete das linhas.
+    var substBusca = document.getElementById('substBusca-form');
+    attachAutocomplete(substBusca, function() {
+      if (!substEstado || !SUBST_TIPOS_MATERIAL[substEstado.tipo]) return [];
+      var atual = (itemDoComponente(substEstado.tipo, substEstado.key, substEstado.itemKey) || {})[DiffVersao.COMPONENTES[substEstado.tipo].codigo];
+      return materiaisAutocompleteItemsForm(SUBST_TIPOS_MATERIAL[substEstado.tipo]).filter(function(it) { return it.key !== atual; });
+    }, { onSelect: function(it) { document.getElementById('substCodigo-form').value = it.key; } });
+    substBusca.addEventListener('input', function() { document.getElementById('substCodigo-form').value = ''; });
+    document.getElementById('substConfirmar-form').addEventListener('click', confirmarSubstituicao);
+    document.getElementById('substCancelar-form').addEventListener('click', fecharSubstituicao);
+    document.getElementById('modalClose-subst').addEventListener('click', fecharSubstituicao);
+    document.getElementById('modalBg-subst').addEventListener('click', function(e) { if (e.target === this) fecharSubstituicao(); });
+    // Esc na busca fecha só a lista de materiais; fora dela, fecha o modal.
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && substEstado && e.target !== substBusca) fecharSubstituicao(); });
 
     document.addEventListener('click', function(e) {
       if (!e.target.closest('#fProdutoBusca-form') && !e.target.closest('#produtoResultados-form')) {
