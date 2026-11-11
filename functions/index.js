@@ -711,7 +711,15 @@ exports.faturamentoCargaPA = onCall({timeoutSeconds: 120, memory: "512MiB", secr
   if (falha) throw new HttpsError(falha.code || "failed-precondition", falha.message);
   if (plano && plano.repetida) return {ok: true, repetida: true, revisao: plano.agenda.revisao, status: (plano.agenda.faturamento || {}).status};
   if (!result.committed || !plano) throw new HttpsError("aborted", "A carga mudou. Reabra e tente novamente.");
-  return {ok: true, revisao: plano.agenda.revisao, status: plano.agenda.faturamento.status};
+  // E-mail ao Financeiro no MESMO pedido (11/11/2026): não depende do gatilho
+  // onSolicitacaoFaturamentoPA, que pode estar desligado na VPS. A reserva em .../email
+  // impede envio duplo se o gatilho também rodar. Falha do e-mail não desfaz a
+  // solicitação: fica "falha no envio" com o botão Reenviar.
+  let email = null;
+  if (plano.solicitacao && (request.data || {}).acao === "SOLICITAR") {
+    try { email = await enviarEmailFaturamento(request.data.agendaKey, plano.solicitacao.id, false); } catch (e) { email = {status: "ERRO"}; }
+  }
+  return {ok: true, revisao: plano.agenda.revisao, status: plano.agenda.faturamento.status, email: email && email.status || null};
 });
 
 // E-mail da solicitação ao Financeiro (cópia à diretoria), com PDF.
