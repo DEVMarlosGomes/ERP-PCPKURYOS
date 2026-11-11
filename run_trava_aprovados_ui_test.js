@@ -1,6 +1,8 @@
 'use strict';
 /* Trava do aprovado (08/11/2026) na tela real de Cadastros com Firebase simulado (harness de run_critico_pd_cadastro_ui_test.js):
-   versão APROVADA só muda por quem tem o módulo alterar_aprovados, com justificativa e histórico; nova versão de produto aprovado também. */
+   versão APROVADA só muda por quem tem o módulo alterar_aprovados, com justificativa e histórico.
+   Desde 10/11/2026 "Nova versão a partir desta" é de todos que editam Cadastros: a aprovada não muda,
+   a nova nasce rascunho, e "Finalizar edição" grava o que mudou + justificativa (DiffVersao). */
 const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const fs = require('node:fs');
 const assert = require('node:assert/strict');
@@ -114,16 +116,44 @@ async function abrirProduto(browser, perfil) {
 (async () => {
   const browser = await chromium.launch({headless: true, channel: 'chrome'});
   try {
-    // PCP sem o módulo: tudo travado, sem "Alterar aprovada", sem nova versão.
+    // PCP sem o módulo: aprovada travada, mas cria nova versão a partir dela (10/11/2026).
     let {page, errors} = await abrirProduto(browser, PCP);
     assert.equal(await page.locator('#formulaBody-form .f-pct').count(), 0, 'aprovada não mostra campos para o PCP');
     assert.match(await page.locator('#formulasAcoes-form').innerText(), /Travada/);
     assert.equal(await page.locator('#formulasAcoes-form .alt-ini').count(), 0);
     assert.equal(await page.locator('#formulasAcoes-form .fv-toggle-revisado').count(), 0, 'Revisado não é clicável na aprovada');
-    assert.doesNotMatch(await page.locator('#versaoAcoes-form').innerText(), /Nova versão a partir desta/);
-    await page.click('#btnNovaVersao-form');
-    await page.waitForFunction(() => /Alterar aprovados/.test(document.getElementById('alertBox').innerText));
-    assert.equal(await page.evaluate(() => Boolean(window.__db.formulas.FBBS0004__v2)), false, 'PCP criou v2 de produto aprovado');
+    assert.match(await page.locator('#versaoAcoes-form').innerText(), /Nova versão a partir desta/);
+    await page.click('#versaoAcoes-form button:has-text("Nova versão a partir desta")');
+    await page.waitForFunction(() => Boolean(window.__db.formulas.FBBS0004__v2));
+    let v = await page.evaluate(() => window.__db);
+    assert.equal(v.formulas.FBBS0004__v2.status, 'RASCUNHO');
+    assert.equal(v.formulas.FBBS0004__v2.itens.i1.percentualMM, 74, 'itens copiados com as mesmas chaves');
+    assert.equal(v.formulas.FBBS0004__v2.motivoNovaVersao.origem, 'v1');
+    assert.equal(v.formulas.FBBS0004__v2.motivoNovaVersao.por, 'Planejador');
+    assert.deepEqual(Object.values(v.formulas.FBBS0004__v2.historicoAlteracoes).map((x) => x.descricao), ['Criada a partir da v1']);
+    assert.ok(v.bom.FBBS0004__v2 && v.especificacoes.FBBS0004__v2, 'BOM e especificação da v2');
+    assert.equal(v.formulas.FBBS0004__v1.status, 'APROVADA');
+    assert.equal(v.formulas.FBBS0004__v1.historicoAlteracoes, undefined, 'a v1 aprovada não é tocada');
+    // Edita a v2: fica pendente, trava a aprovação, e "Finalizar edição" grava o que mudou.
+    await page.waitForSelector('#formulaBody-form tr[data-item="i1"] .f-pct');
+    await page.fill('#formulaBody-form tr[data-item="i1"] .f-pct', '70');
+    await page.press('#formulaBody-form tr[data-item="i1"] .f-pct', 'Tab');
+    await page.waitForFunction(() => /Finalizar edição \(1\)/.test(document.getElementById('versaoAcoes-form').innerText));
+    assert.match(await page.locator('#formulasAcoes-form').innerText(), /1 alteração a finalizar/);
+    assert.match(await page.locator('#formulasAcoes-form .ac-btn').getAttribute('title'), /Finalize a edição/);
+    page.__resposta = 'Ajuste de álcool depois do teste de estabilidade';
+    await page.click('#versaoAcoes-form button:has-text("Finalizar edição")');
+    await page.waitForFunction(() => Object.keys(window.__db.formulas.FBBS0004__v2.historicoAlteracoes).length === 2);
+    v = await page.evaluate(() => window.__db.formulas.FBBS0004__v2);
+    const ed = Object.values(v.historicoAlteracoes).find((x) => x.acao === 'EDICAO');
+    assert.equal(ed.justificativa, 'Ajuste de álcool depois do teste de estabilidade');
+    assert.equal(ed.por, 'Planejador');
+    assert.deepEqual(ed.em_ms, {'.sv': 'timestamp'}, 'horário do servidor');
+    assert.deepEqual(ed.mudancas, ['MPGR-00127 — ÁLCOOL 96°GL: % m/m 74 → 70']);
+    assert.equal(v.baseEdicao.itens.i1.percentualMM, 70, 'base avança: nada mais pendente');
+    await page.waitForFunction(() => !/Finalizar edição/.test(document.getElementById('versaoAcoes-form').innerText));
+    assert.doesNotMatch(await page.locator('#versaoAcoes-form').innerText(), /Excluir versão/, 'edição registrada: a versão não se apaga');
+    assert.match(await page.locator('#formulasAcoes-form').innerText(), /Histórico de alterações \(2\)/);
     assert.deepEqual(errors, [], 'erros (PCP): ' + errors.join(' | '));
     await page.close();
 
@@ -151,22 +181,17 @@ async function abrirProduto(browser, perfil) {
     assert.match(h.descricao, /MPGR-00127.*73,5%.*antes MPGR-00127 74%/);
     assert.deepEqual(f.ultimaAlteracao.em_ms, {'.sv': 'timestamp'}, 'horário do servidor');
     assert.equal(f.ultimaAlteracao.id, Object.keys(f.historicoAlteracoes)[0]);
+    // Concluir: o resumo do que mudou desde a abertura entra no histórico.
     await page.click('#formulasAcoes-form .alt-fim');
     await page.waitForFunction(() => document.querySelectorAll('#formulaBody-form .f-pct').length === 0);
-    assert.match(await page.locator('#formulasAcoes-form').innerText(), /Histórico de alterações \(1\)/);
+    f = await page.evaluate(() => window.__db.formulas.FBBS0004__v1);
+    const resumo = Object.values(f.historicoAlteracoes).find((x) => x.acao === 'RESUMO_ALTERACAO');
+    assert.deepEqual(resumo.mudancas, ['MPGR-00127 — ÁLCOOL 96°GL: % m/m 74 → 73,5']);
+    assert.equal(resumo.justificativa, 'Ajuste de álcool pedido pelo P&D após teste de estabilidade');
+    assert.match(await page.locator('#formulasAcoes-form').innerText(), /Histórico de alterações \(2\)/);
 
-    // Nova versão de produto aprovado: pede justificativa e marca o histórico da aprovada.
-    page.__resposta = 'Nova versão para a troca do fornecedor do álcool';
-    await page.click('#btnNovaVersao-form');
-    await page.waitForFunction(() => Boolean(window.__db.formulas.FBBS0004__v2));
-    f = await page.evaluate(() => window.__db.formulas);
-    assert.equal(f.FBBS0004__v2.motivoNovaVersao.justificativa, 'Nova versão para a troca do fornecedor do álcool');
-    assert.equal(f.FBBS0004__v2.status, 'RASCUNHO');
-    const hs = Object.values(f.FBBS0004__v1.historicoAlteracoes).map((x) => x.acao).sort();
-    assert.deepEqual(hs, ['ALTERAR_APROVADA', 'NOVA_VERSAO']);
-    assert.equal(f.FBBS0004__v1.status, 'APROVADA');
     assert.deepEqual(errors, [], 'erros (Yasmim): ' + errors.join(' | '));
     await page.close();
   } finally { await browser.close(); }
-  console.log('OK trava do aprovado na tela: PCP sem o módulo não altera nem cria versão; com o módulo, justificativa obrigatória, histórico com data/autor/o quê, soma no mesmo update, segue APROVADA; nova versão também justificada.');
+  console.log('OK trava do aprovado na tela: aprovada travada sem o módulo; nova versão a partir dela para todos, com edição pendente até finalizar (justificativa + o que mudou no histórico); com o módulo, alteração justificada, histórico com data/autor/o quê e resumo ao concluir, segue APROVADA.');
 })().catch((e) => { console.error(e); process.exit(1); });

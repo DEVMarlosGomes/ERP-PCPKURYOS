@@ -19,6 +19,7 @@
   <script src="shared/pendencias-setor.js"></script><script src="shared/pendencias-setor-ui.js"></script>
   <script src="shared/importacao-json-pendencias-ui.js"></script>
   <script src="shared/itens-cadastro.js"></script>
+  <script src="shared/diff-versao.js"></script>
   <script src="auth_check.js"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="shared/theme.css">
@@ -940,7 +941,7 @@
 
     <div id="areaEdicao-form" class="card" style="display:none" data-ui="surface">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-        <div class="card-title" style="margin-bottom:0" data-ui="surface-head">Versão <span id="versaoAtualLabel-form"></span></div>
+        <div class="card-title" style="margin-bottom:0" data-ui="surface-head">Versão&nbsp;<span id="versaoAtualLabel-form"></span></div>
         <div id="versaoAcoes-form" style="display:flex;gap:8px"></div>
       </div>
       <div class="section-note" style="margin-top:-4px;margin-bottom:10px">Fórmula, BOM e Especificações têm aprovação própria e independente -- cada aba tem seu status e seus botões de aprovação.</div>
@@ -5245,6 +5246,8 @@ document.addEventListener('DOMContentLoaded', function() {
   // aprovar a Fórmula checava ensaio crítico de Especificação, uma mistura
   // que só existia porque tudo era uma aprovação só).
   function bloqueioAprovacaoComponente(tipo, key) {
+    var pend = mudancasPendentes(tipo, key);
+    if (pend.length) return 'Finalize a edição (justificativa curta) antes de aprovar: ' + pend.length + (pend.length === 1 ? ' alteração ainda não registrada no histórico' : ' alterações ainda não registradas no histórico');
     if (tipo === 'formulas') {
       var f = registroComponente('formulas', key);
       if (Math.abs((f.somaPercentual || 0) - 100) >= 0.0005) return 'Soma da fórmula precisa fechar em 100% antes de aprovar';
@@ -5319,13 +5322,29 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!podeAlterarAprovados()) { showAlert('Só quem tem o módulo "Alterar aprovados" altera versão aprovada.', 'danger'); return; }
     var j = pedirJustificativa('Alterar ' + APROVACAO_CONFIG[tipo].nome + ' APROVADA (' + key.replace('__', ' ') + ')?');
     if (!j) return;
-    alteracoesAbertas[tipo + '|' + key] = { justificativa: j };
+    alteracoesAbertas[tipo + '|' + key] = { justificativa: j, base: baseDe(tipo, registroComponente(tipo, key)) };
     showAlert('Alteração aberta: cada mudança fica no histórico com esta justificativa. A versão continua APROVADA.', 'success');
     rerenderVersao();
   }
+  // Ao concluir, o que mudou desde a abertura vai para o histórico (10/11/2026).
   function concluirAlteracaoAprovada(tipo, key) {
-    delete alteracoesAbertas[tipo + '|' + key];
-    rerenderVersao();
+    var a = alteracoesAbertas[tipo + '|' + key];
+    var mud = a && a.base ? DiffVersao.diffComponente(tipo, a.base, registroComponente(tipo, key)) : [];
+    if (!mud.length) { delete alteracoesAbertas[tipo + '|' + key]; rerenderVersao(); return; }
+    var textos = mud.map(function(x) { return DiffVersao.textoMudanca(tipo, x); });
+    var j = prompt('Concluir a alteração da ' + APROVACAO_CONFIG[tipo].nome + ':\n\n' + textos.slice(0, 12).join('\n') +
+      '\n\nJustificativa curta (mínimo 10 letras):', a.justificativa);
+    if (j == null) return;
+    j = j.trim();
+    if (j.length < 10) { showAlert('A justificativa precisa de pelo menos 10 letras.', 'danger'); return; }
+    var u = carimboAlteracao(tipo, key, 'Alteração concluída: ' + textos.length + (textos.length === 1 ? ' mudança' : ' mudanças'), j, 'RESUMO_ALTERACAO');
+    var hk = Object.keys(u).find(function(k) { return k.indexOf('/historicoAlteracoes/') > 0; });
+    u[hk].mudancas = textos;
+    db.ref().update(u).then(function() {
+      delete alteracoesAbertas[tipo + '|' + key];
+      showAlert('Alteração registrada no histórico (' + textos.length + (textos.length === 1 ? ' mudança' : ' mudanças') + ').', 'success');
+      rerenderVersao();
+    }).catch(function(err) { showAlert('Erro ao registrar: ' + err.message, 'danger'); });
   }
   // Carimbo da alteração em versão aprovada: devolve os caminhos a somar ao update.
   function carimboAlteracao(tipo, key, descricao, justificativa, acao) {
@@ -5350,36 +5369,77 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     return db.ref().update(u);
   }
-  // Algum componente de alguma versão deste produto já foi aprovado?
-  function versaoAprovadaDoProduto() {
-    var out = null;
-    versoesDoProduto().forEach(function(v) {
-      if (out) return;
-      var k = chaveVersao(produtoSelecionadoKey, v.versao);
-      ['formulas', 'bom', 'especificacoes'].forEach(function(t) { if (!out && statusComponente(t, k) === 'APROVADA' && registroComponente(t, k).codProduto) out = { tipo: t, key: k, versao: v.versao }; });
-    });
-    return out;
-  }
-  // Nova versão de produto que já tem versão aprovada = alteração após aprovação.
-  function liberarNovaVersao(oQue) {
-    var ap = versaoAprovadaDoProduto();
-    if (!ap) return { ok: true, extra: {}, justificativa: null };
-    if (!podeAlterarAprovados()) {
-      showAlert('Este produto já tem versão aprovada (' + ap.versao + '): nova versão só por quem tem o módulo "Alterar aprovados" (Adlai, Gustavo Callegaro, Yasmim).', 'danger');
-      return { ok: false };
-    }
-    var j = pedirJustificativa(oQue + ' — o produto já tem a ' + ap.versao + ' aprovada.');
-    if (!j) return { ok: false };
-    return { ok: true, justificativa: j, extra: carimboAlteracao(ap.tipo, ap.key, oQue, j, 'NOVA_VERSAO') };
-  }
+  /* Nova versão (10/11/2026, pedido da operação): "Nova versão a partir desta"
+     e "+ Nova Versão" ficam liberadas para quem edita Cadastros, em qualquer
+     produto. A versão de origem NÃO muda (a aprovada continua valendo); a nova
+     nasce RASCUNHO e só vale depois das aprovações de sempre. A justificativa
+     vem ao FINALIZAR a edição, junto com o que mudou (DiffVersao). Antes
+     (08/11) isso exigia o módulo "Alterar aprovados" e carimbava a aprovada. */
   function historicoHtml(reg) {
     var h = Object.values(reg.historicoAlteracoes || {}).sort(function(a, b) { return (b.em_ms || 0) - (a.em_ms || 0); });
     if (!h.length) return '';
     return ' <details class="hist-aprovada" style="display:inline-block;vertical-align:top"><summary class="field-hint" style="cursor:pointer">Histórico de alterações (' + h.length + ')</summary>' +
-      '<ul style="margin:6px 0 0;padding-left:18px;font-size:12.5px;max-width:640px">' + h.map(function(x) {
-        return '<li><b>' + escapeHtml(fmtData(x.em || (x.em_ms ? new Date(x.em_ms).toISOString() : ''))) + '</b> · ' + escapeHtml(x.por || '') +
-          (x.descricao ? ' — ' + escapeHtml(x.descricao) : '') + '<br><span class="field-hint">Justificativa: ' + escapeHtml(x.justificativa || '') + '</span></li>';
+      '<ul style="margin:6px 0 0;padding-left:18px;font-size:12.5px;max-width:720px">' + h.map(function(x) {
+        var mud = Array.isArray(x.mudancas) ? x.mudancas : Object.values(x.mudancas || {});
+        return '<li style="margin-bottom:6px"><b>' + escapeHtml(fmtData(x.em || (x.em_ms ? new Date(x.em_ms).toISOString() : ''))) + '</b> · ' + escapeHtml(x.por || '') +
+          (x.descricao ? ' — ' + escapeHtml(x.descricao) : '') +
+          (x.justificativa ? '<br><span class="field-hint">Justificativa: ' + escapeHtml(x.justificativa) + '</span>' : '') +
+          (mud.length ? '<ul style="margin:3px 0 0;padding-left:16px">' + mud.map(function(t) { return '<li>' + escapeHtml(t) + '</li>'; }).join('') + '</ul>' : '') +
+          '</li>';
       }).join('') + '</ul></details>';
+  }
+  // Ponto de partida da edição de um componente em rascunho: o que estava
+  // registrado na última finalização (ou na criação). Sem baseEdicao (versão
+  // antiga), não há o que comparar e nada fica pendente.
+  function mudancasPendentes(tipo, key) {
+    var reg = registroComponente(tipo, key);
+    if ((reg.status || 'RASCUNHO') !== 'RASCUNHO' || !reg.baseEdicao) return [];
+    return DiffVersao.diffComponente(tipo, reg.baseEdicao, reg);
+  }
+  function baseDe(tipo, reg) {
+    reg = reg || {};
+    var b = { itens: reg.itens || {} };
+    if (tipo === 'formulas') b.itemAjusteKey = reg.itemAjusteKey || null;
+    return JSON.parse(JSON.stringify(b));
+  }
+  function entradaHistorico(acao, descricao, justificativa, mudancas) {
+    var e = { em_ms: firebase.database.ServerValue.TIMESTAMP, em: new Date().toISOString(), por: currentUserNome(), porUid: currentUserUid(),
+      acao: acao, descricao: descricao || '' };
+    if (justificativa) e.justificativa = justificativa;
+    if (mudancas && mudancas.length) e.mudancas = mudancas;
+    return e;
+  }
+  function temEdicaoRegistrada(key) {
+    return ['formulas', 'bom', 'especificacoes'].some(function(t) {
+      return Object.values(registroComponente(t, key).historicoAlteracoes || {}).some(function(x) { return x && x.acao === 'EDICAO'; });
+    });
+  }
+  function finalizarEdicaoVersao() {
+    var key = chaveVersao(produtoSelecionadoKey, versaoAtual);
+    var pend = {};
+    var linhas = [];
+    ['formulas', 'bom', 'especificacoes'].forEach(function(t) {
+      var m = mudancasPendentes(t, key);
+      if (m.length) {
+        pend[t] = m;
+        m.forEach(function(x) { linhas.push(DiffVersao.COMPONENTES[t].nome + ' · ' + DiffVersao.textoMudanca(t, x)); });
+      }
+    });
+    if (!linhas.length) { showAlert('Nada mudou desde a última finalização.', 'success'); return; }
+    var mostrar = linhas.slice(0, 12).join('\n') + (linhas.length > 12 ? '\n… e mais ' + (linhas.length - 12) : '');
+    var j = pedirJustificativa('Finalizar a edição da ' + versaoAtual + ':\n\n' + mostrar);
+    if (!j) return;
+    var u = {};
+    Object.keys(pend).forEach(function(t) {
+      var reg = registroComponente(t, key);
+      var id = db.ref().push().key;
+      var textos = pend[t].map(function(x) { return DiffVersao.textoMudanca(t, x); });
+      u[t + '/' + key + '/historicoAlteracoes/' + id] = entradaHistorico('EDICAO', 'Edição finalizada: ' + textos.length + (textos.length === 1 ? ' alteração' : ' alterações'), j, textos);
+      u[t + '/' + key + '/baseEdicao'] = baseDe(t, reg);
+    });
+    db.ref().update(u).then(function() {
+      showAlert('Edição da ' + versaoAtual + ' registrada no histórico (' + linhas.length + (linhas.length === 1 ? ' alteração' : ' alterações') + ').', 'success');
+    }).catch(function(err) { showAlert('Erro ao finalizar: ' + err.message, 'danger'); });
   }
   function renderAcoesComponente(tipo, key) {
     var cfg = APROVACAO_CONFIG[tipo];
@@ -5400,13 +5460,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (status === 'RASCUNHO') {
+      var pendC = mudancasPendentes(tipo, key);
+      if (pendC.length) html += ' <span class="badge badge-orange" title="' + escapeAttr(pendC.map(function(x) { return DiffVersao.textoMudanca(tipo, x); }).join('\n')) + '">✎ ' + pendC.length + (pendC.length === 1 ? ' alteração' : ' alterações') + ' a finalizar</span>';
       if (!reg[cfg.campo1]) {
         var motivo = bloqueioAprovacaoComponente(tipo, key);
         html += ' <button type="button" class="btn btn-primary btn-sm ac-btn" data-tipo="' + tipo + '" data-etapa="1"' + (motivo ? ' disabled title="' + escapeAttr(motivo) + '"' : '') + '>Aprovar (' + cfg.rotulo1 + ')</button>';
       } else if (!reg[cfg.campo2]) {
         html += ' <span class="field-hint">' + cfg.rotulo1 + ': ' + escapeHtml(reg[cfg.campo1].nome || '') + ' em ' + fmtData(reg[cfg.campo1].em) + '</span>';
-        html += ' <button type="button" class="btn btn-green btn-sm ac-btn" data-tipo="' + tipo + '" data-etapa="2">Aprovar (' + cfg.rotulo2 + ') — conclui</button>';
+        var motivo2 = pendC.length ? bloqueioAprovacaoComponente(tipo, key) : '';
+        html += ' <button type="button" class="btn btn-green btn-sm ac-btn" data-tipo="' + tipo + '" data-etapa="2"' + (motivo2 ? ' disabled title="' + escapeAttr(motivo2) + '"' : '') + '>Aprovar (' + cfg.rotulo2 + ') — conclui</button>';
       }
+      html += historicoHtml(reg);
     } else if (status === 'APROVADA') {
       html += ' <span class="field-hint">' + cfg.rotulo1 + ': ' + escapeHtml((reg[cfg.campo1] || {}).nome || '') + ' · ' + cfg.rotulo2 + ': ' + escapeHtml((reg[cfg.campo2] || {}).nome || '') + ' em ' + fmtData(reg.dataAprovacao) + '</span>';
       if (emAlteracao(tipo, key)) {
@@ -5443,7 +5507,8 @@ document.addEventListener('DOMContentLoaded', function() {
     var el = document.getElementById('versaoAcoes-form');
     el.innerHTML = '';
     var f = registroComponente('formulas', key), b = registroComponente('bom', key), e = registroComponente('especificacoes', key);
-    var ninguemComecouAprovar = !f.aprovadoPD && !b.aprovadoPCP && !e.aprovadoPD;
+    // Edição já finalizada fica no histórico: a versão não se apaga mais (10/11/2026).
+    var ninguemComecouAprovar = !f.aprovadoPD && !b.aprovadoPCP && !e.aprovadoPD && !temEdicaoRegistrada(key);
     var todasAprovadas = f.status === 'APROVADA' && b.status === 'APROVADA' && e.status === 'APROVADA';
 
     if (ninguemComecouAprovar) {
@@ -5454,10 +5519,22 @@ document.addEventListener('DOMContentLoaded', function() {
       bDel.addEventListener('click', excluirVersaoRascunho);
       el.appendChild(bDel);
     }
-    if (todasAprovadas && podeAlterarAprovados()) {
+    var nPend = ['formulas', 'bom', 'especificacoes'].reduce(function(n, t) { return n + mudancasPendentes(t, key).length; }, 0);
+    if (nPend) {
+      var bFim = document.createElement('button');
+      bFim.className = 'btn btn-green btn-sm';
+      bFim.textContent = '✓ Finalizar edição (' + nPend + ')';
+      bFim.title = 'Registra no histórico o que mudou, com data, hora, seu nome e uma justificativa curta';
+      bFim.addEventListener('click', finalizarEdicaoVersao);
+      el.appendChild(bFim);
+    }
+    // Qualquer versão cadastrada pode dar origem a outra (10/11/2026): a de
+    // origem não muda; a nova nasce rascunho, copiada, e passa pelas aprovações.
+    if (f.codProduto || b.codProduto || e.codProduto || Object.keys(f.itens || {}).length) {
       var b3 = document.createElement('button');
       b3.className = 'btn btn-purple btn-sm';
       b3.textContent = '+ Nova versão a partir desta';
+      b3.title = 'Copia fórmula, BOM e especificações desta versão para uma nova versão em rascunho. Esta versão' + (todasAprovadas ? ' (aprovada) continua valendo' : ' não muda') + ' até a nova ser aprovada.';
       b3.addEventListener('click', novaVersaoAPartirDe);
       el.appendChild(b3);
     }
@@ -5480,7 +5557,7 @@ document.addEventListener('DOMContentLoaded', function() {
   function excluirVersaoRascunho() {
     var key = chaveVersao(produtoSelecionadoKey, versaoAtual);
     var f = registroComponente('formulas', key), b = registroComponente('bom', key), e = registroComponente('especificacoes', key);
-    if (f.aprovadoPD || b.aprovadoPCP || e.aprovadoPD) return; // mesma guarda do botão -- qualquer um dos 3 já iniciado, recusa
+    if (f.aprovadoPD || b.aprovadoPCP || e.aprovadoPD || temEdicaoRegistrada(key)) return; // mesma guarda do botão
 
     var sku = (allProdutos[produtoSelecionadoKey] || {}).sku || '';
     db.ref('ops').once('value').then(function(snap) {
@@ -5510,8 +5587,6 @@ document.addEventListener('DOMContentLoaded', function() {
     var versoes = versoesDoProduto();
     var maxN = versoes.reduce(function(m, f) { return Math.max(m, parseVersaoNum(f.versao)); }, 0);
     var novaVersao = 'v' + (maxN + 1);
-    var lib = liberarNovaVersao('Criar a versão ' + novaVersao + ' em branco');
-    if (!lib.ok) return;
     var key = chaveVersao(produtoSelecionadoKey, novaVersao);
     var data = {
       codProduto: produtoSelecionadoKey,
@@ -5534,14 +5609,19 @@ document.addEventListener('DOMContentLoaded', function() {
     // leitura que precisasse do campo (não da CHAVE) -- ex: "Usado em"
     // em Materiais. Cria os 3 juntos agora, mesmo formato.
     var updates = {};
-    var motivo = lib.justificativa ? { justificativa: lib.justificativa, por: currentUserNome(), porUid: currentUserUid(), em: new Date().toISOString() } : null;
+    var motivo = { origem: null, por: currentUserNome(), porUid: currentUserUid(), em: new Date().toISOString() };
     data.motivoNovaVersao = motivo;
-    updates['formulas/' + key] = data;
-    updates['bom/' + key] = { codProduto: produtoSelecionadoKey, versao: novaVersao, status: 'RASCUNHO', itens: {}, motivoNovaVersao: motivo };
-    updates['especificacoes/' + key] = { codProduto: produtoSelecionadoKey, versao: novaVersao, status: 'RASCUNHO', itens: {}, motivoNovaVersao: motivo };
-    Object.assign(updates, lib.extra);
+    // baseEdicao vazia: tudo que for incluído aparece no histórico ao finalizar.
+    data.baseEdicao = { itens: {}, itemAjusteKey: null };
+    data.historicoAlteracoes = {};
+    ['formulas', 'bom', 'especificacoes'].forEach(function(t) {
+      var reg = t === 'formulas' ? data : { codProduto: produtoSelecionadoKey, versao: novaVersao, status: 'RASCUNHO', itens: {}, motivoNovaVersao: motivo, baseEdicao: { itens: {} }, historicoAlteracoes: {} };
+      reg.historicoAlteracoes[db.ref().push().key] = entradaHistorico('CRIADA', 'Versão ' + novaVersao + ' criada em branco');
+      updates[t + '/' + key] = reg;
+    });
     db.ref().update(updates).then(function() {
       showAlert('Versão ' + novaVersao + ' criada (rascunho).', 'success');
+      selecionarVersao(novaVersao);
     }).catch(function(err) { showAlert('Erro: ' + err.message, 'danger'); });
   }
 
@@ -5556,9 +5636,9 @@ document.addEventListener('DOMContentLoaded', function() {
     var origemFormula = allFormulas[origemKey] || {};
     var origemBom = allBom[origemKey] || {};
     var origemEspec = allEspecificacoes[origemKey] || {};
-    var lib = liberarNovaVersao('Criar a versão ' + novaVersao + ' a partir da ' + origemVersao);
-    if (!lib.ok) return;
-    var motivo = lib.justificativa ? { justificativa: lib.justificativa, por: currentUserNome(), porUid: currentUserUid(), em: new Date().toISOString() } : null;
+    if (!confirm('Criar a versão ' + novaVersao + ' a partir da ' + origemVersao + '?\n\nFórmula, BOM e especificações são copiados para um rascunho. A ' + origemVersao + ' não muda e continua valendo até a ' + novaVersao + ' ser aprovada. Ao terminar os ajustes, clique em "Finalizar edição" e escreva uma justificativa curta: o que mudou fica no histórico com data, hora e seu nome.')) return;
+    var motivo = { origem: origemVersao, por: currentUserNome(), porUid: currentUserUid(), em: new Date().toISOString() };
+    var criada = 'Criada a partir da ' + origemVersao;
 
     var updates = {};
     updates['formulas/' + novaKey] = {
@@ -5570,15 +5650,19 @@ document.addEventListener('DOMContentLoaded', function() {
       // pedir ajuste manual em emitir_op.html até alguém remarcar.
       itemAjusteKey: origemFormula.itemAjusteKey || null,
       aprovadoPD: null, aprovadoQualidade: null, substituiVersao: origemVersao,
-      criadoPor: currentUserNome(), criadoEm: new Date().toISOString(), motivoNovaVersao: motivo
+      criadoPor: currentUserNome(), criadoEm: new Date().toISOString(), motivoNovaVersao: motivo,
+      baseEdicao: baseDe('formulas', origemFormula)
     };
-    updates['bom/' + novaKey] = { codProduto: produtoSelecionadoKey, versao: novaVersao, status: 'RASCUNHO', itens: origemBom.itens || {}, motivoNovaVersao: motivo };
-    updates['especificacoes/' + novaKey] = { codProduto: produtoSelecionadoKey, versao: novaVersao, status: 'RASCUNHO', itens: origemEspec.itens || {}, motivoNovaVersao: motivo };
-    Object.assign(updates, lib.extra);
+    updates['bom/' + novaKey] = { codProduto: produtoSelecionadoKey, versao: novaVersao, status: 'RASCUNHO', itens: origemBom.itens || {}, motivoNovaVersao: motivo, baseEdicao: baseDe('bom', origemBom) };
+    updates['especificacoes/' + novaKey] = { codProduto: produtoSelecionadoKey, versao: novaVersao, status: 'RASCUNHO', itens: origemEspec.itens || {}, motivoNovaVersao: motivo, baseEdicao: baseDe('especificacoes', origemEspec) };
+    ['formulas', 'bom', 'especificacoes'].forEach(function(t) {
+      var h = {}; h[db.ref().push().key] = entradaHistorico('CRIADA', criada);
+      updates[t + '/' + novaKey].historicoAlteracoes = h;
+    });
 
     db.ref().update(updates).then(function() {
       showAlert('Versão ' + novaVersao + ' criada a partir de ' + origemVersao + '.', 'success');
-      versaoAtual = novaVersao;
+      selecionarVersao(novaVersao); // abre a nova já pronta para editar
     }).catch(function(err) { showAlert('Erro: ' + err.message, 'danger'); });
   }
 

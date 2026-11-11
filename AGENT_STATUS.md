@@ -5,6 +5,19 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Nova versão a partir desta para todos + histórico do que mudou (10/11/2026)
+
+- **Concluído:** em Cadastros › Fórmulas/BOM/Especificações, "+ Nova versão a partir desta" aparece em
+  qualquer versão para quem edita Cadastros (antes: só com as 3 aprovadas e o módulo "Alterar aprovados").
+  A origem não é tocada; a nova nasce rascunho com `baseEdicao` e histórico "Criada a partir da vN", e a tela
+  abre nela. Edição em rascunho fica pendente ("✎ N alterações a finalizar"), trava as aprovações até
+  "Finalizar edição", que pede justificativa e grava `historicoAlteracoes` (EDICAO) com o que mudou
+  (`shared/diff-versao.js`: % alterado, MP trocada pela mesma chave, incluído, removido, QSP, BOM, ensaios).
+  "Alterar aprovada" grava um RESUMO_ALTERACAO ao concluir. Rascunho com edição registrada não se exclui.
+  Regras do banco inalteradas (rascunho já era gravável por Cadastros). Testes: `run_diff_versao_test.js`,
+  `run_trava_aprovados_ui_test.js` reescrito, demais UI de Cadastros OK; ponta a ponta falha igual ao HEAD
+  (emissão). Pendente: deploy da VPS; demais cadastros em MELHORIAS_FUTURAS. Arquivos ativos: nenhum.
+
 ### Claude — Devolver OP à produção (10/11/2026)
 
 - **Concluído (`ee9a4e7`):** OP fechada por engano (26309/04: "Fechamento OP" na Rotulagem 01) volta pela ação
