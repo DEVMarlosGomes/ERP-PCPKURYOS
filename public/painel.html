@@ -85,6 +85,7 @@
     :root[data-theme="dark"] .btn.primario{background:var(--accent);border-color:var(--accent);color:#000}
     @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn.primario{background:var(--accent);border-color:var(--accent);color:#000}}
     .btn[disabled]{opacity:.5;cursor:default}
+    a.btn{display:block;box-sizing:border-box;text-align:center;text-decoration:none;margin-top:6px}
     .rodape{margin-top:30px;font-size:12px;color:var(--ink-mute);line-height:1.5}
     .carregando{padding:30px;text-align:center;color:var(--ink-soft)}
     @media (max-width:700px){
@@ -163,6 +164,16 @@ function desenhar() {
   desenharFases();
 }
 
+/* Cobrança pelo sistema (11/11/2026): abre cobrancas.html com o texto pronto e o
+   setor já escolhido (papel equivalente); a pessoa confere e envia (e-mail incluso). */
+var PAPEL_DO_SETOR = {'Comercial': 'comercial', 'PCP': 'pcp', 'Logística': 'logistica', 'Qualidade': 'qualidade', 'Produção': 'production', 'Rotulagem': 'rotulagem'};
+function linkCobranca(setor) {
+  var texto = PainelGargalos.textoCobranca(setor, analise, 6);
+  return 'cobrancas.html?nova=1&titulo=' + encodeURIComponent('Pendências fora do prazo — ' + setor) +
+    '&descricao=' + encodeURIComponent(texto.slice(0, 1900)) + '&link=painel.html' +
+    (PAPEL_DO_SETOR[setor] ? '&setor=' + PAPEL_DO_SETOR[setor] : '');
+}
+
 function desenharSetores() {
   var lista = analise.setores.filter(function(s) { return s.n > 0; });
   $('setores').innerHTML = lista.map(function(s) {
@@ -173,7 +184,8 @@ function desenharSetores() {
     return '<div class="setor ' + (s.atrasados ? 'quente' : '') + '"><div class="cab"><h3>' + esc(s.setor) + '</h3><span class="big">' + s.atrasados + '</span></div>' +
       '<div class="sub">' + (s.atrasados ? 'fora do prazo' : 'nada fora do prazo') + ' · ' + s.n + ' em fila</div><ul>' + linhas + '</ul>' +
       '<button type="button" class="btn ' + (s.atrasados ? 'primario' : '') + '" data-cobrar="' + esc(s.setor) + '"' + (s.atrasados ? '' : ' disabled') + '>' +
-      (s.atrasados ? 'Copiar cobrança' : 'Sem pendência para cobrar') + '</button></div>';
+      (s.atrasados ? 'Copiar cobrança' : 'Sem pendência para cobrar') + '</button>' +
+      (s.atrasados ? ' <a class="btn" href="' + esc(linkCobranca(s.setor)) + '">Cobrar no sistema</a>' : '') + '</div>';
   }).join('') || '<div class="carregando">Nenhuma fila no momento.</div>';
 }
 

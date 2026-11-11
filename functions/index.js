@@ -20,6 +20,7 @@ const PesagemFechada = require("./pesagem_fechada");
 const PedidoDiretoria = require("./pedido_diretoria");
 const {prepararFaturamento} = require("./faturamento_carga");
 const FaturamentoEmail = require("./faturamento_email");
+const Cobrancas = require("./cobrancas");
 const DevolucaoCliente = require("./devolucao_cliente");
 const Titularidade = require("./titularidade");
 const EmissaoOp = require("./emissao_op");
@@ -744,6 +745,23 @@ async function enviarEmailFaturamento(agendaKey, sid, reenviar) {
     throw e;
   }
 }
+
+// ── Cobranças internas (functions/cobrancas.js) ──────────────────────
+// Grava e manda o e-mail no MESMO pedido: os gatilhos da VPS estão desligados.
+// O e-mail falhar não desfaz a cobrança (fica em cobrancas/{id}/emails).
+const servicoCobrancas = Cobrancas.criarServico({
+  db,
+  enviarEmail: (para, assunto, corpo) => sendMailViaGraph(para, assunto, corpo, {html: true}),
+});
+exports.cobrancaInterna = onCall({timeoutSeconds: 60, secrets: [MS_GRAPH_TENANT_ID, MS_GRAPH_CLIENT_ID, MS_GRAPH_CLIENT_SECRET, MS_GRAPH_SENDER_EMAIL]}, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para usar as cobranças.");
+  try {
+    return await servicoCobrancas.executar(request.auth.uid, request.data || {});
+  } catch (e) {
+    if (e && e.code && !(e instanceof HttpsError)) throw new HttpsError(e.code, e.message);
+    throw e;
+  }
+});
 
 // ── Compras: rascunho de cotação por e-mail (Fase 4) ───────────────────
 // Chamada pelo botão "Solicitar Cotação" em compras.html. Cria um RASCUNHO

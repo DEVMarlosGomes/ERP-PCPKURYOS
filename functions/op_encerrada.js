@@ -16,7 +16,7 @@
 
 const STATUS_ENCERRADA = "Aguardando Confirmação";
 const DESTINATARIOS_PADRAO = ["pcp@kuryos.com.br"];
-const URL_OPS = "https://pcp-kuryos.vercel.app/ops.html";
+const URL_OPS = "https://kuryoserp.com.br/ops.html";
 
 // Dispara só na TRANSIÇÃO para o status. Regravar o mesmo status (turno
 // encerrado, correção de total, nó inteiro reescrito) não reenvia.

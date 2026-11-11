@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Cobranças</title>
+<!-- Cobranças internas (11/11/2026): cobrar uma demanda de outra pessoa, com aviso
+     no menu e por e-mail. Grava só pela callable cobrancaInterna (functions/cobrancas.js). -->
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-functions-compat.js"></script>
+<script src="shared/utils.js"></script><script src="auth_check.js"></script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg"><link rel="stylesheet" href="shared/theme.css">
+<style>
+body{margin:0;background:var(--bg,#f5f6fa);font-family:var(--font-ui);color:var(--ink,#182230)}
+.wrap{max-width:1180px;margin:auto;padding:26px 18px 48px}
+h1{margin:0}h2{font-size:17px;margin:0 0 10px}.sub{font-size:13px;color:var(--ink-soft,#667085);margin-top:5px}
+.topo{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.card{background:var(--panel,#fff);border-radius:15px;padding:18px;margin-top:16px;border:1px solid var(--line,#eaecf0)}
+.cb-btn{border:0;border-radius:10px;padding:10px 16px;font:inherit;font-weight:600;cursor:pointer;background:#0a1c69;color:#fff}
+.cb-btn.ghost{background:var(--panel,#fff);color:#0a1c69;border:1px solid #d0d5dd}.cb-btn.perigo{background:#b42318}
+.cb-btn:disabled{opacity:.5;cursor:not-allowed}
+.cb-abas{display:flex;gap:6px;flex-wrap:wrap;margin-top:18px}
+.cb-aba{border:1px solid #d0d5dd;background:var(--panel,#fff);color:var(--ink,#182230);border-radius:99px;padding:7px 14px;font:inherit;font-size:14px;cursor:pointer}
+.cb-aba[aria-selected="true"]{background:#0a1c69;color:#fff;border-color:#0a1c69}
+.cb-aba b{margin-left:6px;font-size:12px}
+.cb-lista{display:grid;gap:8px;margin-top:12px}
+.cb-item{display:grid;grid-template-columns:1fr auto;gap:4px 14px;align-items:center;text-align:left;width:100%;background:var(--panel,#fff);border:1px solid var(--line,#eaecf0);border-radius:12px;padding:12px 14px;font:inherit;color:inherit;cursor:pointer}
+.cb-item:hover{border-color:#0a1c69}.cb-item.naolida{border-left:4px solid #0a1c69}.cb-item.naolida .t{font-weight:700}
+.cb-item .t{font-size:15px}.cb-item small{color:var(--ink-soft,#667085);font-size:12.5px}
+.cb-item .dir{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.tag{display:inline-block;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:600;white-space:nowrap}
+.st-ABERTA{background:#fef0c7;color:#93370d}.st-RESPONDIDA{background:#eef2ff;color:#0a1c69}.st-CONCLUIDA{background:#dcfae6;color:#067647}.st-CANCELADA{background:#f2f4f7;color:#475467}
+.pr-alta{background:#fff4e5;color:#9a5b00}.pr-urgente{background:#fee4e2;color:#b42318}.atraso{background:#fee4e2;color:#b42318}.espera{background:#0a1c69;color:#fff}
+.vazio{padding:22px;text-align:center;color:var(--ink-soft,#667085);background:var(--panel,#fff);border:1px dashed var(--line,#d0d5dd);border-radius:12px}
+.aviso{padding:12px 14px;border-radius:10px;margin-top:14px}.aviso.ok{background:#dcfae6;color:#067647}.aviso.erro{background:#fee4e2;color:#b42318}.aviso.info{background:#eef2ff;color:#0a1c69}.aviso.alerta{background:#fef0c7;color:#93370d}
+.fundo{position:fixed;inset:0;background:rgba(16,24,40,.55);display:flex;align-items:center;justify-content:center;z-index:60;padding:16px}
+.modal{background:var(--panel,#fff);color:var(--ink,#182230);border-radius:16px;padding:22px;max-width:640px;width:100%;max-height:92vh;overflow:auto}
+.modal label{display:block;margin-top:12px;font-size:13px;font-weight:600}
+.modal input,.modal select,.modal textarea{width:100%;box-sizing:border-box;font-size:16px;padding:10px;border:2px solid #d0d5dd;border-radius:9px;font-family:inherit;background:var(--panel,#fff);color:inherit}
+.modal textarea{min-height:90px;resize:vertical}
+.linha2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.acoes{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:18px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:#eef2ff;color:#0a1c69;border-radius:99px;padding:4px 6px 4px 11px;font-size:13px;font-weight:600}
+.chip button{border:0;background:transparent;color:inherit;font-size:16px;line-height:1;cursor:pointer;padding:0 4px}
+.sugestoes{border:1px solid #d0d5dd;border-radius:9px;margin-top:4px;max-height:220px;overflow:auto}
+.sugestoes button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #f2f4f7;background:var(--panel,#fff);color:inherit;padding:9px 11px;font:inherit;cursor:pointer}
+.sugestoes button:hover,.sugestoes button:focus{background:#eef2ff}.sugestoes small{color:#667085;margin-left:6px}
+.det-cab{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start}
+.det-meta{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin:14px 0;font-size:14px}
+.det-meta div small{display:block;color:#667085;font-size:12px}
+.desc{white-space:pre-wrap;background:#f9fafb;border-radius:10px;padding:12px;font-size:14px;color:#182230}
+.eventos{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:10px}
+.eventos li{border-left:3px solid #d0d5dd;padding:4px 0 4px 12px;font-size:14px}
+.eventos li.RESPOSTA{border-color:#0a1c69}.eventos li.CONCLUIDA{border-color:#067647}.eventos li.CANCELADA{border-color:#98a2b3}.eventos li.COBRADA_NOVAMENTE,.eventos li.REABERTA{border-color:#dc6803}
+.eventos .quem{font-weight:600}.eventos .quando{color:#667085;font-size:12.5px;margin-left:6px}
+.eventos .txt{white-space:pre-wrap;margin-top:4px}
+.mail{font-size:12.5px;margin-top:4px;color:#475467}.mail.ERRO,.mail.SEM_EMAIL{color:#b42318}
+.cb-link{background:none;border:0;color:#17479e;text-decoration:underline;font:inherit;cursor:pointer;padding:0 2px}
+@media (max-width:640px){.linha2{grid-template-columns:1fr}.cb-item{grid-template-columns:1fr}.cb-item .dir{justify-content:flex-start}.acoes .cb-btn{flex:1}}
+</style></head><body class="kuryos-theme has-sidebar"><main class="wrap">
+<div class="topo"><div><h1>Cobranças</h1>
+<p class="sub">Cobre uma demanda de outra pessoa do sistema. Ela recebe o aviso no menu (contador em <b>Cobranças</b>) e por e-mail, responde aqui e marca como concluída. Toda a conversa fica registrada.</p></div>
+<button type="button" class="cb-btn" id="btnNova">+ Nova cobrança</button></div>
+<div id="resultado" class="aviso" role="status" aria-live="polite" hidden></div>
+
+<div class="cb-abas" role="tablist" aria-label="Cobranças">
+  <button type="button" class="cb-aba" role="tab" data-aba="recebidas" aria-selected="true">Para mim<b id="nRecebidas"></b></button>
+  <button type="button" class="cb-aba" role="tab" data-aba="enviadas" aria-selected="false">Que eu cobrei<b id="nEnviadas"></b></button>
+  <button type="button" class="cb-aba" role="tab" data-aba="encerradas" aria-selected="false">Encerradas</button>
+</div>
+<div id="lista" class="cb-lista"><div class="vazio">Carregando…</div></div>
+</main>
+<div id="modal"></div>
+<script>var firebaseConfig={apiKey:'AIzaSyBvASzcbKyv3uW7NBzDFDyLsKls3An3UUs',authDomain:'erpkuryos.firebaseapp.com',databaseURL:kuryosDatabaseURL('https://erpkuryos-default-rtdb.firebaseio.com'),projectId:'erpkuryos',storageBucket:'erpkuryos.firebasestorage.app',messagingSenderId:'272752392739',appId:'1:272752392739:web:047a6c4aa60145d77f4f96'};firebase.initializeApp(firebaseConfig);kuryosConnectEmulatorsIfLocal();</script>
+<script src="shared/cobrancas-tela.js"></script>
+</body></html>

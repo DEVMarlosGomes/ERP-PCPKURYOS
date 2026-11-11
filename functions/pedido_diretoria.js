@@ -16,7 +16,7 @@
 
 const PDFDocument = require("pdfkit");
 
-const URL_GESTAO = "https://pcp-kuryos.vercel.app/gestao_comercial.html?tab=carteira";
+const URL_GESTAO = "https://kuryoserp.com.br/gestao_comercial.html?tab=carteira";
 const AZUL = "#0a1c69";
 const CINZA = "#6e6e73";
 const LINHA = "#d2d2d7";

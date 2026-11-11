@@ -1,5 +1,37 @@
 # Melhorias Futuras — Sistema PCP Kuryos
 
+## Cobranças internas — o que ficou para depois (11/11/2026)
+
+Entregue: `cobrancas.html` (aba no topo do menu, com contador), callable `cobrancaInterna`
+(`functions/cobrancas.js`), e-mail no mesmo pedido que grava, "Cobrar no sistema" no Painel
+de Controle. Ficou aberto:
+
+- **Lembrete automático de cobrança vencida** (e-mail no dia do prazo / quando atrasa). Precisa
+  de agenda, e as agendas da VPS estão desligadas (`DISABLE_SCHEDULE=1`). Retomar como mais uma
+  checagem em `checkNotificacoes` (`functions/index.js`) lendo `cobrancas_caixa`, só depois de
+  decidir quem roda as agendas (VPS ou Render, nunca os dois).
+- **Cartão "Cobranças" no Início** ("Precisa de você"): hoje o aviso é o contador do menu.
+  `KuryosNav.pendencias` trabalha com nós fixos; a caixa é por usuário (`cobrancas_caixa/{uid}`).
+- **Visão do ADM de todas as cobranças** (quem está devendo o quê). A regra hoje não deixa listar
+  `cobrancas/` inteira de propósito; exigiria um índice próprio gravado pelo servidor.
+- **Teste de tela no navegador** (Playwright não instalado nesta estação): a tela foi validada
+  por sintaxe e pela ligação callable↔serviço no emulador, não clicada.
+- Usuário sem `email` no perfil recebe só o aviso do sistema; a tela mostra quem ficou sem e-mail.
+
+## E-mails automáticos — conferência do inventário (11/11/2026)
+
+Conferido contra o código ao montar as cobranças:
+
+- **Os 12 e-mails automáticos dependem de gatilho ou agenda**, e a última leitura da VPS
+  (03/11, `CORRECOES_VIRADA_ACESSOS_20261103.md`) registrou `DISABLE_TRIGGERS=1` e
+  `DISABLE_SCHEDULE=1`. Se o Render também foi desligado na virada, **nenhum deles está saindo
+  hoje**. Conferir na VPS e decidir quem roda escutas/agendas. Só saem sem gatilho: o
+  "Reenviar e-mail" do faturamento, o rascunho de cotação e as cobranças.
+- **Links dos e-mails apontam para `pcp-kuryos.vercel.app`**, não para `prod-kuryos.web.app` como
+  dizia o inventário: `functions/op_encerrada.js` (`URL_OPS`), `functions/pedido_diretoria.js`
+  (`URL_GESTAO`), `functions/pesagem_fechada.js` (`URL_MANIPULACAO`). O faturamento já usa
+  `kuryoserp.com.br`. Trocar os três para `https://kuryoserp.com.br/`.
+
 ## Auditoria geral de 10/11/2026 — o que ficou para depois
 
 Corrigido no código na mesma data: FEFO sugeria lote vencido em primeiro lugar

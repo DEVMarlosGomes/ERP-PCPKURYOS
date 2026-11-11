@@ -15,7 +15,7 @@
    Funções puras: o gatilho em index.js só lê, chama e envia. */
 
 const STATUS_FECHADA = "PESADO";
-const URL_MANIPULACAO = "https://pcp-kuryos.vercel.app/manipulacao.html";
+const URL_MANIPULACAO = "https://kuryoserp.com.br/manipulacao.html";
 const EMAIL_VALIDO = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 // Só na TRANSIÇÃO para PESADO: regravar o status não reenvia.

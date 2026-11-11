@@ -5,6 +5,36 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Editar, excluir e substituir itens de Fórmula/BOM/Especificação com histórico (11/11/2026)
+
+- **Código concluído em `f987879`** na branch `cadastros/itens-historico` (worktree `../PCP-Kuryos-cad-itens`),
+  feita à parte porque `database.rules.json` está ativo no bloco de Cobranças. **Ainda não integrada em
+  `hostinger-deploy`**: o merge espera Cobranças commitar `database.rules.json` (o diff dela e o meu tocam nós
+  diferentes; deve entrar sem conflito). ADM passa a alterar versão aprovada (além do módulo "Alterar
+  aprovados"), na tela e nas 3 regras; ⇄ Substituir por linha (material ou ensaio, mesma chave do item, motivo
+  obrigatório em aprovada); × pede confirmação; cada inclusão/edição/exclusão/substituição grava na hora
+  quem/quando/antes→depois em `historicoAlteracoes` (`shared/historico-itens.js`). Manual de Cadastros
+  atualizado. Testes: `run_historico_itens_test` 9, `run_trava_aprovados_ui_test` (PCP/Yasmim/ADM),
+  `run_trava_aprovados_rules_test` no emulador 6 passos, bateria de Cadastros (11) OK.
+  **Pendente (Marlos):** merge em `hostinger-deploy`, publicar regras (`--only database --project erpkuryos`)
+  e deploy da VPS. Arquivos ativos: nenhum.
+
+### Claude — Cobranças internas com e-mail (11/11/2026)
+
+- **Concluído:** `cobrancas.html` (link "Cobranças" no topo do menu, junto do Início, com contador do que
+  espera a pessoa). Cobrar uma ou mais pessoas (ou um setor inteiro), com prazo, prioridade e tela
+  relacionada; responder, marcar como feito, cobrar de novo (30 min de intervalo), reabrir e cancelar com
+  motivo. Toda gravação pela callable `cobrancaInterna` (`functions/cobrancas.js`), que manda o e-mail no
+  mesmo pedido (gatilhos da VPS desligados); falha de e-mail fica em `cobrancas/{id}/emails` com "Reenviar".
+  Regras: `cobrancas/$id` lê quem participa e o ADM, ninguém grava pelo navegador; `cobrancas_caixa/$uid`
+  só o dono lê e só marca `naoLida=false`. Painel de Controle: "Cobrar no sistema" por setor.
+  Links dos e-mails de OP encerrada, pedido e pesagem trocados de `pcp-kuryos.vercel.app` para
+  `kuryoserp.com.br`. Testes: `run_cobrancas_test.js` (8 grupos), `run_cobrancas_emulator_test.js`
+  (6 passos, `firebase.cobrancas-test.json`), navegação 39 perfis, render 14/14 (34 callables).
+  `run_op_encerrada_email_test`/`run_pesagem_fechada_email_test` já falhavam antes (parte 2, URL do banco).
+  Tela não clicada no navegador (sem Playwright). **Pendente (Marlos): publicar regras e deploy da VPS.**
+  Arquivos ativos: nenhum.
+
 ### Claude — Identificação do IBC (bulk), 5 páginas por OP (11/11/2026)
 
 - **Concluído:** ao emitir a OP, "🛢 Identificação do IBC (5 páginas)" ao lado das fichas e etiquetas de caixa;

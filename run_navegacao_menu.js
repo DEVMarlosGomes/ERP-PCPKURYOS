@@ -109,7 +109,7 @@ function linksDoHtml(html) {
   grupos.slice(1).forEach((g) => {
     const nome = (g.match(/data-grupo="([^"]+)"/) || [])[1] || null;
     let sub = null;
-    const re = /<div class="kt-nav-sub">([^<]+)<\/div>|<a class="kt-nav-link( active)?"[^>]*href="([^"]+)"[^>]*>[\s\S]*?<span>([^<]*)<\/span><\/a>/g;
+    const re = /<div class="kt-nav-sub">([^<]+)<\/div>|<a class="kt-nav-link( active)?"[^>]*href="([^"]+)"[^>]*>[\s\S]*?<span>([^<]*)<\/span>(?:<span class="kt-cobr-n"[^>]*><\/span>)?<\/a>/g;
     let m;
     while ((m = re.exec(g))) {
       if (m[1]) { sub = m[1]; continue; }
@@ -118,7 +118,7 @@ function linksDoHtml(html) {
   });
   // Links fora de bloco (ex.: Início no topo).
   const topo = grupos[0];
-  const reTopo = /<a class="kt-nav-link( active)?"[^>]*href="([^"]+)"[^>]*>[\s\S]*?<span>([^<]*)<\/span><\/a>/g;
+  const reTopo = /<a class="kt-nav-link( active)?"[^>]*href="([^"]+)"[^>]*>[\s\S]*?<span>([^<]*)<\/span>(?:<span class="kt-cobr-n"[^>]*><\/span>)?<\/a>/g;
   let t;
   while ((t = reTopo.exec(topo))) out.unshift({grupo: null, sub: null, href: t[2], rotulo: t[3], ativo: !!t[1]});
   return out;

@@ -104,6 +104,29 @@
         ".validate": "newData.child('nome').isString() && newData.child('role').val() == root.child('usuarios').child($uid).child('role').val()"
       }
     },
+    // Cobranças internas (11/11/2026, functions/cobrancas.js): só o servidor grava
+    // (callable cobrancaInterna, que também manda o e-mail). Lê quem participa
+    // (quem cobrou ou quem foi cobrado) e o ADM; não há leitura da lista inteira.
+    "cobrancas": {
+      ".write": false,
+      "$id": {
+        ".read": "(auth != null && root.child('usuarios').child(auth.uid).child('role').exists() && root.child('usuarios').child(auth.uid).child('role').val() != 'pending' && root.child('usuarios').child(auth.uid).child('desativado').val() != true && (!root.child('security_sessions').child(auth.uid).child('revokedAfter').exists() || auth.token.auth_time > root.child('security_sessions').child(auth.uid).child('revokedAfter').val())) && (data.child('de').child('uid').val() == auth.uid || data.child('para').child(auth.uid).exists() || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')"
+      }
+    },
+    // Caixa de cada pessoa (índice do menu e da lista). Só o dono lê; o servidor
+    // grava. O dono só marca como lida (naoLida = false) o que já está na caixa.
+    "cobrancas_caixa": {
+      ".write": false,
+      "$uid": {
+        ".read": "(auth != null && root.child('usuarios').child(auth.uid).child('role').exists() && root.child('usuarios').child(auth.uid).child('role').val() != 'pending' && root.child('usuarios').child(auth.uid).child('desativado').val() != true && (!root.child('security_sessions').child(auth.uid).child('revokedAfter').exists() || auth.token.auth_time > root.child('security_sessions').child(auth.uid).child('revokedAfter').val())) && auth.uid == $uid",
+        "$id": {
+          "naoLida": {
+            ".write": "(auth != null && root.child('usuarios').child(auth.uid).child('role').exists() && root.child('usuarios').child(auth.uid).child('role').val() != 'pending' && root.child('usuarios').child(auth.uid).child('desativado').val() != true && (!root.child('security_sessions').child(auth.uid).child('revokedAfter').exists() || auth.token.auth_time > root.child('security_sessions').child(auth.uid).child('revokedAfter').val())) && auth.uid == $uid && data.exists()",
+            ".validate": "newData.val() == false"
+          }
+        }
+      }
+    },
     "usuarios_removidos": {
       ".read": "(auth != null && root.child('usuarios').child(auth.uid).child('role').exists() && root.child('usuarios').child(auth.uid).child('role').val() != 'pending' && root.child('usuarios').child(auth.uid).child('desativado').val() != true && (!root.child('security_sessions').child(auth.uid).child('revokedAfter').exists() || auth.token.auth_time > root.child('security_sessions').child(auth.uid).child('revokedAfter').val())) && (auth != null && root.child('usuarios').child(auth.uid).child('role').val() == 'admin')",
       ".write": false

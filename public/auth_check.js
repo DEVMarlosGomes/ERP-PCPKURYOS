@@ -839,6 +839,7 @@ function readUsuarioProfileWithRetry(db, uid, onSuccess, attemptsLeft) {
 // Ícones de linha (estilo SF Symbols) usados na sidebar — desenhados com
 // formas simples, sem path complexo, pra ficar consistente e leve.
 const ktIcons = {
+  bell: '<path d="M6 9a6 6 0 0 1 12 0c0 6.5 2.5 8 2.5 8h-17S6 15.5 6 9Z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/>',
   dashboard: '<rect x="3.5" y="3.5" width="7.5" height="7.5" rx="2"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="2"/><rect x="3.5" y="13" width="7.5" height="7.5" rx="2"/><rect x="13" y="13" width="7.5" height="7.5" rx="2"/>',
   history: '<path d="M4 20V10M12 20V4M20 20v-7"/>',
   calendar: '<rect x="3.5" y="4.5" width="17" height="16" rx="3"/><path d="M3.5 9.5h17M8 3v3M16 3v3"/>',
@@ -985,7 +986,10 @@ function renderUnifiedNavbar(user) {
     '<button type="button" class="kt-brand" aria-label="Kuryos — página inicial" onclick="window.location.href=\'' + brandHome + '\'"><span class="kuryos-brand-mark" aria-hidden="true">K</span><img class="kt-brand-logo" src="kuryos-logo.svg" alt="Kuryos"><span class="kt-brand-sub">Sistema de Produção</span></button>' +
     '<nav class="kuryos-sidebar-nav" aria-label="Navegação principal">' +
     // Início fica fora dos blocos: é a porta de entrada, não uma área.
-    (temInicio(user) ? '<div class="kt-nav-top">' + ktLink('inicio.html', 'dashboard', 'Início', activePage) + '</div>' : '') +
+    // Cobranças (11/11/2026): para todos que têm Início; o contador mostra o que
+    // espera pela pessoa (cobrancas_caixa/{uid}, ligado depois de inserir o menu).
+    (temInicio(user) ? '<div class="kt-nav-top">' + ktLink('inicio.html', 'dashboard', 'Início', activePage) +
+      ktLink('cobrancas.html', 'bell', 'Cobranças', activePage).replace('</span></a>', '</span><span class="kt-cobr-n" id="kt-cobr-n" hidden></span></a>') + '</div>' : '') +
     gruposHtml +
     '</nav>' +
     '<div class="kt-sidebar-foot">' +
@@ -1029,6 +1033,7 @@ function renderUnifiedNavbar(user) {
   sidebar.addEventListener('click', function(e) { if (e.target.closest('.kt-nav-link')) closeDrawer(); });
 
   montarSanfona(sidebar, user);
+  if (temInicio(user)) ligarContadorCobrancas(sidebar, user);
 
   // Insere sidebar, hamburger e fundo escurecido no início do body
   body.insertBefore(backdrop, body.firstChild);
@@ -1054,6 +1059,24 @@ function renderUnifiedNavbar(user) {
   if (oldHeader && oldHeader !== sidebar) {
     oldHeader.remove();
   }
+}
+
+/* Contador de cobranças no menu (11/11/2026): quantas cobranças esperam pela
+   pessoa (recebidas abertas + enviadas já respondidas). Só lê a própria caixa.
+   Falha de leitura (regra ainda não publicada, sem rede) só esconde o número. */
+function ligarContadorCobrancas(sidebar, user) {
+  var el = sidebar.querySelector('#kt-cobr-n');
+  if (!el || typeof firebase === 'undefined' || !firebase.database || !user || !user.uid) return;
+  try {
+    firebase.database().ref('cobrancas_caixa/' + user.uid).on('value', function(s) {
+      var n = 0;
+      s.forEach(function(c) { var v = c.val() || {}; if (v.aguardaVoce === true) n++; });
+      el.textContent = n > 99 ? '99+' : String(n);
+      el.hidden = !n;
+      el.setAttribute('aria-label', n + (n === 1 ? ' cobrança espera por você' : ' cobranças esperam por você'));
+      window.kuryosCobrancasPendentes = n;
+    }, function() { el.hidden = true; });
+  } catch (e) { el.hidden = true; }
 }
 
 /* Menu em sanfona (29/09). Pedido do usuário: "os menus acabaram ficando muito

@@ -52,7 +52,7 @@ assert.match(email.corpo, /15\/09\/2026,? 09:21/, 'horário em Brasília');
 assert.match(email.corpo, /Faltou frasco &lt;b&gt;/, 'texto do operador escapado');
 assert.match(email.corpo, /12 — Frasco: riscado/);
 assert.doesNotMatch(email.corpo, /Tampa/, 'perda zerada não aparece');
-assert.match(email.corpo, /href="https:\/\/pcp-kuryos\.vercel\.app\/ops\.html"/);
+assert.match(email.corpo, /href="https:\/\/kuryoserp\.com\.br\/ops\.html"/);
 const acima = OE.montarEmail(Object.assign({}, op, {produzidoLinha: 4500}), '26254-01', null);
 assert.match(acima.corpo, /132 un\. acima do planejado/);
 assert.doesNotMatch(acima.corpo, /Justificativa/);

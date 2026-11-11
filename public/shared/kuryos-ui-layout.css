@@ -301,7 +301,10 @@ body.has-sidebar.kuryos-sidebar-collapsed { padding-left: var(--k-shell-sidebar-
 #unified-navbar .kuryos-brand-mark { position: relative; z-index: 1; background: transparent; box-shadow: none; }
 
 /* Início no topo: a porta de entrada, fora dos blocos. */
-#unified-navbar .kt-nav-top { margin: 0 0 8px; }
+#unified-navbar .kt-nav-top { margin: 0 0 8px; display: grid; gap: 4px; }
+/* Contador de cobranças que esperam pela pessoa (auth_check.js, ligarContadorCobrancas). */
+#unified-navbar .kt-nav-link .kt-cobr-n { margin-left: auto; min-width: 20px; padding: 1px 7px; border-radius: 99px; background: var(--critical, #d92d20); color: #fff !important; font-size: 11px; font-weight: 700; text-align: center; line-height: 18px; }
+#unified-navbar .kt-nav-link .kt-cobr-n[hidden] { display: none !important; }
 
 /* Título do bloco: ícone em quadrado colorido, nome em caixa alta, contador e chevron. */
 #unified-navbar .kt-nav-cap {
