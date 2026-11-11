@@ -5,6 +5,28 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude (sessão `pcp-kuryos-main-0b`) — Restauração dos 8 materiais sobrescritos + nome atual nas versões aprovadas (11/11/2026)
+
+- **Dados: concluído às 16:21** (assumi o bloco da `pcp-kuryos-main-4a`, que não estava mais rodando).
+  Originais de volta em EP-00193/194/195/196/197, ET-00068, MU-00003, MPGR-00144 (registro de 06/11 + edição
+  de 06/11 13:30 no EP-00197, conferida no histórico). Os cadastros que caíram por cima foram para os códigos
+  reservados: EP-00205 bisnaga 200G, EP-00206 bisnaga 150G, EP-00207 tampa 200G, EP-00208 tampa 150G,
+  EP-00209 tampa 50MM (Bauny), ET-00076 fita kraft, MU-00022 etiquetas de patrimônio, MPGR-00150 extrato de
+  urucum, com índice `materiais_chave` e histórico movidos (+ registro da correção nos dois códigos).
+  Re-apontados para o código novo: BOM `PEL-BAUN-0001__v1` (2 itens), 3 cotações, 3 SCs e a solicitação de
+  cadastro do urucum. Nome corrigido nas OPs 26315/04, /05, /06 (código já era o certo). 86 caminhos planos,
+  conferidos um a um no banco depois. Varredura FEBELLA: 20 SKUs, 303 itens de fórmula/BOM, 0 apontando
+  material errado; 7 OPs em aberto sem item trocado. Backups antes/depois e scripts em
+  `scratch/correcao-codigos-materiais-20261111/` (`banco-completo-1615.json`, `corrigir.js`, `*.update.json`).
+- **Código concluído (commit "fix(cadastros): versão aprovada mostra o nome atual do material"):** versão
+  aprovada de Fórmula/BOM em Cadastros mostra o nome ATUAL do cadastro (o mesmo da OP) e, quando difere,
+  "Nome gravado nesta versão" embaixo (`shared/nome-material-versao.js`); redesenha se o cadastro muda com a
+  versão aberta (só em leitura). Dado gravado intocado. Manual de Cadastros e MELHORIAS_FUTURAS atualizados.
+  Testes: `run_nome_material_versao_test` (função + tela no Chrome), bateria de Cadastros 23 OK
+  (`run_trava_aprovados_ui_test` incluso); os 2 `*_rules_test` exigem emulador (sem mudança de regras; regras
+  no ar = repo, 122 nós, conferido 16:2x). VPS já servia `ebc7609` antes deste commit.
+  **Pendente (Marlos):** deploy da VPS com o commit novo. Arquivos ativos: nenhum.
+
 ### Claude — Código de material novo gravava por cima de material existente; trava da saída de carga (11/11/2026)
 
 - **Código concluído (sessão do código; os DADOS estão com a sessão `pcp-kuryos-main-4a`, ver o bloco dela).**
@@ -22,6 +44,20 @@ o bloco do agente que você está operando e mantenha o histórico curto.
      carga e oferece "Abrir essa carga" / "Descartar a tentativa" (`shared/cargas-tela.js`, `cargas-pa.js`).
      `run_cargas_pa_test` 36, `run_expedicao_ui_test` (Chrome) com os cenários novos. Manual da Logística.
   Backlog em `MELHORIAS_FUTURAS.md` (nome do BOM × nome do cadastro, BOMs V1/v1, registros sem cabeçalho).
+
+### Claude (sessão `pcp-kuryos-main-4a`) — DADOS: materiais sobrescritos por código repetido (11/11/2026)
+
+- **Em andamento, só dados de produção (`erpkuryos`); nenhum arquivo de código.** Autorizado pelo Marlos em
+  11/11 ("códigos devem subir, não substituir; arrume toda a cadeia de cadastros alterados").
+  Feito: `config/contadores/materiais` subido (EP 197→209, ES 326→347, ET 68→76, MPES 211→225, MPGR 149→150,
+  MU 3→22), já reservando os códigos novos. A fazer: devolver EP-00193/194/195/196/197, ET-00068, MU-00003 e
+  MPGR-00144 ao material original, dar código novo aos cadastros que caíram por cima, re-apontar BOM em
+  rascunho e corrigir o nome nas OPs 26315/04, /05 e /06. Backups e planos em
+  `scratch/correcao-codigos-materiais-20261111/` (fora do Git). **Não gravar em `/materiais`,
+  `/materiais_chave`, `/historico_materiais`, `/bom`, `/ops` nem nos contadores de material até este bloco
+  dizer "concluído".**
+  **→ Concluído em 11/11 16:21 pela sessão `pcp-kuryos-main-0b` (esta não estava mais rodando); ver o bloco dela
+  acima. Trava liberada.**
   **Pendente:** deploy da VPS; dados (contadores + restauração) pela outra sessão. Arquivos ativos: nenhum.
 
 ### Claude — Espelho do faturamento da Expedição no Financeiro (11/11/2026)

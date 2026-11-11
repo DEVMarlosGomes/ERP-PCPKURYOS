@@ -22,6 +22,7 @@
   <script src="shared/diff-versao.js"></script>
   <script src="shared/historico-itens.js"></script>
   <script src="shared/historico-cadastro.js"></script>
+  <script src="shared/nome-material-versao.js"></script>
   <script>
   /* Histórico do cadastro vivo nos modais de Materiais, Produtos e Fornecedores (10/11/2026).
      Ao editar: justificativa curta obrigatória quando algo muda; cada salvamento grava, no MESMO
@@ -5966,7 +5967,8 @@ document.addEventListener('DOMContentLoaded', function() {
     var ehAjuste = itemKey === itemAjusteKey;
     if (!editavel) {
       return '<tr data-item="' + escapeAttr(itemKey) + '">' +
-        '<td>' + escapeHtml(it.mpCodigo || '') + ' — ' + escapeHtml(it.mpNome || '') + (it.pendente ? ' <span class="badge badge-red">Pendente</span>' : '') + '</td>' +
+        // Nome ATUAL do cadastro, como na emissão da OP; o gravado na versão vai embaixo quando difere (11/11).
+        '<td>' + NomeMaterialVersao.html(it.mpCodigo, it.mpNome, it.mpCodigo ? findMaterialByCodigo(it.mpCodigo) : null, escapeHtml) + (it.pendente ? ' <span class="badge badge-red">Pendente</span>' : '') + '</td>' +
         '<td>' + escapeHtml(it.fase || '') + '</td>' +
         '<td>' + escapeHtml(String(it.ordemAdicao != null ? it.ordemAdicao : '')) + '</td>' +
         '<td>' + fmtNum(it.percentualMM || 0) + '%</td>' +
@@ -6119,7 +6121,8 @@ document.addEventListener('DOMContentLoaded', function() {
         var itemKey = entry[0], it = entry[1];
         if (!editavel) {
           var nLeit = pecasPorUnidadeBom(it);
-          return '<tr><td>' + escapeHtml(it.materialCodigo || '') + ' — ' + escapeHtml(it.materialNome || '') + (it.pendente ? ' <span class="badge badge-red">Pendente</span>' : '') + '</td><td>' + (nLeit ? '1 a cada ' + fmtNum(nLeit) + ' peças' : fmtNum(it.qtdPorPeca || 0)) + '</td><td></td></tr>';
+          // Nome ATUAL do cadastro, como na emissão da OP; o gravado na versão vai embaixo quando difere (11/11).
+          return '<tr><td>' + NomeMaterialVersao.html(it.materialCodigo, it.materialNome, it.materialCodigo ? findMaterialByCodigo(it.materialCodigo) : null, escapeHtml) + (it.pendente ? ' <span class="badge badge-red">Pendente</span>' : '') + '</td><td>' + (nLeit ? '1 a cada ' + fmtNum(nLeit) + ' peças' : fmtNum(it.qtdPorPeca || 0)) + '</td><td></td></tr>';
         }
         return '<tr data-item="' + escapeAttr(itemKey) + '">' +
           '<td><input type="text" class="b-mat-busca" data-item="' + escapeAttr(itemKey) + '" placeholder="Buscar por código, nome ou fornecedor..." value="' + escapeAttr(labelDoMaterialForm(it.materialCodigo)) + '" autocomplete="off">' +
@@ -6480,7 +6483,16 @@ document.addEventListener('DOMContentLoaded', function() {
       allProdutos = snap.val() || {};
       if (produtoDaUrl && allProdutos[produtoDaUrl] && !produtoSelecionadoKey) selecionarProduto(produtoDaUrl);
     });
-    dbOnValue(db.ref('materiais'), function(snap) { allMateriais = snap.val() || {}; });
+    dbOnValue(db.ref('materiais'), function(snap) {
+      allMateriais = snap.val() || {};
+      // A versão aprovada mostra o nome atual do cadastro (shared/nome-material-versao.js): redesenha a que
+      // está aberta quando o cadastro chega ou muda. Em edição não, para não apagar o que se está digitando.
+      if (produtoSelecionadoKey && versaoAtual) {
+        var kv = chaveVersao(produtoSelecionadoKey, versaoAtual);
+        if (allFormulas[kv] && !componenteEditavel('formulas', kv)) renderFormulaTab(kv, allFormulas[kv]);
+        if (allBom[kv] && !componenteEditavel('bom', kv)) renderBomTab(kv);
+      }
+    });
     dbOnValue(db.ref('fornecedores'), function(snap) { allFornecedores = snap.val() || {}; });
     // Semeado/gerenciado na aba Categorias (mesma config/tiposEnsaio) --
     // aqui só lê, pra montar o <select> de Ensaio nas Especificações.

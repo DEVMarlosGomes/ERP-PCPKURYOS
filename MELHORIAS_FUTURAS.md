@@ -6,12 +6,12 @@ Corrigido em 11/11: código de material novo caía em código já usado e gravav
 (`nextSequential` em `public/shared/utils.js`, `saveModal` de material em `public/cadastros.html`,
 `run_contador_materiais_test.js`). Medido na base no mesmo dia e deixado aberto:
 
-- **O BOM/fórmula guarda o nome do material de quando o item foi incluído; a OP mostra o nome
-  atual do cadastro de Materiais** (`nomeMaterialAtual` em `emitir_op.html`, decisão de 30/09).
-  Hoje 957 de 1.484 itens de BOM e 175 de 1.466 itens de fórmula têm nome diferente do cadastro
-  (quase tudo padronização de nome). Quem compara as duas telas vê nomes diferentes para o mesmo
-  código. Retomar em `renderBomTab`/`renderFormulaTab` de `cadastros.html`: mostrar o nome atual
-  do cadastro e, quando diferir, o nome antigo em letra menor.
+- ~~**O BOM/fórmula guarda o nome do material de quando o item foi incluído; a OP mostra o nome
+  atual do cadastro de Materiais**~~ — **feito em 11/11 (tarde):** a versão aprovada em Cadastros
+  mostra o nome atual do cadastro (o mesmo da OP) e, quando difere, "Nome gravado nesta versão" embaixo
+  (`shared/nome-material-versao.js`, `run_nome_material_versao_test.js`). O dado gravado no item não
+  mudou; os 957 + 175 nomes antigos continuam no banco. Ficou aberto: o nome gravado ainda aparece
+  como está em histórico, diff de versão e "Usado em" — se incomodar, aplicar a mesma função lá.
 - **Nenhuma trava impede que um material ativo vire outro por edição.** Código inativo
   ("INATIVO") é reaproveitado editando o nome (EP-00008 em 09/11), e 13 códigos inativos ainda
   estão em BOM/fórmula (MPGR-00002 em 8 fórmulas PRF-BIOF, EP-00133, EP-00175…). Avisar na edição
