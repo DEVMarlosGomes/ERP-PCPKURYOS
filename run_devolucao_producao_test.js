@@ -56,7 +56,6 @@ erro(base(), {justificativa: ' '.repeat(10) + 'x'.repeat(59) + ' '.repeat(10)}, 
 erro(base(), {linha: 'Rotulagem 01'}, /linha de envase/);
 erro(base(), {etapa: 'posto'}, /etapa/);
 erro(base(), {requestId: 'x'}, /Identificador/);
-erro(Object.assign(base(), {status: 'Concluído'}), {}, /Conferência de PA/);
 erro(Object.assign(base(), {status: 'Cancelado'}), {}, /cancelada/);
 erro(Object.assign(base(), {abertaDesde: agora, abertaLinha: 'Linha 2'}), {}, /aberta na Linha 2/);
 erro(Object.assign(base(), {status: 'Em Produção', confirmacaoEtapas: {}}), {}, /não há o que devolver/);
@@ -64,6 +63,27 @@ erro(base(), {data: '2026-11-09'}, /já passou/);
 erro(base(), {duracaoHoras: 0}, /Duração/);
 erro(base(), {hora: '7h'}, /hora/);
 erro(null, {}, /não encontrada/);
+
+// 4b. Concluída por engano (26309/04 real: envase confirmado 4.608 un, status Concluído) também volta.
+{
+  const op = Object.assign(base(), {status: 'Concluído', produzidoLinha: 4608, confirmadoPor: 'PCP', confirmadoEm: '2026-11-10T19:00:00.000Z',
+    statusManualOverride: true, confirmacaoEtapas: {envase: {status: 'CONFIRMADO', quantidade: 4608}}});
+  const r = D.prepararDevolucao(op, dados({etapa: 'envase'}), ctx);
+  assert.equal(r.patch.status, 'Em Produção');
+  assert.equal(r.patch.confirmadoPor, null);
+  assert.equal(r.patch.confirmadoEm, null);
+  assert.equal(r.patch.statusManualOverride, null);
+  assert.match(r.aviso, /estava concluída/);
+  const h = r.patch['historicoAlteracoes/dev_abcdefghijkl'];
+  assert.equal(h.de.status, 'Concluído');
+  assert.equal(h.de.confirmadoEm, '2026-11-10T19:00:00.000Z');
+  assert.equal(h.de.statusManualOverride, true);
+  D.aplicarPatch(op, r.patch);
+  assert.ok(!('confirmadoEm' in op) && !('statusManualOverride' in op) && !op.confirmacaoEtapas.envase);
+  // Concluída sem etapa pendente também volta (a conclusão pode ter vindo pelo seletor de status).
+  const semEtapa = Object.assign(base(), {status: 'Concluído', confirmacaoEtapas: {}});
+  assert.equal(D.prepararDevolucao(semEtapa, dados({etapa: 'rotulagem'}), ctx).patch.status, 'Programado');
+}
 
 // 5. config/linhas como objeto (RTDB devolve array ou mapa).
 assert.equal(D.prepararDevolucao(base(), dados(), Object.assign({}, ctx, {linhas: {0: 'Linha 1'}})).patch.linha, 'Linha 1');

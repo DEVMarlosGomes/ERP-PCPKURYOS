@@ -13,8 +13,15 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   fechada sai de `confirmacaoEtapas` (guardada em `ops/{op}/historicoAlteracoes/{requestId}` com de/para),
   programa linha + `dataInicioPlanejada/Fim` (Brasília), idempotente; transação só no nó da OP. NÃO desfaz
   apontamentos, produzido, baixas de estoque nem e-mail. Tela: botão "↩️ Devolver à produção" no Controle
-  de OPs (`ops.html`). Teste `run_devolucao_producao_test.js`. **Pendente (Marlos):** deploy da VPS e
-  devolver a 26309/04 pela tela. Arquivos ativos: nenhum.
+  de OPs (`ops.html`). Teste `run_devolucao_producao_test.js`.
+- **Complemento (10/11 noite):** a 26309/04 estava **Concluído** e o servidor recusava. Agora OP concluída
+  também volta: `confirmadoPor/confirmadoEm` e `statusManualOverride` saem (guardados em `de`), aviso de que a
+  sobra de empenho liberada na conclusão não volta. ↩️ aparece também para OP concluída. Controle de OPs:
+  coluna Ações presa à direita (sempre visível), tabela cabe sem rolar a partir de ~1536 px, selects sem
+  quebra; modal refeito (estado atual, aviso de concluída, rodapé fixo, Esc fecha). Commitado de worktree
+  separada: o checkout principal tinha um `stash apply` com conflito de outro agente (EditorLote.js,
+  prints-pd-lote.mjs), não tocado. **Pendente (Marlos):** deploy da VPS e devolver a 26309/04.
+  Arquivos ativos: nenhum.
 
 ### Claude — Faturamento da carga chega ao Financeiro (10/11/2026)
 

@@ -285,7 +285,136 @@
       transition: opacity .15s;
     }
     .btn-edit-inline:hover { opacity: 1; }
-    
+
+    /* Tabela de OPs ativas (10/11/2026): 11 colunas não cabem sem rolar; a
+       coluna Ações fica presa à direita para Devolver/Imprimir/Cancelar
+       estarem sempre à vista. Selects não quebram "Linha 1" em duas linhas. */
+    .ops-tabela { min-width: 1180px; }
+    .ops-tabela > thead > tr > th,
+    .ops-tabela > tbody > tr > td { padding-left: 9px; padding-right: 9px; }
+    .ops-tabela .col-cliente { min-width: 96px; }
+    .ops-tabela .col-produto { min-width: 172px; }
+    .ops-tabela select.op-select { min-width: 104px; white-space: nowrap; text-overflow: ellipsis; }
+    .ops-tabela select.op-select-status { min-width: 148px; }
+    .ops-tabela th.col-acoes,
+    .ops-tabela td.col-acoes {
+      position: sticky;
+      right: 0;
+      background: var(--card);
+      box-shadow: -10px 0 12px -12px rgba(15, 23, 42, .35);
+    }
+    .ops-tabela th.col-acoes { z-index: 4; }
+    .ops-tabela td.col-acoes { z-index: 1; }
+    .ops-tabela tr:hover > td.col-acoes { background: color-mix(in srgb, var(--text) 3%, var(--card)); }
+    .acoes-op {
+      display: grid;
+      grid-template-columns: repeat(3, 30px);
+      gap: 4px;
+      justify-content: center;
+    }
+    .acoes-op .btn-edit-inline,
+    .acoes-op .btn-cancel-op {
+      width: 30px;
+      height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      opacity: .72;
+      font-size: 14px;
+      transition: opacity .15s, background-color .15s;
+    }
+    .acoes-op .btn-edit-inline:hover,
+    .acoes-op .btn-cancel-op:hover { opacity: 1; background: color-mix(in srgb, var(--text) 7%, transparent); }
+    .acoes-op .btn-edit-inline:focus-visible,
+    .acoes-op .btn-cancel-op:focus-visible { opacity: 1; outline: 2px solid var(--primary-light); outline-offset: 1px; }
+    .acoes-op .acao-devolver { opacity: 1; color: var(--primary-light); background: color-mix(in srgb, var(--primary-light) 10%, transparent); }
+
+    /* Modal "Devolver à produção" */
+    .dp-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+      background: rgba(15, 23, 42, .48);
+    }
+    .dp-caixa {
+      width: 100%; max-width: 520px; max-height: min(92vh, 780px);
+      display: flex; flex-direction: column;
+      background: var(--card); color: var(--text);
+      border-radius: 16px;
+      box-shadow: 0 24px 48px -12px rgba(15, 23, 42, .35), 0 2px 6px rgba(15, 23, 42, .08);
+      overflow: hidden;
+    }
+    .dp-cabeca {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 20px 22px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .dp-cabeca h2 { margin: 0; font-size: 17px; font-weight: 750; letter-spacing: -.01em; }
+    .dp-sub { margin: 3px 0 0; font-size: 13px; color: var(--muted); }
+    .dp-sub strong { color: var(--text); font-variant-numeric: tabular-nums; }
+    .dp-fechar {
+      margin-left: auto; flex: none;
+      width: 32px; height: 32px; border-radius: 8px;
+      border: none; background: transparent; color: var(--muted);
+      font-size: 20px; line-height: 1; cursor: pointer;
+    }
+    .dp-fechar:hover { background: color-mix(in srgb, var(--text) 7%, transparent); color: var(--text); }
+    .dp-corpo { padding: 16px 22px 4px; overflow-y: auto; }
+    .dp-estado {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin: 0 0 16px; border: 1px solid var(--border); border-radius: 10px;
+    }
+    .dp-estado > div { padding: 9px 12px; min-width: 0; }
+    .dp-estado > div + div { border-left: 1px solid var(--border); }
+    .dp-estado dt { font-size: 11.5px; color: var(--muted); margin: 0 0 2px; }
+    .dp-estado dd { margin: 0; font-size: 13.5px; font-weight: 650; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dp-alerta {
+      margin: 0 0 16px; padding: 10px 12px; border-radius: 10px;
+      font-size: 12.5px; line-height: 1.45;
+      background: color-mix(in srgb, var(--warning) 12%, var(--card));
+      color: var(--text);
+      border: 1px solid color-mix(in srgb, var(--warning) 40%, var(--card));
+    }
+    .dp-campo { margin-bottom: 14px; }
+    .dp-campo label { display: block; font-size: 12.5px; font-weight: 650; margin-bottom: 5px; }
+    .dp-campo :is(select, input, textarea) {
+      width: 100%; box-sizing: border-box;
+      padding: 8px 10px; min-height: 38px;
+      border: 1.5px solid var(--border); border-radius: 8px;
+      background: var(--card); color: var(--text);
+      font: inherit; font-size: 13.5px;
+    }
+    .dp-campo textarea { resize: vertical; min-height: 84px; line-height: 1.45; }
+    .dp-campo :is(select, input, textarea):focus-visible { outline: 2px solid var(--primary-light); outline-offset: 0; border-color: var(--primary-light); }
+    .dp-grade { display: grid; grid-template-columns: 1.3fr 1fr .8fr; gap: 10px; }
+    .dp-contador { display: flex; justify-content: space-between; gap: 8px; margin-top: 5px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .dp-contador.ok { color: var(--success); }
+    .dp-nota { margin: 2px 0 14px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+    .dp-erro {
+      display: none; margin: 0 22px 12px; padding: 10px 12px; border-radius: 10px;
+      font-size: 12.5px; line-height: 1.45; color: var(--danger);
+      background: color-mix(in srgb, var(--danger) 9%, var(--card));
+    }
+    .dp-erro.on { display: block; }
+    .dp-rodape {
+      display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap;
+      padding: 14px 22px 18px; border-top: 1px solid var(--border);
+    }
+    .dp-btn-sec {
+      padding: 8px 16px; border-radius: 8px; cursor: pointer;
+      font-size: 13px; font-weight: 700; font-family: inherit;
+      background: var(--card); color: var(--text); border: 1.5px solid var(--border);
+    }
+    .dp-btn-sec:hover { border-color: var(--muted); }
+    .dp-rodape .btn-sync:disabled { opacity: .45; cursor: not-allowed; }
+    @media (max-width: 520px) {
+      .dp-estado { grid-template-columns: 1fr 1fr; }
+      .dp-estado > div:nth-child(3) { grid-column: 1 / -1; border-left: none; border-top: 1px solid var(--border); }
+      .dp-grade { grid-template-columns: 1fr 1fr; }
+      .dp-grade > :first-child { grid-column: 1 / -1; }
+    }
+
     .progress-bar-container {
       width: 100%;
       background: #e2e8f0;
@@ -450,20 +579,20 @@
     </div>
     <div class="card" data-ui="surface">
       <div class="table-container" data-ui="table-scroll">
-        <table>
+        <table class="ops-tabela">
           <thead id="opsThead">
             <tr>
               <th style="width: 110px;" data-sort="lote">OP / Lote</th>
-              <th data-sort="cliente">Cliente</th>
-              <th data-sort="produto">Produto / Descrição</th>
-              <th style="width: 120px;" data-sort="linha">Linha</th>
-              <th style="width: 170px;">Programação</th>
-              <th style="width: 150px;">Pedido Comercial</th>
+              <th class="col-cliente" data-sort="cliente">Cliente</th>
+              <th class="col-produto" data-sort="produto">Produto / Descrição</th>
+              <th style="width: 122px;" data-sort="linha">Linha</th>
+              <th style="width: 150px;">Programação</th>
+              <th style="width: 128px;">Pedido Comercial</th>
               <th style="width: 44px; text-align:center;" title="Prioridade do pedido (1 = primeiro). Definida em Pedidos.">Prio.</th>
               <th style="width: 120px;" title="Data de entrega definida pelo PCP para o item deste pedido (editável em Pedidos).">Entrega (PCP)</th>
-              <th style="width: 180px;" title="Produto acabado conferido pela Logística (estoque + expedido). Passe o mouse na barra para ver cada etapa.">Produto Acabado</th>
-              <th style="width: 160px;" data-sort="status">Status da OP</th>
-              <th style="width: 60px; text-align: center;">Ações</th>
+              <th style="width: 160px;" title="Produto acabado conferido pela Logística (estoque + expedido). Passe o mouse na barra para ver cada etapa.">Produto Acabado</th>
+              <th style="width: 172px;" data-sort="status">Status da OP</th>
+              <th class="col-acoes" style="width: 118px; text-align: center;">Ações</th>
             </tr>
           </thead>
           <tbody id="ops-tbody">
@@ -1850,8 +1979,8 @@
     return `
       <tr>
         <td><strong>${escapedLote}</strong></td>
-        <td>${escapedCliente}</td>
-        <td>
+        <td class="col-cliente">${escapedCliente}</td>
+        <td class="col-produto">
           <div style="font-weight: 600;">${escapedProduto}</div>
           <div style="font-size: 11.5px; color: var(--muted); margin-top: 1px;">SKU: ${escapedSku}</div>
           ${selosOpHtml(op, !!derivedParentId)}
@@ -1859,7 +1988,7 @@
         </td>
         <td>
           ${isAdmin
-            ? `<select onchange="updateOpField('${escapedKeyAttr}', 'linha', this.value)">${optionsHtml}</select>`
+            ? `<select class="op-select" aria-label="Linha da OP ${escapeAttr(op.lote || op.key)}" onchange="updateOpField('${escapedKeyAttr}', 'linha', this.value)">${optionsHtml}</select>`
             : `<span>${escapedLinha}</span>`}
         </td>
         <td id="programacaoCell-${escapedKeyAttr}">${programacaoCellHtml(op, escapedKeyAttr, isAdmin)}</td>
@@ -1880,7 +2009,7 @@
           ${isCancelada
             ? `<span class="badge-status cancelado" title="${escapeAttr('Cancelada' + (op.motivoCancelamento ? ': ' + op.motivoCancelamento : ''))}">Cancelada</span>`
             : (isAdmin
-              ? `<select onchange="updateOpField('${escapedKeyAttr}', 'status', this.value)">
+              ? `<select class="op-select op-select-status" aria-label="Status da OP ${escapeAttr(op.lote || op.key)}" onchange="updateOpField('${escapedKeyAttr}', 'status', this.value)">
                    <option value="Não Iniciado" ${op.status === 'Não Iniciado' ? 'selected' : ''}>Não Iniciado</option>
                    <option value="Programado" ${op.status === 'Programado' ? 'selected' : ''}>Programado</option>
                    <option value="Em Produção" ${op.status === 'Em Produção' ? 'selected' : ''}>Em Produção</option>
@@ -1895,26 +2024,26 @@
                   : ``)
               : `<span class="badge-status ${statusClass}">${escapedStatus}</span>`)}
         </td>
-        <td style="text-align: center; white-space: nowrap;">
-          ${op.materiaisConsumo
-            ? `<button class="btn-edit-inline" onclick="reimprimirFichas('${escapedKeyAttr}')" title="Reimprimir as 5 fichas desta OP (só disponível pras emitidas por Emitir OP -- OP vinda do Excel não tem esse dado gravado)">🖨️</button>`
+        <td class="col-acoes"><div class="acoes-op">
+          ${!isCancelada && canConfirmOp() && !op.abertaDesde && (op.status === 'Concluído' || Object.keys(op.confirmacaoEtapas || {}).length)
+            ? `<button class="btn-edit-inline acao-devolver" data-devolver-producao="${escapedKeyAttr}" onclick="abrirDevolverProducaoModal('${escapedKeyAttr}', '${escapeAttr(Object.keys(op.confirmacaoEtapas || {})[0] || 'envase')}')" title="Fechada ou concluída por engano? Devolver à produção e programar numa linha" aria-label="Devolver OP ${escapeAttr(op.lote || op.key)} à produção">↩️</button>`
             : ``}
           ${op.materiaisConsumo
-            ? `<button class="btn-edit-inline" onclick="reimprimirEtiquetas('${escapedKeyAttr}')" title="Reimprimir etiquetas de caixa de embarque desta OP">🏷️</button>`
+            ? `<button class="btn-edit-inline" onclick="reimprimirFichas('${escapedKeyAttr}')" title="Reimprimir as 5 fichas desta OP (só disponível pras emitidas por Emitir OP -- OP vinda do Excel não tem esse dado gravado)" aria-label="Reimprimir fichas">🖨️</button>`
             : ``}
-          ${!isCancelada && canConfirmOp() && !op.abertaDesde && Object.keys(op.confirmacaoEtapas || {}).length
-            ? `<button class="btn-edit-inline" data-devolver-producao="${escapedKeyAttr}" onclick="abrirDevolverProducaoModal('${escapedKeyAttr}', '${escapeAttr(Object.keys(op.confirmacaoEtapas)[0])}')" title="Etapa fechada por engano? Devolver à produção e programar numa linha">↩️</button>`
+          ${op.materiaisConsumo
+            ? `<button class="btn-edit-inline" onclick="reimprimirEtiquetas('${escapedKeyAttr}')" title="Reimprimir etiquetas de caixa de embarque desta OP" aria-label="Reimprimir etiquetas">🏷️</button>`
             : ``}
           ${!isCancelada && !RetrabalhoOp.ehRetrabalho(op)
-            ? `<button class="btn-edit-inline" onclick="abrirRetrabalhoModal('${escapedKeyAttr}')" title="Abrir uma OP de retrabalho deste lote — não cria produção nova">♻️</button>`
+            ? `<button class="btn-edit-inline" onclick="abrirRetrabalhoModal('${escapedKeyAttr}')" title="Abrir uma OP de retrabalho deste lote — não cria produção nova" aria-label="Abrir retrabalho">♻️</button>`
             : ``}
           ${isAdmin
             ? (!isCancelada
-                ? `<button class="btn-cancel-op" onclick="cancelOp('${escapedKeyAttr}')" title="Cancelar OP (mantém o registro, some das listas ativas)">🚫</button>`
+                ? `<button class="btn-cancel-op" onclick="cancelOp('${escapedKeyAttr}')" title="Cancelar OP (mantém o registro, some das listas ativas)" aria-label="Cancelar OP">🚫</button>`
                 : ``)
             : ``}
-          ${!op.materiaisConsumo && (!isAdmin || isCancelada) ? `-` : ``}
-        </td>
+          ${!op.materiaisConsumo && (!isAdmin || isCancelada) ? `<span style="grid-column:1/-1;color:var(--muted)">—</span>` : ``}
+        </div></td>
       </tr>
     `;
   }
@@ -1978,57 +2107,87 @@
     const requestId = 'dev' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
     const overlay = document.createElement('div');
     overlay.id = 'devProdOverlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px';
-    const campo = 'width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;margin-bottom:12px;background:var(--card);color:var(--text)';
-    const rot = 'font-size:12px;font-weight:700;display:block;margin-bottom:4px';
+    overlay.className = 'dp-overlay';
     const etapaTxt = (k) => (ConfirmacaoEtapas.ROTULOS[k] || k) + (etapas[k] ? ' (' + (etapas[k].status === 'CONFIRMADO' ? 'confirmada' : 'aguardando PCP') + ', ' + Number(etapas[k].quantidade || 0).toLocaleString('pt-BR') + ' un)' : '');
+    const concluida = op.status === 'Concluído';
+    const envasado = Number(op.produzidoLinha || 0);
+    const planejado = Number(op.qtdPlanejada || 0);
     const box = document.createElement('div');
+    box.className = 'dp-caixa';
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-modal', 'true');
-    box.style.cssText = 'background:var(--card);border-radius:16px;padding:22px;max-width:460px;width:100%;box-shadow:var(--shadow);max-height:92vh;overflow:auto';
+    box.setAttribute('aria-labelledby', 'devProdTitulo');
     box.innerHTML = `
-      <div style="font-weight:800;font-size:16px;margin-bottom:6px">↩️ Devolver OP ${escapeHtml(op.lote || opKey)} à produção</div>
-      <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">${escapeHtml(op.produto || '')} · status atual: <b>${escapeHtml(op.status || '-')}</b>.
-        A OP volta a ficar alocável e é programada na linha escolhida. Apontamentos, quantidades e baixas de estoque <b>não</b> são desfeitos: corrija quantidade errada no Histórico.</div>
-      <label style="${rot}" for="devProdEtapa">Etapa fechada por engano</label>
-      <select id="devProdEtapa" style="${campo}">${['envase', 'rotulagem'].map(k => `<option value="${k}" ${k === etapaSugerida ? 'selected' : ''}>${escapeHtml(etapaTxt(k))}</option>`).join('')}</select>
-      <label style="${rot}" for="devProdLinha">Linha de envase</label>
-      <select id="devProdLinha" style="${campo}">${linhas.length ? linhas.map(l => `<option value="${escapeAttr(l)}" ${l === op.linha ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('') : '<option value="">— nenhuma linha cadastrada em Ajustes —</option>'}</select>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px">
-        <div><label style="${rot}" for="devProdData">Data</label><input type="date" id="devProdData" value="${toLocalISODate(amanha)}" style="${campo}"></div>
-        <div><label style="${rot}" for="devProdHora">Início</label><input type="time" id="devProdHora" value="07:00" step="900" style="${campo}"></div>
-        <div><label style="${rot}" for="devProdDur">Duração (h)</label><input type="number" id="devProdDur" value="8" min="0.25" max="72" step="0.25" style="${campo}"></div>
+      <div class="dp-cabeca">
+        <div style="min-width:0">
+          <h2 id="devProdTitulo">Devolver à produção</h2>
+          <p class="dp-sub">OP <strong>${escapeHtml(op.lote || opKey)}</strong> · ${escapeHtml(op.produto || '')}</p>
+        </div>
+        <button type="button" class="dp-fechar" id="devProdX" aria-label="Fechar">×</button>
       </div>
-      <label style="${rot}" for="devProdJust">Justificativa (mínimo ${MIN_JUST_DEVOLUCAO} caracteres)</label>
-      <textarea id="devProdJust" rows="3" maxlength="1000" style="${campo};resize:vertical;margin-bottom:4px"></textarea>
-      <div id="devProdCont" aria-live="polite" style="font-size:11.5px;color:var(--muted);margin-bottom:12px">0 / ${MIN_JUST_DEVOLUCAO}</div>
-      <div id="devProdErro" role="alert" style="color:var(--danger);font-size:12px;margin-bottom:10px;display:none"></div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
-        <button type="button" id="devProdVoltar" class="btn-sync" style="background:var(--card);color:var(--text);border:1.5px solid var(--border)">Voltar</button>
+      <div class="dp-corpo">
+        <dl class="dp-estado">
+          <div><dt>Status atual</dt><dd>${escapeHtml(op.status || '—')}</dd></div>
+          <div><dt>Envasado</dt><dd>${envasado.toLocaleString('pt-BR')}${planejado ? ' / ' + planejado.toLocaleString('pt-BR') : ''} un</dd></div>
+          <div><dt>Linha atual</dt><dd>${escapeHtml(op.linha || '—')}</dd></div>
+        </dl>
+        ${concluida ? `<div class="dp-alerta">A OP está <b>concluída</b>. Ao devolver, a conclusão é desfeita e ela volta para ${envasado > 0 ? '<b>Em Produção</b>' : '<b>Programado</b>'} na linha escolhida. A sobra de empenho liberada na conclusão não volta.</div>` : ''}
+        <div class="dp-campo">
+          <label for="devProdEtapa">Etapa fechada por engano</label>
+          <select id="devProdEtapa">${['envase', 'rotulagem'].map(k => `<option value="${k}" ${k === etapaSugerida ? 'selected' : ''}>${escapeHtml(etapaTxt(k))}</option>`).join('')}</select>
+        </div>
+        <div class="dp-campo">
+          <label for="devProdLinha">Programar na linha de envase</label>
+          <select id="devProdLinha">${linhas.length ? linhas.map(l => `<option value="${escapeAttr(l)}" ${l === op.linha ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('') : '<option value="">Nenhuma linha cadastrada em Ajustes</option>'}</select>
+        </div>
+        <div class="dp-grade">
+          <div class="dp-campo"><label for="devProdData">Data</label><input type="date" id="devProdData" value="${toLocalISODate(amanha)}"></div>
+          <div class="dp-campo"><label for="devProdHora">Início</label><input type="time" id="devProdHora" value="07:00" step="900"></div>
+          <div class="dp-campo"><label for="devProdDur">Duração (h)</label><input type="number" id="devProdDur" value="8" min="0.25" max="72" step="0.25"></div>
+        </div>
+        <div class="dp-campo">
+          <label for="devProdJust">Justificativa</label>
+          <textarea id="devProdJust" rows="3" maxlength="1000" aria-describedby="devProdCont" placeholder="O que aconteceu e por que a OP volta para a produção"></textarea>
+          <div class="dp-contador" id="devProdCont" aria-live="polite"><span>Mínimo de ${MIN_JUST_DEVOLUCAO} caracteres</span><span>0 / ${MIN_JUST_DEVOLUCAO}</span></div>
+        </div>
+        <p class="dp-nota">Apontamentos, quantidades produzidas e baixas de estoque <b>não</b> são desfeitos. Quantidade lançada errada se corrige no Histórico de Apontamentos.</p>
+      </div>
+      <div class="dp-erro" id="devProdErro" role="alert"></div>
+      <div class="dp-rodape">
+        <button type="button" id="devProdVoltar" class="dp-btn-sec">Voltar</button>
         <button type="button" id="devProdConfirmar" class="btn-sync" disabled>Devolver à produção</button>
       </div>`;
     overlay.appendChild(box);
     document.body.appendChild(overlay);
     const el = (id) => document.getElementById(id);
     let enviando = false;
-    const fechar = () => { if (!enviando && overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+    const aoTeclar = (e) => { if (e.key === 'Escape') fechar(); };
+    const fechar = () => {
+      if (enviando || !overlay.parentNode) return;
+      overlay.parentNode.removeChild(overlay);
+      document.removeEventListener('keydown', aoTeclar);
+    };
+    document.addEventListener('keydown', aoTeclar);
     el('devProdVoltar').onclick = fechar;
+    el('devProdX').onclick = fechar;
     overlay.addEventListener('click', (e) => { if (e.target === overlay) fechar(); });
     const just = el('devProdJust');
+    const mostrarErro = (msg) => { const e = el('devProdErro'); e.textContent = msg || ''; e.classList.toggle('on', !!msg); };
     const atualizar = () => {
       const n = just.value.trim().length;
-      el('devProdCont').textContent = n + ' / ' + MIN_JUST_DEVOLUCAO + (n < MIN_JUST_DEVOLUCAO ? ' — faltam ' + (MIN_JUST_DEVOLUCAO - n) : ' ✓');
-      el('devProdCont').style.color = n < MIN_JUST_DEVOLUCAO ? 'var(--muted)' : 'var(--success)';
+      const cont = el('devProdCont');
+      cont.classList.toggle('ok', n >= MIN_JUST_DEVOLUCAO);
+      cont.lastElementChild.textContent = n + ' / ' + MIN_JUST_DEVOLUCAO + (n >= MIN_JUST_DEVOLUCAO ? ' ✓' : '');
+      cont.firstElementChild.textContent = n < MIN_JUST_DEVOLUCAO ? 'Faltam ' + (MIN_JUST_DEVOLUCAO - n) + ' caracteres' : 'Justificativa suficiente';
       el('devProdConfirmar').disabled = enviando || n < MIN_JUST_DEVOLUCAO || !linhas.length;
     };
     just.addEventListener('input', atualizar);
     just.focus();
     el('devProdConfirmar').onclick = () => {
-      const erro = el('devProdErro');
-      erro.style.display = 'none';
+      mostrarErro('');
       const dados = {acao: 'DEVOLVER_PRODUCAO', opKey, requestId, etapa: el('devProdEtapa').value, linha: el('devProdLinha').value,
         data: el('devProdData').value, hora: el('devProdHora').value, duracaoHoras: Number(el('devProdDur').value), justificativa: just.value.trim()};
-      if (dados.justificativa.length < MIN_JUST_DEVOLUCAO) { erro.textContent = 'Justificativa com pelo menos ' + MIN_JUST_DEVOLUCAO + ' caracteres.'; erro.style.display = 'block'; return; }
+      if (dados.justificativa.length < MIN_JUST_DEVOLUCAO) { mostrarErro('Justificativa com pelo menos ' + MIN_JUST_DEVOLUCAO + ' caracteres.'); return; }
       enviando = true; atualizar();
       el('devProdConfirmar').textContent = 'Devolvendo...';
       firebase.functions().httpsCallable('rearranjarLinhas')(dados).then((r) => {
@@ -2038,8 +2197,7 @@
       }).catch((err) => {
         enviando = false;
         el('devProdConfirmar').textContent = 'Devolver à produção';
-        erro.textContent = err.message || 'Não foi possível devolver a OP.';
-        erro.style.display = 'block';
+        mostrarErro(err.message || 'Não foi possível devolver a OP.');
         atualizar();
       });
     };

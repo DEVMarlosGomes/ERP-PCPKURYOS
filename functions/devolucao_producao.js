@@ -25,7 +25,8 @@
        fechamento por total do setor recalcula o delta contra eles;
      - baixas de estoque e empenhos já feitos (Dia D: saldo não é base de decisão);
      - e-mail de OP encerrada já enviado.
-   OP Concluída (Conferência de PA aberta) ou Cancelada não volta por aqui. */
+   OP Concluída por engano também volta (confirmadoPor/confirmadoEm e a trava
+   manual de status saem; ficam no histórico). Cancelada não volta por aqui. */
 
 const ETAPAS = {envase: 'Envase', rotulagem: 'Rotulagem'};
 const MIN_JUSTIFICATIVA = 60;
@@ -68,11 +69,14 @@ function prepararDevolucao(op, dados, ctx) {
 
   const status = String(op.status || '');
   if (status === 'Cancelado') falhar('OP cancelada não volta à produção.');
-  if (status === 'Concluído') falhar('OP já concluída pelo PCP: a Conferência de PA foi aberta. Ela não volta por aqui; fale com o ADM.');
   if (op.abertaDesde) falhar('A OP está aberta na ' + (op.abertaLinha || 'linha') + '. Ela já está em produção.');
 
+  // Concluída por engano (10/11/2026, 26309/04): também volta. A conclusão só
+  // grava status/confirmadoPor/confirmadoEm (e libera a sobra do empenho);
+  // esses campos saem e o valor anterior fica no histórico.
+  const concluida = status === 'Concluído';
   const etapaAntes = (op.confirmacaoEtapas || {})[etapa] || null;
-  if (status !== 'Aguardando Confirmação' && !etapaAntes) {
+  if (!concluida && status !== 'Aguardando Confirmação' && !etapaAntes) {
     falhar('A OP não foi fechada no ' + ETAPAS[etapa].toLowerCase() + ': não há o que devolver. Para só programar, use a Grade de OPs.');
   }
 
@@ -82,15 +86,22 @@ function prepararDevolucao(op, dados, ctx) {
   const envasado = num(op.produzidoLinha);
   const novoStatus = envasado > 0 ? 'Em Produção' : 'Programado';
   const planejada = num(op.qtdPlanejada);
-  const aviso = planejada > 0 && envasado / planejada >= 0.95
-    ? 'O envase já soma ' + envasado + ' de ' + planejada + ' un (95% ou mais): o próximo apontamento de envase devolve a OP ao PCP. Se a quantidade foi lançada por engano, corrija o apontamento no Histórico.'
-    : '';
+  const avisos = [];
+  if (planejada > 0 && envasado / planejada >= 0.95) {
+    avisos.push('O envase já soma ' + envasado + ' de ' + planejada + ' un (95% ou mais): o próximo apontamento de envase devolve a OP ao PCP. Se a quantidade foi lançada por engano, corrija o apontamento no Histórico.');
+  }
+  if (concluida) {
+    avisos.push('A OP estava concluída: a sobra de empenho liberada na conclusão não volta, e paletes já declarados na Conferência de PA continuam lá.');
+  }
+  const aviso = avisos.join(' ');
 
   const resumo = {
     tipo: 'DEVOLUCAO_PRODUCAO', em: ctx.agora, por: ctx.autor || ctx.uid || '', porUid: ctx.uid || '',
     justificativa, etapa,
     de: {status: status || null, linha: op.linha || null, dataInicioPlanejada: op.dataInicioPlanejada || null,
-      dataFimPlanejada: op.dataFimPlanejada || null, emFila: op.emFila || null, confirmacaoEtapa: etapaAntes},
+      dataFimPlanejada: op.dataFimPlanejada || null, emFila: op.emFila || null, confirmacaoEtapa: etapaAntes,
+      confirmadoPor: op.confirmadoPor || null, confirmadoEm: op.confirmadoEm || null,
+      statusManualOverride: op.statusManualOverride || null},
     para: {status: novoStatus, linha, dataInicioPlanejada: horario.inicio, dataFimPlanejada: horario.fim},
     naoDesfeito: 'apontamentos, quantidades produzidas, baixas de estoque e e-mails já enviados'
   };
@@ -103,6 +114,10 @@ function prepararDevolucao(op, dados, ctx) {
     dataFimPlanejada: horario.fim,
     emFila: null,
     ['confirmacaoEtapas/' + etapa]: null,
+    // Status volta ao cálculo automático; conclusão desfeita (fica em "de").
+    statusManualOverride: null,
+    confirmadoPor: null,
+    confirmadoEm: null,
     ['historicoAlteracoes/' + requestId]: resumo
   };
   return {patch, aviso, resumo};
