@@ -399,12 +399,15 @@
   }
   /* Parcelas abertas de um título: as derivadas da condição (do título ou a
      informada em fin/condicoes), com o já pago/abatido abatendo da mais antiga. */
-  function situacao(id, t, mov, condInformada) {
+  // Ordem do vencimento: vencimento fixo do título > duplicatas da NF (XML) >
+  // prazo informado no Financeiro > condição do pedido.
+  function situacao(id, t, mov, condInformada, nota) {
     var m = mov || { baixas: [], abatimentos: [], pago: 0, abatido: 0 };
     var valor = num(t.valorCentavos), saldo = valor - m.pago - m.abatido;
     var cond = condInformada && condInformada.condicao ? condInformada.condicao : t.condicao;
-    var ps;
-    if (t.vencimentoFixo) ps = { ok: true, parcelas: [{ n: 1, de: 1, vencimento: t.vencimentoFixo, valorCentavos: valor, tipo: 'PRAZO' }], avisos: [] };
+    var ps, fonte = 'CONDICAO', daNota = !t.vencimentoFixo && nota ? parcelasDaNota(nota, valor) : null;
+    if (t.vencimentoFixo) { ps = { ok: true, parcelas: [{ n: 1, de: 1, vencimento: t.vencimentoFixo, valorCentavos: valor, tipo: 'PRAZO' }], avisos: [] }; fonte = 'VENCIMENTO_FIXO'; }
+    else if (daNota) { ps = { ok: true, parcelas: daNota, avisos: [] }; fonte = 'NF_XML'; }
     else if (condInformada && condInformada.vencimento) ps = { ok: true, parcelas: [{ n: 1, de: 1, vencimento: condInformada.vencimento, valorCentavos: valor, tipo: 'PRAZO' }], avisos: [] };
     else ps = parcelas(cond, condInformada && condInformada.base || t.baseVencimento, valor);
     var abertas = [];
@@ -417,13 +420,14 @@
     }
     var status = saldo <= 0 ? (m.abatido >= valor && m.pago <= 0 ? 'ABATIDO' : 'QUITADO') : (m.pago + m.abatido > 0 ? 'PARCIAL' : 'ABERTO');
     return { id: id, titulo: t, saldoCentavos: Math.max(0, saldo), pagoCentavos: m.pago, abatidoCentavos: m.abatido, status: status,
+      fonteParcelas: fonte, nota: nota ? { chave: nota.chave, numero: nota.numero, serie: nota.serie } : null,
       semVencimento: !ps.ok && saldo > 0, motivoVencimento: ps.ok ? null : ps.motivo, parcelas: ps.ok ? ps.parcelas : [], abertas: abertas,
       avisos: ps.avisos || [], baixas: m.baixas, abatimentos: m.abatimentos };
   }
   function carteira(fin) {
-    var f = fin || {}, mov = movimentosPorTitulo(f), cond = f.condicoes || {}, bloq = f.bloqueios || {};
+    var f = fin || {}, mov = movimentosPorTitulo(f), cond = f.condicoes || {}, bloq = f.bloqueios || {}, nt = notasPorTitulo(f);
     return Object.keys(f.titulos || {}).map(function(id) {
-      var s = situacao(id, f.titulos[id], mov[id], cond[id]);
+      var s = situacao(id, f.titulos[id], mov[id], cond[id], nt[id]);
       s.bloqueio = bloq[id] && bloq[id].ativo !== false ? bloq[id] : null;
       return s;
     });
@@ -431,7 +435,7 @@
 
   /* Complementos: tudo que a derivação não completou + títulos sem vencimento. */
   function complementos(base) {
-    var b = base || {}, lista = derivar(b).complementosDerivacao.slice();
+    var b = base || {}, lista = derivar(b).complementosDerivacao.concat(pendenciasNotas(b));
     carteira(b.fin).forEach(function(s) {
       if (s.semVencimento) lista.push({ id: s.id, tipo: 'SEM_VENCIMENTO', origem: s.titulo.origem, titulo: s.id,
         texto: (s.titulo.tipo === 'PAGAR' ? 'A pagar' : 'A receber') + ' ' + (s.titulo.parceiro && s.titulo.parceiro.nome || '') + ' — ' + (s.titulo.documento || s.id) + ': ' + s.motivoVencimento,
@@ -498,7 +502,8 @@
     return { ok: true, titulo: { tipo: tipo, origem: { tipo: origemTipo || 'MANUAL', ref: null }, parceiro: { tipo: tipo === 'PAGAR' ? 'FORNECEDOR' : 'CLIENTE', key: x.parceiroKey || null, nome: nome.slice(0, 120), cnpj: String(x.cnpj || '').trim() || null },
       documento: String(x.documento || '').trim().slice(0, 60) || null, emissao: emissao, competencia: emissao.slice(0, 7), valorCentavos: v, moeda: 'BRL',
       natureza: nat, porNatureza: null, centroCusto: x.centroCusto || null, condicao: cond,
-      vencimentoFixo: x.vencimento ? String(x.vencimento).slice(0, 10) : null, baseVencimento: emissao, historico: String(x.historico || '').slice(0, 300) || null, versao: VERSAO } };
+      vencimentoFixo: x.vencimento ? String(x.vencimento).slice(0, 10) : null, baseVencimento: emissao, historico: String(x.historico || '').slice(0, 300) || null,
+      notaChave: /^\d{44}$/.test(String(x.notaChave || '')) ? String(x.notaChave) : null, versao: VERSAO } };
   }
   /* Planilha de títulos em aberto (colar do Excel): tipo;parceiro;cnpj;documento;emissao;vencimento;valor;natureza
      Aceita ; ou TAB, data DD/MM/AAAA ou AAAA-MM-DD, valor 1.234,56. */
@@ -681,6 +686,148 @@
     return { candidatos: titulos };
   }
 
+  /* ── NF de entrada por XML (F5, 10/11/2026 — docs/financeiro-fase0-lacunas.md) ──
+     Lê o XML da NF-e modelo 55 sem DOM (igual no navegador e no servidor), só as
+     tags de que o financeiro precisa. As DUPLICATAS (cobr/dup) são o vencimento
+     oficial. O XML não dá entrada no estoque: isso continua sendo do recebimento. */
+  function soDigitos(v) { return String(v == null ? '' : v).replace(/\D/g, ''); }
+  function semZeros(v) { var d = soDigitos(v); return d ? d.replace(/^0+(?=\d)/, '') : ''; }
+  // "1234.5" (decimal do XML, sempre com ponto) -> centavos, sem passar por ponto flutuante.
+  function decCentavos(s) {
+    var t = String(s == null ? '' : s).trim();
+    if (!/^-?\d+(\.\d+)?$/.test(t)) return null;
+    var neg = t.charAt(0) === '-'; if (neg) t = t.slice(1);
+    var p = t.split('.'), dec = (p[1] || '') + '000';
+    var c = Number(p[0]) * 100 + Number(dec.slice(0, 2)) + (Number(dec.charAt(2)) >= 5 ? 1 : 0);
+    return neg ? -c : c;
+  }
+  function xmlTexto(v) {
+    return String(v).replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&').trim();
+  }
+  function tagRe(nome) { return new RegExp('<(?:[A-Za-z_][\\w.-]*:)?' + nome + '(?:\\s[^>]*)?>([\\s\\S]*?)</(?:[A-Za-z_][\\w.-]*:)?' + nome + '>', 'g'); }
+  function tagXml(xml, nome) { var m = tagRe(nome).exec(xml || ''); return m ? m[1] : null; }
+  function tagsXml(xml, nome) { var re = tagRe(nome), out = [], m; while ((m = re.exec(xml || ''))) out.push(m[1]); return out; }
+  function valXml(xml, nome) { var v = tagXml(xml, nome); return v == null ? null : xmlTexto(v); }
+  function numerosNf(txt) { return (String(txt == null ? '' : txt).match(/\d+/g) || []).map(semZeros); }
+
+  function lerXmlNfe(texto) {
+    var x = String(texto || '');
+    var idm = x.match(/<(?:[A-Za-z_][\w.-]*:)?infNFe\b[^>]*\bId="NFe(\d{44})"/);
+    var inf = tagXml(x, 'infNFe');
+    if (!inf) return { ok: false, motivo: 'Não é o XML de uma NF-e (falta o grupo infNFe).' };
+    var chave = idm ? idm[1] : soDigitos(valXml(x, 'chNFe'));
+    if (!/^\d{44}$/.test(chave)) return { ok: false, motivo: 'Chave de acesso (44 dígitos) não encontrada.' };
+    var ide = tagXml(inf, 'ide') || '', emit = tagXml(inf, 'emit') || '', dest = tagXml(inf, 'dest') || '';
+    var tot = tagXml(tagXml(inf, 'total') || '', 'ICMSTot') || '';
+    var modelo = valXml(ide, 'mod');
+    if (modelo && modelo !== '55') return { ok: false, motivo: 'Modelo ' + modelo + ': só a NF-e (modelo 55) entra aqui.' };
+    var emissao = String(valXml(ide, 'dhEmi') || valXml(ide, 'dEmi') || '').slice(0, 10);
+    if (!dataOk(emissao)) return { ok: false, motivo: 'Data de emissão inválida.' };
+    var numero = semZeros(valXml(ide, 'nNF'));
+    if (!numero) return { ok: false, motivo: 'Número da nota (nNF) ausente.' };
+    var valor = decCentavos(valXml(tot, 'vNF'));
+    if (!(valor > 0)) return { ok: false, motivo: 'Valor total da nota (vNF) ausente.' };
+    var cnpj = soDigitos(valXml(emit, 'CNPJ') || valXml(emit, 'CPF'));
+    if (!cnpj) return { ok: false, motivo: 'CNPJ do emitente ausente.' };
+    var dups = tagsXml(tagXml(inf, 'cobr') || '', 'dup').map(function(d) {
+      return { numero: valXml(d, 'nDup') || null, vencimento: String(valXml(d, 'dVenc') || '').slice(0, 10), valorCentavos: decCentavos(valXml(d, 'vDup')) };
+    });
+    var avisos = [];
+    var dupRuim = dups.some(function(d) { return !dataOk(d.vencimento) || !(d.valorCentavos > 0); });
+    if (dupRuim) { avisos.push('Duplicata com vencimento ou valor inválido: o vencimento da nota não será usado.'); dups = []; }
+    var somaDup = dups.reduce(function(s, d) { return s + d.valorCentavos; }, 0);
+    if (dups.length && somaDup !== valor) avisos.push('As duplicatas somam R$ ' + (somaDup / 100).toFixed(2) + ' e a nota R$ ' + (valor / 100).toFixed(2) + ' (desconto ou retenção na fatura).');
+    if (!dups.length && !dupRuim) avisos.push('Nota sem duplicatas: o vencimento segue a condição do pedido de compra.');
+    var itens = tagsXml(inf, 'det').map(function(d) {
+      var p = tagXml(d, 'prod') || '';
+      return { codigo: valXml(p, 'cProd'), descricao: String(valXml(p, 'xProd') || '').slice(0, 120), quantidade: num(valXml(p, 'qCom')),
+        unidade: valXml(p, 'uCom'), valorCentavos: decCentavos(valXml(p, 'vProd')), cfop: valXml(p, 'CFOP') };
+    });
+    return { ok: true, avisos: avisos, nota: {
+      chave: chave, modelo: '55', numero: numero, serie: semZeros(valXml(ide, 'serie')) || '0', emissao: emissao, tipoOperacao: valXml(ide, 'tpNF'),
+      emitente: { cnpj: cnpj, nome: String(valXml(emit, 'xNome') || '').slice(0, 120), fantasia: String(valXml(emit, 'xFant') || '').slice(0, 120) || null },
+      destinatarioCnpj: soDigitos(valXml(dest, 'CNPJ') || valXml(dest, 'CPF')) || null,
+      valorTotalCentavos: valor, valorProdutosCentavos: decCentavos(valXml(tot, 'vProd')), freteCentavos: decCentavos(valXml(tot, 'vFrete')) || 0,
+      descontoCentavos: decCentavos(valXml(tot, 'vDesc')) || 0, duplicatas: dups, itens: itens.slice(0, 200), totalItens: itens.length } };
+  }
+
+  /* Casa a nota com o recebimento: fornecedor pelo CNPJ, recebimento pelo número
+     da NF (sem zeros à esquerda). Nunca escolhe entre dois candidatos. */
+  function casarNotaEntrada(nota, base) {
+    var b = base || {}, titulos = (b.fin && b.fin.titulos) || {}, n = nota || {};
+    var cnpj = soDigitos(n.emitente && n.emitente.cnpj);
+    var forns = Object.keys(b.fornecedores || {}).filter(function(k) { return cnpj && soDigitos((b.fornecedores[k] || {}).cnpj) === cnpj; });
+    if (!forns.length) return { tipo: 'FORNECEDOR_NAO_CADASTRADO' };
+    var pcs = Object.keys(b.pedidos_compra || {}).filter(function(k) { var pc = b.pedidos_compra[k]; return pc && forns.indexOf(pc.fornecedorKey) >= 0; });
+    if (!pcs.length) return { tipo: 'SEM_PEDIDO', fornecedorKey: forns[0] };
+    var achados = [];
+    pcs.forEach(function(pk) {
+      var pc = b.pedidos_compra[pk];
+      Object.keys(pc.recebimentos || {}).forEach(function(rk) {
+        var rec = pc.recebimentos[rk];
+        if (rec && rec.status !== 'CANCELADO' && numerosNf(rec.notaFiscal).indexOf(n.numero) >= 0)
+          achados.push({ pcKey: pk, recKey: rk, pc: pc.numeroFormatado || pc.numero || pk });
+      });
+    });
+    var rotPcs = pcs.map(function(k) { var pc = b.pedidos_compra[k]; return pc.numeroFormatado || pc.numero || k; });
+    if (!achados.length) return { tipo: 'SEM_RECEBIMENTO', fornecedorKey: forns[0], pcs: rotPcs };
+    if (achados.length > 1) return { tipo: 'AMBIGUA', fornecedorKey: forns[0], recebimentos: achados };
+    var a = achados[0], id = 'REC_' + san(a.pcKey) + '_' + san(a.recKey);
+    var out = { fornecedorKey: forns[0], pcKey: a.pcKey, recKey: a.recKey, pc: a.pc };
+    return Object.assign(out, titulos[id] ? { tipo: 'VINCULADA', titulo: id } : { tipo: 'RECEBIMENTO_SEM_TITULO' });
+  }
+  // Nota de cada título: a vinculada pelo servidor (nota.titulo) ou a que originou um
+  // título manual (titulo.notaChave). Uma nota por título.
+  function notasPorTitulo(fin) {
+    var f = fin || {}, por = {}, notas = f.notas_entrada || {};
+    Object.keys(notas).forEach(function(k) { var n = notas[k]; if (n && n.titulo && !por[n.titulo]) por[n.titulo] = n; });
+    Object.keys(f.titulos || {}).forEach(function(id) { var t = f.titulos[id]; if (t && t.notaChave && notas[t.notaChave] && !por[id]) por[id] = notas[t.notaChave]; });
+    return por;
+  }
+  /* Parcelas pelas duplicatas: as DATAS são as da nota; o VALOR é o do título,
+     repartido na proporção das duplicatas (a última absorve o centavo). Se a nota
+     soma diferente do título, a diferença aparece em Complementos, nunca aqui. */
+  function parcelasDaNota(nota, valorCentavos) {
+    var ds = ((nota && nota.duplicatas) || []).slice().sort(function(a, b) { return String(a.vencimento).localeCompare(String(b.vencimento)); });
+    var soma = ds.reduce(function(s, d) { return s + num(d.valorCentavos); }, 0);
+    if (!ds.length || !(soma > 0)) return null;
+    var v = Math.round(num(valorCentavos)), usado = 0;
+    return ds.map(function(d, i) {
+      var valor = i === ds.length - 1 ? v - usado : Math.round(v * num(d.valorCentavos) / soma);
+      usado += valor;
+      return { n: i + 1, de: ds.length, vencimento: d.vencimento, valorCentavos: valor, tipo: 'PRAZO', duplicata: d.numero || null };
+    });
+  }
+  /* Pendências das notas importadas (entram em Complementos). */
+  function pendenciasNotas(base) {
+    var b = base || {}, f = b.fin || {}, notas = f.notas_entrada || {}, out = [], porTit = notasPorTitulo(f);
+    var vinculadas = {};
+    Object.keys(porTit).forEach(function(id) { vinculadas[porTit[id].chave] = id; });
+    Object.keys(notas).forEach(function(k) {
+      var n = notas[k]; if (!n) return;
+      var rot = 'NF ' + n.numero + (n.serie && n.serie !== '0' ? '/' + n.serie : '') + ' de ' + ((n.emitente && n.emitente.nome) || '?');
+      var alvo = (n.duplicatas || []).length ? n.duplicatas.reduce(function(s, d) { return s + num(d.valorCentavos); }, 0) : num(n.valorTotalCentavos);
+      var ref = { tipo: 'NF_ENTRADA', ref: k };
+      if (vinculadas[k]) {
+        var t = (f.titulos || {})[vinculadas[k]];
+        if (t && Math.abs(alvo - num(t.valorCentavos)) >= 1) out.push({ id: 'NF_' + k, tipo: 'NF_DIVERGENTE', origem: ref, titulo: vinculadas[k], nota: k, valorCentavos: alvo - num(t.valorCentavos),
+          texto: rot + ': a nota cobra R$ ' + (alvo / 100).toFixed(2) + ' e o título do recebimento é R$ ' + (num(t.valorCentavos) / 100).toFixed(2) + '. Os vencimentos já seguem a nota.',
+          acao: 'Conferir impostos e frete na nota; se a diferença for devida, lance um título manual dela, senão bloqueie o pagamento e fale com o fornecedor' });
+        return;
+      }
+      var c = casarNotaEntrada(n, b);
+      var tx = { FORNECEDOR_NAO_CADASTRADO: ['NF_SEM_FORNECEDOR', 'o CNPJ ' + ((n.emitente && n.emitente.cnpj) || '') + ' não está em Fornecedores', 'Cadastre o fornecedor (Cadastros) ou lance o título manual a partir da nota'],
+        SEM_PEDIDO: ['NF_SEM_PEDIDO', 'não há pedido de compra deste fornecedor (serviço, consumo, frete?)', 'Lance o título a partir da nota'],
+        SEM_RECEBIMENTO: ['NF_SEM_RECEBIMENTO', 'nenhum recebimento com este número nos PCs ' + (c.pcs || []).join(', '), 'Aguarde a Logística receber, ou confira o número da NF no recebimento'],
+        AMBIGUA: ['NF_AMBIGUA', 'mais de um recebimento com este número', 'Confira os recebimentos: o financeiro não escolhe sozinho'],
+        RECEBIMENTO_SEM_TITULO: ['NF_SEM_TITULO', 'o recebimento do PC ' + (c.pc || '') + ' não gerou título (material do cliente ou sem preço)', 'Veja o complemento do recebimento'],
+        VINCULADA: ['NF_A_VINCULAR', 'casa com o recebimento do PC ' + (c.pc || '') + ', falta vincular', 'Vincular agora'] }[c.tipo];
+      if (tx) out.push({ id: 'NF_' + k, tipo: tx[0], origem: ref, nota: k, valorCentavos: alvo, texto: rot + ': ' + tx[1] + '.', acao: tx[2] });
+    });
+    return out;
+  }
+
   return {
     VERSAO: VERSAO, NATUREZAS: NATUREZAS,
     centavos: centavos, lerCondicao: lerCondicao, parcelas: parcelas, addDias: addDias,
@@ -690,6 +837,8 @@
     validarBaixa: validarBaixa, validarEstorno: validarEstorno, validarAprovacaoLote: validarAprovacaoLote,
     validarTituloManual: validarTituloManual, lerPlanilhaTitulos: lerPlanilhaTitulos, chaveManual: chaveManual,
     saldosBancarios: saldosBancarios, compromissos: compromissos, fluxoDeCaixa: fluxoDeCaixa, aging: aging, prazosMedios: prazosMedios,
-    lerOfx: lerOfx, sugerirConciliacao: sugerirConciliacao
+    lerOfx: lerOfx, sugerirConciliacao: sugerirConciliacao,
+    lerXmlNfe: lerXmlNfe, casarNotaEntrada: casarNotaEntrada, notasPorTitulo: notasPorTitulo, parcelasDaNota: parcelasDaNota,
+    pendenciasNotas: pendenciasNotas, decCentavos: decCentavos
   };
 });

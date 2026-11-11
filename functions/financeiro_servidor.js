@@ -23,14 +23,18 @@ function prepararDerivacao(base, agora) {
   const updates = {};
   Object.entries(d.titulos).forEach(([id, t]) => { updates[`fin/titulos/${id}`] = Object.assign({}, t, {criadoEm: agora, criadoPor: "servidor"}); });
   Object.entries(d.abatimentos).forEach(([id, a]) => { updates[`fin/abatimentos/${id}`] = Object.assign({}, a, {criadoEm: agora, criadoPor: "servidor"}); });
-  return {updates, titulos: Object.keys(d.titulos).length, abatimentos: Object.keys(d.abatimentos).length};
+  // Título recém-derivado já conta para o vínculo das notas que esperavam o recebimento.
+  const fin = Object.assign({}, base.fin || {}, {titulos: Object.assign({}, (base.fin || {}).titulos || {}, d.titulos)});
+  const v = vincularNotas(Object.assign({}, base, {fin}), agora);
+  Object.assign(updates, v.updates);
+  return {updates, titulos: Object.keys(d.titulos).length, abatimentos: Object.keys(d.abatimentos).length, notasVinculadas: v.vinculadas};
 }
 
 function situacaoDe(base, tituloId) {
   const fin = base.fin || {};
   const t = (fin.titulos || {})[tituloId];
   if (!t) return null;
-  const s = F.situacao(tituloId, t, F.movimentosPorTitulo(fin)[tituloId], (fin.condicoes || {})[tituloId]);
+  const s = F.situacao(tituloId, t, F.movimentosPorTitulo(fin)[tituloId], (fin.condicoes || {})[tituloId], F.notasPorTitulo(fin)[tituloId]);
   const b = (fin.bloqueios || {})[tituloId];
   s.bloqueio = b && b.ativo !== false ? b : null;
   return s;
@@ -88,6 +92,13 @@ function prepararTitulos(base, dados, quem, agora) {
     if (fechado(base, v.titulo.emissao) && origem === "MANUAL") { erros.push(`Linha ${i + 1}: mês ${v.titulo.competencia} fechado.`); return; }
     const id = F.chaveManual(v.titulo);
     if (existentes[id] || updates[`fin/titulos/${id}`]) { repetidos++; return; }
+    // Nota de entrada (F5): só um título por nota, seja o do recebimento ou um manual.
+    if (v.titulo.notaChave) {
+      const nota = ((base.fin || {}).notas_entrada || {})[v.titulo.notaChave];
+      const comTitulo = Object.values(F.notasPorTitulo(base.fin || {})).some((n) => n && n.chave === v.titulo.notaChave);
+      if (!nota) { erros.push(`Linha ${i + 1}: nota de entrada não encontrada.`); return; }
+      if (comTitulo || Object.values(updates).some((u) => u && u.notaChave === v.titulo.notaChave)) { erros.push(`Linha ${i + 1}: a NF ${nota.numero} já tem título.`); return; }
+    }
     updates[`fin/titulos/${id}`] = Object.assign({}, v.titulo, {criadoEm: agora, criadoPor: quem.nome, criadoPorUid: quem.uid});
     criados++;
   });
@@ -122,10 +133,60 @@ function prepararDecisaoLote(base, dados, quem, agora) {
   return {updates, baixas: Object.keys(lote.titulos).length};
 }
 
+/* NF de entrada por XML (F5). O servidor relê cada XML (não confia na prévia da tela),
+   grava a nota em fin/notas_entrada/{chave} -- a chave de 44 dígitos não deixa a mesma
+   nota entrar duas vezes -- e vincula ao título do recebimento quando casa. Nenhum
+   outro módulo é alterado: o XML não dá entrada no estoque. */
+const MAX_XMLS = 50, MAX_XML_BYTES = 1500000;
+function prepararNotasEntrada(base, dados, quem, agora) {
+  const d = dados || {};
+  const xmls = Array.isArray(d.xmls) ? d.xmls.slice(0, MAX_XMLS) : [];
+  const fin = base.fin || {}, existentes = fin.notas_entrada || {};
+  const updates = {}, novas = {}, erros = [], repetidas = [];
+  xmls.forEach((x, i) => {
+    const nome = String((x && x.nome) || `arquivo ${i + 1}`).slice(0, 120);
+    const texto = String((x && x.texto) || "");
+    if (texto.length > MAX_XML_BYTES) { erros.push(`${nome}: arquivo grande demais para um XML de NF-e.`); return; }
+    const r = F.lerXmlNfe(texto);
+    if (!r.ok) { erros.push(`${nome}: ${r.motivo}`); return; }
+    const k = r.nota.chave;
+    if (existentes[k] || novas[k]) { repetidas.push(`${nome} (NF ${r.nota.numero})`); return; }
+    novas[k] = Object.assign({}, r.nota, {avisos: r.avisos, arquivo: nome, titulo: null, importadoEm: agora,
+      importadoPor: quem.nome, importadoPorUid: quem.uid, versao: VERSAO});
+  });
+  if (xmls.length && !Object.keys(novas).length && !repetidas.length) falhar(erros.slice(0, 5).join(" ") || "Nenhum XML válido.", "invalid-argument");
+  const base2 = Object.assign({}, base, {fin: Object.assign({}, fin, {notas_entrada: Object.assign({}, existentes, novas)})});
+  const v = vincularNotas(base2, agora);
+  // Nota nova vai inteira (com o vínculo dentro); nota antiga recebe só o caminho do vínculo.
+  Object.entries(v.updates).forEach(([caminho, valor]) => {
+    const k = caminho.split("/")[2];
+    if (novas[k]) novas[k][caminho.split("/")[3]] = valor; else updates[caminho] = valor;
+  });
+  Object.entries(novas).forEach(([k, n]) => { updates[`fin/notas_entrada/${k}`] = n; });
+  return {updates, importadas: Object.keys(novas).length, repetidas, erros, vinculadas: v.vinculadas};
+}
+// Vincula as notas ainda soltas ao título do recebimento correspondente. Um título, uma nota.
+function vincularNotas(base, agora) {
+  const fin = base.fin || {}, notas = fin.notas_entrada || {}, updates = {};
+  const ocupados = new Set(Object.keys(F.notasPorTitulo(fin)));
+  let vinculadas = 0;
+  Object.entries(notas).forEach(([k, n]) => {
+    if (!n || n.titulo) return;
+    const c = F.casarNotaEntrada(n, base);
+    if (c.tipo !== "VINCULADA" || ocupados.has(c.titulo)) return;
+    ocupados.add(c.titulo);
+    updates[`fin/notas_entrada/${k}/titulo`] = c.titulo;
+    updates[`fin/notas_entrada/${k}/vinculadaEm`] = agora;
+    vinculadas++;
+  });
+  return {updates, vinculadas};
+}
+
 // Mês fechado na Controladoria não recebe movimento financeiro com data nele.
 function fechado(base, dataISO) {
   const f = ((base.ctl || {}).fechamentos || {})[String(dataISO || "").slice(0, 7)];
   return !!(f && f.status === "FECHADO");
 }
 
-module.exports = {VERSAO, ehFinanceiro, prepararDerivacao, prepararBaixa, prepararEstorno, prepararTitulos, prepararDecisaoLote, situacaoDe, fechado};
+module.exports = {VERSAO, ehFinanceiro, prepararDerivacao, prepararBaixa, prepararEstorno, prepararTitulos, prepararDecisaoLote, situacaoDe, fechado,
+  prepararNotasEntrada, vincularNotas};
