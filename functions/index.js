@@ -21,6 +21,7 @@ const PedidoDiretoria = require("./pedido_diretoria");
 const {prepararFaturamento} = require("./faturamento_carga");
 const FaturamentoEmail = require("./faturamento_email");
 const Cobrancas = require("./cobrancas");
+const EmailEnvio = require("./email_envio");
 const DevolucaoCliente = require("./devolucao_cliente");
 const Titularidade = require("./titularidade");
 const EmissaoOp = require("./emissao_op");
@@ -630,6 +631,21 @@ async function getGraphToken() {
   return json.access_token;
 }
 
+// E-mails automáticos (11/11/2026): Resend quando RESEND_API_KEY está na VPS; senão
+// Microsoft Graph (Outlook), como antes. O rascunho de cotação (criarRascunhoCotacao)
+// continua só no Graph. Ver functions/email_envio.js.
+async function enviarEmailSistema(to, subject, body, opts) {
+  const cfg = EmailEnvio.configResend(process.env);
+  if (!cfg) return sendMailViaGraph(to, subject, body, opts);
+  if (!to || !to.length) {
+    console.log("Sem destinatários configurados (config.emailNotificacoes). E-mail não enviado:", subject);
+    return false;
+  }
+  const r = await EmailEnvio.enviarResend(cfg, to, subject, body, opts);
+  console.log("E-mail enviado (Resend " + (r.id || "") + "):", subject);
+  return true;
+}
+
 async function sendMailViaGraph(to, subject, body, opts) {
   if (!to || !to.length) {
     console.log("Sem destinatários configurados (config.emailNotificacoes). E-mail não enviado:", subject);
@@ -735,7 +751,7 @@ async function enviarEmailFaturamento(agendaKey, sid, reenviar) {
     }
     const email = FaturamentoEmail.montarEmail(solicitacao, agendaKey);
     const pdf = await FaturamentoEmail.gerarPdf(solicitacao, agendaKey);
-    await sendMailViaGraph(dest.para, email.assunto, email.corpo, {html: true, cc: dest.copia, anexos: [{nome: email.arquivo, tipo: "application/pdf", conteudo: pdf}]});
+    await enviarEmailSistema(dest.para, email.assunto, email.corpo, {html: true, cc: dest.copia, anexos: [{nome: email.arquivo, tipo: "application/pdf", conteudo: pdf}]});
     const ok = {status: "ENVIADO", em: new Date().toISOString(), para: dest.para, copia: dest.copia, assunto: email.assunto};
     await statusRef.set(ok);
     return ok;
@@ -751,7 +767,7 @@ async function enviarEmailFaturamento(agendaKey, sid, reenviar) {
 // O e-mail falhar não desfaz a cobrança (fica em cobrancas/{id}/emails).
 const servicoCobrancas = Cobrancas.criarServico({
   db,
-  enviarEmail: (para, assunto, corpo) => sendMailViaGraph(para, assunto, corpo, {html: true}),
+  enviarEmail: (para, assunto, corpo) => enviarEmailSistema(para, assunto, corpo, {html: true}),
 });
 exports.cobrancaInterna = onCall({timeoutSeconds: 60, secrets: [MS_GRAPH_TENANT_ID, MS_GRAPH_CLIENT_ID, MS_GRAPH_CLIENT_SECRET, MS_GRAPH_SENDER_EMAIL]}, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para usar as cobranças.");
@@ -930,7 +946,7 @@ async function checkLinhasParadas(config, destinatarios) {
       `Lote: ${info.lote || "—"}\n` +
       `Parada iniciada em: ${info.inicioParada}\n\n` +
       `Sistema PCP Kuryos — alerta automático.`;
-    if (await sendMailViaGraph(destinatarios, assunto, corpo)) await markSent(key);
+    if (await enviarEmailSistema(destinatarios, assunto, corpo)) await markSent(key);
   }
 }
 
@@ -1009,7 +1025,7 @@ async function checkOpsAtrasadas(destinatarios) {
       //         `Linha programada: ${linha}\n\n` +
       //         `Pode ser simplesmente esquecimento — vale checar pessoalmente.\n\n` +
       //         `Sistema PCP Kuryos — alerta automático (repete a cada ${COOLDOWN_MIN}min enquanto não iniciar).`;
-      //       if (await sendMailViaGraph(destinatarios, assunto, corpo)) await markSent(key);
+      //       if (await enviarEmailSistema(destinatarios, assunto, corpo)) await markSent(key);
       //     }
       //   }
       // }
@@ -1032,7 +1048,7 @@ async function checkOpsAtrasadas(destinatarios) {
               `Produzido até agora: ${produzido} de ${op.qtdPlanejada || 0} un. planejadas` +
               (pctFeito != null ? ` (${pctFeito}%)` : "") + `.\n\n` +
               `Sistema PCP Kuryos — alerta automático (repete a cada ${COOLDOWN_MIN}min enquanto o desvio persistir).`;
-            if (await sendMailViaGraph(destinatarios, assunto, corpo)) await markSent(key);
+            if (await enviarEmailSistema(destinatarios, assunto, corpo)) await markSent(key);
           }
         }
       }
@@ -1062,7 +1078,7 @@ async function checkOpsAtrasadas(destinatarios) {
         `persistindo há ${Math.floor(persisteMin)} minuto(s).\n\n` +
         `O planejamento já foi reajustado automaticamente; este e-mail é só um aviso.\n\n` +
         `Sistema PCP Kuryos — alerta automático (repete a cada ${COOLDOWN_MIN}min enquanto o desvio persistir).`;
-      if (await sendMailViaGraph(destinatarios, assunto, corpo)) await markSent(key);
+      if (await enviarEmailSistema(destinatarios, assunto, corpo)) await markSent(key);
     }
   }
 }
@@ -1092,7 +1108,7 @@ async function checkOpsEmitidas(destinatarios) {
     // esse if; só este ficou de fora.) O try/catch evita que um erro do Graph
     // num alerta trave a fila inteira em loop.
     try {
-      if (await sendMailViaGraph(destinatarios, assunto, corpo)) {
+      if (await enviarEmailSistema(destinatarios, assunto, corpo)) {
         await db.ref("alertas_pendentes/" + alertId).remove();
       }
     } catch (e) {
@@ -1226,7 +1242,7 @@ async function checkTurnoNaoEncerrado(config, destinatarios) {
       `O turno "${turnoNome}" deveria ter terminado às ${horaFim} e ainda não foi encerrado no ` +
       `Painel de Turno.\n\nPeça ao líder responsável pra abrir o app e clicar em "Encerrar turno".\n\n` +
       `Sistema PCP Kuryos — alerta automático de turno não encerrado.`;
-    if (await sendMailViaGraph(destinatarios, assunto, corpo)) await digestRef.set(true);
+    if (await enviarEmailSistema(destinatarios, assunto, corpo)) await digestRef.set(true);
   }
 }
 
@@ -1573,7 +1589,7 @@ exports.onTurnoEncerrado = onValueCreated(
         <p style="color:#6e6e73;font-size:12px;margin-top:20px">Sistema PCP Kuryos — resumo automático de fim de turno.</p>
       </div>
     `;
-    await sendMailViaGraph(destinatarios, assunto, corpo, {html: true});
+    await enviarEmailSistema(destinatarios, assunto, corpo, {html: true});
   },
 );
 
@@ -1619,7 +1635,7 @@ exports.onOpEncerrada = onValueWritten(
           .sort((a, b) => String(b.timestamp || "").localeCompare(String(a.timestamp || "")))[0] || null;
       const destinatarios = OpEncerrada.destinatarios(configSnap.val() || {});
       const email = OpEncerrada.montarEmail(op, opKey, fechamento);
-      await sendMailViaGraph(destinatarios, email.assunto, email.corpo, {html: true});
+      await enviarEmailSistema(destinatarios, email.assunto, email.corpo, {html: true});
       await marcaRef.update({status: "ENVIADO", enviadoEm: new Date().toISOString(), destinatarios, assunto: email.assunto});
     } catch (e) {
       await marcaRef.update({status: "ERRO", erro: String(e.message || e).slice(0, 500), erroEm: new Date().toISOString()}).catch(() => null);
@@ -1669,7 +1685,7 @@ exports.onPesagemFechada = onValueWritten(
         return;
       }
       const email = PesagemFechada.montarEmail(op, opKey);
-      await sendMailViaGraph(destinatarios, email.assunto, email.corpo, {html: true});
+      await enviarEmailSistema(destinatarios, email.assunto, email.corpo, {html: true});
       await marcaRef.update({status: "ENVIADO", enviadoEm: new Date().toISOString(), destinatarios, assunto: email.assunto});
     } catch (e) {
       await marcaRef.update({status: "ERRO", erro: String(e.message || e).slice(0, 500), erroEm: new Date().toISOString()}).catch(() => null);
@@ -1705,7 +1721,7 @@ async function enviarPedidoDiretoria(id, versaoNum) {
     const cadastro = pc.clienteKey ? (await db.ref("clientes/" + pc.clienteKey).once("value")).val() : null;
     const email = PedidoDiretoria.montarEmail(pc, id, versao);
     const pdf = await PedidoDiretoria.gerarPdf(pc, id, versao, cadastro);
-    await sendMailViaGraph(destinatarios, email.assunto, email.corpo, {html: true, anexos: [{nome: email.arquivo, tipo: "application/pdf", conteudo: pdf}]});
+    await enviarEmailSistema(destinatarios, email.assunto, email.corpo, {html: true, anexos: [{nome: email.arquivo, tipo: "application/pdf", conteudo: pdf}]});
     const ok = {status: "ENVIADO", em: new Date().toISOString(), destinatarios, assunto: email.assunto};
     await Promise.all([reservaRef.update(ok), statusRef.set(ok)]);
   } catch (e) {
@@ -1825,7 +1841,7 @@ async function sendApuracaoParcialEmail(hojeStr, turnoNome, totalItens, config, 
       <p style="color:#6e6e73;font-size:12px;margin-top:20px">Sistema PCP Kuryos — apuração automática de intervalo programado.</p>
     </div>
   `;
-  await sendMailViaGraph(destinatarios, assunto, corpo, {html: true});
+  await enviarEmailSistema(destinatarios, assunto, corpo, {html: true});
 }
 
 function podeOperarLogistica(user) {
@@ -2471,7 +2487,7 @@ async function checkNotificacoesComercial(destinatarios) {
       "Evento: " + tipo + "\n\n" +
       "Consulte o módulo Comercial no sistema.";
     try {
-      if (await sendMailViaGraph(destinatarios, assunto, corpo)) {
+      if (await enviarEmailSistema(destinatarios, assunto, corpo)) {
         await db.ref("notificacoes_comercial/" + key).update({status: "ENVIADO", enviadoEm: new Date().toISOString()});
       }
     } catch (e) {
