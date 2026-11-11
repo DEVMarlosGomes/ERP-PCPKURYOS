@@ -3020,6 +3020,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Nunca reaproveita chave legada -- materiais importados do Gerador de
     // OPs continuam com o código deles, intocados.
     nextSequential(db, 'config/contadores/materiais/' + tipo, tipo, 5).then(function(r) {
+      // Material novo NUNCA grava por cima de um existente (11/11: contador atrás
+      // do cadastro trocou EP-00195/196/197 por tampas e as OPs saíram com item errado).
+      // Confere no servidor, não só na lista da tela.
+      return db.ref('materiais/' + sanitizeKey(r.formatado)).once('value').then(function(snap) {
+        if (snap.exists()) throw new Error('O código ' + r.formatado + ' já pertence a "' + ((snap.val() || {}).mpNome || 'outro material') +
+          '". Nada foi gravado. Clique em Salvar de novo para receber o próximo código livre; se repetir, avise o administrador.');
+        return r;
+      });
+    }).then(function(r) {
       var key = sanitizeKey(r.formatado);
       data.mpCodigo = r.formatado;
       // CAD-01: material novo reserva a chave do nome no mesmo update (a regra do banco exige).

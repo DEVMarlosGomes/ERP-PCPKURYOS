@@ -930,7 +930,14 @@ function nextSequential(dbRef, counterPath, prefix, pad) {
     'config/contadores/processoCotacao': 'processos_cotacao'
   };
   var colecao = colecoes[counterPath];
-  var piso = colecao ? dbRef.ref(colecao).once('value').then(function(snap) {
+  // Materiais (11/11/2026): o contador de EP estava em 197 com EP-00204 já
+  // cadastrado (importação/união de bases não sobe contador). Cada "Novo
+  // material" recebia um código em uso e gravava POR CIMA do material antigo
+  // -- o BOM seguia apontando o código e a OP saía com outro item.
+  var tipoMaterial = /^config\/contadores\/materiais\/([A-Za-z0-9]+)$/.exec(counterPath);
+  var piso = tipoMaterial ? dbRef.ref('materiais').once('value').then(function(snap) {
+    return maiorNumeroDoPrefixo(snap.val(), tipoMaterial[1]);
+  }) : colecao ? dbRef.ref(colecao).once('value').then(function(snap) {
     return Object.entries(snap.val() || {}).reduce(function(max, entry) {
       var doc = entry[1] || {};
       return [doc.numero, doc.numeroFormatado, entry[0]].reduce(function(n, valor) {
@@ -969,6 +976,20 @@ function nextSequential(dbRef, counterPath, prefix, pad) {
       : String(n).padStart(pad || 4, '0');
     return { numero: n, formatado: formatted };
   });
+}
+
+/* Função PURA. Maior número já usado por um prefixo ("EP" → 204 se existe
+   EP-00204), olhando a chave e o mpCodigo de cada registro. É o piso do
+   contador: o próximo código nunca pode cair num que já existe. */
+function maiorNumeroDoPrefixo(registros, prefixo) {
+  var re = new RegExp('^' + String(prefixo).replace(/[^A-Za-z0-9]/g, '') + '-(\\d+)$', 'i'), maior = 0;
+  Object.keys(registros || {}).forEach(function(k) {
+    [k, (registros[k] || {}).mpCodigo].forEach(function(v) {
+      var m = re.exec(String(v == null ? '' : v).trim());
+      if (m && Number.isSafeInteger(Number(m[1]))) maior = Math.max(maior, Number(m[1]));
+    });
+  });
+  return maior;
 }
 
 // Ordenação clicável de coluna, reaproveitada em toda tabela de listagem

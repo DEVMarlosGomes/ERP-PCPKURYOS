@@ -96,6 +96,48 @@ const agora = '2026-09-11T18:00:00Z';
     assert.equal(calls[1].payload.paletes[0].quantidade, 295);
     assert.equal(calls[1].payload.nf, '', 'NF vem da carga, não é redigitada');
     assert.equal(await page.evaluate(() => sessionStorage.getItem('cargasPA-tentativa')), null);
+
+    // ── Tentativa de saída órfã não trava as outras cargas (11/11) ───────
+    // Carga A pronta + tentativa guardada; carga B também pronta.
+    const cargaB = JSON.parse(JSON.stringify(data.agendamentos_expedicao.agendaTeste01));
+    cargaB.cliente = 'Cliente B'; cargaB.paletes = [];
+    const cargas2 = {agendaTeste01: data.agendamentos_expedicao.agendaTeste01, agendaB: cargaB};
+    const tentativaA = {idempotencyKey: 'tentativa-orfa-0001', agendaKey: 'agendaTeste01', agendaRevisao: cargas2.agendaTeste01.revisao,
+      data: '2026-09-11', tipo: 'ENTREGA', paletes: [], criadaEm: new Date().toISOString()};
+    await page.addInitScript((ags) => { window.fixtureExp.agendamentos_expedicao = ags; }, cargas2);
+    await page.evaluate((t) => sessionStorage.setItem('cargasPA-tentativa', JSON.stringify(t)), tentativaA);
+    await page.goto('https://expedicao.test/cargas.html');
+    await page.waitForSelector('[data-carga="agendaB"] [data-acao="CARREGAR"]');
+    // A ainda pronta: mexer na B continua bloqueado, e a mensagem diz QUAL carga e como resolver.
+    await page.locator('[data-carga="agendaB"] [data-acao="CARREGAR"]').click();
+    const bloqueio = await page.locator('#resultado').innerText();
+    assert.match(bloqueio, /sem resposta na carga[\s\S]*PED-001[\s\S]*O que fazer/, 'o bloqueio aponta a carga pendente');
+    assert.equal(await page.locator('#abrirPendente').count(), 1);
+    assert.equal(await page.locator('#descartarPendente').count(), 1);
+    assert.equal(await page.locator('[data-carga="agendaB"] [data-painel]').count(), 0, 'B segue bloqueada enquanto A está pronta');
+    // A é cancelada/expedida em outra aba: a tentativa some sozinha e a B abre.
+    await page.evaluate(() => { fixtureExp.agendamentos_expedicao.agendaTeste01.status = 'EXPEDIDO'; emitir('agendamentos_expedicao'); });
+    await page.waitForFunction(() => sessionStorage.getItem('cargasPA-tentativa') === null);
+    assert.match(await page.locator('#resultado').innerText(), /foi descartada[\s\S]*não pode mais ser carregada/);
+    assert.equal(await page.locator('[data-painel]').count(), 0, 'o painel da carga encerrada fecha');
+    await page.locator('[data-carga="agendaB"] [data-acao="CARREGAR"]').click();
+    await page.waitForSelector('[data-carga="agendaB"] [data-painel="CARREGAR"]');
+    // Carga da tentativa não existe mais: limpa já na abertura da tela.
+    await page.evaluate((t) => sessionStorage.setItem('cargasPA-tentativa', JSON.stringify(Object.assign(t, {agendaKey: 'apagada'}))), tentativaA);
+    await page.reload();
+    await page.waitForSelector('[data-carga="agendaB"] [data-acao="CARREGAR"]');
+    assert.equal(await page.evaluate(() => sessionStorage.getItem('cargasPA-tentativa')), null, 'tentativa de carga inexistente é apagada');
+    // Descartar pelo botão do aviso libera as cargas sem chamar o servidor.
+    await page.evaluate(() => { fixtureExp.agendamentos_expedicao.agendaTeste01.status = 'AGENDADO'; });
+    await page.addInitScript(() => { window.fixtureExp.agendamentos_expedicao.agendaTeste01.status = 'AGENDADO'; });
+    await page.evaluate((t) => sessionStorage.setItem('cargasPA-tentativa', JSON.stringify(Object.assign(t, {agendaKey: 'agendaTeste01'}))), tentativaA);
+    await page.reload();
+    await page.waitForSelector('[data-carga="agendaTeste01"] [data-painel="CARREGAR"]');
+    await page.locator('#descartarTentativa').click();
+    assert.equal(await page.evaluate(() => sessionStorage.getItem('cargasPA-tentativa')), null);
+    assert.match(await page.locator('#resultado').innerText(), /Tentativa descartada/);
+    assert.equal((await page.evaluate(() => callsExp)).length, 2, 'descartar não chama o servidor');
+
     await page.setViewportSize({width: 390, height: 844});
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Tela deve caber no celular');
     assert.deepEqual(errors, []);

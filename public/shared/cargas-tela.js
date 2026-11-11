@@ -35,8 +35,47 @@
   // antiga, que guardava na chave 'expedicaoPA-tentativa'.
   try {
     tentativa = JSON.parse(sessionStorage.getItem(CHAVE_TENTATIVA) || sessionStorage.getItem('expedicaoPA-tentativa') || 'null');
-    if (tentativa && !tentativa.agendaKey) tentativa = null;
   } catch (ignore) { tentativa = null; }
+  // Tentativa da tela antiga (sem carga agendada) não tem como ser retomada aqui.
+  if (tentativa && !tentativa.agendaKey) limparTentativa();
+
+  function limparTentativa() {
+    tentativa = null;
+    try { sessionStorage.removeItem(CHAVE_TENTATIVA); sessionStorage.removeItem('expedicaoPA-tentativa'); } catch (ignore) {}
+  }
+  /* A tentativa só trava as outras cargas enquanto a carga dela ainda pode ser
+     carregada. A cada atualização da lista ela é conferida contra o estado
+     real: carga removida, cancelada, expedida ou tentativa de mais de 24 h é
+     descartada (antes ficava órfã e bloqueava tudo, sem dizer qual carga). */
+  function reconciliarTentativa() {
+    if (!tentativa || ocupado || !agendaPronta) return;
+    var s = CargasPA.situacaoTentativa(agendas, tentativa, Date.now());
+    if (s.manter) return;
+    var k = tentativa.agendaKey, nome = e(CargasPA.identificacao(s.agenda));
+    limparTentativa();
+    if (painel && painel.key === k && painel.tipo === 'CARREGAR') painel = null;
+    if (s.motivo === 'JA_CONFIRMADA') aviso('A saída da carga ' + nome + ' já estava registrada. Nada foi duplicado.');
+    else if (s.motivo === 'ANTIGA') aviso('Uma confirmação de saída antiga da carga ' + nome + ' ficou sem resposta e foi descartada. Nada foi baixado do estoque por ela: se a carga saiu, confirme a saída de novo.', true);
+    else if (s.motivo === 'CARGA_ENCERRADA') aviso('Uma confirmação de saída interrompida foi descartada: a carga ' + nome + ' está ' + e(CargasPA.etapa(s.agenda).curto.toLocaleLowerCase('pt-BR')) + ' e não pode mais ser carregada.');
+  }
+  function descartarTentativa() {
+    if (!tentativa || ocupado) return;
+    var a = agendas[tentativa.agendaKey];
+    if (!confirm('Descartar a confirmação de saída interrompida da carga ' + CargasPA.identificacao(a) + '?\n\nIsto não desfaz nada. Se a saída chegou a ser registrada, a carga aparece como expedida; se não chegou, ela continua pronta para carregar e você confirma de novo.')) return;
+    var k = tentativa.agendaKey;
+    limparTentativa();
+    if (painel && painel.key === k) painel = null;
+    aviso('Tentativa descartada. As cargas estão liberadas.');
+    render();
+  }
+  function avisoBloqueio() {
+    var a = agendas[tentativa.agendaKey];
+    aviso('Há uma confirmação de saída sem resposta na carga <b>' + e(CargasPA.identificacao(a)) + '</b>. Enquanto ela não for resolvida, as outras cargas ficam travadas para não baixar o estoque duas vezes.' +
+      '<br><b>O que fazer:</b> abra essa carga e clique em "Verificar / repetir confirmação"; ou, se ela não vai sair agora, descarte a tentativa.' +
+      '<div class="carga-acoes" style="margin-top:8px"><button class="btn" id="abrirPendente">Abrir essa carga</button><button class="btn ghost" id="descartarPendente">Descartar a tentativa</button></div>', true);
+    el('abrirPendente').onclick = function() { if (tentativa) acao('CARREGAR', tentativa.agendaKey); };
+    el('descartarPendente').onclick = descartarTentativa;
+  }
 
   /* ── Conferência do carregamento (antes na tela da Expedição) ── */
   function planoCarga(l) {
@@ -87,6 +126,7 @@
       '<label for="c_obs">Observações da saída</label><textarea id="c_obs" data-campo="observacoes" rows="2" maxlength="2000"' + (bloqueado ? ' disabled' : '') + '>' + e(v.observacoes || '') + '</textarea>' +
       '<p class="carga-erro">' + e(painel.erro || '') + '</p>' +
       '<div class="carga-acoes"><button class="btn ghost" data-fechar-painel' + (ocupado ? ' disabled' : '') + '>Fechar</button>' +
+      (tentativa && !ocupado ? '<button class="btn ghost" id="descartarTentativa" title="Não desfaz nada: só libera as outras cargas">Descartar a tentativa</button>' : '') +
       '<button class="btn" id="confirmarSaida"' + ((ocupado || mudou || !ls.length) && !tentativa ? ' disabled' : '') + '>' + (ocupado ? 'Processando…' : tentativa ? 'Verificar / repetir confirmação' : 'Confirmar saída física') + '</button></div></div>';
   }
 
@@ -172,6 +212,7 @@
 
   function render() {
     CargasFluxo.render(el('fluxoCargas'), 'cargas.html', agendas);
+    reconciliarTentativa();
     if (!pronto()) return;
     // O painel aberto reflete os paletes atuais: se algo mudou no estoque,
     // a seleção é refeita (e as faltas, avisadas).
@@ -221,13 +262,15 @@
       });
     });
     var bs = el('confirmarSaida'); if (bs) bs.onclick = confirmarSaida;
+    var bd = el('descartarTentativa'); if (bd) bd.onclick = descartarTentativa;
     var bt = el('salvarTransporte'); if (bt) bt.onclick = salvarTransporte;
   }
 
   function acao(tipo, k) {
     var a = agendas[k];
     if (!a || ocupado) return;
-    if (tentativa && tentativa.agendaKey !== k) return aviso('Há uma confirmação de saída pendente em outra carga. Conclua-a antes.', true);
+    reconciliarTentativa();
+    if (tentativa && tentativa.agendaKey !== k) return avisoBloqueio();
     if (tipo === 'CANCELAR') return cancelar(k, a);
     var valores = tipo === 'CARREGAR'
       ? {data: hoje(), transportadora: a.transportadora || '', motorista: a.motorista || '', contatoMotorista: a.contatoMotorista || '', placa: a.placa || '', observacoes: a.observacoes || ''}
@@ -283,18 +326,18 @@
           var l = painel.selecionados[k];
           return {itemKey: l.itemKey, loteKey: l.loteKey, quantidade: Number(l.lote.saldoLote), enderecoKey: l.lote.enderecoKey, skuPedidoKey: l.skuPedidoKey, carregar: painel.carregamento[k] || {modo: 'INTEIRO'}};
         }),
-        agendaKey: painel.key, agendaRevisao: painel.revisao, ficou: tc.ficou};
+        agendaKey: painel.key, agendaRevisao: painel.revisao, ficou: tc.ficou, criadaEm: new Date().toISOString()};
       sessionStorage.setItem(CHAVE_TENTATIVA, JSON.stringify(tentativa));
     }
     ocupado = true; painel.erro = ''; render();
     try {
       var r = await fn.httpsCallable('confirmarExpedicaoPA')(tentativa);
       var ficou = tentativa.ficou || 0, cliente = a.cliente;
-      tentativa = null; sessionStorage.removeItem(CHAVE_TENTATIVA); sessionStorage.removeItem('expedicaoPA-tentativa'); painel = null;
+      limparTentativa(); painel = null;
       aviso('Saída confirmada: ' + e(r.data.numero) + ' (' + e(cliente) + '). ' + (ficou ? num(ficou) + ' un ficaram aguardando embarque, reservadas para a próxima viagem com a mesma NF.' : 'Paletes baixados e pedidos vinculados.'));
     } catch (err) {
       var definitivo = ['functions/invalid-argument', 'functions/failed-precondition', 'functions/permission-denied', 'functions/unauthenticated', 'functions/aborted'].indexOf(err.code) !== -1;
-      if (definitivo) { tentativa = null; sessionStorage.removeItem(CHAVE_TENTATIVA); sessionStorage.removeItem('expedicaoPA-tentativa'); }
+      if (definitivo) limparTentativa();
       if (painel) painel.erro = (err.message || 'Falha na confirmação.') + (definitivo ? '' : ' Use "Verificar / repetir confirmação" para recuperar a mesma saída.');
     } finally { ocupado = false; render(); }
   }
@@ -322,6 +365,6 @@
   dbOnValue(db.ref('agendamentos_expedicao'), function(s) {
     agendas = s.val() || {}; agendaPronta = true;
     if (!ocupado) render();
-    if (tentativa && !painel && agendas[tentativa.agendaKey]) { aviso('Há uma confirmação de saída pendente. Use "Verificar / repetir confirmação" para recuperar o resultado.', true); acao('CARREGAR', tentativa.agendaKey); }
+    if (tentativa && !painel && !ocupado && agendas[tentativa.agendaKey]) { aviso('Há uma confirmação de saída pendente. Use "Verificar / repetir confirmação" para recuperar o resultado.', true); acao('CARREGAR', tentativa.agendaKey); }
   });
 })();

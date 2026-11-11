@@ -195,6 +195,9 @@
     (inteiro, parcial por caixas ou não carregado): o que ficar segue reservado para a próxima viagem, com a mesma NF.
     A confirmação baixa os paletes no WMS, atualiza o expedido dos pedidos e registra os movimentos juntos. Se a conexão
     falhar, use “Verificar / repetir confirmação” (mesmo depois de recarregar a página): a mesma operação não baixa duas vezes.
+    Enquanto essa confirmação estiver sem resposta, as outras cargas ficam travadas e o aviso diz <b>qual carga</b> está pendente,
+    com os botões <b>Abrir essa carga</b> e <b>Descartar a tentativa</b>. Descartar não desfaz nada: se a saída chegou a ser registrada,
+    a carga aparece como expedida. A trava some sozinha quando a carga pendente é expedida, cancelada ou passa de 24 horas.
     Cargas anteriores continuam visíveis como legado e não são baixadas novamente automaticamente.
   </div>
 

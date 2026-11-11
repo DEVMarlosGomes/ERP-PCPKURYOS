@@ -1,5 +1,32 @@
 # Melhorias Futuras — Sistema PCP Kuryos
 
+## Cadastros × emissão de OP — o que ficou para depois (11/11/2026)
+
+Corrigido em 11/11: código de material novo caía em código já usado e gravava por cima
+(`nextSequential` em `public/shared/utils.js`, `saveModal` de material em `public/cadastros.html`,
+`run_contador_materiais_test.js`). Medido na base no mesmo dia e deixado aberto:
+
+- **O BOM/fórmula guarda o nome do material de quando o item foi incluído; a OP mostra o nome
+  atual do cadastro de Materiais** (`nomeMaterialAtual` em `emitir_op.html`, decisão de 30/09).
+  Hoje 957 de 1.484 itens de BOM e 175 de 1.466 itens de fórmula têm nome diferente do cadastro
+  (quase tudo padronização de nome). Quem compara as duas telas vê nomes diferentes para o mesmo
+  código. Retomar em `renderBomTab`/`renderFormulaTab` de `cadastros.html`: mostrar o nome atual
+  do cadastro e, quando diferir, o nome antigo em letra menor.
+- **Nenhuma trava impede que um material ativo vire outro por edição.** Código inativo
+  ("INATIVO") é reaproveitado editando o nome (EP-00008 em 09/11), e 13 códigos inativos ainda
+  estão em BOM/fórmula (MPGR-00002 em 8 fórmulas PRF-BIOF, EP-00133, EP-00175…). Avisar na edição
+  quando o material está em uso (a aba "Usado em" já sabe) e o nome muda de família.
+- **8 produtos têm dois BOMs que só diferem na caixa da versão** (`HDR-MISS-0001__V1` aprovado e
+  `HDR-MISS-0001__v1` antigo; também HDR-MISS-0002/3/5/6/7, MRARBS10, SRM-SEUN-0001). A emissão e
+  o Cadastros usam a chave exata da fórmula, então hoje não divergem, mas o Cadastros mostra duas
+  pílulas ("V1" e "v1") em 11 produtos. Unificar é limpeza de dado, com backup.
+- **72 registros de `bom`/`especificacoes`/`formulas` têm itens e não têm `codProduto`/`versao`**
+  (nasceram do `push` de item antes de `btnNovaVersaoClick` criar os três juntos). Não aparecem
+  como versão no Cadastros; 10 fórmulas assim só têm uma linha vazia. Backfill do cabeçalho pela
+  chave, em caminhos planos.
+- **Ficha técnica do P&D "travando"** (relato de 11/11): não reproduzido; `fichaTecnica.js` não
+  lê `materiais` por código. Falta a mensagem exata e o produto para investigar.
+
 ## Cobranças internas — o que ficou para depois (11/11/2026)
 
 Entregue: `cobrancas.html` (aba no topo do menu, com contador), callable `cobrancaInterna`

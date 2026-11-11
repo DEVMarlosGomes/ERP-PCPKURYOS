@@ -5,6 +5,25 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Código de material novo gravava por cima de material existente; trava da saída de carga (11/11/2026)
+
+- **Código concluído (sessão do código; os DADOS estão com a sessão `pcp-kuryos-main-4a`, ver o bloco dela).**
+  1. **OP com item errado:** `config/contadores/materiais` estava atrás do cadastro (EP 197 com EP-00204
+     existente; ES 326/347, ET 68/75, MPES 211/225, MU 3/21). "Novo material" recebia código em uso e
+     `updates['materiais/'+key] = data` sobrescrevia o antigo: em 11/11 EP-00193/195/196/197 e MPGR-00144,
+     antes ET-00068 e MU-00003. O BOM aponta o código e a OP mostra o nome do cadastro, daí "frasco" virar
+     "tampa flip top" (OPs 26315/04, /05, /06). Correção: `nextSequential` usa como piso o maior código do
+     tipo em `materiais` (`maiorNumeroDoPrefixo`, `shared/utils.js`) e o salvamento de material novo lê
+     `materiais/{chave}` no servidor e recusa se existir (`cadastros.html`). `run_contador_materiais_test` 14.
+     **Não gravei nada em produção** (subir os contadores foi barrado pela permissão desta sessão).
+  2. **"Há uma confirmação de saída pendente em outra carga":** a tentativa guardada na aba nunca era
+     conferida com a carga. Agora `CargasPA.situacaoTentativa` descarta quando a carga sumiu, não pode mais
+     ser carregada, a saída já está em `agenda.expedicoes`, ou passou de 24 h; o bloqueio que resta diz qual
+     carga e oferece "Abrir essa carga" / "Descartar a tentativa" (`shared/cargas-tela.js`, `cargas-pa.js`).
+     `run_cargas_pa_test` 36, `run_expedicao_ui_test` (Chrome) com os cenários novos. Manual da Logística.
+  Backlog em `MELHORIAS_FUTURAS.md` (nome do BOM × nome do cadastro, BOMs V1/v1, registros sem cabeçalho).
+  **Pendente:** deploy da VPS; dados (contadores + restauração) pela outra sessão. Arquivos ativos: nenhum.
+
 ### Claude — Espelho do faturamento da Expedição no Financeiro (11/11/2026)
 
 - **Concluído:** aba "Faturamento (Expedição)" em `financeiro.html`, só leitura, espelho da tela da Expedição
@@ -40,8 +59,11 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   quem/quando/antes→depois em `historicoAlteracoes` (`shared/historico-itens.js`). Manual de Cadastros
   atualizado. Testes: `run_historico_itens_test` 9, `run_trava_aprovados_ui_test` (PCP/Yasmim/ADM),
   `run_trava_aprovados_rules_test` no emulador 6 passos, bateria de Cadastros (11) OK.
-  **Pendente (Marlos):** merge em `hostinger-deploy`, publicar regras (`--only database --project erpkuryos`)
-  e deploy da VPS. Arquivos ativos: nenhum.
+  **Publicado em 11/11:** VPS em `f987879` (branch enviada ao GitHub). Regras: publicadas as de PRODUÇÃO + só as
+  3 linhas do ADM (produção já tinha `cobrancas`, que o arquivo da branch apagaria); conferido no ar 3/3 e
+  `cobrancas` preservado. Sem as regras, o ADM apagava item de aprovada e ele "voltava" (PERMISSION_DENIED).
+  **Pendente:** merge da branch em `hostinger-deploy` depois do commit de Cobranças, para o próximo deploy da VPS
+  não voltar à versão sem esta mudança. Arquivos ativos: nenhum.
 
 ### Claude — Cobranças internas com e-mail (11/11/2026)
 

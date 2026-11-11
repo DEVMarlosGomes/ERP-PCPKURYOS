@@ -146,7 +146,36 @@
     return c;
   }
 
+  /* Tentativa de confirmação de saída guardada na aba (sessionStorage) para
+     repetir a chamada sem duplicar a baixa. Ela só vale enquanto a carga dela
+     ainda pode ser carregada; fora disso é órfã e travava TODAS as outras
+     cargas ("Há uma confirmação de saída pendente em outra carga", 11/11).
+     Devolve {manter, motivo}; motivos de descarte:
+       INVALIDA | CARGA_REMOVIDA | JA_CONFIRMADA | CARGA_ENCERRADA | ANTIGA.
+     Descartar é seguro: a saída registrada aparece em agenda.expedicoes pela
+     chave 'exp_' + idempotencyKey, e o servidor segue idempotente por ela. */
+  var VALIDADE_TENTATIVA_MS = 24 * 60 * 60 * 1000;
+  function situacaoTentativa(agendas, t, agoraMs) {
+    if (!t || !t.agendaKey || !t.idempotencyKey) return {manter: false, motivo: 'INVALIDA'};
+    var a = (agendas || {})[t.agendaKey];
+    if (!a) return {manter: false, motivo: 'CARGA_REMOVIDA'};
+    if (a.expedicoes && a.expedicoes['exp_' + t.idempotencyKey]) return {manter: false, motivo: 'JA_CONFIRMADA', agenda: a};
+    if (!acoes(a).carregar) return {manter: false, motivo: 'CARGA_ENCERRADA', agenda: a};
+    var criada = Date.parse(t.criadaEm || '');
+    if (!isFinite(criada) || n(agoraMs) - criada > VALIDADE_TENTATIVA_MS) return {manter: false, motivo: 'ANTIGA', agenda: a};
+    return {manter: true, motivo: '', agenda: a};
+  }
+
+  // "MISS ROSE · pedido(s) 0023 · 25/09/2026": o bastante para achar a carga na lista.
+  function identificacao(a) {
+    if (!a) return 'carga não encontrada';
+    var peds = Object.keys(a.pedidos || {}).map(function(k) { return a.pedidos[k]; }).filter(Boolean).join(', ');
+    var d = String(a.dataAgendada || '').slice(0, 10);
+    return [a.cliente || 'cliente não informado', peds ? 'pedido(s) ' + peds : '', /^\d{4}-\d{2}-\d{2}$/.test(d) ? d.split('-').reverse().join('/') : ''].filter(Boolean).join(' · ');
+  }
+
   return {ATIVAS: ATIVAS, ETAPAS: ETAPAS, pendente: pendente, ativa: ativa, nfs: nfs, faturada: faturada,
     etapa: etapa, acoes: acoes, totais: totais, ultimaSolicitacao: ultimaSolicitacao, linhaDoTempo: linhaDoTempo,
-    listar: listar, contagem: contagem};
+    listar: listar, contagem: contagem, situacaoTentativa: situacaoTentativa, identificacao: identificacao,
+    VALIDADE_TENTATIVA_MS: VALIDADE_TENTATIVA_MS};
 });

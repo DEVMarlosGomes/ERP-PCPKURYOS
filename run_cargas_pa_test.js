@@ -51,4 +51,23 @@ eq(C.listar(ags, 'todas', '1500').map((a) => a._key), ['b'], 'busca pela NF');
 const cont = C.contagem(ags);
 eq([cont.AGENDADA, cont.FATURAMENTO_SOLICITADO, cont.FATURADA, cont.EXPEDIDA], [1, 1, 1, 1]);
 
+// 6. Tentativa de saída guardada na aba: só trava as outras cargas enquanto a
+//    carga dela ainda pode ser carregada (11/11: tentativa órfã bloqueava tudo).
+const agoraMs = Date.parse('2026-11-11T12:00:00Z');
+const t = {idempotencyKey: 'abcdefgh12345678', agendaKey: 'b', criadaEm: '2026-11-11T11:00:00Z'};
+eq(C.situacaoTentativa(ags, t, agoraMs).manter, true, 'carga pronta para carregar: a tentativa vale');
+eq(C.situacaoTentativa({b: com({status: 'EXPEDIDO_PARCIAL', faturamento: {status: 'FATURADO', nfs}})}, t, agoraMs).manter, true, 'saldo aguardando embarque: vale');
+eq(C.situacaoTentativa({}, t, agoraMs).motivo, 'CARGA_REMOVIDA');
+eq(C.situacaoTentativa(ags, Object.assign({}, t, {agendaKey: 'c'}), agoraMs).motivo, 'CARGA_ENCERRADA', 'expedida em outra aba');
+eq(C.situacaoTentativa({b: com({status: 'CANCELADO'})}, t, agoraMs).motivo, 'CARGA_ENCERRADA', 'cancelada');
+eq(C.situacaoTentativa(ags, Object.assign({}, t, {agendaKey: 'a'}), agoraMs).motivo, 'CARGA_ENCERRADA', 'sem NF não carrega');
+eq(C.situacaoTentativa({b: com({status: 'EXPEDIDO_PARCIAL', faturamento: {status: 'FATURADO', nfs}, expedicoes: {exp_abcdefgh12345678: true}})}, t, agoraMs).motivo,
+  'JA_CONFIRMADA', 'a resposta se perdeu, mas a saída está na agenda');
+eq(C.situacaoTentativa(ags, Object.assign({}, t, {criadaEm: '2026-11-10T11:59:00Z'}), agoraMs).motivo, 'ANTIGA', 'mais de 24 h');
+eq(C.situacaoTentativa(ags, {idempotencyKey: 'abcdefgh12345678', agendaKey: 'b'}, agoraMs).motivo, 'ANTIGA', 'sem data (gravada antes da correção)');
+eq(C.situacaoTentativa(ags, {agendaKey: 'b'}, agoraMs).motivo, 'INVALIDA');
+eq(C.situacaoTentativa(ags, null, agoraMs).manter, false);
+eq(C.identificacao(base), 'Miss Rôse · pedido(s) PED-1 · 30/09/2026');
+eq(C.identificacao(undefined), 'carga não encontrada');
+
 console.log('run_cargas_pa_test: ' + n + ' verificações OK');
