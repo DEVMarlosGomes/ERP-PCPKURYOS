@@ -5,6 +5,17 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Módulo financeiro do docs/prompt-financeiro.md (10–11/11/2026)
+
+- **Concluído** (plano em `docs/financeiro-fase0-lacunas.md`, §7). Arquivos ativos: nenhum.
+- F5.0 `a846d91` baixa/estorno/títulos/lote em fila única · F5 `5d02c5e` NF de entrada por XML ·
+  F6 `4cbf613` caixas e bancos (movimentos, transferência, caixa não negativo, extrato) · F7 `7aa63f4`
+  fluxo por dia/semana/mês e DFC; reconciliação de Bancos na Controladoria · F8 `8825ec0` relatórios
+  (CSV para Excel e impressão). Callables novas: `finImportarNfEntrada`, `finMovimentar`,
+  `finEstornarMovimento` (45 funções, 33 callables).
+- F6 a F8 feitas na worktree `../PCP-Kuryos-f7`, porque outro agente editava a pasta principal.
+- **Pendente:** deploy na VPS; conferir relatórios e DFC contra o WebMais (perguntas 6 e 7).
+
 ### Claude — Nova versão a partir desta para todos + histórico do que mudou (10/11/2026)
 
 - **Concluído:** em Cadastros › Fórmulas/BOM/Especificações, "+ Nova versão a partir desta" aparece em
