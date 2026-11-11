@@ -231,6 +231,19 @@
       add('BX_' + san(id), { data: x.data, competencia: String(x.data).slice(0, 7), historico: (x.tipo === 'ESTORNO' ? 'Estorno de ' : '') + (t.tipo === 'PAGAR' ? 'Pagamento: ' : 'Recebimento: ') + (t.documento || x.titulo) + ' · ' + (t.parceiro && t.parceiro.nome || ''),
         origem: { tipo: 'BAIXA', ref: 'fin/baixas/' + id }, partidas: x.tipo === 'ESTORNO' ? inverter(ps) : ps });
     });
+    // Financeiro F6 (10/11/2026): movimento de conta que não é baixa de título.
+    // O estorno carrega os campos do original e entra com as partidas invertidas.
+    Object.keys(fin.movimentos || {}).forEach(function(id) {
+      var m = fin.movimentos[id]; if (!m) return;
+      var v = Math.round(num(m.valorCentavos)); if (!(v > 0)) return;
+      var ps;
+      if (m.tipo === 'TRANSFERENCIA') ps = [D('BANCOS', v, { banco: m.destino }), C('BANCOS', v, { banco: m.conta })];
+      else if (m.tipo === 'RENDIMENTO') ps = [D('BANCOS', v, { banco: m.conta }), C('RECEITA_FIN', v)];
+      else if (m.tipo === 'TARIFA' || m.tipo === 'IOF' || m.tipo === 'JUROS_BANCARIOS') ps = [D('DESP_FIN', v), C('BANCOS', v, { banco: m.conta })];
+      else return;
+      add('MOV_' + san(id), { data: m.data, competencia: String(m.data).slice(0, 7), historico: (m.tipoRegistro === 'ESTORNO' ? 'Estorno de ' : '') + (m.historico || m.tipo),
+        origem: { tipo: 'MOVIMENTO', ref: 'fin/movimentos/' + id }, partidas: m.tipoRegistro === 'ESTORNO' ? inverter(ps) : ps });
+    });
     return out;
   }
   // O passivo (ou ativo) que a baixa liquida: o mesmo que a obrigação creditou na origem.

@@ -532,7 +532,7 @@
     var f = fin || {}, out = {};
     Object.keys(f.contas_bancarias || {}).forEach(function(k) {
       var c = f.contas_bancarias[k]; if (!c) return;
-      out[k] = { conta: k, nome: c.nome || k, saldoInicialCentavos: Math.round(num(c.saldoInicialCentavos)), dataSaldoInicial: c.dataSaldoInicial || null, movimentoCentavos: 0, saldoCentavos: 0 };
+      out[k] = { conta: k, nome: c.nome || k, tipo: tipoConta(c), saldoInicialCentavos: Math.round(num(c.saldoInicialCentavos)), dataSaldoInicial: c.dataSaldoInicial || null, movimentoCentavos: 0, saldoCentavos: 0 };
     });
     Object.keys(f.baixas || {}).forEach(function(k) {
       var x = f.baixas[k]; if (!x || !out[x.conta]) return;
@@ -540,6 +540,17 @@
       if (out[x.conta].dataSaldoInicial && x.data < out[x.conta].dataSaldoInicial) return;
       var sinal = (x.tituloTipo === 'RECEBER' ? 1 : -1) * (x.tipo === 'ESTORNO' ? -1 : 1);
       out[x.conta].movimentoCentavos += sinal * num(x.liquidoCentavos);
+    });
+    // F6: tarifa, rendimento, transferência (e os estornos deles).
+    Object.keys(f.movimentos || {}).forEach(function(k) {
+      var m = f.movimentos[k]; if (!m) return;
+      if (ate && m.data > ate) return;
+      var ef = efeitosMovimento(m);
+      Object.keys(ef).forEach(function(c) {
+        if (!out[c]) return;
+        if (out[c].dataSaldoInicial && m.data < out[c].dataSaldoInicial) return;
+        out[c].movimentoCentavos += ef[c];
+      });
     });
     Object.keys(out).forEach(function(k) { out[k].saldoCentavos = out[k].saldoInicialCentavos + out[k].movimentoCentavos; });
     return out;
@@ -684,6 +695,105 @@
       if (!s.abertas.length && s.saldoCentavos === alvo) titulos.push({ tipo: 'TITULO', titulo: s.id, parcela: null });
     });
     return { candidatos: titulos };
+  }
+
+  /* ── Caixas e bancos (F6, 10/11/2026 — docs/financeiro-fase0-lacunas.md) ──
+     Movimento de conta que não é baixa de título: tarifa, IOF, juros bancários,
+     rendimento e transferência entre contas (suprimento e sangria do caixa são
+     transferências). Só o servidor grava (fin/movimentos); erro se corrige com
+     ESTORNO (registro inverso), nunca apagando. Caixa físico não fica negativo. */
+  var TIPOS_CONTA = { BANCO: 'Banco', CAIXA: 'Caixa', APLICACAO: 'Aplicação' };
+  var TIPOS_MOVIMENTO = {
+    TARIFA: { sinal: -1, rotulo: 'Tarifa bancária' }, IOF: { sinal: -1, rotulo: 'IOF' },
+    JUROS_BANCARIOS: { sinal: -1, rotulo: 'Juros bancários' }, RENDIMENTO: { sinal: 1, rotulo: 'Rendimento' },
+    TRANSFERENCIA: { sinal: 0, rotulo: 'Transferência' }
+  };
+  function tipoConta(c) { return c && TIPOS_CONTA[c.tipo] ? c.tipo : 'BANCO'; }
+  // Efeito de um movimento por conta, em centavos (estorno inverte o original).
+  function efeitosMovimento(m) {
+    if (!m) return {};
+    var v = Math.round(num(m.valorCentavos)), inv = m.tipoRegistro === 'ESTORNO' ? -1 : 1, out = {};
+    if (m.tipo === 'TRANSFERENCIA') { out[m.conta] = -v * inv; out[m.destino] = (out[m.destino] || 0) + v * inv; return out; }
+    var t = TIPOS_MOVIMENTO[m.tipo]; if (!t) return {};
+    out[m.conta] = t.sinal * v * inv;
+    return out;
+  }
+  function validarMovimento(d, fin) {
+    var x = d || {}, f = fin || {}, contas = f.contas_bancarias || {};
+    if (!TIPOS_MOVIMENTO[x.tipo]) return { ok: false, motivo: 'Tipo de movimento inválido.' };
+    var v = typeof x.valorCentavos === 'number' ? Math.round(x.valorCentavos) : centavos(x.valor);
+    if (!(v > 0)) return { ok: false, motivo: 'Informe o valor.' };
+    if (!dataOk(x.data)) return { ok: false, motivo: 'Data inválida.' };
+    if (!x.conta || !contas[x.conta]) return { ok: false, motivo: 'Escolha a conta.' };
+    if (x.tipo === 'TRANSFERENCIA') {
+      if (!x.destino || !contas[x.destino]) return { ok: false, motivo: 'Escolha a conta de destino.' };
+      if (x.destino === x.conta) return { ok: false, motivo: 'Origem e destino são a mesma conta.' };
+    }
+    var reg = { tipoRegistro: 'MOVIMENTO', tipo: x.tipo, conta: x.conta, destino: x.tipo === 'TRANSFERENCIA' ? x.destino : null,
+      data: String(x.data).slice(0, 10), valorCentavos: v, historico: String(x.historico || '').trim().slice(0, 300) || TIPOS_MOVIMENTO[x.tipo].rotulo };
+    var neg = caixaNegativo(f, reg);
+    if (neg) return { ok: false, motivo: neg };
+    return { ok: true, registro: reg };
+  }
+  /* Caixa físico não fica negativo (decisão conservadora da Fase 0, pergunta 5):
+     aplicando o registro, nenhuma conta CAIXA pode terminar abaixo de zero. Banco pode
+     (cheque especial). `registro` é movimento ou baixa ({conta, liquidoCentavos, tituloTipo}). */
+  function caixaNegativo(fin, registro) {
+    var f = fin || {}, contas = f.contas_bancarias || {}, efeito = {};
+    if (registro.tipoRegistro) efeito = efeitosMovimento(registro);
+    else if (registro.conta) efeito[registro.conta] = (registro.tituloTipo === 'RECEBER' ? 1 : -1) * (registro.tipo === 'ESTORNO' ? -1 : 1) * Math.round(num(registro.liquidoCentavos));
+    var saldos = saldosBancarios(f, null), erro = null;
+    Object.keys(efeito).forEach(function(k) {
+      if (erro || tipoConta(contas[k]) !== 'CAIXA' || efeito[k] >= 0) return;
+      var depois = ((saldos[k] || {}).saldoCentavos || 0) + efeito[k];
+      if (depois < 0) erro = 'O caixa ' + (contas[k].nome || k) + ' ficaria negativo (saldo R$ ' + (((saldos[k] || {}).saldoCentavos || 0) / 100).toFixed(2).replace('.', ',') + '). Faça antes a transferência do banco para o caixa.';
+    });
+    return erro;
+  }
+  function validarEstornoMovimento(movs, id) {
+    var m = (movs || {})[id];
+    if (!m || m.tipoRegistro !== 'MOVIMENTO') return { ok: false, motivo: 'Movimento não encontrado.' };
+    var ja = Object.keys(movs).some(function(k) { var x = movs[k]; return x && x.tipoRegistro === 'ESTORNO' && x.estorna === id; });
+    if (ja) return { ok: false, motivo: 'Este movimento já foi estornado.' };
+    return { ok: true, registro: Object.assign({}, m, { tipoRegistro: 'ESTORNO', estorna: id }) };
+  }
+  /* Extrato de uma conta: saldo anterior a `de`, linhas do período com saldo acumulado.
+     Fontes: saldo inicial, baixas de títulos (com estornos) e movimentos (com estornos). */
+  function extratoConta(fin, conta, de, ate) {
+    var f = fin || {}, c = (f.contas_bancarias || {})[conta];
+    if (!c) return { ok: false, motivo: 'Conta não encontrada.' };
+    var linhas = [];
+    if (c.dataSaldoInicial) linhas.push({ data: c.dataSaldoInicial, ordem: 0, tipo: 'SALDO_INICIAL', historico: 'Saldo inicial', valorCentavos: Math.round(num(c.saldoInicialCentavos)), ref: null });
+    Object.keys(f.baixas || {}).forEach(function(k) {
+      var x = f.baixas[k]; if (!x || x.conta !== conta) return;
+      if (c.dataSaldoInicial && x.data < c.dataSaldoInicial) return;
+      var t = (f.titulos || {})[x.titulo] || {}, sinal = (x.tituloTipo === 'RECEBER' ? 1 : -1) * (x.tipo === 'ESTORNO' ? -1 : 1);
+      linhas.push({ data: x.data, ordem: 1, criado: String(x.criadoEm || ''), tipo: x.tipo === 'ESTORNO' ? 'ESTORNO_BAIXA' : 'BAIXA', valorCentavos: sinal * Math.round(num(x.liquidoCentavos)), ref: k, titulo: x.titulo,
+        historico: (x.tipo === 'ESTORNO' ? 'Estorno: ' : '') + (x.tituloTipo === 'RECEBER' ? 'Recebimento ' : 'Pagamento ') + (t.documento || x.titulo) + (t.parceiro && t.parceiro.nome ? ' · ' + t.parceiro.nome : '') });
+    });
+    var estornados = {};
+    Object.keys(f.movimentos || {}).forEach(function(k) { var m = f.movimentos[k]; if (m && m.tipoRegistro === 'ESTORNO') estornados[m.estorna] = k; });
+    Object.keys(f.movimentos || {}).forEach(function(k) {
+      var m = f.movimentos[k], ef = efeitosMovimento(m)[conta]; if (ef == null || !ef) return;
+      if (c.dataSaldoInicial && m.data < c.dataSaldoInicial) return;
+      var rot = (TIPOS_MOVIMENTO[m.tipo] || {}).rotulo || m.tipo, outra = m.tipo === 'TRANSFERENCIA' ? (m.conta === conta ? m.destino : m.conta) : null;
+      linhas.push({ data: m.data, ordem: 1, criado: String(m.criadoEm || ''), tipo: m.tipoRegistro === 'ESTORNO' ? 'ESTORNO_MOVIMENTO' : 'MOVIMENTO', movimento: m.tipo, valorCentavos: ef, ref: k,
+        estornavel: m.tipoRegistro === 'MOVIMENTO' && !estornados[k],
+        historico: (m.tipoRegistro === 'ESTORNO' ? 'Estorno: ' : '') + rot + (outra ? (m.conta === conta ? ' para ' : ' de ') + (((f.contas_bancarias || {})[outra] || {}).nome || outra) : '') + (m.historico && m.historico !== rot ? ' · ' + m.historico : '') });
+    });
+    // No mesmo dia: saldo inicial primeiro, depois na ordem em que foi lançado (como o extrato do banco).
+    linhas.sort(function(a, b) { return String(a.data).localeCompare(String(b.data)) || a.ordem - b.ordem || String(a.criado || '').localeCompare(String(b.criado || '')) || String(a.ref).localeCompare(String(b.ref)); });
+    var anterior = 0, saldo = 0, periodo = [], entradas = 0, saidas = 0;
+    linhas.forEach(function(l) {
+      if (de && l.data < de) { anterior += l.valorCentavos; return; }
+      if (ate && l.data > ate) return;
+      if (!periodo.length) saldo = anterior;
+      saldo += l.valorCentavos;
+      if (l.tipo !== 'SALDO_INICIAL') { if (l.valorCentavos > 0) entradas += l.valorCentavos; else saidas -= l.valorCentavos; }
+      periodo.push(Object.assign({}, l, { saldoCentavos: saldo }));
+    });
+    return { ok: true, conta: conta, nome: c.nome || conta, tipo: tipoConta(c), saldoAnteriorCentavos: anterior, linhas: periodo,
+      entradasCentavos: entradas, saidasCentavos: saidas, saldoFinalCentavos: periodo.length ? saldo : anterior };
   }
 
   /* ── NF de entrada por XML (F5, 10/11/2026 — docs/financeiro-fase0-lacunas.md) ──
@@ -839,6 +949,8 @@
     saldosBancarios: saldosBancarios, compromissos: compromissos, fluxoDeCaixa: fluxoDeCaixa, aging: aging, prazosMedios: prazosMedios,
     lerOfx: lerOfx, sugerirConciliacao: sugerirConciliacao,
     lerXmlNfe: lerXmlNfe, casarNotaEntrada: casarNotaEntrada, notasPorTitulo: notasPorTitulo, parcelasDaNota: parcelasDaNota,
-    pendenciasNotas: pendenciasNotas, decCentavos: decCentavos
+    pendenciasNotas: pendenciasNotas, decCentavos: decCentavos,
+    TIPOS_CONTA: TIPOS_CONTA, TIPOS_MOVIMENTO: TIPOS_MOVIMENTO, tipoConta: tipoConta, efeitosMovimento: efeitosMovimento,
+    validarMovimento: validarMovimento, validarEstornoMovimento: validarEstornoMovimento, caixaNegativo: caixaNegativo, extratoConta: extratoConta
   };
 });

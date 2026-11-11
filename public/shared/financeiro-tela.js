@@ -12,7 +12,7 @@
   // Fatos dos outros módulos: lidos uma vez (botão "Recarregar"). O fin/ é ao vivo.
   var NOS_UMA_VEZ = ['pedidos_compra', 'processos_cotacao', 'fornecedores', 'clientes', 'estoque_lotes', 'pedidos_comerciais', 'agendamentos_expedicao'];
   var D = {}, fin = {}, fechamentos = {}, avisos = [];
-  var S = {aba: 'painel', q: '', filtro: 'abertos', conta: '', sel: {}, extratoConta: '', previaNotas: []};
+  var S = {aba: 'painel', q: '', filtro: 'abertos', conta: '', sel: {}, extratoConta: '', previaNotas: [], extConta: '', extDe: '', extAte: ''};
   var pronto = {fatos: false, fin: false};
 
   function el(id) { return document.getElementById(id); }
@@ -30,7 +30,8 @@
   function uid() { var u = firebase.auth().currentUser; return u ? u.uid : null; }
   function chave() { return (window.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).replace(/[^A-Za-z0-9_-]/g, ''); }
   function san(k) { return String(k == null ? '' : k).replace(/[.#$\/\[\]]/g, '_'); }
-  function toast(msg) { var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(function() { t.remove(); }, 4200); }
+  // Um aviso por vez: o novo substitui o anterior (antes se sobrepunham no mesmo lugar).
+  function toast(msg) { Array.prototype.forEach.call(document.querySelectorAll('.toast'), function(x) { x.remove(); }); var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(function() { t.remove(); }, 4200); }
   function erroMsg(err) { return (err && (err.message || err.code)) || String(err); }
   function chamar(nome, dados) { return firebase.functions().httpsCallable(nome)(dados).then(function(r) { return r.data; }); }
   function kpi(cls, r, v, d) { return '<div class="kpi ' + cls + '"><div class="r">' + r + '</div><div class="v">' + v + '</div><div class="d">' + (d || '') + '</div></div>'; }
@@ -63,7 +64,7 @@
   function render() {
     Array.prototype.forEach.call(document.querySelectorAll('.aba'), function(b) { b.setAttribute('aria-selected', b.dataset.aba === S.aba ? 'true' : 'false'); });
     var h = avisos.length ? '<div class="alerta warn"><div><b>Parte da base não carregou.</b> ' + avisos.map(e).join('<br>') + '</div></div>' : '';
-    h += ({painel: abaPainel, pagar: function() { return abaTitulos('PAGAR'); }, receber: function() { return abaTitulos('RECEBER'); }, notas: abaNotas, lotes: abaLotes,
+    h += ({painel: abaPainel, pagar: function() { return abaTitulos('PAGAR'); }, receber: function() { return abaTitulos('RECEBER'); }, notas: abaNotas, bancos: abaBancos, lotes: abaLotes,
       conciliacao: abaConciliacao, fluxo: abaFluxo, complementos: abaComplementos, cadastros: abaCadastros}[S.aba] || abaPainel)();
     el('conteudo').innerHTML = h;
   }
@@ -202,6 +203,59 @@
     return h;
   }
 
+  /* ── Caixas e bancos — F6 ──────────────────────────────────────────────── */
+  function primeiroDoMes() { return hojeISO().slice(0, 8) + '01'; }
+  function abaBancos() {
+    var cs = fin.contas_bancarias || {}, ks = Object.keys(cs);
+    if (!ks.length) return '<div class="card"><div class="vazio"><b>Nenhuma conta cadastrada.</b>Cadastre bancos e o caixa em Cadastros, com o saldo de hoje.</div></div>';
+    if (!S.extConta || !cs[S.extConta]) S.extConta = ks[0];
+    if (!S.extDe) S.extDe = primeiroDoMes();
+    if (!S.extAte) S.extAte = hojeISO();
+    var saldos = F.saldosBancarios(fin, hojeISO());
+    var h = '<div class="kpis">' + ks.map(function(k) {
+      var sb = saldos[k] || {saldoCentavos: 0}, tp = F.tipoConta(cs[k]);
+      return kpi(sb.saldoCentavos < 0 ? 'bad' : 'ok', e(cs[k].nome || k), brl(sb.saldoCentavos), F.TIPOS_CONTA[tp] + (tp === 'CAIXA' ? ' · não fica negativo' : ''));
+    }).join('') + '</div>';
+    h += '<div class="card"><div class="barra"><button class="btn sm pri" data-mov="1">Lançar tarifa, IOF, juros ou rendimento</button><button class="btn sm" data-transf="1">Transferência entre contas</button>' +
+      '<span class="dica">Suprimento e sangria do caixa são transferências entre o banco e o caixa. Pagamento de título continua em A pagar.</span></div></div>';
+    var ex = F.extratoConta(fin, S.extConta, S.extDe, S.extAte);
+    h += '<div class="card"><h3>Extrato da conta</h3><div class="barra"><select class="sel" id="extConta">' + contasOpcoes(S.extConta) + '</select>' +
+      '<label class="mut">de <input class="inp" type="date" id="extDe" value="' + e(S.extDe) + '"></label><label class="mut">até <input class="inp" type="date" id="extAte" value="' + e(S.extAte) + '"></label></div>' +
+      '<div class="tw"><table><thead><tr><th>Data</th><th>Histórico</th><th class="n">Entrada</th><th class="n">Saída</th><th class="n">Saldo</th><th></th></tr></thead><tbody>' +
+      '<tr class="mut"><td>' + dataBR(S.extDe) + '</td><td>Saldo anterior</td><td></td><td></td><td class="n">' + brl(ex.saldoAnteriorCentavos) + '</td><td></td></tr>' +
+      (ex.linhas.length ? ex.linhas.map(function(l) {
+        var ent = l.valorCentavos > 0 && l.tipo !== 'SALDO_INICIAL' ? l.valorCentavos : null, sai = l.valorCentavos < 0 ? -l.valorCentavos : null;
+        var hist = e(l.historico);
+        if (l.titulo) hist = '<a href="#" data-det="' + e(l.titulo) + '">' + hist + '</a>';
+        if (l.tipo === 'SALDO_INICIAL') hist = '<b>' + hist + '</b> ' + brl(l.valorCentavos);
+        return '<tr><td>' + dataBR(l.data) + '</td><td>' + hist + (l.tipo.indexOf('ESTORNO') === 0 ? ' <span class="tg bad">estorno</span>' : '') + '</td><td class="n">' + (ent ? brl(ent) : '') + '</td><td class="n">' + (sai ? brl(-sai) : '') + '</td><td class="n">' + brl(l.saldoCentavos) + '</td>' +
+          '<td>' + (l.estornavel ? '<button class="btn sm perigo" data-estornar-mov="' + e(l.ref) + '">Estornar</button>' : '') + '</td></tr>';
+      }).join('') : '<tr><td colspan="6" class="mut">Nenhum lançamento no período.</td></tr>') +
+      '<tr class="tot"><td></td><td><b>Total do período</b></td><td class="n">' + brl(ex.entradasCentavos) + '</td><td class="n">' + brl(-ex.saidasCentavos) + '</td><td class="n"><b>' + brl(ex.saldoFinalCentavos) + '</b></td><td></td></tr>' +
+      '</tbody></table></div></div>';
+    return h;
+  }
+  function formMovimento(extrato) {
+    var tipos = ['TARIFA', 'IOF', 'JUROS_BANCARIOS', 'RENDIMENTO'];
+    var sugerido = extrato ? (extrato.valorCentavos >= 0 ? 'RENDIMENTO' : 'TARIFA') : 'TARIFA';
+    var h = '<div class="form"><div><label for="mvConta">Conta</label><select class="sel" id="mvConta">' + contasOpcoes(extrato ? extrato.conta : S.extConta) + '</select></div>' +
+      '<div><label for="mvTipo">Tipo</label><select class="sel" id="mvTipo">' + tipos.map(function(t) { return '<option value="' + t + '"' + (t === sugerido ? ' selected' : '') + '>' + e(F.TIPOS_MOVIMENTO[t].rotulo) + (F.TIPOS_MOVIMENTO[t].sinal > 0 ? ' (entrada)' : ' (saída)') + '</option>'; }).join('') + '</select></div>' +
+      '<div><label for="mvData">Data</label><input class="inp" type="date" id="mvData" value="' + (extrato ? extrato.data : hojeISO()) + '"></div>' +
+      '<div><label for="mvValor">Valor (R$)</label><input class="inp" id="mvValor" value="' + (extrato ? (Math.abs(extrato.valorCentavos) / 100).toFixed(2).replace('.', ',') : '') + '"></div>' +
+      '<div style="grid-column:1/-1"><label for="mvHist">Histórico</label><input class="inp" id="mvHist" value="' + e(extrato ? extrato.memo || '' : '') + '"></div></div>' +
+      '<div style="margin-top:12px"><button class="btn pri" id="mvOk"' + (extrato ? ' data-extrato="' + e(JSON.stringify({conta: extrato.conta, fitid: extrato.fitid})) + '"' : '') + '>Lançar</button> <span class="dica">Vai para a Controladoria como despesa ou receita financeira.</span></div>';
+    abrir('Lançar movimento da conta', h);
+  }
+  function formTransferencia() {
+    var h = '<div class="form"><div><label for="trOrigem">De</label><select class="sel" id="trOrigem">' + contasOpcoes(S.extConta) + '</select></div>' +
+      '<div><label for="trDestino">Para</label><select class="sel" id="trDestino">' + contasOpcoes('') + '</select></div>' +
+      '<div><label for="trData">Data</label><input class="inp" type="date" id="trData" value="' + hojeISO() + '"></div>' +
+      '<div><label for="trValor">Valor (R$)</label><input class="inp" id="trValor"></div>' +
+      '<div style="grid-column:1/-1"><label for="trHist">Histórico</label><input class="inp" id="trHist" placeholder="ex.: suprimento do caixa"></div></div>' +
+      '<div style="margin-top:12px"><button class="btn pri" id="trOk">Transferir</button> <span class="dica">Sai de uma conta e entra na outra no mesmo registro; estornar desfaz os dois lados.</span></div>';
+    abrir('Transferência entre contas', h);
+  }
+
   function abaLotes() {
     var abertos = F.carteira(fin).filter(function(s) { return s.titulo.tipo === 'PAGAR' && s.saldoCentavos > 0 && !s.bloqueio; })
       .sort(function(a, b) { return ((a.abertas[0] || {}).vencimento || '9999').localeCompare((b.abertas[0] || {}).vencimento || '9999'); });
@@ -242,10 +296,10 @@
       (ks.length ? ks.map(function(k) {
         var l = linhas[k], c = conc[l.fitid];
         var cell;
-        if (c) cell = '<span class="tg ok">conciliada</span> <span class="mut">' + e(c.baixa) + '</span>';
+        if (c) cell = '<span class="tg ok">conciliada</span> <span class="mut">' + e(c.baixa || c.movimento) + '</span>';
         else {
           var sug = F.sugerirConciliacao(l, base(), S.extratoConta, num((fin.parametros || {}).toleranciaConciliacaoDias) || 3).candidatos;
-          cell = !sug.length ? '<span class="tg warn">sem par</span> <span class="mut">lance o título (manual) ou confira a data</span>'
+          cell = !sug.length ? '<span class="tg warn">sem par</span> <button class="btn sm" data-conc-mov="' + e(k) + '">Lançar como tarifa/rendimento</button> <span class="mut">ou lance o título (manual)</span>'
             : sug.slice(0, 4).map(function(x) {
               var t = (fin.titulos || {})[x.titulo] || {};
               var rot = e((t.parceiro && t.parceiro.nome || '') + ' · ' + (t.documento || x.titulo));
@@ -296,8 +350,10 @@
   function abaCadastros() {
     var cs = fin.contas_bancarias || {}, par = fin.parametros || {};
     var h = '<div class="grid2"><div class="card"><h3>Contas bancárias</h3><div class="tw"><table><thead><tr><th>Conta</th><th>Saldo inicial</th><th>Em</th><th class="n">Saldo hoje</th></tr></thead><tbody>' +
-      (Object.keys(cs).length ? Object.keys(cs).map(function(k) { var sb = F.saldosBancarios(fin, hojeISO())[k]; return '<tr><td>' + e(cs[k].nome) + ' <span class="mut">' + e([cs[k].banco, cs[k].agencia, cs[k].numero].filter(Boolean).join(' · ')) + '</span></td><td>' + brl(cs[k].saldoInicialCentavos) + '</td><td>' + dataBR(cs[k].dataSaldoInicial) + '</td><td class="n">' + brl(sb && sb.saldoCentavos) + '</td></tr>'; }).join('') : '<tr><td colspan="4" class="mut">Nenhuma.</td></tr>') +
+      (Object.keys(cs).length ? Object.keys(cs).map(function(k) { var sb = F.saldosBancarios(fin, hojeISO())[k]; return '<tr><td>' + e(cs[k].nome) + ' <span class="mut">' + e([cs[k].banco, cs[k].agencia, cs[k].numero].filter(Boolean).join(' · ')) + '</span>' +
+        ' <select class="sel" data-tipo-conta="' + e(k) + '" aria-label="Tipo da conta ' + e(cs[k].nome) + '">' + Object.keys(F.TIPOS_CONTA).map(function(t) { return '<option value="' + t + '"' + (F.tipoConta(cs[k]) === t ? ' selected' : '') + '>' + F.TIPOS_CONTA[t] + '</option>'; }).join('') + '</select></td><td>' + brl(cs[k].saldoInicialCentavos) + '</td><td>' + dataBR(cs[k].dataSaldoInicial) + '</td><td class="n">' + brl(sb && sb.saldoCentavos) + '</td></tr>'; }).join('') : '<tr><td colspan="4" class="mut">Nenhuma.</td></tr>') +
       '</tbody></table></div><div class="form" style="margin-top:12px"><div><label for="cbNome">Nome</label><input class="inp" id="cbNome" placeholder="Itaú movimento"></div><div><label for="cbBanco">Banco / agência / conta</label><input class="inp" id="cbBanco" placeholder="341 · 0001 · 12345-6"></div>' +
+      '<div><label for="cbTipo">Tipo</label><select class="sel" id="cbTipo">' + Object.keys(F.TIPOS_CONTA).map(function(t) { return '<option value="' + t + '">' + F.TIPOS_CONTA[t] + '</option>'; }).join('') + '</select></div>' +
       '<div><label for="cbSaldo">Saldo inicial (R$)</label><input class="inp" id="cbSaldo" placeholder="0,00"></div><div><label for="cbData">Data do saldo</label><input class="inp" type="date" id="cbData" value="' + hojeISO() + '"></div></div>' +
       '<div style="margin-top:10px"><button class="btn pri sm" id="cbSalvar">Adicionar conta</button> <span class="dica">O saldo inicial vira lançamento de abertura na Controladoria. Corrigir depois = nova conta ou ajuste, não edição.</span></div></div>';
     h += '<div class="card"><h3>Parâmetros</h3><div class="form"><div><label for="pFolha">Folha vence no dia (mês seguinte)</label><input class="inp" id="pFolha" type="number" min="1" max="28" value="' + e(par.vencimentoFolhaDia || 5) + '"></div>' +
@@ -364,6 +420,25 @@
     if (d.det) { ev.preventDefault(); detalhe(d.det); return; }
     if (d.baixar) { formBaixa(d.baixar); return; }
     if (d.manual) { formManual(d.manual); return; }
+    if (d.mov) { formMovimento(null); return; }
+    if (d.transf) { formTransferencia(); return; }
+    if (d.concMov) { var lx = ((fin.extratos || {})[S.extratoConta] || {})[d.concMov]; if (lx) formMovimento(Object.assign({conta: S.extratoConta}, lx)); return; }
+    if (t.id === 'mvOk') {
+      var mv = {chave: chave(), tipo: el('mvTipo').value, conta: el('mvConta').value, data: el('mvData').value, valorCentavos: lerReais(el('mvValor').value), historico: el('mvHist').value};
+      if (d.extrato) mv.extrato = JSON.parse(d.extrato);
+      travar(t, chamar('finMovimentar', mv)).then(function() { fechar(); toast('Movimento lançado.'); });
+      return;
+    }
+    if (t.id === 'trOk') {
+      var tr = {chave: chave(), tipo: 'TRANSFERENCIA', conta: el('trOrigem').value, destino: el('trDestino').value, data: el('trData').value, valorCentavos: lerReais(el('trValor').value), historico: el('trHist').value};
+      travar(t, chamar('finMovimentar', tr)).then(function() { fechar(); toast('Transferência lançada.'); });
+      return;
+    }
+    if (d.estornarMov) {
+      var mot2 = prompt('Motivo do estorno (fica no histórico):'); if (!mot2) return;
+      travar(t, chamar('finEstornarMovimento', {movimento: d.estornarMov, motivo: mot2, data: hojeISO()})).then(function() { toast('Movimento estornado.'); });
+      return;
+    }
     if (d.manualNf) { var nt = (fin.notas_entrada || {})[d.manualNf]; if (nt) formManual('PAGAR', nt); return; }
     if (d.vincularNf) { travar(t, chamar('finImportarNfEntrada', {xmls: []})).then(function(r) { toast(r.vinculadas ? r.vinculadas + ' nota(s) vinculada(s).' : 'Nada novo para vincular.'); }); return; }
     if (t.id === 'nfLimpar') { S.previaNotas = []; render(); return; }
@@ -426,7 +501,7 @@
       var partes = el('cbBanco').value.split(/·|\|/).map(function(s) { return s.trim(); });
       var k = san(nome.toLowerCase().replace(/\s+/g, '_')).slice(0, 40);
       if ((fin.contas_bancarias || {})[k]) { toast('Já existe uma conta com esse nome.'); return; }
-      travar(t, db.ref('fin/contas_bancarias/' + k).set({nome: nome, banco: partes[0] || null, agencia: partes[1] || null, numero: partes[2] || null,
+      travar(t, db.ref('fin/contas_bancarias/' + k).set({nome: nome, tipo: el('cbTipo').value || 'BANCO', banco: partes[0] || null, agencia: partes[1] || null, numero: partes[2] || null,
         saldoInicialCentavos: saldo, dataSaldoInicial: el('cbData').value, criadoPor: autor(), criadoEm: new Date().toISOString()})).then(function() { toast('Conta adicionada.'); });
       return;
     }
@@ -462,6 +537,10 @@
     if (d.sel) { if (t.checked) S.sel[d.sel] = Number(d.valor); else delete S.sel[d.sel]; render(); }
     if (t.id === 'ltConta') { S.conta = t.value; render(); }
     if (t.id === 'exConta') { S.extratoConta = t.value; render(); }
+    if (t.id === 'extConta') { S.extConta = t.value; render(); }
+    if (t.id === 'extDe') { S.extDe = t.value; render(); }
+    if (t.id === 'extAte') { S.extAte = t.value; render(); }
+    if (d.tipoConta) { db.ref('fin/contas_bancarias/' + d.tipoConta + '/tipo').set(t.value).then(function() { toast('Tipo da conta salvo.'); }, function(err) { toast(erroMsg(err)); }); }
     if (t.id === 'nfArquivos' && t.files && t.files.length) {
       var arquivos = Array.prototype.slice.call(t.files, 0, 50), notasJa = fin.notas_entrada || {};
       Promise.all(arquivos.map(function(f) {

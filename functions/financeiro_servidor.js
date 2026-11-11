@@ -51,6 +51,8 @@ function prepararBaixa(base, dados, quem, agora) {
   const v = F.validarBaixa(situacaoDe(base, d.titulo), d, fin.contas_bancarias);
   if (!v.ok) falhar(v.motivo);
   if (fechado(base, v.registro.data)) falhar(`O mês ${v.registro.data.slice(0, 7)} está fechado na Controladoria: lance a baixa com data no mês aberto.`);
+  const neg = F.caixaNegativo(fin, v.registro);
+  if (neg) falhar(neg);
   const updates = {[`fin/baixas/${id}`]: Object.assign({}, v.registro, {historico: String(d.historico || "").slice(0, 300) || null, criadoEm: agora, criadoPor: quem.nome, criadoPorUid: quem.uid, versao: VERSAO})};
   if (d.extrato && d.extrato.fitid) {
     const ck = san(d.extrato.conta) + "_" + san(d.extrato.fitid);
@@ -121,11 +123,15 @@ function prepararDecisaoLote(base, dados, quem, agora) {
   const data = String(lote.dataPagamento || agora).slice(0, 10);
   if (fechado(base, data)) falhar(`O mês ${data.slice(0, 7)} está fechado.`);
   const updates = {};
+  let totalLote = 0;
   Object.entries(lote.titulos).forEach(([tid, valor]) => {
     const v = F.validarBaixa(situacaoDe(base, tid), {valorCentavos: Number(valor), data, conta: lote.conta}, fin.contas_bancarias);
     if (!v.ok) falhar(`Título ${tid}: ${v.motivo}`);
+    totalLote += Math.round(Number(v.registro.liquidoCentavos) || 0);
     updates[`fin/baixas/BX_LOTE_${san(d.lote)}_${san(tid)}`] = Object.assign({}, v.registro, {loteKey: d.lote, criadoEm: agora, criadoPor: quem.nome, criadoPorUid: quem.uid, versao: VERSAO});
   });
+  const negLote = F.caixaNegativo(fin, {conta: lote.conta, tituloTipo: "PAGAR", liquidoCentavos: totalLote});
+  if (negLote) falhar(negLote);
   updates[`fin/lotes_pagamento/${d.lote}/status`] = "APROVADO";
   updates[`fin/lotes_pagamento/${d.lote}/decididoPor`] = quem.nome;
   updates[`fin/lotes_pagamento/${d.lote}/decididoPorUid`] = quem.uid;
@@ -182,6 +188,42 @@ function vincularNotas(base, agora) {
   return {updates, vinculadas};
 }
 
+/* Caixas e bancos (F6): tarifa, IOF, juros, rendimento e transferência. `chave` vem
+   da tela (clique duplo não duplica); `extrato {conta, fitid}` concilia a linha do OFX. */
+function prepararMovimento(base, dados, quem, agora) {
+  const d = dados || {};
+  if (!/^[A-Za-z0-9_-]{6,80}$/.test(String(d.chave || ""))) falhar("Identificador do movimento inválido.", "invalid-argument");
+  const id = "MV_" + d.chave;
+  const fin = base.fin || {};
+  if ((fin.movimentos || {})[id]) return {updates: {}, id, repetido: true};
+  const v = F.validarMovimento(d, fin);
+  if (!v.ok) falhar(v.motivo);
+  if (fechado(base, v.registro.data)) falhar(`O mês ${v.registro.data.slice(0, 7)} está fechado na Controladoria: lance com data no mês aberto.`);
+  const updates = {[`fin/movimentos/${id}`]: Object.assign({}, v.registro, {criadoEm: agora, criadoPor: quem.nome, criadoPorUid: quem.uid, versao: VERSAO})};
+  if (d.extrato && d.extrato.fitid) {
+    const ck = san(d.extrato.conta) + "_" + san(d.extrato.fitid);
+    if ((fin.conciliacoes || {})[ck]) falhar("Esta linha do extrato já foi conciliada.");
+    updates[`fin/conciliacoes/${ck}`] = {conta: d.extrato.conta, fitid: d.extrato.fitid, movimento: id, em: agora, por: quem.nome};
+  }
+  return {updates, id, repetido: false};
+}
+function prepararEstornoMovimento(base, dados, quem, agora) {
+  const d = dados || {};
+  const motivo = String(d.motivo || "").trim();
+  if (motivo.length < 5) falhar("Explique o motivo do estorno.", "invalid-argument");
+  const fin = base.fin || {};
+  const v = F.validarEstornoMovimento(fin.movimentos, d.movimento);
+  if (!v.ok) falhar(v.motivo);
+  const data = String(d.data || agora).slice(0, 10);
+  if (fechado(base, data)) falhar(`O mês ${data.slice(0, 7)} está fechado: estorne com data no mês aberto.`);
+  const reg = Object.assign({}, v.registro, {data, motivo, criadoEm: agora, criadoPor: quem.nome, criadoPorUid: quem.uid, versao: VERSAO});
+  const neg = F.caixaNegativo(fin, reg);
+  if (neg) falhar(neg);
+  const updates = {[`fin/movimentos/${d.movimento}_estorno`]: reg};
+  Object.entries(fin.conciliacoes || {}).forEach(([k, c]) => { if (c && c.movimento === d.movimento) updates[`fin/conciliacoes/${k}`] = null; });
+  return {updates};
+}
+
 // Mês fechado na Controladoria não recebe movimento financeiro com data nele.
 function fechado(base, dataISO) {
   const f = ((base.ctl || {}).fechamentos || {})[String(dataISO || "").slice(0, 7)];
@@ -189,4 +231,4 @@ function fechado(base, dataISO) {
 }
 
 module.exports = {VERSAO, ehFinanceiro, prepararDerivacao, prepararBaixa, prepararEstorno, prepararTitulos, prepararDecisaoLote, situacaoDe, fechado,
-  prepararNotasEntrada, vincularNotas};
+  prepararNotasEntrada, vincularNotas, prepararMovimento, prepararEstornoMovimento};
