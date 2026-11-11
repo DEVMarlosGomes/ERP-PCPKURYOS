@@ -1600,13 +1600,11 @@ Contexto: entregues pelo Dev 3 (`reuniao-20261028/fase6`), revisados e ensaiados
 - **FEFO na operação:** o apontamento não escolhe lote de embalagem; ele baixa o que foi separado para a OP (`separadoPara`). Se a fábrica apontar sem separar, volta ao FEFO geral.
 - **Suítes de tela que já falhavam no main antes da Fase 6** (texto desatualizado, não regressão): `run_operacao_ui_test.js` (módulo `placar` no perfil Produção), `run_portao_bulk_ui_test.js` (texto do portão do granel), `run_proximas_ordens_ui_test.js` (glifo "⚠" trocado pela camada de ícones). Atualizar as asserções.
 
-## Cadastro vivo: "o que mudou" nos demais cadastros (10/11/2026)
+## Cadastro vivo: "o que mudou" nos demais cadastros (10/11/2026) — FEITO em 11/11
 
-Pedido da operação: o cadastro é atualizado de forma constante (novas versões, descrições,
-especificações, fornecedores) e cada mudança precisa ficar no histórico com data, hora, quem e
-justificativa curta. **Feito para Fórmula/BOM/Especificação** (`public/shared/diff-versao.js`,
-"Nova versão a partir desta" para todos + "Finalizar edição"). **Falta** o mesmo padrão em
-Materiais, Produtos e Fornecedores (`cadastros.html`, abas próprias): hoje o histórico desses só
-existe em parte (clientes têm `historicoAlteracoes` desde 08/11). Retomar com um diff por campo
-do registro (antes/depois) gravado em `{nó}/{key}/historicoAlteracoes` no mesmo update do salvar,
-reaproveitando `historicoHtml` da aba de versões.
+Materiais, Produtos e Fornecedores gravam o que mudou (campo, antes, depois, quem, quando, justificativa
+curta obrigatória ao editar) em `historico_{materiais|produtos|fornecedores}`, só inclusão
+(`shared/historico-cadastro.js`). **Ainda fora:** o "Já revisado" do fornecedor clicado direto na lista
+(`fornecedores/{k}/revisado`, `cadastros.html`), os parâmetros de MRP editados no card do MRP
+(`insumos.html`) e gravações feitas por outras telas (CRM cria produto; Compras edita fornecedor):
+passam a registrar quando forem tocadas, com `HistoricoCadastro.entradas` no mesmo update.

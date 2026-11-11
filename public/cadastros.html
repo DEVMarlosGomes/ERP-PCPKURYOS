@@ -20,6 +20,64 @@
   <script src="shared/importacao-json-pendencias-ui.js"></script>
   <script src="shared/itens-cadastro.js"></script>
   <script src="shared/diff-versao.js"></script>
+  <script src="shared/historico-cadastro.js"></script>
+  <script>
+  /* Histórico do cadastro vivo nos modais de Materiais, Produtos e Fornecedores (10/11/2026).
+     Ao editar: justificativa curta obrigatória quando algo muda; cada salvamento grava, no MESMO
+     update, uma entrada por campo alterado em historico_{materiais|produtos|fornecedores}/{key}
+     (HistoricoCadastro). Os nós só aceitam inclusão (regra do banco). */
+  window.HcModal = {
+    abrir: function(suf, caminhos, editando) {
+      var bloco = document.getElementById('hcBloco-' + suf);
+      if (!bloco) return;
+      bloco.hidden = !editando;
+      var just = document.getElementById('hcJust-' + suf);
+      just.value = '';
+      just.classList.remove('hc-erro');
+      just.removeAttribute('aria-invalid');
+      var lista = document.getElementById('hcLista-' + suf), conta = document.getElementById('hcConta-' + suf);
+      conta.textContent = '';
+      if (!editando) { lista.innerHTML = ''; return; }
+      lista.innerHTML = '<div class="hc-vazio">Carregando…</div>';
+      var token = bloco.__token = (bloco.__token || 0) + 1;
+      Promise.all(caminhos.map(function(c) {
+        return firebase.database().ref(c).once('value').then(function(snap) { return Object.values(snap.val() || {}); }).catch(function() { return []; });
+      })).then(function(listas) {
+        if (token !== bloco.__token) return;
+        var grupos = HistoricoCadastro.agrupar([].concat.apply([], listas));
+        conta.textContent = '(' + grupos.length + ')';
+        lista.innerHTML = HistoricoCadastro.html(grupos);
+      });
+    },
+    // Texto da justificativa; false quando algo mudou e ela falta (avisa e foca o campo).
+    justificativa: function(suf, nMudancas) {
+      var just = document.getElementById('hcJust-' + suf);
+      var t = ((just && just.value) || '').trim();
+      if (!nMudancas) return t;
+      if (!HistoricoCadastro.justificativaValida(t)) {
+        just.classList.add('hc-erro');
+        just.setAttribute('aria-invalid', 'true');
+        var det = just.closest('.hc-bloco');
+        if (det) det.scrollIntoView({block: 'nearest'});
+        just.focus();
+        showAlert(nMudancas + (nMudancas === 1 ? ' campo alterado' : ' campos alterados') + ': escreva a justificativa da alteração (mínimo ' + HistoricoCadastro.MIN_JUSTIFICATIVA + ' letras).', 'danger');
+        return false;
+      }
+      return t;
+    },
+    meta: function(justificativa, acao) {
+      var u = firebase.auth().currentUser;
+      return {por: (window.currentUser && window.currentUser.nome) || (u && u.email) || 'Desconhecido', porUid: u ? u.uid : null,
+        em: new Date().toISOString(), em_ms: (firebase.database.ServerValue || {}).TIMESTAMP || Date.now(),
+        grupo: firebase.database().ref().push().key, justificativa: justificativa || null, acao: acao || 'EDICAO'};
+    },
+    // Soma as entradas ao update (chaves novas: só inclusão).
+    somar: function(updates, no, key, entradas) {
+      entradas.forEach(function(e) { updates[no + '/' + key + '/' + firebase.database().ref().push().key] = e; });
+      return updates;
+    }
+  };
+  </script>
   <script src="auth_check.js"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="shared/theme.css">
@@ -214,6 +272,24 @@
     .adv-facet-opt input{flex-shrink:0}
     .adv-facet-count{color:var(--muted);font-size:12px;margin-left:auto}
     .adv-result-row:hover{background:var(--surface-2);cursor:pointer}
+    /* Histórico do cadastro vivo (10/11/2026) */
+    .hc-bloco { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+    .hc-bloco .hc-just-campo input.hc-erro { border-color: var(--danger, #d03b3b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger, #d03b3b) 18%, transparent); }
+    .hc-hist { margin-top: 4px; }
+    .hc-hist > summary { cursor: pointer; font-size: 13px; font-weight: 650; color: var(--text); padding: 6px 0; }
+    .hc-hist > summary span { color: var(--muted); font-weight: 500; }
+    .hc-lista { list-style: none; margin: 6px 0 0; padding: 0; max-height: 280px; overflow-y: auto; }
+    .hc-grupo { padding: 9px 0; border-top: 1px solid var(--border); font-size: 12.5px; line-height: 1.45; }
+    .hc-grupo:first-child { border-top: none; }
+    .hc-cab { color: var(--text); }
+    .hc-cab b { font-variant-numeric: tabular-nums; }
+    .hc-tag { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 650; background: color-mix(in srgb, var(--success, #0ca30c) 14%, transparent); color: var(--text); }
+    .hc-just { color: var(--muted); margin-top: 2px; }
+    .hc-itens { margin: 4px 0 0; padding-left: 18px; }
+    .hc-itens li { margin: 1px 0; overflow-wrap: anywhere; }
+    .hc-campo { font-weight: 600; }
+    .hc-vazio { font-size: 12.5px; color: var(--muted); padding: 6px 0; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   </style>
 <script src="shared/contatos-cliente.js"></script><script src="shared/espelho-cadastro.js"></script><script src="shared/contatos-cliente-ui.js"></script><link rel="stylesheet" href="shared/contatos-cliente.css"><script src="shared/cliente-comercial.js"></script><script src="shared/etiqueta-caixa.js"></script>
 </head>
@@ -623,13 +699,13 @@
             </div>
           </div>
 
-          <div class="section-label" id="historicoMatLabel-mat" style="display:none">Histórico de alterações</div>
-          <div class="section-note" id="historicoMatNote-mat" style="display:none">Registrado automaticamente a cada edição salva -- não cobre a criação do registro nem edições feitas antes deste recurso existir.</div>
-          <div class="table-wrap" style="margin-bottom:10px; max-height:220px; overflow-y:auto" id="historicoMatWrap-mat" data-ui="table-scroll">
-            <table>
-              <thead><tr><th>Campo</th><th>Antes</th><th>Depois</th><th>Por</th><th>Quando</th></tr></thead>
-              <tbody id="historicoMatBody-mat"><tr><td colspan="5" class="no-data">Nenhuma alteração registrada ainda.</td></tr></tbody>
-            </table>
+          <div class="hc-bloco" id="hcBloco-mat" hidden>
+            <div class="form-group hc-just-campo">
+              <label for="hcJust-mat">Justificativa da alteração</label>
+              <input type="text" id="hcJust-mat" maxlength="300" placeholder="Ex.: troca do fornecedor homologado da essência" aria-describedby="hcJustDica-mat">
+              <div class="field-hint" id="hcJustDica-mat">Obrigatória quando algo muda (mínimo 10 letras). Fica no histórico com data, hora e seu nome.</div>
+            </div>
+            <details class="hc-hist" id="hcHist-mat"><summary>Histórico de alterações <span id="hcConta-mat"></span></summary><div id="hcLista-mat"></div></details>
           </div>
         </div>
         <div class="modal-footer" data-ui="dialog-foot">
@@ -910,6 +986,14 @@
                 <div class="field-hint">Cadastrada por completude/relatório -- não entra na conta do lote na emissão de OP (perda de linha é tratada na produção real, via apontamento).</div>
               </div>
             </div>
+          </div>
+          <div class="hc-bloco" id="hcBloco-prod" hidden>
+            <div class="form-group hc-just-campo">
+              <label for="hcJust-prod">Justificativa da alteração</label>
+              <input type="text" id="hcJust-prod" maxlength="300" placeholder="Ex.: nova descrição pedida pelo cliente" aria-describedby="hcJustDica-prod">
+              <div class="field-hint" id="hcJustDica-prod">Obrigatória quando algo muda (mínimo 10 letras). Fica no histórico com data, hora e seu nome.</div>
+            </div>
+            <details class="hc-hist" id="hcHist-prod"><summary>Histórico de alterações <span id="hcConta-prod"></span></summary><div id="hcLista-prod"></div></details>
           </div>
         </div>
         <div class="modal-footer" data-ui="dialog-foot">
@@ -1496,6 +1580,14 @@
           <label class="chk"><input type="checkbox" id="fnAtivo-forn" checked> Ativo</label>
           <label class="chk" style="margin-top:6px"><input type="checkbox" id="fnRevisado-forn" checked> Já revisado</label>
           <div class="field-hint">Marca que os dados deste fornecedor (contato, condição, prazo) já foram conferidos. Fornecedores recém-importados vêm desmarcados.</div>
+          <div class="hc-bloco" id="hcBloco-forn" hidden>
+            <div class="form-group hc-just-campo">
+              <label for="hcJust-forn">Justificativa da alteração</label>
+              <input type="text" id="hcJust-forn" maxlength="300" placeholder="Ex.: novo contato comercial e prazo de entrega" aria-describedby="hcJustDica-forn">
+              <div class="field-hint" id="hcJustDica-forn">Obrigatória quando algo muda (mínimo 10 letras). Fica no histórico com data, hora e seu nome.</div>
+            </div>
+            <details class="hc-hist" id="hcHist-forn"><summary>Histórico de alterações <span id="hcConta-forn"></span></summary><div id="hcLista-forn"></div></details>
+          </div>
         </div>
         <div class="modal-footer" data-ui="dialog-foot">
           <button class="btn btn-ghost" id="modalFornecedorCancel-forn">Cancelar</button>
@@ -2589,7 +2681,7 @@ document.addEventListener('DOMContentLoaded', function() {
     atualizarCustoTargetBrl();
 
     updateTipoFieldsVisibility();
-    renderHistoricoMaterial(key);
+    HcModal.abrir('mat', key ? ['historico_materiais/' + key] : [], !!key);
     renderUsoMaterial(key);
     document.getElementById('modalBg-mat').classList.add('open');
   }
@@ -2599,8 +2691,7 @@ document.addEventListener('DOMContentLoaded', function() {
     editingKey = null;
   }
 
-  // Só existe log a partir da edição -- material novo não tem o que
-  // mostrar ainda (ver diffParaHistorico, shared/utils.js).
+  // Rótulos do histórico do material (HistoricoCadastro, 10/11/2026).
   var CAMPOS_LABEL_HISTORICO = {
     mpNome: 'Nome', tipo: 'Tipo', unidade: 'Unidade', marcaModelo: 'Marca/Modelo',
     codigoBarras: 'Código de barras', especificacoesTecnicas: 'Especificações técnicas',
@@ -2613,7 +2704,8 @@ document.addEventListener('DOMContentLoaded', function() {
     custoTargetUsd: 'Custo target USD', formato: 'Formato', gargaloRosca: 'Gargalo/rosca',
     materialResina: 'Material', volumeNominal: 'Volume nominal', volumeInternoTotal: 'Volume interno',
     pesoUnitario: 'Peso unitário', alturaMm: 'Altura', diametroMm: 'Diâmetro',
-    comprimentoMm: 'Comprimento', larguraMm: 'Largura', revisado: 'Revisado'
+    comprimentoMm: 'Comprimento', larguraMm: 'Largura', revisado: 'Revisado',
+    skusEntrada: 'SKU de entrada', criticoPd: 'Crítico P&D', mpCodigo: 'Código'
   };
   // Cada seção desta página é seu próprio IIFE (ver Fase 6 no histórico do
   // projeto) -- fmtData/currentUserNome da aba Fórmulas não são visíveis
@@ -2621,42 +2713,6 @@ document.addEventListener('DOMContentLoaded', function() {
   function currentUserNome() {
     return (window.currentUser && window.currentUser.nome) || (firebase.auth().currentUser && firebase.auth().currentUser.email) || 'Desconhecido';
   }
-  function fmtDataHistoricoMat(iso) {
-    if (!iso) return '';
-    try { return new Date(iso).toLocaleString('pt-BR'); } catch (e) { return iso; }
-  }
-  function fmtValorHistorico(v) {
-    if (v === null || v === undefined || v === '') return '—';
-    if (typeof v === 'boolean') return v ? 'Sim' : 'Não';
-    if (typeof v === 'object') return Object.keys(v).length ? (Object.keys(v).length + ' item(ns)') : '—';
-    return String(v);
-  }
-  function renderHistoricoMaterial(key) {
-    var label = document.getElementById('historicoMatLabel-mat');
-    var note = document.getElementById('historicoMatNote-mat');
-    var wrap = document.getElementById('historicoMatWrap-mat');
-    var tbody = document.getElementById('historicoMatBody-mat');
-    if (!key) { label.style.display = 'none'; note.style.display = 'none'; wrap.style.display = 'none'; return; }
-    label.style.display = ''; note.style.display = ''; wrap.style.display = '';
-    tbody.innerHTML = '<tr><td colspan="5" class="no-data">Carregando...</td></tr>';
-    db.ref('historico_materiais/' + key).once('value').then(function(snap) {
-      var itens = snap.val() || {};
-      var entradas = Object.values(itens).sort(function(a, b) { return (b.alteradoEm || '').localeCompare(a.alteradoEm || ''); });
-      if (!entradas.length) { tbody.innerHTML = '<tr><td colspan="5" class="no-data">Nenhuma alteração registrada ainda.</td></tr>'; return; }
-      tbody.innerHTML = entradas.map(function(e) {
-        return '<tr>' +
-          '<td>' + escapeHtml(CAMPOS_LABEL_HISTORICO[e.campo] || e.campo) + '</td>' +
-          '<td>' + escapeHtml(fmtValorHistorico(e.valorAnterior)) + '</td>' +
-          '<td>' + escapeHtml(fmtValorHistorico(e.valorNovo)) + '</td>' +
-          '<td>' + escapeHtml(e.alteradoPor || '—') + '</td>' +
-          '<td style="font-size:12px">' + fmtDataHistoricoMat(e.alteradoEm) + '</td>' +
-        '</tr>';
-      }).join('');
-    }).catch(function() {
-      tbody.innerHTML = '<tr><td colspan="5" class="no-data">Erro ao carregar histórico.</td></tr>';
-    });
-  }
-
   // ── Usado em (Fórmula / BOM) -- reverse lookup, só leitura ──────────────
   // Varre formulas/ e bom/ (carregadas só pra isso, allFormulasMat/allBomMat
   // acima) procurando itens que referenciam este material, agrupado por
@@ -2897,6 +2953,11 @@ document.addEventListener('DOMContentLoaded', function() {
     var criticoGravado = !!(editingKey && allMateriais[editingKey] && allMateriais[editingKey].criticoPd === true);
     if (ehAdminCadastro() ? document.getElementById('fCriticoPd-mat').checked : criticoGravado) data.criticoPd = true;
 
+    // Histórico do cadastro vivo: o que muda + justificativa curta ao editar.
+    var mudMat = editingKey ? HistoricoCadastro.mudancas(allMateriais[editingKey], Object.assign({}, data, {mpCodigo: (allMateriais[editingKey] || {}).mpCodigo}), {rotulos: CAMPOS_LABEL_HISTORICO}) : [];
+    var justMat = HcModal.justificativa('mat', mudMat.length);
+    if (justMat === false) return;
+
     document.getElementById('modalSaveBtn-mat').disabled = true;
 
     if (editingKey) {
@@ -2910,13 +2971,8 @@ document.addEventListener('DOMContentLoaded', function() {
       updates['materiais/' + editingKey] = data;
       Object.keys(ixEd.updates).forEach(function(ch) { updates['materiais_chave/' + ch] = ixEd.updates[ch]; });
 
-      // Log de alteração (ver diffParaHistorico, shared/utils.js) -- mesmo
-      // update() atômico da gravação real, nunca loga sem salvar de fato.
-      var mudancasHistorico = diffParaHistorico(allMateriais[editingKey], data, currentUserNome());
-      mudancasHistorico.forEach(function(mud) {
-        var pushKey = db.ref('historico_materiais/' + editingKey).push().key;
-        updates['historico_materiais/' + editingKey + '/' + pushKey] = mud;
-      });
+      // Histórico no mesmo update() atômico da gravação: nunca registra sem salvar de fato.
+      HcModal.somar(updates, 'historico_materiais', editingKey, HistoricoCadastro.entradas(mudMat, HcModal.meta(justMat)));
 
       db.ref().update(updates)
         .then(function() { showAlert('Material salvo com sucesso!', 'success'); closeModal(); })
@@ -2939,6 +2995,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var updates = {};
       updates['materiais/' + key] = data;
       Object.keys(ixNovo.updates).forEach(function(ch) { updates['materiais_chave/' + ch] = ixNovo.updates[ch]; });
+      HcModal.somar(updates, 'historico_materiais', key, [HistoricoCadastro.criacao(HcModal.meta(null, 'CRIADO'))]);
       if (solicitacaoMatEmCurso) {
         var fecha = SkuEntrada.fechamento(key, r.formatado, currentUserNome(), new Date().toISOString());
         Object.keys(fecha).forEach(function(campo) { updates['solicitacoes_cadastro_material/' + solicitacaoMatEmCurso + '/' + campo] = fecha[campo]; });
@@ -3676,8 +3733,16 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('fnClienteVinculadoKey-forn').value = f.clienteVinculadoKey || '';
     document.getElementById('fnDupHint-forn').classList.remove('show');
 
+    HcModal.abrir('forn', key ? ['historico_fornecedores/' + key] : [], !!key);
     document.getElementById('modalFornecedor-forn').classList.add('open');
   }
+  var CAMPOS_LABEL_FORNECEDOR = {
+    razaoSocial: 'Razão social', nomeFantasia: 'Nome fantasia', cnpj: 'CNPJ', cnpjsAdicionais: 'CNPJs adicionais', tipos: 'Categorias',
+    prazoEntregaDias: 'Prazo de entrega (dias)', condicaoPagamento: 'Condição de pagamento', contatoNome: 'Contato', contatoTelefone: 'Telefone',
+    contatoEmail: 'E-mail', site: 'Site', cep: 'CEP', logradouro: 'Logradouro', numero: 'Número', complemento: 'Complemento', bairro: 'Bairro',
+    cidade: 'Cidade', uf: 'UF', certificacoes: 'Certificações', ativo: 'Ativo', revisado: 'Revisado', matrizKey: 'Matriz',
+    clienteVinculadoKey: 'Também é cliente', tipo: 'Categoria (antiga)'
+  };
   function closeModalFornecedor() { document.getElementById('modalFornecedor-forn').classList.remove('open'); editingKey = null; }
 
   // ── CNPJs adicionais ─────────────────────────────────────────────────
@@ -3801,6 +3866,12 @@ document.addEventListener('DOMContentLoaded', function() {
       clienteVinculadoKey: document.getElementById('fnClienteVinculadoKey-forn').value || null
     };
     var key = editingKey || db.ref('fornecedores').push().key;
+    // Histórico do cadastro vivo (10/11/2026): o que muda + justificativa curta ao editar.
+    var antesForn = editingKey ? (allFornecedores[editingKey] || {}) : null;
+    var mudForn = antesForn ? HistoricoCadastro.mudancas(antesForn, Object.assign({}, antesForn, data), {rotulos: CAMPOS_LABEL_FORNECEDOR}) : [];
+    var justForn = HcModal.justificativa('forn', mudForn.length);
+    if (justForn === false) return;
+    var histForn = antesForn ? HistoricoCadastro.entradas(mudForn, HcModal.meta(justForn)) : [HistoricoCadastro.criacao(HcModal.meta(null, 'CRIADO'))];
     document.getElementById('modalFornecedorSave-forn').disabled = true;
     // Cadastro veio do cliente: os dois lados do vínculo no mesmo update.
     var gravar;
@@ -3808,9 +3879,13 @@ document.addEventListener('DOMContentLoaded', function() {
       var espelho = {};
       espelho['fornecedores/' + key] = Object.assign({}, allFornecedores[key] || {}, data);
       espelho['clientes/' + espelhoOrigemCli.key + '/fornecedorVinculadoKey'] = key;
+      HcModal.somar(espelho, 'historico_fornecedores', key, histForn);
       gravar = db.ref().update(espelho);
     } else {
-      gravar = db.ref('fornecedores/' + key).update(data);
+      var upForn = {};
+      Object.keys(data).forEach(function(campo) { upForn['fornecedores/' + key + '/' + campo] = data[campo]; });
+      HcModal.somar(upForn, 'historico_fornecedores', key, histForn);
+      gravar = db.ref().update(upForn);
     }
     gravar
       .then(function() {
@@ -4735,6 +4810,8 @@ document.addEventListener('DOMContentLoaded', function() {
     var modal = document.getElementById('modalBg-prod');
     modal.querySelectorAll('.tab').forEach(function(t) { t.classList.toggle('active', t.getAttribute('data-tab') === 'prod-ident'); });
     modal.querySelectorAll('.tab-panel').forEach(function(tp) { tp.classList.toggle('active', tp.id === 'tab-prod-ident'); });
+    // Histórico: o SKU atual e os anteriores (renomeação guarda os apelidos em skusAnteriores).
+    HcModal.abrir('prod', key ? [key].concat(Object.keys(p.skusAnteriores || {})).map(function(k) { return 'historico_produtos/' + k; }) : [], !!key);
 
     modal.classList.add('open');
   }
@@ -4743,6 +4820,14 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('modalBg-prod').classList.remove('open');
     editingKey = null;
   }
+  var CAMPOS_LABEL_PRODUTO = {
+    descricao: 'Descrição', linhaProduto: 'Linha', volume: 'Volume', unidadeVolume: 'Unidade do volume', ativo: 'Ativo',
+    codCliente: 'Código no cliente', prodHoraRef: 'Produção/hora de referência', cliente: 'Cliente', clienteKey: 'Cliente (vínculo)',
+    viscosidade: 'Viscosidade', categoria: 'Categoria', subcategoria: 'Subcategoria', unCx: 'Unidades por caixa', kgCaixa: 'Kg por caixa',
+    lotePadrao: 'Lote padrão', msAnvisa: 'Registro/notificação Anvisa', lp: 'Preço (LP)', obs: 'Observações',
+    densidadeGranel: 'Densidade do granel', prazoValidadeMeses: 'Validade (meses)', overfillPct: 'Overfill (%)',
+    perdaProcessoPct: 'Perda de processo (%)', perdaLinhaPct: 'Perda de linha (%)', categoriaCodigo: 'Código da categoria'
+  };
 
   function saveModal() {
     var descricao = document.getElementById('fDescricao-prod').value.trim();
@@ -4850,8 +4935,21 @@ document.addEventListener('DOMContentLoaded', function() {
       // (usa autoCliente direto, ver acima), então remover é seguro.
     };
 
+    // Histórico do cadastro vivo (10/11/2026): o que muda + justificativa curta ao editar.
+    var renomeia = !!(editingKey && editingKey !== key);
+    var antesProd = editingKey ? (allProdutos[editingKey] || {}) : null;
+    var mudProd = [];
+    if (antesProd) {
+      // update() mescla; renomeação regrava o registro inteiro.
+      mudProd = HistoricoCadastro.mudancas(antesProd, renomeia ? data : Object.assign({}, antesProd, data), {rotulos: CAMPOS_LABEL_PRODUTO, ignorar: ['skusAnteriores', 'sku']});
+      if (renomeia) mudProd.unshift({campo: 'sku', rotulo: 'SKU', de: editingKey, para: key});
+    }
+    var justProd = HcModal.justificativa('prod', mudProd.length);
+    if (justProd === false) { document.getElementById('modalSaveBtn-prod').disabled = false; return; }
+    var histProd = antesProd ? HistoricoCadastro.entradas(mudProd, HcModal.meta(justProd)) : [HistoricoCadastro.criacao(HcModal.meta(null, 'CRIADO'))];
+
     var promise;
-    if (editingKey && editingKey !== key) {
+    if (renomeia) {
       // Renomeação: histórico (OPs/pedidos/registros) NUNCA é reescrito --
       // fica com o SKU antigo pra sempre, como fotografia do que era
       // verdade na época. Em vez disso, mantemos um mapa de apelidos:
@@ -4870,9 +4968,14 @@ document.addEventListener('DOMContentLoaded', function() {
       updates['produtos/' + key] = data;
       updates['produtos/' + editingKey] = null;
       todosAliases.forEach(function(alias) { updates['sku_historico/' + alias] = key; });
+      HcModal.somar(updates, 'historico_produtos', key, histProd);
       promise = db.ref().update(updates);
     } else {
-      promise = db.ref('produtos/' + key).update(data);
+      // Caminhos planos = mesma mescla do update(data) no nó, com o histórico no mesmo update.
+      var upProd = {};
+      Object.keys(data).forEach(function(campo) { upProd['produtos/' + key + '/' + campo] = data[campo]; });
+      HcModal.somar(upProd, 'historico_produtos', key, histProd);
+      promise = db.ref().update(upProd);
     }
 
     promise

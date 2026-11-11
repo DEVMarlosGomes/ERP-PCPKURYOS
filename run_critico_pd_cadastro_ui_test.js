@@ -106,6 +106,8 @@ async function salvarMaterial(page, key, mexer) {
   const antes = {marcado: await page.isChecked('#fCriticoPd-mat'), travado: await page.isDisabled('#fCriticoPd-mat')};
   if (mexer) await mexer(page);
   await page.evaluate(() => { window.__salvou = false; });
+  // Desde 10/11/2026 editar exige justificativa quando algo muda (histórico do cadastro vivo).
+  await page.fill('#hcJust-mat', 'Ajuste de teste da marca de crítico');
   await page.click('#modalSaveBtn-mat');
   await page.waitForFunction(() => /Material salvo/.test(document.getElementById('alertBox').innerText));
   await page.evaluate(() => { document.getElementById('alertBox').innerText = ''; });

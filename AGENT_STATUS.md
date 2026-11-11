@@ -5,6 +5,19 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Histórico do cadastro vivo: Materiais, Produtos e Fornecedores (11/11/2026)
+
+- **Concluído:** editar Material/Produto/Fornecedor em Cadastros exige justificativa curta (≥10) quando algo
+  muda; o salvamento grava no MESMO update uma entrada por campo (antes/depois/quem/quando/justificativa,
+  `grupo`) em `historico_{materiais|produtos|fornecedores}/{key}`; criar registra "Cadastro criado". Modal
+  mostra o histórico agrupado (o antigo de materiais continua). Produto e Fornecedor passaram a gravar por
+  caminhos planos na raiz (mesma mescla de antes). Regras: os 3 nós só aceitam inclusão, com quem grava o
+  cadastro (fornecedor inclui Compras). Testes: `run_historico_cadastro_test.js`, `_ui_test`, `_rules_test`
+  (emulador, `firebase.histcad-test.json`), bateria de Cadastros OK. **Pendente (Marlos): publicar regras
+  ANTES do deploy da VPS** (sem `historico_produtos`/`historico_fornecedores` no ar, salvar produto e
+  fornecedor dá PERMISSION_DENIED). Arquivos ativos: `public/shared/identificacao-ibc.js`, `emitir_op.html`,
+  `ops.html` (próxima tarefa: identificação do IBC).
+
 ### Claude — Módulo financeiro do docs/prompt-financeiro.md (10–11/11/2026)
 
 - **Concluído** (plano em `docs/financeiro-fase0-lacunas.md`, §7). Arquivos ativos: nenhum.
