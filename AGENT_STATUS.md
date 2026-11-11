@@ -5,6 +5,20 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Espelho do faturamento da Expedição no Financeiro (11/11/2026)
+
+- **Concluído:** aba "Faturamento (Expedição)" em `financeiro.html`, só leitura, espelho da tela da Expedição
+  (mesma régua `CargasPA.listar`: a faturar / faturadas / em aberto, busca, CSV). Por palete: descrição com código
+  interno e externo (`produtos.codCliente`), lote, fabricação (fim real da OP, senão emissão), validade (lote, senão
+  OP), caixas fechadas e avulsas desta carga (unidades ÷ múltiplo), total, valor por caixa (unitário × múltiplo),
+  unitário e total. Carga solicitada usa o retrato da solicitação (preço); só agendada fica sem preço. Falta de
+  código externo/fabricação/validade/preço aparece como aviso, nunca zero. `shared/espelho-faturamento.js`; o
+  Financeiro passou a ler `produtos` e `ops` (regras já permitiam). Corrigido também o contador de Cobranças
+  (`auth_check.js`), que usava `snapshot.forEach` e quebrava os testes de tela com Firebase simulado.
+  Testes: `run_espelho_faturamento_test` 6 grupos (fluxo real do servidor), `run_espelho_faturamento_ui_test` 13
+  (Chrome via `PLAYWRIGHT_MODULE`), bateria financeiro (6 + 5 telas), carga parcial e navegação OK.
+  **Pendente:** deploy da VPS. Arquivos ativos: nenhum.
+
 ### Claude — Análise do granel com ensaio em dobro (11/11/2026)
 
 - **Concluído:** o modal "Análise do granel" (lote 26309/08, FBBS0005__v1) mostrava cada ensaio duas vezes.

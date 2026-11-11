@@ -10,9 +10,9 @@
   var F = Financeiro;
 
   // Fatos dos outros módulos: lidos uma vez (botão "Recarregar"). O fin/ é ao vivo.
-  var NOS_UMA_VEZ = ['pedidos_compra', 'processos_cotacao', 'fornecedores', 'clientes', 'estoque_lotes', 'pedidos_comerciais', 'agendamentos_expedicao'];
+  var NOS_UMA_VEZ = ['pedidos_compra', 'processos_cotacao', 'fornecedores', 'clientes', 'estoque_lotes', 'pedidos_comerciais', 'agendamentos_expedicao', 'produtos', 'ops'];
   var D = {}, fin = {}, fechamentos = {}, avisos = [];
-  var S = {aba: 'painel', q: '', filtro: 'abertos', conta: '', sel: {}, extratoConta: '', previaNotas: [], extConta: '', extDe: '', extAte: '', flG: 'SEMANA', flConta: '', flNat: '', dfcDe: '', dfcAte: '',
+  var S = {aba: 'painel', q: '', filtro: 'abertos', fatFiltro: 'faturamento', conta: '', sel: {}, extratoConta: '', previaNotas: [], extConta: '', extDe: '', extAte: '', flG: 'SEMANA', flConta: '', flNat: '', dfcDe: '', dfcAte: '',
     rel: {tipo: 'pagar', de: '', ate: '', dataBase: 'VENCIMENTO', situacao: 'ABERTOS', natureza: '', parceiro: '', conta: '', granularidade: 'SEMANA'}};
   var pronto = {fatos: false, fin: false};
 
@@ -65,7 +65,7 @@
   function render() {
     Array.prototype.forEach.call(document.querySelectorAll('.aba'), function(b) { b.setAttribute('aria-selected', b.dataset.aba === S.aba ? 'true' : 'false'); });
     var h = avisos.length ? '<div class="alerta warn"><div><b>Parte da base não carregou.</b> ' + avisos.map(e).join('<br>') + '</div></div>' : '';
-    h += ({painel: abaPainel, pagar: function() { return abaTitulos('PAGAR'); }, receber: function() { return abaTitulos('RECEBER'); }, notas: abaNotas, bancos: abaBancos, lotes: abaLotes,
+    h += ({painel: abaPainel, pagar: function() { return abaTitulos('PAGAR'); }, receber: function() { return abaTitulos('RECEBER'); }, notas: abaNotas, faturamento: abaFaturamento, bancos: abaBancos, lotes: abaLotes,
       conciliacao: abaConciliacao, fluxo: abaFluxo, relatorios: abaRelatorios, complementos: abaComplementos, cadastros: abaCadastros}[S.aba] || abaPainel)();
     el('conteudo').innerHTML = h;
   }
@@ -95,6 +95,70 @@
     var fl = F.fluxoDeCaixa(b, hoje, 6);
     h += '<div class="card"><h3>Próximas 6 semanas</h3>' + tabelaFluxo(fl, true) + '</div>';
     return h;
+  }
+
+  /* ── Faturamento (Expedição): espelho só de leitura ─────────────────────
+     Mesmas cargas e mesma régua da tela da Expedição (CargasPA); as linhas e
+     os campos que faltam no retrato vêm de shared/espelho-faturamento.js. */
+  var FAT_FILTROS = [['faturamento', 'A faturar (sem NF)'], ['FATURADA', 'Faturadas, ainda não expedidas'], ['ativas', 'Todas as cargas em aberto']];
+  var COR_ETAPA = {cinza: 'mute', laranja: 'warn', azul: 'info', verde: 'ok', vermelho: 'bad'};
+  function reais(v) { return v == null ? '<span class="mut">—</span>' : 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4}); }
+  function inteiro(v) { return Number(v || 0).toLocaleString('pt-BR'); }
+  function cargasDoEspelho() {
+    return CargasPA.listar(D.agendamentos_expedicao || {}, S.fatFiltro, S.q).map(function(a) {
+      var ls = EspelhoFaturamento.linhas(a, D);
+      return {agenda: a, etapa: CargasPA.etapa(a), sol: EspelhoFaturamento.ultimaSolicitacao(a), linhas: ls,
+        totais: EspelhoFaturamento.totais(ls), cliente: a.cliente || '', dataAgendada: a.dataAgendada || ''};
+    });
+  }
+  function linhaEspelho(l) {
+    return '<tr><td><b>' + e(l.descricao || '—') + '</b><br><span class="mut" style="font-size:12px">Interno: ' + e(l.sku || '—') +
+      ' · Externo: ' + (l.codExterno ? e(l.codExterno) : '<span class="neg">não cadastrado</span>') +
+      (l.identificadorPalete ? ' · ' + e(l.identificadorPalete) : '') + (l.pedidoNumero ? ' · Pedido ' + e(l.pedidoNumero) : '') + '</span></td>' +
+      '<td>' + e(l.lote || '—') + '</td><td>' + dataBR(l.fabricacao) + '</td><td>' + dataBR(l.validade) + '</td>' +
+      '<td class="n">' + inteiro(l.caixasFechadas) + (l.unidadesPorCaixa ? '<br><span class="mut" style="font-size:12px">de ' + inteiro(l.unidadesPorCaixa) + ' un</span>' : '') + '</td>' +
+      '<td class="n">' + inteiro(l.unidadesAvulsas) + '</td><td class="n"><b>' + inteiro(l.totalUnidades) + '</b></td>' +
+      '<td class="n">' + reais(l.valorCaixa) + '</td><td class="n">' + reais(l.valorUnitario) + '</td><td class="n">' + reais(l.valorTotal) + '</td></tr>';
+  }
+  function cartaoEspelho(c) {
+    var a = c.agenda, t = c.totais, nfs = CargasPA.nfs(a), falta = [];
+    if (c.sol && t.semPreco) falta.push(t.semPreco + ' sem preço no pedido');
+    if (t.semCodExterno) falta.push(t.semCodExterno + ' sem código externo (Cadastros › Produtos › Código no cliente)');
+    if (t.semFabricacao) falta.push(t.semFabricacao + ' sem data de fabricação');
+    if (t.semValidade) falta.push(t.semValidade + ' sem validade');
+    return '<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline">' +
+      '<h3 style="margin:0">' + e(c.cliente || 'Cliente não informado') + ' · ' + dataBR(c.dataAgendada) + (a.janela ? ' ' + e(a.janela) : '') + '</h3>' +
+      '<span><span class="tg ' + (COR_ETAPA[c.etapa.cor] || 'mute') + '">' + e(c.etapa.curto) + '</span>' +
+      (nfs.length ? ' <span class="tg info">NF ' + e(nfs.map(function(x) { return x.texto; }).join(', ')) + '</span>' : '') + '</span></div>' +
+      '<div class="mut" style="font-size:13px;margin:4px 0 10px">' +
+      (c.sol ? 'Solicitado em ' + dataBR(c.sol.em) + ' por ' + e(c.sol.por || '—') : 'Faturamento ainda não solicitado pela Expedição (sem preço até solicitar)') +
+      (a.transportadora ? ' · Transportadora: ' + e(a.transportadora) : '') + (a.enderecoEntrega ? ' · Entrega: ' + e(a.enderecoEntrega) : '') +
+      (c.sol && c.sol.observacoes ? '<br>Observações: ' + e(c.sol.observacoes) : '') + '</div>' +
+      (falta.length ? '<div class="alerta warn"><div><b>Falta para emitir:</b> ' + e(falta.join(' · ')) + '</div></div>' : '') +
+      '<div class="tw"><table><thead><tr><th>Descrição do SKU</th><th>Lote</th><th>Fabricação</th><th>Validade</th><th class="n">Caixas fechadas</th>' +
+      '<th class="n">Unid. avulsas</th><th class="n">Total unid.</th><th class="n">Valor por caixa</th><th class="n">Valor unitário</th><th class="n">Valor total</th></tr></thead><tbody>' +
+      c.linhas.map(linhaEspelho).join('') +
+      '<tr><td colspan="4"><b>Total da carga</b> (' + c.linhas.length + (c.linhas.length === 1 ? ' palete' : ' paletes') + ')</td>' +
+      '<td class="n"><b>' + inteiro(t.caixasFechadas) + '</b></td><td class="n"><b>' + inteiro(t.unidadesAvulsas) + '</b></td><td class="n"><b>' + inteiro(t.totalUnidades) + '</b></td>' +
+      '<td></td><td></td><td class="n"><b>' + (c.sol ? reais(t.valorTotal) + (t.semPreco ? ' <span class="mut">(parcial)</span>' : '') : '<span class="mut">—</span>') + '</b></td></tr>' +
+      '</tbody></table></div></div>';
+  }
+  function abaFaturamento() {
+    var cargas = cargasDoEspelho();
+    var h = '<div class="card"><h3>Espelho do faturamento da Expedição</h3><div class="mut" style="font-size:13px;margin-bottom:10px">' +
+      'O que a Expedição pediu para faturar, palete a palete. Carga com faturamento solicitado mostra o que foi enviado ao Financeiro (com preço); ' +
+      'carga só agendada aparece sem preço até a Expedição solicitar. Caixas fechadas e unidades avulsas são desta carga. ' +
+      'Para registrar a NF, use <a href="faturamento.html">Faturamento de cargas</a>. Os dados são de quando a página abriu: use "Recarregar dados".</div>' +
+      '<div class="barra"><input class="busca" id="qTit" placeholder="Buscar cliente, pedido, SKU, NF…" value="' + e(S.q) + '">' +
+      '<select class="sel" id="fFat">' + FAT_FILTROS.map(function(o) { return '<option value="' + o[0] + '"' + (S.fatFiltro === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+      '<button class="btn sm" id="fatCsv"' + (cargas.length ? '' : ' disabled') + '>Baixar CSV (Excel)</button></div></div>';
+    if (!cargas.length) return h + '<div class="vazio"><b>Nenhuma carga neste filtro.</b>As cargas aparecem aqui quando a Expedição agenda.</div>';
+    return h + cargas.map(cartaoEspelho).join('');
+  }
+  function baixarCsvFat() {
+    var blob = new Blob([EspelhoFaturamento.csv(cargasDoEspelho())], {type: 'text/csv;charset=utf-8'});
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'faturamento-expedicao-' + hojeISO() + '.csv';
+    document.body.appendChild(a); a.click(); setTimeout(function() { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   }
 
   function abaTitulos(tipo) {
@@ -571,6 +635,7 @@
     if (d.baixar) { formBaixa(d.baixar); return; }
     if (d.manual) { formManual(d.manual); return; }
     if (t.id === 'relCsv') { baixarCsvRel(); return; }
+    if (t.id === 'fatCsv') { baixarCsvFat(); return; }
     if (t.id === 'relImprimir') { imprimirRel(); return; }
     if (d.mov) { formMovimento(null); return; }
     if (d.transf) { formTransferencia(); return; }
@@ -686,6 +751,7 @@
   document.addEventListener('change', function(ev) {
     var t = ev.target, d = t.dataset;
     if (t.id === 'fFiltro') { S.filtro = t.value; render(); }
+    if (t.id === 'fFat') { S.fatFiltro = t.value; render(); }
     if (d.sel) { if (t.checked) S.sel[d.sel] = Number(d.valor); else delete S.sel[d.sel]; render(); }
     if (t.id === 'ltConta') { S.conta = t.value; render(); }
     if (t.id === 'exConta') { S.extratoConta = t.value; render(); }

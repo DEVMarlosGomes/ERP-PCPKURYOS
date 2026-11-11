@@ -1069,8 +1069,9 @@ function ligarContadorCobrancas(sidebar, user) {
   if (!el || typeof firebase === 'undefined' || !firebase.database || !user || !user.uid) return;
   try {
     firebase.database().ref('cobrancas_caixa/' + user.uid).on('value', function(s) {
-      var n = 0;
-      s.forEach(function(c) { var v = c.val() || {}; if (v.aguardaVoce === true) n++; });
+      // val() e não forEach: os testes de tela simulam o snapshot só com val().
+      var caixa = (s && s.val && s.val()) || {}, n = 0;
+      Object.keys(caixa).forEach(function(k) { if (caixa[k] && caixa[k].aguardaVoce === true) n++; });
       el.textContent = n > 99 ? '99+' : String(n);
       el.hidden = !n;
       el.setAttribute('aria-label', n + (n === 1 ? ' cobrança espera por você' : ' cobranças esperam por você'));
