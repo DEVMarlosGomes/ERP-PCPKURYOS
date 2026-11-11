@@ -12,7 +12,8 @@
   // Fatos dos outros módulos: lidos uma vez (botão "Recarregar"). O fin/ é ao vivo.
   var NOS_UMA_VEZ = ['pedidos_compra', 'processos_cotacao', 'fornecedores', 'clientes', 'estoque_lotes', 'pedidos_comerciais', 'agendamentos_expedicao'];
   var D = {}, fin = {}, fechamentos = {}, avisos = [];
-  var S = {aba: 'painel', q: '', filtro: 'abertos', conta: '', sel: {}, extratoConta: '', previaNotas: [], extConta: '', extDe: '', extAte: '', flG: 'SEMANA', flConta: '', flNat: '', dfcDe: '', dfcAte: ''};
+  var S = {aba: 'painel', q: '', filtro: 'abertos', conta: '', sel: {}, extratoConta: '', previaNotas: [], extConta: '', extDe: '', extAte: '', flG: 'SEMANA', flConta: '', flNat: '', dfcDe: '', dfcAte: '',
+    rel: {tipo: 'pagar', de: '', ate: '', dataBase: 'VENCIMENTO', situacao: 'ABERTOS', natureza: '', parceiro: '', conta: '', granularidade: 'SEMANA'}};
   var pronto = {fatos: false, fin: false};
 
   function el(id) { return document.getElementById(id); }
@@ -65,7 +66,7 @@
     Array.prototype.forEach.call(document.querySelectorAll('.aba'), function(b) { b.setAttribute('aria-selected', b.dataset.aba === S.aba ? 'true' : 'false'); });
     var h = avisos.length ? '<div class="alerta warn"><div><b>Parte da base não carregou.</b> ' + avisos.map(e).join('<br>') + '</div></div>' : '';
     h += ({painel: abaPainel, pagar: function() { return abaTitulos('PAGAR'); }, receber: function() { return abaTitulos('RECEBER'); }, notas: abaNotas, bancos: abaBancos, lotes: abaLotes,
-      conciliacao: abaConciliacao, fluxo: abaFluxo, complementos: abaComplementos, cadastros: abaCadastros}[S.aba] || abaPainel)();
+      conciliacao: abaConciliacao, fluxo: abaFluxo, relatorios: abaRelatorios, complementos: abaComplementos, cadastros: abaCadastros}[S.aba] || abaPainel)();
     el('conteudo').innerHTML = h;
   }
   function contasOpcoes(sel) {
@@ -254,6 +255,96 @@
       '<div style="grid-column:1/-1"><label for="trHist">Histórico</label><input class="inp" id="trHist" placeholder="ex.: suprimento do caixa"></div></div>' +
       '<div style="margin-top:12px"><button class="btn pri" id="trOk">Transferir</button> <span class="dica">Sai de uma conta e entra na outra no mesmo registro; estornar desfaz os dois lados.</span></div>';
     abrir('Transferência entre contas', h);
+  }
+
+  /* ── Relatórios — F8 ───────────────────────────────────────────────────── */
+  var RELS = {
+    pagar: 'Contas a pagar', receber: 'Contas a receber', baixas: 'Baixas do período', aging_pagar: 'Aging a pagar', aging_receber: 'Aging a receber',
+    extrato: 'Extrato da conta', fluxo: 'Fluxo de caixa', dfc: 'Demonstrativo de fluxo de caixa'
+  };
+  function ultimoDoMes(iso) { return F.addDias(F.somarPeriodo(String(iso).slice(0, 8) + '01', 'MES', 1), -1); }
+  function relAtual() {
+    var r = S.rel, contas = Object.keys(fin.contas_bancarias || {});
+    if (!r.de) r.de = hojeISO().slice(0, 8) + '01';
+    if (!r.ate) r.ate = ultimoDoMes(hojeISO());
+    if (r.tipo === 'extrato' && (!r.conta || contas.indexOf(r.conta) < 0)) r.conta = contas[0] || '';
+    switch (r.tipo) {
+      case 'pagar': case 'receber':
+        return F.relTitulos(fin, {tipo: r.tipo === 'pagar' ? 'PAGAR' : 'RECEBER', data: r.dataBase, de: r.de, ate: r.ate, parceiro: r.parceiro, situacao: r.situacao, natureza: r.natureza, hoje: hojeISO()});
+      case 'baixas': return F.relBaixas(fin, {de: r.de, ate: r.ate, conta: r.conta || null});
+      case 'aging_pagar': return F.relAging(fin, {tipo: 'PAGAR', hoje: hojeISO()});
+      case 'aging_receber': return F.relAging(fin, {tipo: 'RECEBER', hoje: hojeISO()});
+      case 'extrato': return F.relExtrato(fin, {conta: r.conta, de: r.de, ate: r.ate});
+      case 'fluxo': return F.relFluxo(base(), {granularidade: r.granularidade || 'SEMANA', conta: r.conta || null, hoje: hojeISO()});
+      case 'dfc': return F.relDfc(fin, {de: r.de.slice(0, 7), ate: r.ate.slice(0, 7)});
+    }
+    return {titulo: '', colunas: [], linhas: [], totais: {}};
+  }
+  function filtrosTexto(r) {
+    var p = [];
+    if (['aging_pagar', 'aging_receber'].indexOf(r.tipo) >= 0) p.push('posição de ' + dataBR(hojeISO()));
+    else if (r.tipo === 'fluxo') p.push({DIA: 'por dia', SEMANA: 'por semana', MES: 'por mês'}[r.granularidade || 'SEMANA'] + ', a partir de ' + dataBR(hojeISO()));
+    else p.push((r.tipo === 'pagar' || r.tipo === 'receber' ? (r.dataBase === 'EMISSAO' ? 'emissão' : 'vencimento') + ' de ' : 'de ') + dataBR(r.de) + ' a ' + dataBR(r.ate));
+    if (r.conta && ['baixas', 'extrato', 'fluxo'].indexOf(r.tipo) >= 0) p.push('conta ' + (((fin.contas_bancarias || {})[r.conta] || {}).nome || r.conta));
+    if ((r.tipo === 'pagar' || r.tipo === 'receber')) {
+      p.push({ABERTOS: 'em aberto', QUITADOS: 'quitadas', TODOS: 'todas as situações'}[r.situacao || 'ABERTOS']);
+      if (r.natureza) p.push(rotNat(r.natureza));
+      if (r.parceiro) p.push('parceiro contém "' + r.parceiro + '"');
+    }
+    return p.join(' · ');
+  }
+  function celRel(c, v) {
+    if (c.tipo === 'valor') return v == null ? '' : brl(v);
+    if (c.tipo === 'data') return v ? dataBR(v) : '';
+    return e(v);
+  }
+  function tabelaRel(rel) {
+    var cols = rel.colunas, tem = Object.keys(rel.totais || {}).length;
+    return '<div class="tw"><table class="dre" id="relTabela"><thead><tr>' + cols.map(function(c) { return '<th' + (c.tipo === 'valor' ? ' class="n"' : '') + '>' + e(c.rotulo) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      (rel.linhas.length ? rel.linhas.map(function(l) {
+        return '<tr' + (l.destaque ? ' class="tot"' : '') + '>' + cols.map(function(c) { return '<td' + (c.tipo === 'valor' ? ' class="n"' : '') + '>' + celRel(c, l[c.chave]) + '</td>'; }).join('') + '</tr>';
+      }).join('') : '<tr><td colspan="' + cols.length + '" class="mut">Nada neste filtro.</td></tr>') +
+      (tem ? '<tr class="tot" data-rel-total="1">' + cols.map(function(c, i) { return '<td' + (c.tipo === 'valor' ? ' class="n"' : '') + '>' + (i === 0 ? '<b>Total</b>' : c.tipo === 'valor' && rel.totais[c.chave] != null ? '<b>' + brl(rel.totais[c.chave]) + '</b>' : '') + '</td>'; }).join('') + '</tr>' : '') +
+      '</tbody></table></div>';
+  }
+  function abaRelatorios() {
+    var r = S.rel, rel = relAtual();
+    var usaPeriodo = ['aging_pagar', 'aging_receber', 'fluxo'].indexOf(r.tipo) < 0, usaConta = ['baixas', 'extrato', 'fluxo'].indexOf(r.tipo) >= 0, tit = r.tipo === 'pagar' || r.tipo === 'receber';
+    var h = '<div class="card"><h3>Relatórios</h3><div class="barra">' +
+      '<select class="sel" id="relTipo" aria-label="Relatório">' + Object.keys(RELS).map(function(k) { return '<option value="' + k + '"' + (r.tipo === k ? ' selected' : '') + '>' + RELS[k] + '</option>'; }).join('') + '</select>' +
+      (usaPeriodo ? '<label class="mut">de <input class="inp" type="date" id="relDe" value="' + e(r.de) + '"></label><label class="mut">até <input class="inp" type="date" id="relAte" value="' + e(r.ate) + '"></label>' : '') +
+      (tit ? '<select class="sel" id="relDataBase" aria-label="Data"><option value="VENCIMENTO"' + (r.dataBase !== 'EMISSAO' ? ' selected' : '') + '>por vencimento</option><option value="EMISSAO"' + (r.dataBase === 'EMISSAO' ? ' selected' : '') + '>por emissão</option></select>' +
+        '<select class="sel" id="relSit" aria-label="Situação">' + [['ABERTOS', 'Em aberto'], ['QUITADOS', 'Quitadas'], ['TODOS', 'Todas']].map(function(o) { return '<option value="' + o[0] + '"' + ((r.situacao || 'ABERTOS') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+        '<select class="sel" id="relNat" aria-label="Natureza"><option value="">Todas as naturezas</option>' + F.NATUREZAS.map(function(n) { return '<option value="' + n + '"' + (r.natureza === n ? ' selected' : '') + '>' + e(rotNat(n)) + '</option>'; }).join('') + '</select>' +
+        '<input class="inp" id="relParc" placeholder="Parceiro contém…" value="' + e(r.parceiro || '') + '">' : '') +
+      (usaConta ? '<select class="sel" id="relConta" aria-label="Conta">' + (r.tipo === 'extrato' ? '' : '<option value="">Todas as contas</option>') + Object.keys(fin.contas_bancarias || {}).map(function(k) { return '<option value="' + e(k) + '"' + (r.conta === k ? ' selected' : '') + '>' + e(fin.contas_bancarias[k].nome || k) + '</option>'; }).join('') + '</select>' : '') +
+      (r.tipo === 'fluxo' ? '<select class="sel" id="relG" aria-label="Período">' + [['DIA', 'Por dia'], ['SEMANA', 'Por semana'], ['MES', 'Por mês']].map(function(o) { return '<option value="' + o[0] + '"' + ((r.granularidade || 'SEMANA') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' : '') +
+      '<button class="btn sm pri" id="relCsv"' + (rel.erro ? ' disabled' : '') + '>Baixar CSV (Excel)</button><button class="btn sm" id="relImprimir"' + (rel.erro ? ' disabled' : '') + '>Imprimir</button></div>' +
+      '<div class="sub" id="relFiltros" style="margin-bottom:10px"><b>' + e(rel.titulo) + '</b> · ' + e(filtrosTexto(r)) + ' · ' + rel.linhas.length + ' linha(s)</div>' +
+      (rel.erro ? '<div class="alerta warn"><div>' + e(rel.erro) + '</div></div>' : '') +
+      ((rel.avisos || []).length ? '<div class="alerta info"><div>' + rel.avisos.map(e).join('<br>') + '</div></div>' : '') +
+      tabelaRel(rel) + '<div class="dica" style="margin-top:8px">O CSV abre direto no Excel: separador ";", vírgula decimal e datas dd/mm/aaaa. O total do arquivo é o mesmo da tela.</div></div>';
+    return h;
+  }
+  function nomeArquivoRel(rel) {
+    return (rel.titulo || 'relatorio').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + hojeISO() + '.csv';
+  }
+  function baixarCsvRel() {
+    var rel = relAtual(), blob = new Blob([F.relatorioCsv(rel)], {type: 'text/csv;charset=utf-8'});
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nomeArquivoRel(rel);
+    document.body.appendChild(a); a.click(); setTimeout(function() { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  function imprimirRel() {
+    var rel = relAtual();
+    var html = '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>' + e(rel.titulo) + '</title><style>' +
+      'body{font:12px/1.4 Arial,sans-serif;color:#111;margin:18px}h1{font-size:16px;margin:0 0 2px}.f{color:#555;margin-bottom:10px}' +
+      'table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #ddd;padding:4px 6px;text-align:left}th{background:#f2f2f2}' +
+      '.n{text-align:right;white-space:nowrap}.tot td{font-weight:bold;border-top:2px solid #999}.neg{color:#b00}.mut{color:#777}a{color:inherit;text-decoration:none}' +
+      '@page{size:A4 landscape;margin:12mm}</style></head><body><h1>Kuryos · ' + e(rel.titulo) + '</h1><div class="f">' + e(filtrosTexto(S.rel)) +
+      ' · emitido em ' + new Date().toLocaleString('pt-BR') + ' por ' + e(autor()) + '</div>' + tabelaRel(rel) + '</body></html>';
+    var w = window.open('', '_blank');
+    if (!w) { toast('O navegador bloqueou a janela de impressão: libere pop-ups para este site.'); return; }
+    w.document.open(); w.document.write(html); w.document.close(); w.focus(); setTimeout(function() { w.print(); }, 300);
   }
 
   function abaLotes() {
@@ -479,6 +570,8 @@
     if (d.det) { ev.preventDefault(); detalhe(d.det); return; }
     if (d.baixar) { formBaixa(d.baixar); return; }
     if (d.manual) { formManual(d.manual); return; }
+    if (t.id === 'relCsv') { baixarCsvRel(); return; }
+    if (t.id === 'relImprimir') { imprimirRel(); return; }
     if (d.mov) { formMovimento(null); return; }
     if (d.transf) { formTransferencia(); return; }
     if (d.concMov) { var lx = ((fin.extratos || {})[S.extratoConta] || {})[d.concMov]; if (lx) formMovimento(Object.assign({conta: S.extratoConta}, lx)); return; }
@@ -598,6 +691,15 @@
     if (t.id === 'exConta') { S.extratoConta = t.value; render(); }
     if (t.id === 'extConta') { S.extConta = t.value; render(); }
     if (t.id === 'flG') { S.flG = t.value; render(); }
+    if (t.id === 'relTipo') { S.rel.tipo = t.value; render(); }
+    if (t.id === 'relDe' && t.value) { S.rel.de = t.value; render(); }
+    if (t.id === 'relAte' && t.value) { S.rel.ate = t.value; render(); }
+    if (t.id === 'relDataBase') { S.rel.dataBase = t.value; render(); }
+    if (t.id === 'relSit') { S.rel.situacao = t.value; render(); }
+    if (t.id === 'relNat') { S.rel.natureza = t.value; render(); }
+    if (t.id === 'relParc') { S.rel.parceiro = t.value; render(); }
+    if (t.id === 'relConta') { S.rel.conta = t.value; render(); }
+    if (t.id === 'relG') { S.rel.granularidade = t.value; render(); }
     if (t.id === 'flConta') { S.flConta = t.value; render(); }
     if (t.id === 'flNat') { S.flNat = t.value; render(); }
     if (t.id === 'dfcDe' && t.value) { S.dfcDe = t.value; render(); }

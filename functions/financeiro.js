@@ -796,6 +796,146 @@
     return { ok: true, meses: meses, colunas: colunas, grupos: grupos, naoClassificado: grupos.some(function(gr) { return gr.atividade === 'NAO_CLASSIFICADO'; }) };
   }
 
+  /* ── Relatórios (F8, 10/11/2026 — docs/financeiro-fase0-lacunas.md) ─────
+     Cada relatório é UMA estrutura {titulo, filtros, colunas, linhas, totais} que serve
+     a tela, a impressão e o CSV -- os totais nunca divergem entre eles. Colunas:
+     {chave, rotulo, tipo: texto|data|valor}; valor em centavos. */
+  // CNPJ/CPF com máscara: o Excel não o trata como número (perderia os zeros à esquerda).
+  function mascaraDoc(v) {
+    var d = soDigitos(v);
+    if (d.length === 14) return d.slice(0, 2) + '.' + d.slice(2, 5) + '.' + d.slice(5, 8) + '/' + d.slice(8, 12) + '-' + d.slice(12);
+    if (d.length === 11) return d.slice(0, 3) + '.' + d.slice(3, 6) + '.' + d.slice(6, 9) + '-' + d.slice(9);
+    return String(v == null ? '' : v);
+  }
+  function dentro(d, de, ate) { d = String(d || '').slice(0, 10); return !!d && (!de || d >= de) && (!ate || d <= ate); }
+  function somaCol(linhas, colunas) {
+    var t = {};
+    colunas.forEach(function(c) { if (c.tipo === 'valor') t[c.chave] = linhas.reduce(function(s, l) { return s + (Math.round(num(l[c.chave])) || 0); }, 0); });
+    return t;
+  }
+  var ROT_SIT = { ABERTO: 'Aberto', PARCIAL: 'Parcial', QUITADO: 'Quitado', ABATIDO: 'Abatido' };
+  /* Títulos por PARCELA. f: {tipo PAGAR|RECEBER, data VENCIMENTO|EMISSAO, de, ate, parceiro, situacao ABERTOS|QUITADOS|TODOS, natureza} */
+  function relTitulos(fin, f) {
+    var o = f || {}, tipo = o.tipo === 'RECEBER' ? 'RECEBER' : 'PAGAR', q = String(o.parceiro || '').trim().toUpperCase(), linhas = [];
+    carteira(fin).forEach(function(s) {
+      var t = s.titulo;
+      if (t.tipo !== tipo || (o.natureza && t.natureza !== o.natureza)) return;
+      if (q && String(t.parceiro && t.parceiro.nome || '').toUpperCase().indexOf(q) < 0) return;
+      if (o.data === 'EMISSAO' && !dentro(t.emissao, o.de, o.ate)) return;
+      var ps = s.parcelas.length ? s.parcelas : [{ n: 1, de: 1, vencimento: null, valorCentavos: num(t.valorCentavos) }];
+      ps.forEach(function(p) {
+        var ab = s.abertas.filter(function(a) { return a.n === p.n; })[0], aberto = s.parcelas.length ? (ab ? ab.abertoCentavos : 0) : s.saldoCentavos;
+        if (o.data !== 'EMISSAO' && (o.de || o.ate) && !dentro(p.vencimento, o.de, o.ate)) return;
+        if (o.situacao === 'ABERTOS' && !(aberto > 0)) return;
+        if (o.situacao === 'QUITADOS' && aberto > 0) return;
+        linhas.push({ documento: t.documento || s.id, parceiro: (t.parceiro && t.parceiro.nome) || '', cnpj: mascaraDoc(t.parceiro && t.parceiro.cnpj), natureza: t.natureza || '',
+          emissao: t.emissao || '', parcela: p.n + '/' + p.de, vencimento: p.vencimento || '', valor: p.valorCentavos, aberto: aberto,
+          situacao: aberto <= 0 ? 'Quitada' : (p.vencimento && o.hoje && p.vencimento < o.hoje ? 'Vencida' : (s.semVencimento ? 'Sem vencimento' : 'A vencer')) });
+      });
+    });
+    linhas.sort(function(a, b) { return String(a.vencimento || '9999').localeCompare(String(b.vencimento || '9999')) || a.parceiro.localeCompare(b.parceiro); });
+    var colunas = [{ chave: 'vencimento', rotulo: 'Vencimento', tipo: 'data' }, { chave: 'documento', rotulo: 'Documento', tipo: 'texto' }, { chave: 'parcela', rotulo: 'Parcela', tipo: 'texto' },
+      { chave: 'parceiro', rotulo: tipo === 'PAGAR' ? 'Fornecedor' : 'Cliente', tipo: 'texto' }, { chave: 'cnpj', rotulo: 'CNPJ', tipo: 'texto' }, { chave: 'natureza', rotulo: 'Natureza', tipo: 'texto' },
+      { chave: 'emissao', rotulo: 'Emissão', tipo: 'data' }, { chave: 'valor', rotulo: 'Valor da parcela', tipo: 'valor' }, { chave: 'aberto', rotulo: 'Em aberto', tipo: 'valor' }, { chave: 'situacao', rotulo: 'Situação', tipo: 'texto' }];
+    return { titulo: tipo === 'PAGAR' ? 'Contas a pagar' : 'Contas a receber', colunas: colunas, linhas: linhas, totais: somaCol(linhas, colunas) };
+  }
+  /* Baixas do período (pagamentos e recebimentos, com os estornos). f: {de, ate, conta, tipo} */
+  function relBaixas(fin, f) {
+    var o = f || {}, x = fin || {}, linhas = [];
+    Object.keys(x.baixas || {}).forEach(function(k) {
+      var b = x.baixas[k]; if (!b || !dentro(b.data, o.de, o.ate) || (o.conta && b.conta !== o.conta) || (o.tipo && b.tituloTipo !== o.tipo)) return;
+      var t = (x.titulos || {})[b.titulo] || {}, s = b.tipo === 'ESTORNO' ? -1 : 1;
+      linhas.push({ data: b.data, operacao: (b.tipo === 'ESTORNO' ? 'Estorno de ' : '') + (b.tituloTipo === 'RECEBER' ? 'recebimento' : 'pagamento'),
+        documento: t.documento || b.titulo, parceiro: (t.parceiro && t.parceiro.nome) || '', natureza: b.natureza || t.natureza || '',
+        conta: ((x.contas_bancarias || {})[b.conta] || {}).nome || b.conta || '', principal: s * Math.round(num(b.valorCentavos)),
+        jurosMulta: s * (Math.round(num(b.jurosCentavos)) + Math.round(num(b.multaCentavos))), desconto: s * Math.round(num(b.descontoCentavos)), liquido: s * Math.round(num(b.liquidoCentavos)) });
+    });
+    linhas.sort(function(a, b) { return String(a.data).localeCompare(String(b.data)) || a.parceiro.localeCompare(b.parceiro); });
+    var colunas = [{ chave: 'data', rotulo: 'Data', tipo: 'data' }, { chave: 'operacao', rotulo: 'Operação', tipo: 'texto' }, { chave: 'documento', rotulo: 'Documento', tipo: 'texto' },
+      { chave: 'parceiro', rotulo: 'Parceiro', tipo: 'texto' }, { chave: 'natureza', rotulo: 'Natureza', tipo: 'texto' }, { chave: 'conta', rotulo: 'Conta', tipo: 'texto' },
+      { chave: 'principal', rotulo: 'Principal', tipo: 'valor' }, { chave: 'jurosMulta', rotulo: 'Juros + multa', tipo: 'valor' }, { chave: 'desconto', rotulo: 'Desconto', tipo: 'valor' }, { chave: 'liquido', rotulo: 'Líquido', tipo: 'valor' }];
+    return { titulo: 'Baixas do período', colunas: colunas, linhas: linhas, totais: somaCol(linhas, colunas) };
+  }
+  /* Aging por título (a vencer e faixas de atraso). f: {tipo, hoje} */
+  function relAging(fin, f) {
+    var o = f || {}, tipo = o.tipo === 'RECEBER' ? 'RECEBER' : 'PAGAR', linhas = [];
+    carteira(fin).forEach(function(s) {
+      if (s.titulo.tipo !== tipo || s.saldoCentavos <= 0) return;
+      var l = { parceiro: (s.titulo.parceiro && s.titulo.parceiro.nome) || '', documento: s.titulo.documento || s.id, A_VENCER: 0, D1_30: 0, D31_60: 0, D61_90: 0, D90: 0, SEM_VENCIMENTO: 0 };
+      if (s.semVencimento) l.SEM_VENCIMENTO = s.saldoCentavos;
+      else s.abertas.forEach(function(p) { var d = diffDias(o.hoje, p.vencimento); l[d <= 0 ? 'A_VENCER' : d <= 30 ? 'D1_30' : d <= 60 ? 'D31_60' : d <= 90 ? 'D61_90' : 'D90'] += p.abertoCentavos; });
+      l.total = l.A_VENCER + l.D1_30 + l.D31_60 + l.D61_90 + l.D90 + l.SEM_VENCIMENTO;
+      linhas.push(l);
+    });
+    linhas.sort(function(a, b) { return a.parceiro.localeCompare(b.parceiro) || a.documento.localeCompare(b.documento); });
+    var colunas = [{ chave: 'parceiro', rotulo: tipo === 'PAGAR' ? 'Fornecedor' : 'Cliente', tipo: 'texto' }, { chave: 'documento', rotulo: 'Documento', tipo: 'texto' },
+      { chave: 'A_VENCER', rotulo: 'A vencer', tipo: 'valor' }, { chave: 'D1_30', rotulo: 'Vencido 1–30', tipo: 'valor' }, { chave: 'D31_60', rotulo: '31–60', tipo: 'valor' },
+      { chave: 'D61_90', rotulo: '61–90', tipo: 'valor' }, { chave: 'D90', rotulo: 'Mais de 90', tipo: 'valor' }, { chave: 'SEM_VENCIMENTO', rotulo: 'Sem vencimento', tipo: 'valor' }, { chave: 'total', rotulo: 'Total', tipo: 'valor' }];
+    return { titulo: 'Aging — ' + (tipo === 'PAGAR' ? 'a pagar' : 'a receber'), colunas: colunas, linhas: linhas, totais: somaCol(linhas, colunas) };
+  }
+  /* Extrato da conta (F6) como relatório. */
+  function relExtrato(fin, f) {
+    var o = f || {}, ex = extratoConta(fin, o.conta, o.de, o.ate);
+    if (!ex.ok) return { titulo: 'Extrato', colunas: [], linhas: [], totais: {}, erro: ex.motivo };
+    var linhas = [{ data: o.de || '', historico: 'Saldo anterior', entrada: 0, saida: 0, saldo: ex.saldoAnteriorCentavos }].concat(ex.linhas.map(function(l) {
+      var ini = l.tipo === 'SALDO_INICIAL';
+      return { data: l.data, historico: l.historico, entrada: !ini && l.valorCentavos > 0 ? l.valorCentavos : 0, saida: l.valorCentavos < 0 ? -l.valorCentavos : 0, saldo: l.saldoCentavos };
+    }));
+    var colunas = [{ chave: 'data', rotulo: 'Data', tipo: 'data' }, { chave: 'historico', rotulo: 'Histórico', tipo: 'texto' }, { chave: 'entrada', rotulo: 'Entrada', tipo: 'valor' },
+      { chave: 'saida', rotulo: 'Saída', tipo: 'valor' }, { chave: 'saldo', rotulo: 'Saldo', tipo: 'valor', semTotal: true }];
+    var tot = somaCol(linhas, colunas); tot.saldo = ex.saldoFinalCentavos; // saldo não se soma: o total é o saldo final
+    return { titulo: 'Extrato — ' + ex.nome, colunas: colunas, linhas: linhas, totais: tot };
+  }
+  /* DFC (F7) como relatório: uma linha por natureza, uma coluna por mês. */
+  function relDfc(fin, f) {
+    var o = f || {}, d = dfc(fin, o.de, o.ate);
+    if (!d.ok) return { titulo: 'Demonstrativo de fluxo de caixa', colunas: [], linhas: [], totais: {}, erro: d.motivo };
+    var colunas = [{ chave: 'linha', rotulo: '', tipo: 'texto' }].concat(d.meses.map(function(m) { return { chave: m, rotulo: m.slice(5, 7) + '/' + m.slice(0, 4), tipo: 'valor', semTotal: true }; }));
+    function porMes(f2) { var l = {}; d.meses.forEach(function(m, i) { l[m] = f2(m, i); }); return l; }
+    var linhas = [Object.assign({ linha: 'Saldo inicial', destaque: true }, porMes(function(m, i) { return d.colunas[i].saldoInicialCentavos + d.colunas[i].aberturaContasCentavos; }))];
+    d.grupos.forEach(function(gr) {
+      gr.linhas.forEach(function(l) { linhas.push(Object.assign({ linha: gr.rotulo + ' — ' + l.rotulo }, porMes(function(m) { return l.meses[m]; }))); });
+      linhas.push(Object.assign({ linha: 'Caixa líquido — ' + gr.rotulo, destaque: true }, porMes(function(m) { return gr.totais[m]; })));
+    });
+    linhas.push(Object.assign({ linha: 'Variação do caixa', destaque: true }, porMes(function(m, i) { return d.colunas[i].variacaoCentavos; })));
+    linhas.push(Object.assign({ linha: 'Saldo final', destaque: true }, porMes(function(m, i) { return d.colunas[i].saldoFinalCentavos; })));
+    linhas.push(Object.assign({ linha: 'Diferença contra os bancos', destaque: true }, porMes(function(m, i) { return d.colunas[i].diferencaCentavos; })));
+    return { titulo: 'Demonstrativo de fluxo de caixa (método direto)', colunas: colunas, linhas: linhas, totais: {} };
+  }
+  /* Fluxo de caixa (F7) como relatório. f: {granularidade, conta, natureza, hoje} */
+  function relFluxo(base, f) {
+    var o = f || {}, fl = fluxoCaixa(base, o.hoje, o);
+    var linhas = fl.colunas.map(function(c) {
+      return { periodo: c.inicio, situacao: c.passada ? 'Realizado' : 'Projetado', entradas: c.entradas, entradasPrevistas: c.passada ? 0 : c.entradasPrevistas,
+        saidas: c.saidas, saidasPrevistas: c.passada ? 0 : c.saidasPrevistas, saldoProjetado: c.passada ? null : c.saldoProjetadoCentavos };
+    });
+    var colunas = [{ chave: 'periodo', rotulo: { DIA: 'Dia', SEMANA: 'Semana de', MES: 'Mês de' }[fl.granularidade], tipo: 'data' }, { chave: 'situacao', rotulo: '', tipo: 'texto' },
+      { chave: 'entradas', rotulo: 'Entradas', tipo: 'valor' }, { chave: 'entradasPrevistas', rotulo: 'Entradas previstas', tipo: 'valor' },
+      { chave: 'saidas', rotulo: 'Saídas', tipo: 'valor' }, { chave: 'saidasPrevistas', rotulo: 'Saídas previstas', tipo: 'valor' }, { chave: 'saldoProjetado', rotulo: 'Saldo projetado', tipo: 'valor', semTotal: true }];
+    var tot = somaCol(linhas, colunas); delete tot.saldoProjetado;
+    return { titulo: 'Fluxo de caixa', colunas: colunas, linhas: linhas, totais: tot, avisos: fl.avisos };
+  }
+  /* CSV para o Excel em português: separador ";", vírgula decimal sem milhar, data
+     dd/mm/aaaa, UTF-8 com BOM (acentos certos ao abrir). Linha de total no fim. */
+  // Texto que começa com = + - @ vira fórmula no Excel (injeção em CSV): leva um apóstrofo.
+  function celulaCsv(v, texto) {
+    var s = String(v == null ? '' : v);
+    if (texto && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return /[";\r\n]/.test(s) || /^\s|\s$/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function valorCsv(c) { if (c == null || c === '') return ''; var n = Math.round(num(c)), neg = n < 0; n = Math.abs(n); return (neg ? '-' : '') + Math.floor(n / 100) + ',' + String(n % 100).padStart(2, '0'); }
+  function dataCsv(d) { var s = String(d || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s.split('-').reverse().join('/') : s; }
+  function relatorioCsv(rel) {
+    var cols = rel.colunas || [], out = [cols.map(function(c) { return celulaCsv(c.rotulo); }).join(';')];
+    (rel.linhas || []).forEach(function(l) {
+      out.push(cols.map(function(c) { var v = l[c.chave]; return celulaCsv(c.tipo === 'valor' ? valorCsv(v) : c.tipo === 'data' ? dataCsv(v) : v, c.tipo === 'texto'); }).join(';'));
+    });
+    if (Object.keys(rel.totais || {}).length) {
+      out.push(cols.map(function(c, i) { return i === 0 ? 'Total' : c.tipo === 'valor' && rel.totais[c.chave] != null ? valorCsv(rel.totais[c.chave]) : ''; }).join(';'));
+    }
+    return '﻿' + out.join('\r\n') + '\r\n';
+  }
+
   function aging(base, hoje) {
     var faixas = ['A_VENCER', 'D1_30', 'D31_60', 'D61_90', 'D90', 'SEM_VENCIMENTO'];
     var out = { PAGAR: {}, RECEBER: {} };
@@ -1116,6 +1256,8 @@
     TIPOS_CONTA: TIPOS_CONTA, TIPOS_MOVIMENTO: TIPOS_MOVIMENTO, tipoConta: tipoConta, efeitosMovimento: efeitosMovimento,
     validarMovimento: validarMovimento, validarEstornoMovimento: validarEstornoMovimento, caixaNegativo: caixaNegativo, extratoConta: extratoConta,
     GRANULARIDADES: GRANULARIDADES, fluxoCaixa: fluxoCaixa, fluxosRealizados: fluxosRealizados, ATIVIDADES: ATIVIDADES, ATIVIDADE_PADRAO: ATIVIDADE_PADRAO,
-    atividadeDe: atividadeDe, dfc: dfc, somarPeriodo: somarPeriodo
+    atividadeDe: atividadeDe, dfc: dfc, somarPeriodo: somarPeriodo,
+    relTitulos: relTitulos, relBaixas: relBaixas, relAging: relAging, relExtrato: relExtrato, relDfc: relDfc, relFluxo: relFluxo,
+    relatorioCsv: relatorioCsv, valorCsv: valorCsv, dataCsv: dataCsv
   };
 });

@@ -131,3 +131,19 @@ digitadas à mão, ou ficam sem vencimento porque o PC não tem condição.
 ## 6. Próximo passo
 Aprovar (ou ajustar) o plano e responder às perguntas 2 a 5. A F5.0 pode começar já, porque não depende
 de nenhuma resposta.
+
+## 7. Execução (10/11/2026)
+
+Todas as fases do plano foram entregues, cada uma em branch própria e com testes:
+
+| Fase | Commit | Testes |
+|---|---|---|
+| F5.0 — baixa, estorno, títulos e lote em fila única | `a846d91` | `run_financeiro_fila_test` (8) |
+| F5 — NF de entrada por XML | `5d02c5e` | `run_financeiro_nf_xml_test` (54) e tela (17) |
+| F6 — caixas e bancos | `4cbf613` | `run_financeiro_bancos_test` (39) e tela (11) |
+| F7 — fluxo por período e DFC; reconciliação de Bancos | `7aa63f4` | `run_financeiro_dfc_test` (34) e tela (12) |
+| F8 — relatórios (CSV para Excel e impressão) | branch `financeiro/f8-relatorios` | `run_financeiro_relatorios_test` (69) e tela (18) |
+
+As perguntas 2 a 5 seguiram as opções conservadoras: o XML é enviado pelo Financeiro; nota sem pedido vira título manual preenchido pela nota; na divergência vale o valor do título e a diferença vai para Complementos; o caixa físico não fica negativo.
+
+Ainda depende das transcrições ou dos prints do WebMais: conferir se os relatórios e filtros reproduzem a rotina semanal do financeiro (pergunta 6) e se o DFC deve seguir um plano de contas do contador (pergunta 7).
