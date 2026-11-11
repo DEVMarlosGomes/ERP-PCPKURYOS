@@ -13,6 +13,7 @@
   <script src="shared/utils.js"></script>
   <script src="shared/qrcode-lib.js"></script>
   <script src="shared/etiqueta-caixa.js"></script>
+  <script src="shared/identificacao-ibc.js"></script>
   <script src="shared/transferencia-op.js"></script>
   <script src="shared/retrabalho-op.js"></script>
   <script src="shared/impacto-pedido-ops.js"></script>
@@ -2034,6 +2035,9 @@
           ${op.materiaisConsumo
             ? `<button class="btn-edit-inline" onclick="reimprimirEtiquetas('${escapedKeyAttr}')" title="Reimprimir etiquetas de caixa de embarque desta OP" aria-label="Reimprimir etiquetas">🏷️</button>`
             : ``}
+          ${!isCancelada
+            ? `<button class="btn-edit-inline" data-ibc="${escapedKeyAttr}" onclick="imprimirIdentificacaoIbc('${escapedKeyAttr}')" title="Identificação do IBC (granel): 5 páginas, uma por setor" aria-label="Identificação do IBC">🛢</button>`
+            : ``}
           ${!isCancelada && !RetrabalhoOp.ehRetrabalho(op)
             ? `<button class="btn-edit-inline" onclick="abrirRetrabalhoModal('${escapedKeyAttr}')" title="Abrir uma OP de retrabalho deste lote — não cria produção nova" aria-label="Abrir retrabalho">♻️</button>`
             : ``}
@@ -2299,6 +2303,15 @@
   // Reimprime as etiquetas de caixa de embarque (padrão de 01/10,
   // shared/etiqueta-caixa.js): abre o diálogo com pré-visualização,
   // campos que faltam no cadastro, quantidade e lote do cliente.
+  // Identificação do IBC/granel (11/11/2026, shared/identificacao-ibc.js): 5 páginas,
+  // uma por setor; só Equipamento e Etiqueta se editam, o resto vem da OP.
+  function imprimirIdentificacaoIbc(opKey) {
+    const op = opsGlobal[opKey];
+    if (!op) return;
+    IdentificacaoIbc.abrirDialogo({op, opKey, db: database});
+  }
+  window.imprimirIdentificacaoIbc = imprimirIdentificacaoIbc;
+
   function reimprimirEtiquetas(opKey) {
     const op = opsGlobal[opKey];
     if (!op) return;

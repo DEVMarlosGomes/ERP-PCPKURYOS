@@ -18,6 +18,7 @@
   <script src="shared/saldo-emissao-op.js"></script>
   <script src="shared/qrcode-lib.js"></script>
   <script src="shared/etiqueta-caixa.js"></script>
+  <script src="shared/identificacao-ibc.js"></script>
   <script src="auth_check.js"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="shared/theme.css">
@@ -246,6 +247,7 @@
     <div style="display:flex;gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap">
       <button class="btn btn-primary" id="btnImprimir">🖨 Abrir documento pra impressão</button>
       <button class="btn btn-primary" id="btnImprimirEtiquetas">🏷️ Imprimir etiquetas de caixa</button>
+      <button class="btn btn-primary" id="btnImprimirIbc">🛢 Identificação do IBC (5 páginas)</button>
       <button class="btn btn-ghost" id="btnNovaOp">Emitir outra OP</button>
     </div>
   </div>
@@ -1647,6 +1649,11 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('btnImprimirEtiquetas').addEventListener('click', function() {
     if (!opJaEmitida) return;
     EtiquetaCaixa.abrirDialogo({op: opJaEmitida, opKey: sanitizeKey(opJaEmitida.lote), produto: produtoSelecionado, db: db});
+  });
+  // Identificação do IBC/granel, uma página por setor (11/11/2026, shared/identificacao-ibc.js).
+  document.getElementById('btnImprimirIbc').addEventListener('click', function() {
+    if (!opJaEmitida) return;
+    IdentificacaoIbc.abrirDialogo({op: opJaEmitida, opKey: sanitizeKey(opJaEmitida.lote), db: db});
   });
   document.getElementById('btnNovaOp').addEventListener('click', function() { location.reload(); });
 

@@ -5,6 +5,17 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude — Identificação do IBC (bulk), 5 páginas por OP (11/11/2026)
+
+- **Concluído:** ao emitir a OP, "🛢 Identificação do IBC (5 páginas)" ao lado das fichas e etiquetas de caixa;
+  reimpressão pelo 🛢 na linha da OP (Controle de OPs). Modelo `etiqueta_kuryos MANIPULAÇÃO.pdf`: Produto,
+  SKU, Lote, Validade (dd/mm/aaaa) da OP, faixa Kuryos; uma página por setor (Separação, Fabricação, Envase,
+  Rotulagem, Produto Acabado), A4 deitada, janela própria. Só Equipamento e Etiqueta editáveis (por setor,
+  60 caracteres), gravados em `ops/{op}/identificacaoIbc` para a reimpressão sair igual (regra de `ops` já
+  permitia). `shared/identificacao-ibc.js`, teste `run_identificacao_ibc_test.js`; testes de OP/emissão OK;
+  PDF conferido com 5 páginas A4 deitada. Manuais PCP e Referência atualizados. Pendente: deploy da VPS.
+  Arquivos ativos: nenhum.
+
 ### Claude — Histórico do cadastro vivo: Materiais, Produtos e Fornecedores (11/11/2026)
 
 - **Concluído:** editar Material/Produto/Fornecedor em Cadastros exige justificativa curta (≥10) quando algo
@@ -15,8 +26,7 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   cadastro (fornecedor inclui Compras). Testes: `run_historico_cadastro_test.js`, `_ui_test`, `_rules_test`
   (emulador, `firebase.histcad-test.json`), bateria de Cadastros OK. **Pendente (Marlos): publicar regras
   ANTES do deploy da VPS** (sem `historico_produtos`/`historico_fornecedores` no ar, salvar produto e
-  fornecedor dá PERMISSION_DENIED). Arquivos ativos: `public/shared/identificacao-ibc.js`, `emitir_op.html`,
-  `ops.html` (próxima tarefa: identificação do IBC).
+  fornecedor dá PERMISSION_DENIED). Arquivos ativos: nenhum.
 
 ### Claude — Módulo financeiro do docs/prompt-financeiro.md (10–11/11/2026)
 
