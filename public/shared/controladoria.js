@@ -444,6 +444,15 @@
         explicacao: semRazaoLista.length ? semRazaoLista.length + ' título(s) de recebimento anterior ao custo no lote (sem ENTRADA no razão de custos)' : null, itens: semRazaoLista },
       { conta: 'CLIENTES', razaoCentavos: bal.CLIENTES || 0, financeiroCentavos: receber, explicadoCentavos: 0, explicacao: null, itens: [] }
     ];
+    // Financeiro F7 (10/11/2026): Bancos -- razão contra o saldo das contas no fim do mês
+    // (saldo inicial + baixas + movimentos da F6). Só confere quando há conta cadastrada.
+    var contasFin = (b.fin || {}).contas_bancarias || {};
+    if (Object.keys(contasFin).length && ate) {
+      var fimMes = Fin.addDias(Fin.somarPeriodo(String(ate).slice(0, 7) + '-01', 'MES', 1), -1);
+      var sb = Fin.saldosBancarios(b.fin, fimMes);
+      contas.push({ conta: 'BANCOS', razaoCentavos: bal.BANCOS || 0, financeiroCentavos: Object.keys(sb).reduce(function(t, k) { return t + sb[k].saldoCentavos; }, 0),
+        explicadoCentavos: 0, explicacao: null, itens: [] });
+    }
     contas.forEach(function(c) { c.diferencaCentavos = c.razaoCentavos - c.financeiroCentavos; c.naoExplicadoCentavos = c.diferencaCentavos + c.explicadoCentavos; });
     return contas;
   }

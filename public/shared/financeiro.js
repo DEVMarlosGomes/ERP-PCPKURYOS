@@ -532,7 +532,9 @@
     var f = fin || {}, out = {};
     Object.keys(f.contas_bancarias || {}).forEach(function(k) {
       var c = f.contas_bancarias[k]; if (!c) return;
-      out[k] = { conta: k, nome: c.nome || k, tipo: tipoConta(c), saldoInicialCentavos: Math.round(num(c.saldoInicialCentavos)), dataSaldoInicial: c.dataSaldoInicial || null, movimentoCentavos: 0, saldoCentavos: 0 };
+      // Antes da data de abertura a conta não existia: saldo zero (F7 — o DFC de meses anteriores acusava).
+      var abriu = !(ate && c.dataSaldoInicial && c.dataSaldoInicial > ate);
+      out[k] = { conta: k, nome: c.nome || k, tipo: tipoConta(c), saldoInicialCentavos: abriu ? Math.round(num(c.saldoInicialCentavos)) : 0, dataSaldoInicial: c.dataSaldoInicial || null, movimentoCentavos: 0, saldoCentavos: 0 };
     });
     Object.keys(f.baixas || {}).forEach(function(k) {
       var x = f.baixas[k]; if (!x || !out[x.conta]) return;
@@ -609,6 +611,12 @@
       var v = num(x.liquidoCentavos) * (x.tipo === 'ESTORNO' ? -1 : 1);
       if (x.tituloTipo === 'RECEBER') c.entradas += v; else c.saidas += v;
     });
+    // F6/F7: tarifa, IOF, juros e rendimento também são realizado (transferência se anula).
+    vals((b.fin || {}).movimentos).forEach(function(m) {
+      if (!m.data || m.data >= ini || m.tipo === 'TRANSFERENCIA') return;
+      var c = col(m.data); if (!c) return;
+      fluxosDoMovimento(m).forEach(function(x) { if (x.lado === 'E') c.entradas += x.valorCentavos; else c.saidas -= x.valorCentavos; });
+    });
     carteira(b.fin).forEach(function(s) {
       if (s.saldoCentavos <= 0) return;
       var lado = s.titulo.tipo === 'RECEBER' ? 'entradas' : 'saidas';
@@ -633,6 +641,161 @@
     });
     return { semanas: cols, atrasado: atrasado, semData: semData, depois: depois, saldoAtualCentavos: saldo };
   }
+  /* ── Fluxo de caixa por período e DFC (F7, 10/11/2026 — docs/financeiro-fase0-lacunas.md) ──
+     Realizado = o que passou pelas contas (baixas + movimentos da F6); projetado =
+     parcelas abertas + compromissos (pedidos). Transferência entre contas só aparece
+     quando se olha UMA conta: no consolidado ela se anula. */
+  var GRANULARIDADES = { DIA: { passados: 7, futuros: 30 }, SEMANA: { passados: 4, futuros: 13 }, MES: { passados: 3, futuros: 6 } };
+  function inicioPeriodo(d, g) { d = String(d).slice(0, 10); return g === 'MES' ? d.slice(0, 8) + '01' : g === 'SEMANA' ? segunda(d) : d; }
+  function somarPeriodo(d, g, n) {
+    if (g === 'DIA') return addDias(d, n);
+    if (g === 'SEMANA') return addDias(d, 7 * n);
+    var y = Number(d.slice(0, 4)), m = Number(d.slice(5, 7)) - 1 + n;
+    y += Math.floor(m / 12); m = ((m % 12) + 12) % 12;
+    return y + '-' + String(m + 1).padStart(2, '0') + '-01';
+  }
+  // Movimento de conta como fluxo: {conta, valor (+entra/-sai), natureza}. Transferência
+  // vira duas pernas (só contam com filtro de conta).
+  // `lado` é o do lançamento ORIGINAL (E entrada, S saída): o estorno abate do mesmo lado
+  // em vez de aparecer como movimento novo do lado oposto.
+  function fluxosDoMovimento(m) {
+    var ef = efeitosMovimento(m), out = [];
+    Object.keys(ef).forEach(function(c) {
+      if (!ef[c]) return;
+      var lado = m.tipo === 'TRANSFERENCIA' ? (c === m.destino ? 'E' : 'S') : ((TIPOS_MOVIMENTO[m.tipo] || {}).sinal > 0 ? 'E' : 'S');
+      out.push({ conta: c, valorCentavos: ef[c], lado: lado, natureza: m.tipo === 'TRANSFERENCIA' ? 'TRANSFERENCIA' : 'RESULTADO_FINANCEIRO', data: m.data });
+    });
+    return out;
+  }
+  // Baixa como fluxo: principal na natureza do título; juros, multa e desconto no resultado financeiro.
+  function fluxosDaBaixa(x) {
+    var s = (x.tituloTipo === 'RECEBER' ? 1 : -1) * (x.tipo === 'ESTORNO' ? -1 : 1);
+    var princ = Math.round(num(x.valorCentavos)), fin = Math.round(num(x.jurosCentavos)) + Math.round(num(x.multaCentavos)) - Math.round(num(x.descontoCentavos));
+    var lado = x.tituloTipo === 'RECEBER' ? 'E' : 'S';
+    var out = [{ conta: x.conta, valorCentavos: s * princ, lado: lado, natureza: x.natureza || 'OUTROS', data: x.data }];
+    if (fin) out.push({ conta: x.conta, valorCentavos: s * fin, lado: lado, natureza: 'RESULTADO_FINANCEIRO', data: x.data });
+    return out;
+  }
+  function fluxosRealizados(fin) {
+    var f = fin || {}, out = [];
+    vals(f.baixas).forEach(function(x) { if (x.conta && x.data) out = out.concat(fluxosDaBaixa(x)); });
+    vals(f.movimentos).forEach(function(m) { if (m.data) out = out.concat(fluxosDoMovimento(m)); });
+    return out;
+  }
+  /* op: {granularidade: DIA|SEMANA|MES, conta?, natureza?}. Com conta, o projetado
+     (títulos não têm conta) fica de fora e a tela avisa. */
+  function fluxoCaixa(base, hoje, op) {
+    var b = base || {}, o = op || {}, g = GRANULARIDADES[o.granularidade] ? o.granularidade : 'SEMANA', cfg = GRANULARIDADES[g];
+    var ini = inicioPeriodo(hoje, g), cols = [];
+    for (var i = -cfg.passados; i < cfg.futuros; i++) {
+      var c0 = somarPeriodo(ini, g, i);
+      cols.push({ inicio: c0, fim: addDias(somarPeriodo(ini, g, i + 1), -1), passada: i < 0, entradas: 0, saidas: 0, entradasPrevistas: 0, saidasPrevistas: 0 });
+    }
+    function col(d) { for (var j = 0; j < cols.length; j++) if (d >= cols[j].inicio && d <= cols[j].fim) return cols[j]; return null; }
+    var conta = o.conta || null, nat = o.natureza || null;
+    var atrasado = { entradas: 0, saidas: 0 }, semData = { entradas: 0, saidas: 0, entradasPrevistas: 0, saidasPrevistas: 0 }, depois = { entradas: 0, saidas: 0 };
+    fluxosRealizados(b.fin).forEach(function(x) {
+      if (x.data >= ini) return;
+      if (conta ? x.conta !== conta : x.natureza === 'TRANSFERENCIA') return;
+      if (nat && x.natureza !== nat) return;
+      var c = col(x.data); if (!c) return;
+      if (x.lado === 'E') c.entradas += x.valorCentavos; else c.saidas -= x.valorCentavos;
+    });
+    var projeta = !conta;
+    if (projeta) {
+      carteira(b.fin).forEach(function(s) {
+        if (s.saldoCentavos <= 0 || (nat && s.titulo.natureza !== nat)) return;
+        var lado = s.titulo.tipo === 'RECEBER' ? 'entradas' : 'saidas';
+        if (s.semVencimento) { semData[lado] += s.saldoCentavos; return; }
+        s.abertas.forEach(function(p) {
+          if (p.vencimento < ini) atrasado[lado] += p.abertoCentavos;
+          else { var c = col(p.vencimento); if (c) c[lado] += p.abertoCentavos; else depois[lado] += p.abertoCentavos; }
+        });
+      });
+      // Compromisso de PC não tem uma natureza só: com filtro de natureza, fica de fora.
+      compromissos(b).forEach(function(c) {
+        if (nat && !(c.tipo === 'RECEBER' && nat === 'RECEITA_VENDA')) return;
+        var lado = c.tipo === 'RECEBER' ? 'entradasPrevistas' : 'saidasPrevistas';
+        if (c.semData) { semData[lado] += c.valorCentavos; return; }
+        c.parcelas.forEach(function(p) { var k = col(p.vencimento < ini ? ini : p.vencimento); if (k) k[lado] += p.valorCentavos; });
+      });
+    }
+    var bancos = saldosBancarios(b.fin, hoje);
+    var saldo = Object.keys(bancos).filter(function(k) { return !conta || k === conta; }).reduce(function(s, k) { return s + bancos[k].saldoCentavos; }, 0);
+    var acum = saldo + atrasado.entradas - atrasado.saidas;
+    cols.forEach(function(c) {
+      if (c.passada) return;
+      acum += c.entradas - c.saidas + c.entradasPrevistas - c.saidasPrevistas;
+      c.saldoProjetadoCentavos = nat ? null : acum; // com filtro de natureza, saldo não faz sentido
+    });
+    var avisos = [];
+    if (conta) avisos.push('Com uma conta escolhida, só o realizado aparece: títulos a vencer ainda não têm conta definida.');
+    if (nat) avisos.push('Com uma natureza escolhida não há saldo projetado; pedidos de compra (várias naturezas) ficam de fora.');
+    return { granularidade: g, colunas: cols, atrasado: atrasado, semData: semData, depois: depois, saldoAtualCentavos: saldo, projetado: projeta, avisos: avisos };
+  }
+
+  /* DFC pelo método direto, realizado, mês a mês. Atividade de cada natureza: o
+     padrão abaixo ou fin/parametros/dfcAtividades/{NATUREZA}. Natureza sem atividade
+     vai para NAO_CLASSIFICADO (nunca some). Conferência: saldo final = bancos. */
+  var ATIVIDADES = { OPERACIONAL: 'Atividades operacionais', INVESTIMENTO: 'Atividades de investimento', FINANCIAMENTO: 'Atividades de financiamento', NAO_CLASSIFICADO: 'Não classificado' };
+  var ATIVIDADE_PADRAO = {
+    RECEITA_VENDA: 'OPERACIONAL', OUTRAS_RECEITAS: 'OPERACIONAL', MATERIA_PRIMA: 'OPERACIONAL', EMBALAGEM: 'OPERACIONAL', USO_E_CONSUMO: 'OPERACIONAL',
+    FRETE: 'OPERACIONAL', FOLHA: 'OPERACIONAL', CUSTO_FIXO_PRODUCAO: 'OPERACIONAL', CUSTO_FIXO_ADM: 'OPERACIONAL', DESPESA_COMERCIAL: 'OPERACIONAL',
+    PLR: 'OPERACIONAL', IMPOSTOS: 'OPERACIONAL', OUTROS: 'OPERACIONAL', RESULTADO_FINANCEIRO: 'OPERACIONAL'
+  };
+  var ROTULO_NATUREZA_DFC = { RESULTADO_FINANCEIRO: 'Resultado financeiro (juros, multas, descontos, tarifas, IOF, rendimentos)' };
+  function atividadeDe(natureza, parametros) {
+    var m = ((parametros || {}).dfcAtividades) || {};
+    var a = m[natureza] || ATIVIDADE_PADRAO[natureza];
+    return ATIVIDADES[a] ? a : 'NAO_CLASSIFICADO';
+  }
+  function dfc(fin, deMes, ateMes) {
+    var f = fin || {}, meses = [], m = String(deMes).slice(0, 7) + '-01', fimMes = String(ateMes).slice(0, 7) + '-01';
+    if (!dataOk(m) || !dataOk(fimMes) || m > fimMes) return { ok: false, motivo: 'Período inválido.' };
+    while (m <= fimMes && meses.length < 36) { meses.push(m.slice(0, 7)); m = somarPeriodo(m, 'MES', 1); }
+    var par = f.parametros || {}, linhas = {}, totais = {};
+    function linha(atv, nat) {
+      var k = atv + '|' + nat;
+      if (!linhas[k]) { linhas[k] = { atividade: atv, natureza: nat, rotulo: ROTULO_NATUREZA_DFC[nat] || nat, meses: {} }; meses.forEach(function(x) { linhas[k].meses[x] = 0; }); }
+      return linhas[k];
+    }
+    fluxosRealizados(f).forEach(function(x) {
+      if (x.natureza === 'TRANSFERENCIA') return; // movimento interno
+      var mes = String(x.data).slice(0, 7); if (meses.indexOf(mes) < 0) return;
+      var conta = (f.contas_bancarias || {})[x.conta];
+      if (!conta || (conta.dataSaldoInicial && x.data < conta.dataSaldoInicial)) return; // o saldosBancarios também ignora
+      linha(atividadeDe(x.natureza, par), x.natureza).meses[mes] += x.valorCentavos;
+    });
+    var colunas = meses.map(function(mes) {
+      var ini = mes + '-01', fim = addDias(somarPeriodo(ini, 'MES', 1), -1);
+      var antes = saldosBancarios(f, addDias(ini, -1)), depoisB = saldosBancarios(f, fim);
+      var si = 0, sf = 0, abertura = 0;
+      Object.keys(depoisB).forEach(function(k) {
+        var cb = (f.contas_bancarias || {})[k] || {}, ab = cb.dataSaldoInicial;
+        // Conta aberta dentro do mês: o saldo de abertura não é fluxo, é abertura.
+        if (ab && ab >= ini && ab <= fim) abertura += Math.round(num(cb.saldoInicialCentavos));
+        else if (!ab || ab < ini) si += (antes[k] || {}).saldoCentavos || 0;
+        sf += depoisB[k].saldoCentavos;
+      });
+      return { mes: mes, saldoInicialCentavos: si, aberturaContasCentavos: abertura, saldoFinalBancosCentavos: sf };
+    });
+    var lista = Object.keys(linhas).map(function(k) { return linhas[k]; });
+    var ordemAtv = Object.keys(ATIVIDADES);
+    lista.sort(function(a, b) { return ordemAtv.indexOf(a.atividade) - ordemAtv.indexOf(b.atividade) || a.rotulo.localeCompare(b.rotulo); });
+    var grupos = ordemAtv.map(function(atv) {
+      var ls = lista.filter(function(l) { return l.atividade === atv; }), tot = {};
+      meses.forEach(function(mes) { tot[mes] = ls.reduce(function(s, l) { return s + l.meses[mes]; }, 0); });
+      return { atividade: atv, rotulo: ATIVIDADES[atv], linhas: ls, totais: tot };
+    }).filter(function(gr) { return gr.linhas.length; });
+    colunas.forEach(function(c) {
+      c.variacaoCentavos = grupos.reduce(function(s, gr) { return s + gr.totais[c.mes]; }, 0);
+      c.saldoFinalCentavos = c.saldoInicialCentavos + c.aberturaContasCentavos + c.variacaoCentavos;
+      c.diferencaCentavos = c.saldoFinalBancosCentavos - c.saldoFinalCentavos;
+      c.confere = c.diferencaCentavos === 0;
+    });
+    return { ok: true, meses: meses, colunas: colunas, grupos: grupos, naoClassificado: grupos.some(function(gr) { return gr.atividade === 'NAO_CLASSIFICADO'; }) };
+  }
+
   function aging(base, hoje) {
     var faixas = ['A_VENCER', 'D1_30', 'D31_60', 'D61_90', 'D90', 'SEM_VENCIMENTO'];
     var out = { PAGAR: {}, RECEBER: {} };
@@ -951,6 +1114,8 @@
     lerXmlNfe: lerXmlNfe, casarNotaEntrada: casarNotaEntrada, notasPorTitulo: notasPorTitulo, parcelasDaNota: parcelasDaNota,
     pendenciasNotas: pendenciasNotas, decCentavos: decCentavos,
     TIPOS_CONTA: TIPOS_CONTA, TIPOS_MOVIMENTO: TIPOS_MOVIMENTO, tipoConta: tipoConta, efeitosMovimento: efeitosMovimento,
-    validarMovimento: validarMovimento, validarEstornoMovimento: validarEstornoMovimento, caixaNegativo: caixaNegativo, extratoConta: extratoConta
+    validarMovimento: validarMovimento, validarEstornoMovimento: validarEstornoMovimento, caixaNegativo: caixaNegativo, extratoConta: extratoConta,
+    GRANULARIDADES: GRANULARIDADES, fluxoCaixa: fluxoCaixa, fluxosRealizados: fluxosRealizados, ATIVIDADES: ATIVIDADES, ATIVIDADE_PADRAO: ATIVIDADE_PADRAO,
+    atividadeDe: atividadeDe, dfc: dfc, somarPeriodo: somarPeriodo
   };
 });
