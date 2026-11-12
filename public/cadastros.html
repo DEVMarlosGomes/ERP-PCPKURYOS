@@ -10,6 +10,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-functions-compat.js"></script>
   <script src="shared/utils.js"></script>
   <script src="shared/sku-entrada.js"></script>
   <script src="shared/ingrediente-campos.js"></script>
@@ -23,6 +24,7 @@
   <script src="shared/historico-itens.js"></script>
   <script src="shared/historico-cadastro.js"></script>
   <script src="shared/nome-material-versao.js"></script>
+  <script src="shared/amostras-mp.js"></script>
   <script>
   /* Histórico do cadastro vivo nos modais de Materiais, Produtos e Fornecedores (10/11/2026).
      Ao editar: justificativa curta obrigatória quando algo muda; cada salvamento grava, no MESMO
@@ -136,6 +138,12 @@
     .badge-blue{background:var(--tint-blue-bg);color:var(--primary)}
     .badge-gray{background:var(--tint-gray-bg);color:var(--muted)}
     .badge-orange{background:var(--tint-orange-bg);color:var(--tint-orange-fg)}
+    /* Amostras de MP (11/11/2026): previsão vencida e P&D que só cadastra fornecedor novo. */
+    #tableBody-amo tr.atrasada td{background:var(--tint-red-bg)}
+    #tableBody-amo tr.atrasada .amo-prev{color:var(--tint-red-fg);font-weight:600}
+    body.amo-so-cria-forn .fn-edit-forn, body.amo-so-cria-forn .fn-toggle-revisado{display:none!important}
+    #mainTabs .main-tab.amo-oculta{display:none!important}
+    #amHistorico{margin:6px 0 0;padding-left:18px;font-size:13px}
     .badge-purple{background:var(--tint-purple-bg);color:var(--purple)}
     .no-data{text-align:center;padding:40px;color:var(--muted);font-size:14px}
     .alert{padding:12px 16px;border-radius:8px;font-size:13px;font-weight:500;margin-bottom:12px;display:none}
@@ -320,6 +328,7 @@
   <button class="main-tab" data-maintab="clientes" data-ui="tab">Clientes</button>
   <button class="main-tab" data-maintab="fornecedores" data-ui="tab">Fornecedores</button>
   <button class="main-tab" data-maintab="servicos" data-ui="tab">Serviços</button>
+  <button class="main-tab" data-maintab="amostras" data-ui="tab">Amostras de MP</button>
 </div>
 
 <div class="main">
@@ -1429,6 +1438,100 @@
       </div>
     </div>
   </div>
+  <!-- Amostras de MP (11/11/2026, spec docs/superpowers/specs/2026-11-11-amostras-mp-design.md).
+       Lógica em shared/amostras-mp.js e shared/amostras-mp-tela.js; grava só a callable amostraMp. -->
+  <div class="main-tab-panel" id="maintab-amostras">
+    <div class="section-note">Amostras de matéria-prima pedidas a fornecedores. O <b>P&amp;D</b> registra o que pediu, de quem, o custo e a previsão de chegada; a <b>logística</b> vê o que vai chegar e dá baixa no recebimento; a amostra volta ao P&amp;D para <b>homologar ou reprovar</b>. Previsão vencida sem baixa aparece em vermelho.</div>
+    <div class="kt-toolbar" data-ui="filters">
+      <select class="kt-select" id="visao-amo" aria-label="Visão">
+        <option value="todas">Todas as amostras</option>
+        <option value="receber">A receber</option>
+        <option value="homologar">Aguardando homologação</option>
+      </select>
+      <select class="kt-select" id="fStatus-amo" aria-label="Status"><option value="">Todos os status</option></select>
+      <select class="kt-select" id="fTipo-amo" aria-label="Tipo"><option value="">Todos os tipos</option></select>
+      <select class="kt-select" id="fForn-amo" aria-label="Fornecedor"><option value="">Todos os fornecedores</option></select>
+      <select class="kt-select" id="fMotivo-amo" aria-label="Motivo"><option value="">Todos os motivos</option></select>
+      <label style="font-size:12px">De <input type="date" id="fDe-amo"></label>
+      <label style="font-size:12px">Até <input type="date" id="fAte-amo"></label>
+      <button class="btn btn-primary" id="btnNova-amo" style="display:none">+ Nova solicitação</button>
+    </div>
+    <div class="card" data-ui="surface">
+      <div class="card-title" data-ui="surface-head"><span id="tableCount-amo">Amostras de MP</span></div>
+      <div class="table-wrap" data-ui="table-scroll">
+        <table>
+          <thead><tr>
+            <th style="min-width:80px">Código</th><th style="min-width:220px">Matéria-prima</th><th style="min-width:140px">Fornecedor</th>
+            <th style="min-width:140px">Motivo</th><th style="min-width:80px">Quantidade</th><th style="min-width:100px">Previsão</th>
+            <th style="min-width:100px">Status</th><th style="min-width:60px"></th>
+          </tr></thead>
+          <tbody id="tableBody-amo"><tr><td colspan="8" class="no-data">Carregando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="modal-bg" id="modalBg-amo">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle-amo">
+        <div class="modal-header" data-ui="dialog-head">
+          <h2 id="modalTitle-amo">Nova solicitação de amostra</h2>
+          <button class="modal-close" id="modalClose-amo" title="Fechar" aria-label="Fechar">×</button>
+        </div>
+        <div class="modal-body" data-ui="dialog-body">
+          <div class="form-grid" data-ui="form-grid">
+            <div class="form-group full">
+              <label for="amTipo">Tipo *</label>
+              <select id="amTipo"></select>
+            </div>
+            <div class="form-group" data-amo-bloco="NOVA">
+              <label for="amNome">Nome da matéria-prima *</label>
+              <input type="text" id="amNome" maxlength="160" placeholder="Ex: Pigmento rosa X">
+            </div>
+            <div class="form-group" data-amo-bloco="NOVA">
+              <label for="amDescricao">Descrição</label>
+              <input type="text" id="amDescricao" maxlength="1000">
+            </div>
+            <div class="form-group full" data-amo-bloco="CADASTRADA">
+              <label for="amMaterialBusca">Matéria-prima do cadastro *</label>
+              <input type="text" id="amMaterialBusca" placeholder="Buscar por código ou nome..." autocomplete="off">
+              <input type="hidden" id="amMaterialCodigo">
+            </div>
+            <div class="form-group full">
+              <label for="amFornecedor">Fornecedor *</label>
+              <select id="amFornecedor"><option value="">Escolha o fornecedor</option></select>
+              <div class="field-hint"><a href="#" id="amNovoForn">Fornecedor não está na lista? Cadastrar</a></div>
+            </div>
+            <div class="form-group"><label for="amCustoKg">Custo por kg (R$) *</label><input type="text" inputmode="decimal" id="amCustoKg" placeholder="0,00"></div>
+            <div class="form-group"><label for="amCustoAmostra">Custo da amostra (R$) *</label><input type="text" inputmode="decimal" id="amCustoAmostra" placeholder="0,00"></div>
+            <div class="form-group"><label for="amQtd">Quantidade *</label><input type="text" inputmode="decimal" id="amQtd" placeholder="Ex: 200"></div>
+            <div class="form-group"><label for="amUnidade">Unidade *</label><select id="amUnidade"></select></div>
+            <div class="form-group"><label for="amMotivo">Motivo *</label><select id="amMotivo"><option value="">Escolha o motivo</option></select></div>
+            <div class="form-group"><label for="amPrevisao">Previsão de chegada *</label><input type="date" id="amPrevisao"></div>
+            <div class="form-group full"><label for="amObs">Observações</label><textarea id="amObs" rows="2" maxlength="1000"></textarea></div>
+          </div>
+          <div class="field-hint" id="amErro" role="alert" style="color:var(--danger)"></div>
+        </div>
+        <div class="modal-footer" data-ui="dialog-foot">
+          <button class="btn btn-ghost" id="amCancelar">Cancelar</button>
+          <button class="btn btn-primary" id="amSalvar">Salvar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-bg" id="modalBgDet-amo">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitleDet-amo">
+        <div class="modal-header" data-ui="dialog-head">
+          <h2 id="modalTitleDet-amo">Amostra</h2>
+          <button class="modal-close" id="modalCloseDet-amo" title="Fechar" aria-label="Fechar">×</button>
+        </div>
+        <div class="modal-body" data-ui="dialog-body">
+          <div id="amDetCorpo"></div>
+          <div id="amDetAcoes"></div>
+          <div class="field-hint" id="amDetErro" role="alert" style="color:var(--danger)"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="main-tab-panel" id="maintab-fornecedores">
     <div class="kt-toolbar" data-ui="filters">
       <div class="kt-search"><span class="icon">🔍</span><input type="text" id="fnSearch-forn" placeholder="Buscar por razão social, nome fantasia ou CNPJ..."></div>
@@ -1751,12 +1854,25 @@ try {
 }
 
 // ── Abas de nível página + roteamento por ?tab= ────────────────────────
-var MAINTAB_ALIASES = { produtos: 'produtos', materiais: 'materiais', formulas: 'formulas', categorias: 'categorias', clientes: 'clientes', fornecedores: 'fornecedores', servicos: 'servicos' };
+var MAINTAB_ALIASES = { produtos: 'produtos', materiais: 'materiais', formulas: 'formulas', categorias: 'categorias', clientes: 'clientes', fornecedores: 'fornecedores', servicos: 'servicos', amostras: 'amostras' };
+// Amostras de MP (11/11/2026): quem abre a página só pelo módulo amostras_mp (P&D, logística) vê só as abas
+// que lhe cabem (AmostrasMp.abasVisiveis). null = todas, como sempre foi.
+var ABAS_PERMITIDAS = null;
+function limitarAbasCadastros(lista) {
+  ABAS_PERMITIDAS = lista && lista.length ? lista.slice() : null;
+  document.querySelectorAll('#mainTabs .main-tab').forEach(function(t) {
+    // classe com !important: o estilo global das abas (data-ui=tab) força display e venceria o style inline.
+    t.classList.toggle('amo-oculta', !!ABAS_PERMITIDAS && ABAS_PERMITIDAS.indexOf(t.getAttribute('data-maintab')) === -1);
+  });
+  var ativa = document.querySelector('#mainTabs .main-tab.active');
+  if (ABAS_PERMITIDAS && (!ativa || ABAS_PERMITIDAS.indexOf(ativa.getAttribute('data-maintab')) === -1)) activateMainTab(ABAS_PERMITIDAS[0], true);
+}
 // "enderecos" saiu daqui de propósito -- virou link-out pra estoque.html?tab=estrutura (WMS),
 // não existe mais painel local pra essa aba (pedido do usuário: cadastro de endereços/estrutura
 // de ruas mora só no WMS agora, cadastros.html só referencia o mesmo link).
 function activateMainTab(name, pushUrl) {
   if (!MAINTAB_ALIASES[name]) return;
+  if (ABAS_PERMITIDAS && ABAS_PERMITIDAS.indexOf(name) === -1) name = ABAS_PERMITIDAS[0];
   document.querySelectorAll('.main-tab').forEach(function(t) { t.classList.toggle('active', t.getAttribute('data-maintab') === name); });
   document.querySelectorAll('.main-tab-panel').forEach(function(p) { p.classList.toggle('active', p.id === 'maintab-' + name); });
   if (pushUrl) {
@@ -3143,6 +3259,19 @@ document.addEventListener('DOMContentLoaded', function() {
       if (editingKey) renderUsoMaterial(editingKey);
     });
   });
+  // Amostras de MP (11/11/2026): o atalho 'Cadastrar MP' da amostra homologada reaproveita esta tarefa da fila
+  // (shared/amostras-mp-tela.js). Nada é cadastrado sozinho: abre o modal preenchido.
+  window.CadastrosMateriais = {
+    temSolicitacao: function(k) { return !!solicitacoesMat[k]; },
+    abrirSolicitacao: abrirCadastroDeSolicitacaoMat,
+    marcarFornecedorHomologado: function(fk) {
+      if (!fornecedoresHomologadosStaged[fk]) return false;
+      fornecedoresHomologadosStaged[fk].statusHomologacao = 'homologado';
+      renderFornecedoresHomologados();
+      return true;
+    },
+    abrirMaterial: function(codigo) { var k = sanitizeKey(codigo); if (allMateriais[k]) openModal(k); return !!allMateriais[k]; }
+  };
 })();
 
 // ════════════════════════════════════════════════════════════════════
@@ -6530,5 +6659,6 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 </script>
 
+<script src="shared/amostras-mp-tela.js"></script>
 </body>
 </html>

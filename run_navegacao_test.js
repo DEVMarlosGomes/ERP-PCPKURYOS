@@ -38,6 +38,8 @@ const ETAPAS_EXPEDICAO = ['faturamento', 'cargas'];
 const NOVAS_FASE8 = ['ativos', 'manual_ativos', 'auditoria_5s', 'manual_auditoria_5s', 'rh_temporarios', 'manual_temporarios',
   'feedback', 'rh_feedback', 'manual_feedback', 'backlog', 'pesagens', 'checklists_cq', 'liberacao_linha', 'painel', 'titularidade',
   'auditoria', 'manual_auditoria', 'inspecao_total'];
+// Amostras de MP (11/11/2026): aba do Cadastros para P&D, logística e PCP (módulo amostras_mp).
+NOVAS_FASE8.push('cadastros?tab=amostras');
 // Financeiro sem Expedição registra a NF da carga (10/11/2026).
 const novasDoPerfil = (u) => (u.modulos && u.modulos.financeiro === true ? ['faturamento'] : []);
 
@@ -112,7 +114,10 @@ assert.deepEqual(doBloco(admin, 'Comercial').map((l) => [l.sub, l.rotulo]), [
   ['Vendas', 'Pedidos e Orçamentos'], ['Vendas', 'Gestão Comercial'], ['Vendas', 'Devoluções de Cliente'],
   ['CRM', 'CRM 1 · Clientes'], ['CRM', 'CRM 2 · Projetos'], ['CRM', 'CRM 3 · Amostras'], ['CRM', 'Kickoffs'],
   ['CRM', 'Contratos CGI'], ['CRM', 'Gerenciar cards do CRM']], 'Comercial com subtítulos Vendas e CRM (D-01)');
-assert.deepEqual(rotulos(admin, 'P&D'), ['P&D']);
+assert.deepEqual(rotulos(admin, 'P&D'), ['P&D', 'Amostras de MP'], 'Amostras de MP (11/11) no bloco do P&D');
+assert.ok(rotulos(menu('logistica'), 'Armazém').includes('Amostras de MP'), 'logística vê Amostras de MP no Armazém');
+assert.ok(!rotulos(menu('logistica'), 'Cadastros').length, 'logística não ganha o link geral do Cadastros');
+assert.deepEqual(rotulos(menu('pd'), 'P&D'), ['P&D', 'Amostras de MP']);
 assert.deepEqual(rotulos(admin, 'Financeiro'), ['Financeiro', 'Controladoria']);
 assert.deepEqual([...new Set(doBloco(admin, 'Armazém').map((l) => l.sub))], ['Estoque', 'Fluxo'], 'Armazém: Estoque e Fluxo');
 assert.deepEqual([...new Set(doBloco(admin, 'Operação').map((l) => l.sub).filter(Boolean))], ['Produção', 'Manipulação', 'Rotulagem']);

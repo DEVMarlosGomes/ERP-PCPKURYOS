@@ -322,7 +322,12 @@ const KURYOS_MODULOS = {
   // este módulo, sempre com justificativa e histórico. Sem tela própria; fora de MODULOS_POR_PAPEL:
   // nem o ADM ganha sozinho (as regras do banco e a API conferem). Padrão: Adlai, Gustavo Callegaro, Yasmim.
   alterar_aprovados: { rotulo: 'Alterar aprovados', desc: 'Alterar fórmula/BOM/especificação aprovada e fórmula travada do P&D (com justificativa e histórico)',
-                  paginas: [] }
+                  paginas: [] },
+  // Amostras de MP (11/11/2026, spec 2026-11-11-amostras-mp-design.md): aba do Cadastros onde o P&D registra a
+  // amostra pedida ao fornecedor e a logística dá baixa. Quem só tem este módulo vê só essa aba (e o P&D, a de
+  // Fornecedores para cadastrar fornecedor novo); quem grava é a callable amostraMp.
+  amostras_mp:  { rotulo: 'Amostras de MP',        desc: 'Amostras de matéria-prima pedidas a fornecedores: previsão, recebimento e homologação',
+                  paginas: ['cadastros.html'] }
 };
 
 // Padrão por papel. Reproduz EXATAMENTE o alcance que cada papel tinha antes
@@ -331,17 +336,17 @@ const KURYOS_MODULOS = {
 const MODULOS_POR_PAPEL = {
   admin: '*',
   pcp: ['analytics', 'apontamento', 'manipulacao', 'rotulagem', 'planejamento', 'emitir_op', 'comercial', 'pedidos', 'cadastros',
-        'compras', 'logistica', 'qualidade', 'config', 'usuarios', 'placar'],
+        'compras', 'logistica', 'qualidade', 'config', 'usuarios', 'placar', 'amostras_mp'],
   production: ['analytics', 'apontamento', 'manipulacao', 'rotulagem', 'planejamento', 'placar'],
   rotulagem: ['rotulagem', 'placar'],
-  logistica: ['logistica', 'placar'],
+  logistica: ['logistica', 'placar', 'amostras_mp'],
   qualidade: ['qualidade', 'conferencia_pesagem', 'placar'],
   // TV da fábrica (26/10/2026): login próprio que só abre o placar.
   tv: ['placar'],
   rh: ['rh', 'rh_dashboard'],
   gestor: ['rh'],
   comercial: ['comercial'],
-  pd: ['pd'],
+  pd: ['pd', 'amostras_mp'],
   pending: []
 };
 // PORT-08 (Fase 8, Dev 3), acréscimo ao padrão por papel, como no repositório do Gustavo:

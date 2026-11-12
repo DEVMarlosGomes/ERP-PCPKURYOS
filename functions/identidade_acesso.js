@@ -16,6 +16,7 @@ const MODULOS_VALIDOS = new Set([
   "rh_dashboard", "custos", "placar", "financeiro", "controladoria",
   "manutencao", "auditoria5s", "feedback", "rh_feedback", "rh_temporarios",
   "backlog", "painel", "titularidade", "auditoria", "aprovar_critico_pd", "alterar_aprovados",
+  "amostras_mp", // Amostras de MP (11/11/2026): aba do Cadastros para P&D e logística
 ]);
 
 const CODIGOS_AUTH_SEM_USUARIO = new Set(["auth/user-not-found", "user-not-found"]);
