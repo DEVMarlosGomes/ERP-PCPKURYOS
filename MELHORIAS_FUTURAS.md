@@ -27,6 +27,19 @@ Corrigido em 11/11: código de material novo caía em código já usado e gravav
 - **Ficha técnica do P&D "travando"** (relato de 11/11): não reproduzido; `fichaTecnica.js` não
   lê `materiais` por código. Falta a mensagem exata e o produto para investigar.
 
+## Amostras de MP — o que ficou para depois (11/11/2026)
+
+Aba Amostras de MP no Cadastros (spec `docs/superpowers/specs/2026-11-11-amostras-mp-design.md`):
+P&D registra, logística dá baixa, P&D homologa ou reprova; grava só a callable `amostraMp`.
+
+- **Tela completa de homologação** (decisão do Marlos: nesta entrega só aprovar/reprovar com parecer).
+  Retomar com ensaios e anexos da amostra; o ponto de entrada é `renderDetalhe` em
+  `public/shared/amostras-mp-tela.js` e a ação `HOMOLOGAR` em `functions/amostras_mp.js`.
+- **Custo por kg da amostra no custo padrão do material** (`PROMPT_CUSTOS_ERP.md`: `ESTIMADO_PD` → `COTADO`).
+  Hoje o custo/kg só vai para o custo de referência do fornecedor quando o "Cadastrar MP" abre o material.
+- **Aviso de amostra atrasada** fora da tela (e-mail ou Cobranças): hoje a atrasada só aparece em vermelho
+  na lista "A receber".
+
 ## Cobranças internas — o que ficou para depois (11/11/2026)
 
 Entregue: `cobrancas.html` (aba no topo do menu, com contador), callable `cobrancaInterna`

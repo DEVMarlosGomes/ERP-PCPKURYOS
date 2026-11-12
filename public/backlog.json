@@ -1,13 +1,176 @@
 {
  "fonte": "MELHORIAS_FUTURAS.md (seções e tópicos)",
- "geradoEm": "2026-11-10T18:48:21.178Z",
- "commit": "78f6bf6",
+ "geradoEm": "2026-11-12T07:53:02.829Z",
+ "commit": "83b259c",
  "atualizadoEm": null,
  "secoes": [
   {
    "letra": "A",
    "titulo": "Código: o que está adiado (MELHORIAS_FUTURAS.md)",
    "itens": [
+    {
+     "id": "76c72933b5",
+     "grupo": "Cadastros × emissão de OP — o que ficou para depois",
+     "texto": "O BOM/fórmula guarda o nome do material de quando o item foi incluído; a OP mostra o nome atual do cadastro de Materiais",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "— **feito em 11/11 (tarde):** a versão aprovada em Cadastros mostra o nome atual do cadastro (o mesmo da OP) e, quando difere, \"Nome gravado nesta versão\" embaixo (`shared/nome-material-versao.js`, `run_nome_material_versao_test.js`). O dado gravado no item não mudou; os 957 + 175 nomes antigos continuam no banco. F…"
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "df49a0bbc2",
+     "grupo": "Cadastros × emissão de OP — o que ficou para depois",
+     "texto": "Nenhuma trava impede que um material ativo vire outro por edição",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Código inativo (\"INATIVO\") é reaproveitado editando o nome (EP-00008 em 09/11), e 13 códigos inativos ainda estão em BOM/fórmula (MPGR-00002 em 8 fórmulas PRF-BIOF, EP-00133, EP-00175…). Avisar na edição quando o material está em uso (a aba \"Usado em\" já sabe) e o nome muda de família."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "38e4949d12",
+     "grupo": "Cadastros × emissão de OP — o que ficou para depois",
+     "texto": "8 produtos têm dois BOMs que só diferem na caixa da versão",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(`HDR-MISS-0001__V1` aprovado e `HDR-MISS-0001__v1` antigo; também HDR-MISS-0002/3/5/6/7, MRARBS10, SRM-SEUN-0001). A emissão e o Cadastros usam a chave exata da fórmula, então hoje não divergem, mas o Cadastros mostra duas pílulas (\"V1\" e \"v1\") em 11 produtos. Unificar é limpeza de dado, com backup."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "57852aca5e",
+     "grupo": "Cadastros × emissão de OP — o que ficou para depois",
+     "texto": "72 registros de `bom`/`especificacoes`/`formulas` têm itens e não têm `codProduto`/`versao`",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(nasceram do `push` de item antes de `btnNovaVersaoClick` criar os três juntos). Não aparecem como versão no Cadastros; 10 fórmulas assim só têm uma linha vazia. Backfill do cabeçalho pela chave, em caminhos planos."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "0cd4e48489",
+     "grupo": "Cadastros × emissão de OP — o que ficou para depois",
+     "texto": "Ficha técnica do P&D \"travando\"",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(relato de 11/11): não reproduzido; `fichaTecnica.js` não lê `materiais` por código. Falta a mensagem exata e o produto para investigar."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "f38e5909df",
+     "grupo": "Amostras de MP — o que ficou para depois",
+     "texto": "Tela completa de homologação",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(decisão do Marlos: nesta entrega só aprovar/reprovar com parecer). Retomar com ensaios e anexos da amostra; o ponto de entrada é `renderDetalhe` em `public/shared/amostras-mp-tela.js` e a ação `HOMOLOGAR` em `functions/amostras_mp.js`."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "28a7ec03af",
+     "grupo": "Amostras de MP — o que ficou para depois",
+     "texto": "Custo por kg da amostra no custo padrão do material",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(`PROMPT_CUSTOS_ERP.md`: `ESTIMADO_PD` → `COTADO`). Hoje o custo/kg só vai para o custo de referência do fornecedor quando o \"Cadastrar MP\" abre o material."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "20afb6708c",
+     "grupo": "Amostras de MP — o que ficou para depois",
+     "texto": "Aviso de amostra atrasada",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "fora da tela (e-mail ou Cobranças): hoje a atrasada só aparece em vermelho na lista \"A receber\"."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "c49193e1a5",
+     "grupo": "Cobranças internas — o que ficou para depois",
+     "texto": "Lembrete automático de cobrança vencida",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(e-mail no dia do prazo / quando atrasa). Precisa de agenda, e as agendas da VPS estão desligadas (`DISABLE_SCHEDULE=1`). Retomar como mais uma checagem em `checkNotificacoes` (`functions/index.js`) lendo `cobrancas_caixa`, só depois de decidir quem roda as agendas (VPS ou Render, nunca os dois)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "ff0788d265",
+     "grupo": "Cobranças internas — o que ficou para depois",
+     "texto": "Cartão \"Cobranças\" no Início",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(\"Precisa de você\"): hoje o aviso é o contador do menu. `KuryosNav.pendencias` trabalha com nós fixos; a caixa é por usuário (`cobrancas_caixa/{uid}`)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "4e15a12c12",
+     "grupo": "Cobranças internas — o que ficou para depois",
+     "texto": "Visão do ADM de todas as cobranças",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(quem está devendo o quê). A regra hoje não deixa listar `cobrancas/` inteira de propósito; exigiria um índice próprio gravado pelo servidor."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "11cd96e0fe",
+     "grupo": "Cobranças internas — o que ficou para depois",
+     "texto": "Teste de tela no navegador",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(Playwright não instalado nesta estação): a tela foi validada por sintaxe e pela ligação callable↔serviço no emulador, não clicada."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "4801dc95fd",
+     "grupo": "Cobranças internas — o que ficou para depois",
+     "texto": "Usuário sem `email` no perfil recebe só o aviso do sistema; a tela mostra quem ficou sem e-mail",
+     "subitens": [],
+     "extras": {},
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "bd904aa8af",
+     "grupo": "E-mails automáticos — conferência do inventário",
+     "texto": "Os 12 e-mails automáticos dependem de gatilho ou agenda",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ", e a última leitura da VPS (03/11, `CORRECOES_VIRADA_ACESSOS_20261103.md`) registrou `DISABLE_TRIGGERS=1` e `DISABLE_SCHEDULE=1`. Se o Render também foi desligado na virada, **nenhum deles está saindo hoje**. Conferir na VPS e decidir quem roda escutas/agendas. Só saem sem gatilho: o \"Reenviar e-mail\" do faturament…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "88433a31f5",
+     "grupo": "E-mails automáticos — conferência do inventário",
+     "texto": "Links dos e-mails apontam para `pcp-kuryos.vercel.app`",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ", não para `prod-kuryos.web.app` como dizia o inventário: `functions/op_encerrada.js` (`URL_OPS`), `functions/pedido_diretoria.js` (`URL_GESTAO`), `functions/pesagem_fechada.js` (`URL_MANIPULACAO`). O faturamento já usa `kuryoserp.com.br`. Trocar os três para `https://kuryoserp.com.br/`."
+     },
+     "feito": false,
+     "hash": null
+    },
     {
      "id": "3d6926a362",
      "grupo": "Auditoria geral de 10/11/2026 — o que ficou para depois",
@@ -2977,8 +3140,8 @@
  "resumo": {
   "A": {
    "titulo": "Código: o que está adiado (MELHORIAS_FUTURAS.md)",
-   "total": 259,
-   "feitos": 23
+   "total": 274,
+   "feitos": 24
   },
   "B": {
    "titulo": "Depende da Kuryos",
