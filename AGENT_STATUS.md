@@ -7,13 +7,20 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ### Claude (sessão `fin-webmais`) — Financeiro: relatórios do WebMais (Entrega A) (12/11/2026)
 
-- **Em andamento.** Relatórios novos (só leitura) na aba Relatórios: espelho de caixa diário, saldo das contas,
-  lançamento bancário, realizado × previsto, gastos por centro de custo, em aberto por parceiro, ranking,
-  evolução, composição de vencimentos, conta corrente, conciliação por parceiro, antecipação, prazos médios;
-  centro de custo no título manual. Entrega B (adiantamento, renegociação, cancelamento em lote) vem depois,
-  com spec. Arquivos ativos: `public/shared/financeiro-relatorios.js` (novo), `public/shared/financeiro-tela.js`,
-  `public/financeiro.html`, `public/shared/financeiro.js` + `functions/financeiro.js` (só `centroCusto`),
-  `database.rules.json` (leitura de `ctl/centros_custo`), `run_financeiro_relatorios_webmais_test.js` (novo).
+- **Código concluído em `hostinger-deploy`** (commit "feat(financeiro): relatórios do WebMais"). 14 relatórios
+  novos, só leitura, na aba Relatórios (seletor agrupado Caixas e bancos / A pagar / A receber): espelho de caixa
+  diário, saldo das contas, lançamentos bancários, realizado × previsto, gastos por centro de custo e elemento,
+  lançamento de despesas, fornecedores/clientes em aberto, principais fornecedores/clientes (ABC, filtro de
+  natureza), evolução, composição de vencimentos, conta corrente, conciliação por parceiro, antecipação, PMR/PMP.
+  Motor `public/shared/financeiro-relatorios.js`; centro de custo no título manual (motor valida o formato, nas
+  duas cópias); regra: leitura de `ctl/centros_custo` para o módulo `financeiro`. Corrigido no caminho: render
+  reentrante da tela quebrava ao mudar campo de texto em foco (Parceiro/Taxa); `run_gestao_rules_test.js` não
+  rodava com firebase-admin 14 (API modular agora). Mapa WebMais em `docs/financeiro-fase0-lacunas.md` §8.
+  Testes: `run_financeiro_relatorios_webmais_test` 1.082, `_ui_test` 48 (Chrome), regras 51 (emulador), bateria
+  do Financeiro (motor 126/69/39/34/54/8, servidor 12, Controladoria 59, telas 18/11/12/17/17), navegação 39;
+  ensaio no retrato da base de 11/11 sem número inválido. **Pendente (Marlos), nesta ordem:** publicar regras
+  (`firebase deploy --only database --project erpkuryos`; sem elas a tela usa só os centros padrão) e deploy
+  da VPS. Próximo: Entrega B (adiantamento, renegociação, cancelamento em lote) com spec. Arquivos ativos: nenhum.
 
 ### Claude (sessão `conferencia-pa-presa`) — Conferência de PA presa: 3 OPs que ninguém finalizava (12/11/2026)
 

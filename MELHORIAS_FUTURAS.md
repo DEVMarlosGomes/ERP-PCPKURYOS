@@ -1,5 +1,33 @@
 # Melhorias Futuras — Sistema PCP Kuryos
 
+## Financeiro × WebMais — o que ficou para depois (12/11/2026)
+
+Em 12/11 entraram os relatórios do WebMais (Entrega A, só leitura): 14 relatórios novos na aba
+Relatórios, mais o centro de custo no título manual (`public/shared/financeiro-relatorios.js`,
+mapa no `docs/financeiro-fase0-lacunas.md` §8). Ficou de fora, de propósito:
+
+- **Entrega B: adiantamento a fornecedor e de cliente, renegociação (pagar e receber) e
+  cancelamento de títulos a receber em lote.** Combinado com o Marlos como o próximo passo,
+  com spec escrito antes, porque muda a Controladoria:
+  - adiantamento sai ou entra no banco sem título e depois compensa um título, o que pede
+    uma conta de adiantamentos no razão;
+  - renegociação e cancelamento abatem título manual, e hoje `controladoria.js` (bloco 6,
+    `TIT_`) **não estorna** o lançamento de título manual quando há abatimento, o que deixaria
+    a DRE errada.
+
+  O filtro "não exibir adiantamentos" do relatório de gastos entra junto.
+- **Cheques a receber e a pagar** (custódia, compensação, devolução, filtro "cheques a compensar"
+  no DFC): é uma carteira nova inteira. Antes de construir, confirmar se a Kuryos ainda recebe
+  ou emite cheque.
+- **Remessa bancária (CNAB/boleto registrado)**: já estava fora em `PROMPT_FINANCEIRO.md` §14.
+  O OFX resolve a conciliação sem custo.
+- **Dedução e reembolso de comissão**: não há representante nem comissão na base.
+- **Filtro "empresa"** dos relatórios do WebMais: a Kuryos opera com um CNPJ só, então não se aplica.
+- **Recebimento contra pedido de compra nasce sem centro de custo** (27 de 44 títulos na base de
+  11/11 aparecem em "Sem centro de custo"). Dá para derivar o centro pela natureza ou pelo
+  pedido, mas a regra (MP → Produção? embalagem → Rotulagem?) é decisão do Financeiro com a
+  Controladoria.
+
 ## Cadastros × emissão de OP — o que ficou para depois (11/11/2026)
 
 Corrigido em 11/11: código de material novo caía em código já usado e gravava por cima

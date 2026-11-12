@@ -147,3 +147,53 @@ Todas as fases do plano foram entregues, cada uma em branch própria e com teste
 As perguntas 2 a 5 seguiram as opções conservadoras: o XML é enviado pelo Financeiro; nota sem pedido vira título manual preenchido pela nota; na divergência vale o valor do título e a diferença vai para Complementos; o caixa físico não fica negativo.
 
 Ainda depende das transcrições ou dos prints do WebMais: conferir se os relatórios e filtros reproduzem a rotina semanal do financeiro (pergunta 6) e se o DFC deve seguir um plano de contas do contador (pergunta 7).
+
+## 8. WebMais × Financeiro (12/11/2026)
+
+O mapeamento da tela do WebMais (vídeo curto + narração) respondeu a pergunta 6. O que já existia
+foi conferido; o que faltava e só **lê** os dados entrou como Entrega A. O que **grava** ficou para a
+Entrega B, com spec próprio (`MELHORIAS_FUTURAS.md`, "Financeiro × WebMais").
+
+| WebMais | Aqui | Situação |
+|---|---|---|
+| Caixas e Bancos › Demonstrativo de fluxo de caixa | Relatórios › Demonstrativo de fluxo de caixa (F7) | já existia |
+| › Espelho de caixa diário | Relatórios › Espelho de caixa diário (`relEspelhoDiario`) | **novo** |
+| › Extrato por período | Relatórios › Extrato da conta (F6/F8) | já existia |
+| › Fluxo de caixa previsto | Relatórios › Fluxo de caixa previsto (F7) | já existia |
+| › Fluxo de caixa realizado/previsto | Relatórios › Realizado × previsto (`relRealizadoPrevisto`) | **novo** |
+| › Gastos elemento/centro de custo | Relatórios › Gastos por centro de custo e elemento (`relGastosCentroCusto`); centro de custo no título manual | **novo** |
+| › Lançamento bancário | Relatórios › Lançamentos bancários (`relMovimentos`), filtros de conta de origem, conta destino e tipo | **novo** |
+| › Saldo das contas; "movimentação por conta" | Relatórios › Saldo das contas (`relSaldosContas`) | **novo** |
+| Cheques a receber / a pagar | — | adiado (carteira nova) |
+| A pagar › Adiantamento de fornecedores; A receber › Adiantamento de clientes | — | Entrega B |
+| A pagar › Ordem de pagamento (consulta/emissão) | A pagar (título manual) + Lote de pagamento com aprovação | já existia |
+| A pagar › Importação folha de pagamento | Operação do mês (Custos) → título de folha; planilha de abertura | já existia |
+| A pagar › Lançamento de despesas | Título manual + Relatórios › Lançamento de despesas (`relLancamentoDespesas`: usuário, centro, natureza, situação) | **novo** (relatório) |
+| A pagar / A receber › Renegociação | — | Entrega B |
+| A pagar › Evolução de pagamento | Relatórios › Evolução de pagamento / de recebimento (`relEvolucao`) | **novo** |
+| A pagar › Fornecedores em aberto; A receber › Clientes em aberto | Relatórios › Fornecedores / Clientes em aberto (`relEmAberto`), com a posição de vencimento | **novo** |
+| A receber › Cancelamento de OR em lote | — | Entrega B |
+| A receber › Ordem de recebimento, manutenção de OR e de movimento | A receber (título manual) + estorno de baixa (nada se edita) | já existia |
+| A receber › Dedução e reembolso de comissão | — | adiado (sem comissão na base) |
+| A receber › Remessa / remessa bancária | — | fora (`PROMPT_FINANCEIRO.md` §14) |
+| A receber › Cálculo de antecipação | Relatórios › Cálculo de antecipação (`relAntecipacao`) | **novo** |
+| A receber › Composição de vencimentos | Relatórios › Composição de vencimentos (`relComposicaoVencimentos`) | **novo** |
+| A receber › Conciliação de clientes | Relatórios › Conciliação de clientes / fornecedores (`relConciliacaoParceiros`) | **novo** |
+| A receber › Conta corrente p/ cliente | Relatórios › Conta corrente do cliente / fornecedor (`relContaCorrente`) | **novo** |
+| Narração: principais fornecedores, filtro por categoria (matéria-prima) | Relatórios › Principais fornecedores / clientes, curva ABC e filtro de natureza (`relRanking`) | **novo** |
+| Narração: prazo médio de recebimento e de pagamento | Relatórios › PMR / PMP por período e por parceiro (`relPrazosMedios`) | **novo** |
+
+Decisões da construção:
+- **Recebimento com mais de uma natureza** (matéria-prima e embalagem no mesmo PC) é dividido na
+  proporção dos itens (`porNatureza`), em centavos inteiros. Assim o filtro "matéria-prima" pega só
+  a parte de matéria-prima.
+- **O mesmo parceiro com o nome escrito diferente** soma pelo CNPJ.
+- **Subtotal nunca entra numa coluna que se soma.** Ele tem coluna própria, e o total do CSV continua
+  igual à soma das linhas.
+- **Centro de custo:** a lista padrão é a mesma da Controladoria (o teste confere), mais os centros
+  cadastrados lá. A leitura de `ctl/centros_custo` foi liberada para o módulo `financeiro`, só
+  leitura. O motor recusa código fora do formato da Controladoria.
+
+Testes: `run_financeiro_relatorios_webmais_test.js` (1.082 asserções),
+`run_financeiro_relatorios_webmais_ui_test.js` (48, Chrome) e `run_gestao_rules_test.js` (51, emulador),
+mais o ensaio contra o retrato da base de 11/11, sem número inválido.

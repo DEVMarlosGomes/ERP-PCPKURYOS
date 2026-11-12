@@ -9,11 +9,14 @@
    - ctl/: ADM ou módulo Controladoria; lançamentos, derivados, painel e fechamento só o servidor;
      plano de contas não se apaga; orçamento por ano válido; o Financeiro lê os fechamentos. */
 const assert = require('assert/strict');
-const admin = require('./functions/node_modules/firebase-admin');
+// firebase-admin 14: só a API modular (app.database() não existe mais).
+const reqFunctions = require('node:module').createRequire(require('node:path').resolve(__dirname, 'functions/package.json'));
+const {initializeApp} = reqFunctions('firebase-admin/app');
+const {getDatabase} = reqFunctions('firebase-admin/database');
 if (process.env.FIREBASE_DATABASE_EMULATOR_HOST !== '127.0.0.1:9023') throw new Error('Teste exige emulador local 9023.');
 const URL = 'http://127.0.0.1:9023?ns=demo-gestao-default-rtdb';
-const raiz = admin.initializeApp({projectId: 'demo-gestao', databaseURL: URL}, 'raiz').database();
-const como = (uid) => admin.initializeApp({projectId: 'demo-gestao', databaseURL: URL, databaseAuthVariableOverride: {uid}}, uid).database();
+const raiz = getDatabase(initializeApp({projectId: 'demo-gestao', databaseURL: URL}, 'raiz'));
+const como = (uid) => getDatabase(initializeApp({projectId: 'demo-gestao', databaseURL: URL, databaseAuthVariableOverride: {uid, token: {auth_time: 100}}}, uid));
 const negado = (p, msg) => assert.rejects(p, /PERMISSION_DENIED|permission_denied/i, msg);
 let n = 0;
 const ok = async (p) => { await p; n++; };
@@ -82,6 +85,11 @@ const nega = async (p, msg) => { await negado(p, msg); n++; };
   await nega(fin.ref('ctl/orcamento/2026/DESP_ADM/_/10').set(1), 'Financeiro não mexe no orçamento');
   await ok(ctl.ref('ctl/centros_custo/LINHA_3').set({nome: 'Linha 3', tipo: 'PRODUTIVO'}));
   await nega(ctl.ref('ctl/centros_custo/LINHA_3').remove(), 'centro de custo não se apaga');
+  // 12/11/2026: o Financeiro lê os centros (título manual e gastos por centro), sem gravar.
+  await ok(fin.ref('ctl/centros_custo').once('value'));
+  await nega(fin.ref('ctl/centros_custo/LINHA_9').set({nome: 'Linha 9', tipo: 'PRODUTIVO'}), 'Financeiro não cria centro de custo');
+  await nega(pcp.ref('ctl/centros_custo').once('value'), 'PCP não lê os centros de custo');
+  await nega(fin.ref('ctl/parametros').once('value'), 'a leitura dos centros não abre o resto da Controladoria');
   await nega(fin.ref('fin/contas_bancarias/itau').remove(), 'conta bancária não se apaga');
 
   console.log(`OK regras Financeiro/Controladoria: ${n} verificações`);

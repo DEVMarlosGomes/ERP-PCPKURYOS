@@ -493,6 +493,9 @@
     if (x.vencimento && !dataOk(x.vencimento)) return { ok: false, motivo: 'Vencimento inválido (AAAA-MM-DD).' };
     var nat = String(x.natureza || (tipo === 'RECEBER' ? 'RECEITA_VENDA' : 'OUTROS')).toUpperCase();
     if (NATUREZAS.indexOf(nat) < 0) return { ok: false, motivo: 'Natureza desconhecida: ' + nat + '.' };
+    // Centro de custo (12/11/2026): chave da Controladoria (ctl/centros_custo), só A-Z, 0-9 e _.
+    var cc = String(x.centroCusto == null ? '' : x.centroCusto).trim();
+    if (cc && !/^[A-Z0-9_]{1,40}$/.test(cc)) return { ok: false, motivo: 'Centro de custo inválido: ' + cc.slice(0, 40) + '.' };
     // Condição informada (sem vencimento): tem que ser entendida e é gravada na forma canônica.
     var cond = null;
     if (!x.vencimento && String(x.condicao || '').trim()) {
@@ -501,7 +504,7 @@
     }
     return { ok: true, titulo: { tipo: tipo, origem: { tipo: origemTipo || 'MANUAL', ref: null }, parceiro: { tipo: tipo === 'PAGAR' ? 'FORNECEDOR' : 'CLIENTE', key: x.parceiroKey || null, nome: nome.slice(0, 120), cnpj: String(x.cnpj || '').trim() || null },
       documento: String(x.documento || '').trim().slice(0, 60) || null, emissao: emissao, competencia: emissao.slice(0, 7), valorCentavos: v, moeda: 'BRL',
-      natureza: nat, porNatureza: null, centroCusto: x.centroCusto || null, condicao: cond,
+      natureza: nat, porNatureza: null, centroCusto: cc || null, condicao: cond,
       vencimentoFixo: x.vencimento ? String(x.vencimento).slice(0, 10) : null, baseVencimento: emissao, historico: String(x.historico || '').slice(0, 300) || null,
       notaChave: /^\d{44}$/.test(String(x.notaChave || '')) ? String(x.notaChave) : null, versao: VERSAO } };
   }
