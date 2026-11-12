@@ -38,8 +38,10 @@ const passo = (m) => { n++; console.log('  ok  ' + m); };
     fornecedores: {f1: {razaoSocial: 'Lunagreen Ltda', nomeFantasia: 'Lunagreen'}},
   });
   const svc = AmostrasMp.criarServico({db});
+  const HOJE = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Sao_Paulo'});
+  const DAQUI_A_10 = new Date(Date.now() + 10 * 86400000).toLocaleDateString('en-CA', {timeZone: 'America/Sao_Paulo'});
   const dados = {tipo: 'NOVA', materialNovo: {nome: 'Pigmento Rosa X'}, fornecedorKey: 'f1', custoKg: 120, custoAmostra: 0,
-    quantidade: {valor: 200, unidade: 'g'}, motivo: 'DESENVOLVIMENTO', previsaoChegada: '2026-11-15'};
+    quantidade: {valor: 200, unidade: 'g'}, motivo: 'DESENVOLVIMENTO', previsaoChegada: DAQUI_A_10};
 
   // 1. Serviço real cria; quem lê e quem não lê.
   const r = await svc.executar('pd', {acao: 'CRIAR', requestId: 'c1', dados});
@@ -58,7 +60,7 @@ const passo = (m) => { n++; console.log('  ok  ' + m); };
   passo('ninguém grava amostras_mp nem amostras_mp_pedidos pelo navegador');
 
   // 3. Duas baixas simultâneas: só uma vence.
-  const baixa = (uid, req) => svc.executar(uid, {acao: 'RECEBER', id: r.id, requestId: req, dados: {data: '2026-11-14', forma: 'MOTOBOY'}});
+  const baixa = (uid, req) => svc.executar(uid, {acao: 'RECEBER', id: r.id, requestId: req, dados: {data: HOJE, forma: 'MOTOBOY'}});
   const res = await Promise.allSettled([baixa('log', 'b1'), baixa('log2', 'b2')]);
   assert.equal(res.filter((x) => x.status === 'fulfilled').length, 1, JSON.stringify(res.map((x) => x.status)));
   const perdeu = res.find((x) => x.status === 'rejected');
@@ -67,6 +69,13 @@ const passo = (m) => { n++; console.log('  ok  ' + m); };
   const hist = Object.values((await db.ref('amostras_mp/' + r.id + '/historico').get()).val());
   assert.deepEqual(hist.map((e) => e.acao), ['CRIAR', 'RECEBER'], 'uma baixa só no histórico');
   passo('duas baixas ao mesmo tempo: uma grava, a outra recebe "já foi recebida"');
+
+  // 3b. Duas criações iguais ao mesmo tempo (mesmo requestId): uma amostra só.
+  const antes = Object.keys((await db.ref('amostras_mp').get()).val()).length;
+  const dup = await Promise.allSettled([svc.executar('pd', {acao: 'CRIAR', requestId: 'dup1', dados}), svc.executar('pd', {acao: 'CRIAR', requestId: 'dup1', dados})]);
+  assert.equal(Object.keys((await db.ref('amostras_mp').get()).val()).length, antes + 1, 'corrida: um registro só');
+  assert.ok(dup.every((x) => x.status === 'fulfilled' || x.reason.code === 'failed-precondition'), JSON.stringify(dup.map((x) => x.reason && x.reason.message)));
+  passo('duas criações iguais ao mesmo tempo: uma amostra só (reserva atômica do pedido)');
 
   // 4. Fornecedor: P&D cria novo (com histórico) mas não edita existente; Cadastros edita.
   const novo = {

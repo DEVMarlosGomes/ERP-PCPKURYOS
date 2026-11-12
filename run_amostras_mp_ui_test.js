@@ -40,7 +40,8 @@ async function abrir(browser, estado, pagina) {
     const db = bancoFalso(est);
     try {
       const r = await A.criarServico({db}).executar('u1', data);
-      return {r, amostras_mp: db.raiz.amostras_mp || null, contador: ((db.raiz.config || {}).contadores || {}).amostrasMp || null};
+      return {r, amostras_mp: db.raiz.amostras_mp || null, contador: ((db.raiz.config || {}).contadores || {}).amostrasMp || null,
+        fornecedores: db.raiz.fornecedores || null, historico_fornecedores: db.raiz.historico_fornecedores || null};
     } catch (e) { return {erro: {code: e.code, message: e.message}}; }
   });
   await page.addInitScript((data) => {
@@ -75,12 +76,14 @@ async function abrir(browser, estado, pagina) {
         return {httpsCallable(nome) {
           return async (data) => {
             if (nome !== 'amostraMp') throw new Error('callable inesperada ' + nome);
-            const est = {usuarios: db.usuarios, materiais: db.materiais, fornecedores: db.fornecedores, amostras_mp: db.amostras_mp,
+            const est = {usuarios: db.usuarios, materiais: db.materiais, fornecedores: db.fornecedores, historico_fornecedores: db.historico_fornecedores, amostras_mp: db.amostras_mp,
               amostras_mp_pedidos: db.amostras_mp_pedidos, config: db.config};
             const res = await window.__amostraMpNode(data, JSON.parse(JSON.stringify(est)));
             if (res.erro) throw Object.assign(new Error(res.erro.message), {code: 'functions/' + res.erro.code});
             gravar('amostras_mp', res.amostras_mp);
             if (res.contador) gravar('config/contadores/amostrasMp', res.contador);
+            if (res.fornecedores) gravar('fornecedores', res.fornecedores);
+            if (res.historico_fornecedores) gravar('historico_fornecedores', res.historico_fornecedores);
             return {data: res.r};
           };
         }};
@@ -239,8 +242,9 @@ const ativa = (page) => page.$eval('#mainTabs .main-tab.active', (b) => b.getAtt
     assert.equal(await page.$eval('#fNome-mat', (i) => i.value), 'PIGMENTO ROSA X');
     assert.match(await page.$eval('#fEspecificacoes', (i) => i.value), /AM-0007/);
     const homologados = await page.$eval('#fornecedoresHomologadosBody-mat', (t) => t.innerText);
-    assert.match(homologados, /Lunagreen[\s\S]*Homologado/i, 'o fornecedor da amostra chega Homologado (spec §7):\n' + homologados);
-    assert.doesNotMatch(homologados, /Aguardando/i, 'só o fornecedor da amostra, sem palpite por nome');
+    assert.match(homologados, /Lunagreen[\s\S]*Aguardando/i, 'fornecedor novo entra Aguardando homologação (homologa depois):\n' + homologados);
+    assert.doesNotMatch(homologados, /Bioativos/i, 'só o fornecedor da amostra, sem palpite por nome');
+    assert.doesNotMatch(homologados, /\bHomologado\b/, 'não chega Homologado');
     await page.click('#modalClose-mat').catch(() => page.evaluate(() => document.getElementById('modalBg-mat').classList.remove('open')));
     await page.click('#mainTabs .main-tab[data-maintab="amostras"]');
     await page.click('#tableBody-amo .btn-abrir-amo[data-id="a3"]');
@@ -270,6 +274,35 @@ const ativa = (page) => page.$eval('#mainTabs .main-tab.active', (b) => b.getAtt
     assert.deepEqual(errors, []);
     await page.close();
     ok('só com o módulo: vê só a aba Amostras de MP, sem ações');
+
+    // 7. P&D: fornecedor inativo só com Reativar; material já cadastrado escolhido na busca, gravado pela chave.
+    const est7 = estado(PD);
+    est7.fornecedores.f5 = {razaoSocial: 'Parada Ltda', nomeFantasia: 'Parada', ativo: false};
+    ({page, errors} = await abrir(browser, est7, 'cadastros.html'));
+    await page.click('#btnNova-amo');
+    await page.selectOption('#amTipo', 'CADASTRADA');
+    await page.fill('#amMaterialBusca', 'ALCOOL');
+    await page.waitForSelector('.kt-ac-list.open .kt-ac-item');
+    await page.dispatchEvent('.kt-ac-list.open .kt-ac-item', 'mousedown');
+    assert.equal(await page.$eval('#amMaterialKey', (i) => i.value), 'MPGR-00127');
+    assert.match(await page.$eval('#amFornecedor option[value="f5"]', (o) => o.textContent), /inativo/i);
+    await page.selectOption('#amFornecedor', 'f5');
+    await page.waitForSelector('#amReativarBox:not([hidden])');
+    assert.equal(await page.$eval('#amPrevisao', (i) => i.min), HOJE, 'previsão não aceita data passada');
+    await page.fill('#amCustoKg', '10'); await page.fill('#amCustoAmostra', '0'); await page.fill('#amQtd', '1');
+    await page.selectOption('#amUnidade', 'kg'); await page.selectOption('#amMotivo', 'HOMOLOGAR_FORNECEDOR');
+    await page.fill('#amPrevisao', '2099-01-01');
+    await page.click('#amSalvar');
+    await page.waitForFunction(() => /inativo/i.test(document.getElementById('amErro').textContent), null, {timeout: 5000});
+    await page.check('#amReativar');
+    await page.click('#amSalvar');
+    await page.waitForFunction(() => Object.keys(window.__db.amostras_mp || {}).length === 1, null, {timeout: 5000});
+    const a7 = Object.values(await page.evaluate(() => window.__db.amostras_mp))[0];
+    assert.deepEqual(a7.material, {key: 'MPGR-00127', codigo: 'MPGR-00127', nome: 'ALCOOL ETILICO 96°G/L'});
+    assert.equal(await page.evaluate(() => window.__db.fornecedores.f5.ativo), true, 'fornecedor reativado');
+    assert.deepEqual(errors, []);
+    await page.close();
+    ok('P&D: fornecedor inativo só com Reativar; material da busca gravado pela chave; previsão sem data passada');
 
     console.log('run_amostras_mp_ui_test: ' + n + ' cenários OK');
   } finally {

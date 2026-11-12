@@ -25,6 +25,11 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ### Claude (sessão `pcp-kuryos-main-0b`) — Amostras de MP no Cadastros (11–12/11/2026)
 
+- **12/11, concluído (pedido do Marlos antes de publicar):** criação nunca duplica (reserva atômica do pedido),
+  datas possíveis (sem 31/02; previsão não nasce no passado; baixa nem no futuro nem antes da solicitação), fornecedor
+  inativo só com "Reativar" (servidor reativa + histórico do fornecedor), material pela chave do banco (conferido em
+  produção: 1.029 materiais, chave = código), fornecedor da amostra entra "Aguardando homologação" no Cadastrar MP.
+  Testes: servidor 10, emulador 5 (corrida de criação), tela 7, bateria de Cadastros 16 OK. Arquivos ativos: nenhum.
 - **Código concluído** (`d5dc90c`..`9c2ef53` em `hostinger-deploy`; spec `docs/superpowers/specs/2026-11-11-amostras-mp-design.md`,
   plano `docs/superpowers/plans/2026-11-11-amostras-mp.md`). Aba **Amostras de MP** no Cadastros: P&D registra a amostra
   (nova ou já cadastrada, fornecedor, custo/kg, custo, quantidade g/kg, motivo, previsão), logística dá baixa (data e

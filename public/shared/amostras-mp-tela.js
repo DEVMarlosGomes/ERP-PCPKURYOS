@@ -30,6 +30,12 @@
     return '<span class="badge ' + cor + '">' + escapeHtml(T.STATUS[st] || st || '') + '</span>';
   }
 
+  // Nome ATUAL do cadastro (12/11): material pela chave do banco e fornecedor pela chave; o gravado na amostra
+  // aparece no detalhe quando difere. Amostra NOVA não tem cadastro: fica o nome digitado.
+  function materialAtual(a) { var m = a && a.tipo === 'CADASTRADA' && a.material; return m ? (materiais[m.key || m.codigo] || null) : null; }
+  function nomeMaterialAtual(a) { var m = materialAtual(a); return m ? (m.mpCodigo || a.material.codigo) + ' — ' + (m.mpNome || '') : T.nomeMaterial(a); }
+  function nomeFornecedorAtual(a) { var k = a && a.fornecedor && a.fornecedor.key; return (k && nomeForn(fornecedores[k])) || ((a && a.fornecedor) || {}).nome || ''; }
+
   // ── Lista
   function lista() { return Object.keys(amostras).map(function(id) { return Object.assign({id: id}, amostras[id]); }); }
   function render() {
@@ -46,8 +52,8 @@
       var atr = T.atrasada(a, h), q = a.quantidade || {};
       return '<tr data-id="' + escapeAttr(a.id) + '"' + (atr ? ' class="atrasada"' : '') + '>' +
         '<td><b>' + escapeHtml(a.codigo || '') + '</b></td>' +
-        '<td>' + escapeHtml(T.nomeMaterial(a)) + '</td>' +
-        '<td>' + escapeHtml((a.fornecedor || {}).nome || '') + '</td>' +
+        '<td>' + escapeHtml(nomeMaterialAtual(a)) + '</td>' +
+        '<td>' + escapeHtml(nomeFornecedorAtual(a)) + '</td>' +
         '<td>' + escapeHtml(T.MOTIVOS[a.motivo] || '') + '</td>' +
         '<td>' + escapeHtml((q.valor != null ? Number(q.valor).toLocaleString('pt-BR') : '') + ' ' + (q.unidade || '')) + '</td>' +
         '<td class="amo-prev">' + dataBr(a.previsaoChegada) + (atr ? ' <span class="badge badge-red">Atrasada</span>' : '') + '</td>' +
@@ -65,12 +71,16 @@
   // ── Formulário (P&D)
   function preencherSelectFornecedor(manter) {
     var sel = $('amFornecedor'), atual = manter != null ? manter : sel.value, mapa = {};
-    Object.keys(fornecedores).filter(function(k) { return fornecedores[k] && fornecedores[k].ativo !== false; })
+    Object.keys(fornecedores).filter(function(k) { return fornecedores[k]; })
       .sort(function(a, b) { return nomeForn(fornecedores[a]).localeCompare(nomeForn(fornecedores[b])); })
-      .forEach(function(k) { mapa[k] = nomeForn(fornecedores[k]) || k; });
+      .forEach(function(k) { mapa[k] = (nomeForn(fornecedores[k]) || k) + (fornecedores[k].ativo === false ? ' (inativo)' : ''); });
     sel.innerHTML = opcoes(mapa, 'Escolha o fornecedor');
     sel.value = mapa[atual] ? atual : '';
+    mostrarReativar();
   }
+  // Fornecedor inativo só entra marcando "Reativar" (12/11); o servidor reativa e registra no histórico dele.
+  function fornecedorInativo() { var f = fornecedores[$('amFornecedor').value]; return !!f && f.ativo === false; }
+  function mostrarReativar() { var inat = fornecedorInativo(); $('amReativarBox').hidden = !inat; if (!inat) $('amReativar').checked = false; }
   function mostrarBlocoTipo() {
     var t = $('amTipo').value;
     document.querySelectorAll('[data-amo-bloco]').forEach(function(el) { el.style.display = el.getAttribute('data-amo-bloco') === t ? '' : 'none'; });
@@ -82,8 +92,8 @@
     $('amTipo').value = a ? a.tipo : 'NOVA';
     $('amNome').value = a && a.materialNovo ? a.materialNovo.nome : '';
     $('amDescricao').value = a && a.materialNovo ? (a.materialNovo.descricao || '') : '';
-    $('amMaterialCodigo').value = a && a.material ? a.material.codigo : '';
-    $('amMaterialBusca').value = a && a.material ? a.material.codigo + ' — ' + a.material.nome : '';
+    $('amMaterialKey').value = a && a.material ? (a.material.key || a.material.codigo) : '';
+    $('amMaterialBusca').value = a && a.material ? nomeMaterialAtual(a) : '';
     preencherSelectFornecedor(a && a.fornecedor ? a.fornecedor.key : '');
     $('amCustoKg').value = a ? String(a.custoKg).replace('.', ',') : '';
     $('amCustoAmostra').value = a ? String(a.custoAmostra).replace('.', ',') : '';
@@ -91,6 +101,8 @@
     $('amUnidade').value = a && a.quantidade ? a.quantidade.unidade : 'g';
     $('amMotivo').value = a ? a.motivo : '';
     $('amPrevisao').value = a ? a.previsaoChegada : '';
+    $('amPrevisao').min = hoje(); // previsão não nasce no passado (o servidor confere)
+    $('amReativar').checked = false;
     $('amObs').value = a ? (a.observacoes || '') : '';
     $('amErro').textContent = '';
     $('amNovoForn').parentNode.style.display = perfil.pd || perfil.admin || perfil.cadastros ? '' : 'none';
@@ -100,7 +112,7 @@
   function fecharForm() { $('modalBg-amo').classList.remove('open'); editandoId = null; esperandoForn = null; }
   function salvarForm() {
     var dados = {tipo: $('amTipo').value, materialNovo: {nome: $('amNome').value, descricao: $('amDescricao').value},
-      materialCodigo: $('amMaterialCodigo').value, fornecedorKey: $('amFornecedor').value, custoKg: $('amCustoKg').value.trim(),
+      materialKey: $('amMaterialKey').value, fornecedorKey: $('amFornecedor').value, reativarFornecedor: fornecedorInativo() && $('amReativar').checked, custoKg: $('amCustoKg').value.trim(),
       custoAmostra: $('amCustoAmostra').value.trim(), quantidade: {valor: Number($('amQtd').value.replace(',', '.')), unidade: $('amUnidade').value},
       motivo: $('amMotivo').value, previsaoChegada: $('amPrevisao').value, observacoes: $('amObs').value};
     $('amSalvar').disabled = true; $('amErro').textContent = '';
@@ -128,8 +140,9 @@
     var q = a.quantidade || {}, h = hoje();
     $('modalTitleDet-amo').textContent = 'Amostra ' + (a.codigo || '');
     $('amDetCorpo').innerHTML =
-      linha('Matéria-prima', escapeHtml(T.nomeMaterial(a)) + (a.materialNovo && a.materialNovo.descricao ? ' — ' + escapeHtml(a.materialNovo.descricao) : '')) +
-      linha('Fornecedor', escapeHtml((a.fornecedor || {}).nome || '')) +
+      linha('Matéria-prima', escapeHtml(nomeMaterialAtual(a)) + (a.materialNovo && a.materialNovo.descricao ? ' — ' + escapeHtml(a.materialNovo.descricao) : '') +
+        (nomeMaterialAtual(a) !== T.nomeMaterial(a) ? '<div class="field-hint">Na solicitação: ' + escapeHtml(T.nomeMaterial(a)) + '</div>' : '')) +
+      linha('Fornecedor', escapeHtml(nomeFornecedorAtual(a)) + (a.fornecedor && nomeFornecedorAtual(a) !== a.fornecedor.nome ? '<div class="field-hint">Na solicitação: ' + escapeHtml(a.fornecedor.nome) + '</div>' : '')) +
       linha('Motivo', escapeHtml(T.MOTIVOS[a.motivo] || '')) +
       linha('Quantidade', escapeHtml(q.valor + ' ' + (q.unidade || ''))) +
       linha('Custo', brl(a.custoKg) + '/kg · amostra ' + brl(a.custoAmostra)) +
@@ -143,7 +156,8 @@
     var acoes = T.acoesVisiveis(a, perfil), html = '';
     if (acoes.indexOf('RECEBER') !== -1) {
       html += '<div class="section-label">Dar baixa no recebimento</div><div class="form-grid">' +
-        '<div class="form-group"><label for="amRecData">Data do recebimento</label><input type="date" id="amRecData" value="' + h + '"></div>' +
+        '<div class="form-group"><label for="amRecData">Data do recebimento</label><input type="date" id="amRecData" value="' + h + '" max="' + h + '" min="' +
+          escapeAttr(T.hojeBrasilia(new Date((a.solicitante && a.solicitante.em) || Date.now()))) + '"></div>' +
         '<div class="form-group"><label for="amRecForma">Forma de entrega</label><select id="amRecForma">' + opcoes(T.FORMAS, 'Escolha') + '</select></div></div>' +
         '<button class="btn btn-primary" data-acao="RECEBER">Dar baixa</button>';
     }
@@ -159,7 +173,7 @@
     }
     if (a.status === 'HOMOLOGADA' && a.tipo === 'NOVA' && (perfil.pd || perfil.admin || perfil.cadastros)) {
       html += '<div style="margin-top:10px"><button class="btn btn-primary" id="amCadastrarMp">Cadastrar MP</button>' +
-        '<div class="field-hint">Abre o cadastro já preenchido (ou manda para a fila de cadastro de MP). Nada é cadastrado sozinho.</div></div>';
+        '<div class="field-hint">Abre o cadastro já preenchido, com o fornecedor Aguardando homologação (ou manda para a fila de cadastro de MP). Nada é cadastrado sozinho.</div></div>';
     }
     if (a.status === 'HOMOLOGADA' && a.tipo === 'CADASTRADA' && a.motivo === 'HOMOLOGAR_FORNECEDOR' && perfil.cadastros) {
       html += '<div style="margin-top:10px"><button class="btn btn-ghost" id="amAbrirMaterial">Abrir o material no Cadastros</button>' +
@@ -229,7 +243,7 @@
         CadastrosMateriais.abrirSolicitacao(k);
         var esp = $('fEspecificacoes');
         if (esp && a.materialNovo.descricao) esp.value = [esp.value, a.materialNovo.descricao].filter(Boolean).join('\n');
-        if (a.fornecedor) CadastrosMateriais.marcarFornecedorHomologado(a.fornecedor.key);
+        if (a.fornecedor) CadastrosMateriais.definirFornecedorDaAmostra(a.fornecedor.key, a.custoKg);
       });
     }).catch(function(e) { $('amDetErro').textContent = msg(e); });
   }
@@ -258,6 +272,7 @@
   ['visao-amo', 'fStatus-amo', 'fTipo-amo', 'fForn-amo', 'fMotivo-amo', 'fDe-amo', 'fAte-amo'].forEach(function(id) { $(id).addEventListener('change', render); });
   $('btnNova-amo').addEventListener('click', function() { abrirForm(null); });
   $('amTipo').addEventListener('change', mostrarBlocoTipo);
+  $('amFornecedor').addEventListener('change', mostrarReativar);
   $('amSalvar').addEventListener('click', salvarForm);
   $('amCancelar').addEventListener('click', fecharForm);
   $('modalClose-amo').addEventListener('click', fecharForm);
@@ -277,7 +292,7 @@
     if (b.id === 'amAbrirMaterial') {
       var a = amostras[detalheId];
       fecharDetalhe(); activateMainTab('materiais', true);
-      if (a && a.material && window.CadastrosMateriais) CadastrosMateriais.abrirMaterial(a.material.codigo);
+      if (a && a.material && window.CadastrosMateriais) CadastrosMateriais.abrirMaterial(a.material.key || a.material.codigo);
       return;
     }
     if (b.getAttribute('data-acao')) executar(b.getAttribute('data-acao'));
@@ -285,9 +300,10 @@
   attachAutocomplete($('amMaterialBusca'), function() {
     return Object.keys(materiais).filter(function(k) { return materiais[k] && materiais[k].ativo !== false; }).sort().map(function(k) {
       var m = materiais[k], rot = (m.mpCodigo || k) + ' — ' + (m.mpNome || '');
-      return {key: m.mpCodigo || k, value: rot, label: rot};
+      return {key: k, value: rot, label: rot}; // chave do banco; o código vem do registro no servidor
     });
-  }, {onSelect: function(it) { $('amMaterialCodigo').value = it.key; }});
+  }, {onSelect: function(it) { $('amMaterialKey').value = it.key; }});
+  $('amMaterialBusca').addEventListener('input', function() { $('amMaterialKey').value = ''; });
 
   dbOnValue(db.ref('amostras_mp'), function(snap) {
     amostras = snap.val() || {};

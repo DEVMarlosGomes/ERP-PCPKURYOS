@@ -25,11 +25,14 @@ const EDITAVEIS = ["tipo", "material", "materialNovo", "fornecedor", "custoKg", 
 
 function erro(code, message) { return Object.assign(new Error(message), {code}); }
 function texto(v, max) { return String(v == null ? "" : v).replace(/\r\n/g, "\n").trim().slice(0, max); }
+// Data possível (12/11): 31/02 não "vira" 03/03 — a data tem de voltar igual depois de lida.
 function data(v, rotulo) {
   const s = texto(v, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || isNaN(new Date(s + "T12:00:00Z"))) throw erro("invalid-argument", "Informe " + rotulo + " (data válida).");
+  const d = new Date(s + "T12:00:00Z");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || isNaN(d) || d.toISOString().slice(0, 10) !== s) throw erro("invalid-argument", "Informe " + rotulo + " (data válida).");
   return s;
 }
+function hojeBrasilia(iso) { return new Date(iso || Date.now()).toLocaleDateString("en-CA", {timeZone: "America/Sao_Paulo"}); }
 function numero(v, rotulo) {
   const n = typeof v === "number" ? v : Number(String(v == null ? "" : v).replace(",", "."));
   if (v === "" || v == null || !isFinite(n) || n < 0) throw erro("invalid-argument", "Informe " + rotulo + " (número maior ou igual a zero).");
@@ -76,15 +79,21 @@ function normalizarDados(d, ctx) {
     if (!nome) throw erro("invalid-argument", "Informe o nome da matéria-prima nova.");
     out.materialNovo = {nome, descricao: texto(d.materialNovo.descricao, 1000)};
   } else {
-    const codigo = texto(d.materialCodigo, 40);
-    const m = codigo && ((ctx.materiais || {})[codigo]);
-    if (!m) throw erro("invalid-argument", "Matéria-prima " + (codigo || "(vazia)") + " não está no cadastro.");
-    out.material = {codigo, nome: texto(m.mpNome, 200)};
+    // Pela CHAVE do banco (12/11): o código e o nome vêm do registro, nunca do navegador.
+    const key = texto(d.materialKey || d.materialCodigo, 80);
+    const m = key && ((ctx.materiais || {})[key]);
+    if (!m) throw erro("invalid-argument", "Matéria-prima " + (key || "(vazia)") + " não está no cadastro.");
+    if (m.ativo === false) throw erro("invalid-argument", "A matéria-prima " + (m.mpCodigo || key) + " está inativa no cadastro.");
+    out.material = {key, codigo: texto(m.mpCodigo || key, 40), nome: texto(m.mpNome, 200)};
   }
   const fk = texto(d.fornecedorKey, 80);
   const f = fk && ((ctx.fornecedores || {})[fk]);
   if (!f) throw erro("invalid-argument", "Escolha um fornecedor do cadastro.");
-  out.fornecedor = {key: fk, nome: texto(f.nomeFantasia || f.razaoSocial || fk, 200)};
+  const nomeF = texto(f.nomeFantasia || f.razaoSocial || fk, 200);
+  if (f.ativo === false && d.reativarFornecedor !== true) {
+    throw erro("invalid-argument", "O fornecedor " + nomeF + " está inativo. Marque \"Reativar este fornecedor\" para usá-lo.");
+  }
+  out.fornecedor = {key: fk, nome: nomeF};
   out.custoKg = numero(d.custoKg, "o custo por kg");
   out.custoAmostra = numero(d.custoAmostra, "o custo da amostra");
   const q = d.quantidade || {};
@@ -105,11 +114,26 @@ function aplicarAcao(atual, acao, ator, dados, agora, ctx) {
   dados = dados || {};
   const por = {uid: ator.uid, nome: ator.nome};
   const evento = {acao, de: atual ? atual.status : null, para: null, por, em: agora};
-  let reg;
+  const hoje = hojeBrasilia(agora);
+  let reg, reativar = null;
+  // Previsão não nasce no passado; editar outra coisa de amostra já vencida continua possível.
+  const previsaoValida = (nova) => {
+    if (nova < hoje && (!atual || nova !== atual.previsaoChegada)) throw erro("invalid-argument", "A previsão de chegada não pode ficar no passado.");
+  };
+  const fornecedorParaReativar = (novos) => {
+    const f = (ctx.fornecedores || {})[novos.fornecedor.key];
+    if (f && f.ativo === false) { evento.fornecedorReativado = true; return novos.fornecedor.key; }
+    return null;
+  };
   if (acao === "CRIAR") {
-    reg = Object.assign({codigo: ctx.codigo}, normalizarDados(dados, ctx), {status: "SOLICITADA", solicitante: {uid: ator.uid, nome: ator.nome, em: agora}});
+    const novos = normalizarDados(dados, ctx);
+    previsaoValida(novos.previsaoChegada);
+    reativar = fornecedorParaReativar(novos);
+    reg = Object.assign({codigo: ctx.codigo}, novos, {status: "SOLICITADA", solicitante: {uid: ator.uid, nome: ator.nome, em: agora}});
   } else if (acao === "EDITAR") {
     const novos = normalizarDados(dados, ctx);
+    previsaoValida(novos.previsaoChegada);
+    reativar = fornecedorParaReativar(novos);
     reg = Object.assign({}, atual);
     EDITAVEIS.forEach((k) => { delete reg[k]; });
     Object.assign(reg, novos);
@@ -120,7 +144,12 @@ function aplicarAcao(atual, acao, ator, dados, agora, ctx) {
     reg = Object.assign({}, atual, {status: "CANCELADA", cancelamento: {motivo, por, em: agora}});
   } else if (acao === "RECEBER") {
     if (!FORMAS[dados.forma]) throw erro("invalid-argument", "Escolha a forma de entrega: correio, transportadora ou motoboy.");
-    reg = Object.assign({}, atual, {status: "RECEBIDA", recebimento: {data: data(dados.data, "a data do recebimento"), forma: dados.forma, por, em: agora}});
+    const dia = data(dados.data, "a data do recebimento");
+    if (dia > hoje) throw erro("invalid-argument", "A data do recebimento não pode ser no futuro.");
+    if (atual.solicitante && atual.solicitante.em && dia < hojeBrasilia(atual.solicitante.em)) {
+      throw erro("invalid-argument", "A data do recebimento não pode ser antes da solicitação.");
+    }
+    reg = Object.assign({}, atual, {status: "RECEBIDA", recebimento: {data: dia, forma: dados.forma, por, em: agora}});
   } else {
     const parecer = texto(dados.parecer, 2000);
     if (acao === "REPROVAR" && !parecer) throw erro("invalid-argument", "O parecer é obrigatório para reprovar.");
@@ -129,7 +158,7 @@ function aplicarAcao(atual, acao, ator, dados, agora, ctx) {
   }
   reg.atualizadoEm = agora;
   evento.para = reg.status;
-  return {registro: reg, evento};
+  return {registro: reg, evento, reativarFornecedor: reativar};
 }
 
 function chavePedido(v) {
@@ -143,9 +172,9 @@ function criarServico({db, agora = () => new Date().toISOString()}) {
   async function contexto(dados) {
     const d = dados || {};
     const ctx = {materiais: {}, fornecedores: {}};
-    const cod = texto(d.materialCodigo, 40);
+    const cod = texto(d.materialKey || d.materialCodigo, 80);
     const fk = texto(d.fornecedorKey, 80);
-    if (d.tipo === "CADASTRADA" && /^[A-Za-z0-9_-]+$/.test(cod)) ctx.materiais[cod] = await ler("materiais/" + cod);
+    if (d.tipo === "CADASTRADA" && /^[^.#$\[\]\/]+$/.test(cod)) ctx.materiais[cod] = await ler("materiais/" + cod);
     if (/^[A-Za-z0-9_-]+$/.test(fk)) ctx.fornecedores[fk] = await ler("fornecedores/" + fk);
     return ctx;
   }
@@ -162,39 +191,72 @@ function criarServico({db, agora = () => new Date().toISOString()}) {
     const acao = String(p.acao || "");
     if (!ACOES[acao]) throw erro("invalid-argument", "Ação desconhecida.");
     exigirPermissao(acao, usuario);
+    const pedRef = db.ref("amostras_mp_pedidos/" + uid + "/" + req);
+    const emCurso = () => erro("failed-precondition", "Este pedido já está sendo processado. Aguarde e confira a lista.");
     const jaFeito = await ler("amostras_mp_pedidos/" + uid + "/" + req);
-    if (jaFeito) return resultado(jaFeito);
+    if (typeof jaFeito === "string") return resultado(jaFeito);
+    if (jaFeito) throw emCurso();
     const ctx = acao === "CRIAR" || acao === "EDITAR" ? await contexto(p.dados) : {};
     const t = agora();
+    if (acao === "CRIAR") aplicarAcao(null, acao, ator, p.dados, t, Object.assign({codigo: "AM-0000"}, ctx)); // valida antes de reservar e de gastar número
 
-    if (acao === "CRIAR") {
-      aplicarAcao(null, acao, ator, p.dados, t, Object.assign({codigo: "AM-0000"}, ctx)); // valida antes de gastar número
-      const cont = await db.ref("config/contadores/amostrasMp").transaction((v) => (Number(v) || 0) + 1);
-      ctx.codigo = "AM-" + String(cont.snapshot.val()).padStart(4, "0");
-      const id = db.ref("amostras_mp").push().key;
-      const r = aplicarAcao(null, acao, ator, p.dados, t, ctx);
-      const hid = db.ref("amostras_mp/" + id + "/historico").push().key;
-      r.registro.historico = {[hid]: r.evento};
-      await db.ref().update({["amostras_mp/" + id]: r.registro, ["amostras_mp_pedidos/" + uid + "/" + req]: id});
-      return {id, codigo: r.registro.codigo, status: r.registro.status};
+    // Reserva atômica do pedido (12/11): duas chamadas iguais ao mesmo tempo não criam duas amostras.
+    const reserva = await pedRef.transaction((v) => (v ? undefined : {processando: true, em: t}));
+    if (!reserva.committed) {
+      const v = reserva.snapshot.val();
+      if (typeof v === "string") return resultado(v);
+      throw emCurso();
     }
+    try {
+      const feito = await (acao === "CRIAR" ? criar(uid, req, ator, p.dados, t, ctx) : agir(acao, ator, p, t, ctx));
+      await pedRef.set(feito.id);
+      return feito;
+    } catch (e) {
+      await pedRef.set(null).catch(() => null); // libera para tentar de novo
+      throw e;
+    }
+  }
 
+  // Reativação do fornecedor escolhido inativo: no cadastro e no histórico dele (só inclusão), com o código da amostra.
+  function caminhosReativacao(fk, ator, t, codigo) {
+    if (!fk) return {};
+    const hk = db.ref("historico_fornecedores/" + fk).push().key;
+    return {
+      ["fornecedores/" + fk + "/ativo"]: true,
+      ["historico_fornecedores/" + fk + "/" + hk]: {acao: "EDICAO", alteradoEm: t, em_ms: Date.parse(t), alteradoPor: ator.nome, alteradoPorUid: ator.uid,
+        grupo: hk, campo: "ativo", rotulo: "Ativo", valorAnterior: false, valorNovo: true, justificativa: "Reativado pelo P&D na amostra " + codigo},
+    };
+  }
+
+  async function criar(uid, req, ator, dados, t, ctx) {
+    const cont = await db.ref("config/contadores/amostrasMp").transaction((v) => (Number(v) || 0) + 1);
+    ctx.codigo = "AM-" + String(cont.snapshot.val()).padStart(4, "0");
+    const id = db.ref("amostras_mp").push().key;
+    const r = aplicarAcao(null, "CRIAR", ator, dados, t, ctx);
+    const hid = db.ref("amostras_mp/" + id + "/historico").push().key;
+    r.registro.historico = {[hid]: r.evento};
+    await db.ref().update(Object.assign({["amostras_mp/" + id]: r.registro}, caminhosReativacao(r.reativarFornecedor, ator, t, ctx.codigo)));
+    return {id, codigo: r.registro.codigo, status: r.registro.status};
+  }
+
+  async function agir(acao, ator, p, t, ctx) {
     const id = texto(p.id, 80);
     if (!/^[A-Za-z0-9_-]+$/.test(id)) throw erro("invalid-argument", "Amostra não informada.");
     const hid = db.ref("amostras_mp/" + id + "/historico").push().key;
-    let falhou = null;
+    let falhou = null, reativar = null, codigo = "";
     const tx = await db.ref("amostras_mp/" + id).transaction((atual) => {
       if (!atual) return atual; // cache vazio: deixa o servidor responder (armadilha do null, CLAUDE.md)
-      falhou = null;
+      falhou = null; reativar = null;
       try {
         const r = aplicarAcao(atual, acao, ator, p.dados, t, ctx);
         r.registro.historico = Object.assign({}, atual.historico, {[hid]: r.evento});
+        reativar = r.reativarFornecedor; codigo = atual.codigo || "";
         return r.registro;
       } catch (e) { falhou = e; return undefined; }
     });
     if (falhou) throw falhou;
     if (!tx.snapshot.exists()) throw erro("not-found", "Amostra não encontrada.");
-    await db.ref("amostras_mp_pedidos/" + uid + "/" + req).set(id);
+    if (reativar) await db.ref().update(caminhosReativacao(reativar, ator, t, codigo));
     return resultado(id);
   }
   return {executar};

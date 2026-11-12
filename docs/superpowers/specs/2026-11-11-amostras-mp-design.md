@@ -47,6 +47,15 @@ Nome "Amostras de MP" (e não "Amostras") porque no P&D "amostra" já é o produ
 - "Cancelar" não estava na proposta: entra para a solicitação errada não ficar eternamente "atrasada".
   Nada se apaga.
 - **Atrasada** = `SOLICITADA` com previsão de chegada antes de hoje (Brasília). É calculada na tela, não gravada.
+- **Revisão de 12/11 (pedido do Marlos antes de publicar):** (1) criação nunca duplica: o pedido (`requestId`) é
+  reservado por transação em `amostras_mp_pedidos/{uid}/{req}` antes do contador; recusa libera a reserva.
+  (2) Datas possíveis: data inexistente (31/02) recusada; previsão não nasce no passado (editar outra coisa de
+  amostra vencida continua possível); baixa nem no futuro nem antes da solicitação. (3) Fornecedor inativo só com
+  "Reativar este fornecedor": o servidor grava `fornecedores/{k}/ativo = true` e a entrada no histórico dele, no
+  mesmo pedido. (4) Material pela **chave do banco**: `material = {key, codigo, nome}`, código e nome lidos do
+  registro; material inativo recusado; a tela mostra o nome atual do cadastro (o da solicitação aparece embaixo se
+  diferir). Conferido em produção em 12/11: 1.029 materiais, chave = código em todos. (5) "Cadastrar MP": o
+  fornecedor da amostra entra **Aguardando homologação** (fornecedor novo é homologado depois), não Homologado.
 
 ## 4. Acesso à aba
 

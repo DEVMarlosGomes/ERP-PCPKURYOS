@@ -1507,11 +1507,12 @@
             <div class="form-group full" data-amo-bloco="CADASTRADA">
               <label for="amMaterialBusca">Matéria-prima do cadastro *</label>
               <input type="text" id="amMaterialBusca" placeholder="Buscar por código ou nome..." autocomplete="off">
-              <input type="hidden" id="amMaterialCodigo">
+              <input type="hidden" id="amMaterialKey">
             </div>
             <div class="form-group full">
               <label for="amFornecedor">Fornecedor *</label>
               <select id="amFornecedor"><option value="">Escolha o fornecedor</option></select>
+              <div id="amReativarBox" hidden style="margin-top:6px"><label style="font-weight:600"><input type="checkbox" id="amReativar"> Reativar este fornecedor (está inativo no cadastro)</label></div>
               <div class="field-hint"><a href="#" id="amNovoForn">Fornecedor não está na lista? Cadastrar</a></div>
             </div>
             <div class="form-group"><label for="amCustoKg">Custo por kg (R$) *</label><input type="text" inputmode="decimal" id="amCustoKg" placeholder="0,00"></div>
@@ -3343,10 +3344,23 @@ document.addEventListener('DOMContentLoaded', function() {
   window.CadastrosMateriais = {
     temSolicitacao: function(k) { return !!solicitacoesMat[k]; },
     abrirSolicitacao: abrirCadastroDeSolicitacaoMat,
-    marcarFornecedorHomologado: function(fk) {
-      if (!fornecedoresHomologadosStaged[fk]) return false;
-      fornecedoresHomologadosStaged[fk].statusHomologacao = 'homologado';
-      renderFornecedoresHomologados();
+    // O fornecedor da amostra, exatamente ele (sem o palpite por nome), entra Aguardando homologação: fornecedor
+    // novo é homologado depois (decisão do Marlos, 12/11). Fragrância/embalagem usam o bloco de fornecedor único.
+    definirFornecedorDaAmostra: function(fk, custo) {
+      var f = allFornecedores[fk] || {};
+      var tipo = document.getElementById('fTipo').value;
+      if (tipo === 'MPES' || tipo === 'EP' || tipo === 'ES' || tipo === 'ET') {
+        document.getElementById('fuFornecedor-mat').value = f.nomeFantasia || f.razaoSocial || '';
+        document.getElementById('fuFornecedorKey-mat').value = fk;
+        if (custo != null) document.getElementById('fuCustoRef-mat').value = custo;
+      } else {
+        fornecedoresHomologadosStaged = {};
+        fornecedoresHomologadosStaged[fk] = { nomeComercial: '', codigoFornecedor: '', statusHomologacao: 'aguardando_homologacao',
+          custoReferencia: custo != null ? custo : null };
+        renderFornecedoresHomologados();
+      }
+      var aviso = document.getElementById('avisoFornecedorPd-mat');
+      if (aviso) { aviso.style.display = 'none'; aviso.innerHTML = ''; }
       return true;
     },
     abrirMaterial: function(codigo) { var k = sanitizeKey(codigo); if (allMateriais[k]) openModal(k); return !!allMateriais[k]; }
