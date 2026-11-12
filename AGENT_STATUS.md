@@ -19,6 +19,14 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   antigo some primeiro) e o resto da etiqueta não se move (medido no Chrome em 100/150/250%, os dois formatos).
   Envio do logo corta a margem na resolução original e só depois reduz (máx. 1200 x 400, era 800 x 300 antes do corte).
 
+### Claude (sessão `pcp-kuryos-main-0b`) — Emissão de NF-e: análise e plano (12/11/2026)
+
+- **Só documento, nenhum código.** `PLANO_EMISSAO_NFE.md`: complexidade, dados medidos em produção (0 de 408
+  produtos com NCM; 0 de 61 clientes com IE/CEP), caminhos A (provedor de API + regras aqui, recomendado),
+  B (direto na SEFAZ) e C (Bling como motor), mapa funcional do Bling, particularidades (industrialização por
+  encomenda, ST/IPI de cosméticos, IBS/CBS), fases e decisões pendentes. Aguarda respostas do Marlos.
+  Arquivos ativos: nenhum.
+
 ### Claude (sessão `fila-mp-versao`) — Fila de MP nova do P&D + aviso de versão pendente na OP (11–12/11/2026)
 
 - **Código concluído e integrado na `hostinger-deploy` (`8497cb9`, merge `0269fc4`).** Causas: as 22 MPs da fila

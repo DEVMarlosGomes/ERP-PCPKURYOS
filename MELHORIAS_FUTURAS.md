@@ -1369,6 +1369,8 @@ Pendentes e de anexo de arquivo.
   não representa autorização da SEFAZ. Pontos de integração: `functions/expedicao.js` e
   `public/shared/expedicao-tela.js`. O provedor e os campos fiscais obrigatórios serão definidos
   nesta etapa futura. Registrar/atualizar NF depois da saída também entra nesse fluxo.
+  **12/11/2026:** análise de complexidade, caminhos e fases em `PLANO_EMISSAO_NFE.md` (aguarda as
+  decisões da §12 do plano).
 
 - **Migrar Cloud Functions de Node.js 20 antes de 30/10/2026** — o deploy
   de 11/09/2026 confirmou que o runtime está depreciado e será desativado
