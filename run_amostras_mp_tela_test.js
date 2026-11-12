@@ -69,6 +69,7 @@ assert.deepEqual(T.abasVisiveis(yas), todas);
 assert.deepEqual(T.abasVisiveis(T.papel({role: 'pcp'})), todas);
 assert.deepEqual(T.abasVisiveis(pd), ['amostras', 'fornecedores']);
 assert.deepEqual(T.abasVisiveis(log), ['amostras']);
+assert.deepEqual(T.abasVisiveis(T.papel({role: 'qualidade', modulos: {amostras_mp: true}})), ['amostras'], 'só o módulo (sem P&D, logística ou Cadastros): só a aba Amostras, nunca todas');
 assert.equal(T.nomeMaterial({tipo: 'NOVA', materialNovo: {nome: 'Pigmento X'}}), 'Pigmento X (nova)');
 assert.equal(T.nomeMaterial({tipo: 'CADASTRADA', material: {codigo: 'MPGR-00127', nome: 'ALCOOL'}}), 'MPGR-00127 — ALCOOL');
 ok('papel por papel/módulo; botões por status e papel; abas por módulo; nome do material');

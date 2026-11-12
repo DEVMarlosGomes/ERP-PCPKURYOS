@@ -227,7 +227,10 @@ const ativa = (page) => page.$eval('#mainTabs .main-tab.active', (b) => b.getAtt
     const homologada = Object.assign(amostra({status: 'HOMOLOGADA', parecer: {decisao: 'HOMOLOGADA', texto: '', por: {uid: 'x', nome: 'Paula'}, em: '2026-11-11T10:00:00Z'}}));
     const forn = amostra({codigo: 'AM-0010', tipo: 'CADASTRADA', materialNovo: null, material: {codigo: 'MPGR-00127', nome: 'ALCOOL ETILICO 96°G/L'},
       motivo: 'HOMOLOGAR_FORNECEDOR', status: 'HOMOLOGADA', parecer: {decisao: 'HOMOLOGADA', texto: '', por: {uid: 'x', nome: 'Paula'}, em: '2026-11-11T10:00:00Z'}});
-    ({page, errors} = await abrir(browser, estado(YAS, {a1: homologada, a3: forn}), 'cadastros.html?tab=amostras'));
+    const estYas = estado(YAS, {a1: homologada, a3: forn});
+    estYas.fornecedores.f9 = {razaoSocial: 'Lunagreen Bioativos Ltda', nomeFantasia: 'Lunagreen Bioativos', ativo: true, tipos: ['mp']}; // nome parecido: o palpite por nome fica ambíguo
+    estYas.fornecedores.f1.tipos = ['mp'];
+    ({page, errors} = await abrir(browser, estYas, 'cadastros.html?tab=amostras'));
     const abas = await abasVisiveis(page);
     for (const t of ['materiais', 'produtos', 'formulas', 'clientes', 'fornecedores', 'servicos', 'amostras']) assert.ok(abas.includes(t), 'Yasmim vê ' + t);
     await page.click('#tableBody-amo .btn-abrir-amo[data-id="a1"]');
@@ -235,6 +238,9 @@ const ativa = (page) => page.$eval('#mainTabs .main-tab.active', (b) => b.getAtt
     await page.waitForSelector('#modalBg-mat.open', {timeout: 5000});
     assert.equal(await page.$eval('#fNome-mat', (i) => i.value), 'PIGMENTO ROSA X');
     assert.match(await page.$eval('#fEspecificacoes', (i) => i.value), /AM-0007/);
+    const homologados = await page.$eval('#fornecedoresHomologadosBody-mat', (t) => t.innerText);
+    assert.match(homologados, /Lunagreen[\s\S]*Homologado/i, 'o fornecedor da amostra chega Homologado (spec §7):\n' + homologados);
+    assert.doesNotMatch(homologados, /Aguardando/i, 'só o fornecedor da amostra, sem palpite por nome');
     await page.click('#modalClose-mat').catch(() => page.evaluate(() => document.getElementById('modalBg-mat').classList.remove('open')));
     await page.click('#mainTabs .main-tab[data-maintab="amostras"]');
     await page.click('#tableBody-amo .btn-abrir-amo[data-id="a3"]');
@@ -252,6 +258,18 @@ const ativa = (page) => page.$eval('#mainTabs .main-tab.active', (b) => b.getAtt
     assert.deepEqual(errors, []);
     await page.close();
     ok('P&D sem Cadastros não vê o link para abrir o material');
+
+    // 6. Só o módulo amostras_mp (ex.: Qualidade marcada pelo ADM): só a aba Amostras, sem criar nem dar baixa.
+    ({page, errors} = await abrir(browser, estado({nome: 'Quésia Qualidade', email: 'q@k.com', role: 'qualidade', modulos: {amostras_mp: true}}, {a1: amostra()}), 'cadastros.html?tab=materiais'));
+    await page.waitForFunction(() => document.querySelector('#mainTabs .main-tab.active').getAttribute('data-maintab') === 'amostras');
+    assert.deepEqual(await abasVisiveis(page), ['amostras']);
+    assert.equal(await page.locator('#btnNova-amo:visible').count(), 0);
+    await page.click('#tableBody-amo .btn-abrir-amo[data-id="a1"]');
+    await page.waitForSelector('#modalBgDet-amo.open');
+    assert.equal(await page.locator('#modalBgDet-amo [data-acao]').count(), 0, 'só lê');
+    assert.deepEqual(errors, []);
+    await page.close();
+    ok('só com o módulo: vê só a aba Amostras de MP, sem ações');
 
     console.log('run_amostras_mp_ui_test: ' + n + ' cenários OK');
   } finally {

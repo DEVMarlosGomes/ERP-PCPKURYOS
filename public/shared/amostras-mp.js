@@ -68,8 +68,8 @@
     if (!p) return [];
     if (p.admin || p.cadastros) return TODAS_ABAS.slice();
     if (p.pd) return ['amostras', 'fornecedores'];
-    if (p.logistica) return ['amostras'];
-    return [];
+    // Só o módulo amostras_mp (ex.: Qualidade marcada pelo ADM): só a aba, para ler. Nunca "todas".
+    return ['amostras'];
   }
   function nomeMaterial(a) {
     if (!a) return '';
