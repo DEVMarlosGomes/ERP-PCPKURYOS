@@ -5,6 +5,24 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude (sessão `fila-mp-versao`) — Fila de MP nova do P&D + aviso de versão pendente na OP (11–12/11/2026)
+
+- **Código concluído e integrado na `hostinger-deploy` (`8497cb9`, merge `0269fc4`).** Causas: as 22 MPs da fila
+  são MPES e o "Cadastrar" abria sem SKU de aprovação (o salvar parava; o aviso ficava atrás do modal), e a
+  faixa `.recalc-bar` (flex em linha) punha cada MP numa coluna. A v2 do PRF-BIOF-0008 tem o BOM em RASCUNHO
+  (idêntico ao da v1), por isso a OP segue na v1 com MPGR-00061/00019.
+  Feito: fila em tabela (INCI, fornecedor, preço, % por amostra, SKU sugerido); `SkuEntrada.codigoAmostraDoNome`
+  preenche o SKU de aprovação a partir do nome (fila e digitação); `showAlert` repete no rodapé do modal;
+  `versoesMaisNovasPendentes` (utils) avisa na Emissão de OP e no cabeçalho da versão; P&D grava `percentual`
+  na origem (crm + `manipulacao_lote.js`, CRM recompilado). Testes: `run_fila_mp_versao_test` 32,
+  `run_fornecedor_pd_cadastro_ui_test`, `run_emitir_op_saldo_ui_test` 42, `run_nome_material_versao_test`,
+  `run_sku_entrada_test`, servidor do lote no emulador, vitest 57 arquivos, bateria de Cadastros e Amostras OK
+  após o merge. Falham também na base, sem relação: `run_etiquetas_leitura` (sem `@zxing`),
+  `run_fluxo_ponta_a_ponta`, `run_propriedade_estoque`.
+  **Pendente (Marlos):** deploy da VPS (callable do lote muda); gravar o `percentual` nas 22 já na fila
+  (41 caminhos planos, plano e backup em `scratch/fila-mp-percentual-20261112/`, barrado pela permissão desta
+  sessão); aprovar o BOM da v2 do PRF-BIOF-0008. Arquivos ativos: nenhum.
+
 ### Claude (sessão `pcp-kuryos-main-0b`) — Amostras de MP no Cadastros (11/11/2026)
 
 - **Spec e plano aprovados para revisão** (proposta "aba Amostras P&D no Cadastro"; decisões do Marlos: aba dentro do Cadastros;
