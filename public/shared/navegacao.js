@@ -84,6 +84,9 @@
 
     // ── P&D
     {p: 'pd.html', r: 'P&D', i: 'flask', b: 'P&D'},
+    // Amostras de MP (11/11/2026): no bloco do P&D para quem é do P&D; para os demais (logística, PCP), no Armazém.
+    {p: 'cadastros.html', h: 'cadastros.html?tab=amostras', r: 'Amostras de MP', i: 'flask', b: 'P&D',
+      q: function(c) { return c.temMod('amostras_mp') && c.temMod('pd'); }},
 
     // ── Pedidos e Rastreio: acompanhar pedido e lote de ponta a ponta
     {p: 'pedidos.html', r: 'Pedidos', i: 'list', b: 'Pedidos e Rastreio'},
@@ -134,6 +137,8 @@
     {p: 'separacao_materiais.html', r: 'Separação de Materiais', i: 'clipboard', b: 'Armazém', s: 'Fluxo'},
     {p: 'estoque.html', h: 'estoque.html?tab=conferenciapa', r: 'Conferência de PA', i: 'clipboard', b: 'Armazém', s: 'Fluxo'},
     {p: 'descarte.html', r: 'Descarte e Reversa', i: 'clipboard', b: 'Armazém', s: 'Fluxo'},
+    {p: 'cadastros.html', h: 'cadastros.html?tab=amostras', r: 'Amostras de MP', i: 'clipboard', b: 'Armazém', s: 'Fluxo',
+      q: function(c) { return c.temMod('amostras_mp') && !c.temMod('pd'); }},
 
     // ── Operação: cada setor com a sua fila, a sua tela de trabalho, o seu
     // histórico e o seu estoque (a página mostra só os setores da pessoa).
@@ -183,7 +188,9 @@
     {p: 'relatorio_expedicao.html', r: 'Relatório de Expedição', i: 'clipboard', b: 'Expedição'},
 
     // ── Cadastros, Financeiro, ADM
-    {p: 'cadastros.html', r: 'Cadastros', i: 'tag', b: 'Cadastros'},
+    // Desde 11/11/2026 o módulo amostras_mp também abre cadastros.html (só a aba Amostras de MP): o link
+    // geral continua só para quem tem Cadastros.
+    {p: 'cadastros.html', r: 'Cadastros', i: 'tag', b: 'Cadastros', q: function(c) { return c.temMod('cadastros'); }},
     {p: 'financeiro.html', r: 'Financeiro', i: 'bank', b: 'Financeiro'},
     // Financeiro sem Expedição (10/11): recebe o e-mail e registra a NF na carga.
     {p: 'faturamento.html', r: 'Faturamento de cargas', i: 'clipboard', b: 'Financeiro', q: function(c) { return !c.podeAbrir('expedicao.html'); }},
