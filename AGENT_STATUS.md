@@ -5,6 +5,16 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude (sessão `pcp-kuryos-main-0b`) — Etiqueta de caixa: logo maior com ajuste e peças da caixa parcial (12/11/2026)
+
+- **Concluído.** Logo: faixa 11 mm na 90x55 (era 9; a 100x70 segue 13 mm, medido: 15 cortaria nome de 2 linhas),
+  envio corta a margem branca, "Tamanho do logo" no diálogo (50–200%, + / − / Padrão, aviso quando o conteúdo não
+  cabe) salvo em `clientes/{k}/logoEtiquetaTamanho` (regra existente: PCP/Cadastros gravam cliente). Caixa parcial:
+  "Peças na caixa parcial" (sugestão = sobra planejada); a etiqueta sai CAIXA PARCIAL com a quantidade e o peso em
+  branco para pesar; peças ≥ caixa cheia trava a impressão. Logo antigo com margem: reenviar em Cadastros › Clientes.
+  Testes: `run_etiqueta_caixa_test` 13, `_ui_test` (Chrome), emissão de OP 42, coerência 427. Manuais PCP e
+  Referência. **Pendente (Marlos):** deploy da VPS. Arquivos ativos: nenhum.
+
 ### Claude (sessão `fila-mp-versao`) — Fila de MP nova do P&D + aviso de versão pendente na OP (11–12/11/2026)
 
 - **Código concluído e integrado na `hostinger-deploy` (`8497cb9`, merge `0269fc4`).** Causas: as 22 MPs da fila

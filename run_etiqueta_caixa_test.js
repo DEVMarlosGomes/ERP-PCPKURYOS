@@ -59,9 +59,9 @@ t('faltando: aponta onde corrigir; DUN com verificador errado é avisado', () =>
 });
 
 t('quantidade sugerida: cheias + 1 parcial quando sobra', () => {
-  assert.deepEqual(E.sugestaoQuantidade(1750, 48), {cheias: 36, parcial: 1});
-  assert.deepEqual(E.sugestaoQuantidade(96, 48), {cheias: 2, parcial: 0});
-  assert.deepEqual(E.sugestaoQuantidade(100, 0), {cheias: 1, parcial: 0});
+  assert.deepEqual(E.sugestaoQuantidade(1750, 48), {cheias: 36, parcial: 1, pecasParcial: 22});
+  assert.deepEqual(E.sugestaoQuantidade(96, 48), {cheias: 2, parcial: 0, pecasParcial: 0});
+  assert.deepEqual(E.sugestaoQuantidade(100, 0), {cheias: 1, parcial: 0, pecasParcial: 0});
 });
 
 t('etiqueta: campos na ordem pedida', () => {
@@ -77,6 +77,37 @@ t('caixa parcial: quantidade e peso em branco, marcada', () => {
   assert.ok(!html.includes('48 un'));
   assert.ok(!html.includes('10,60 kg'));
   assert.equal((html.match(/class="vz"/g) || []).length, 2);
+});
+
+t('caixa parcial com peças: mostra a quantidade da parcial, peso em branco para pesar', () => {
+  const html = E.cartao(E.dados(OP, PROD, {}), 22);
+  assert.ok(html.includes('CAIXA PARCIAL'));
+  assert.ok(html.includes('22 un'), 'quantidade da parcial impressa');
+  assert.ok(!html.includes('48 un'));
+  assert.ok(!html.includes('10,60 kg'), 'peso da parcial não é o da caixa cheia');
+  assert.equal((html.match(/class="vz"/g) || []).length, 1, 'só o peso fica em branco');
+});
+
+t('pagina: cheias + 1 parcial com as peças; sem peças, sem parcial', () => {
+  const d = E.dados(OP, PROD, {});
+  const html = E.pagina(d, {cheias: 3, pecasParcial: 22});
+  assert.equal((html.match(/<section class="etq">/g) || []).length, 4);
+  assert.equal((html.match(/22 un/g) || []).length, 1);
+  assert.equal((html.match(/48 un/g) || []).length, 3);
+  assert.equal((E.pagina(d, {cheias: 3, pecasParcial: 0}).match(/<section class="etq">/g) || []).length, 3);
+});
+
+t('logo: maior por padrão e ajustável (50% a 200%), salvo no cliente', () => {
+  const d = E.dados(OP, PROD, {logoEtiquetaUrl: 'https://x/l.png'});
+  const altura = (html) => parseFloat((html.match(/\.topo\{[^}]*height:([\d.]+)mm/) || [])[1]);
+  assert.equal(altura(E.pagina(d, {cheias: 1})), 11, '90x55: 11 mm (era 9)');
+  assert.equal(altura(E.pagina(d, {cheias: 1, formato: '100x70'})), 13, '100x70: 13 mm (o que cabe com nome de duas linhas)');
+  assert.equal(altura(E.pagina(d, {cheias: 1, logoPct: 150})), 16.5);
+  assert.equal(altura(E.pagina(d, {cheias: 1, logoPct: 999})), 22, 'teto de 200%');
+  assert.equal(altura(E.pagina(d, {cheias: 1, logoPct: 10})), 5.5, 'piso de 50%');
+  assert.equal(E.dados(OP, PROD, {logoEtiquetaTamanho: 130}).logoPct, 130, 'tamanho salvo no cliente');
+  assert.equal(E.dados(OP, PROD, {}).logoPct, 100);
+  assert.equal(altura(E.pagina(E.dados(OP, PROD, {logoEtiquetaTamanho: 120}), {cheias: 1})), 13.2, 'sem opção, vale o do cliente');
 });
 
 t('logo: imagem quando há; nome quando não há; sem DUN mostra o espaço', () => {

@@ -160,6 +160,16 @@ async function abrir(browser, estadoInicial, pagina) {
     await page.waitForFunction(() => /arquivo de imagem/.test(document.getElementById('alertBox').innerText));
     await page.click('#modalCancelBtn-cli');
     assert.equal(await page.evaluate(() => window.__uploads.length), 1);
+    // Margem branca: logo de 400x200 com o desenho só no meio (100x40) sai cortado em volta do desenho.
+    const recorte = await page.evaluate(async () => {
+      const cv = document.createElement('canvas'); cv.width = 400; cv.height = 200;
+      const c = cv.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, 400, 200); c.fillStyle = '#000'; c.fillRect(150, 80, 100, 40);
+      const blob = await new Promise((r) => cv.toBlob(r, 'image/png'));
+      const r = await EtiquetaCaixa.prepararLogo(new File([blob], 'l.png', {type: 'image/png'}));
+      const img = new Image(); img.src = r.preview; await img.decode();
+      return [img.naturalWidth, img.naturalHeight];
+    });
+    assert.ok(recorte[0] <= 110 && recorte[0] >= 100 && recorte[1] <= 50 && recorte[1] >= 40, 'margem cortada: ' + recorte);
     assert.deepEqual(errors, [], 'erros em Cadastros: ' + errors.join(' | '));
     await page.close();
 
@@ -180,29 +190,53 @@ async function abrir(browser, estadoInicial, pagina) {
     const aviso = await pg.locator('#etqCxAviso').innerText();
     assert.match(aviso, /Todos os campos obrigatórios/, 'DUN-14 vem do cadastro atual quando a OP não fotografou: ' + aviso);
     assert.equal(await pg.inputValue('#etqCxCheias'), '10');
-    assert.equal(await pg.inputValue('#etqCxParcial'), '1', '250 = 10 × 24 + 10');
-    assert.equal(await pg.locator('#etqCxTotal').innerText(), '11 etiquetas');
+    assert.equal(await pg.inputValue('#etqCxPecas'), '10', '250 = 10 × 24 + 10: a parcial tem 10 peças');
+    assert.equal(await pg.locator('#etqCxTotal').innerText(), '11 etiquetas (10 cheias + 1 parcial com 10 un)');
+    // Editor do logo: aparece com logo, começa no tamanho do cliente (padrão 100%) e muda a pré-visualização.
+    assert.equal(await pg.isVisible('#etqCxLogoBox'), true);
+    assert.equal(await pg.inputValue('#etqCxLogo'), '100');
+    assert.match(await pg.locator('#etqCxPrev').getAttribute('srcdoc'), /\.topo\{[^}]*height:11mm/);
+    await pg.click('#etqCxLogoMais'); await pg.click('#etqCxLogoMais');
+    assert.equal(await pg.inputValue('#etqCxLogo'), '110');
+    await pg.fill('#etqCxLogo', '150');
+    assert.match(await pg.locator('#etqCxPrev').getAttribute('srcdoc'), /\.topo\{[^}]*height:16\.5mm/);
+    assert.match(await pg.locator('#etqCxLogoValor').innerText(), /150% · 16,5 mm/);
+    // Grande demais para 90 x 55: avisa que o rodapé sai cortado.
+    await pg.fill('#etqCxLogo', '200');
+    await pg.waitForFunction(() => /não cabe/.test(document.getElementById('etqCxAjuste').textContent));
+    await pg.fill('#etqCxLogo', '120');
+    await pg.waitForFunction(() => document.getElementById('etqCxAjuste').style.display === 'none');
+    // Peças de caixa cheia na parcial: não deixa imprimir e diz o porquê.
+    await pg.fill('#etqCxPecas', '24');
+    assert.equal(await pg.isDisabled('#etqCxImprimir'), true);
+    assert.match(await pg.locator('#etqCxAjuste').innerText(), /não é parcial/);
+    await pg.fill('#etqCxPecas', '10');
     const prev = await pg.locator('#etqCxPrev').getAttribute('srcdoc');
     assert.match(prev, /logo-enviado\.png/, 'pré-visualização com o logo');
     assert.match(prev, /MR-BS04/);
     await pg.locator('#etqCxDlg [role=dialog]').screenshot({path: process.env.ETQ_SHOTS ? process.env.ETQ_SHOTS + '/etq-dialogo.png' : undefined}).catch(() => {});
     await pg.fill('#etqCxLote', 'L2609A');
     await pg.fill('#etqCxCheias', '2');
-    assert.equal(await pg.locator('#etqCxTotal').innerText(), '3 etiquetas');
+    assert.equal(await pg.locator('#etqCxTotal').innerText(), '3 etiquetas (2 cheias + 1 parcial com 10 un)');
     await pg.click('#etqCxImprimir');
     await pg.waitForFunction(() => window.__impresso);
     const html = await pg.evaluate(() => window.__impresso);
     assert.equal((html.match(/<section class="etq">/g) || []).length, 3, '2 cheias + 1 parcial');
     assert.equal((html.match(/CAIXA PARCIAL/g) || []).length, 1);
+    assert.equal((html.match(/10 un/g) || []).length, 1, 'a parcial sai com as 10 peças');
+    assert.equal((html.match(/24 un/g) || []).length, 2, 'as cheias com 24');
+    assert.match(html, /\.topo\{[^}]*height:13\.2mm/, 'impressão com o tamanho escolhido');
     assert.match(html, /L2609A/);
     assert.match(html, /26273\/03/, 'lote interno continua o da OP');
     assert.match(html, /logo-enviado\.png/);
     assert.match(html, /window\.print/);
     await pg.waitForFunction(() => window.__db.ops['26273-03'].loteCliente === 'L2609A');
+    await pg.waitForFunction(() => window.__db.clientes.MISS.logoEtiquetaTamanho === 120);
     assert.equal(await pg.locator('#etqCxDlg').count(), 0, 'fecha depois de imprimir');
     // Reabrir: lote do cliente já vem preenchido.
     await abrirDlg(null, '26273-03', produto);
     await pg.waitForFunction(() => document.getElementById('etqCxLote').value === 'L2609A');
+    assert.equal(await pg.inputValue('#etqCxLogo'), '120', 'reabre com o tamanho salvo no cliente');
     // Produto sem cadastro completo: avisa o que falta (e substitui o diálogo aberto).
     await abrirDlg({lote: '1/01', produto: 'X', cliente: 'Y', qtdPlanejada: 10}, '1-01', {});
     await pg.waitForFunction(() => /Faltando no cadastro/.test(document.getElementById('etqCxAviso').innerText));

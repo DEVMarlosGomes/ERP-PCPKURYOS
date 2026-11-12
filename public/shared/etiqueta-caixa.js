@@ -25,8 +25,12 @@
      Nada é inventado (DUN-14 não é derivado do EAN: o dígito indicador é
      do dono da marca).
    - Quantidade na OP é planejada; a produção real varia. Por isso as caixas
-     cheias levam a quantidade/peso do cadastro e a caixa PARCIAL sai com
-     quantidade e peso em branco, para preencher na hora de fechar.
+     cheias levam a quantidade/peso do cadastro. CAIXA PARCIAL (12/11): sai com
+     as PEÇAS que tem (sugestão = sobra planejada, editável no diálogo); o peso
+     fica em branco para pesar ao fechar (sem a tara da caixa não dá para calcular).
+   - Logo (12/11, "ficou muito pequeno"): faixa maior por padrão na 90x55 (11 mm; a 100x70 segue com 13 mm,
+     que é o que cabe com nome de duas linhas), ajustável no diálogo de 50% a 200% e salva no cliente
+     (`clientes/{k}/logoEtiquetaTamanho`); o envio do logo corta a margem branca.
 
    No navegador, usa um `db` do Firebase para buscar o cliente (logo). Funções de dados e desenho são puras.
    ══════════════════════════════════════════════════════════════════════ */
@@ -88,6 +92,9 @@
   function dun14Texto(s) { return s ? s[0] + ' ' + s.slice(1, 3) + ' ' + s.slice(3, 8) + ' ' + s.slice(8, 13) + ' ' + s[13] : ''; }
 
   /* ── Dados ── */
+  // Tamanho do logo em % da faixa padrão do formato: 50% a 200%; vazio = 100%.
+  var LOGO_MIN = 50, LOGO_MAX = 200;
+  function logoPct(v) { var n = parseFloat(v); return isFinite(n) && n > 0 ? Math.min(LOGO_MAX, Math.max(LOGO_MIN, Math.round(n))) : 100; }
   function validadeTexto(v) {
     if (!v) return '';
     var m = String(v).match(/^(\d{4})-(\d{2})/);
@@ -105,6 +112,7 @@
     var d = {
       clienteNome: op.cliente || produto.cliente || cliente.nome || '',
       logoUrl: cliente.logoEtiquetaUrl || '',
+      logoPct: logoPct(cliente.logoEtiquetaTamanho),
       produtoNome: op.produto || produto.descricao || '',
       codCliente: op.codCliente || produto.codCliente || '',
       qtdCaixa: parseInt(op.pecasPorCaixa || produto.unCx, 10) || 0,
@@ -137,14 +145,14 @@
   // Sugestão de quantas etiquetas: caixas cheias + 1 parcial se sobrar.
   function sugestaoQuantidade(qtdPlanejada, qtdCaixa) {
     var q = parseInt(qtdPlanejada, 10) || 0, c = parseInt(qtdCaixa, 10) || 0;
-    if (!c || !q) return {cheias: 1, parcial: 0};
-    return {cheias: Math.floor(q / c), parcial: q % c ? 1 : 0};
+    if (!c || !q) return {cheias: 1, parcial: 0, pecasParcial: 0};
+    return {cheias: Math.floor(q / c), parcial: q % c ? 1 : 0, pecasParcial: q % c};
   }
 
   /* ── Desenho ── */
   var FORMATOS = {
     // Padrão Kuryos de caixa (o mesmo papel da etiqueta anterior).
-    '90x55': {pagina: '90mm 55mm', largura: 90, altura: 55, rotulo: '90 × 55 mm (padrão)', barraAlt: 12, logoAlt: 9, escala: 1},
+    '90x55': {pagina: '90mm 55mm', largura: 90, altura: 55, rotulo: '90 × 55 mm (padrão)', barraAlt: 12, logoAlt: 11, escala: 1},
     // Térmica 100 x 70 mm (a mesma do palete e do recebimento).
     '100x70': {pagina: '100mm 70mm', largura: 100, altura: 70, rotulo: '100 × 70 mm (térmica)', barraAlt: 20, logoAlt: 13, escala: 1.25}
   };
@@ -154,13 +162,15 @@
     return '<div class="c' + (classe ? ' ' + classe : '') + '"><b>' + rotulo + '</b><span class="' + (vazio ? 'vz' : '') + '">' + (vazio ? '&nbsp;' : esc(valor)) + '</span></div>';
   }
 
-  // Uma etiqueta. parcial = caixa parcial (quantidade/peso em branco).
+  // Uma etiqueta. parcial: número de peças da caixa parcial (impresso; peso em branco para pesar),
+  // true = parcial com quantidade em branco (uso antigo), falso = caixa cheia.
   function cartao(d, parcial, fmt) {
     fmt = fmt || FORMATOS['90x55'];
     var cab = d.logoUrl
       ? '<img class="logo" src="' + esc(d.logoUrl) + '" alt="' + esc(d.clienteNome) + '">'
       : '<div class="cli">' + esc(d.clienteNome || ' ') + '</div>';
-    var qtd = parcial ? '' : (d.qtdCaixa ? numBR(d.qtdCaixa) + ' un' : '');
+    var pecas = parcial === true ? 0 : (parseInt(parcial, 10) || 0);
+    var qtd = parcial ? (pecas ? numBR(pecas) + ' un' : '') : (d.qtdCaixa ? numBR(d.qtdCaixa) + ' un' : '');
     var peso = parcial ? '' : (d.pesoCaixaKg ? numBR(d.pesoCaixaKg, 2) + ' kg' : '');
     var barra = itf14Svg(d.dun14, fmt.barraAlt, 0.5);
     return '<section class="etq">' +
@@ -180,15 +190,16 @@
     '</section>';
   }
 
-  function css(fmt) {
+  function css(fmt, pct) {
     var e = fmt.escala;
+    var faixa = +(fmt.logoAlt * logoPct(pct) / 100).toFixed(2);
     function pt(v) { return (v * e).toFixed(2) + 'pt'; }
     return '@page{size:' + fmt.pagina + ';margin:0}' +
       'body{font-family:Arial,Helvetica,sans-serif;margin:0;color:#000;background:#fff}' +
       '.etq{width:' + fmt.largura + 'mm;height:' + fmt.altura + 'mm;box-sizing:border-box;padding:2.5mm 3mm 1.8mm;display:flex;flex-direction:column;overflow:hidden;page-break-after:always;break-after:page}' +
       '.etq:last-child{page-break-after:auto;break-after:auto}' +
-      '.topo{display:flex;justify-content:space-between;align-items:center;gap:2mm;height:' + fmt.logoAlt + 'mm;border-bottom:.35mm solid #000;padding-bottom:.8mm;flex:none}' +
-      '.logo{height:100%;width:auto;max-width:60%;object-fit:contain;object-position:left center;display:block}' +
+      '.topo{display:flex;justify-content:space-between;align-items:center;gap:2mm;height:' + faixa + 'mm;border-bottom:.35mm solid #000;padding-bottom:.8mm;flex:none}' +
+      '.logo{height:100%;width:auto;max-width:75%;object-fit:contain;object-position:left center;display:block}' +
       '.cli{font-size:' + pt(13) + ';font-weight:bold;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}' +
       '.tag{font-size:' + pt(7.5) + ';font-weight:bold;background:#000;color:#fff;padding:.4mm 1.5mm;border-radius:1mm;white-space:nowrap}' +
       '.prod{font-size:' + pt(9.5) + ';font-weight:bold;line-height:1.12;margin:1mm 0 .8mm;max-height:2.3em;overflow:hidden;flex:none}' +
@@ -205,15 +216,18 @@
       '@media screen{body{background:#e9e9e9;padding:10px}.etq{background:#fff;margin:0 auto 10px;box-shadow:0 0 0 1px #bbb}}';
   }
 
-  /* HTML de uma folha: `cheias` etiquetas normais + `parcial` em branco. */
+  /* HTML de uma folha: `cheias` etiquetas + 1 parcial com `pecasParcial` peças (0 = sem parcial).
+     `parcial` (uso antigo) = quantas parciais com a quantidade em branco. `logoPct` vence o do cliente. */
   function pagina(d, opcoes) {
     opcoes = opcoes || {};
     var fmt = FORMATOS[opcoes.formato] || FORMATOS['90x55'];
     var cheias = Math.max(0, parseInt(opcoes.cheias, 10) || 0), parcial = Math.max(0, parseInt(opcoes.parcial, 10) || 0);
     var cards = [];
     for (var i = 0; i < cheias; i++) cards.push(cartao(d, false, fmt));
+    var pecas = Math.max(0, parseInt(opcoes.pecasParcial, 10) || 0);
+    if (pecas) cards.push(cartao(d, pecas, fmt));
     for (var j = 0; j < parcial; j++) cards.push(cartao(d, true, fmt));
-    return '<style>' + css(fmt) + '</style>' + cards.join('');
+    return '<style>' + css(fmt, opcoes.logoPct != null ? opcoes.logoPct : d.logoPct) + '</style>' + cards.join('');
   }
 
   // Abre a impressão numa janela própria. Espera o logo carregar antes de
@@ -247,10 +261,18 @@
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;font-size:13px">' +
         '<label>Formato<select id="etqCxFmt" style="width:100%;margin-top:3px"></select></label>' +
         '<label>Caixas cheias<input id="etqCxCheias" type="number" min="0" step="1" style="width:100%;margin-top:3px"></label>' +
-        '<label>Caixa parcial (em branco)<input id="etqCxParcial" type="number" min="0" step="1" style="width:100%;margin-top:3px"></label>' +
+        '<label>Peças na caixa parcial<input id="etqCxPecas" type="number" min="0" step="1" style="width:100%;margin-top:3px" aria-describedby="etqCxPecasDica"></label>' +
         '<label>Lote (impresso no produto)<input id="etqCxLote" type="text" style="width:100%;margin-top:3px" maxlength="30"></label>' +
       '</div>' +
-      '<div style="font-size:12px;color:var(--text-muted,#666);margin-top:4px">Lote interno é sempre o lote da OP. Mude o lote só se o cliente usa codificação própria — fica gravado na OP.</div>' +
+      '<div id="etqCxPecasDica" style="font-size:12px;color:var(--text-muted,#666);margin-top:4px">Peças na caixa parcial: 0 = sem caixa parcial. A etiqueta dela sai com a quantidade; o peso fica em branco para pesar ao fechar. Lote interno é sempre o lote da OP; mude o lote só se o cliente usa codificação própria — fica gravado na OP.</div>' +
+      '<div id="etqCxLogoBox" style="display:none;margin-top:10px;font-size:13px"><label for="etqCxLogo" style="font-weight:600">Tamanho do logo</label>' +
+        '<div style="display:flex;align-items:center;gap:10px;margin-top:3px"><button type="button" class="btn btn-ghost btn-sm" id="etqCxLogoMenos" aria-label="Diminuir o logo">−</button>' +
+        '<input id="etqCxLogo" type="range" min="' + LOGO_MIN + '" max="' + LOGO_MAX + '" step="5" style="flex:1">' +
+        '<button type="button" class="btn btn-ghost btn-sm" id="etqCxLogoMais" aria-label="Aumentar o logo">+</button>' +
+        '<span id="etqCxLogoValor" style="min-width:118px;font-variant-numeric:tabular-nums"></span>' +
+        '<button type="button" class="btn btn-ghost btn-sm" id="etqCxLogoPadrao">Padrão</button></div>' +
+        '<div style="font-size:12px;color:var(--text-muted,#666);margin-top:3px">Fica salvo no cadastro do cliente e vale para as próximas etiquetas dele.</div></div>' +
+      '<div id="etqCxAjuste" role="status" style="display:none;margin-top:8px;font-size:13px;background:#fff4e5;color:#7a4b00;border:1px solid #f0c27a;border-radius:6px;padding:6px 10px"></div>' +
       '<div style="margin-top:12px;background:#e9e9e9;border-radius:8px;padding:10px;display:flex;justify-content:center"><iframe id="etqCxPrev" title="Pré-visualização da etiqueta" style="border:0;background:transparent;width:100%;height:290px"></iframe></div>' +
       '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap"><span id="etqCxTotal" style="margin-right:auto;align-self:center;font-size:13px"></span>' +
       '<button type="button" class="btn btn-ghost" id="etqCxCancelar">Cancelar</button><button type="button" class="btn btn-primary" id="etqCxImprimir" disabled>🖨 Imprimir</button></div></div>';
@@ -262,33 +284,53 @@
     Object.keys(FORMATOS).forEach(function(k) { var o = doc.createElement('option'); o.value = k; o.textContent = FORMATOS[k].rotulo; $('etqCxFmt').appendChild(o); });
     try { var salvo = localStorage.getItem('etqCaixaFormato'); if (salvo && FORMATOS[salvo]) $('etqCxFmt').value = salvo; } catch (e) { /* sem storage */ }
 
-    var produto = cfg.produto || null, cliente = null, d = null;
+    var produto = cfg.produto || null, cliente = null, d = null, cliKey = null;
+    function pecasParcial() { return Math.max(0, parseInt($('etqCxPecas').value, 10) || 0); }
+    function pctLogo() { return logoPct($('etqCxLogo').value); }
+    // Parcial com peças de caixa cheia (ou mais) não é parcial: trava a impressão e diz o porquê.
+    function erroPecas() { return d && d.qtdCaixa && pecasParcial() >= d.qtdCaixa ? 'Com ' + pecasParcial() + ' peças a caixa não é parcial (cheia = ' + d.qtdCaixa + '). Some uma caixa cheia e informe só a sobra.' : ''; }
+    // Conteúdo que não cabe (logo grande demais para o formato) fica cortado na impressão: avisa.
+    function conferirEncaixe() {
+      var aj = $('etqCxAjuste'), ep = erroPecas(), corta = false;
+      try { var el = $('etqCxPrev').contentDocument.querySelector('.etq'); corta = !!el && el.scrollHeight > el.clientHeight + 1; } catch (e) { corta = false; }
+      var msg = [ep, corta ? 'Com este tamanho de logo o conteúdo não cabe na etiqueta e o rodapé sai cortado. Diminua o logo ou use o formato 100 × 70 mm.' : ''].filter(Boolean).join(' ');
+      aj.style.display = msg ? '' : 'none'; aj.textContent = msg;
+    }
     function render() {
       if (!d) return;
       var dd = Object.assign({}, d, {lote: $('etqCxLote').value.trim() || d.loteInterno});
-      var opc = {formato: $('etqCxFmt').value, cheias: 1, parcial: 0};
+      var opc = {formato: $('etqCxFmt').value, cheias: 1, parcial: 0, logoPct: pctLogo()};
       var fmt = FORMATOS[opc.formato];
       var prev = $('etqCxPrev');
       prev.srcdoc = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:transparent;display:flex;justify-content:center">' + pagina(dd, opc) +
         '<style>@media screen{body{padding:0!important;background:transparent!important}.etq{margin:0!important;transform:scale(' + (270 / (fmt.altura * 3.78)).toFixed(3) + ');transform-origin:top center}}</style></body>';
-      var total = (parseInt($('etqCxCheias').value, 10) || 0) + (parseInt($('etqCxParcial').value, 10) || 0);
-      $('etqCxTotal').textContent = total + ' etiqueta' + (total === 1 ? '' : 's');
-      $('etqCxImprimir').disabled = !total;
+      prev.onload = conferirEncaixe;
+      var fmtLogo = +(fmt.logoAlt * pctLogo() / 100).toFixed(1);
+      $('etqCxLogoValor').textContent = pctLogo() + '% · ' + numBR(fmtLogo, 1) + ' mm de altura';
+      var cheias = parseInt($('etqCxCheias').value, 10) || 0, total = cheias + (pecasParcial() ? 1 : 0);
+      $('etqCxTotal').textContent = total + ' etiqueta' + (total === 1 ? '' : 's') + (pecasParcial() ? ' (' + cheias + ' cheia' + (cheias === 1 ? '' : 's') + ' + 1 parcial com ' + pecasParcial() + ' un)' : '');
+      $('etqCxImprimir').disabled = !total || !!erroPecas();
+      conferirEncaixe();
     }
-    ['etqCxFmt', 'etqCxCheias', 'etqCxParcial', 'etqCxLote'].forEach(function(id) { $(id).addEventListener('input', render); });
+    ['etqCxFmt', 'etqCxCheias', 'etqCxPecas', 'etqCxLote', 'etqCxLogo'].forEach(function(id) { $(id).addEventListener('input', render); });
+    function passoLogo(delta) { $('etqCxLogo').value = logoPct(pctLogo() + delta); render(); }
+    $('etqCxLogoMenos').onclick = function() { passoLogo(-5); };
+    $('etqCxLogoMais').onclick = function() { passoLogo(5); };
+    $('etqCxLogoPadrao').onclick = function() { $('etqCxLogo').value = 100; render(); };
 
     function carregar() {
       var pProd = produto ? Promise.resolve(produto) : Promise.resolve(null);
       return pProd.then(function(p) {
         produto = p || {};
-        var cliKey = produto.clienteKey || op.clienteKey;
+        cliKey = produto.clienteKey || op.clienteKey;
         if (!db || !cliKey) return null;
         return db.ref('clientes/' + cliKey).once('value').then(function(s) { return s.val(); }).catch(function() { return null; });
       }).then(function(c) {
         cliente = c || {};
         d = dados(op, produto, cliente);
         var sug = sugestaoQuantidade(op.qtdPlanejada, d.qtdCaixa);
-        $('etqCxCheias').value = sug.cheias; $('etqCxParcial').value = sug.parcial;
+        $('etqCxCheias').value = sug.cheias; $('etqCxPecas').value = sug.pecasParcial;
+        $('etqCxLogo').value = d.logoPct; $('etqCxLogoBox').style.display = d.logoUrl ? '' : 'none';
         $('etqCxLote').value = op.loteCliente || '';
         $('etqCxLote').placeholder = op.lote || '';
         var f = faltando(d);
@@ -306,16 +348,43 @@
       var loteDigitado = $('etqCxLote').value.trim();
       var loteCliente = loteDigitado && loteDigitado !== op.lote ? loteDigitado : '';
       var dd = Object.assign({}, d, {lote: loteCliente || d.loteInterno});
-      var ok = imprimir(dd, {formato: formato, cheias: $('etqCxCheias').value, parcial: $('etqCxParcial').value}, 'Etiquetas ' + (op.lote || '') + ' - ' + (d.produtoNome || ''));
+      var ok = imprimir(dd, {formato: formato, cheias: $('etqCxCheias').value, pecasParcial: pecasParcial(), logoPct: pctLogo()}, 'Etiquetas ' + (op.lote || '') + ' - ' + (d.produtoNome || ''));
       if (!ok) { alert('O navegador bloqueou a janela de impressão. Permita pop-ups para este site e tente de novo.'); return; }
       // Lote do cliente fica gravado na OP para a reimpressão sair igual.
       if (db && cfg.opKey && (loteCliente || '') !== (op.loteCliente || '')) {
         db.ref('ops/' + cfg.opKey + '/loteCliente').set(loteCliente || null).then(function() { op.loteCliente = loteCliente; })
           .catch(function() { alert('Etiquetas enviadas, mas não consegui gravar o lote do cliente na OP (sem permissão?).'); });
       }
+      // Tamanho do logo fica no cliente: as próximas OPs dele já saem assim.
+      if (db && cliKey && d.logoUrl && pctLogo() !== d.logoPct) {
+        var novo = pctLogo();
+        db.ref('clientes/' + cliKey + '/logoEtiquetaTamanho').set(novo === 100 ? null : novo).then(function() { d.logoPct = novo; })
+          .catch(function() { alert('Etiquetas enviadas, mas não consegui salvar o tamanho do logo no cliente (sem permissão no cadastro de clientes).'); });
+      }
       fechar();
     };
     return carregar();
+  }
+
+  /* Corta a margem branca em volta do desenho (com 2% de folga): o logo passa a ocupar a faixa inteira
+     da etiqueta. Imagem toda branca volta como está. */
+  function cortarMargemBranca(cv) {
+    var w = cv.width, h = cv.height, px = cv.getContext('2d').getImageData(0, 0, w, h).data;
+    var x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
+      var i = (y * w + x) * 4;
+      if (px[i] < 245 || px[i + 1] < 245 || px[i + 2] < 245) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    }
+    if (x1 < 0) return cv;
+    var folga = Math.round(Math.max(x1 - x0, y1 - y0) * 0.02);
+    x0 = Math.max(0, x0 - folga); y0 = Math.max(0, y0 - folga); x1 = Math.min(w - 1, x1 + folga); y1 = Math.min(h - 1, y1 + folga);
+    if (x0 === 0 && y0 === 0 && x1 === w - 1 && y1 === h - 1) return cv;
+    var out = document.createElement('canvas');
+    out.width = x1 - x0 + 1; out.height = y1 - y0 + 1;
+    var c2 = out.getContext('2d');
+    c2.fillStyle = '#fff'; c2.fillRect(0, 0, out.width, out.height);
+    c2.drawImage(cv, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
+    return out;
   }
 
   /* Logo do cliente (Cadastros › Clientes): reduz para no máximo 800 x 300 px
@@ -335,6 +404,7 @@
         ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
         ctx.drawImage(img, 0, 0, cv.width, cv.height);
         URL.revokeObjectURL(url);
+        cv = cortarMargemBranca(cv);
         var preview = cv.toDataURL('image/png');
         cv.toBlob(function(blob) { blob ? resolve({blob: blob, preview: preview}) : reject(new Error('Não consegui converter a imagem.')); }, 'image/png');
       };
@@ -347,7 +417,7 @@
     prepararLogo: prepararLogo,
     dun14Normalizar: dun14Normalizar, gs1Verificador: gs1Verificador, itf14Svg: itf14Svg, itf14Modulos: itf14Modulos,
     dun14Texto: dun14Texto, validadeTexto: validadeTexto,
-    dados: dados, faltando: faltando, sugestaoQuantidade: sugestaoQuantidade,
+    dados: dados, faltando: faltando, sugestaoQuantidade: sugestaoQuantidade, logoPct: logoPct,
     FORMATOS: FORMATOS, cartao: cartao, pagina: pagina, imprimir: imprimir, abrirDialogo: abrirDialogo
   };
 });
