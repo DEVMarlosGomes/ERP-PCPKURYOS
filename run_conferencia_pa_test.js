@@ -77,6 +77,21 @@ if (!source.includes("INICIO_FLUXO_CONFERENCIA_PA = '2026-09-10T00:00:00.000Z'")
   await ctx.finalizarConferenciaPA('26247-06', op, conf, aceita, null, null);
   await ctx.finalizarConferenciaPA('26247-06', op, conf, aceita, null, null);
   if (updatesAplicados.length !== 2 || updatesAplicados.some(c => c.nome !== 'finalizarConferenciaPA' || c.payload.opKey !== '26247-06')) throw new Error('Cliente não delegou a finalização à função protegida');
+  // O servidor só aceita apontamento corrigido depois das contagens se a tela
+  // mandar o número que mostrou (OP 26265/01, 581 -> 570).
+  if (updatesAplicados.some(c => c.payload.qtdApontadaVista !== 1000)) throw new Error('Finalização não envia o apontamento que a tela mostrou');
+
+  // OP cujo PA já entrou pela regularização da planilha sai da fila: o servidor
+  // sempre recusaria (26251/08 e 26253/03, já EXPEDIDAS).
+  vm.runInContext(extractFunction('paJaRegistradoForaDaConferenciaPA'), ctx);
+  ctx.allEstoqueLotes = { 'GLMKAM02': {
+    LEG_1:{ opKey:'26251-08', origemTipo:'legado_planilha', status:'EXPEDIDO' },
+    pa_26300_p1:{ opKey:'26300-01', origemTipo:'conferencia_pa', status:'QUARENTENA' },
+  } };
+  if (!ctx.paJaRegistradoForaDaConferenciaPA('26251-08', 'GLMKAM02')) throw new Error('OP com PA legado continua na fila');
+  if (ctx.paJaRegistradoForaDaConferenciaPA('26300-01', 'GLMKAM02')) throw new Error('Palete da própria conferência tirou a OP da fila');
+  if (ctx.paJaRegistradoForaDaConferenciaPA('26265-01', 'PRF-AFEE-0008')) throw new Error('OP sem lote algum saiu da fila');
+  if (!source.includes('.filter(function(x) { return !paJaRegistradoForaDaConferenciaPA(x.key, x.op.sku); })')) throw new Error('Fila não aplica o filtro de PA já registrado');
   if (finalizar.includes('db.ref().update')) throw new Error('Navegador ainda consegue criar estoque diretamente');
   console.log('OK Conferência de PA: divergência bloqueia estoque; tripla contagem exige consenso; finalização delegada ao servidor.');
 })().catch(err => { console.error(err); process.exit(1); });

@@ -71,12 +71,23 @@ function validarPaletes(paletes, enderecos) {
   return {lista, total: arredondar(total)};
 }
 
-function prepararFinalizacao({opKey, op, conf, enderecos, lotesItem, rncExistente, autor, conciliacao, agora}) {
+function prepararFinalizacao({opKey, op, conf, enderecos, lotesItem, rncExistente, autor, conciliacao, agora, qtdApontadaVista}) {
   if (!op || op.status !== "Concluído") erro("failed-precondition", "A OP precisa estar definitivamente concluída pelo PCP antes da entrada do PA.");
   const apontada = arredondar(op.produzidoLinha != null ? op.produzidoLinha : op.produzido);
   if (apontada <= 0) erro("failed-precondition", "A OP não possui quantidade produzida válida.");
   if (!conf) erro("not-found", "A conferência da OP não foi encontrada.");
-  if (arredondar(conf.qtdApontada) !== apontada) erro("failed-precondition", "A quantidade da OP mudou depois do início da conferência. Reinicie a conferência com o PCP.");
+  // Apontamento corrigido depois das contagens (OP 26265/01: 581 -> 570). As
+  // contagens são fato físico e continuam valendo; o que não pode é finalizar
+  // com a diferença calculada sobre um número que a pessoa não viu. Por isso o
+  // apontamento atual só vale se for o que a tela mostrou, e o do início fica
+  // gravado. A recusa antiga mandava "reiniciar com o PCP", caminho que nunca
+  // existiu na tela, e a OP ficava presa para sempre.
+  const apontadaNoInicio = conf.qtdApontada == null ? apontada : arredondar(conf.qtdApontada);
+  const apontamentoMudou = apontadaNoInicio !== apontada;
+  if (apontamentoMudou && (qtdApontadaVista == null || arredondar(qtdApontadaVista) !== apontada)) {
+    erro("failed-precondition", "O apontamento desta OP mudou de " + apontadaNoInicio + " para " + apontada + " un. depois das contagens. Atualize a tela (F5), confira a diferença e finalize de novo.");
+  }
+  const notaApontamento = apontamentoMudou ? " Apontamento da OP alterado de " + apontadaNoInicio + " para " + apontada + " un. depois do início da conferência." : "";
 
   const contagens = contagensOrdenadas(conf);
   const estado = analisarTripla(apontada, contagens);
@@ -119,7 +130,8 @@ function prepararFinalizacao({opKey, op, conf, enderecos, lotesItem, rncExistent
       origemTipo: "conferencia_pa", origemRef: opKey, status: "QUARENTENA",
       conferencia: {qtdApontada: apontada, qtdConferida: p.qtdUnidades, divergenciaTotal: diferenca,
         contagemAceitaKey: aceita.key, totalContagens: contagens.length, conferidoEm: agora,
-        conferidoPor: autor, conciliacao: diferenca === 0 ? null : conciliacao, finalizacaoId: finalId, rncNumero},
+        conferidoPor: autor, conciliacao: diferenca === 0 ? null : conciliacao, finalizacaoId: finalId, rncNumero,
+        qtdApontadaNoInicio: apontamentoMudou ? apontadaNoInicio : null},
       criadoEm: agora, atualizadoEm: agora, criadoPor: autor,
     };
     updates["movimentos_estoque/" + itemKey + "/" + movimentoKey] = {
@@ -134,7 +146,13 @@ function prepararFinalizacao({opKey, op, conf, enderecos, lotesItem, rncExistent
   updates[base + "qtdPaletizada"] = estado.total;
   updates[base + "divergencia"] = diferenca;
   updates[base + "status"] = diferenca === 0 ? "CONFERIDO" : "CONFERIDO_COM_DIVERGENCIA";
-  updates[base + "conciliacao"] = diferenca === 0 ? {motivo: "RECONTAGEM_CONFERE_OP", observacao: "Contagem física conciliada com o apontamento.", conciliadoEm: agora, conciliadoPor: autor} : {...conciliacao, qtdApontada: apontada, qtdFisica: estado.total, diferenca, conciliadoEm: agora, conciliadoPor: autor};
+  updates[base + "conciliacao"] = diferenca === 0
+    ? {motivo: "RECONTAGEM_CONFERE_OP", observacao: "Contagem física conciliada com o apontamento." + notaApontamento, conciliadoEm: agora, conciliadoPor: autor}
+    : {...conciliacao, observacao: String(conciliacao.observacao).trim() + notaApontamento, qtdApontada: apontada, qtdFisica: estado.total, diferenca, conciliadoEm: agora, conciliadoPor: autor};
+  if (apontamentoMudou) {
+    updates[base + "qtdApontada"] = apontada;
+    updates[base + "qtdApontadaNoInicio"] = apontadaNoInicio;
+  }
   updates[base + "alarmeResolvidoEm"] = conf.alarmeAbertoEm ? agora : null;
   updates[base + "conferidoEm"] = agora;
   updates[base + "conferidoPor"] = autor;
@@ -152,7 +170,7 @@ function prepararFinalizacao({opKey, op, conf, enderecos, lotesItem, rncExistent
   if (rncNumero && !rncExistente) {
     updates["nao_conformidades/" + rncNumero] = {
       numero: rncNumero, status: "ABERTA", classificacao: Math.abs(diferenca) / apontada >= 0.02 ? "MAIOR" : "MENOR",
-      origem: "PRODUCAO", descricao: "Divergência entre produção apontada e PA recebido pela Logística. " + String(conciliacao.observacao).trim(),
+      origem: "PRODUCAO", descricao: "Divergência entre produção apontada e PA recebido pela Logística. " + String(conciliacao.observacao).trim() + notaApontamento,
       abertaEm: agora, abertaPor: autor, itemTipo: "produto", itemCodigo: op.sku,
       itemNome: op.produto || op.produtoNome || null, unidade: "un", qtdEnvolvida: Math.abs(diferenca),
       loteOrigem: op.lote || null, opLote: op.lote || null, acaoImediata: "Tripla conferência realizada; saldo físico conciliado antes da quarentena.",

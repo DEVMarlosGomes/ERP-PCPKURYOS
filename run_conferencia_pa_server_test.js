@@ -75,7 +75,24 @@ assert(planoRetratado.updates['conferencias_pa/26247-06/rncNumero'] === 'RNC-PA-
 assert(!('nao_conformidades/RNC-PA-26247-06' in planoRetratado.updates), 'Refinalização sobrescreveu uma RNC já tratada');
 
 expectError(() => prepararFinalizacao({ ...base, op:{...op, status:'Aguardando Confirmação'}, conf:exata }), 'definitivamente concluída');
-expectError(() => prepararFinalizacao({ ...base, op:{...op, produzidoLinha:1001}, conf:exata }), 'quantidade da OP mudou');
+/* Apontamento corrigido DEPOIS das contagens (caso real: OP 26265/01, 581 -> 570,
+   presa 7 semanas). A recusa antiga mandava "reiniciar com o PCP", caminho que
+   nunca existiu na tela: beco sem saída. As contagens são fato físico e valem;
+   o servidor usa o apontamento atual SE é o mesmo número que a tela mostrou a
+   quem finaliza, e grava o valor do início para a mudança ficar rastreável. */
+const opCorrigida = {...op, produzidoLinha:990};
+expectError(() => prepararFinalizacao({ ...base, op:opCorrigida, conf:divergente, conciliacao }), 'Atualize a tela');
+expectError(() => prepararFinalizacao({ ...base, op:opCorrigida, conf:divergente, conciliacao, qtdApontadaVista:1000 }), 'Atualize a tela');
+const planoCorrigido = prepararFinalizacao({ ...base, op:opCorrigida, conf:divergente, conciliacao, qtdApontadaVista:990 });
+assert(planoCorrigido.diferenca === 0, 'Diferença não usou o apontamento atual: ' + planoCorrigido.diferenca);
+assert(planoCorrigido.total === 990, 'Consenso físico mudou com o apontamento');
+assert(planoCorrigido.updates['conferencias_pa/26247-06/qtdApontada'] === 990, 'Conferência não gravou o apontamento atual');
+assert(planoCorrigido.updates['conferencias_pa/26247-06/qtdApontadaNoInicio'] === 1000, 'Perdeu o apontamento do início');
+const loteCorrigido = Object.keys(planoCorrigido.updates).find(k => k.startsWith('estoque_lotes/'));
+assert(planoCorrigido.updates[loteCorrigido].conferencia.qtdApontadaNoInicio === 1000, 'Palete não registra o apontamento do início');
+assert(/1\.?000.*990/.test(planoCorrigido.updates['conferencias_pa/26247-06/conciliacao'].observacao), 'Conciliação não registra a mudança do apontamento');
+// Apontamento inalterado: nada novo é exigido nem gravado (telas antigas em cache seguem funcionando).
+assert(!('conferencias_pa/26247-06/qtdApontadaNoInicio' in planoExato.updates), 'Gravou início sem mudança');
 const enderecoInativo = JSON.parse(JSON.stringify(exata));
 enderecoInativo.contagens.c1.paletes.p1.enderecoKey = 'X';
 expectError(() => prepararFinalizacao({ ...base, conf:enderecoInativo }), 'inativo');

@@ -1833,6 +1833,18 @@ function statusConferenciaPA(conf, apontada) {
   return estado.status === 'PRONTO_CONCILIADO' ? 'Pronto para finalizar' : 'Aguardando 1ª contagem';
 }
 
+// PA desta OP que já entrou no WMS por outro caminho (regularização da
+// planilha de 01/10: lotes legado_planilha, já EXPEDIDOS). O servidor recusa
+// finalizar essas OPs ("evitar duplicidade") e está certo -- finalizar poria
+// em Quarentena produto que já saiu da fábrica. Mantê-las na fila deixava a
+// Logística presa num botão que nunca funciona (26251/08 e 26253/03).
+function paJaRegistradoForaDaConferenciaPA(opKey, sku) {
+  var lotes = (allEstoqueLotes || {})[sanitizeKey(sku)] || {};
+  return Object.keys(lotes).some(function(k) {
+    var l = lotes[k];
+    return l && (l.opKey === opKey || l.origemRef === opKey) && l.origemTipo !== 'conferencia_pa';
+  });
+}
 function renderConferenciaPA() {
   var tbody = document.getElementById('cpaFilaBody');
   if (!tbody) return;
@@ -1840,6 +1852,7 @@ function renderConferenciaPA() {
     .filter(function(x) { return (x.op.status === 'Concluído' || x.op.status === 'Aguardando Confirmação') && x.op.sku && qtdApontadaPA(x.op) > 0; })
     .filter(function(x) { return !!x.conf || String(x.op.dataFimReal || '') >= INICIO_FLUXO_CONFERENCIA_PA; })
     .filter(function(x) { return !x.conf || (x.conf.status !== 'CONFERIDO' && x.conf.status !== 'CONFERIDO_COM_DIVERGENCIA'); })
+    .filter(function(x) { return !paJaRegistradoForaDaConferenciaPA(x.key, x.op.sku); })
     .sort(function(a, b) {
       var pa = a.op.status === 'Aguardando Confirmação' ? 0 : 1, pb = b.op.status === 'Aguardando Confirmação' ? 0 : 1;
       return pa - pb || String(a.op.dataFimReal || '').localeCompare(String(b.op.dataFimReal || ''));
@@ -1909,11 +1922,16 @@ function recalcularLinhaPaletePA(linha) {
   }
   if (multiplo > 0) linha.querySelector('.cpa-total').value = caixas * multiplo + parcial;
 }
-function abrirConferenciaPAModal(opKey) {
+function abrirConferenciaPAModal(opKey, opcoes) {
   var op = allOps[opKey]; if (!op) return;
   var conf = allConferenciasPA[opKey] || {}, apontada = qtdApontadaPA(op);
   var contagens = contagensDaConferenciaPA(conf), estado = analisarTriplaConferenciaPA(apontada, contagens);
-  if (estado.status === 'AGUARDANDO_CONCILIACAO') { abrirConciliacaoPAModal(opKey, conf); return; }
+  // Nova contagem pedida na conciliação: o consenso pode ter saído de contagens
+  // feitas com o palete incompleto (26265/01: 222, 222 e depois 570 = apontado).
+  // Vale a mesma regra -- duas das três últimas -- e o histórico guarda todas.
+  var recontagem = !!(opcoes && opcoes.novaContagem) && estado.status === 'AGUARDANDO_CONCILIACAO';
+  var etapa = recontagem ? contagens.length + 1 : estado.etapa;
+  if (estado.status === 'AGUARDANDO_CONCILIACAO' && !recontagem) { abrirConciliacaoPAModal(opKey, conf); return; }
   if (estado.status === 'PRONTO_CONCILIADO' && estado.contagemAceita) {
     finalizarConferenciaPA(opKey, op, conf, estado.contagemAceita, null, null)
       .catch(function(err) { showAlert('Erro ao concluir a conferência: ' + err.message, 'danger'); });
@@ -1921,15 +1939,17 @@ function abrirConferenciaPAModal(opKey) {
   }
   var overlay = document.createElement('div'); overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px';
   var box = document.createElement('div'); box.style.cssText = 'background:var(--card);border-radius:16px;padding:20px;max-width:860px;width:100%;max-height:90vh;overflow:auto;box-shadow:var(--shadow)';
-  var alerta = estado.status === 'DIVERGENCIA_RECONTAGEM'
+  var alerta = recontagem
+    ? '<div class="alert alert-danger show" style="margin:14px 0"><b>Nova contagem física.</b><br>Conte de novo todos os paletes. Vale o consenso de duas das três últimas contagens; as anteriores ficam no histórico.</div>'
+    : estado.status === 'DIVERGENCIA_RECONTAGEM'
     ? '<div class="alert alert-danger show" style="margin:14px 0"><b>⚠ Divergência bloqueou a entrada.</b><br>Faça a contagem ' + estado.etapa + ' de 3 de forma independente. Nenhum palete foi criado no estoque.</div>'
     : estado.status === 'SEM_CONVERGENCIA'
       ? '<div class="alert alert-danger show" style="margin:14px 0"><b>🚨 As três contagens não chegaram a um consenso.</b><br>O estoque continua bloqueado. Faça uma nova contagem física até que duas das três últimas coincidam.</div>'
       : '';
   box.innerHTML = '<div style="display:flex;justify-content:space-between;gap:12px"><div><div style="font-weight:800;font-size:17px">Conferência de Produto Acabado</div><div class="field-hint">OP ' + escapeHtml(op.lote || opKey) + ' · ' + escapeHtml(op.sku) + ' · ' + escapeHtml(op.produto || op.produtoNome || '') + '</div></div><button type="button" class="btn btn-sm" id="cpaFechar">Fechar</button></div>' +
-    alerta + '<div class="section-note" style="margin:14px 0">Apontado na OP: <b>' + fmtNum(apontada) + ' un.</b> · Esta será a <b>' + estado.etapa + 'ª contagem</b>. Registre novamente todos os paletes físicos.</div><div id="cpaPaletes"></div>' +
+    alerta + '<div class="section-note" style="margin:14px 0">Apontado na OP: <b>' + fmtNum(apontada) + ' un.</b> · Esta será a <b>' + etapa + 'ª contagem</b>. Registre novamente todos os paletes físicos.</div><div id="cpaPaletes"></div>' +
     '<div style="display:flex;gap:8px;margin-top:12px"><button type="button" class="btn" id="cpaAdicionar">+ Adicionar palete</button><span id="cpaResumo" class="field-hint" style="align-self:center"></span></div>' +
-    '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><button type="button" class="btn btn-green" id="cpaSalvar">Registrar ' + estado.etapa + 'ª contagem</button></div>';
+    '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><button type="button" class="btn btn-green" id="cpaSalvar">Registrar ' + etapa + 'ª contagem</button></div>';
   overlay.appendChild(box); document.body.appendChild(overlay);
   SeletorEndereco.ligar(box, {fonte: fonteEnderecos});
   var lista = box.querySelector('#cpaPaletes');
@@ -2005,7 +2025,7 @@ function salvarContagemConferenciaPA(opKey, op, lista, box, overlay) {
 }
 function finalizarConferenciaPA(opKey, op, conf, contagem, conciliacao, overlay) {
   if (!contagem) return Promise.reject(new Error('Não há contagem física aceita.'));
-  return functionsInstance.httpsCallable('finalizarConferenciaPA')({ opKey:opKey, contagemKey:contagem.key || null, conciliacao:conciliacao || null }).then(function(res) {
+  return functionsInstance.httpsCallable('finalizarConferenciaPA')({ opKey:opKey, contagemKey:contagem.key || null, conciliacao:conciliacao || null, qtdApontadaVista:qtdApontadaPA(op) }).then(function(res) {
     if (overlay && overlay.parentNode) document.body.removeChild(overlay);
     var r = (res && res.data) || {}, dif = Number(r.diferenca) || 0;
     showAlert(dif === 0 ? 'Conferência concluída. Paletes endereçados em Quarentena, aguardando o CQ.' : 'Divergência conciliada e registrada na ' + (r.rncNumero || 'RNC automática') + '. Paletes endereçados em Quarentena; o histórico preserva as três contagens.', 'success');
@@ -2022,12 +2042,16 @@ function abrirConciliacaoPAModal(opKey, confOverride) {
   }).join('') + '</tbody></table></div>';
   box.innerHTML = '<div style="display:flex;justify-content:space-between"><div><b style="font-size:17px">Conciliação da divergência</b><div class="field-hint">OP ' + escapeHtml(op.lote || opKey) + '</div></div><button class="btn btn-sm" id="cpaFechar">Fechar</button></div>' +
     '<div class="alert alert-danger show" style="margin:14px 0"><b>Tripla conferência concluída.</b><br>Apontado: ' + fmtNum(qtdApontadaPA(op)) + ' un. · Consenso físico: ' + fmtNum(estado.total) + ' un. · Diferença: ' + (estado.diferenca > 0 ? '+' : '') + fmtNum(estado.diferenca) + ' un.</div>' +
+    (conf.qtdApontada != null && arredondarQtdPA(conf.qtdApontada) !== arredondarQtdPA(qtdApontadaPA(op))
+      ? '<div class="section-note" style="margin:0 0 12px">O apontamento desta OP foi corrigido de <b>' + fmtNum(conf.qtdApontada) + '</b> para <b>' + fmtNum(qtdApontadaPA(op)) + ' un.</b> depois das contagens. A diferença acima usa o apontamento atual; a mudança fica registrada na conferência.</div>'
+      : '') +
     historicoHtml +
     '<div class="form-group"><label>Causa da diferença *</label><select id="cpaMotivo"><option value="">Selecione…</option><option value="APONTAMENTO_PRODUCAO_INCORRETO">Apontamento da produção incorreto</option><option value="PERDA_OU_AVARIA">Perda ou avaria</option><option value="SOBRA_FISICA">Sobra física confirmada</option><option value="ERRO_DE_EMBALAGEM_OU_CONTAGEM">Erro de embalagem/contagem</option><option value="OUTRO">Outro</option></select></div>' +
     '<div class="form-group"><label>Explicação da conciliação *</label><textarea id="cpaObs" rows="3" placeholder="Descreva o que foi verificado e por que o total físico deve prevalecer."></textarea></div>' +
-    '<div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn btn-primary" style="background:var(--danger)" id="cpaResolver">Aceitar consenso físico e enviar à Quarentena</button></div>';
+    '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:16px"><button class="btn" id="cpaRecontar" title="Use se o palete não estava completo ou se a contagem física não bate com o consenso">Fazer nova contagem física</button><button class="btn btn-primary" style="background:var(--danger)" id="cpaResolver">Aceitar consenso físico e enviar à Quarentena</button></div>';
   overlay.appendChild(box); document.body.appendChild(overlay);
   box.querySelector('#cpaFechar').onclick = function(){ document.body.removeChild(overlay); };
+  box.querySelector('#cpaRecontar').onclick = function(){ document.body.removeChild(overlay); abrirConferenciaPAModal(opKey, {novaContagem:true}); };
   box.querySelector('#cpaResolver').onclick = function(){
     var motivo = box.querySelector('#cpaMotivo').value, obs = box.querySelector('#cpaObs').value.trim();
     if (!motivo || obs.length < 10) { showAlert('Selecione a causa e descreva a conciliação com pelo menos 10 caracteres.', 'danger'); return; }

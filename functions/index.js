@@ -2270,6 +2270,8 @@ exports.finalizarConferenciaPA = onCall(async (request) => {
     motivo: String(data.conciliacao.motivo || ""),
     observacao: String(data.conciliacao.observacao || "").trim(),
   } : null;
+  // Apontamento que a tela mostrou a quem finaliza (ver prepararFinalizacao).
+  const qtdApontadaVista = data.qtdApontadaVista == null || !Number.isFinite(Number(data.qtdApontadaVista)) ? null : Number(data.qtdApontadaVista);
 
   let contexto = await lerContexto();
   if (contexto.conf && contexto.conf.finalizadoEm) {
@@ -2277,7 +2279,7 @@ exports.finalizarConferenciaPA = onCall(async (request) => {
   }
   let plano;
   try {
-    plano = prepararFinalizacao({...contexto, opKey, autor, conciliacao, agora: new Date().toISOString()});
+    plano = prepararFinalizacao({...contexto, opKey, autor, conciliacao, qtdApontadaVista, agora: new Date().toISOString()});
   } catch (e) {
     throw new HttpsError(e.code || "failed-precondition", e.message);
   }
@@ -2302,7 +2304,7 @@ exports.finalizarConferenciaPA = onCall(async (request) => {
     if (lockVigente) return;
     try {
       const validado = prepararFinalizacao({opKey, op: contexto.op, conf: atual, enderecos: contexto.enderecos,
-        lotesItem: contexto.lotesItem, rncExistente: contexto.rncExistente, autor, conciliacao, agora: reservaEm});
+        lotesItem: contexto.lotesItem, rncExistente: contexto.rncExistente, autor, conciliacao, qtdApontadaVista, agora: reservaEm});
       if (validado.finalId !== plano.finalId) throw Object.assign(new Error("As contagens mudaram durante a finalização. Tente novamente."), {code: "aborted"});
     } catch (e) {
       erroTransacao = e;
@@ -2334,7 +2336,7 @@ exports.finalizarConferenciaPA = onCall(async (request) => {
   try {
     contexto = await lerContexto();
     if (!contexto.conf || contexto.conf.finalizacaoToken !== token) throw Object.assign(new Error("A reserva da finalização foi alterada."), {code: "aborted"});
-    plano = prepararFinalizacao({...contexto, opKey, autor, conciliacao, agora: new Date().toISOString()});
+    plano = prepararFinalizacao({...contexto, opKey, autor, conciliacao, qtdApontadaVista, agora: new Date().toISOString()});
     plano.updates["conferencias_pa/" + opKey + "/finalizacaoToken"] = null;
     await db.ref().update(plano.updates);
     return {ok: true, total: plano.total, diferenca: plano.diferenca, rncNumero: plano.rncNumero || null};

@@ -5,6 +5,28 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude (sessão `fin-webmais`) — Financeiro: relatórios do WebMais (Entrega A) (12/11/2026)
+
+- **Em andamento.** Relatórios novos (só leitura) na aba Relatórios: espelho de caixa diário, saldo das contas,
+  lançamento bancário, realizado × previsto, gastos por centro de custo, em aberto por parceiro, ranking,
+  evolução, composição de vencimentos, conta corrente, conciliação por parceiro, antecipação, prazos médios;
+  centro de custo no título manual. Entrega B (adiantamento, renegociação, cancelamento em lote) vem depois,
+  com spec. Arquivos ativos: `public/shared/financeiro-relatorios.js` (novo), `public/shared/financeiro-tela.js`,
+  `public/financeiro.html`, `public/shared/financeiro.js` + `functions/financeiro.js` (só `centroCusto`),
+  `database.rules.json` (leitura de `ctl/centros_custo`), `run_financeiro_relatorios_webmais_test.js` (novo).
+
+### Claude (sessão `conferencia-pa-presa`) — Conferência de PA presa: 3 OPs que ninguém finalizava (12/11/2026)
+
+- **Código concluído em `hostinger-deploy`.** Relato do Vicenzo; medido em produção (só leitura): 3 OPs presas, as
+  outras 8 da fila sem contagem. (1) **26265/01**: apontamento corrigido 581 → 570 depois das contagens; o servidor
+  mandava "reiniciar com o PCP", caminho inexistente. Agora `prepararFinalizacao` aceita o apontamento atual se for
+  o que a tela mostrou (`qtdApontadaVista`) e grava `qtdApontadaNoInicio` na conferência, no palete e na
+  conciliação/RNC. (2) **26251/08 e 26253/03**: PA já entrou pela regularização de 01/10 (lotes `legado_planilha`,
+  EXPEDIDOS); servidor recusa com razão, e a fila agora as esconde (`paJaRegistradoForaDaConferenciaPA`).
+  (3) Conciliação ganhou "Fazer nova contagem física" (mesma regra 2 de 3). Testes: `run_conferencia_pa_test`,
+  `_server_test`, `_uncx_test`, novo `run_conferencia_pa_conciliacao_ui_test` (Chrome; falha no código antigo),
+  seletor/propriedade UI, coerência 427. **Pendente (Marlos):** deploy da VPS (callable muda). Arquivos ativos: nenhum.
+
 ### Claude (sessão `pcp-kuryos-main-0b`) — Etiqueta de caixa: logo maior com ajuste e peças da caixa parcial (12/11/2026)
 
 - **Concluído.** Logo: faixa 11 mm na 90x55 (era 9; a 100x70 segue 13 mm, medido: 15 cortaria nome de 2 linhas),
