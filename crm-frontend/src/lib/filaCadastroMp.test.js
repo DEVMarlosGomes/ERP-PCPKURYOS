@@ -1,6 +1,6 @@
 import {
   MARCA_APROVADA, MARCA_EM_DESENVOLVIMENTO, STATUS_CANCELADO, STATUS_PENDENTE, chaveSolicitacaoMp, chaveSolicitacaoPorNome, compactarUpdates,
-  daSolicitacaoPd, planoDaFila, retiradaDoItem, solicitacoesDeMpsNovas, tipoMpNovaPeloContexto,
+  daSolicitacaoPd, percentualDoItem, planoDaFila, retiradaDoItem, solicitacoesDeMpsNovas, tipoMpNovaPeloContexto,
 } from "./filaCadastroMp";
 
 describe("fila de cadastro das MPs novas do P&D", () => {
@@ -105,5 +105,23 @@ describe("PD-03: solicitação nasce ao salvar, chave pelo nome, cancela sem apa
   test("a fila desta amostra inclui solicitação compartilhada com outra", () => {
     expect(daSolicitacaoPd({ origem: { pdRequestId: "R2" }, origens: { a: { pdRequestId: "R2" }, b: { pdRequestId: "R1" } } }, "R1")).toBe(true);
     expect(daSolicitacaoPd({ origem: { pdRequestId: "R2" } }, "R1")).toBe(false);
+  });
+});
+
+describe("percentual da MP na fórmula (Cadastros mostra quanto usou, 12/11/2026)", () => {
+  test("a origem leva o % m/m da linha; vazio ou zero vira null", () => {
+    expect(percentualDoItem({ percentage: 4.2 })).toBe(4.2);
+    expect(percentualDoItem({ percentage: "25" })).toBe(25);
+    expect(percentualDoItem({ percentage: "0,5" })).toBe(0.5);
+    expect(percentualDoItem({ percentage: 0 })).toBeNull();
+    expect(percentualDoItem({})).toBeNull();
+    const u = planoDaFila({
+      registrar: [{ item: { id: "i08", formula_id: "F1", percentage: 4.2, mp_nova: { nome: "FRAGRANCIA YARA - GF48244", tipo: "MPES" } },
+        formula: { id: "F1", version: 1 }, request: { id: "R1", internal_code: "2026-040-A1-a" } }],
+      agora: "2026-11-12T10:00:00Z", autor: "yasmim",
+    });
+    const reg = u[`solicitacoes_cadastro_material/${chaveSolicitacaoPorNome("FRAGRANCIA YARA - GF48244")}`];
+    expect(reg.origens.F1__i08.percentual).toBe(4.2);
+    expect(reg.origem.percentual).toBe(4.2);
   });
 });

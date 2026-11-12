@@ -51,7 +51,8 @@ const fila = {
 };
 assert.deepEqual(S.pendentes(fila).map((e) => e[0]), ['a', 'b']);
 const f = S.dadosParaFormulario(fila.b);
-assert.deepEqual(f, { tipo: 'MPES', nome: 'Fragrância Shower Butter I', inci: 'Parfum', fornecedorNome: 'Scentec',
+// skuAprovacaoSugerido (12/11): vazio porque o nome não traz código de amostra.
+assert.deepEqual(f, { tipo: 'MPES', skuAprovacaoSugerido: '', nome: 'Fragrância Shower Butter I', inci: 'Parfum', fornecedorNome: 'Scentec',
   especificacoes: 'Do P&D · projeto 2026-031 Linha Banho · amostra 2026-031-A1-a · cliente Lumi · fórmula v2.' });
 assert.equal(S.dadosParaFormulario({ tipo: 'XX' }).tipo, 'MPGR');
 assert.deepEqual(S.fechamento('MPES-00012', 'MPES-00012', 'Ana', T2), { status: 'CADASTRADO', materialKey: 'MPES-00012', mpCodigo: 'MPES-00012', cadastradoEm: T2, cadastradoPor: 'Ana' });

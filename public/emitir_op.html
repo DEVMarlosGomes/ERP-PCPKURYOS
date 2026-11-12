@@ -507,7 +507,17 @@ function selecionarProduto(key) {
     warnBox.textContent = '⚠️ Nenhuma versão com Fórmula + BOM + Especificação todas aprovadas pra este produto -- usando a versão mais recente (' + formulaEscolhida.versao + '), ainda falta aprovar: ' + faltando.join(', ') + '. ' +
       (p.origemCrm ? 'SKU do CRM: a emissão fica bloqueada até as três estarem aprovadas (PCP-02).' : 'Emitir mesmo assim é permitido, mas confira com os responsáveis antes de liberar o lote.');
   } else {
-    warnBox.style.display = 'none';
+    // 11/11/2026: versão mais nova sem as 3 aprovações não entra na OP. Sem este aviso a
+    // OP seguia na versão antiga e parecia que "a fórmula nova não subiu" (PRF-BIOF-0008 v2, BOM em rascunho).
+    var novas = versoesMaisNovasPendentes(key, formulaEscolhida.versao, allFormulas, allBom, allEspecificacoes);
+    if (novas.length) {
+      warnBox.style.display = 'block';
+      warnBox.textContent = '⚠️ Esta OP usa a ' + formulaEscolhida.versao + ', a última com Fórmula, BOM e Especificação aprovadas. ' +
+        novas.map(function(v) { return 'A ' + v.versao + ' é mais nova, mas ainda falta aprovar: ' + v.faltando.join(', ') + '.'; }).join(' ') +
+        ' Enquanto não for aprovada em Cadastros › Fórmulas/BOM/Especificações, a versão nova não entra na OP.';
+    } else {
+      warnBox.style.display = 'none';
+    }
   }
 
   document.getElementById('fDensidade').value = p.densidadeGranel != null ? p.densidadeGranel : '';

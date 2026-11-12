@@ -45,9 +45,17 @@ export function tipoMpNovaPeloContexto(item) {
 
 export const chaveOrigemDoItem = (formulaId, itemId) => chaveSolicitacaoMp(formulaId, itemId);
 
+// Quanto da fórmula esta MP ocupa (% m/m da linha). O Cadastros mostra na fila "quanto usou" (12/11/2026).
+// Ausente ou zero é null, nunca 0.
+export function percentualDoItem(item) {
+  const n = Number(String(item?.percentage ?? "").replace(",", "."));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export function origemDoItem({ request, formula, item, projeto }) {
   const r = request || {};
   return {
+    percentual: percentualDoItem(item),
     pdRequestId: r.id || null,
     formulaId: formula?.id || item?.formula_id || null,
     formulaVersao: Number(formula?.version) || 1,

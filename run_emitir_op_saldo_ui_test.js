@@ -238,6 +238,23 @@ const ops = (page) => page.evaluate(() => Object.values(window.__db.ops || {}));
     ok(true, 'Ajustes: quem não é ADM vê a chave desabilitada');
     await page.close();
 
+    // ── 5b. Versão mais nova sem as 3 aprovações (11/11, PRF-BIOF-0008): a OP fica na v1 e AVISA ──
+    const comV2 = banco({chave: null});
+    comV2.formulas.MRARBS04__v2 = Object.assign(structuredClone(comV2.formulas.MRARBS04__v1), {versao: 'v2'});
+    comV2.bom.MRARBS04__v2 = Object.assign(structuredClone(comV2.bom.MRARBS04__v1), {versao: 'v2', status: 'RASCUNHO'});
+    comV2.especificacoes.MRARBS04__v2 = Object.assign(structuredClone(comV2.especificacoes.MRARBS04__v1), {versao: 'v2'});
+    ({page, erros} = await abrirTela(browser, 'emitir_op.html', comV2, 'pcp'));
+    await dimensionar(page);
+    const avisoVersao = await page.locator('#formulaWarning').innerText();
+    ok(await page.locator('#formulaWarning').isVisible() && /usa a v1/.test(avisoVersao) && /A v2 é mais nova, mas ainda falta aprovar: BOM\./.test(avisoVersao),
+      'versão nova com BOM em rascunho: a OP avisa que segue na v1 e o que falta');
+    semErro(erros, 'aviso de versão');
+    await page.close();
+    ({page, erros} = await abrirTela(browser, 'emitir_op.html', banco({chave: null}), 'pcp'));
+    await dimensionar(page);
+    ok(!(await page.locator('#formulaWarning').isVisible()), 'produto sem versão pendente: sem aviso');
+    await page.close();
+
     // ── 6. Prints: escuro e 390 px, sem rolagem horizontal ─────────────────
     for (const [vp, tema, nome] of [[{width: 1400, height: 1000}, 'dark', 'desktop-escuro'], [{width: 390, height: 844}, 'light', '390-claro'], [{width: 390, height: 844}, 'dark', '390-escuro']]) {
       ({page, erros} = await abrirTela(browser, 'emitir_op.html', banco({chave: null}), 'pcp', vp, tema));

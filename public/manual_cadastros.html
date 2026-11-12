@@ -68,6 +68,12 @@
     A aprovação exige <b>Aprovar (P&amp;D)</b> e
     <b>Aprovar (Qualidade)</b>. <b>Só a versão aprovada vale para emitir OP</b> — e a OP guarda a
     versão que usou, que é o que permite explicar um lote seis meses depois.
+    A OP usa a versão mais nova com <b>Fórmula, BOM e Especificação</b> aprovadas — as três. Uma versão
+    nova copiada com o BOM igual ainda precisa do BOM aprovado de novo: enquanto faltar, a OP segue na
+    versão anterior. Abaixo do nome da versão aparece se é ela que vai para a OP ou o que falta aprovar,
+    e a Emissão de OP avisa quando existe versão mais nova esperando aprovação.
+    <b>Voltar atrás:</b> as versões antigas nunca se apagam; para retomar uma, abra-a e use
+    <b>+ Nova versão a partir desta</b> — ela vira a mais nova e passa pelas aprovações.
     No cadastro do material, desmarque <b>Controla estoque</b> para itens como água: continuam na
     fórmula, na OP e na pesagem, mas não dão baixa, não são reservados e não entram na necessidade de compra.
     Fórmula e BOM só são aprovados com <b>todos os itens no cadastro de materiais</b> e ativos —
@@ -97,9 +103,16 @@
         <tr><td><strong>Unidade de compra</strong></td><td>Como o fornecedor <b>vende</b> — por exemplo, <i>kg</i>. Preenchendo, a cotação já abre na unidade certa.</td></tr>
         <tr><td><strong>Fator de conversão</strong></td><td>Quantas unidades de compra cabem em 1 unidade de estoque (11,67 kg por rolo). É o que evita um pedido de 35 kg sair impresso como 35 rolos.</td></tr>
         <tr><td><strong>Fornecedores homologados</strong></td><td>Quem já está aprovado para fornecer aquele item. Aparece no fluxo de cotação.</td></tr>
+        <tr><td><strong>SKU de aprovação</strong> (fragrância)</td><td>Código da amostra do fornecedor (ex.: FAV374566, GF48244). Obrigatório para MPES. Se o nome já traz o código ("J'ADORE - FAV374566 - GLAM"), o campo é preenchido sozinho, marcado "preenchido a partir do nome — confira". O SKU final entra depois, no lote de compra.</td></tr>
       </tbody>
     </table>
   </div>
+  <p class="txt">
+    <b>MPs novas do P&amp;D</b> aparecem no topo da aba Materiais, uma por linha, com INCI, fornecedor, preço,
+    quanto foi usado em cada amostra e o SKU de aprovação sugerido. <b>Cadastrar</b> abre o Novo Material já
+    preenchido: confira, escolha o fornecedor quando houver mais de um cadastro com o nome e salve. Se algo
+    impedir o salvar, o aviso aparece no rodapé do próprio formulário e o campo fica marcado em vermelho.
+  </p>
 
   <div class="section-title"><span class="icon">🏢</span> 3. Cliente e Fornecedor</div>
   <p class="txt">

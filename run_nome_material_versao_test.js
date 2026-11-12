@@ -161,6 +161,13 @@ function dados() {
     assert.match(bom, /ES-09999 — ROTULO QUE NAO ESTA NO CADASTRO/, 'fora do cadastro mostra o gravado');
     assert.match(bom, /1 a cada 48 peças/, 'quantidade da linha continua igual');
 
+    // 12/11/2026: o cabeçalho da versão diz se é ela que vai para a OP (PRF-BIOF-0008: v2 com BOM em rascunho).
+    assert.match(await page.locator('#versaoUsoOp-form').innerText(), /Esta é a versão que a Emissão de OP usa/);
+    await page.evaluate(() => firebase.database().ref('bom/FBBS0006__v2/status').set('RASCUNHO'));
+    await page.waitForFunction(() => /ainda não vai para a OP: falta aprovar BOM\. Nenhuma versão/.test(document.getElementById('versaoUsoOp-form').innerText), null, {timeout: 5000});
+    await page.evaluate(() => firebase.database().ref('bom/FBBS0006__v2/status').set('APROVADA'));
+    await page.waitForFunction(() => /Esta é a versão que a Emissão de OP usa/.test(document.getElementById('versaoUsoOp-form').innerText), null, {timeout: 5000});
+
     // Cadastro muda com a versão aberta: a aprovada acompanha sem reabrir o produto.
     await page.evaluate(() => firebase.database().ref('materiais/ET-00071/mpNome').set('CAIXA DE EMBARQUE 48 UNID. 371X280X197MM FEBELLA 200ML REV2'));
     await page.waitForFunction(() => /FEBELLA 200ML REV2/.test(document.getElementById('bomBody-form').innerText), null, {timeout: 5000});

@@ -29,7 +29,11 @@ function dados() {
     materiais: {},
     solicitacoes_cadastro_material: {
       URU: tarefa('1', 'MPGR', 'Extrato Glicólico Urucum', {inci: 'Bixa Orellana Seed Extract', fornecedor: 'Lunagreen', preco_brl_kg: 200}),
-      UVA: tarefa('2', 'MPES', 'Fragrância Uva C02704-00062', {inci: '', fornecedor: 'phyto', preco_usd_kg: 38}),
+      // 12/11: com as origens (amostra e % na fórmula) que o P&D grava desde então.
+      UVA: Object.assign(tarefa('2', 'MPES', 'Fragrância Uva C02704-00062', {inci: '', fornecedor: 'phyto', preco_usd_kg: 38}), {origens: {
+        F2__I2: {amostra: '2026-041-A1-b', projetoNumero: '2026-041', cliente: 'Vivai Cosmeticos', percentual: 4.2, ativa: true},
+        L1__I2: {amostra: '2026-041-A1-b', origemLote: 'LM-2026-041-1', ativa: true},
+        F9__I2: {amostra: '2026-041-A1-z', percentual: 9, ativa: false}}}),
       OLE: tarefa('3', 'MPGR', 'Óleo de Urucum', {inci: '', fornecedor: 'Hope', preco_brl_kg: 200}),
       SEM: tarefa('4', 'MPGR', 'Extrato Glicólico Semente de Uva', {inci: 'Vitis Vinifera Fruit Extract', fornecedor: 'TC', preco_brl_kg: 200})
     },
@@ -134,11 +138,23 @@ function materialPorNome(db, nome) { return Object.values(db.materiais).find((m)
     const {page, errors} = await abrir(browser, dados(), 'cadastros.html?tab=materiais');
     await page.waitForSelector('#solicitacoesCadastro-mat .btn-cadastrar-solic-mat');
 
-    // 0. A fila já mostra INCI e fornecedor (casado com o cadastro) sem abrir a tarefa.
-    const fila = await page.locator('#solicitacoesCadastro-mat').innerText();
-    assert.match(fila, /INCI: Bixa Orellana Seed Extract · Fornecedor: Lunagreen → LUNAGREEN BIOATIVOS/);
-    assert.match(fila, /INCI: não informado no P&D · Fornecedor: Hope \(não cadastrado\)/);
-    assert.match(fila, /Fornecedor: TC \(mais de um cadastro: escolher\)/);
+    // 0. A fila é uma tabela, uma MP por linha (12/11: era uma faixa em linha, cada MP numa coluna estreita),
+    //    e já mostra INCI, fornecedor (casado com o cadastro), preço, uso na amostra e o SKU sugerido.
+    const linhas = page.locator('#solicitacoesCadastro-mat tbody tr');
+    assert.equal(await linhas.count(), 4);
+    const y = [];
+    for (let i = 0; i < 4; i++) y.push((await linhas.nth(i).boundingBox()).y);
+    assert.ok(y[1] > y[0] && y[2] > y[1] && y[3] > y[2], 'uma MP embaixo da outra: ' + y.join(','));
+    const linha = async (nome) => (await linhas.filter({hasText: nome}).innerText()).replace(/\s+/g, ' ');
+    assert.match(await linha('Extrato Glicólico Urucum'), /Bixa Orellana Seed Extract Lunagreen → LUNAGREEN BIOATIVOS R\$ 200\/kg .*não exige/);
+    assert.match(await linha('Óleo de Urucum'), /não informado no P&D Hope não cadastrado em Fornecedores/);
+    assert.match(await linha('Semente de Uva'), /TC mais de um cadastro: escolher ao cadastrar/);
+    const uva = await linha('Fragrância Uva');
+    assert.match(uva, /US\$ 38\/kg/);
+    assert.match(uva, /4,2% · 2026-041-A1-b/, 'quanto usou na amostra');
+    assert.doesNotMatch(uva, /A1-z/, 'origem retirada não aparece');
+    assert.equal((uva.match(/2026-041-A1-b/g) || []).length, 1, 'mesma amostra pela fórmula e pelo lote: uma vez');
+    assert.match(uva, /C02704-00062 do nome, conferir/, 'SKU de aprovação sugerido do nome');
 
     // 1. MP Geral com fornecedor cadastrado por outro nome: entra na lista de homologados, com o custo do P&D.
     await abrirTarefa(page, 'URU');
@@ -152,13 +168,18 @@ function materialPorNome(db, nome) { return Object.values(db.materiais).find((m)
     assert.deepEqual(m.fornecedores, {lun: {nomeComercial: '', codigoFornecedor: '', statusHomologacao: 'aguardando_homologacao', custoReferencia: 200}});
     assert.equal(db.solicitacoes_cadastro_material.URU.status, 'CADASTRADO');
 
-    // 2. Fragrância: fornecedor único, "phyto" casa com PHYTOATTIVE.
+    // 2. Fragrância: fornecedor único, "phyto" casa com PHYTOATTIVE. O SKU de aprovação já vem do nome
+    //    (12/11: antes vinha vazio e o salvar parava, com o aviso escondido atrás do modal).
     await abrirTarefa(page, 'UVA');
     assert.equal(await page.inputValue('#fuFornecedorKey-mat'), 'phy');
-    await page.fill('#fSkuAprovacao-mat', 'C02704-00062');
+    assert.equal(await page.inputValue('#fSkuAprovacao-mat'), 'C02704-00062');
+    assert.match(await page.locator('#skuEntradaStatus-mat').innerText(), /preenchido a partir do nome — confira/);
     db = await salvarNovo(page, 1);
     m = materialPorNome(db, 'FRAGRANCIA UVA C02704-00062');
     assert.ok(m && m.fornecedores && m.fornecedores.phy, 'fragrância gravou o fornecedor: ' + JSON.stringify(m && m.fornecedores));
+    assert.equal(m.skusEntrada.aprovacao.codigo, 'C02704-00062');
+    assert.equal(m.fornecedores.phy.codigoFornecedor, 'C02704-00062', 'Compras lê o SKU vigente como código do fornecedor');
+    assert.equal(db.solicitacoes_cadastro_material.UVA.status, 'CADASTRADO');
 
     // 3. Fornecedor que não existe ("Hope"; SHOPEE não conta): avisa, deixa o nome para buscar, não inventa vínculo.
     await abrirTarefa(page, 'OLE');
@@ -179,6 +200,29 @@ function materialPorNome(db, nome) { return Object.values(db.materiais).find((m)
     // 5. Material aberto à mão depois não herda o aviso.
     await page.click('#btnNovo-mat');
     assert.equal(await page.locator('#avisoFornecedorPd-mat').isVisible(), false, 'aviso não fica pendurado no cadastro manual');
+
+    // 6. Fragrância digitada à mão (as do Adlai, 11/11): o código da amostra no nome vira o SKU de aprovação.
+    await page.selectOption('#fTipo', 'MPES');
+    await page.fill('#fNome-mat', "J'ADORE - FAV374566 - GLAM");
+    assert.equal(await page.inputValue('#fSkuAprovacao-mat'), 'FAV374566');
+    await page.fill('#fNome-mat', 'LOVE SPELL - FAV374574 - ENERGY');
+    assert.equal(await page.inputValue('#fSkuAprovacao-mat'), 'FAV374574', 'acompanha o nome enquanto ninguém digitou no campo');
+    await page.fill('#fSkuAprovacao-mat', 'FAV999');
+    await page.fill('#fNome-mat', 'LOVE SPELL - FAV374574 - ENERGY X');
+    assert.equal(await page.inputValue('#fSkuAprovacao-mat'), 'FAV999', 'o que foi digitado no campo não é trocado');
+    // Sem SKU, o erro aparece DENTRO do modal e leva ao campo; nada é gravado.
+    await page.fill('#fSkuAprovacao-mat', '');
+    await page.fill('#fNome-mat', 'ESSENCIA SEM CODIGO');
+    await page.click('#modalSaveBtn-mat');
+    const avisoModal = page.locator('#modalBg-mat .modal-footer .modal-aviso');
+    await avisoModal.waitFor();
+    assert.match(await avisoModal.innerText(), /informe primeiro o SKU de aprovação/);
+    assert.ok(await page.evaluate(() => document.getElementById('fSkuAprovacao-mat').classList.contains('campo-erro')), 'campo marcado');
+    assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.id), 'fSkuAprovacao-mat');
+    assert.equal(Object.keys((await page.evaluate(() => window.__db)).materiais).length, 2, 'nada gravado');
+    await page.fill('#fSkuAprovacao-mat', 'AB1234');
+    assert.equal(await page.evaluate(() => document.getElementById('fSkuAprovacao-mat').classList.contains('campo-erro')), false);
+    await page.click('#modalCancelBtn-mat');
 
     assert.deepEqual(errors, [], 'erros na tela: ' + errors.join(' | '));
     console.log('run_fornecedor_pd_cadastro_ui_test: OK');

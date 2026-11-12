@@ -216,6 +216,19 @@
     .tab-panel{display:none}
     .tab-panel.active{display:block}
     .recalc-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--tint-green-bg);border-radius:8px;margin-bottom:12px;font-size:13px;color:var(--tint-green-fg)}
+    /* Fila de MP nova do P&D (12/11/2026): tabela, uma MP por linha. */
+    .solic-mat-box{margin:12px 0;padding:12px 14px;background:#fff7e6;border:1px solid #f0c36d;border-radius:8px;font-size:13px;color:var(--text)}
+    .solic-mat-box .table-wrap{background:var(--card);border-radius:6px;max-height:420px;overflow:auto}
+    .solic-mat-tab td{vertical-align:top;font-size:13px}
+    .solic-mat-tab td:first-child{min-width:220px}
+    .solic-sub{font-size:12px;color:var(--muted)}
+    /* Aviso dentro do modal aberto (12/11/2026): o #alertBox do topo fica atrás do modal. */
+    .modal-footer:has(.modal-aviso){flex-wrap:wrap}
+    .modal-aviso{flex:1 1 240px;align-self:center;font-size:13px;font-weight:600;margin-right:auto}
+    .modal-aviso-danger{color:#b91c1c}
+    .modal-aviso-success{color:#047857}
+    .modal-aviso-warning{color:#92400e}
+    .campo-erro{outline:2px solid #dc2626;outline-offset:1px}
     .info-box-green{font-size:12px;color:var(--tint-green-fg);margin-bottom:12px;padding:8px 12px;background:var(--tint-green-bg);border-radius:6px;border-left:3px solid var(--success)}
     .import-icon{font-size:32px;margin-bottom:8px}
     .progress-bar{height:8px;border-radius:4px;background:#e5e7eb;overflow:hidden;margin:10px 0}
@@ -1031,6 +1044,7 @@
         <div id="versaoAcoes-form" style="display:flex;gap:8px"></div>
       </div>
       <div class="section-note" style="margin-top:-4px;margin-bottom:10px">Fórmula, BOM e Especificações têm aprovação própria e independente -- cada aba tem seu status e seus botões de aprovação.</div>
+      <div id="versaoUsoOp-form" role="status" style="display:none;margin:-4px 0 10px;padding:8px 12px;border-radius:8px;font-size:13px"></div>
 
       <div class="tabs" id="formulasInnerTabs" data-ui="tabs">
         <button class="tab active" data-tab="form-formula" data-ui="tab">Fórmula</button>
@@ -1736,6 +1750,26 @@ function showAlert(msg, type) {
   box.className = 'alert alert-' + (type || 'success') + ' show';
   box.textContent = msg;
   setTimeout(function() { box.classList.remove('show'); }, 5000);
+  // 12/11/2026: com um modal aberto, o aviso do topo fica atrás dele e o salvar "não faz nada"
+  // (fragrância sem SKU de aprovação, nome repetido...). Repete o aviso no rodapé do modal.
+  var abertos = document.querySelectorAll('.modal-bg.open');
+  var rodape = abertos.length ? abertos[abertos.length - 1].querySelector('.modal-footer') : null;
+  if (!rodape) return;
+  var el = rodape.querySelector('.modal-aviso');
+  if (!el) { el = document.createElement('div'); el.setAttribute('role', 'alert'); rodape.insertBefore(el, rodape.firstChild); }
+  el.className = 'modal-aviso modal-aviso-' + (type || 'success');
+  el.textContent = msg;
+  clearTimeout(el._t);
+  el._t = setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, type === 'danger' ? 12000 : 5000);
+}
+// Leva até o campo com problema dentro do modal e marca em vermelho até a pessoa mexer nele.
+function marcarCampoErro(id) {
+  var c = document.getElementById(id);
+  if (!c) return;
+  c.classList.add('campo-erro');
+  try { c.scrollIntoView({block: 'center', behavior: 'smooth'}); } catch (e) { c.scrollIntoView(); }
+  c.focus();
+  c.addEventListener('input', function tirar() { c.classList.remove('campo-erro'); c.removeEventListener('input', tirar); });
 }
 function setStatus(on, txt) {
   document.getElementById('sDot').className = 'dot' + (on ? ' on' : '');
@@ -1969,40 +2003,52 @@ document.addEventListener('DOMContentLoaded', function() {
     var pend = SkuEntrada.pendentes(solicitacoesMat);
     if (!pend.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
     box.style.display = 'block';
+    // 12/11/2026: era uma faixa .recalc-bar (flex em linha) e cada MP virava uma coluna estreita,
+    // com rolagem lateral. Agora é uma tabela: uma MP por linha, o que o P&D mandou em colunas.
+    var falta = '<span style="color:#b45309">não informado no P&D</span>';
+    var linhas = pend.map(function(e) {
+      var t = e[1];
+      var c = IngredienteCampos.camposDaSolicitacao(t);
+      var d = SkuEntrada.dadosParaFormulario(t);
+      var forn = falta;
+      if (c.fornecedor) {
+        var r = IngredienteCampos.fornecedorDoPd(c.fornecedor, fornecedoresDeMp());
+        var nomeCad = r.key ? ((allFornecedores[r.key] || {}).nomeFantasia || (allFornecedores[r.key] || {}).razaoSocial) : '';
+        forn = escapeHtml(c.fornecedor) + (nomeCad ? '<div class="solic-sub">→ ' + escapeHtml(nomeCad) + '</div>'
+          : '<div class="solic-sub" style="color:#b45309">' + (r.candidatos.length ? 'mais de um cadastro: escolher ao cadastrar' : 'não cadastrado em Fornecedores') + '</div>');
+      }
+      var preco = c.preco_brl_kg != null ? 'R$ ' + String(c.preco_brl_kg).replace('.', ',') + '/kg'
+        : c.preco_usd_kg != null ? 'US$ ' + String(c.preco_usd_kg).replace('.', ',') + '/kg' : '—';
+      var usos = SkuEntrada.usosDaSolicitacao(t);
+      var usoHtml = usos.length ? usos.map(function(u) {
+        return '<div>' + (u.percentual != null ? '<b>' + String(u.percentual).replace('.', ',') + '%</b>' : '<span class="solic-sub">% não informado</span>') +
+          ' · ' + escapeHtml(u.amostra || u.projeto || '—') + (u.cliente ? ' <span class="solic-sub">' + escapeHtml(u.cliente) + '</span>' : '') + '</div>';
+      }).join('') : '—';
+      // CAD-01: já avisa na fila quando existe material igual (abrir a tarefa mostra "Vincular").
+      var dup = DuplicidadeMaterial.duplicataExata(DuplicidadeMaterial.candidatos({ tipo: t.tipo, nome: t.nome, inci: t.inci }, allMateriais));
+      var o = t.origem || {};
+      return '<tr>' +
+        '<td><b>' + escapeHtml(t.nome || t.ingrediente || '(sem nome)') + '</b>' +
+          '<div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap"><span class="badge">' + escapeHtml(t.tipo || '') + '</span>' +
+          // PD-03 (28/10/2026): solicitação nasce no P&D ao salvar; a marca diz em que pé está a amostra.
+          (t.marca ? '<span class="badge" style="background:' + (t.amostra_em_desenvolvimento ? '#fef3c7;color:#92400e' : '#dcfce7;color:#166534') + '">' + escapeHtml(t.marca) + '</span>' : '') + '</div>' +
+          '<div class="solic-sub">' + escapeHtml([o.projetoNumero, o.projeto].filter(Boolean).join(' ') || '—') + '</div>' +
+          (dup ? '<div style="color:#b45309;font-weight:600;font-size:12px">⛔ já existe ' + escapeHtml(dup.mpCodigo) + ' — abra e vincule</div>' : '') + '</td>' +
+        '<td>' + (c.inci ? escapeHtml(c.inci) : falta) + '</td>' +
+        '<td>' + forn + '</td>' +
+        '<td style="white-space:nowrap">' + escapeHtml(preco) + '</td>' +
+        '<td style="font-size:12px">' + usoHtml + '</td>' +
+        '<td>' + (d.tipo === 'MPES' ? (d.skuAprovacaoSugerido ? escapeHtml(d.skuAprovacaoSugerido) + '<div class="solic-sub">do nome, conferir</div>' : '<span style="color:#b45309">informar ao cadastrar</span>') : '<span class="solic-sub">não exige</span>') + '</td>' +
+        '<td><button class="btn btn-primary btn-sm btn-cadastrar-solic-mat" data-solic="' + escapeAttr(e[0]) + '">Cadastrar</button></td>' +
+      '</tr>';
+    }).join('');
     box.innerHTML =
-      '<div class="recalc-bar" style="margin:12px 0;background:#fff7e6;border-color:#f0c36d">' +
-        '<b>🧪 ' + pend.length + ' MP(s) nova(s) do P&D aguardando cadastro</b>' +
-        '<div style="font-size:12px;color:var(--muted);margin:4px 0 8px">Chegam quando o P&D salva o ingrediente marcado como MP nova (amostra em desenvolvimento) e ficam marcadas quando o cliente aprova. Cadastrar aqui gera o código interno e fecha a tarefa. Fragrância (MPES) precisa do SKU de aprovação agora e do SKU final no lote de compra.</div>' +
-        pend.map(function(e) {
-          var t = e[1], o = t.origem || {};
-          return '<div style="display:flex;gap:10px;align-items:center;padding:5px 0;flex-wrap:wrap">' +
-            '<button class="btn btn-primary btn-sm btn-cadastrar-solic-mat" data-solic="' + escapeAttr(e[0]) + '">Cadastrar</button>' +
-            '<span class="badge">' + escapeHtml(t.tipo || '') + '</span>' +
-            '<b>' + escapeHtml(t.nome || t.ingrediente || '(sem nome)') + '</b>' +
-            // PD-03 (28/10/2026): solicitação nasce no P&D ao salvar; a marca diz em que pé está a amostra.
-            (t.marca ? '<span class="badge" style="background:' + (t.amostra_em_desenvolvimento ? '#fef3c7;color:#92400e' : '#dcfce7;color:#166534') + '">' + escapeHtml(t.marca) + '</span>' : '') +
-            '<span style="color:var(--muted)">' + escapeHtml([o.projetoNumero, o.projeto].filter(Boolean).join(' ') || '—') +
-              (o.amostra ? ' · amostra ' + escapeHtml(o.amostra) : '') + (o.cliente ? ' · ' + escapeHtml(o.cliente) : '') +
-              '</span>' +
-            // 09/11/2026: o que o P&D mandou já à vista na fila (antes só aparecia ao abrir).
-            (function() {
-              var c = IngredienteCampos.camposDaSolicitacao(t);
-              var partes = ['<b>INCI:</b> ' + (c.inci ? escapeHtml(c.inci) : '<span style="color:#b45309">não informado no P&D</span>')];
-              if (c.fornecedor) {
-                var r = IngredienteCampos.fornecedorDoPd(c.fornecedor, fornecedoresDeMp());
-                var nomeCad = r.key ? ((allFornecedores[r.key] || {}).nomeFantasia || (allFornecedores[r.key] || {}).razaoSocial) : '';
-                partes.push('<b>Fornecedor:</b> ' + escapeHtml(c.fornecedor) + (nomeCad ? ' → ' + escapeHtml(nomeCad)
-                  : ' <span style="color:#b45309">' + (r.candidatos.length ? '(mais de um cadastro: escolher)' : '(não cadastrado)') + '</span>'));
-              } else partes.push('<b>Fornecedor:</b> <span style="color:#b45309">não informado no P&D</span>');
-              return '<span class="solic-mat-pd" style="font-size:12px">' + partes.join(' · ') + '</span>';
-            })() +
-            (function() {
-              // CAD-01: já avisa na fila quando existe material igual (abrir a tarefa mostra "Vincular").
-              var dup = DuplicidadeMaterial.duplicataExata(DuplicidadeMaterial.candidatos({ tipo: t.tipo, nome: t.nome, inci: t.inci }, allMateriais));
-              return dup ? '<span style="color:#b45309;font-weight:600">⛔ já existe ' + escapeHtml(dup.mpCodigo) + ' — abrir e vincular</span>' : '';
-            })() +
-          '</div>';
-        }).join('') +
+      '<div class="solic-mat-box">' +
+        '<b>🧪 ' + pend.length + (pend.length === 1 ? ' MP nova do P&D aguardando cadastro' : ' MPs novas do P&D aguardando cadastro') + '</b>' +
+        '<div class="solic-sub" style="margin:4px 0 8px">Chegam quando o P&D salva o ingrediente marcado como MP nova. "Cadastrar" abre o Novo Material já preenchido com o que o P&D mandou: confira, escolha o fornecedor se houver mais de um e salve. Isso gera o código interno e fecha a tarefa. Fragrância (MPES) exige o SKU de aprovação (código da amostra do fornecedor), sugerido a partir do nome.</div>' +
+        '<div class="table-wrap" data-ui="table-scroll"><table class="solic-mat-tab">' +
+          '<thead><tr><th>MP nova</th><th>INCI</th><th>Fornecedor</th><th>Preço</th><th>Uso na fórmula (amostra)</th><th>SKU de aprovação</th><th></th></tr></thead>' +
+          '<tbody>' + linhas + '</tbody></table></div>' +
       '</div>';
     box.querySelectorAll('.btn-cadastrar-solic-mat').forEach(function(btn) {
       btn.addEventListener('click', function() { abrirCadastroDeSolicitacaoMat(btn.getAttribute('data-solic')); });
@@ -2020,6 +2066,10 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('fTipo').value = d.tipo;
     updateTipoFieldsVisibility();
     document.getElementById('fNome-mat').value = d.nome;
+    // Fragrância: o código da amostra no nome vira o SKU de aprovação (sem ele o salvar parava, 12/11).
+    document.getElementById('fSkuAprovacao-mat').value = d.skuAprovacaoSugerido;
+    skuAutoDoNome = !!d.skuAprovacaoSugerido;
+    atualizarSkuEntradaUI();
     document.getElementById('fInci-mat').value = c.inci;
     document.getElementById('fInciFrag-mat').value = c.inci;
     document.getElementById('fFuncaoFormula-mat').value = c.funcaoFormula;
@@ -2111,6 +2161,23 @@ document.addEventListener('DOMContentLoaded', function() {
       .catch(function(err) { showAlert('Erro: ' + err.message, 'danger'); });
   }
 
+  /* SKU de aprovação a partir do nome (12/11/2026): o P&D e o cadastro escrevem o código da
+     amostra no nome ("J'ADORE - FAV374566 - GLAM"). Para fragrância, enquanto o campo estiver
+     vazio (ou ainda com o que veio do nome), o código do nome entra nele, marcado para conferir.
+     Digitou no campo, vale o digitado. Nada é gravado sem o Salvar. */
+  var skuAutoDoNome = false;
+  function sugerirSkuDoNome() {
+    var campo = document.getElementById('fSkuAprovacao-mat');
+    if (!SkuEntrada.exigeFinal(document.getElementById('fTipo').value)) {
+      if (skuAutoDoNome) { campo.value = ''; skuAutoDoNome = false; }
+    } else if (!campo.value.trim() || skuAutoDoNome) {
+      var cod = SkuEntrada.codigoAmostraDoNome(document.getElementById('fNome-mat').value);
+      campo.value = cod;
+      skuAutoDoNome = !!cod;
+    }
+    atualizarSkuEntradaUI();
+  }
+
   function atualizarSkuEntradaUI() {
     var tipo = document.getElementById('fTipo').value;
     var obrigatorio = SkuEntrada.exigeFinal(tipo);
@@ -2122,7 +2189,7 @@ document.addEventListener('DOMContentLoaded', function() {
       : 'O código interno acima é gerado no cadastro e não muda quando o SKU de entrada do fornecedor mudar.';
     var est = SkuEntrada.estado({ tipo: tipo, skusEntrada: { aprovacao: document.getElementById('fSkuAprovacao-mat').value, final: obrigatorio || querFinal ? document.getElementById('fSkuFinal-mat').value : '' } });
     var el = document.getElementById('skuEntradaStatus-mat');
-    el.textContent = est.rotulo;
+    el.textContent = est.rotulo + (skuAutoDoNome ? ' · SKU de aprovação preenchido a partir do nome — confira' : '');
     el.style.color = est.status === 'aguardando_final' ? '#b45309' : (est.status === 'validado' ? '#047857' : 'var(--muted)');
   }
 
@@ -2621,6 +2688,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function openModal(key) {
     editingKey = key || null;
+    skuAutoDoNome = false;
     var m = key ? (allMateriais[key] || {}) : {};
     fornecedoresHomologadosStaged = key ? JSON.parse(JSON.stringify(m.fornecedores || {})) : {};
 
@@ -2981,7 +3049,13 @@ document.addEventListener('DOMContentLoaded', function() {
       final: document.getElementById('fSkuFinal-mat').value,
       querFinal: document.getElementById('fQuerSkuFinal-mat').checked
     }, tipo, currentUserNome(), new Date().toISOString());
-    if (skuEntrada.erro) { showAlert(skuEntrada.erro, 'danger'); return; }
+    if (skuEntrada.erro) {
+      var sugeridoNome = SkuEntrada.exigeFinal(tipo) ? SkuEntrada.codigoAmostraDoNome(nome) : '';
+      showAlert(skuEntrada.erro + (sugeridoNome && !document.getElementById('fSkuAprovacao-mat').value.trim()
+        ? ' O nome traz "' + sugeridoNome + '": se for o código da amostra, digite-o no campo SKU de aprovação.' : ''), 'danger');
+      marcarCampoErro(document.getElementById('fSkuAprovacao-mat').value.trim() ? 'fSkuFinal-mat' : 'fSkuAprovacao-mat');
+      return;
+    }
     data.skusEntrada = skuEntrada.skusEntrada;
     // Manipulação em lote (D-02): criticoPd só o ADM muda (a regra do banco recusa o resto). O material é
     // regravado inteiro, então quem não é ADM leva a marca que já estava gravada.
@@ -3067,6 +3141,11 @@ document.addEventListener('DOMContentLoaded', function() {
     ['fNome-mat', 'fInci-mat', 'fInciFrag-mat'].forEach(function(id) { document.getElementById(id).addEventListener('input', renderDuplicidadeMat); });
     document.getElementById('fTipo').addEventListener('change', renderDuplicidadeMat);
     ['fSkuAprovacao-mat', 'fSkuFinal-mat'].forEach(function(id) { document.getElementById(id).addEventListener('input', atualizarSkuEntradaUI); });
+    document.getElementById('fSkuAprovacao-mat').addEventListener('input', function() { skuAutoDoNome = false; atualizarSkuEntradaUI(); });
+    // Só material novo: editar um cadastro não muda o SKU sozinho.
+    ['input', 'change'].forEach(function(ev) {
+      document.getElementById(ev === 'input' ? 'fNome-mat' : 'fTipo').addEventListener(ev, function() { if (!editingKey) sugerirSkuDoNome(); });
+    });
     document.getElementById('fQuerSkuFinal-mat').addEventListener('change', atualizarSkuEntradaUI);
     document.getElementById('fVolumeNominal-mat').addEventListener('input', updateHeadSpace);
     document.getElementById('fVolumeInterno-mat').addEventListener('input', updateHeadSpace);
@@ -5679,6 +5758,32 @@ document.addEventListener('DOMContentLoaded', function() {
   // partir desta" (só quando os 3 estiverem completos -- pedido do
   // usuário: emissão de OP só libera com as 3 aprovadas, então "pronta
   // pra evoluir" também passa a significar as 3, não só a Fórmula).
+  /* Qual versão a Emissão de OP usa (11/11/2026). A OP só pega versão com Fórmula, BOM e
+     Especificação aprovadas; a v2 do PRF-BIOF-0008 teve Fórmula e Especificação aprovadas e o BOM
+     ficou em rascunho, e a OP seguiu na v1 sem ninguém saber por quê. */
+  function renderVersaoUsoOp(f, b, e) {
+    var box = document.getElementById('versaoUsoOp-form');
+    if (!box) return;
+    var achado = produtoSelecionadoKey ? melhorFormulaDoProduto(produtoSelecionadoKey, allFormulas, allBom, allEspecificacoes) : null;
+    if (!achado || !versaoAtual) { box.style.display = 'none'; return; }
+    var usada = achado.temAprovada ? achado.registro.versao : '';
+    var faltando = [];
+    if (f.status !== 'APROVADA') faltando.push('Fórmula');
+    if (b.status !== 'APROVADA') faltando.push('BOM');
+    if (e.status !== 'APROVADA') faltando.push('Especificação');
+    var verde = !faltando.length && usada === versaoAtual;
+    box.style.background = verde ? 'var(--tint-green-bg)' : '#fff7e6';
+    box.style.color = verde ? 'var(--tint-green-fg)' : '#92400e';
+    box.style.border = '1px solid ' + (verde ? 'transparent' : '#f0c36d');
+    box.textContent = verde
+      ? '✓ Esta é a versão que a Emissão de OP usa.'
+      : faltando.length
+        ? '⚠ Esta versão ainda não vai para a OP: falta aprovar ' + faltando.join(', ') + '. ' +
+          (usada ? 'Até lá a OP continua usando a ' + usada + '.' : 'Nenhuma versão deste produto tem as três aprovadas.')
+        : 'Versão aprovada, mas a OP usa a ' + usada + ' (mais nova).';
+    box.style.display = 'block';
+  }
+
   function renderVersaoAcoes(key) {
     var el = document.getElementById('versaoAcoes-form');
     el.innerHTML = '';
@@ -5686,6 +5791,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Edição já finalizada fica no histórico: a versão não se apaga mais (10/11/2026).
     var ninguemComecouAprovar = !f.aprovadoPD && !b.aprovadoPCP && !e.aprovadoPD && !temEdicaoRegistrada(key);
     var todasAprovadas = f.status === 'APROVADA' && b.status === 'APROVADA' && e.status === 'APROVADA';
+    renderVersaoUsoOp(f, b, e);
 
     if (ninguemComecouAprovar) {
       var bDel = document.createElement('button');

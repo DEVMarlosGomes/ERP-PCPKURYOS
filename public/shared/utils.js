@@ -1092,6 +1092,29 @@ function melhorFormulaDoProduto(codProduto, allFormulas, allBom, allEspecificaco
   return { registro: pool[0], temAprovada: aprovadas.length > 0 };
 }
 
+// Versões MAIS NOVAS que a escolhida para a OP e que ainda não entram nela,
+// com o que falta aprovar em cada uma (mais nova primeiro). 11/11/2026: a v2
+// do PRF-BIOF-0008 trocou a MICA GOLD 33 e a SYNPEARL 10-100, teve Fórmula e
+// Especificação aprovadas, mas o BOM (copiado igual) ficou em rascunho; a OP
+// seguia na v1 sem dizer nada e parecia que "a fórmula nova não subiu".
+function versoesMaisNovasPendentes(codProduto, versaoEscolhida, allFormulas, allBom, allEspecificacoes) {
+  var base = parseVersaoNum(versaoEscolhida);
+  var porNum = {};
+  Object.values(allFormulas || {}).forEach(function(f) {
+    if (!f || f.codProduto !== codProduto) return;
+    var num = parseVersaoNum(f.versao);
+    if (num > base && !porNum[num]) porNum[num] = f;
+  });
+  return Object.keys(porNum).map(Number).sort(function(a, b) { return b - a; }).map(function(num) {
+    var f = porNum[num], key = chaveVersao(codProduto, f.versao);
+    var faltando = [];
+    if (f.status !== 'APROVADA') faltando.push('Fórmula');
+    if (((allBom || {})[key] || {}).status !== 'APROVADA') faltando.push('BOM');
+    if (((allEspecificacoes || {})[key] || {}).status !== 'APROVADA') faltando.push('Especificação');
+    return { versao: f.versao, faltando: faltando };
+  }).filter(function(v) { return v.faltando.length; });
+}
+
 // Só sabe calcular fisicamente a partir de ml/L -- outras unidades (g/kg/un)
 // bloqueiam com erro explícito em vez de um número silenciosamente errado.
 function volumeNominalEmLitros(produto) {

@@ -285,7 +285,9 @@ function montarOrdem({lote, ctx, conf, versoes, novoId, autor, agora, tenant, re
         if (sol) {
           u[`solicitacoes_cadastro_material/${sol}/origens/${fid}__${item.id}`] = semVazios({pdRequestId: r, formulaId: fid, formulaVersao: versao, itemId: item.id,
             projetoId: lote.projeto_id, projetoNumero: lote.projeto_numero || "", projeto: lote.projeto_nome || "", amostra: req.internal_code || cod,
-            cliente: req.client_name || "", origemLote: lote.codigo, ativa: true, registradaEm: agora});
+            cliente: req.client_name || "", origemLote: lote.codigo, ativa: true, registradaEm: agora,
+            // % m/m da MP nesta amostra: o Cadastros mostra na fila quanto foi usado (12/11/2026).
+            percentual: pct > 0 ? pct : undefined});
         } else {
           avisos.push(`${cod}: ${ing.nome} é MP nova sem solicitação na fila do Cadastros — registre-a pela fórmula de origem.`);
         }

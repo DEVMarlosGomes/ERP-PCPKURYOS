@@ -75,6 +75,25 @@
     return { skusEntrada: novo };
   }
 
+  /* Código da amostra do fornecedor que o P&D escreve no nome da fragrância
+     (11/11/2026): "FRAGRANCIA YARA - GF48244", "J'ADORE - FAV374566 - GLAM",
+     "Fragrância Uva C02704-00062", "ESSENCIA ASAD - FAV 380759". As 22 MPs da
+     fila são MPES e nenhuma chegava com o SKU de aprovação, que o cadastro exige:
+     o salvar parava e o aviso ficava atrás do modal. É só SUGESTÃO, quem
+     cadastra confere. Pega o ÚLTIMO código (letras + 3 ou mais dígitos);
+     número solto ("200ML", "24/410") não serve. */
+  var RE_CODIGO_AMOSTRA = /(?:^|[^A-Z0-9])([A-Z]{1,5}) ?(\d{3,}(?:-\d{2,})?)(?=$|[^A-Z0-9])/g;
+  function codigoAmostraDoNome(nome) {
+    var s = txt(nome).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+    var m, ultimo = '';
+    RE_CODIGO_AMOSTRA.lastIndex = 0;
+    while ((m = RE_CODIGO_AMOSTRA.exec(s))) {
+      ultimo = m[1] + m[2];
+      RE_CODIGO_AMOSTRA.lastIndex = m.index + m[0].length;
+    }
+    return ultimo;
+  }
+
   /* ── Fila de cadastro que vem do P&D ─────────────────────────────── */
 
   function pendentes(fila) {
@@ -91,13 +110,44 @@
     if (o.amostra) partes.push('amostra ' + o.amostra);
     if (o.cliente) partes.push('cliente ' + o.cliente);
     if (o.formulaVersao) partes.push('fórmula v' + o.formulaVersao);
+    var tipo = s && s.tipo === 'MPES' ? 'MPES' : 'MPGR';
     return {
-      tipo: s && s.tipo === 'MPES' ? 'MPES' : 'MPGR',
+      tipo: tipo,
+      skuAprovacaoSugerido: exigeFinal(tipo) ? codigoAmostraDoNome(s && s.nome) : '',
       nome: txt(s && s.nome),
       inci: txt(s && s.inci),
       fornecedorNome: txt(s && s.fornecedor),
       especificacoes: partes.join(' · ') + '.'
     };
+  }
+
+  /* Onde a MP é usada nas amostras do P&D, para a fila mostrar "quanto usou"
+     (pedido de 11/11). Cada origem ativa traz amostra/projeto e o percentual
+     da linha na fórmula (gravado pelo P&D desde 12/11; antes vazio, mostra "—"). */
+  function usosDaSolicitacao(s) {
+    var origens = (s && s.origens) || {};
+    var lista = Object.keys(origens).map(function(k) { return origens[k]; })
+      .filter(function(o) { return o && o.ativa !== false; });
+    if (!lista.length && s && s.origem) lista = [s.origem];
+    // A origem do próprio lote ("lote_…") não tem amostra: é a mesma MP já listada pela amostra.
+    // Só aparece se for a única.
+    var comAmostra = lista.filter(function(o) { return txt(o.amostra) || txt(o.origemLote); });
+    if (comAmostra.length) lista = comAmostra;
+    var porAmostra = {}, ordem = [];
+    lista.forEach(function(o) {
+      var pct = Number(o.percentual);
+      var u = {
+        amostra: txt(o.amostra) || txt(o.origemLote),
+        projeto: [txt(o.projetoNumero), txt(o.projeto)].filter(Boolean).join(' '),
+        cliente: txt(o.cliente),
+        percentual: o.percentual != null && isFinite(pct) && pct > 0 ? pct : null
+      };
+      // A mesma amostra aparece pela fórmula de origem e pela cópia do lote: fica uma, com o percentual que houver.
+      var ch = u.amostra || ('#' + ordem.length);
+      if (!porAmostra[ch]) { porAmostra[ch] = u; ordem.push(ch); }
+      else if (porAmostra[ch].percentual == null) porAmostra[ch].percentual = u.percentual;
+    });
+    return ordem.map(function(ch) { return porAmostra[ch]; });
   }
 
   function fechamento(materialKey, mpCodigo, autor, agora) {
@@ -107,6 +157,7 @@
   return {
     TIPOS_FINAL_OBRIGATORIO: TIPOS_FINAL_OBRIGATORIO, STATUS_ROTULO: STATUS_ROTULO,
     exigeFinal: exigeFinal, estado: estado, aplicar: aplicar,
-    pendentes: pendentes, dadosParaFormulario: dadosParaFormulario, fechamento: fechamento
+    pendentes: pendentes, dadosParaFormulario: dadosParaFormulario, fechamento: fechamento,
+    codigoAmostraDoNome: codigoAmostraDoNome, usosDaSolicitacao: usosDaSolicitacao
   };
 });

@@ -155,6 +155,10 @@ const porId = (l) => Object.fromEntries(l.map((x) => [x.id, x]));
   const origens = Object.keys(await ler('solicitacoes_cadastro_material/NOME__EXTRATO_NOVO/origens'));
   assert.equal(origens.length, 4);
   assert.ok(origens.includes('F2__i2c'));
+  // 12/11/2026: a origem gerada pelo lote leva o % da MP na amostra (a fila do Cadastros mostra quanto usou).
+  const origensLote = Object.values(await ler('solicitacoes_cadastro_material/NOME__EXTRATO_NOVO/origens')).filter((o) => o.origemLote);
+  assert.ok(origensLote.length >= 1);
+  origensLote.forEach((o) => assert.ok(o.percentual > 0, 'origem do lote com percentual'));
   assert.equal(Object.keys(await ler('solicitacoes_cadastro_material')).length, 1);
   passo('CRM: composição na variação, irmã preservada; MP nova acrescenta origens na mesma solicitação');
   await recusa(chamar('pd', { acao: 'gerar_ordem', revisao: 7 }), 'failed-precondition', /Concluído/);
