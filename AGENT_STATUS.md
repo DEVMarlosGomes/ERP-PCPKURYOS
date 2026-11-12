@@ -7,9 +7,9 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ### Claude (sessão `pcp-kuryos-main-0b`) — Amostras de MP no Cadastros (11/11/2026)
 
-- **Em especificação** (proposta "aba Amostras P&D no Cadastro"; decisões do Marlos: aba dentro do Cadastros;
+- **Spec e plano aprovados para revisão** (proposta "aba Amostras P&D no Cadastro"; decisões do Marlos: aba dentro do Cadastros;
   fornecedor do cadastro ou criado na aba Fornecedores; quantidade sim; homologação simples; motivos como
-  propostos; gravação por callable). Spec: `docs/superpowers/specs/2026-11-11-amostras-mp-design.md`.
+  propostos; gravação por callable). Spec: `docs/superpowers/specs/2026-11-11-amostras-mp-design.md`; plano: `docs/superpowers/plans/2026-11-11-amostras-mp.md`.
   Nada implementado ainda. Arquivos ativos: só a spec.
 
 ### Claude (sessão `pcp-kuryos-main-0b`) — Restauração dos 8 materiais sobrescritos + nome atual nas versões aprovadas (11/11/2026)
