@@ -150,11 +150,12 @@ function fakeDb() {
     assert.deepEqual(agendados, [30000]);
   });
 
-  await check('as 46 funções reais são reconhecidas (34 callables, 2 APIs, 6 gatilhos e 4 agendas)', async () => {
+  await check('as 47 funções reais são reconhecidas (35 callables, 2 APIs, 6 gatilhos e 4 agendas)', async () => {
     const real = require('./functions/index.js');
     const count = {};
     for (const f of Object.values(real)) { const k = server.kindOf(f); count[k] = (count[k] || 0) + 1; }
-    assert.deepEqual(count, { callable: 34, request: 2, event: 6, schedule: 4 });
+    assert.deepEqual(count, { callable: 35, request: 2, event: 6, schedule: 4 });
+    assert.equal(server.kindOf(real.amostraMp), 'callable'); // amostras de MP (11/11)
     assert.equal(server.kindOf(real.cobrancaInterna), 'callable'); // cobranças internas (11/11)
     assert.equal(server.kindOf(real.emitirOpServidor), 'callable');
     assert.equal(server.kindOf(real.alterarTitularidadeEstoque), 'callable');

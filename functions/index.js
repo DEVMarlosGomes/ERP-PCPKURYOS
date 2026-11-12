@@ -21,6 +21,7 @@ const PedidoDiretoria = require("./pedido_diretoria");
 const {prepararFaturamento} = require("./faturamento_carga");
 const FaturamentoEmail = require("./faturamento_email");
 const Cobrancas = require("./cobrancas");
+const AmostrasMp = require("./amostras_mp");
 const EmailEnvio = require("./email_envio");
 const DevolucaoCliente = require("./devolucao_cliente");
 const Titularidade = require("./titularidade");
@@ -781,6 +782,20 @@ exports.cobrancaInterna = onCall({timeoutSeconds: 60, secrets: [MS_GRAPH_TENANT_
   if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para usar as cobranças.");
   try {
     return await servicoCobrancas.executar(request.auth.uid, request.data || {});
+  } catch (e) {
+    if (e && e.code && !(e instanceof HttpsError)) throw new HttpsError(e.code, e.message);
+    throw e;
+  }
+});
+
+// ── Amostras de MP (functions/amostras_mp.js, 11/11/2026) ─────────────
+// P&D registra a amostra pedida ao fornecedor, a logística dá baixa e o P&D
+// homologa ou reprova. Só o servidor grava amostras_mp/ (regras do banco).
+const servicoAmostrasMp = AmostrasMp.criarServico({db});
+exports.amostraMp = onCall({timeoutSeconds: 30}, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para usar as amostras.");
+  try {
+    return await servicoAmostrasMp.executar(request.auth.uid, request.data || {});
   } catch (e) {
     if (e && e.code && !(e instanceof HttpsError)) throw new HttpsError(e.code, e.message);
     throw e;
