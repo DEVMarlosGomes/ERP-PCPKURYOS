@@ -14,6 +14,10 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   branco para pesar; peças ≥ caixa cheia trava a impressão. Logo antigo com margem: reenviar em Cadastros › Clientes.
   Testes: `run_etiqueta_caixa_test` 13, `_ui_test` (Chrome), emissão de OP 42, coerência 427. Manuais PCP e
   Referência. **Pendente (Marlos):** deploy da VPS. Arquivos ativos: nenhum.
+- **12/11, ajuste (pedido do Marlos):** ampliar o logo empurrava nome/grade/código. Agora a faixa é fixa (11/13 mm)
+  e o "Tamanho do logo" (50–300%) é zoom centralizado dentro dela: o que passa é cortado (a margem branca de logo
+  antigo some primeiro) e o resto da etiqueta não se move (medido no Chrome em 100/150/250%, os dois formatos).
+  Envio do logo corta a margem na resolução original e só depois reduz (máx. 1200 x 400, era 800 x 300 antes do corte).
 
 ### Claude (sessão `fila-mp-versao`) — Fila de MP nova do P&D + aviso de versão pendente na OP (11–12/11/2026)
 

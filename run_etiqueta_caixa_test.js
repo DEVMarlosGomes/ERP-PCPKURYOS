@@ -97,17 +97,22 @@ t('pagina: cheias + 1 parcial com as peças; sem peças, sem parcial', () => {
   assert.equal((E.pagina(d, {cheias: 3, pecasParcial: 0}).match(/<section class="etq">/g) || []).length, 3);
 });
 
-t('logo: maior por padrão e ajustável (50% a 200%), salvo no cliente', () => {
+t('logo: ampliar não mexe no resto; a faixa é fixa e o logo cresce dentro dela, cortando as bordas da imagem', () => {
   const d = E.dados(OP, PROD, {logoEtiquetaUrl: 'https://x/l.png'});
   const altura = (html) => parseFloat((html.match(/\.topo\{[^}]*height:([\d.]+)mm/) || [])[1]);
+  const escala = (html) => parseFloat((html.match(/\.logo\{[^}]*transform:scale\(([\d.]+)\)/) || [])[1]);
   assert.equal(altura(E.pagina(d, {cheias: 1})), 11, '90x55: 11 mm (era 9)');
   assert.equal(altura(E.pagina(d, {cheias: 1, formato: '100x70'})), 13, '100x70: 13 mm (o que cabe com nome de duas linhas)');
-  assert.equal(altura(E.pagina(d, {cheias: 1, logoPct: 150})), 16.5);
-  assert.equal(altura(E.pagina(d, {cheias: 1, logoPct: 999})), 22, 'teto de 200%');
-  assert.equal(altura(E.pagina(d, {cheias: 1, logoPct: 10})), 5.5, 'piso de 50%');
+  for (const p of [50, 150, 300]) assert.equal(altura(E.pagina(d, {cheias: 1, logoPct: p})), 11, 'faixa fixa com ' + p + '%');
+  assert.equal(escala(E.pagina(d, {cheias: 1})), 1);
+  assert.equal(escala(E.pagina(d, {cheias: 1, logoPct: 150})), 1.5);
+  assert.equal(escala(E.pagina(d, {cheias: 1, logoPct: 999})), 3, 'teto de 300%');
+  assert.equal(escala(E.pagina(d, {cheias: 1, logoPct: 10})), 0.5, 'piso de 50%');
+  assert.match(E.pagina(d, {cheias: 1}), /\.lf\{[^}]*overflow:hidden/, 'o que passa da faixa é cortado');
+  assert.ok(E.cartao(d).includes('<div class="lf"><img class="logo"'), 'logo dentro da moldura que corta');
   assert.equal(E.dados(OP, PROD, {logoEtiquetaTamanho: 130}).logoPct, 130, 'tamanho salvo no cliente');
   assert.equal(E.dados(OP, PROD, {}).logoPct, 100);
-  assert.equal(altura(E.pagina(E.dados(OP, PROD, {logoEtiquetaTamanho: 120}), {cheias: 1})), 13.2, 'sem opção, vale o do cliente');
+  assert.equal(escala(E.pagina(E.dados(OP, PROD, {logoEtiquetaTamanho: 120}), {cheias: 1})), 1.2, 'sem opção, vale o do cliente');
 });
 
 t('logo: imagem quando há; nome quando não há; sem DUN mostra o espaço', () => {

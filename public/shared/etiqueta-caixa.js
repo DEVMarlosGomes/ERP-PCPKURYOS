@@ -92,8 +92,9 @@
   function dun14Texto(s) { return s ? s[0] + ' ' + s.slice(1, 3) + ' ' + s.slice(3, 8) + ' ' + s.slice(8, 13) + ' ' + s[13] : ''; }
 
   /* ── Dados ── */
-  // Tamanho do logo em % da faixa padrão do formato: 50% a 200%; vazio = 100%.
-  var LOGO_MIN = 50, LOGO_MAX = 200;
+  // Zoom do logo dentro da faixa (12/11): 50% a 300%; vazio = 100%. A faixa tem altura fixa, então ampliar
+  // corta as bordas da imagem e nunca empurra nome, grade, código de barras ou rodapé.
+  var LOGO_MIN = 50, LOGO_MAX = 300;
   function logoPct(v) { var n = parseFloat(v); return isFinite(n) && n > 0 ? Math.min(LOGO_MAX, Math.max(LOGO_MIN, Math.round(n))) : 100; }
   function validadeTexto(v) {
     if (!v) return '';
@@ -167,7 +168,7 @@
   function cartao(d, parcial, fmt) {
     fmt = fmt || FORMATOS['90x55'];
     var cab = d.logoUrl
-      ? '<img class="logo" src="' + esc(d.logoUrl) + '" alt="' + esc(d.clienteNome) + '">'
+      ? '<div class="lf"><img class="logo" src="' + esc(d.logoUrl) + '" alt="' + esc(d.clienteNome) + '"></div>'
       : '<div class="cli">' + esc(d.clienteNome || ' ') + '</div>';
     var pecas = parcial === true ? 0 : (parseInt(parcial, 10) || 0);
     var qtd = parcial ? (pecas ? numBR(pecas) + ' un' : '') : (d.qtdCaixa ? numBR(d.qtdCaixa) + ' un' : '');
@@ -192,14 +193,17 @@
 
   function css(fmt, pct) {
     var e = fmt.escala;
-    var faixa = +(fmt.logoAlt * logoPct(pct) / 100).toFixed(2);
+    var zoom = logoPct(pct) / 100;
     function pt(v) { return (v * e).toFixed(2) + 'pt'; }
     return '@page{size:' + fmt.pagina + ';margin:0}' +
       'body{font-family:Arial,Helvetica,sans-serif;margin:0;color:#000;background:#fff}' +
       '.etq{width:' + fmt.largura + 'mm;height:' + fmt.altura + 'mm;box-sizing:border-box;padding:2.5mm 3mm 1.8mm;display:flex;flex-direction:column;overflow:hidden;page-break-after:always;break-after:page}' +
       '.etq:last-child{page-break-after:auto;break-after:auto}' +
-      '.topo{display:flex;justify-content:space-between;align-items:center;gap:2mm;height:' + faixa + 'mm;border-bottom:.35mm solid #000;padding-bottom:.8mm;flex:none}' +
-      '.logo{height:100%;width:auto;max-width:75%;object-fit:contain;object-position:left center;display:block}' +
+      '.topo{display:flex;justify-content:space-between;align-items:center;gap:2mm;height:' + fmt.logoAlt + 'mm;border-bottom:.35mm solid #000;padding-bottom:.8mm;flex:none}' +
+      // Moldura da faixa: logo centralizado; ampliado, cresce a partir do centro e o que passa da faixa é
+      // cortado por igual nos quatro lados (margem branca de logo antigo some primeiro).
+      '.lf{flex:1 1 auto;min-width:0;height:100%;overflow:hidden}' +
+      '.logo{width:100%;height:100%;object-fit:contain;object-position:center;display:block;transform:scale(' + zoom + ');transform-origin:center}' +
       '.cli{font-size:' + pt(13) + ';font-weight:bold;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}' +
       '.tag{font-size:' + pt(7.5) + ';font-weight:bold;background:#000;color:#fff;padding:.4mm 1.5mm;border-radius:1mm;white-space:nowrap}' +
       '.prod{font-size:' + pt(9.5) + ';font-weight:bold;line-height:1.12;margin:1mm 0 .8mm;max-height:2.3em;overflow:hidden;flex:none}' +
@@ -271,7 +275,7 @@
         '<button type="button" class="btn btn-ghost btn-sm" id="etqCxLogoMais" aria-label="Aumentar o logo">+</button>' +
         '<span id="etqCxLogoValor" style="min-width:118px;font-variant-numeric:tabular-nums"></span>' +
         '<button type="button" class="btn btn-ghost btn-sm" id="etqCxLogoPadrao">Padrão</button></div>' +
-        '<div style="font-size:12px;color:var(--text-muted,#666);margin-top:3px">Fica salvo no cadastro do cliente e vale para as próximas etiquetas dele.</div></div>' +
+        '<div style="font-size:12px;color:var(--text-muted,#666);margin-top:3px">Ampliar não muda o resto da etiqueta: o logo cresce dentro da faixa e o que passar dela é cortado (bom para logo com margem em branco). Fica salvo no cadastro do cliente e vale para as próximas etiquetas dele.</div></div>' +
       '<div id="etqCxAjuste" role="status" style="display:none;margin-top:8px;font-size:13px;background:#fff4e5;color:#7a4b00;border:1px solid #f0c27a;border-radius:6px;padding:6px 10px"></div>' +
       '<div style="margin-top:12px;background:#e9e9e9;border-radius:8px;padding:10px;display:flex;justify-content:center"><iframe id="etqCxPrev" title="Pré-visualização da etiqueta" style="border:0;background:transparent;width:100%;height:290px"></iframe></div>' +
       '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap"><span id="etqCxTotal" style="margin-right:auto;align-self:center;font-size:13px"></span>' +
@@ -289,11 +293,11 @@
     function pctLogo() { return logoPct($('etqCxLogo').value); }
     // Parcial com peças de caixa cheia (ou mais) não é parcial: trava a impressão e diz o porquê.
     function erroPecas() { return d && d.qtdCaixa && pecasParcial() >= d.qtdCaixa ? 'Com ' + pecasParcial() + ' peças a caixa não é parcial (cheia = ' + d.qtdCaixa + '). Some uma caixa cheia e informe só a sobra.' : ''; }
-    // Conteúdo que não cabe (logo grande demais para o formato) fica cortado na impressão: avisa.
+    // Conteúdo que não cabe fica cortado na impressão: avisa. O logo não causa isso (faixa fixa); fica a salvaguarda.
     function conferirEncaixe() {
       var aj = $('etqCxAjuste'), ep = erroPecas(), corta = false;
       try { var el = $('etqCxPrev').contentDocument.querySelector('.etq'); corta = !!el && el.scrollHeight > el.clientHeight + 1; } catch (e) { corta = false; }
-      var msg = [ep, corta ? 'Com este tamanho de logo o conteúdo não cabe na etiqueta e o rodapé sai cortado. Diminua o logo ou use o formato 100 × 70 mm.' : ''].filter(Boolean).join(' ');
+      var msg = [ep, corta ? 'O conteúdo não cabe na etiqueta e o rodapé sai cortado. Use o formato 100 × 70 mm.' : ''].filter(Boolean).join(' ');
       aj.style.display = msg ? '' : 'none'; aj.textContent = msg;
     }
     function render() {
@@ -305,8 +309,7 @@
       prev.srcdoc = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:transparent;display:flex;justify-content:center">' + pagina(dd, opc) +
         '<style>@media screen{body{padding:0!important;background:transparent!important}.etq{margin:0!important;transform:scale(' + (270 / (fmt.altura * 3.78)).toFixed(3) + ');transform-origin:top center}}</style></body>';
       prev.onload = conferirEncaixe;
-      var fmtLogo = +(fmt.logoAlt * pctLogo() / 100).toFixed(1);
-      $('etqCxLogoValor').textContent = pctLogo() + '% · ' + numBR(fmtLogo, 1) + ' mm de altura';
+      $('etqCxLogoValor').textContent = pctLogo() + '%' + (pctLogo() > 100 ? ' · corta as bordas' : '');
       var cheias = parseInt($('etqCxCheias').value, 10) || 0, total = cheias + (pecasParcial() ? 1 : 0);
       $('etqCxTotal').textContent = total + ' etiqueta' + (total === 1 ? '' : 's') + (pecasParcial() ? ' (' + cheias + ' cheia' + (cheias === 1 ? '' : 's') + ' + 1 parcial com ' + pecasParcial() + ' un)' : '');
       $('etqCxImprimir').disabled = !total || !!erroPecas();
@@ -387,24 +390,31 @@
     return out;
   }
 
-  /* Logo do cliente (Cadastros › Clientes): reduz para no máximo 800 x 300 px
-     sobre fundo branco (transparência vira preto em algumas térmicas) e
-     devolve {blob PNG, preview dataURL}. */
+  /* Logo do cliente (Cadastros › Clientes): sobre fundo branco (transparência vira preto em algumas
+     térmicas), corta a margem branca na resolução original e só depois reduz para no máximo
+     1200 x 400 px — o desenho guarda pixels para sair nítido mesmo ampliado na etiqueta.
+     Devolve {blob PNG, preview dataURL}. */
   function prepararLogo(arquivo) {
     return new Promise(function(resolve, reject) {
       if (!arquivo || !/^image\//.test(arquivo.type || '')) return reject(new Error('Escolha um arquivo de imagem (PNG, JPG, WEBP ou SVG).'));
       if (arquivo.size > 10 * 1024 * 1024) return reject(new Error('Imagem maior que 10 MB.'));
       var url = URL.createObjectURL(arquivo), img = new Image();
       img.onload = function() {
-        var w = img.naturalWidth || 800, h = img.naturalHeight || 300;
-        var k = Math.min(1, 800 / w, 300 / h);
-        var cv = document.createElement('canvas');
-        cv.width = Math.max(1, Math.round(w * k)); cv.height = Math.max(1, Math.round(h * k));
-        var ctx = cv.getContext('2d');
-        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
-        ctx.drawImage(img, 0, 0, cv.width, cv.height);
+        function tela(w, h, fonte) {
+          var c = document.createElement('canvas');
+          c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h));
+          var ctx = c.getContext('2d');
+          ctx.imageSmoothingQuality = 'high';
+          ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+          ctx.drawImage(fonte, 0, 0, c.width, c.height);
+          return c;
+        }
+        var w = img.naturalWidth || 1200, h = img.naturalHeight || 400;
+        var k0 = Math.min(1, 4000 / Math.max(w, h)); // teto de memória para o corte (foto enorme)
+        var cv = cortarMargemBranca(tela(w * k0, h * k0, img));
         URL.revokeObjectURL(url);
-        cv = cortarMargemBranca(cv);
+        var k = Math.min(1, 1200 / cv.width, 400 / cv.height);
+        if (k < 1) cv = tela(cv.width * k, cv.height * k, cv);
         var preview = cv.toDataURL('image/png');
         cv.toBlob(function(blob) { blob ? resolve({blob: blob, preview: preview}) : reject(new Error('Não consegui converter a imagem.')); }, 'image/png');
       };

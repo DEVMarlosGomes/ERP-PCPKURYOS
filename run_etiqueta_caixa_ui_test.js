@@ -170,6 +170,17 @@ async function abrir(browser, estadoInicial, pagina) {
       return [img.naturalWidth, img.naturalHeight];
     });
     assert.ok(recorte[0] <= 110 && recorte[0] >= 100 && recorte[1] <= 50 && recorte[1] >= 40, 'margem cortada: ' + recorte);
+    // Arquivo grande com muita margem: corta na resolução original e só depois reduz (máx. 1200 x 400),
+    // senão o desenho ficava com poucos pixels e saía borrado ao ampliar na etiqueta.
+    const grande = await page.evaluate(async () => {
+      const cv = document.createElement('canvas'); cv.width = 3000; cv.height = 1500;
+      const c = cv.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, 3000, 1500); c.fillStyle = '#000'; c.fillRect(500, 500, 2000, 500);
+      const blob = await new Promise((r) => cv.toBlob(r, 'image/png'));
+      const r = await EtiquetaCaixa.prepararLogo(new File([blob], 'g.png', {type: 'image/png'}));
+      const img = new Image(); img.src = r.preview; await img.decode();
+      return [img.naturalWidth, img.naturalHeight];
+    });
+    assert.ok(grande[0] === 1200 && grande[1] <= 400 && grande[1] >= 300, 'desenho guarda resolução: ' + grande);
     assert.deepEqual(errors, [], 'erros em Cadastros: ' + errors.join(' | '));
     await page.close();
 
@@ -198,14 +209,35 @@ async function abrir(browser, estadoInicial, pagina) {
     assert.match(await pg.locator('#etqCxPrev').getAttribute('srcdoc'), /\.topo\{[^}]*height:11mm/);
     await pg.click('#etqCxLogoMais'); await pg.click('#etqCxLogoMais');
     assert.equal(await pg.inputValue('#etqCxLogo'), '110');
-    await pg.fill('#etqCxLogo', '150');
-    assert.match(await pg.locator('#etqCxPrev').getAttribute('srcdoc'), /\.topo\{[^}]*height:16\.5mm/);
-    assert.match(await pg.locator('#etqCxLogoValor').innerText(), /150% · 16,5 mm/);
-    // Grande demais para 90 x 55: avisa que o rodapé sai cortado.
-    await pg.fill('#etqCxLogo', '200');
-    await pg.waitForFunction(() => /não cabe/.test(document.getElementById('etqCxAjuste').textContent));
+    // Ampliar não empurra o resto (pedido de 12/11): nome, grade, código de barras e rodapé ficam no mesmo
+    // lugar; o logo cresce dentro da faixa e o que passa dela é cortado.
+    const aguardarPrev = (escala) => pg.waitForFunction((s) => {
+      const doc = document.getElementById('etqCxPrev').contentDocument;
+      const st = doc && doc.querySelector('style');
+      return !!st && st.textContent.includes('transform:scale(' + s + ')') && doc.readyState === 'complete';
+    }, escala);
+    const posicoes = () => pg.evaluate(() => {
+      const doc = document.getElementById('etqCxPrev').contentDocument;
+      return ['.topo', '.prod', '.grade', '.dun', '.rod'].map((s) => Math.round(doc.querySelector(s).getBoundingClientRect().bottom * 10) / 10);
+    });
+    await pg.fill('#etqCxLogo', '100');
+    await aguardarPrev('1');
+    const antes = await posicoes();
+    await pg.fill('#etqCxLogo', '300');
+    await aguardarPrev('3');
+    await pg.waitForTimeout(150);
+    assert.deepEqual(await posicoes(), antes, 'ampliar o logo não mexe no resto da etiqueta');
+    const corte = await pg.evaluate(() => {
+      const doc = document.getElementById('etqCxPrev').contentDocument, lf = doc.querySelector('.lf');
+      return {overflow: getComputedStyle(lf).overflow, logo: doc.querySelector('.logo').getBoundingClientRect().height, faixa: lf.getBoundingClientRect().height};
+    });
+    assert.equal(corte.overflow, 'hidden');
+    assert.ok(corte.logo > corte.faixa * 2, 'logo a 300% passa da faixa e é cortado: ' + JSON.stringify(corte));
+    assert.equal(await pg.evaluate(() => document.getElementById('etqCxAjuste').style.display), 'none', 'rodapé não sai cortado');
+    assert.match(await pg.locator('#etqCxLogoValor').innerText(), /300%/);
+    if (process.env.ETQ_SHOTS) await pg.locator('#etqCxPrev').screenshot({path: process.env.ETQ_SHOTS + '/etq-logo-300.png'});
     await pg.fill('#etqCxLogo', '120');
-    await pg.waitForFunction(() => document.getElementById('etqCxAjuste').style.display === 'none');
+    await aguardarPrev('1.2');
     // Peças de caixa cheia na parcial: não deixa imprimir e diz o porquê.
     await pg.fill('#etqCxPecas', '24');
     assert.equal(await pg.isDisabled('#etqCxImprimir'), true);
@@ -225,7 +257,8 @@ async function abrir(browser, estadoInicial, pagina) {
     assert.equal((html.match(/CAIXA PARCIAL/g) || []).length, 1);
     assert.equal((html.match(/10 un/g) || []).length, 1, 'a parcial sai com as 10 peças');
     assert.equal((html.match(/24 un/g) || []).length, 2, 'as cheias com 24');
-    assert.match(html, /\.topo\{[^}]*height:13\.2mm/, 'impressão com o tamanho escolhido');
+    assert.match(html, /\.logo\{[^}]*transform:scale\(1\.2\)/, 'impressão com o tamanho escolhido');
+    assert.match(html, /\.topo\{[^}]*height:11mm/, 'a faixa do logo não muda');
     assert.match(html, /L2609A/);
     assert.match(html, /26273\/03/, 'lote interno continua o da OP');
     assert.match(html, /logo-enviado\.png/);
