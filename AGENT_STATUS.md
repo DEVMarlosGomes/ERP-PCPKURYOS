@@ -23,12 +23,21 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   (41 caminhos planos, plano e backup em `scratch/fila-mp-percentual-20261112/`, barrado pela permissão desta
   sessão); aprovar o BOM da v2 do PRF-BIOF-0008. Arquivos ativos: nenhum.
 
-### Claude (sessão `pcp-kuryos-main-0b`) — Amostras de MP no Cadastros (11/11/2026)
+### Claude (sessão `pcp-kuryos-main-0b`) — Amostras de MP no Cadastros (11–12/11/2026)
 
-- **Spec e plano aprovados para revisão** (proposta "aba Amostras P&D no Cadastro"; decisões do Marlos: aba dentro do Cadastros;
-  fornecedor do cadastro ou criado na aba Fornecedores; quantidade sim; homologação simples; motivos como
-  propostos; gravação por callable). Spec: `docs/superpowers/specs/2026-11-11-amostras-mp-design.md`; plano: `docs/superpowers/plans/2026-11-11-amostras-mp.md`.
-  Nada implementado ainda. Arquivos ativos: só a spec.
+- **Código concluído** (`d5dc90c`..`9c2ef53` em `hostinger-deploy`; spec `docs/superpowers/specs/2026-11-11-amostras-mp-design.md`,
+  plano `docs/superpowers/plans/2026-11-11-amostras-mp.md`). Aba **Amostras de MP** no Cadastros: P&D registra a amostra
+  (nova ou já cadastrada, fornecedor, custo/kg, custo, quantidade g/kg, motivo, previsão), logística dá baixa (data e
+  forma), P&D homologa ou reprova (parecer obrigatório ao reprovar) ou cancela (motivo). Grava só a callable
+  `amostraMp` (`functions/amostras_mp.js`, 35 callables); regras: `amostras_mp` só leitura, `amostras_mp_pedidos`
+  fechado, P&D **cria** fornecedor novo (não edita). Módulo `amostras_mp` (padrão de pd, logistica, pcp; também em
+  `identidade_acesso.js`): quem não tem Cadastros vê só a aba (o P&D também Fornecedores). "Cadastrar MP" usa a fila
+  `solicitacoes_cadastro_material`. Testes: `run_amostras_mp_test` 7, `_tela_test` 5, `_ui_test` 6 (Chrome),
+  `_emulator_test` 4 (porta 9077), navegação 39 perfis, render 14/14, histórico de cadastro (+ emulador), identidade 27;
+  revisão independente sem crítico (importante corrigido em `9c2ef53`). Rodada completa: falhas restantes são de
+  ambiente (emulador/credencial/@zxing) ou já falhavam na base `5953b42`.
+  **Pendente (Marlos), nesta ordem:** publicar regras (`firebase deploy --only database --project erpkuryos`) e só
+  então o deploy da VPS. Quem tem módulos personalizados recebe `amostras_mp` pelo ADM em Usuários. Arquivos ativos: nenhum.
 
 ### Claude (sessão `pcp-kuryos-main-0b`) — Restauração dos 8 materiais sobrescritos + nome atual nas versões aprovadas (11/11/2026)
 
