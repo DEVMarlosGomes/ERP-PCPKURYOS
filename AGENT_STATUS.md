@@ -5,6 +5,15 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude (sessão `fin-webmais`) — Financeiro Entrega B: adiantamento, renegociação, cancelamento (12/11/2026)
+
+- **Spec escrito, aguardando revisão do Marlos:** `docs/superpowers/specs/2026-11-12-financeiro-entrega-b-design.md`.
+  Decisões: cancelamento com dois motivos (engano desfaz; incobrável = perda com clientes), vale para receber e
+  para pagar manual/abertura, sem segunda aprovação (motivo + desfazer). Arquivos que serão tocados:
+  `public/shared/financeiro.js` + `functions/financeiro.js`, `public/shared/financeiro-relatorios.js`,
+  `public/shared/financeiro-tela.js`, `public/shared/controladoria.js` + `functions/controladoria.js`,
+  `functions/financeiro_servidor.js`, `functions/index.js` (4 callables fin*), testes novos.
+
 ### Claude (sessão `fin-webmais`) — Financeiro: relatórios do WebMais (Entrega A) (12/11/2026)
 
 - **Código concluído em `hostinger-deploy`** (commit "feat(financeiro): relatórios do WebMais"). 14 relatórios
