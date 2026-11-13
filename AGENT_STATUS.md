@@ -5,6 +5,10 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Codex (sessão `yasmin-amostras-mp`) — Integração de usuário e permissão de Amostras de MP (13/11/2026)
+
+- **Código concluído em `0142047`, publicação em andamento.** Causa: Amostras de MP reconhecia `role` e `modulos`, mas ignorava `funcoes`; a Yasmin é multi-função (`comercial + pd + qualidade`). Navegador, callable e regra do RTDB agora reconhecem `funcoes.pd`/`funcoes.logistica`, mantendo módulos por compatibilidade. Testes: motor 10, tela 5, UI Chromium 7, emulador 5, identidade e navegação OK. Produção conferida só por leitura: login `0VYD…` é o usado pela Yasmin, entrou depois da revogação e tem `amostras_mp`/`cadastros`; existem dois perfis ativos e três contas Auth históricas com o mesmo e-mail, mas não houve fusão/exclusão automática. `/amostras_mp` ainda está vazio. Arquivos ativos: nenhum; não toquei em `public/dashboard_analise.html`, `.impeccable/` ou `run_dashboard_analise_ops_test.js`.
+
 ### Claude (sessão `fin-webmais`) — Comunicado de boas-vindas ao Kuryos ERP + conferência de cobranças/e-mail (13/11/2026)
 
 - **Código concluído em `hostinger-deploy`.** Callable `comunicadoSistema` (só ADM; `functions/comunicados.js`):
