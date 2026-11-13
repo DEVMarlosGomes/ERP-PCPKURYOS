@@ -235,9 +235,57 @@ eq(r.linhas[0].prazo, pm.pmp + ' d', 'PMP geral = Painel; baixa estornada fica f
 eq([r.linhas[0].concedido, r.linhas[0].atraso], ['45 d', '-15 d'], 'prazo concedido (30/60) e pagamento adiantado');
 eq(r.totais.valor, r.totais.valorGeral, 'soma por parceiro = geral');
 
+// ── Entrega B nos relatórios: adiantamento, renegociação, cancelamento ──────
+{
+  const g = JSON.parse(JSON.stringify(f));
+  g.adiantamentos = {AD_1: F.validarAdiantamento({tipo: 'PAGAR', parceiro: 'Química SA', cnpj: '01234567000190', conta: 'itau', data: '2026-11-05', valorCentavos: 9000, documento: 'AD 9'}, g).registro,
+    AD_2: F.validarAdiantamento({tipo: 'RECEBER', parceiro: 'Outra Marca', conta: 'itau', data: '2026-11-05', valorCentavos: 3000}, g).registro};
+  const sP4 = F.carteira(g).find((s) => s.id === 'P4');
+  g.baixas.CP_1 = F.validarCompensacao(F.carteira(g).find((s) => s.id === 'P1'), F.saldosAdiantamentos(g).AD_1, {data: '2026-11-06', valorCentavos: 4000}).registro;
+  const rn = F.montarRenegociacao(g, {titulos: ['P4'], data: '2026-11-07', condicao: '30', acrescimoCentavos: 500, motivo: 'acordo com a transportadora'}, 'rn1');
+  ok(rn.ok, 'renegociação para o relatório: ' + rn.motivo);
+  g.renegociacoes = {RN_rn1: rn.registro}; g.titulos.RNG_rn1 = rn.titulo; g.abatimentos = Object.assign({}, g.abatimentos, rn.abatimentos);
+  g.baixas.B_RNG = {tipo: 'BAIXA', titulo: 'RNG_rn1', tituloTipo: 'PAGAR', natureza: 'FRETE', data: '2026-11-20', conta: 'itau', valorCentavos: 2000, jurosCentavos: 0, multaCentavos: 0, descontoCentavos: 0, liquidoCentavos: 2000};
+  const cn = F.montarCancelamento(g, {titulos: ['R2'], data: '2026-11-08', motivo: 'INCOBRAVEL', justificativa: 'cliente fechou as portas'}, 'cn1');
+  g.cancelamentos = {CN_cn1: cn.registro}; g.abatimentos = Object.assign({}, g.abatimentos, cn.abatimentos);
+
+  // Gasto por emissão não conta a renegociação duas vezes; por pagamento, a baixa dela conta.
+  r = confere(R.relGastosCentroCusto(g, {de: '2026-08-01', ate: '2026-11-30'}), 'gastos com renegociação');
+  eq(r.totais.valor, 64000, 'emissão: só os originais (o título novo não soma de novo)');
+  ok(!linha(r, 'documento', rn.titulo.documento), 'título de renegociação fora da base por emissão');
+  r = confere(R.relGastosCentroCusto(g, {de: '2026-11-01', ate: '2026-11-30', dataBase: 'PAGAMENTO'}), 'gastos pagos com renegociação');
+  eq(r.totais.valor, 4000 + 2000, 'pagamento: compensação (4000) + baixa do renegociado (2000); a baixa estornada se anula');
+  eq(R.relGastosCentroCusto(g, {de: '2026-11-01', ate: '2026-11-30', dataBase: 'PAGAMENTO', semAdiantamentos: true}).totais.valor, 2000, 'não exibir adiantamentos: some a compensação');
+  eq(R.relRanking(g, {tipo: 'PAGAR', de: '2026-01-01', ate: '2026-12-31'}).totais.valor, 64000, 'ranking por emissão sem dupla contagem');
+  r = R.relLancamentoDespesas(g, {de: '2026-08-01', ate: '2026-11-30', situacao: 'TODOS'});
+  eq(r.linhas.length, 4, 'lançamento de despesas sem o título de renegociação');
+  ok(r.avisos.some((a) => /renegocia/.test(a)), 'avisa que a renegociação ficou de fora');
+  eq(linha(r, 'documento', 'CT 3').situacao, 'Renegociado', 'situação do original');
+
+  // Previsto não conta renegociado nem cancelado; o título novo prevê.
+  r = R.relRealizadoPrevisto(g, {de: '2026-11-01', ate: '2026-12-31', granularidade: 'MES'});
+  eq(linha(r, 'periodo', '2026-11-01').prevS, 20000, 'nov: só a 2ª parcela de P1 (P4 renegociado sai do previsto)');
+  eq(linha(r, 'periodo', '2026-12-01').prevS, sP4.saldoCentavos + 500, 'dez: o título renegociado (30 dias)');
+  eq(linha(r, 'periodo', '2026-11-01').prevE, 25000 + 9000, 'R2 cancelado não está previsto');
+
+  // Em aberto mostra o adiantamento disponível do parceiro.
+  r = confere(R.relEmAberto(g, {tipo: 'PAGAR', hoje: HOJE}), 'em aberto com adiantamento');
+  eq(r.linhas.find((l) => /QU[IÍ]MICA/i.test(l.parceiro)).adiantamento, 5000, 'adiantamento disponível (9000 − 4000)');
+  eq(r.totais.adiantamento, 5000);
+  r = confere(R.relEmAberto(g, {tipo: 'RECEBER', hoje: HOJE}), 'clientes em aberto com adiantamento');
+  eq(r.linhas.find((l) => l.parceiro === 'Outra Marca').adiantamento, 3000, 'cliente com adiantamento aparece');
+
+  // Relatório de adiantamentos.
+  r = confere(R.relAdiantamentos(g, {tipo: 'PAGAR'}), 'adiantamentos');
+  eq(r.linhas.map((l) => [l.parceiro, l.valor, l.compensado, l.saldo, l.situacao]), [['Química SA', 9000, 4000, 5000, 'Em aberto']]);
+  eq(r.totais.saldo, Object.values(F.saldosAdiantamentos(g)).filter((a) => a.tipo === 'PAGAR').reduce((s, a) => s + a.saldoCentavos, 0), 'total = saldo do motor');
+  eq(confere(R.relAdiantamentos(g, {tipo: 'RECEBER'}), 'adiantamentos de clientes').totais.saldo, 3000);
+  eq(R.relAdiantamentos(g, {tipo: 'PAGAR', parceiro: 'nada'}).linhas.length, 0, 'filtro de parceiro');
+}
+
 // ── Base vazia: estado de estreia ──────────────────────────────────────────
 const P = {de: '2026-11-01', ate: '2026-11-30', data: HOJE, hoje: HOJE, parceiro: 'x', taxaMensal: 2};
-[['relSaldosContas'], ['relMovimentos'], ['relRealizadoPrevisto'], ['relGastosCentroCusto'], ['relLancamentoDespesas'], ['relEmAberto'],
+[['relAdiantamentos'], ['relSaldosContas'], ['relMovimentos'], ['relRealizadoPrevisto'], ['relGastosCentroCusto'], ['relLancamentoDespesas'], ['relEmAberto'],
   ['relRanking'], ['relEvolucao'], ['relComposicaoVencimentos'], ['relContaCorrente'], ['relConciliacaoParceiros'], ['relAntecipacao'], ['relPrazosMedios']]
   .forEach(([fn]) => {
     [{}, null].forEach((base) => {

@@ -36,7 +36,7 @@
   var ROT_NAT = { MATERIA_PRIMA: 'Matéria-prima', EMBALAGEM: 'Embalagem', USO_E_CONSUMO: 'Uso e consumo', OUTROS: 'Outros', FRETE: 'Frete', FOLHA: 'Folha',
     CUSTO_FIXO_PRODUCAO: 'Custo fixo da produção', CUSTO_FIXO_ADM: 'Custo fixo administrativo', DESPESA_COMERCIAL: 'Despesa comercial', PLR: 'PLR',
     IMPOSTOS: 'Impostos', RECEITA_VENDA: 'Receita de vendas', OUTRAS_RECEITAS: 'Outras receitas' };
-  var ROT_ORIGEM = { RECEBIMENTO: 'Recebimento', NF_SAIDA: 'NF de saída', OPERACAO: 'Operação do mês', BONUS: 'PLR', MANUAL: 'Manual', IMPORTACAO: 'Saldo de abertura' };
+  var ROT_ORIGEM = { RECEBIMENTO: 'Recebimento', NF_SAIDA: 'NF de saída', OPERACAO: 'Operação do mês', BONUS: 'PLR', MANUAL: 'Manual', IMPORTACAO: 'Saldo de abertura', RENEGOCIACAO: 'Renegociação' };
   var SEM_CC = 'Sem centro de custo';
 
   /* ── Utilitários ─────────────────────────────────────────────────────── */
@@ -66,6 +66,10 @@
   // O mesmo fornecedor/cliente com nomes escritos diferente: o CNPJ manda; sem CNPJ, o nome.
   function chaveParc(t) { var d = soDigitos(t && t.parceiro && t.parceiro.cnpj); return d.length >= 11 ? 'D' + d : 'N' + nomeParc(t).trim().toUpperCase(); }
   function filtroParc(t, q) { q = String(q || '').trim().toUpperCase(); return !q || nomeParc(t).toUpperCase().indexOf(q) >= 0 || soDigitos(t.parceiro && t.parceiro.cnpj).indexOf(soDigitos(q) || '§') >= 0; }
+  // Título nascido de renegociação: o gasto/receita já está no original (Entrega B). Por emissão ele
+  // não conta de novo; por pagamento, a baixa dele conta normalmente.
+  function ehReneg(t) { return !!(t && t.origem && t.origem.tipo === 'RENEGOCIACAO'); }
+  var ROT_STATUS = { RENEGOCIADO: 'Renegociado', CANCELADO: 'Cancelado', ABATIDO: 'Abatido' };
   function tipoDe(o) { return o && o.tipo === 'RECEBER' ? 'RECEBER' : 'PAGAR'; }
   function rotParceiro(tipo) { return tipo === 'PAGAR' ? 'Fornecedor' : 'Cliente'; }
   function nomeConta(fin, k) { return (((fin || {}).contas_bancarias || {})[k] || {}).nome || k || ''; }
@@ -196,7 +200,8 @@
     function lin(d) { for (var i = 0; i < linhas.length; i++) if (d >= linhas[i].inicio && d <= linhas[i].fim) return linhas[i]; return null; }
     var semData = { PAGAR: 0, RECEBER: 0 };
     F.carteira(fin).forEach(function(s) {
-      if (s.status === 'ABATIDO') return; // cancelado/devolvido inteiro: nada estava combinado
+      // Devolvido, renegociado ou cancelado: o combinado deixou de valer (o título novo da renegociação prevê).
+      if (s.status === 'ABATIDO' || s.status === 'RENEGOCIADO' || s.status === 'CANCELADO') return;
       var rec = s.titulo.tipo === 'RECEBER';
       if (!s.parcelas.length) { semData[s.titulo.tipo] += cent(s.titulo.valorCentavos); return; }
       s.parcelas.forEach(function(p) { var l = lin(p.vencimento); if (l) l[rec ? 'prevE' : 'prevS'] += p.valorCentavos; });
@@ -234,12 +239,13 @@
     if (pag) {
       vals(x.baixas).forEach(function(b) {
         if (b.tituloTipo !== 'PAGAR' || !dentro(b.data, o.de, o.ate)) return;
+        if (o.semAdiantamentos && b.forma === 'ADIANTAMENTO') return; // "não exibir adiantamentos"
         var t = (x.titulos || {})[b.titulo]; if (!t) return;
         add(t, b.titulo, b.data, (b.tipo === 'ESTORNO' ? -1 : 1) * cent(b.valorCentavos));
       });
     } else {
       Object.keys(x.titulos || {}).forEach(function(id) {
-        var t = x.titulos[id]; if (!t || t.tipo !== 'PAGAR' || !dentro(t.emissao, o.de, o.ate)) return;
+        var t = x.titulos[id]; if (!t || t.tipo !== 'PAGAR' || ehReneg(t) || !dentro(t.emissao, o.de, o.ate)) return;
         add(t, id, t.emissao, cent(t.valorCentavos));
       });
     }
@@ -274,10 +280,11 @@
   function relLancamentoDespesas(fin, f) {
     var o = f || {}, nomes = centros(o.centros), q = String(o.usuario || '').trim().toUpperCase(), titulo = 'Lançamento de despesas';
     var err = validarPeriodo(o); if (err) return vazio(titulo, err);
-    var linhas = [];
+    var linhas = [], renegs = 0;
     F.carteira(fin).forEach(function(s) {
       var t = s.titulo;
       if (t.tipo !== 'PAGAR' || !dentro(t.emissao, o.de, o.ate) || !filtroParc(t, o.parceiro)) return;
+      if (ehReneg(t)) { renegs++; return; }
       if (o.natureza && !temNatureza(t, o.natureza)) return;
       if (o.centroCusto && (o.centroCusto === '_SEM' ? t.centroCusto : t.centroCusto !== o.centroCusto)) return;
       if (o.origem && (t.origem && t.origem.tipo) !== o.origem) return;
@@ -288,14 +295,15 @@
       linhas.push({ emissao: t.emissao, documento: t.documento || s.id, parceiro: nomeParc(t), natureza: rotNat(t.natureza), centro: t.centroCusto ? (nomes[t.centroCusto] || t.centroCusto) : '',
         origem: ROT_ORIGEM[t.origem && t.origem.tipo] || (t.origem && t.origem.tipo) || '', usuario: t.criadoPor || '', condicao: F.resumoParcelas(s),
         vencimento: p ? p.vencimento : '', valor: cent(t.valorCentavos), pago: cent(s.pagoCentavos), aberto: s.saldoCentavos,
-        situacao: s.saldoCentavos <= 0 ? 'Quitado' : s.semVencimento ? 'Sem vencimento' : (s.bloqueio ? 'Bloqueado' : 'Em aberto') });
+        situacao: s.saldoCentavos <= 0 ? (ROT_STATUS[s.status] || 'Quitado') : s.semVencimento ? 'Sem vencimento' : (s.bloqueio ? 'Bloqueado' : 'Em aberto') });
     });
     linhas.sort(function(a, b) { return String(a.emissao).localeCompare(String(b.emissao)) || a.parceiro.localeCompare(b.parceiro); });
     var colunas = [{ chave: 'emissao', rotulo: 'Emissão', tipo: 'data' }, { chave: 'documento', rotulo: 'Documento', tipo: 'texto' }, { chave: 'parceiro', rotulo: 'Fornecedor', tipo: 'texto' },
       { chave: 'natureza', rotulo: 'Natureza', tipo: 'texto' }, { chave: 'centro', rotulo: 'Centro de custo', tipo: 'texto' }, { chave: 'origem', rotulo: 'Origem', tipo: 'texto' },
       { chave: 'usuario', rotulo: 'Lançado por', tipo: 'texto' }, { chave: 'condicao', rotulo: 'Parcelas', tipo: 'texto' }, { chave: 'vencimento', rotulo: 'Próx. vencimento', tipo: 'data' },
       { chave: 'valor', rotulo: 'Valor', tipo: 'valor' }, { chave: 'pago', rotulo: 'Pago', tipo: 'valor' }, { chave: 'aberto', rotulo: 'Em aberto', tipo: 'valor' }, { chave: 'situacao', rotulo: 'Situação', tipo: 'texto' }];
-    return { titulo: titulo, colunas: colunas, linhas: linhas, totais: somaCol(linhas, colunas) };
+    return { titulo: titulo, colunas: colunas, linhas: linhas, totais: somaCol(linhas, colunas),
+      avisos: renegs ? [renegs + ' título(s) de renegociação fora da lista: a despesa já está no título original (aparece como "Renegociado").'] : [] };
   }
   /* Em aberto por parceiro, com a posição de vencimento (fornecedores/clientes em aberto).
      f: {tipo, hoje, natureza, parceiro}. Mesmas faixas do aging; o total bate com ele. */
@@ -317,16 +325,41 @@
         if (d > 0 && (l.atraso == null || d > l.atraso)) l.atraso = d;
       });
     });
+    // Adiantamento ainda disponível do parceiro (Entrega B): coluna própria, fora do total em aberto.
+    var ads = F.saldosAdiantamentos(fin);
+    Object.keys(ads).forEach(function(k) {
+      var a = ads[k]; if (a.tipo !== tipo || !(a.saldoCentavos > 0) || !filtroParc({ parceiro: a.parceiro }, o.parceiro)) return;
+      var pk = F.chaveParceiro(a.parceiro);
+      if (!por[pk]) { if (o.natureza) return; por[pk] = { parceiro: a.parceiro.nome || '', cnpj: mascaraDoc(a.parceiro.cnpj), n: 0, proximo: '', atraso: null, A_VENCER: 0, D1_30: 0, D31_60: 0, D61_90: 0, D90: 0, SEM_VENCIMENTO: 0 }; }
+      por[pk].adiantamento = (por[pk].adiantamento || 0) + a.saldoCentavos;
+    });
     var linhas = Object.keys(por).map(function(k) {
       var l = por[k]; l.total = l.A_VENCER + l.D1_30 + l.D31_60 + l.D61_90 + l.D90 + l.SEM_VENCIMENTO; l.vencido = l.D1_30 + l.D31_60 + l.D61_90 + l.D90;
+      l.adiantamento = l.adiantamento || 0;
       l.titulos = String(l.n); l.maiorAtraso = dias(l.atraso); delete l.n; delete l.atraso; return l;
     }).sort(function(a, b) { return b.total - a.total || a.parceiro.localeCompare(b.parceiro); });
     var colunas = [{ chave: 'parceiro', rotulo: rotParceiro(tipo), tipo: 'texto' }, { chave: 'cnpj', rotulo: 'CNPJ', tipo: 'texto' }, { chave: 'titulos', rotulo: 'Títulos', tipo: 'texto' },
       { chave: 'proximo', rotulo: 'Próx. vencimento', tipo: 'data' }, { chave: 'maiorAtraso', rotulo: 'Maior atraso', tipo: 'texto' },
       { chave: 'A_VENCER', rotulo: 'A vencer', tipo: 'valor' }, { chave: 'D1_30', rotulo: 'Vencido 1–30', tipo: 'valor' }, { chave: 'D31_60', rotulo: '31–60', tipo: 'valor' },
       { chave: 'D61_90', rotulo: '61–90', tipo: 'valor' }, { chave: 'D90', rotulo: 'Mais de 90', tipo: 'valor' }, { chave: 'SEM_VENCIMENTO', rotulo: 'Sem vencimento', tipo: 'valor' },
-      { chave: 'vencido', rotulo: 'Total vencido', tipo: 'valor' }, { chave: 'total', rotulo: 'Total em aberto', tipo: 'valor' }];
+      { chave: 'vencido', rotulo: 'Total vencido', tipo: 'valor' }, { chave: 'total', rotulo: 'Total em aberto', tipo: 'valor' },
+      { chave: 'adiantamento', rotulo: 'Adiantamento disponível', tipo: 'valor' }];
     return { titulo: titulo, colunas: colunas, linhas: linhas, totais: somaCol(linhas, colunas) };
+  }
+  /* Adiantamentos a fornecedores (PAGAR) ou de clientes (RECEBER), com o compensado e o
+     saldo ainda disponível. Estornado não aparece. f: {tipo, parceiro} */
+  function relAdiantamentos(fin, f) {
+    var o = f || {}, tipo = tipoDe(o), ads = F.saldosAdiantamentos(fin), linhas = [];
+    Object.keys(ads).forEach(function(k) {
+      var a = ads[k]; if (a.tipo !== tipo || a.estornado || !filtroParc({ parceiro: a.parceiro }, o.parceiro)) return;
+      linhas.push({ data: a.data, documento: a.documento || k, parceiro: a.parceiro.nome || '', cnpj: mascaraDoc(a.parceiro.cnpj), conta: nomeConta(fin, a.conta),
+        valor: a.valorCentavos, compensado: a.compensadoCentavos, saldo: a.saldoCentavos, situacao: a.saldoCentavos > 0 ? 'Em aberto' : 'Compensado' });
+    });
+    linhas.sort(function(a, b) { return String(a.data).localeCompare(String(b.data)) || a.parceiro.localeCompare(b.parceiro); });
+    var colunas = [{ chave: 'data', rotulo: 'Data', tipo: 'data' }, { chave: 'documento', rotulo: 'Documento', tipo: 'texto' }, { chave: 'parceiro', rotulo: rotParceiro(tipo), tipo: 'texto' },
+      { chave: 'cnpj', rotulo: 'CNPJ', tipo: 'texto' }, { chave: 'conta', rotulo: 'Conta', tipo: 'texto' }, { chave: 'valor', rotulo: 'Valor', tipo: 'valor' },
+      { chave: 'compensado', rotulo: 'Compensado', tipo: 'valor' }, { chave: 'saldo', rotulo: 'Saldo disponível', tipo: 'valor' }, { chave: 'situacao', rotulo: 'Situação', tipo: 'texto' }];
+    return { titulo: tipo === 'PAGAR' ? 'Adiantamentos a fornecedores' : 'Adiantamentos de clientes', colunas: colunas, linhas: linhas, totais: somaCol(linhas, colunas) };
   }
   /* Valor de cada título/baixa que entra no período, para ranking e evolução.
      base EMISSAO: valor dos títulos emitidos; PAGAMENTO: principal baixado (estorno abate). */
@@ -341,7 +374,7 @@
       });
     } else {
       Object.keys(x.titulos || {}).forEach(function(id) {
-        var t = x.titulos[id]; if (!t || t.tipo !== tipo || !dentro(t.emissao, de, ate)) return;
+        var t = x.titulos[id]; if (!t || t.tipo !== tipo || ehReneg(t) || !dentro(t.emissao, de, ate)) return;
         var v = valorNaNatureza(cent(t.valorCentavos), t, natureza);
         if (v) out.push({ t: t, id: id, data: t.emissao, valor: v, doc: 1 });
       });
@@ -581,6 +614,6 @@
     relEspelhoDiario: relEspelhoDiario, relSaldosContas: relSaldosContas, relMovimentos: relMovimentos, relRealizadoPrevisto: relRealizadoPrevisto,
     relGastosCentroCusto: relGastosCentroCusto, relLancamentoDespesas: relLancamentoDespesas, relEmAberto: relEmAberto, relRanking: relRanking,
     relEvolucao: relEvolucao, relComposicaoVencimentos: relComposicaoVencimentos, relContaCorrente: relContaCorrente,
-    relConciliacaoParceiros: relConciliacaoParceiros, relAntecipacao: relAntecipacao, relPrazosMedios: relPrazosMedios
+    relConciliacaoParceiros: relConciliacaoParceiros, relAntecipacao: relAntecipacao, relPrazosMedios: relPrazosMedios, relAdiantamentos: relAdiantamentos
   };
 });
