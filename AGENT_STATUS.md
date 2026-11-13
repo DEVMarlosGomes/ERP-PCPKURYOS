@@ -5,14 +5,22 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
-### Claude (sessão `fin-webmais`) — Financeiro Entrega B: adiantamento, renegociação, cancelamento (12/11/2026)
+### Claude (sessão `fin-webmais`) — Financeiro Entrega B + F9 (liquidação, elementos) (12–13/11/2026)
 
-- **Spec escrito, aguardando revisão do Marlos:** `docs/superpowers/specs/2026-11-12-financeiro-entrega-b-design.md`.
-  Decisões: cancelamento com dois motivos (engano desfaz; incobrável = perda com clientes), vale para receber e
-  para pagar manual/abertura, sem segunda aprovação (motivo + desfazer). Arquivos que serão tocados:
-  `public/shared/financeiro.js` + `functions/financeiro.js`, `public/shared/financeiro-relatorios.js`,
-  `public/shared/financeiro-tela.js`, `public/shared/controladoria.js` + `functions/controladoria.js`,
-  `functions/financeiro_servidor.js`, `functions/index.js` (4 callables fin*), testes novos.
+- **Código concluído em `hostinger-deploy` (12–13/11, `3ab67d7`..`9ea1339` + docs).** Entrega B (spec/plano em
+  `docs/superpowers/`): adiantamento a fornecedor/de cliente com compensação; renegociação (título novo, desfazer;
+  bloqueado não renegocia); cancelamento em lote (engano/incobrável; receber e pagar manual/abertura; desfazer).
+  Controladoria: contas ADIANT_FORNECEDORES 1.1.4, ADIANT_CLIENTES 2.1.6, PERDAS_CLIENTES 5.1.4; reconciliação de
+  Fornecedores passa a explicar o recebimento sem custo pelo valor (achado do ensaio real). F9 reconstruída (o patch
+  `a19ab85` não existe aqui nem no GitHub; spec `2026-11-12-financeiro-f9-design.md`): aba Liquidação, plano de
+  elementos (27 propostos, Cadastros), Classificar (elemento, rateio, forma), título manual com elemento/forma,
+  DFC por elemento, fluxo por tipo de conta, gastos/despesas por elemento. 7 callables novas (`finAdiantamento`,
+  `finCompensarAdiantamento`, `finRenegociar`, `finCancelarTitulos`, `finClassificar`, `finCadastrarElemento`,
+  `finLiquidar`). Testes: entrega_b 104/42/74 + tela 18; f9 126/19/9 + tela 17; regras 63 (emulador); bateria do
+  Financeiro, Controladoria, navegação e telas verde; hashes da Controladoria na base real idênticos (0 relançamento).
+  `run_custos_servidor_test` falha por ambiente (URL do Firebase) também com o index.js anterior. **Pendente
+  (Marlos), nesta ordem:** publicar regras (`firebase deploy --only database --project erpkuryos`, inclui a da
+  Entrega A) e deploy da VPS (callables novas). Arquivos ativos: nenhum.
 
 ### Claude (sessão `fin-webmais`) — Financeiro: relatórios do WebMais (Entrega A) (12/11/2026)
 

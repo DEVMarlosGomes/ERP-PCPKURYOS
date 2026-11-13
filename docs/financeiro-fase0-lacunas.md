@@ -197,3 +197,71 @@ Decisões da construção:
 Testes: `run_financeiro_relatorios_webmais_test.js` (1.082 asserções),
 `run_financeiro_relatorios_webmais_ui_test.js` (48, Chrome) e `run_gestao_rules_test.js` (51, emulador),
 mais o ensaio contra o retrato da base de 11/11, sem número inválido.
+
+## 9. Entrega B e F9 (12–13/11/2026)
+
+**Entrega B** (spec `docs/superpowers/specs/2026-11-12-financeiro-entrega-b-design.md`, plano
+`docs/superpowers/plans/2026-11-12-financeiro-entrega-b.md`):
+- **Adiantamento a fornecedor e de cliente.** O dinheiro sai ou entra na hora e depois compensa os
+  títulos do mesmo parceiro (pelo CNPJ). Estorno só sem compensação.
+- **Renegociação.** O saldo dos originais é abatido e nasce um título novo, com acréscimo e desconto
+  separados. Dá para desfazer enquanto o título novo não tiver baixa. Título bloqueado não se renegocia.
+- **Cancelamento em lote.** Vale para a receber e para a pagar manual ou de abertura. Engano desfaz a
+  receita ou a despesa; incobrável vira perda com clientes. Dá para desfazer.
+- **Controladoria.** Contas novas: `ADIANT_FORNECEDORES` 1.1.4, `ADIANT_CLIENTES` 2.1.6 e
+  `PERDAS_CLIENTES` 5.1.4.
+- **Achado do ensaio na base real.** A reconciliação de Fornecedores explicava só o **saldo aberto**
+  do recebimento anterior ao custo no lote. Pagar, compensar ou renegociar esse título deixava a
+  diferença sem explicação, o que trava o fechamento. Agora a explicação é o valor menos as devoluções.
+
+**F9**, reconstruída. O patch `financeiro-f9-liquidacao-elementos.patch` (`a19ab85`) não existe nesta
+máquina nem no GitHub. Spec: `docs/superpowers/specs/2026-11-12-financeiro-f9-design.md`.
+- **Liquidação por filtro.** Atalhos "Hoje e amanhã", "Esta semana" e "Vencidos"; filtros de
+  fornecedor e de elemento; marcar todas; pagar ou receber; quadro "Movimento de dd/mm".
+- **Plano de elementos.** 27 propostos, com os códigos do vídeo, editáveis em Cadastros.
+- **Classificar título.** Elemento, rateio entre centros e forma de pagamento. O título manual já
+  nasce com elemento e forma.
+- **Na Controladoria,** o título manual lança pela natureza do elemento, rateado por centro. Na
+  base real, os 21 lançamentos existentes saem idênticos: nenhum relançamento.
+- **Aberturas.** DFC por grupo › subgrupo › elemento e fluxo de caixa aberto por tipo de conta.
+- **Relatórios.** Gastos por elemento › centro, com filtro de elemento; despesas com elemento e
+  forma de pagamento.
+
+**Situação do mapeamento** (`financeiro-mapeamento-auditoria.md`, 78 funções) depois disto:
+
+| Situação | Antes | Agora |
+|---|---:|---:|
+| Coberto | 34 | 40 |
+| Coberto em parte | 22 | 22 |
+| Não coberto | 13 | 7 |
+| Fora do escopo | 5 | 5 |
+| Não verificado | 4 | 4 |
+
+- **Passaram a coberto:** CB-01, CP-01 e RC-01 (adiantamento); CP-07 e RC-09 (renegociação);
+  RC-02 (cancelamento em lote).
+- **Ficaram no repositório e no ar quando publicadas,** sem depender de patch: CB-06, CB-07, CB-08,
+  CP-05, CP-06, CR-03, CR-08, CT-06, NA-06, NA-07 e NA-08.
+- **CR-08 e PR-03 deixaram de filtrar por natureza:** agora o filtro é por elemento, e o gasto agrupa
+  também elemento › centro. Continuam "em parte":
+  - CR-08 ainda não tem a listagem resumida;
+  - PR-03 ainda não tem agrupamento, periodicidade nem responsável.
+- **Não cobertos que restam:**
+  - NF-03, NF-04 e NF-05: fiscal (itens do XML casados com Materiais, CFOP e impostos);
+  - CB-02, CR-01 e CR-02: cheques;
+  - RC-04: comissão.
+
+Testes:
+
+| Teste | Resultado |
+|---|---|
+| `run_financeiro_entrega_b_test` | 104 |
+| `run_financeiro_entrega_b_servidor_test` | 42 |
+| `run_financeiro_entrega_b_controladoria_test` | 74 |
+| `run_financeiro_entrega_b_ui_test` | 18 (Chrome) |
+| `run_financeiro_f9_test` | 126 |
+| `run_financeiro_f9_servidor_test` | 19 |
+| `run_financeiro_f9_controladoria_test` | 9 |
+| `run_financeiro_f9_ui_test` | 17 (Chrome) |
+| `run_gestao_rules_test` | 63 (emulador) |
+
+Os ensaios no retrato da base de 11/11 não acharam problema depois das correções.

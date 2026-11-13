@@ -1,21 +1,45 @@
 # Melhorias Futuras — Sistema PCP Kuryos
 
-## Financeiro × WebMais — o que ficou para depois (12/11/2026)
+## Financeiro × WebMais — o que ficou para depois (12–13/11/2026)
 
-Em 12/11 entraram os relatórios do WebMais (Entrega A, só leitura): 14 relatórios novos na aba
-Relatórios, mais o centro de custo no título manual (`public/shared/financeiro-relatorios.js`,
-mapa no `docs/financeiro-fase0-lacunas.md` §8). Ficou de fora, de propósito:
+Já entregue: Entrega A (relatórios), Entrega B (adiantamento, renegociação, cancelamento em lote) e a
+F9 reconstruída (liquidação por filtro, elementos de custo, aberturas do caixa). O mapa está em
+`docs/financeiro-fase0-lacunas.md` §8 e §9. Ficou de fora, de propósito:
 
-- **Entrega B: adiantamento a fornecedor e de cliente, renegociação (pagar e receber) e
-  cancelamento de títulos a receber em lote.** Combinado com o Marlos como o próximo passo,
-  com spec escrito antes, porque muda a Controladoria:
-  - adiantamento sai ou entra no banco sem título e depois compensa um título, o que pede
-    uma conta de adiantamentos no razão;
-  - renegociação e cancelamento abatem título manual, e hoje `controladoria.js` (bloco 6,
-    `TIT_`) **não estorna** o lançamento de título manual quando há abatimento, o que deixaria
-    a DRE errada.
+- **Fiscal da NF de entrada (NF-03, NF-04, NF-05).** Faltam três coisas:
+  - casar os itens do XML com Materiais;
+  - usar o CFOP por item (hoje só é guardado);
+  - ler os impostos e créditos de PIS/COFINS.
 
-  O filtro "não exibir adiantamentos" do relatório de gastos entra junto.
+  Os dados já ficam guardados em `fin/notas_entrada/{chave}/itens`. O assunto é fiscal e pede
+  decisão com o contador.
+- **Liquidação (CB-06/07).** Faltam:
+  - os filtros de portador, tipo de cobrança, emissão, valor de/até e liquidação de/até;
+  - juros, multa e desconto por linha (hoje ficam no botão Pagar do título);
+  - data de crédito e representante no lado a receber.
+
+  Ponto de partida: `parcelasParaLiquidar` e `montarLiquidacao` (`public/shared/financeiro.js`).
+- **Rateio com mais de um elemento no mesmo título (CP-06).** Hoje é um elemento por título, rateado
+  entre centros. Para crescer, o registro em `fin/classificacoes/{titulo}` passaria a ter linhas
+  elemento × centro.
+- **DFC (CR-03).** Hoje é só mensal e só realizado. Faltam:
+  - o filtro de conta bancária;
+  - as opções "exibir descontos" e "pedidos de venda e ordens de compra" (estas existem no fluxo
+    projetado, mas não no DFC).
+
+  O plano de elementos é proposta: os códigos reais do WebMais se cadastram em Financeiro › Cadastros.
+- **Fluxo dia a dia (CC-02).** O período é fixo (7 dias passados e 30 futuros); falta escolher de/até.
+- **Gastos e lançamento de despesas (CR-08, PR-03).** Faltam:
+  - a listagem resumida;
+  - agrupamento, periodicidade e responsável nas despesas.
+- **Lote bancário (CB-05, CC-04).** Falta o arquivo de remessa e a consulta de lotes por período.
+- **Folha (CP-03).** A importação de arquivo de folha não existe; a folha entra pela operação do mês.
+- **Exportação contábil (CT-03).** O CSV é genérico, não o layout do Domínio.
+- **Reconciliação da Controladoria.** Um recebimento com ENTRADA *parcial* no razão (parte dos lotes
+  com custo PAGO) é tratado como "tem custo" e não explica nada. Antes de 12/11 era igual. Medir na
+  base se existe esse caso antes de mexer (`reconciliacao` em `controladoria.js`).
+- **Plano de elementos.** Qualquer usuário do módulo Financeiro renomeia ou inativa elemento, sem
+  segunda aprovação. Avaliar se o plano deve ser só do ADM ou da Controladoria.
 - **Cheques a receber e a pagar** (custódia, compensação, devolução, filtro "cheques a compensar"
   no DFC): é uma carteira nova inteira. Antes de construir, confirmar se a Kuryos ainda recebe
   ou emite cheque.
