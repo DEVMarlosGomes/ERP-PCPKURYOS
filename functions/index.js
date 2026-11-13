@@ -21,6 +21,7 @@ const PedidoDiretoria = require("./pedido_diretoria");
 const {prepararFaturamento} = require("./faturamento_carga");
 const FaturamentoEmail = require("./faturamento_email");
 const Cobrancas = require("./cobrancas");
+const Comunicados = require("./comunicados");
 const AmostrasMp = require("./amostras_mp");
 const EmailEnvio = require("./email_envio");
 const DevolucaoCliente = require("./devolucao_cliente");
@@ -782,6 +783,23 @@ exports.cobrancaInterna = onCall({timeoutSeconds: 60, secrets: [MS_GRAPH_TENANT_
   if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para usar as cobranças.");
   try {
     return await servicoCobrancas.executar(request.auth.uid, request.data || {});
+  } catch (e) {
+    if (e && e.code && !(e instanceof HttpsError)) throw new HttpsError(e.code, e.message);
+    throw e;
+  }
+});
+
+// Comunicado de boas-vindas ao Kuryos ERP (functions/comunicados.js, 13/11/2026): só o ADM,
+// com prévia; um e-mail por pessoa, registrado por pessoa (reenviar não duplica).
+const servicoComunicados = Comunicados.criarServico({
+  db,
+  enviarEmail: (para, assunto, corpo) => enviarEmailSistema(para, assunto, corpo, {html: true}),
+  provedor: () => EmailEnvio.provedorEmail(process.env),
+});
+exports.comunicadoSistema = onCall({timeoutSeconds: 300, secrets: [MS_GRAPH_TENANT_ID, MS_GRAPH_CLIENT_ID, MS_GRAPH_CLIENT_SECRET, MS_GRAPH_SENDER_EMAIL]}, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Faça login.");
+  try {
+    return await servicoComunicados.executar(request.auth.uid, request.data || {});
   } catch (e) {
     if (e && e.code && !(e instanceof HttpsError)) throw new HttpsError(e.code, e.message);
     throw e;

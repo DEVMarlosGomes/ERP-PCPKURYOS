@@ -321,6 +321,14 @@
     <button type="button" class="btn-salvar" id="btnNovoUsuario" style="display:none">+ Novo usuário</button>
   </div>
 
+  <!-- Comunicado de boas-vindas ao Kuryos ERP (13/11/2026): só o ADM; callable comunicadoSistema (functions/comunicados.js). -->
+  <div class="card" data-ui="surface" id="cardComunicado" style="display:none;padding:18px">
+    <h2 style="margin:0 0 6px;font-size:17px">Comunicado: boas-vindas ao Kuryos ERP</h2>
+    <div class="subtitle">Um e-mail por pessoa, para os perfis ativos com e-mail. Quem já recebeu não recebe de novo; quem falhou entra no próximo envio.</div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button type="button" class="btn-salvar" id="btnComPrevia">Ver prévia</button><button type="button" class="btn-salvar" id="btnComEnviar" disabled>Enviar</button></div>
+    <div id="comResultado" style="margin-top:12px" aria-live="polite"></div>
+  </div>
+
   <div class="card" data-ui="surface">
     <div class="table-container" data-ui="table-scroll">
       <table>
@@ -539,6 +547,58 @@
   const database = firebase.database();
   const gerenciarUsuarioServidor = firebase.functions().httpsCallable('gerenciarUsuario');
 
+  // ── Comunicado de boas-vindas (13/11/2026) ─────────────────────────────
+  // Prévia (destinatários, provedor e o texto) e envio. Um e-mail por pessoa; o servidor
+  // registra cada envio e nunca manda duas vezes para quem já recebeu.
+  const comunicadoServidor = firebase.functions().httpsCallable('comunicadoSistema');
+  var comPendentes = 0;
+  function comEsc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function(c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
+  var comDest = [];
+  // Marcados para enviar: pendentes com a caixa marcada. Domínio incomum (conta de teste,
+  // digitação) vem desmarcado; o servidor recebe os desmarcados em `excluir`.
+  function comMarcados() { return Array.prototype.map.call(document.querySelectorAll('#comResultado input[data-com-uid]:checked'), function(c) { return c.dataset.comUid; }); }
+  function comAtualizarBotao() {
+    comPendentes = comMarcados().length;
+    var btn = document.getElementById('btnComEnviar'), resta = comDest.filter(function(d) { return d.situacao !== 'ENVIADO'; }).length;
+    btn.disabled = !comPendentes;
+    btn.textContent = comPendentes ? 'Enviar para ' + comPendentes + ' pessoa(s)' : (resta ? 'Marque quem recebe' : 'Todos já receberam');
+  }
+  function comMostrar(r) {
+    var rot = {ENVIADO: 'enviado', ERRO: 'erro (tente de novo)', PENDENTE: 'a enviar'};
+    comDest = r.destinatarios || [];
+    document.getElementById('comResultado').innerHTML =
+      '<div class="subtitle" style="margin-bottom:8px">Provedor de e-mail: <b>' + comEsc(r.provedor === 'RESEND' ? 'Resend' : r.provedor === 'GRAPH' ? 'Outlook (Microsoft Graph)' : (r.provedor || '—')) + '</b> · ' +
+      r.total + ' destinatário(s) · ' + r.pendentes + ' ainda não receberam' + (r.semEmail && r.semEmail.length ? ' · sem e-mail no perfil: ' + comEsc(r.semEmail.join(', ')) : '') + '</div>' +
+      (comDest.some(function(d) { return d.alerta && d.situacao !== 'ENVIADO'; }) ? '<div class="subtitle" style="margin-bottom:8px;color:#b54708">Endereços de domínio incomum vêm desmarcados: podem ser contas de teste ou erro de digitação (o e-mail iria para quem não deveria). Confira antes de marcar.</div>' : '') +
+      '<div class="table-container"><table><thead><tr><th>Enviar</th><th>Nome</th><th>E-mail</th><th>Situação</th></tr></thead><tbody>' +
+      comDest.map(function(d) {
+        var caixa = d.situacao === 'ENVIADO' ? '' : '<input type="checkbox" data-com-uid="' + comEsc(d.uid) + '"' + (d.alerta ? '' : ' checked') + ' aria-label="Enviar para ' + comEsc(d.nome) + '">';
+        return '<tr><td>' + caixa + '</td><td>' + comEsc(d.nome) + '</td><td>' + comEsc(d.email) + (d.alerta ? ' <span class="subtitle" style="color:#b54708">domínio incomum</span>' : '') + '</td><td>' + comEsc(rot[d.situacao] || d.situacao) + (d.erro ? ' <span class="subtitle">' + comEsc(d.erro) + '</span>' : '') + '</td></tr>';
+      }).join('') +
+      '</tbody></table></div>' +
+      '<div class="subtitle" style="margin:12px 0 6px">Assunto: <b>' + comEsc(r.assunto) + '</b> (prévia com o seu nome)</div>' +
+      '<iframe id="comAmostra" title="Prévia do e-mail" sandbox="" style="width:100%;max-width:680px;height:520px;border:1px solid #eaecf0;border-radius:10px;background:#fff"></iframe>';
+    document.getElementById('comAmostra').srcdoc = r.amostra || '';
+    comAtualizarBotao();
+  }
+  document.getElementById('comResultado').addEventListener('change', function(ev) { if (ev.target && ev.target.dataset && ev.target.dataset.comUid) comAtualizarBotao(); });
+  function comErro(err) { document.getElementById('comResultado').innerHTML = '<div class="subtitle" style="color:#b42318">' + comEsc((err && err.message) || err) + '</div>'; }
+  document.getElementById('btnComPrevia').addEventListener('click', function() {
+    var b = this; b.disabled = true;
+    comunicadoServidor({acao: 'PREVIA'}).then(function(res) { comMostrar(res.data); }, comErro).then(function() { b.disabled = false; });
+  });
+  document.getElementById('btnComEnviar').addEventListener('click', function() {
+    if (!comPendentes || !confirm('Enviar o e-mail de boas-vindas ao Kuryos ERP para ' + comPendentes + ' pessoa(s)? Cada uma recebe o seu, sem ver os outros endereços.')) return;
+    var b = this, marcados = comMarcados();
+    var excluir = comDest.filter(function(d) { return d.situacao !== 'ENVIADO' && marcados.indexOf(d.uid) < 0; }).map(function(d) { return d.uid; });
+    b.disabled = true; b.textContent = 'Enviando…';
+    comunicadoServidor({acao: 'ENVIAR', excluir: excluir}).then(function(res) {
+      var r = res.data;
+      alert('Enviados: ' + r.enviados + (r.erros ? ' · com erro: ' + r.erros + ' (veja na lista; um novo envio tenta só esses)' : '') + (r.jaEnviados ? ' · já tinham recebido: ' + r.jaEnviados : '') + (r.excluidos ? ' · não marcados: ' + r.excluidos : ''));
+      return comunicadoServidor({acao: 'PREVIA'}).then(function(pr) { comMostrar(pr.data); });
+    }, function(err) { comErro(err); b.disabled = false; b.textContent = 'Enviar'; });
+  });
+
   function mensagemErroIdentidade(err) {
     var codigo = String((err && err.code) || '').replace('functions/', '');
     if (err && err.details && err.details.resultadoParcial) return ((err && err.message) || 'Operação interrompida.') + ' Pode haver efeitos parciais. Confira o cadastro e a auditoria antes de repetir. Operação: ' + err.details.operacaoId;
@@ -618,6 +678,7 @@
         if (p && p.role === 'admin' && !jaEscutandoUsuarios) {
           jaEscutandoUsuarios = true;
           document.getElementById('btnNovoUsuario').style.display = '';
+          document.getElementById('cardComunicado').style.display = '';
           listenToUsers();
         } else if (p && p.role !== 'admin') {
           // Achado do agente de auditoria (4a rodada): o menu mostra este

@@ -5,6 +5,18 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude (sessão `fin-webmais`) — Comunicado de boas-vindas ao Kuryos ERP + conferência de cobranças/e-mail (13/11/2026)
+
+- **Código concluído em `hostinger-deploy`.** Callable `comunicadoSistema` (só ADM; `functions/comunicados.js`):
+  prévia (provedor Resend/Outlook, destinatários, texto) e envio de um e-mail por pessoa pelo mesmo
+  `enviarEmailSistema` das cobranças; cada envio em `comunicados/boas-vindas-kuryos-erp/envios/{uid}` (reenviar só
+  manda para quem falta; trava contra envio duplo; domínio incomum vem desmarcado). Cartão em Usuários (só ADM).
+  Testes: `run_comunicados_test` 30, `run_comunicados_ui_test` 11 (Chrome), identidade/Usuários UI e rota OK.
+  **Medido em produção (só leitura, 13/11):** `/cobrancas` e `/cobrancas_caixa` vazios — a cobrança nunca foi usada,
+  então o e-mail dela nunca foi exercitado; 21 destinatários (28 perfis), dois com domínio suspeito
+  (`admin@kuryos.com`, `guilherme@nexus.com`). **Pendente (Marlos):** deploy da VPS com este commit; depois Usuários ›
+  Ver prévia (mostra o provedor) › Enviar. Arquivos ativos: nenhum.
+
 ### Claude (sessão `fin-webmais`) — Financeiro Entrega B + F9 (liquidação, elementos) (12–13/11/2026)
 
 - **Código concluído em `hostinger-deploy` (12–13/11, `3ab67d7`..`9ea1339` + docs).** Entrega B (spec/plano em
