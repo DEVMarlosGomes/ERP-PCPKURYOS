@@ -26,7 +26,7 @@ const passo = (m) => { n++; console.log('  ok  ' + m); };
   await db.ref().set({
     usuarios: {
       pd: {nome: 'Paula P&D', role: 'pd'},
-      yas: {nome: 'Yasmim', role: 'comercial', modulos: {pd: true, cadastros: true}},
+      yas: {nome: 'Yasmim', role: 'comercial', funcoes: {comercial: true, pd: true, qualidade: true}, modulos: {amostras_mp: true, cadastros: true}},
       log: {nome: 'Lia Logística', role: 'logistica'},
       log2: {nome: 'Leo Logística', role: 'logistica'},
       cad: {nome: 'Carla Cadastros', role: 'comercial', modulos: {cadastros: true}},

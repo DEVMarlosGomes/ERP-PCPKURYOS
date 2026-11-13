@@ -45,10 +45,13 @@
   function papel(u) {
     u = u || {};
     var mod = u.modulos || null;
-    var admin = u.role === 'admin' || !!(u.funcoes && u.funcoes.admin === true);
+    var funcoes = u.funcoes || {};
+    var admin = u.role === 'admin' || funcoes.admin === true;
     return {
-      pd: u.role === 'pd' || !!(mod && mod.pd === true),
-      logistica: u.role === 'logistica' || !!(mod && mod.logistica === true),
+      // A role é só a função principal. Para usuários multi-função
+      // (como Comercial + P&D), `funcoes` também precisa decidir os botões.
+      pd: u.role === 'pd' || funcoes.pd === true || !!(mod && mod.pd === true),
+      logistica: u.role === 'logistica' || funcoes.logistica === true || !!(mod && mod.logistica === true),
       admin: admin,
       cadastros: admin || (mod ? mod.cadastros === true : u.role === 'pcp'),
     };

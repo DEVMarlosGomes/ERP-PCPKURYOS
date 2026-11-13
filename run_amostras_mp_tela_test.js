@@ -53,7 +53,7 @@ ok('filtros por status, tipo, fornecedor, motivo e período (data de Brasília)'
 const pd = T.papel({role: 'pd'});
 const log = T.papel({role: 'logistica'});
 const adm = T.papel({role: 'admin'});
-const yas = T.papel({role: 'comercial', modulos: {pd: true, cadastros: true}});
+const yas = T.papel({role: 'comercial', funcoes: {comercial: true, pd: true, qualidade: true}, modulos: {amostras_mp: true, cadastros: true}});
 assert.deepEqual(pd, {pd: true, logistica: false, admin: false, cadastros: false});
 assert.equal(yas.pd && yas.cadastros, true);
 assert.equal(T.papel({role: 'pcp'}).cadastros, true, 'PCP tem Cadastros pelo papel');
@@ -72,6 +72,6 @@ assert.deepEqual(T.abasVisiveis(log), ['amostras']);
 assert.deepEqual(T.abasVisiveis(T.papel({role: 'qualidade', modulos: {amostras_mp: true}})), ['amostras'], 'só o módulo (sem P&D, logística ou Cadastros): só a aba Amostras, nunca todas');
 assert.equal(T.nomeMaterial({tipo: 'NOVA', materialNovo: {nome: 'Pigmento X'}}), 'Pigmento X (nova)');
 assert.equal(T.nomeMaterial({tipo: 'CADASTRADA', material: {codigo: 'MPGR-00127', nome: 'ALCOOL'}}), 'MPGR-00127 — ALCOOL');
-ok('papel por papel/módulo; botões por status e papel; abas por módulo; nome do material');
+ok('papel por papel/função/módulo; botões por status e papel; abas por módulo; nome do material');
 
 console.log('run_amostras_mp_tela_test: ' + n + ' grupos OK');

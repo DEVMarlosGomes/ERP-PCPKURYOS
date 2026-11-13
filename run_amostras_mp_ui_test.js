@@ -140,7 +140,8 @@ function estado(perfil, amostras) {
 }
 const PD = {nome: 'Paula P&D', email: 'p@k.com', role: 'pd'};
 const LOG = {nome: 'Lia Logística', email: 'l@k.com', role: 'logistica'};
-const YAS = {nome: 'Yasmim', email: 'y@k.com', role: 'comercial', modulos: {pd: true, cadastros: true}};
+const YAS = {nome: 'Yasmim', email: 'y@k.com', role: 'comercial',
+  funcoes: {comercial: true, pd: true, qualidade: true}, modulos: {amostras_mp: true, cadastros: true}};
 const abasVisiveis = (page) => page.$$eval('#mainTabs .main-tab', (bs) => bs.filter((b) => b.offsetParent !== null).map((b) => b.getAttribute('data-maintab')));
 const ativa = (page) => page.$eval('#mainTabs .main-tab.active', (b) => b.getAttribute('data-maintab'));
 

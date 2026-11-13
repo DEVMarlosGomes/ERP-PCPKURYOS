@@ -42,11 +42,16 @@ function numero(v, rotulo) {
 function perfilAmostra(u) {
   const ativo = !!u && !!u.role && u.role !== "pending" && u.role !== "tv" && u.desativado !== true;
   const mod = (u && u.modulos) || {};
+  const funcoes = (u && u.funcoes) || {};
   return {
     ativo,
-    admin: ativo && (u.role === "admin" || !!(u.funcoes && u.funcoes.admin === true)),
-    pd: ativo && (u.role === "pd" || mod.pd === true),
-    logistica: ativo && (u.role === "logistica" || mod.logistica === true),
+    admin: ativo && (u.role === "admin" || funcoes.admin === true),
+    // Usuários multi-função têm uma role principal (ex.: Comercial) e
+    // as demais em `funcoes`. Não depender da cópia em `modulos`: ela pode
+    // ter sido gravada antes de um módulo novo existir. A função é a fonte
+    // de verdade para a ação; o módulo continua aceito por compatibilidade.
+    pd: ativo && (u.role === "pd" || funcoes.pd === true || mod.pd === true),
+    logistica: ativo && (u.role === "logistica" || funcoes.logistica === true || mod.logistica === true),
   };
 }
 function podeFazer(acao, p) {

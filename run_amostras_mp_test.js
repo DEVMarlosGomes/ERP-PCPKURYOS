@@ -12,7 +12,9 @@ const T0 = '2026-11-11T12:00:00.000Z';
 
 const usuarios = {
   pd: {nome: 'Paula P&D', role: 'pd'},
-  yasmim: {nome: 'Yasmim', role: 'comercial', modulos: {pd: true, cadastros: true}},
+  // Perfil multi-função da produção: a função P&D precisa valer
+  // mesmo sem depender de uma cópia materializada em `modulos.pd`.
+  yasmim: {nome: 'Yasmim', role: 'comercial', funcoes: {comercial: true, pd: true, qualidade: true}, modulos: {amostras_mp: true, cadastros: true}},
   log: {nome: 'Lia Logística', role: 'logistica'},
   adm: {nome: 'Admin', role: 'admin'},
   pcp: {nome: 'Pedro PCP', role: 'pcp'},
@@ -45,7 +47,7 @@ const c3 = A.aplicarAcao(null, 'CRIAR', ator('pd'), Object.assign({}, cadastrada
 assert.deepEqual(c3.registro.material, {key: 'MPGR-00999_x', codigo: 'MPGR-00999.x', nome: 'CHAVE DIFERENTE'}, 'busca pela chave do banco, guarda o código do cadastro');
 assert.deepEqual(c2.registro.fornecedor, {key: 'f2', nome: 'Aromas SA'});
 assert.equal(c2.registro.materialNovo, undefined);
-ok('criar: NOVA e CADASTRADA, nomes vindos do cadastro, P&D por papel ou por módulo');
+ok('criar: NOVA e CADASTRADA, nomes vindos do cadastro, P&D por papel, função ou módulo');
 
 // ── Dados inválidos
 const com = (extra) => Object.assign({}, nova, extra);
