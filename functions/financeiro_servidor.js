@@ -224,6 +224,95 @@ function prepararEstornoMovimento(base, dados, quem, agora) {
   return {updates};
 }
 
+/* Entrega B (12/11/2026): adiantamento, compensação, renegociação e cancelamento em lote.
+   docs/superpowers/specs/2026-11-12-financeiro-entrega-b-design.md. Mesmo padrão: chave da
+   tela (clique duplo não duplica), validação no motor, mês fechado recusa, caminhos planos. */
+function chaveDe(d, rotulo) {
+  const c = String((d || {}).chave || "");
+  if (!/^[A-Za-z0-9_-]{6,80}$/.test(c)) falhar(`Identificador ${rotulo} inválido.`, "invalid-argument");
+  return c;
+}
+function autoria(quem, agora) { return {criadoEm: agora, criadoPor: quem.nome, criadoPorUid: quem.uid, versao: VERSAO}; }
+function exigirAberto(base, data) {
+  if (fechado(base, data)) falhar(`O mês ${String(data).slice(0, 7)} está fechado na Controladoria: use uma data no mês aberto.`);
+}
+function motivoDe(d, rotulo) {
+  const m = String((d || {}).motivo || "").trim();
+  if (m.length < 5) falhar(`Explique o motivo ${rotulo}.`, "invalid-argument");
+  return m.slice(0, 300);
+}
+
+function prepararAdiantamento(base, dados, quem, agora) {
+  const d = dados || {}, id = "AD_" + chaveDe(d, "do adiantamento"), fin = base.fin || {};
+  if ((fin.adiantamentos || {})[id]) return {updates: {}, id, repetido: true};
+  const v = F.validarAdiantamento(d, fin);
+  if (!v.ok) falhar(v.motivo);
+  exigirAberto(base, v.registro.data);
+  return {updates: {[`fin/adiantamentos/${id}`]: Object.assign({}, v.registro, autoria(quem, agora))}, id, repetido: false};
+}
+function prepararEstornoAdiantamento(base, dados, quem, agora) {
+  const d = dados || {}, motivo = motivoDe(d, "do estorno"), fin = base.fin || {};
+  const v = F.validarEstornoAdiantamento(fin, d.adiantamento);
+  if (!v.ok) falhar(v.motivo);
+  const data = String(d.data || agora).slice(0, 10);
+  exigirAberto(base, data);
+  const reg = Object.assign({}, v.registro, {data, motivo}, autoria(quem, agora));
+  const neg = F.caixaNegativo(fin, reg);
+  if (neg) falhar(neg);
+  return {updates: {[`fin/adiantamentos/${d.adiantamento}_estorno`]: reg}};
+}
+function prepararCompensacao(base, dados, quem, agora) {
+  const d = dados || {}, id = "CP_" + chaveDe(d, "da compensação"), fin = base.fin || {};
+  if ((fin.baixas || {})[id]) return {updates: {}, id, repetido: true};
+  const v = F.validarCompensacao(situacaoDe(base, d.titulo), F.saldosAdiantamentos(fin)[d.adiantamento], d);
+  if (!v.ok) falhar(v.motivo);
+  exigirAberto(base, v.registro.data);
+  const reg = Object.assign({}, v.registro, {historico: String(d.historico || "").slice(0, 300) || null}, autoria(quem, agora));
+  return {updates: {[`fin/baixas/${id}`]: reg}, id, repetido: false};
+}
+function prepararRenegociacao(base, dados, quem, agora) {
+  const d = dados || {}, chave = chaveDe(d, "da renegociação"), id = "RN_" + chave, fin = base.fin || {};
+  if ((fin.renegociacoes || {})[id]) return {updates: {}, id, repetido: true};
+  const m = F.montarRenegociacao(fin, d, chave);
+  if (!m.ok) falhar(m.motivo);
+  exigirAberto(base, m.registro.data);
+  const a = autoria(quem, agora);
+  const updates = {[`fin/renegociacoes/${id}`]: Object.assign({}, m.registro, a), [`fin/titulos/${m.registro.novoTitulo}`]: Object.assign({}, m.titulo, a)};
+  Object.entries(m.abatimentos).forEach(([k, x]) => { updates[`fin/abatimentos/${k}`] = Object.assign({}, x, a); });
+  return {updates, id, novoTitulo: m.registro.novoTitulo, repetido: false};
+}
+function prepararDesfazerRenegociacao(base, dados, quem, agora) {
+  const d = dados || {}, motivo = motivoDe(d, "para desfazer"), data = String(d.data || agora).slice(0, 10);
+  const m = F.montarDesfazerRenegociacao(base.fin || {}, d.renegociacao, {data, motivo});
+  if (!m.ok) falhar(m.motivo);
+  exigirAberto(base, data);
+  const a = autoria(quem, agora), p = `fin/renegociacoes/${d.renegociacao}`;
+  const updates = {[`${p}/status`]: m.status, [`${p}/desfeitaEm`]: agora, [`${p}/desfeitaPor`]: quem.nome, [`${p}/desfeitaPorUid`]: quem.uid, [`${p}/motivoDesfazer`]: m.motivoDesfazer};
+  Object.entries(m.abatimentos).forEach(([k, x]) => { updates[`fin/abatimentos/${k}`] = Object.assign({}, x, a); });
+  return {updates};
+}
+function prepararCancelamento(base, dados, quem, agora) {
+  const d = dados || {}, chave = chaveDe(d, "do cancelamento"), id = "CN_" + chave, fin = base.fin || {};
+  if ((fin.cancelamentos || {})[id]) return {updates: {}, id, repetido: true};
+  const m = F.montarCancelamento(fin, d, chave);
+  if (!m.ok) falhar(m.motivo);
+  exigirAberto(base, m.registro.data);
+  const a = autoria(quem, agora);
+  const updates = {[`fin/cancelamentos/${id}`]: Object.assign({}, m.registro, a)};
+  Object.entries(m.abatimentos).forEach(([k, x]) => { updates[`fin/abatimentos/${k}`] = Object.assign({}, x, a); });
+  return {updates, id, titulos: Object.keys(m.registro.titulos).length, repetido: false};
+}
+function prepararDesfazerCancelamento(base, dados, quem, agora) {
+  const d = dados || {}, motivo = motivoDe(d, "para desfazer"), data = String(d.data || agora).slice(0, 10);
+  const m = F.montarDesfazerCancelamento(base.fin || {}, d.cancelamento, {data, motivo});
+  if (!m.ok) falhar(m.motivo);
+  exigirAberto(base, data);
+  const a = autoria(quem, agora), p = `fin/cancelamentos/${d.cancelamento}`;
+  const updates = {[`${p}/status`]: m.status, [`${p}/desfeitoEm`]: agora, [`${p}/desfeitoPor`]: quem.nome, [`${p}/desfeitoPorUid`]: quem.uid, [`${p}/motivoDesfazer`]: m.motivoDesfazer};
+  Object.entries(m.abatimentos).forEach(([k, x]) => { updates[`fin/abatimentos/${k}`] = Object.assign({}, x, a); });
+  return {updates};
+}
+
 // Mês fechado na Controladoria não recebe movimento financeiro com data nele.
 function fechado(base, dataISO) {
   const f = ((base.ctl || {}).fechamentos || {})[String(dataISO || "").slice(0, 7)];
@@ -231,4 +320,6 @@ function fechado(base, dataISO) {
 }
 
 module.exports = {VERSAO, ehFinanceiro, prepararDerivacao, prepararBaixa, prepararEstorno, prepararTitulos, prepararDecisaoLote, situacaoDe, fechado,
-  prepararNotasEntrada, vincularNotas, prepararMovimento, prepararEstornoMovimento};
+  prepararNotasEntrada, vincularNotas, prepararMovimento, prepararEstornoMovimento,
+  prepararAdiantamento, prepararEstornoAdiantamento, prepararCompensacao, prepararRenegociacao, prepararDesfazerRenegociacao,
+  prepararCancelamento, prepararDesfazerCancelamento};
