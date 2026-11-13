@@ -25,10 +25,19 @@ const base = () => ({estoque_lotes: {SKU1: {pa_1: pal(1), pa_2: pal(2)}}, ops: {
 function bancoFalso(dados) {
   const db = JSON.parse(JSON.stringify(dados));
   const get = (p) => p.split('/').filter(Boolean).reduce((o, k) => (o == null ? undefined : o[k]), db);
+  // Como o RTDB: lista/objeto vazio e null não são gravados (o campo some na releitura).
+  const podar = (v) => {
+    if (v === null || v === undefined) return undefined;
+    if (typeof v !== 'object') return v;
+    const ent = Object.entries(v).map(([k, x]) => [k, podar(x)]).filter(([, x]) => x !== undefined);
+    if (!ent.length) return undefined;
+    return Array.isArray(v) ? ent.map(([, x]) => x) : Object.fromEntries(ent);
+  };
   const set = (p, v) => {
     const ks = p.split('/').filter(Boolean); let o = db;
     ks.slice(0, -1).forEach((k) => { if (o[k] == null || typeof o[k] !== 'object') o[k] = {}; o = o[k]; });
-    if (v === null || v === undefined) delete o[ks[ks.length - 1]]; else o[ks[ks.length - 1]] = JSON.parse(JSON.stringify(v));
+    const pv = podar(JSON.parse(JSON.stringify(v === undefined ? null : v)));
+    if (pv === undefined) delete o[ks[ks.length - 1]]; else o[ks[ks.length - 1]] = pv;
   };
   let seq = 0; const log = {updates: 0};
   const mk = (p, filtro) => ({
@@ -202,6 +211,24 @@ function bancoFalso(dados) {
     await I.registrarResultado(b4, g4.opKey, pi, {linhas: [{loteKey: 'pa_1', inspecionadas: 1440, defeitos: [{motivo: 'A', qtd: 5}]}, {loteKey: 'pa_2', inspecionadas: 720}]}, 'Ana');
     const d = await I.decidir(b4, g4.opKey, pi, {a: {reprovada: 5}}, '', 'Qua', c4, deps([]));
     assert.deepEqual(d.opsRT.map((x) => x.lote), ['26280/01-RT2']);
+  }
+  // ── Inspeção sem nenhum defeito (26293/04, 13/11): o RTDB não guarda `defeitos: []` nem
+  //    `motivos: {}`; a decisão quebrava com "Cannot read properties of undefined (reading 'forEach')". ──
+  {
+    const b8 = bancoFalso(base()), r8 = [];
+    const g8 = L.filaLotes(b8.db.estoque_lotes)[0], c8 = Object.assign({}, ctx, {op: b8.db.ops['26280-01']});
+    await I.sinalizar(b8, g8.opKey, g8.paletes, {motivo: 'x'}, 'Qua', c8); await I.designar(b8, g8.opKey, {responsavel: 'Ana'}, 'Prod');
+    const pi = I.paletesDaInspecao(b8.db.estoque_lotes, '26280-01');
+    const rr = await I.registrarResultado(b8, g8.opKey, pi, {linhas: [{loteKey: 'pa_1', inspecionadas: 1440, defeitos: []}, {loteKey: 'pa_2', inspecionadas: 720}]}, 'Ana');
+    assert.equal(rr.ok, true, rr.erro);
+    assert.equal(b8.db.ops['26280-01'].inspecaoTotal.resultado.linhas[0].defeitos, undefined, 'o banco falso imita o RTDB');
+    const d = await I.decidir(b8, g8.opKey, pi, {}, 'TODAS CONFORMES', 'Qua', c8, deps(r8));
+    assert.equal(d.ok, true, d.erro);
+    assert.equal(d.aprovadas, 2160); assert.equal(d.reprovadas, 0); assert.deepEqual(d.opsRT, []); assert.equal(r8.length, 0, 'sem reprovação, sem RNC');
+    assert.equal(b8.db.ops['26280-01'].inspecaoTotal.estado, 'DECIDIDA');
+    assert.equal(b8.db.ops['26280-01'].qualidadePA.decisao, 'LIBERADO_EXPEDICAO');
+    assert.equal(b8.db.estoque_lotes.SKU1.pa_1.status, 'LIBERADO_EXPEDICAO'); assert.equal(b8.db.estoque_lotes.SKU1.pa_2.status, 'LIBERADO_EXPEDICAO');
+    assert.equal(b8.db.estoque_lotes.SKU1.pa_1.saldoLote, 1440, 'saldo intacto');
   }
   // ── Lote que já tem laudo não pode ser sinalizado ──
   {

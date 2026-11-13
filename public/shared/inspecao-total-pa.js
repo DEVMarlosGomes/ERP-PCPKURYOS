@@ -148,8 +148,25 @@
   /* ── Decisão ───────────────────────────────────────────────────────────
      decisoes: {motivoKey: {reprovada, destino:{tipo,nome}}}. O que não for
      reprovado fica aprovado e volta ao palete. */
+  /* O RTDB não guarda lista/objeto vazio: inspeção sem defeito volta do banco sem
+     `defeitos` nas linhas e sem `motivos` (26293/04, 13/11/2026). Toda leitura do
+     resultado relido passa por aqui. */
+  function normalizarResultado(resultado) {
+    var r = Object.assign({}, resultado || {});
+    var linhas = r.linhas || [];
+    if (!Array.isArray(linhas)) linhas = Object.keys(linhas).map(function(k) { return linhas[k]; });
+    r.linhas = linhas.filter(Boolean).map(function(l) {
+      var d = l.defeitos || [];
+      if (!Array.isArray(d)) d = Object.keys(d).map(function(k) { return d[k]; });
+      return Object.assign({}, l, {defeitos: d.filter(Boolean)});
+    });
+    r.motivos = r.motivos || {};
+    return r;
+  }
+
   function alocarReprovadas(resultado, decisoes) {
     var porPalete = {}, restante = {}, erros = [];
+    resultado = normalizarResultado(resultado);
     Object.keys(resultado.motivos || {}).forEach(function(k) {
       var m = resultado.motivos[k], d = (decisoes || {})[k] || {}, rep = inteiro(d.reprovada == null ? 0 : d.reprovada);
       if (rep == null || rep < 0) { erros.push('Motivo "' + m.motivo + '": a quantidade reprovada deve ser um número inteiro (0 ou mais).'); return; }
@@ -180,7 +197,7 @@
   /* Tudo o que a decisão grava. PURA. `existentes` = {lote: true} das OPs RT
      que já existem para este lote (para numerar RT1, RT2...). */
   function planejarDecisao(o) {
-    var res = o.resultado, deps = o.deps, agora = o.agora, autor = o.autor, op = o.op || {};
+    var res = normalizarResultado(o.resultado), deps = o.deps, agora = o.agora, autor = o.autor, op = o.op || {};
     var aloc = alocarReprovadas(res, o.decisoes);
     if (!aloc.ok) return {ok: false, erros: aloc.erros};
     var updates = {}, aprovadas = 0, reprovadas = 0, pushN = 0;
@@ -413,7 +430,7 @@
   return {
     ESTADOS: ESTADOS, STATUS_PALETE: STATUS_PALETE, PRAZO_PADRAO_HORAS: PRAZO_PADRAO_HORAS, PRAZO_MAX_HORAS: PRAZO_MAX_HORAS,
     chaveMotivo: chaveMotivo, prazoHoras: prazoHoras, situacaoPrazo: situacaoPrazo, textoPrazo: textoPrazo, fila: fila,
-    paletesDaInspecao: paletesDaInspecao, validarResultado: validarResultado, alocarReprovadas: alocarReprovadas,
+    paletesDaInspecao: paletesDaInspecao, validarResultado: validarResultado, normalizarResultado: normalizarResultado, alocarReprovadas: alocarReprovadas,
     caixasApos: caixasApos, planejarDecisao: planejarDecisao,
     sinalizar: sinalizar, designar: designar, registrarResultado: registrarResultado, decidir: decidir
   };
