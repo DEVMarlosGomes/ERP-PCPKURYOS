@@ -313,6 +313,30 @@ function prepararDesfazerCancelamento(base, dados, quem, agora) {
   return {updates};
 }
 
+/* F9 (12/11/2026): classificação do título, plano de elementos e liquidação por filtro. */
+function prepararClassificacao(base, dados, quem, agora) {
+  const d = dados || {}, fin = base.fin || {};
+  const v = F.validarClassificacao(situacaoDe(base, d.titulo), d, fin);
+  if (!v.ok) falhar(v.motivo);
+  return {updates: {[`fin/classificacoes/${d.titulo}`]: Object.assign({}, v.registro, {em: agora, por: quem.nome, porUid: quem.uid})}};
+}
+function prepararElemento(base, dados, quem, agora) {
+  const v = F.validarElemento(dados || {}, base.fin || {});
+  if (!v.ok) falhar(v.motivo);
+  return {updates: {[`fin/elementos/${v.registro.codigo}`]: Object.assign({}, v.registro, {alteradoEm: agora, alteradoPor: quem.nome, alteradoPorUid: quem.uid})}};
+}
+function prepararLiquidacao(base, dados, quem, agora) {
+  const d = dados || {}, chave = chaveDe(d, "da liquidação"), fin = base.fin || {};
+  if (Object.keys(fin.baixas || {}).some((k) => k.indexOf(`BX_LQ_${chave}_`) === 0)) return {updates: {}, id: chave, repetido: true};
+  const data = String(d.data || "").slice(0, 10);
+  exigirAberto(base, data);
+  const m = F.montarLiquidacao(fin, {itens: d.itens, data, conta: d.conta});
+  if (!m.ok) falhar(m.motivo);
+  const updates = {};
+  m.baixas.forEach((b) => { updates[`fin/baixas/BX_LQ_${chave}_${san(b.titulo)}`] = Object.assign({}, b.registro, {liquidacao: chave}, autoria(quem, agora)); });
+  return {updates, id: chave, baixas: m.baixas.length, totalCentavos: m.totalCentavos, repetido: false};
+}
+
 // Mês fechado na Controladoria não recebe movimento financeiro com data nele.
 function fechado(base, dataISO) {
   const f = ((base.ctl || {}).fechamentos || {})[String(dataISO || "").slice(0, 7)];
@@ -322,4 +346,4 @@ function fechado(base, dataISO) {
 module.exports = {VERSAO, ehFinanceiro, prepararDerivacao, prepararBaixa, prepararEstorno, prepararTitulos, prepararDecisaoLote, situacaoDe, fechado,
   prepararNotasEntrada, vincularNotas, prepararMovimento, prepararEstornoMovimento,
   prepararAdiantamento, prepararEstornoAdiantamento, prepararCompensacao, prepararRenegociacao, prepararDesfazerRenegociacao,
-  prepararCancelamento, prepararDesfazerCancelamento};
+  prepararCancelamento, prepararDesfazerCancelamento, prepararClassificacao, prepararElemento, prepararLiquidacao};

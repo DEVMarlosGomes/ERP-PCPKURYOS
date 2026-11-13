@@ -2793,7 +2793,7 @@ const ControladoriaSrv = require("./controladoria_servidor");
 const CAMINHOS_FIN = ["pedidos_compra", "processos_cotacao", "fornecedores", "clientes", "estoque_lotes", "pedidos_comerciais",
   "agendamentos_expedicao", "custos/operacao", "resultado/fechamentos", "fin/titulos", "fin/abatimentos", "fin/baixas", "fin/condicoes",
   "fin/bloqueios", "fin/contas_bancarias", "fin/parametros", "fin/lotes_pagamento", "fin/conciliacoes", "fin/notas_entrada", "fin/movimentos", "fin/adiantamentos", "fin/renegociacoes",
-  "fin/cancelamentos", "ctl/fechamentos"];
+  "fin/cancelamentos", "fin/elementos", "fin/classificacoes", "ctl/fechamentos"];
 const CAMINHOS_CTL = ["ops", "custos/razao", "custos/razao_ops", "custos/fichas", "custos/taxas", "custos/parametros",
   "ctl/derivados", "ctl/plano_contas", "ctl/lancamentos"];
 const _cacheGestao = {valores: {}, escutas: {}};
@@ -2818,7 +2818,8 @@ async function baseGestao(comCtl) {
     fin: {titulos: v["fin/titulos"], abatimentos: v["fin/abatimentos"], baixas: v["fin/baixas"], condicoes: v["fin/condicoes"],
       bloqueios: v["fin/bloqueios"], contas_bancarias: v["fin/contas_bancarias"], parametros: v["fin/parametros"],
       lotes_pagamento: v["fin/lotes_pagamento"], conciliacoes: v["fin/conciliacoes"], notas_entrada: v["fin/notas_entrada"], movimentos: v["fin/movimentos"],
-      adiantamentos: v["fin/adiantamentos"], renegociacoes: v["fin/renegociacoes"], cancelamentos: v["fin/cancelamentos"]},
+      adiantamentos: v["fin/adiantamentos"], renegociacoes: v["fin/renegociacoes"], cancelamentos: v["fin/cancelamentos"],
+      elementos: v["fin/elementos"], classificacoes: v["fin/classificacoes"]},
     ctl: {fechamentos: v["ctl/fechamentos"], derivados: v["ctl/derivados"], plano_contas: v["ctl/plano_contas"], lancamentos: v["ctl/lancamentos"]},
   };
 }
@@ -2898,13 +2899,17 @@ function chamadaFin(preparar) {
       if (Object.keys(x.updates).length) await db.ref().update(x.updates);
       return x;
     });
-    return {ok: true, id: r.id || null, novoTitulo: r.novoTitulo || null, repetido: !!r.repetido};
+    return {ok: true, id: r.id || null, novoTitulo: r.novoTitulo || null, repetido: !!r.repetido, baixas: r.baixas || null, totalCentavos: r.totalCentavos || null};
   });
 }
 const _finAcao = (criar, desfazer) => (base, d, quem, agora) => (d.acao === "ESTORNAR" || d.acao === "DESFAZER" ? desfazer : criar)(base, d, quem, agora);
 exports.finAdiantamento = onCall({timeoutSeconds: 60, memory: "512MiB"}, chamadaFin(_finAcao(FinanceiroSrv.prepararAdiantamento, FinanceiroSrv.prepararEstornoAdiantamento)));
 exports.finCompensarAdiantamento = onCall({timeoutSeconds: 60, memory: "512MiB"}, chamadaFin(FinanceiroSrv.prepararCompensacao));
 exports.finRenegociar = onCall({timeoutSeconds: 60, memory: "512MiB"}, chamadaFin(_finAcao(FinanceiroSrv.prepararRenegociacao, FinanceiroSrv.prepararDesfazerRenegociacao)));
+// F9 (12/11/2026): classificação, plano de elementos e liquidação por filtro.
+exports.finClassificar = onCall({timeoutSeconds: 60, memory: "512MiB"}, chamadaFin(FinanceiroSrv.prepararClassificacao));
+exports.finCadastrarElemento = onCall({timeoutSeconds: 60, memory: "512MiB"}, chamadaFin(FinanceiroSrv.prepararElemento));
+exports.finLiquidar = onCall({timeoutSeconds: 120, memory: "512MiB"}, chamadaFin(FinanceiroSrv.prepararLiquidacao));
 exports.finCancelarTitulos = onCall({timeoutSeconds: 120, memory: "512MiB"}, chamadaFin(_finAcao(FinanceiroSrv.prepararCancelamento, FinanceiroSrv.prepararDesfazerCancelamento)));
 // F6 (10/11/2026): caixas e bancos -- tarifa, IOF, juros, rendimento, transferência e estorno.
 exports.finMovimentar = onCall({timeoutSeconds: 60, memory: "512MiB"}, comoHttps(async (request) => {
