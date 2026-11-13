@@ -124,6 +124,28 @@ const OP_RT = {
       assert.deepEqual(await page.evaluate(() => window.__ajustes), [],
         'atividade livre não mexe em OP');
 
+      // ── 5. Encerrar o posto: o apontamento leva o lote da OP (senão a
+      // produção só existia na OP e em nenhum relatório dos apontamentos,
+      // 13/11/2026) e a fila NÃO credita a OP de novo (já foi a cada soma).
+      await page.addScriptTag({content: recorte('function fecharAtividadePostoDefinitivo(', '// ── Encerrar Turno')});
+      await page.evaluate(() => {
+        window.__fila = []; window.__removidos = [];
+        window.today = () => '2026-11-13'; window.pad = (n) => String(n).padStart(2, '0'); window.guessShift = () => 'Padrao';
+        window.queueOfflineWrite = (it) => { window.__fila.push(it); };
+        window.db = {ref: (p) => ({push: () => ({key: 'kNovo'}), remove: () => { window.__removidos.push(p); return Promise.resolve(); }})};
+        window.atividadesPostoCache = {p1: {nome: 'Bancada 2', quantidadeTurno: 150, operador: 'João', opLote: '26216/04-RT1', abertoEm: '2026-11-13T10:00:00Z'},
+          p2: {nome: 'Montagem de kit', quantidadeTurno: 10, operador: 'Ana'}};
+      });
+      await page.evaluate(() => fecharAtividadePostoDefinitivo('p1', 150, 'João', 'PERFUME TAWUS 30ML'));
+      await page.evaluate(() => fecharAtividadePostoDefinitivo('p2', 10, 'Ana', 'KIT'));
+      const fila = await page.evaluate(() => window.__fila);
+      assert.equal(fila[0].registro.lote, '26216/04-RT1', 'apontamento do posto leva o lote da OP');
+      assert.equal(fila[0].opJaCreditada, true, 'fila não credita a OP de novo');
+      assert.equal(fila[0].tipo, 'posto', 'setor posto: nunca soma no pedido nem em produzidoLinha');
+      assert.equal(fila[1].registro.lote, undefined, 'atividade livre segue sem lote');
+      assert.equal(fila[1].opJaCreditada, false);
+      assert.ok(FONTE.includes("item.registro.lote && !item.opJaCreditada"), 'a sincronização respeita opJaCreditada');
+
       assert.deepEqual(errors, [], 'erros de página: ' + errors.join(' | '));
       await page.close();
     }

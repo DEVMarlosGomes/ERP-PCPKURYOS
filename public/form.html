@@ -3333,7 +3333,9 @@ function syncNextItem() {
       // incremento de produzidoLinha ainda não gravado -- perda silenciosa,
       // sem retry possível (o item nunca mais existiria pra reprocessar).
       // Agora encadeia de verdade: só sai da fila depois que ops/ committar.
-      var opUpdatePromise = (item.registro && item.registro.lote)
+      // Posto de retrabalho: a OP já foi creditada a cada "Somar produção"
+      // (fecharAtividadePostoDefinitivo); creditar aqui contaria duas vezes.
+      var opUpdatePromise = (item.registro && item.registro.lote && !item.opJaCreditada)
         ? updateOpRecordOnApontamento(item.registro.lote, item.qtd, undefined, regTimestampIso(item.registro, 'periodoInicio'), item.tipo, regTimestampIso(item.registro, 'periodoFim'), null, item.id)
         : Promise.resolve(null);
       return opUpdatePromise.then(function() {
@@ -5563,10 +5565,16 @@ function fecharAtividadePostoDefinitivo(id, qtd, operador, produto) {
       registro.periodoInicio = a.abertoEm;
       registro.periodoFim = new Date().toISOString();
     }
+    // Posto que executou OP de retrabalho: o apontamento leva o lote, senão a
+    // produção ficava na OP (produzidoPosto) e em nenhum relatório que lê os
+    // apontamentos (13/11/2026: 26204/03-v2-RT1 com 4.965 un. e zero
+    // apontamentos). A OP já foi creditada a cada "Somar produção": a fila
+    // NÃO credita de novo (opJaCreditada), senão contaria duas vezes.
+    if (a.opLote) registro.lote = a.opLote;
     var clientKey = db.ref('registros/' + today()).push().key;
     queueOfflineWrite({
       id: clientKey, type: 'registro', data: today(), registro: registro,
-      pedidoId: null, produto: registro.produto, qtd: qtd
+      pedidoId: null, produto: registro.produto, qtd: qtd, tipo: 'posto', opJaCreditada: !!a.opLote
     });
   }
   return db.ref('atividadesPosto/' + id).remove();

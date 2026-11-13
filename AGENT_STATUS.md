@@ -72,6 +72,17 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   ganhou a saída `[data-kt-sem-fixa]` (rolagem interna cortava a última linha). Testes: motor 12, tela 8 (Chrome),
   tabela-fixa 17, navegação 39, conciliação, coerência. Menu segue "Relatório de Pedido" (guarda de rótulo do
   menu). Achado de dados, sem código: 26267/04 com linha 2.281, rotulagem 6.000 e estoque 3.769. Arquivos ativos: nenhum.
+- **13/11, auditoria de sincronia dos números + TV da fábrica (pedido do Marlos).** Medido em produção (só leitura):
+  fluxo novo (≥ 10/09) com Σ apontamentos = total da OP em todas as OPs menos 2; 157 OPs da era planilha e 8 itens
+  de pedido sem OP divergem por origem (Excel), sem código. Corrigido: (1) **TV** (`placar.html?tv=1`) ficava em
+  "0 · sem meta" porque nunca houve tabela de pontos (`fatorPontos` ausente, LP zero): o motor grava unidades por
+  linha no dia indisponível e a TV mostra a produção em unidades (12/11 = 11.724: L1 4.896 + L2 6.828, igual aos
+  apontamentos); com tabela volta a pontos × meta. (2) Dashboard Diário: "Programação × realizado" somava
+  rotulagem. (3) Posto de retrabalho creditava a OP sem apontamento com lote (RT1: 4.965 e 795 un.); fechamento
+  grava o lote e a fila não credita de novo (`opJaCreditada`). (4) Histórico: correção da quantidade leva
+  `qtdIncrementoConfirmado` (Dossiê mostrava o número antigo). **Pendente (Marlos):** autorizar a correção de dados
+  (62 caminhos `qtdIncrementoConfirmado`, plano e backup em scratch `audit/`) e decidir a 26246/07 (OP 4.849,
+  apontamentos 2.560 + 1.400 + 4.849); deploy da VPS (motor do placar no servidor). Arquivos ativos: nenhum.
 
 ### Claude (sessão `pcp-kuryos-main-0b`) — Etiqueta de caixa: logo maior com ajuste e peças da caixa parcial (12/11/2026)
 

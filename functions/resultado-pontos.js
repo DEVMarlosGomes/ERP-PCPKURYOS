@@ -328,7 +328,17 @@
     return Object.keys(porDia).sort().map(function(dia) {
       var tabela = tabelaDoDia(dia);
       var prod = producaoDoDia(porDia[dia], idxOps, porDesc);
-      if (!tabela) return { dia: dia, indisponivel: 'tabela de pontos de ' + dia.slice(0, 7) + ' não congelada', unidades: Math.round(prod.total) };
+      // Sem tabela congelada não há pontos nem meta -- mas a produção existe e a
+      // TV mostra em unidades por linha (12/11/2026: a TV ficava em "0" com a
+      // fábrica produzindo). Pontos e meta seguem null, nunca zero inventado.
+      if (!tabela) {
+        var unidadesPorLinha = {};
+        Object.keys(prod.porLinha).forEach(function(l) {
+          var u = Object.keys(prod.porLinha[l]).reduce(function(s, k) { return s + prod.porLinha[l][k]; }, 0);
+          unidadesPorLinha[l] = { unidades: Math.round(u) };
+        });
+        return { dia: dia, indisponivel: 'tabela de pontos de ' + dia.slice(0, 7) + ' não congelada', unidades: Math.round(prod.total), porLinha: unidadesPorLinha };
+      }
       var horas = horasDoDia(dia);
       var prog = (x.programa || {})[dia] || {};
       var horasPorLinha = {};

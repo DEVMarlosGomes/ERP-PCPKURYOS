@@ -211,6 +211,11 @@ eq(periodo[0].unidades, 1000 + 600 + 50, 'dia 1: unidades de envase, inclusive a
 eq(periodo[1].meta, 600 * 30, 'dia 2: 1 h programada na Linha 1 × 600 × 30');
 const semTabela = P.placarDoPeriodo({ registros, ops, tabelas: {} });
 ok(semTabela.every((d) => d.indisponivel), 'mês sem tabela congelada: placar indisponível, nunca zero');
+// Sem tabela a TV ficava em "0 · sem meta" com a fábrica produzindo (12/11/2026:
+// 11.724 unidades apontadas). O dia leva a produção real por linha, em unidades.
+eq(semTabela[0].unidades, 1000 + 600 + 50, 'sem tabela: unidades de envase do dia, inclusive as sem SKU');
+eq(Object.values(semTabela[0].porLinha).reduce((s, l) => s + l.unidades, 0), 1000 + 600, 'sem tabela: por linha soma o que tem SKU');
+ok(Object.values(semTabela[0].porLinha).every((l) => l.unidades > 0 && l.pontos == null && l.meta == null), 'sem tabela: linha em unidades, sem pontos nem meta inventados');
 const sim = P.resumoSimulacao(periodo, { bonusBase: 1000, faixas, tetoPct: 130 });
 eq(sim.dias, 2, 'simulação: dias com meta');
 ok(sim.meses.length === 1 && sim.bonus.length === 1, 'simulação: mês e bônus');

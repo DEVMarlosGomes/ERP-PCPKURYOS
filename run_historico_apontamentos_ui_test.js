@@ -30,7 +30,7 @@ function dados() {
     },
     'registros/2026-09-11': {
       troca: {data: '2026-09-11', hora: '16:00', linha: 'Linha 2', lote: '26219/03', produto: 'BODY SPLASH NUVEM', quantidade: 4416,
-        tipo: 'apontamento_total', qtdTotalOP: 4272, periodoInicio: Z('2026-09-10T16:35'), periodoFim: Z('2026-09-11T16:05'), horasTrabalhadas: 22}
+        tipo: 'apontamento_total', qtdTotalOP: 4272, qtdIncrementoConfirmado: 4416, periodoInicio: Z('2026-09-10T16:35'), periodoFim: Z('2026-09-11T16:05'), horasTrabalhadas: 22}
     },
     'registros/2026-09-15': {
       noite: {data: '2026-09-15', hora: '06:00', linha: 'Linha 2', lote: '', produto: 'SEM LOTE', quantidade: 50,
@@ -245,6 +245,10 @@ async function abrir(browser, largura) {
     const wOp = (await page.evaluate(() => window.__writes)).filter(w => w.path === 'ops/26219-03');
     assert.deepEqual(wOp.map(w => w.op), ['transaction', 'transaction', 'update'],
       'as duas correções do total entram antes da gravação das datas, uma de cada vez');
+    // Correção da quantidade leva junto o incremento confirmado (13/11/2026:
+    // o Dossiê do Lote seguia mostrando o número de antes da correção).
+    const wReg = (await page.evaluate(() => window.__writes)).find(w => /^registros\/2026-09-11\/troca$/.test(w.path));
+    assert.equal(wReg && wReg.valor.qtdIncrementoConfirmado, 4000, 'incremento confirmado acompanha a quantidade corrigida');
     ok('trocar o setor do registro ajusta a OP inteira, sem o erro "set"');
 
     // ── Aba Por OP: horas trabalhadas e produção por hora ──

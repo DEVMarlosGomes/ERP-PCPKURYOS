@@ -95,6 +95,12 @@ body.tv .btn-tc{opacity:.25}
       (placar && placar.hoje && placar.hoje.atualizadoEm ? ' · atualizado às ' + new Date(placar.hoje.atualizadoEm).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'}) : '');
     if (!placar || !placar.dias) { el('conteudo').innerHTML = '<div class="vazio">Ainda não há placar. Ele aparece quando a fábrica aponta e a diretoria congela a tabela de pontos do mês.</div>'; return; }
     var dia = placar.dias[hoje] || null;
+    // Sem tabela de pontos congelada no mês o servidor manda o dia "indisponível"
+    // com a produção em unidades: a TV mostra isso, em vez de "0 · sem meta" com a
+    // fábrica produzindo (12/11/2026: 11.724 unidades apontadas e a TV em zero).
+    var doMes = Object.keys(placar.dias).filter(function(k) { return k.slice(0, 7) === hoje.slice(0, 7); });
+    var modoUnidades = dia ? !!dia.indisponivel : (doMes.length > 0 && doMes.every(function(k) { return placar.dias[k].indisponivel; }));
+    if (modoUnidades) { el('conteudo').innerHTML = renderUnidades(hoje, dia); return; }
     var sem = (placar.semanas || {})[semanaISO(hoje)] || null;
     var mes = (placar.meses || {})[hoje.slice(0, 7)] || null;
     var h = '<div class="grade"><div class="p"><div class="rot">Pontos de hoje</div>';
@@ -124,6 +130,33 @@ body.tv .btn-tc{opacity:.25}
       ult.map(function(k) { var x = placar.dias[k]; return '<span class="' + (x.batida ? 'ok' : 'nao') + '" title="' + k + '">' + Number(k.slice(8, 10)) + '</span>'; }).join('') + '</div></div>';
     h += '</div><div class="nota">A semana soma os dias: um dia ruim se compensa com um bom. Perdas e retrabalho descontam pontos; material gasto sem apontamento de perda desconta em dobro; paradas não descontam (já reduzem a produção).</div>';
     el('conteudo').innerHTML = h;
+  }
+  // Produção em unidades de envase (linhas). Rotulagem fica de fora: são as
+  // mesmas peças passando por outro setor, somar contaria duas vezes.
+  function renderUnidades(hoje, dia) {
+    var semana = semanaISO(hoje), mes = hoje.slice(0, 7);
+    var somaSem = 0, somaMes = 0, diasMes = 0;
+    Object.keys(placar.dias).forEach(function(k) {
+      var u = Number(placar.dias[k].unidades) || 0;
+      if (semanaISO(k) === semana && k <= hoje) somaSem += u;
+      if (k.slice(0, 7) === mes && k <= hoje) { somaMes += u; if (u > 0) diasMes++; }
+    });
+    var h = '<div class="grade"><div class="p"><div class="rot">Produção de hoje</div>';
+    h += '<div class="grande">' + n(dia ? dia.unidades : 0) + '</div><div class="meta">' + (dia ? 'unidades envasadas' : 'sem apontamento hoje ainda') + '</div>' +
+      '<div class="nota">Pontos e meta aparecem quando a diretoria congelar a tabela de pontos do mês.</div>';
+    h += '</div><div class="p"><div class="rot">Linhas</div><div class="linhas">';
+    var pl = dia && dia.porLinha ? dia.porLinha : {}, linhas = Object.keys(pl).sort();
+    var maior = linhas.reduce(function(m, l) { return Math.max(m, Number(pl[l].unidades) || 0); }, 0);
+    h += linhas.length ? linhas.map(function(l) {
+      var u = Number(pl[l].unidades) || 0;
+      return '<div class="lin"><div class="n"><span>' + escapeHtml(l) + '</span><span>' + n(u) + ' un.</span></div>' + barra(u, maior, '') + '</div>';
+    }).join('') : '<div class="nota">Nenhuma linha apontou hoje.</div>';
+    h += '</div></div></div><div class="mini">';
+    h += '<div class="p"><div class="rot">Semana</div><div class="mini-v v">' + n(somaSem) + '</div><div class="meta">unidades</div></div>';
+    h += '<div class="p"><div class="rot">Mês</div><div class="v">' + n(somaMes) + '</div><div class="meta">unidades</div></div>';
+    h += '<div class="p"><div class="rot">Média por dia produzido</div><div class="v">' + n(diasMes ? somaMes / diasMes : null) + '</div><div class="meta">' + diasMes + (diasMes === 1 ? ' dia' : ' dias') + ' no mês</div></div>';
+    h += '</div><div class="nota">Unidades envasadas nas linhas, conforme os apontamentos. A rotulagem não soma de novo as mesmas peças. Atualiza sozinha a cada poucos minutos.</div>';
+    return h;
   }
   // Contagem do turno (plano §8): o servidor grava o horário de hoje em placar/hoje.turno.
   function minutos(t) { var m = String(t || '').match(/^(\d{1,2}):(\d{2})/); return m ? Number(m[1]) * 60 + Number(m[2]) : null; }

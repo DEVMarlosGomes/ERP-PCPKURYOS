@@ -2085,8 +2085,12 @@
           if (orig.qtdTotalOP) data.qtdTotalOP = orig.qtdTotalOP;
           if (orig.qtdEsperadaOP) data.qtdEsperadaOP = orig.qtdEsperadaOP;
           if (orig.justificativaDivergencia) data.justificativaDivergencia = orig.justificativaDivergencia;
+          // A correção ajusta a OP pela diferença de `quantidade`; o incremento
+          // confirmado tem de acompanhar, senão o Dossiê do Lote seguia
+          // mostrando o número de antes da correção (13/11/2026: 64 apontamentos).
+          if (orig._raw && orig._raw.qtdIncrementoConfirmado != null) data.qtdIncrementoConfirmado = data.quantidade;
         }
-        
+
         var qtyNew = parseFloat(data.quantidade) || 0;
         var pedIdNew = data.pedidoId || '';
         var prodNew = data.produto || '';

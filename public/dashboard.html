@@ -1233,7 +1233,10 @@ function renderProgramacao(progData, regs) {
     if (!byProd[k]) byProd[k] = { meta: 0, realizado: 0, linha: s.linha||'', pedidoId: s.pedidoId||'' };
     byProd[k].meta += (s.quantidade||0);
   });
-  regs.forEach(function(r) {
+  // Só envase, como o total do dia e os outros cartões: lote que passa por
+  // Linha e Rotulagem no mesmo dia contava as mesmas peças duas vezes no
+  // realizado da programação (auditoria de 13/11/2026).
+  regs.filter(function(r) { return isLinhaDeProducao(r.linha); }).forEach(function(r) {
     var k = r.produto || '—';
     if (byProd[k]) byProd[k].realizado += (r.quantidade||0);
   });
