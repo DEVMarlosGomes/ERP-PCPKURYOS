@@ -47,7 +47,7 @@ const nega = async (p, msg) => { await negado(p, msg); n++; };
   await nega(adm.ref('fin/baixas/B1').remove(), 'baixa não se apaga (estorno)');
   await nega(fin.ref('fin/abatimentos/A1').set({valorCentavos: 1}), 'abatimento: só o servidor');
   // Entrega B (12/11/2026): adiantamento, renegociação e cancelamento só pelo servidor (callables).
-  for (const no of ['adiantamentos/AD_x', 'renegociacoes/RN_x', 'cancelamentos/CN_x']) {
+  for (const no of ['adiantamentos/AD_x', 'renegociacoes/RN_x', 'cancelamentos/CN_x', 'elementos/2120', 'classificacoes/T1']) {
     await nega(fin.ref('fin/' + no).set({tipo: 'PAGAR', valorCentavos: 1}), no + ': o Financeiro não grava pela tela');
     await nega(adm.ref('fin/' + no).set({tipo: 'PAGAR', valorCentavos: 1}), no + ': nem o ADM grava pela tela');
   }
