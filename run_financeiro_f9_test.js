@@ -116,6 +116,32 @@ fl.colunas.forEach((c, i) => {
 });
 eq(F.fluxoCaixa({fin: f}, HOJE, {granularidade: 'SEMANA'}).porGrupo, undefined, 'sem a opção, nada muda');
 
+
+// ── Relatórios com elemento (F9) ───────────────────────────────────────────
+{
+  const R = require('./public/shared/financeiro-relatorios');
+  const g = fin();
+  g.titulos.P1.criadoPor = 'Ana';
+  g.classificacoes.P1 = {elemento: '2113', formaPagamento: 'PIX', rateio: [{centro: 'ADMINISTRATIVO', percentual: 70}, {centro: 'PRODUCAO', percentual: 30}]};
+  let r = R.relGastosCentroCusto(g, {de: '2026-10-01', ate: '2026-11-30', agrupar: 'ELEMENTO'});
+  ok(!r.erro, 'gastos por elemento');
+  eq(r.linhas.filter((l) => !l.destaque).map((l) => [l.elemento, l.centro, l.valor]),
+    [['201 Matéria-prima', 'Sem centro de custo', 30000], ['202 Embalagem', 'Sem centro de custo', 10000], ['204 Frete sobre compras', 'Sem centro de custo', 5000],
+      ['2113 Aluguel', 'Administrativo', 21000], ['2113 Aluguel', 'Produção (geral)', 9000], ['408 A definir', 'Sem centro de custo', 7000]], 'elemento › centro, com o rateio');
+  eq(r.totais.valor, 82000, 'total = títulos a pagar emitidos');
+  eq(R.relGastosCentroCusto(g, {de: '2026-10-01', ate: '2026-11-30', elemento: '2113'}).totais.valor, 30000, 'filtro por elemento');
+  eq(R.relGastosCentroCusto(g, {de: '2026-10-01', ate: '2026-11-30', centroCusto: 'PRODUCAO'}).totais.valor, 9000, 'centro do rateio filtra a parte');
+  r = R.relLancamentoDespesas(g, {de: '2026-10-01', ate: '2026-11-30', situacao: 'TODOS'});
+  const l1 = r.linhas.find((l) => l.documento === 'NF 1');
+  eq([l1.elemento, l1.forma, l1.centro], ['2113 Aluguel', 'PIX', 'Administrativo 70% · Produção (geral) 30%'], 'despesas: elemento, forma e rateio');
+  eq(R.relLancamentoDespesas(g, {de: '2026-10-01', ate: '2026-11-30', situacao: 'TODOS', elemento: '2113'}).linhas.length, 1, 'filtro por elemento');
+  eq(R.relLancamentoDespesas(g, {de: '2026-10-01', ate: '2026-11-30', situacao: 'TODOS', formaPagamento: 'PIX'}).linhas.length, 1, 'filtro por forma');
+  const gd = fin(); gd.baixas.B = {tipo: 'BAIXA', titulo: 'P1', tituloTipo: 'PAGAR', data: '2026-11-05', conta: 'itau', valorCentavos: 30000, jurosCentavos: 0, multaCentavos: 0, descontoCentavos: 0, liquidoCentavos: 30000};
+  r = F.relDfc(gd, {de: '2026-11', ate: '2026-11', abertura: 'ELEMENTO'});
+  ok(!r.erro && r.linhas.some((l) => /408 A definir/.test(l.linha) && l['2026-11'] === -30000), 'DFC (relatório) aberto por elemento');
+  ok(r.linhas.find((l) => l.linha === 'Diferença contra os bancos')['2026-11'] === 0, 'DFC por elemento fecha no relatório');
+}
+
 // Base vazia.
 ok(F.dfcElementos({}, '2026-11', '2026-11').ok, 'DFC por elemento sem dados');
 eq(F.parcelasParaLiquidar({}, {tipo: 'PAGAR', hoje: HOJE}), []);

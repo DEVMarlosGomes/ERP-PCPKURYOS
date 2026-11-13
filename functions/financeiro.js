@@ -944,7 +944,9 @@
   }
   /* DFC (F7) como relatório: uma linha por natureza, uma coluna por mês. */
   function relDfc(fin, f) {
-    var o = f || {}, d = dfc(fin, o.de, o.ate);
+    var o = f || {};
+    if (o.abertura === 'ELEMENTO') return relDfcElementos(fin, o);
+    var d = dfc(fin, o.de, o.ate);
     if (!d.ok) return { titulo: 'Demonstrativo de fluxo de caixa', colunas: [], linhas: [], totais: {}, erro: d.motivo };
     var colunas = [{ chave: 'linha', rotulo: '', tipo: 'texto' }].concat(d.meses.map(function(m) { return { chave: m, rotulo: m.slice(5, 7) + '/' + m.slice(0, 4), tipo: 'valor', semTotal: true }; }));
     function porMes(f2) { var l = {}; d.meses.forEach(function(m, i) { l[m] = f2(m, i); }); return l; }
@@ -957,6 +959,25 @@
     linhas.push(Object.assign({ linha: 'Saldo final', destaque: true }, porMes(function(m, i) { return d.colunas[i].saldoFinalCentavos; })));
     linhas.push(Object.assign({ linha: 'Diferença contra os bancos', destaque: true }, porMes(function(m, i) { return d.colunas[i].diferencaCentavos; })));
     return { titulo: 'Demonstrativo de fluxo de caixa (método direto)', colunas: colunas, linhas: linhas, totais: {} };
+  }
+  // F9 (CR-03): DFC aberto por grupo › subgrupo › elemento.
+  function relDfcElementos(fin, o) {
+    var d = dfcElementos(fin, o.de, o.ate);
+    if (!d.ok) return { titulo: 'Demonstrativo de fluxo de caixa', colunas: [], linhas: [], totais: {}, erro: d.motivo };
+    var colunas = [{ chave: 'linha', rotulo: '', tipo: 'texto' }].concat(d.meses.map(function(m2) { return { chave: m2, rotulo: m2.slice(5, 7) + '/' + m2.slice(0, 4), tipo: 'valor', semTotal: true }; }));
+    function porMes(f2) { var l = {}; d.meses.forEach(function(m2, i) { l[m2] = f2(m2, i); }); return l; }
+    var linhas = [Object.assign({ linha: 'Saldo inicial', destaque: true }, porMes(function(m2, i) { return d.colunas[i].saldoInicialCentavos + d.colunas[i].aberturaContasCentavos; }))];
+    d.grupos.forEach(function(g) {
+      linhas.push(Object.assign({ linha: g.grupo + ' ' + g.rotulo, destaque: true }, porMes(function(m2) { return g.totais[m2]; })));
+      g.subgrupos.forEach(function(sg) {
+        linhas.push(Object.assign({ linha: '  ' + sg.subgrupo }, porMes(function(m2) { return sg.totais[m2]; })));
+        sg.elementos.forEach(function(e) { linhas.push(Object.assign({ linha: '    ' + e.elemento + ' ' + e.nome }, porMes(function(m2) { return e.meses[m2]; }))); });
+      });
+    });
+    linhas.push(Object.assign({ linha: 'Variação do caixa', destaque: true }, porMes(function(m2, i) { return d.colunas[i].variacaoCentavos; })));
+    linhas.push(Object.assign({ linha: 'Saldo final', destaque: true }, porMes(function(m2, i) { return d.colunas[i].saldoFinalCentavos; })));
+    linhas.push(Object.assign({ linha: 'Diferença contra os bancos', destaque: true }, porMes(function(m2, i) { return d.colunas[i].diferencaCentavos; })));
+    return { titulo: 'Demonstrativo de fluxo de caixa por elemento', colunas: colunas, linhas: linhas, totais: {} };
   }
   /* Fluxo de caixa (F7) como relatório. f: {granularidade, conta, natureza, hoje} */
   function relFluxo(base, f) {

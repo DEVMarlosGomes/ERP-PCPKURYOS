@@ -218,22 +218,28 @@
     if (semData.PAGAR || semData.RECEBER) av.push('Fora do previsto por não ter vencimento: a pagar R$ ' + (semData.PAGAR / 100).toFixed(2).replace('.', ',') + ' · a receber R$ ' + (semData.RECEBER / 100).toFixed(2).replace('.', ',') + ' (Complementos).');
     return { titulo: titulo, colunas: colunas, linhas: linhas, totais: somaCol(linhas, colunas), avisos: av };
   }
-  /* Gastos por centro de custo e elemento (natureza). f: {de, ate, dataBase EMISSAO|PAGAMENTO,
-     centroCusto, natureza, centros (cadastrados na Controladoria)}. Linha por título e
-     natureza; subtotal por natureza e por centro na coluna própria "Subtotal". */
+  /* Gastos por centro de custo e elemento. f: {de, ate, dataBase EMISSAO|PAGAMENTO, centroCusto, natureza,
+     elemento, agrupar CENTRO (centro › natureza) | ELEMENTO (elemento › centro, como no WebMais),
+     semAdiantamentos, centros}. As partes vêm de Financeiro.partesDoTitulo (F9): elemento da
+     classificação e rateio entre centros; sem classificação, natureza e centro do título.
+     Subtotais ficam na coluna própria "Subtotal" (o total do CSV continua a soma das linhas). */
   function relGastosCentroCusto(fin, f) {
-    var o = f || {}, x = fin || {}, nomes = centros(o.centros), pag = o.dataBase === 'PAGAMENTO';
-    var titulo = 'Gastos por centro de custo' + (pag ? ' (pagos)' : ' (lançados)');
+    var o = f || {}, x = fin || {}, nomes = centros(o.centros), pag = o.dataBase === 'PAGAMENTO', porEl = o.agrupar === 'ELEMENTO', els = F.elementos(x);
+    var titulo = (porEl ? 'Gastos por elemento de custo' : 'Gastos por centro de custo') + (pag ? ' (pagos)' : ' (lançados)');
     var err = validarPeriodo(o); if (err) return vazio(titulo, err);
     var itens = [], rateado = false;
+    function rotEl(cod) { return cod + ' ' + ((els[cod] || {}).nome || ''); }
     function add(t, id, data, valor) {
-      var cc = t.centroCusto || '';
-      if (o.centroCusto && (o.centroCusto === '_SEM' ? cc : cc !== o.centroCusto)) return;
-      if (multiNatureza(t)) rateado = true;
-      ratear(valor, t).forEach(function(r) {
-        if (o.natureza && r.natureza !== o.natureza) return;
-        if (!r.valor) return;
-        itens.push({ cc: cc, centro: cc ? (nomes[cc] || cc) : SEM_CC, natureza: rotNat(r.natureza), documento: t.documento || id, parceiro: nomeParc(t), data: data, valor: r.valor });
+      var partes = F.partesDoTitulo(x, id, valor);
+      if (partes.length > 1) rateado = true;
+      partes.forEach(function(pt) {
+        var cc = pt.centro || '';
+        if (o.centroCusto && (o.centroCusto === '_SEM' ? cc : cc !== o.centroCusto)) return;
+        if (o.natureza && pt.natureza !== o.natureza) return;
+        if (o.elemento && pt.elemento !== o.elemento) return;
+        if (!pt.valorCentavos) return;
+        itens.push({ cc: cc, centro: cc ? (nomes[cc] || cc) : SEM_CC, natureza: rotNat(pt.natureza), cod: pt.elemento, elemento: rotEl(pt.elemento),
+          documento: t.documento || id, parceiro: nomeParc(t), data: data, valor: pt.valorCentavos });
       });
     }
     if (pag) {
@@ -249,28 +255,36 @@
         add(t, id, t.emissao, cent(t.valorCentavos));
       });
     }
-    // Centro sem nome primeiro? Não: "Sem centro de custo" por último, para não esconder o que tem dono.
-    itens.sort(function(a, b) { return (a.cc ? 0 : 1) - (b.cc ? 0 : 1) || a.centro.localeCompare(b.centro) || a.natureza.localeCompare(b.natureza) || String(a.data).localeCompare(String(b.data)); });
+    // "Sem centro de custo" por último, para não esconder o que tem dono.
+    var k1 = porEl ? function(it) { return it.cod; } : function(it) { return it.centro; };
+    var k2 = porEl ? function(it) { return it.centro; } : function(it) { return it.natureza; };
+    itens.sort(function(a, b) {
+      return porEl ? (a.cod.localeCompare(b.cod) || (a.cc ? 0 : 1) - (b.cc ? 0 : 1) || a.centro.localeCompare(b.centro) || String(a.data).localeCompare(String(b.data)))
+        : ((a.cc ? 0 : 1) - (b.cc ? 0 : 1) || a.centro.localeCompare(b.centro) || a.natureza.localeCompare(b.natureza) || String(a.data).localeCompare(String(b.data)));
+    });
     var linhas = [], i = 0;
+    function lin(it, extra) { return Object.assign({ centro: it.centro, elemento: it.elemento, natureza: it.natureza }, extra); }
     while (i < itens.length) {
-      var c = itens[i].centro, totC = 0;
-      while (i < itens.length && itens[i].centro === c) {
-        var n = itens[i].natureza, totN = 0;
-        while (i < itens.length && itens[i].centro === c && itens[i].natureza === n) {
-          var it = itens[i++]; totN += it.valor;
-          linhas.push({ centro: it.centro, natureza: it.natureza, documento: it.documento, parceiro: it.parceiro, data: it.data, valor: it.valor });
+      var a1 = k1(itens[i]), r1 = itens[i], tot1 = 0;
+      while (i < itens.length && k1(itens[i]) === a1) {
+        var a2 = k2(itens[i]), r2 = itens[i], tot2 = 0;
+        while (i < itens.length && k1(itens[i]) === a1 && k2(itens[i]) === a2) {
+          var it = itens[i++]; tot2 += it.valor;
+          linhas.push(lin(it, { documento: it.documento, parceiro: it.parceiro, data: it.data, valor: it.valor }));
         }
-        linhas.push({ centro: c, natureza: n, documento: 'Subtotal ' + n, subtotal: totN, destaque: true });
-        totC += totN;
+        linhas.push(lin(r2, { documento: 'Subtotal ' + (porEl ? r2.centro : r2.natureza), subtotal: tot2, destaque: true }));
+        tot1 += tot2;
       }
-      linhas.push({ centro: c, documento: 'Total do centro ' + c, subtotal: totC, destaque: true });
+      linhas.push(porEl ? { elemento: r1.elemento, documento: 'Total do elemento ' + r1.elemento, subtotal: tot1, destaque: true }
+        : { centro: r1.centro, documento: 'Total do centro ' + r1.centro, subtotal: tot1, destaque: true });
     }
-    var colunas = [{ chave: 'centro', rotulo: 'Centro de custo', tipo: 'texto' }, { chave: 'natureza', rotulo: 'Elemento (natureza)', tipo: 'texto' },
+    var cE = { chave: 'elemento', rotulo: 'Elemento de custo', tipo: 'texto' }, cC = { chave: 'centro', rotulo: 'Centro de custo', tipo: 'texto' };
+    var colunas = (porEl ? [cE, cC] : [cC, { chave: 'natureza', rotulo: 'Natureza', tipo: 'texto' }, cE]).concat([
       { chave: 'documento', rotulo: 'Documento', tipo: 'texto' }, { chave: 'parceiro', rotulo: 'Fornecedor', tipo: 'texto' },
-      { chave: 'data', rotulo: pag ? 'Pagamento' : 'Emissão', tipo: 'data' }, { chave: 'valor', rotulo: 'Valor', tipo: 'valor' }, { chave: 'subtotal', rotulo: 'Subtotal', tipo: 'valor', semTotal: true }];
+      { chave: 'data', rotulo: pag ? 'Pagamento' : 'Emissão', tipo: 'data' }, { chave: 'valor', rotulo: 'Valor', tipo: 'valor' }, { chave: 'subtotal', rotulo: 'Subtotal', tipo: 'valor', semTotal: true }]);
     var av = [];
-    if (itens.some(function(it) { return !it.cc; })) av.push('Títulos sem centro de custo aparecem em "' + SEM_CC + '": o recebimento contra pedido de compra nasce assim; no título manual, informe o centro ao lançar.');
-    if (rateado) av.push('Recebimento com mais de uma natureza (ex.: matéria-prima e embalagem) é dividido na proporção dos itens.');
+    if (itens.some(function(it2) { return !it2.cc; })) av.push('Títulos sem centro de custo aparecem em "' + SEM_CC + '": o recebimento contra pedido de compra nasce assim; classifique o título (elemento e rateio) ou informe o centro no título manual.');
+    if (rateado) av.push('Título com rateio entre centros ou com mais de uma natureza (ex.: matéria-prima e embalagem) aparece dividido na proporção.');
     return { titulo: titulo, colunas: colunas, linhas: linhas, totais: somaCol(linhas, colunas), avisos: av };
   }
 
@@ -286,20 +300,27 @@
       if (t.tipo !== 'PAGAR' || !dentro(t.emissao, o.de, o.ate) || !filtroParc(t, o.parceiro)) return;
       if (ehReneg(t)) { renegs++; return; }
       if (o.natureza && !temNatureza(t, o.natureza)) return;
+      var ce = F.classificacaoEfetiva(fin, s.id), partes = F.partesDoTitulo(fin, s.id, 10000), els = F.elementos(fin);
+      var cods = partes.map(function(pt) { return pt.elemento; }).filter(function(c, i2, a2) { return a2.indexOf(c) === i2; });
+      if (o.elemento && cods.indexOf(o.elemento) < 0) return;
+      if (o.formaPagamento && ce.formaPagamento !== o.formaPagamento) return;
       if (o.centroCusto && (o.centroCusto === '_SEM' ? t.centroCusto : t.centroCusto !== o.centroCusto)) return;
       if (o.origem && (t.origem && t.origem.tipo) !== o.origem) return;
       if (q && String(t.criadoPor || '').toUpperCase().indexOf(q) < 0) return;
       if (o.situacao === 'ABERTOS' && !(s.saldoCentavos > 0)) return;
       if (o.situacao === 'QUITADOS' && s.saldoCentavos > 0) return;
       var p = s.abertas[0];
-      linhas.push({ emissao: t.emissao, documento: t.documento || s.id, parceiro: nomeParc(t), natureza: rotNat(t.natureza), centro: t.centroCusto ? (nomes[t.centroCusto] || t.centroCusto) : '',
+      var rat = ce.rateio && ce.rateio.length ? ce.rateio.map(function(r) { return (nomes[r.centro] || r.centro) + ' ' + String(r.percentual).replace('.', ',') + '%'; }).join(' · ') : null;
+      linhas.push({ emissao: t.emissao, documento: t.documento || s.id, parceiro: nomeParc(t), natureza: rotNat(t.natureza), centro: rat || (t.centroCusto ? (nomes[t.centroCusto] || t.centroCusto) : ''),
+        elemento: cods.map(function(c) { return c + ' ' + ((els[c] || {}).nome || ''); }).join(' + '), forma: ce.formaPagamento || '',
         origem: ROT_ORIGEM[t.origem && t.origem.tipo] || (t.origem && t.origem.tipo) || '', usuario: t.criadoPor || '', condicao: F.resumoParcelas(s),
         vencimento: p ? p.vencimento : '', valor: cent(t.valorCentavos), pago: cent(s.pagoCentavos), aberto: s.saldoCentavos,
         situacao: s.saldoCentavos <= 0 ? (ROT_STATUS[s.status] || 'Quitado') : s.semVencimento ? 'Sem vencimento' : (s.bloqueio ? 'Bloqueado' : 'Em aberto') });
     });
     linhas.sort(function(a, b) { return String(a.emissao).localeCompare(String(b.emissao)) || a.parceiro.localeCompare(b.parceiro); });
     var colunas = [{ chave: 'emissao', rotulo: 'Emissão', tipo: 'data' }, { chave: 'documento', rotulo: 'Documento', tipo: 'texto' }, { chave: 'parceiro', rotulo: 'Fornecedor', tipo: 'texto' },
-      { chave: 'natureza', rotulo: 'Natureza', tipo: 'texto' }, { chave: 'centro', rotulo: 'Centro de custo', tipo: 'texto' }, { chave: 'origem', rotulo: 'Origem', tipo: 'texto' },
+      { chave: 'natureza', rotulo: 'Natureza', tipo: 'texto' }, { chave: 'elemento', rotulo: 'Elemento', tipo: 'texto' }, { chave: 'centro', rotulo: 'Centro de custo', tipo: 'texto' },
+      { chave: 'forma', rotulo: 'Forma de pagamento', tipo: 'texto' }, { chave: 'origem', rotulo: 'Origem', tipo: 'texto' },
       { chave: 'usuario', rotulo: 'Lançado por', tipo: 'texto' }, { chave: 'condicao', rotulo: 'Parcelas', tipo: 'texto' }, { chave: 'vencimento', rotulo: 'Próx. vencimento', tipo: 'data' },
       { chave: 'valor', rotulo: 'Valor', tipo: 'valor' }, { chave: 'pago', rotulo: 'Pago', tipo: 'valor' }, { chave: 'aberto', rotulo: 'Em aberto', tipo: 'valor' }, { chave: 'situacao', rotulo: 'Situação', tipo: 'texto' }];
     return { titulo: titulo, colunas: colunas, linhas: linhas, totais: somaCol(linhas, colunas),
