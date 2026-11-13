@@ -347,6 +347,30 @@ async function campo(page, seletor, valor) {
     await page.setInputFiles('#pzFoto', {name: 'planilha.pdf', mimeType: 'application/pdf', buffer: Buffer.alloc(100, 1)});
     await page.waitForFunction(() => /Só imagem/.test(document.getElementById('alertBox').innerText));
     assert.equal(await page.locator('#formParcela').count(), 0);
+    // Foto da balança que "sumia" (13/11/2026): com a câmera aberta, uma mudança no banco
+    // (outro operador, baixa de estoque da mesma MP) redesenhava a MP e trocava o
+    // <input type=file>; a foto voltava para um campo fora da tela e não abria o formulário.
+    {
+      const [seletor] = await Promise.all([page.waitForEvent('filechooser'), page.click('#mBlocoPesagem .btn-camera')]);
+      await page.evaluate(() => firebase.database().ref('estoque_lotes/MPES-003/LX').set(
+        {itemCodigo: 'MPES-003', itemTipo: 'material', status: 'LIBERADO', saldoLote: 5, loteInterno: 'AK-2026-000999'}));
+      await page.waitForTimeout(200);
+      assert.equal(await seletor.element().evaluate((el) => el.isConnected), true, 'o campo da câmera continua na tela enquanto ela está aberta');
+      await seletor.setFiles(foto('camera aberta.jpg'));
+      await page.waitForSelector('#formParcela .fp-preview');
+      await page.click('#fpCancelar');
+      await page.evaluate(() => firebase.database().ref('estoque_lotes/MPES-003/LX').remove());
+      // A câmera voltou sem arquivo: avisa em vez de não fazer nada.
+      await page.waitForSelector('#pzFoto', {state: 'attached'});
+      await page.setInputFiles('#pzFoto', []);
+      await page.waitForFunction(() => /Nenhuma foto chegou da câmera/.test(document.getElementById('alertBox').innerText));
+      assert.equal(await page.locator('#formParcela').count(), 0);
+      // Foto sem tipo informado pelo celular, mas com extensão de imagem: aceita como JPEG.
+      await page.setInputFiles('#pzFoto', {name: 'IMG_20261113_101500.jpg', mimeType: '', buffer: Buffer.alloc(2048, 7)});
+      await page.waitForSelector('#formParcela .fp-preview');
+      assert.equal(await page.evaluate(() => formParcela.arquivo.type), 'image/jpeg');
+      await page.click('#fpCancelar');
+    }
     await page.click('[data-voltar-lista]');
     await page.waitForFunction(() => /fora do previsto/.test(document.getElementById('mPesagemErros').innerText));
     assert.equal(await page.locator('#mBtnFecharPesagem').isDisabled(), true, 'sem justificativa não fecha');

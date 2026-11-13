@@ -751,8 +751,28 @@ function planoDaMp(itemKey) {
   return calcularPlanoFefo(itemKey);
 }
 
+/* Câmera aberta (13/11/2026): "a foto some". Com a câmera do celular aberta, qualquer
+   mudança no banco (outro operador, baixa de estoque da mesma MP) redesenhava a MP e
+   trocava o <input type=file> por outro; a foto voltava para o campo que já saíra da
+   tela e o formulário não abria. Enquanto a câmera estiver aberta, a pesagem não é
+   redesenhada; ela fecha na foto, no cancelar ou no próximo toque na tela. */
+var cameraAbertaAte = 0;
+function cameraAberta() { return Date.now() < cameraAbertaAte; }
+function abriuCamera() { cameraAbertaAte = Date.now() + 10 * 60 * 1000; }
+function fechouCamera(redesenhar) {
+  if (!cameraAbertaAte) return;
+  cameraAbertaAte = 0;
+  if (redesenhar && opAtual) renderPainel();
+}
+document.addEventListener('pointerdown', function(e) {
+  if (!cameraAbertaAte || (e.target && e.target.closest && e.target.closest('.btn-camera, label.pz-link'))) return;
+  cameraAbertaAte = 0;
+  setTimeout(function() { if (opAtual && !cameraAberta()) renderPainel(); }, 400);
+}, true);
+
 function renderPesagem(f, st, val, podeEditar) {
   var pes = f.pesagem || {};
+  if (cameraAberta() && document.querySelector('#pzFoto, #fpFoto')) return;
   var modo = formParcela && podeEditar ? 'form' : (mpAberta && previstos[mpAberta] ? 'mp' : 'lista');
   var bloco = document.getElementById('mBlocoPesagem');
   bloco.classList.remove('modo-lista', 'modo-mp', 'modo-form');
@@ -967,7 +987,11 @@ function ligarPesagem() {
   });
   // Foto primeiro: o botão da MP abre a câmera; escolhida a foto, abre o formulário.
   var cam = document.getElementById('pzFoto');
-  if (cam) cam.onchange = function() { receberFoto(this, mpAberta); };
+  if (cam) {
+    cam.onclick = abriuCamera;
+    cam.oncancel = function() { fechouCamera(true); };
+    cam.onchange = function() { fechouCamera(false); receberFoto(this, mpAberta); };
+  }
   var semFoto = document.getElementById('pzSemFoto');
   if (semFoto) semFoto.onclick = function() {
     descartarFormParcela();
@@ -989,7 +1013,11 @@ function ligarPesagem() {
   var motivoSemFoto = document.getElementById('fpSemFoto');
   if (motivoSemFoto) motivoSemFoto.oninput = function() { formParcela.semFotoMotivo = motivoSemFoto.value; atualizarFormParcela(); };
   var refazer = document.getElementById('fpFoto');
-  if (refazer) refazer.onchange = function() { receberFoto(this, formParcela && formParcela.itemKey); };
+  if (refazer) {
+    refazer.onclick = abriuCamera;
+    refazer.oncancel = function() { fechouCamera(true); };
+    refazer.onchange = function() { fechouCamera(false); receberFoto(this, formParcela && formParcela.itemKey); };
+  }
   if (!formParcela) return;
   var peso = document.getElementById('fpPeso');
   if (peso) peso.oninput = function() { formParcela.peso = peso.value; atualizarFormParcela(); };
@@ -1021,9 +1049,24 @@ function loteSugerido(itemKey) {
   return anteriores.length ? (anteriores[anteriores.length - 1].loteMaterial || '') : '';
 }
 
+// Alguns celulares entregam a foto sem tipo (type vazio); a extensão diz o que é.
+// Sem tipo, a validação recusava e o Storage exige image/* -- a foto "sumia".
+function comTipoDeImagem(arquivo) {
+  if (!arquivo || arquivo.type) return arquivo;
+  var ext = (String(arquivo.name || '').match(/\.([a-z0-9]+)$/i) || [])[1] || '';
+  var tipo = {jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', heic: 'image/heic', heif: 'image/heif'}[ext.toLowerCase()];
+  if (!tipo) return arquivo;
+  try { return new File([arquivo], arquivo.name, {type: tipo, lastModified: arquivo.lastModified || Date.now()}); }
+  catch (e) { return arquivo; }
+}
+
 function receberFoto(input, itemKey) {
-  var arquivo = input.files && input.files[0];
-  if (!arquivo || !itemKey) return;
+  if (!itemKey) return;
+  var arquivo = comTipoDeImagem(input.files && input.files[0]);
+  if (!arquivo) {
+    showAlert('Nenhuma foto chegou da câmera. Fotografe de novo; se repetir, use "Sem foto? Registrar por escrito".', 'danger');
+    return;
+  }
   var v = Anexos.validar(arquivo, {perfil: 'imagem'});
   if (!v.ok) { showAlert(v.erros.join(' '), 'danger'); input.value = ''; return; }
   var url = (window.URL && URL.createObjectURL) ? URL.createObjectURL(arquivo) : '';
