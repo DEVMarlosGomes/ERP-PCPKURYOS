@@ -39,11 +39,13 @@
     ESTOQUE_USO_CONSUMO: { codigo: '1.1.3.2', nome: 'Estoque de uso e consumo', tipo: 'ATIVO' },
     PEP:                 { codigo: '1.1.3.3', nome: 'Produção em processo', tipo: 'ATIVO' },
     ESTOQUE_PA:          { codigo: '1.1.3.4', nome: 'Estoque de produto acabado', tipo: 'ATIVO' },
+    ADIANT_FORNECEDORES: { codigo: '1.1.4',   nome: 'Adiantamentos a fornecedores', tipo: 'ATIVO' },
     FORNECEDORES:        { codigo: '2.1.1',   nome: 'Fornecedores a pagar', tipo: 'PASSIVO' },
     SALARIOS_PAGAR:      { codigo: '2.1.2',   nome: 'Salários e encargos a pagar', tipo: 'PASSIVO' },
     CONTAS_PAGAR:        { codigo: '2.1.3',   nome: 'Contas a pagar diversas', tipo: 'PASSIVO' },
     IMPOSTOS_RECOLHER:   { codigo: '2.1.4',   nome: 'Impostos sobre vendas a recolher (estimado)', tipo: 'PASSIVO' },
     PLR_PAGAR:           { codigo: '2.1.5',   nome: 'PLR a pagar', tipo: 'PASSIVO' },
+    ADIANT_CLIENTES:     { codigo: '2.1.6',   nome: 'Adiantamentos de clientes', tipo: 'PASSIVO' },
     SALDOS_ABERTURA:     { codigo: '2.3.1',   nome: 'Saldos de abertura', tipo: 'PL' },
     RECEITA_BRUTA:       { codigo: '3.1.1',   nome: 'Receita bruta de vendas', tipo: 'RECEITA', grupoDre: 'RECEITA_BRUTA' },
     OUTRAS_RECEITAS:     { codigo: '3.1.2',   nome: 'Outras receitas operacionais', tipo: 'RECEITA', grupoDre: 'OUTRAS_RECEITAS' },
@@ -56,6 +58,7 @@
     DESP_ADM:            { codigo: '5.1.1',   nome: 'Despesas administrativas', tipo: 'DESPESA', grupoDre: 'DESPESAS_ADM' },
     DESP_COM:            { codigo: '5.1.2',   nome: 'Despesas comerciais', tipo: 'DESPESA', grupoDre: 'DESPESAS_COMERCIAIS' },
     PLR:                 { codigo: '5.1.3',   nome: 'Participação nos resultados (PLR)', tipo: 'DESPESA', grupoDre: 'PLR' },
+    PERDAS_CLIENTES:     { codigo: '5.1.4',   nome: 'Perdas com clientes (incobráveis)', tipo: 'DESPESA', grupoDre: 'DESPESAS_COMERCIAIS' },
     RECEITA_FIN:         { codigo: '6.1.1',   nome: 'Receitas financeiras', tipo: 'RECEITA', grupoDre: 'RESULTADO_FINANCEIRO' },
     DESP_FIN:            { codigo: '6.1.2',   nome: 'Despesas financeiras', tipo: 'DESPESA', grupoDre: 'RESULTADO_FINANCEIRO' }
   };
@@ -95,6 +98,13 @@
     }
     if (d !== c) return { ok: false, motivo: 'débito (' + d + ') ≠ crédito (' + c + ')' };
     return { ok: true, partidas: ps, totalCentavos: d };
+  }
+  // Mesma conta a débito e a crédito no mesmo documento se compensa: débitos primeiro, depois créditos.
+  function compensar(partidas) {
+    var ordem = [], liq = {};
+    partidas.forEach(function(x) { if (!x) return; if (!(x.conta in liq)) { ordem.push(x.conta); liq[x.conta] = 0; } liq[x.conta] += x.debitoCentavos - x.creditoCentavos; });
+    var deb = ordem.filter(function(k) { return liq[k] > 0; }).map(function(k) { return D(k, liq[k]); });
+    return deb.concat(ordem.filter(function(k) { return liq[k] < 0; }).map(function(k) { return C(k, -liq[k]); }));
   }
   function inverter(partidas) { return partidas.map(function(p) { return Object.assign({}, p, { debitoCentavos: p.creditoCentavos, creditoCentavos: p.debitoCentavos }); }); }
 
@@ -227,9 +237,45 @@
     });
     Object.keys(fin.baixas || {}).forEach(function(id) {
       var x = fin.baixas[id], t = x && (fin.titulos || {})[x.titulo]; if (!t) return;
-      var ps = partidasDaBaixa(x, t); if (!ps) return;
+      var ps = partidasDaBaixa(x, t, fin.titulos); if (!ps) return;
       add('BX_' + san(id), { data: x.data, competencia: String(x.data).slice(0, 7), historico: (x.tipo === 'ESTORNO' ? 'Estorno de ' : '') + (t.tipo === 'PAGAR' ? 'Pagamento: ' : 'Recebimento: ') + (t.documento || x.titulo) + ' · ' + (t.parceiro && t.parceiro.nome || ''),
         origem: { tipo: 'BAIXA', ref: 'fin/baixas/' + id }, partidas: x.tipo === 'ESTORNO' ? inverter(ps) : ps });
+    });
+    // Entrega B (12/11/2026): adiantamento, renegociação e cancelamento.
+    Object.keys(fin.adiantamentos || {}).forEach(function(id) {
+      var a = fin.adiantamentos[id]; if (!a || (a.tipo !== 'PAGAR' && a.tipo !== 'RECEBER')) return;
+      var v = Math.round(num(a.valorCentavos)); if (!(v > 0)) return;
+      var ex = { parceiro: a.parceiro && a.parceiro.nome || null };
+      var ps = a.tipo === 'PAGAR' ? [D('ADIANT_FORNECEDORES', v, ex), C('BANCOS', v, { banco: a.conta })] : [D('BANCOS', v, { banco: a.conta }), C('ADIANT_CLIENTES', v, ex)];
+      add('ADT_' + san(id), { data: a.data, competencia: String(a.data).slice(0, 7), historico: (a.tipoRegistro === 'ESTORNO' ? 'Estorno de ' : '') + (a.tipo === 'PAGAR' ? 'Adiantamento a ' : 'Adiantamento de ') + (ex.parceiro || ''),
+        origem: { tipo: 'ADIANTAMENTO', ref: 'fin/adiantamentos/' + id }, partidas: a.tipoRegistro === 'ESTORNO' ? inverter(ps) : ps });
+    });
+    Object.keys(fin.renegociacoes || {}).forEach(function(id) {
+      var rn = fin.renegociacoes[id], tn = rn && (fin.titulos || {})[rn.novoTitulo]; if (!rn || rn.status !== 'ATIVA' || !tn) return;
+      var V = Math.round(num(rn.valorNovoCentavos)), A = Math.round(num(rn.acrescimoCentavos)), Ds = Math.round(num(rn.descontoCentavos)), ps = [];
+      if (tn.tipo === 'PAGAR') {
+        Object.keys(rn.titulos || {}).forEach(function(k) { var o = (fin.titulos || {})[k]; if (o) ps.push(D(passivoDoTitulo(o, fin.titulos), Math.round(num(rn.titulos[k])))); });
+        ps.push(D('DESP_FIN', A), C('RECEITA_FIN', Ds), C(passivoDoTitulo(tn, fin.titulos), V));
+      } else {
+        var S = Object.keys(rn.titulos || {}).reduce(function(t2, k) { return t2 + Math.round(num(rn.titulos[k])); }, 0);
+        ps.push(D('CLIENTES', V), D('DESP_FIN', Ds), C('CLIENTES', S), C('RECEITA_FIN', A));
+      }
+      add('RNG_' + san(id), { data: rn.data, competencia: String(rn.data).slice(0, 7), historico: 'Renegociação ' + (tn.documento || rn.novoTitulo) + ' · ' + (tn.parceiro && tn.parceiro.nome || ''),
+        origem: { tipo: 'RENEGOCIACAO', ref: 'fin/renegociacoes/' + id }, partidas: compensar(ps) });
+    });
+    Object.keys(fin.cancelamentos || {}).forEach(function(id) {
+      var cn = fin.cancelamentos[id]; if (!cn || cn.status !== 'ATIVO') return;
+      Object.keys(cn.titulos || {}).forEach(function(k) {
+        var t = (fin.titulos || {})[k], v = Math.round(num(cn.titulos[k])); if (!t || !(v > 0)) return;
+        var ex = { parceiro: t.parceiro && t.parceiro.nome || null }, imp = (t.origem || {}).tipo === 'IMPORTACAO', ps;
+        var contaNat = CONTA_DA_NATUREZA[t.natureza] || (t.tipo === 'RECEBER' ? 'OUTRAS_RECEITAS' : 'DESP_ADM');
+        var ccx = Object.assign({ cc: imp ? null : t.centroCusto || null }, ex);
+        if (t.tipo === 'RECEBER') ps = [cn.motivo === 'INCOBRAVEL' ? D('PERDAS_CLIENTES', v, Object.assign({ cc: 'COMERCIAL' }, ex)) : D(imp ? 'SALDOS_ABERTURA' : contaNat, v, ccx), C('CLIENTES', v, ex)];
+        else ps = [D(passivoDoTitulo(t, fin.titulos), v, ex), C(imp ? 'SALDOS_ABERTURA' : contaNat, v, ccx)];
+        add('CAN_' + san(id) + '_' + san(k), { data: cn.data, competencia: String(cn.data).slice(0, 7),
+          historico: 'Cancelamento (' + (cn.motivo === 'INCOBRAVEL' ? 'incobrável' : 'emitido por engano') + '): ' + (t.documento || k) + ' · ' + (ex.parceiro || ''),
+          origem: { tipo: 'CANCELAMENTO', ref: 'fin/cancelamentos/' + id }, partidas: ps });
+      });
     });
     // Financeiro F6 (10/11/2026): movimento de conta que não é baixa de título.
     // O estorno carrega os campos do original e entra com as partidas invertidas.
@@ -247,9 +293,14 @@
     return out;
   }
   // O passivo (ou ativo) que a baixa liquida: o mesmo que a obrigação creditou na origem.
-  function passivoDoTitulo(t) {
+  // Título de renegociação herda o passivo do primeiro original (Entrega B): a dívida só trocou de título.
+  function passivoDoTitulo(t, titulos, prof) {
     if (t.tipo === 'RECEBER') return 'CLIENTES';
     var o = (t.origem || {}).tipo;
+    if (o === 'RENEGOCIACAO') {
+      var orig = titulos && (t.origem.titulos || [])[0] && titulos[t.origem.titulos[0]];
+      return orig && (prof || 0) < 20 ? passivoDoTitulo(orig, titulos, (prof || 0) + 1) : 'FORNECEDORES';
+    }
     if (o === 'RECEBIMENTO') return 'FORNECEDORES';
     if (o === 'BONUS' || t.natureza === 'PLR') return 'PLR_PAGAR';
     if (t.natureza === 'FOLHA') return 'SALARIOS_PAGAR';
@@ -257,10 +308,12 @@
     if (t.natureza === 'IMPOSTOS') return 'CONTAS_PAGAR';
     return 'FORNECEDORES';
   }
-  function partidasDaBaixa(x, t) {
+  function partidasDaBaixa(x, t, titulos) {
     var v = Math.round(num(x.valorCentavos)), j = Math.round(num(x.jurosCentavos)) + Math.round(num(x.multaCentavos)), d = Math.round(num(x.descontoCentavos));
-    var liq = v + j - d, ex = { banco: x.conta || null }, pas = passivoDoTitulo(t);
+    var liq = v + j - d, ex = { banco: x.conta || null }, pas = passivoDoTitulo(t, titulos);
     if (!(v > 0)) return null;
+    // Compensação com adiantamento (Entrega B): não passa pelo banco.
+    if (x.forma === 'ADIANTAMENTO') return t.tipo === 'PAGAR' ? [D(pas, v), C('ADIANT_FORNECEDORES', v)] : [D('ADIANT_CLIENTES', v), C('CLIENTES', v)];
     if (t.tipo === 'PAGAR') return [D(pas, v), j ? D('DESP_FIN', j) : null, d ? C('RECEITA_FIN', d) : null, C('BANCOS', liq, ex)].filter(Boolean);
     return [D('BANCOS', liq, ex), d ? D('DESP_FIN', d) : null, C(pas, v), j ? C('RECEITA_FIN', j) : null].filter(Boolean);
   }
@@ -430,7 +483,7 @@
       var t = s.titulo;
       if (t.emissao && ate && t.emissao.slice(0, 7) > ate) return;
       if (t.tipo === 'RECEBER') { receber += s.saldoCentavos; return; }
-      if (passivoDoTitulo(t) !== 'FORNECEDORES') return;
+      if (passivoDoTitulo(t, (b.fin || {}).titulos) !== 'FORNECEDORES') return;
       pagarForn += s.saldoCentavos;
       // Recebimento anterior ao custo no lote (27/10): o título existe, a ENTRADA no razão de custos não.
       if (t.origem && t.origem.tipo === 'RECEBIMENTO') {
@@ -452,6 +505,15 @@
       var sb = Fin.saldosBancarios(b.fin, fimMes);
       contas.push({ conta: 'BANCOS', razaoCentavos: bal.BANCOS || 0, financeiroCentavos: Object.keys(sb).reduce(function(t, k) { return t + sb[k].saldoCentavos; }, 0),
         explicadoCentavos: 0, explicacao: null, itens: [] });
+    }
+    // Entrega B: adiantamentos -- razão contra o saldo em aberto no Financeiro no fim do mês.
+    if (Object.keys((b.fin || {}).adiantamentos || {}).length) {
+      var fimAd = ate ? Fin.addDias(Fin.somarPeriodo(String(ate).slice(0, 7) + '-01', 'MES', 1), -1) : null, fa = b.fin, filtro = {};
+      ['adiantamentos', 'baixas'].forEach(function(no) { filtro[no] = {}; Object.keys(fa[no] || {}).forEach(function(k) { var r = fa[no][k]; if (r && (!fimAd || String(r.data) <= fimAd)) filtro[no][k] = r; }); });
+      var sa = Fin.saldosAdiantamentos(filtro), adF = 0, adC = 0;
+      Object.keys(sa).forEach(function(k) { if (sa[k].tipo === 'PAGAR') adF += sa[k].saldoCentavos; else adC += sa[k].saldoCentavos; });
+      contas.push({ conta: 'ADIANT_FORNECEDORES', razaoCentavos: bal.ADIANT_FORNECEDORES || 0, financeiroCentavos: adF, explicadoCentavos: 0, explicacao: null, itens: [] });
+      contas.push({ conta: 'ADIANT_CLIENTES', razaoCentavos: bal.ADIANT_CLIENTES || 0, financeiroCentavos: adC, explicadoCentavos: 0, explicacao: null, itens: [] });
     }
     contas.forEach(function(c) { c.diferencaCentavos = c.razaoCentavos - c.financeiroCentavos; c.naoExplicadoCentavos = c.diferencaCentavos + c.explicadoCentavos; });
     return contas;

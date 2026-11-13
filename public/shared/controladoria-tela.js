@@ -34,7 +34,7 @@
   function plano() { return Ctl.planoDeContas(ctl); }
   function nomeConta(k) { var p = plano()[k]; return p ? p.codigo + ' ' + p.nome : k; }
   function centros() { return Ctl.centrosDeCusto(ctl, {}); }
-  var ROT_ORIGEM = {RAZAO_CUSTOS: 'Custos', OP: 'OP → PA', NF_SAIDA: 'NF de saída', OPERACAO: 'Operação do mês', BONUS: 'PLR', BANCO: 'Banco', TITULO: 'Título', BAIXA: 'Baixa', AJUSTE: 'Ajuste manual'};
+  var ROT_ORIGEM = {RAZAO_CUSTOS: 'Custos', OP: 'OP → PA', NF_SAIDA: 'NF de saída', OPERACAO: 'Operação do mês', BONUS: 'PLR', BANCO: 'Banco', TITULO: 'Título', BAIXA: 'Baixa', AJUSTE: 'Ajuste manual', MOVIMENTO: 'Movimento bancário', ADIANTAMENTO: 'Adiantamento', RENEGOCIACAO: 'Renegociação', CANCELAMENTO: 'Cancelamento'};
 
   /* ── Carga ─────────────────────────────────────────────────────────────── */
   function escutar() {
