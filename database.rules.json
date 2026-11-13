@@ -33,6 +33,16 @@
       // Sem isto, quem tem so o modulo Compras tomava PERMISSION_DENIED ao criar
       // qualquer documento. So sobe -- ninguem volta a numeracao.
       "contadores": {
+        // Cadastro de material novo reserva o código antes de gravar materiais/.
+        // Quem tem o módulo Cadastros já pode gravar o material, o índice e o
+        // histórico; sem esta exceção a reserva em config/ falhava antes com
+        // PERMISSION_DENIED. O contador só pode avançar e nunca ser apagado.
+        "materiais": {
+          "$tipo": {
+            ".write": "(auth != null && root.child('usuarios').child(auth.uid).child('role').exists() && root.child('usuarios').child(auth.uid).child('role').val() != 'pending' && root.child('usuarios').child(auth.uid).child('desativado').val() != true && (!root.child('security_sessions').child(auth.uid).child('revokedAfter').exists() || auth.token.auth_time > root.child('security_sessions').child(auth.uid).child('revokedAfter').val())) && newData.exists() && (auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('modulos').child('cadastros').val() == true))",
+            ".validate": "newData.isNumber() && (!data.exists() || newData.val() > data.val())"
+          }
+        },
         // Contadores usados pelo fluxo do CRM (SKU no CGI e número do pedido).
         "sku": {
           "$par": {
