@@ -231,7 +231,11 @@
       var contaNat = CONTA_DA_NATUREZA[t.natureza] || (t.tipo === 'RECEBER' ? 'OUTRAS_RECEITAS' : 'DESP_ADM');
       var ps;
       if (t.origem.tipo === 'IMPORTACAO') ps = t.tipo === 'PAGAR' ? [D('SALDOS_ABERTURA', v), C(passivoDoTitulo(t), v, ex)] : [D('CLIENTES', v, ex), C('SALDOS_ABERTURA', v)];
-      else ps = t.tipo === 'PAGAR' ? [D(contaNat, v, Object.assign({ cc: t.centroCusto || null }, ex)), C(passivoDoTitulo(t), v, ex)] : [D('CLIENTES', v, ex), C(contaNat, v, Object.assign({ cc: t.centroCusto || null }, ex))];
+      else {
+        // F9: conta pela natureza do ELEMENTO (classificação > elemento do título > natureza) e rateio por centro.
+        var lado = partesNaturais(fin, id, v, t, ex);
+        ps = t.tipo === 'PAGAR' ? lado.map(function(x) { return D(x.conta, x.v, x.extra); }).concat([C(passivoDoTitulo(t), v, ex)]) : [D('CLIENTES', v, ex)].concat(lado.map(function(x) { return C(x.conta, x.v, x.extra); }));
+      }
       add('TIT_' + san(id), { data: t.emissao, competencia: t.competencia, historico: (t.origem.tipo === 'IMPORTACAO' ? 'Saldo de abertura: ' : 'Título manual: ') + (t.documento || '') + ' · ' + (ex.parceiro || ''),
         origem: { tipo: 'TITULO', ref: 'fin/titulos/' + id }, partidas: ps });
     });
@@ -270,8 +274,10 @@
         var ex = { parceiro: t.parceiro && t.parceiro.nome || null }, imp = (t.origem || {}).tipo === 'IMPORTACAO', ps;
         var contaNat = CONTA_DA_NATUREZA[t.natureza] || (t.tipo === 'RECEBER' ? 'OUTRAS_RECEITAS' : 'DESP_ADM');
         var ccx = Object.assign({ cc: imp ? null : t.centroCusto || null }, ex);
-        if (t.tipo === 'RECEBER') ps = [cn.motivo === 'INCOBRAVEL' ? D('PERDAS_CLIENTES', v, Object.assign({ cc: 'COMERCIAL' }, ex)) : D(imp ? 'SALDOS_ABERTURA' : contaNat, v, ccx), C('CLIENTES', v, ex)];
-        else ps = [D(passivoDoTitulo(t, fin.titulos), v, ex), C(imp ? 'SALDOS_ABERTURA' : contaNat, v, ccx)];
+        // Engano em título manual desfaz exatamente o lançamento dele (mesmas contas e rateio da F9).
+        var lado = imp ? [{ conta: 'SALDOS_ABERTURA', v: v, extra: ex }] : partesNaturais(fin, k, v, t, ex);
+        if (t.tipo === 'RECEBER') ps = (cn.motivo === 'INCOBRAVEL' ? [D('PERDAS_CLIENTES', v, Object.assign({ cc: 'COMERCIAL' }, ex))] : lado.map(function(x) { return D(x.conta, x.v, x.extra); })).concat([C('CLIENTES', v, ex)]);
+        else ps = [D(passivoDoTitulo(t, fin.titulos), v, ex)].concat(lado.map(function(x) { return C(x.conta, x.v, x.extra); }));
         add('CAN_' + san(id) + '_' + san(k), { data: cn.data, competencia: String(cn.data).slice(0, 7),
           historico: 'Cancelamento (' + (cn.motivo === 'INCOBRAVEL' ? 'incobrável' : 'emitido por engano') + '): ' + (t.documento || k) + ' · ' + (ex.parceiro || ''),
           origem: { tipo: 'CANCELAMENTO', ref: 'fin/cancelamentos/' + id }, partidas: ps });
@@ -291,6 +297,13 @@
         origem: { tipo: 'MOVIMENTO', ref: 'fin/movimentos/' + id }, partidas: m.tipoRegistro === 'ESTORNO' ? inverter(ps) : ps });
     });
     return out;
+  }
+  // Partes do título manual na conta da natureza do elemento, por centro (F9). Sem classificação,
+  // é a natureza e o centro do próprio título -- o mesmo de antes.
+  function partesNaturais(fin, id, v, t, ex) {
+    return Fin.partesDoTitulo(fin, id, v).filter(function(x) { return x.valorCentavos; }).map(function(x) {
+      return { conta: CONTA_DA_NATUREZA[x.natureza] || (t.tipo === 'RECEBER' ? 'OUTRAS_RECEITAS' : 'DESP_ADM'), v: x.valorCentavos, extra: Object.assign({ cc: x.centro || null }, ex) };
+    });
   }
   // O passivo (ou ativo) que a baixa liquida: o mesmo que a obrigação creditou na origem.
   // Título de renegociação herda o passivo do primeiro original (Entrega B): a dívida só trocou de título.
