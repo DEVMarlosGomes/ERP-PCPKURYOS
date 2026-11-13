@@ -557,6 +557,17 @@
         out[c].movimentoCentavos += ef[c];
       });
     });
+    // Entrega B: adiantamento a fornecedor (sai) e de cliente (entra), com o estorno.
+    Object.keys(f.adiantamentos || {}).forEach(function(k) {
+      var a = f.adiantamentos[k]; if (!a) return;
+      if (ate && a.data > ate) return;
+      var ef = efeitosAdiantamento(a);
+      Object.keys(ef).forEach(function(c) {
+        if (!out[c]) return;
+        if (out[c].dataSaldoInicial && a.data < out[c].dataSaldoInicial) return;
+        out[c].movimentoCentavos += ef[c];
+      });
+    });
     Object.keys(out).forEach(function(k) { out[k].saldoCentavos = out[k].saldoInicialCentavos + out[k].movimentoCentavos; });
     return out;
   }
@@ -683,6 +694,10 @@
     var f = fin || {}, out = [];
     vals(f.baixas).forEach(function(x) { if (x.conta && x.data) out = out.concat(fluxosDaBaixa(x)); });
     vals(f.movimentos).forEach(function(m) { if (m.data) out = out.concat(fluxosDoMovimento(m)); });
+    vals(f.adiantamentos).forEach(function(a) {
+      var ef = efeitosAdiantamento(a); if (!a.data) return;
+      Object.keys(ef).forEach(function(c) { if (ef[c]) out.push({ conta: c, valorCentavos: ef[c], lado: a.tipo === 'PAGAR' ? 'S' : 'E', natureza: 'ADIANTAMENTOS', data: a.data }); });
+    });
     return out;
   }
   /* op: {granularidade: DIA|SEMANA|MES, conta?, natureza?}. Com conta, o projetado
@@ -744,9 +759,9 @@
   var ATIVIDADE_PADRAO = {
     RECEITA_VENDA: 'OPERACIONAL', OUTRAS_RECEITAS: 'OPERACIONAL', MATERIA_PRIMA: 'OPERACIONAL', EMBALAGEM: 'OPERACIONAL', USO_E_CONSUMO: 'OPERACIONAL',
     FRETE: 'OPERACIONAL', FOLHA: 'OPERACIONAL', CUSTO_FIXO_PRODUCAO: 'OPERACIONAL', CUSTO_FIXO_ADM: 'OPERACIONAL', DESPESA_COMERCIAL: 'OPERACIONAL',
-    PLR: 'OPERACIONAL', IMPOSTOS: 'OPERACIONAL', OUTROS: 'OPERACIONAL', RESULTADO_FINANCEIRO: 'OPERACIONAL'
+    PLR: 'OPERACIONAL', IMPOSTOS: 'OPERACIONAL', OUTROS: 'OPERACIONAL', RESULTADO_FINANCEIRO: 'OPERACIONAL', ADIANTAMENTOS: 'OPERACIONAL'
   };
-  var ROTULO_NATUREZA_DFC = { RESULTADO_FINANCEIRO: 'Resultado financeiro (juros, multas, descontos, tarifas, IOF, rendimentos)' };
+  var ROTULO_NATUREZA_DFC = { RESULTADO_FINANCEIRO: 'Resultado financeiro (juros, multas, descontos, tarifas, IOF, rendimentos)', ADIANTAMENTOS: 'Adiantamentos a fornecedores e de clientes' };
   function atividadeDe(natureza, parametros) {
     var m = ((parametros || {}).dfcAtividades) || {};
     var a = m[natureza] || ATIVIDADE_PADRAO[natureza];
@@ -1046,7 +1061,8 @@
      (cheque especial). `registro` é movimento ou baixa ({conta, liquidoCentavos, tituloTipo}). */
   function caixaNegativo(fin, registro) {
     var f = fin || {}, contas = f.contas_bancarias || {}, efeito = {};
-    if (registro.tipoRegistro) efeito = efeitosMovimento(registro);
+    if (ehAdiantamento(registro)) efeito = efeitosAdiantamento(registro);
+    else if (registro.tipoRegistro) efeito = efeitosMovimento(registro);
     else if (registro.conta) efeito[registro.conta] = (registro.tituloTipo === 'RECEBER' ? 1 : -1) * (registro.tipo === 'ESTORNO' ? -1 : 1) * Math.round(num(registro.liquidoCentavos));
     var saldos = saldosBancarios(f, null), erro = null;
     Object.keys(efeito).forEach(function(k) {
@@ -1087,6 +1103,13 @@
         estornavel: m.tipoRegistro === 'MOVIMENTO' && !estornados[k],
         historico: (m.tipoRegistro === 'ESTORNO' ? 'Estorno: ' : '') + rot + (outra ? (m.conta === conta ? ' para ' : ' de ') + (((f.contas_bancarias || {})[outra] || {}).nome || outra) : '') + (m.historico && m.historico !== rot ? ' · ' + m.historico : '') });
     });
+    Object.keys(f.adiantamentos || {}).forEach(function(k) {
+      var a = f.adiantamentos[k], ef = efeitosAdiantamento(a)[conta]; if (!ef) return;
+      if (c.dataSaldoInicial && a.data < c.dataSaldoInicial) return;
+      var est = a.tipoRegistro === 'ESTORNO', nomeP = (a.parceiro && a.parceiro.nome) || '';
+      linhas.push({ data: a.data, ordem: 1, criado: String(a.criadoEm || ''), tipo: est ? 'ESTORNO_ADIANTAMENTO' : 'ADIANTAMENTO', valorCentavos: ef, ref: k, adiantamento: est ? a.estorna : k,
+        historico: (est ? 'Estorno: ' : '') + (a.tipo === 'PAGAR' ? 'Adiantamento a ' : 'Adiantamento de ') + nomeP + (a.documento ? ' · ' + a.documento : '') });
+    });
     // No mesmo dia: saldo inicial primeiro, depois na ordem em que foi lançado (como o extrato do banco).
     linhas.sort(function(a, b) { return String(a.data).localeCompare(String(b.data)) || a.ordem - b.ordem || String(a.criado || '').localeCompare(String(b.criado || '')) || String(a.ref).localeCompare(String(b.ref)); });
     var anterior = 0, saldo = 0, periodo = [], entradas = 0, saidas = 0;
@@ -1100,6 +1123,81 @@
     });
     return { ok: true, conta: conta, nome: c.nome || conta, tipo: tipoConta(c), saldoAnteriorCentavos: anterior, linhas: periodo,
       entradasCentavos: entradas, saidasCentavos: saidas, saldoFinalCentavos: periodo.length ? saldo : anterior };
+  }
+
+  /* ── Adiantamento a fornecedor e de cliente (Entrega B, 12/11/2026 —
+     docs/superpowers/specs/2026-11-12-financeiro-entrega-b-design.md) ──
+     O dinheiro sai (ou entra) na hora, sem título; depois COMPENSA um título do mesmo
+     parceiro por uma baixa sem conta (forma ADIANTAMENTO), que não mexe no banco.
+     Estorno do adiantamento só com o saldo integral (nada compensado). */
+  function ehAdiantamento(r) { return !!r && (r.tipoRegistro === 'ADIANTAMENTO' || r.tipoRegistro === 'ESTORNO') && (r.tipo === 'PAGAR' || r.tipo === 'RECEBER'); }
+  // O mesmo parceiro: pelo CNPJ/CPF quando há; senão pelo nome (maiúsculo, sem espaço nas pontas).
+  function chaveParceiro(p) { var d = soDigitos(p && p.cnpj); return d.length >= 11 ? 'D' + d : 'N' + String((p && p.nome) || '').trim().toUpperCase(); }
+  function efeitosAdiantamento(a) {
+    if (!ehAdiantamento(a) || !a.conta) return {};
+    var out = {}; out[a.conta] = (a.tipo === 'PAGAR' ? -1 : 1) * (a.tipoRegistro === 'ESTORNO' ? -1 : 1) * Math.round(num(a.valorCentavos));
+    return out;
+  }
+  function saldosAdiantamentos(fin) {
+    var f = fin || {}, ads = f.adiantamentos || {}, out = {};
+    Object.keys(ads).forEach(function(k) {
+      var a = ads[k]; if (!a || a.tipoRegistro !== 'ADIANTAMENTO') return;
+      out[k] = { id: k, tipo: a.tipo, parceiro: a.parceiro || {}, conta: a.conta, data: a.data, documento: a.documento || null, historico: a.historico || null,
+        valorCentavos: Math.round(num(a.valorCentavos)), compensadoCentavos: 0, saldoCentavos: 0, estornado: false };
+    });
+    Object.keys(ads).forEach(function(k) { var a = ads[k]; if (a && a.tipoRegistro === 'ESTORNO' && out[a.estorna]) out[a.estorna].estornado = true; });
+    vals(f.baixas).forEach(function(x) {
+      if (x.forma !== 'ADIANTAMENTO' || !out[x.adiantamento]) return;
+      out[x.adiantamento].compensadoCentavos += (x.tipo === 'ESTORNO' ? -1 : 1) * Math.round(num(x.valorCentavos));
+    });
+    Object.keys(out).forEach(function(k) { var a = out[k]; a.saldoCentavos = a.estornado ? 0 : a.valorCentavos - a.compensadoCentavos; });
+    return out;
+  }
+  /* d: {tipo PAGAR|RECEBER, parceiro (nome), cnpj?, parceiroKey?, conta, data, valorCentavos | valor, documento?, historico?} */
+  function validarAdiantamento(d, fin) {
+    var x = d || {}, f = fin || {}, tipo = String(x.tipo || '').toUpperCase();
+    if (tipo !== 'PAGAR' && tipo !== 'RECEBER') return { ok: false, motivo: 'Tipo deve ser PAGAR (a fornecedor) ou RECEBER (de cliente).' };
+    var nome = String(x.parceiro || '').trim();
+    if (!nome) return { ok: false, motivo: 'Informe o ' + (tipo === 'PAGAR' ? 'fornecedor' : 'cliente') + '.' };
+    if (!x.conta || !(f.contas_bancarias || {})[x.conta]) return { ok: false, motivo: 'Escolha a conta.' };
+    if (!dataOk(x.data)) return { ok: false, motivo: 'Data inválida.' };
+    var v = typeof x.valorCentavos === 'number' ? Math.round(x.valorCentavos) : centavos(x.valor);
+    if (!(v > 0)) return { ok: false, motivo: 'Informe o valor.' };
+    var reg = { tipoRegistro: 'ADIANTAMENTO', tipo: tipo, parceiro: { tipo: tipo === 'PAGAR' ? 'FORNECEDOR' : 'CLIENTE', key: x.parceiroKey || null, nome: nome.slice(0, 120), cnpj: String(x.cnpj || '').trim() || null },
+      conta: x.conta, data: String(x.data).slice(0, 10), valorCentavos: v, documento: String(x.documento || '').trim().slice(0, 60) || null,
+      historico: String(x.historico || '').trim().slice(0, 300) || null, versao: VERSAO };
+    var neg = caixaNegativo(f, reg);
+    if (neg) return { ok: false, motivo: neg };
+    return { ok: true, registro: reg };
+  }
+  function validarEstornoAdiantamento(fin, id) {
+    var f = fin || {}, a = (f.adiantamentos || {})[id], s = saldosAdiantamentos(f)[id];
+    if (!a || a.tipoRegistro !== 'ADIANTAMENTO' || !s) return { ok: false, motivo: 'Adiantamento não encontrado.' };
+    if (s.estornado) return { ok: false, motivo: 'Este adiantamento já foi estornado.' };
+    if (s.compensadoCentavos !== 0) return { ok: false, motivo: 'Já há compensação com este adiantamento: estorne a compensação no título antes.' };
+    var reg = Object.assign({}, a, { tipoRegistro: 'ESTORNO', estorna: id });
+    var neg = caixaNegativo(f, reg);
+    if (neg) return { ok: false, motivo: neg };
+    return { ok: true, registro: reg };
+  }
+  /* sit: situação do título (carteira); ad: item de saldosAdiantamentos; d: {data, valorCentavos} */
+  function validarCompensacao(sit, ad, d) {
+    var x = d || {};
+    if (!sit) return { ok: false, motivo: 'Título não encontrado.' };
+    if (!ad) return { ok: false, motivo: 'Adiantamento não encontrado.' };
+    if (ad.estornado) return { ok: false, motivo: 'Adiantamento estornado.' };
+    if (ad.tipo !== sit.titulo.tipo) return { ok: false, motivo: ad.tipo === 'PAGAR' ? 'Adiantamento a fornecedor só compensa título a pagar.' : 'Adiantamento de cliente só compensa título a receber.' };
+    if (chaveParceiro(ad.parceiro) !== chaveParceiro(sit.titulo.parceiro)) return { ok: false, motivo: 'O adiantamento é de outro ' + (ad.tipo === 'PAGAR' ? 'fornecedor' : 'cliente') + ' (confira nome e CNPJ).' };
+    if (sit.bloqueio && sit.titulo.tipo === 'PAGAR') return { ok: false, motivo: 'Título bloqueado para pagamento: ' + (sit.bloqueio.motivo || 'sem motivo') + '.' };
+    var v = Math.round(num(x.valorCentavos));
+    if (!(v > 0)) return { ok: false, motivo: 'Informe o valor a compensar.' };
+    if (v > ad.saldoCentavos) return { ok: false, motivo: 'O adiantamento só tem R$ ' + (ad.saldoCentavos / 100).toFixed(2).replace('.', ',') + ' disponível.' };
+    if (v > sit.saldoCentavos) return { ok: false, motivo: 'A compensação passa do saldo do título (R$ ' + (sit.saldoCentavos / 100).toFixed(2).replace('.', ',') + ').' };
+    if (!dataOk(x.data)) return { ok: false, motivo: 'Data inválida.' };
+    if (String(x.data).slice(0, 10) < String(ad.data).slice(0, 10)) return { ok: false, motivo: 'A compensação não pode ser antes do adiantamento.' };
+    return { ok: true, registro: { tipo: 'BAIXA', forma: 'ADIANTAMENTO', adiantamento: ad.id, titulo: sit.id, tituloTipo: sit.titulo.tipo, data: String(x.data).slice(0, 10),
+      valorCentavos: v, jurosCentavos: 0, multaCentavos: 0, descontoCentavos: 0, variacaoCambialCentavos: 0, liquidoCentavos: v, conta: null,
+      natureza: sit.titulo.natureza || null, origemTitulo: sit.titulo.origem || null } };
   }
 
   /* ── NF de entrada por XML (F5, 10/11/2026 — docs/financeiro-fase0-lacunas.md) ──
@@ -1261,6 +1359,8 @@
     GRANULARIDADES: GRANULARIDADES, fluxoCaixa: fluxoCaixa, fluxosRealizados: fluxosRealizados, ATIVIDADES: ATIVIDADES, ATIVIDADE_PADRAO: ATIVIDADE_PADRAO,
     atividadeDe: atividadeDe, dfc: dfc, somarPeriodo: somarPeriodo,
     relTitulos: relTitulos, relBaixas: relBaixas, relAging: relAging, relExtrato: relExtrato, relDfc: relDfc, relFluxo: relFluxo,
-    relatorioCsv: relatorioCsv, valorCsv: valorCsv, dataCsv: dataCsv
+    relatorioCsv: relatorioCsv, valorCsv: valorCsv, dataCsv: dataCsv,
+    chaveParceiro: chaveParceiro, efeitosAdiantamento: efeitosAdiantamento, saldosAdiantamentos: saldosAdiantamentos, validarAdiantamento: validarAdiantamento,
+    validarEstornoAdiantamento: validarEstornoAdiantamento, validarCompensacao: validarCompensacao
   };
 });
