@@ -201,6 +201,16 @@ let cd = clone(c); cd.abatimentos = Object.assign({}, cd.abatimentos, u.abatimen
 eq([sit(cd, 'R1').saldoCentavos, sit(cd, 'R1').status, sit(cd, 'RNF').saldoCentavos], [50000, 'ABERTO', 40000], 'desfazer devolve o saldo');
 ok(!F.montarDesfazerCancelamento(cd, 'CN_cn1', {data: D, motivo: 'de novo sim'}).ok, 'desfazer duas vezes: recusado');
 ok(!F.montarDesfazerCancelamento(c, 'NAO', {data: D, motivo: 'cliente pagou'}).ok, 'cancelamento inexistente');
+// Revisão final: renegociar título bloqueado criaria um título novo SEM o bloqueio (burla o bloqueio).
+const gBl = base2(); gBl.bloqueios = {P1: {motivo: 'nota com divergência', ativo: true}};
+ok(!F.montarRenegociacao(gBl, {titulos: ['P1'], data: D, condicao: '30', motivo: 'acordo'}, 'bl1').ok, 'título a pagar bloqueado não se renegocia');
+ok(/bloquead/i.test(F.montarRenegociacao(gBl, {titulos: ['P1'], data: D, condicao: '30', motivo: 'acordo'}, 'bl1').motivo), 'diz que está bloqueado');
+ok(F.montarCancelamento(gBl, {titulos: ['P1'], data: D, motivo: 'ENGANO', justificativa: 'lançado em duplicidade'}, 'bl2').ok, 'bloqueado pode ser cancelado (cancelar não paga)');
+// Desfazer renegociação cujo título novo está num lote aguardando: recusa clara.
+const gLt = aplicar(base2(), F.montarRenegociacao(base2(), {titulos: ['P3'], data: D, condicao: '30', motivo: 'acordo'}, 'lt1'), 'renegociacoes', 'RN_lt1');
+gLt.lotes_pagamento.L2 = {status: 'AGUARDANDO', titulos: {RNG_lt1: 5000}};
+ok(/lote/.test(F.montarDesfazerRenegociacao(gLt, 'RN_lt1', {data: D, motivo: 'lançada errada'}).motivo || ''), 'título novo em lote aguardando: não desfaz');
+
 // Devolução segue "Abatido" (status antigo intacto).
 const gDev = clone(base()); gDev.abatimentos = {A: {titulo: 'P1', motivo: 'DEVOLUCAO', valorCentavos: 30000, data: D}};
 eq(sit(gDev, 'P1').status, 'ABATIDO');

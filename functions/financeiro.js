@@ -1286,6 +1286,8 @@
       if (lote[id]) return { ok: false, motivo: nome + ' está num lote de pagamento aguardando aprovação: recuse o lote antes.' };
       if (sits.length && s.titulo.tipo !== sits[0].titulo.tipo) return { ok: false, motivo: 'Não misture títulos a pagar e a receber.' };
       if (mesmoParceiro && sits.length && chaveParceiro(s.titulo.parceiro) !== chaveParceiro(sits[0].titulo.parceiro)) return { ok: false, motivo: 'Renegociação é de um parceiro só (' + nome + ' é de outro).' };
+      // Renegociar título bloqueado criaria um título novo sem o bloqueio (burlaria o bloqueio).
+      if (mesmoParceiro && s.bloqueio && s.titulo.tipo === 'PAGAR') return { ok: false, motivo: nome + ' está bloqueado para pagamento (' + (s.bloqueio.motivo || 'sem motivo') + '): desbloqueie antes de renegociar.' };
       sits.push(s);
     }
     return { ok: true, sits: sits };
@@ -1337,6 +1339,7 @@
     if (!dataOk(x.data)) return { ok: false, motivo: 'Data inválida.' };
     var mv = movimentosPorTitulo(f)[rn.novoTitulo] || { pago: 0, abatido: 0 };
     if (mv.pago !== 0 || mv.abatido !== 0) return { ok: false, motivo: 'O título novo já tem baixa ou abatimento: estorne antes de desfazer.' };
+    if (emLoteAguardando(f)[rn.novoTitulo]) return { ok: false, motivo: 'O título novo está num lote de pagamento aguardando aprovação: recuse o lote antes de desfazer.' };
     var data = String(x.data).slice(0, 10), ref = 'fin/renegociacoes/' + rnId, abat = {};
     abat[rnId + '_desf_novo'] = { titulo: rn.novoTitulo, motivo: 'RENEGOCIACAO_DESFEITA', valorCentavos: Math.round(num(rn.valorNovoCentavos)), data: data, ref: ref };
     Object.keys(rn.titulos || {}).forEach(function(t) { abat[rnId + '_desf_' + san(t)] = { titulo: t, motivo: 'RENEGOCIACAO_DESFEITA', valorCentavos: -Math.round(num(rn.titulos[t])), data: data, ref: ref }; });
