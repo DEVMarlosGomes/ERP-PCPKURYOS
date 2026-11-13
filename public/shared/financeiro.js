@@ -504,6 +504,10 @@
     // Centro de custo (12/11/2026): chave da Controladoria (ctl/centros_custo), só A-Z, 0-9 e _.
     var cc = String(x.centroCusto == null ? '' : x.centroCusto).trim();
     if (cc && !/^[A-Z0-9_]{1,40}$/.test(cc)) return { ok: false, motivo: 'Centro de custo inválido: ' + cc.slice(0, 40) + '.' };
+    // F9: elemento de custo (código do plano de elementos) e forma de pagamento.
+    var elem = String(x.elemento == null ? '' : x.elemento).trim().toUpperCase(), forma = String(x.formaPagamento == null ? '' : x.formaPagamento).trim().toUpperCase();
+    if (elem && !/^[0-9A-Z]{1,8}$/.test(elem)) return { ok: false, motivo: 'Elemento de custo inválido: ' + elem.slice(0, 8) + '.' };
+    if (forma && !FORMAS_PAGAMENTO[forma]) return { ok: false, motivo: 'Forma de pagamento inválida: ' + forma.slice(0, 20) + '.' };
     // Condição informada (sem vencimento): tem que ser entendida e é gravada na forma canônica.
     var cond = null;
     if (!x.vencimento && String(x.condicao || '').trim()) {
@@ -512,7 +516,7 @@
     }
     return { ok: true, titulo: { tipo: tipo, origem: { tipo: origemTipo || 'MANUAL', ref: null }, parceiro: { tipo: tipo === 'PAGAR' ? 'FORNECEDOR' : 'CLIENTE', key: x.parceiroKey || null, nome: nome.slice(0, 120), cnpj: String(x.cnpj || '').trim() || null },
       documento: String(x.documento || '').trim().slice(0, 60) || null, emissao: emissao, competencia: emissao.slice(0, 7), valorCentavos: v, moeda: 'BRL',
-      natureza: nat, porNatureza: null, centroCusto: cc || null, condicao: cond,
+      natureza: nat, porNatureza: null, centroCusto: cc || null, elemento: elem || null, formaPagamento: forma || null, condicao: cond,
       vencimentoFixo: x.vencimento ? String(x.vencimento).slice(0, 10) : null, baseVencimento: emissao, historico: String(x.historico || '').slice(0, 300) || null,
       notaChave: /^\d{44}$/.test(String(x.notaChave || '')) ? String(x.notaChave) : null, versao: VERSAO } };
   }
@@ -754,10 +758,36 @@
       acum += c.entradas - c.saidas + c.entradasPrevistas - c.saidasPrevistas;
       c.saldoProjetadoCentavos = nat ? null : acum; // com filtro de natureza, saldo não faz sentido
     });
+    // F9 (NA-06): uma linha por grupo de elemento -- realizado + títulos a vencer (sem as previsões de pedido).
+    var porGrupo;
+    if (o.porGrupo) {
+      var gs = {}, els = elementos(b.fin);
+      var linhaG = function(cod) { var gr = (els[cod] || {}).grupo || '9'; if (!gs[gr]) gs[gr] = { grupo: gr, rotulo: GRUPOS_ELEMENTO[gr] || gr, valores: cols.map(function() { return 0; }) }; return gs[gr]; };
+      var idx = function(d) { for (var j = 0; j < cols.length; j++) if (d >= cols[j].inicio && d <= cols[j].fim) return j; return -1; };
+      fluxosRealizadosPorElemento(b.fin).forEach(function(x) {
+        if (x.data >= ini) return;
+        if (conta ? x.conta !== conta : false) return;
+        if (nat && x.natureza !== nat) return;
+        var j = idx(x.data); if (j < 0) return;
+        linhaG(x.elemento).valores[j] += x.valorCentavos;
+      });
+      if (projeta) carteira(b.fin).forEach(function(s2) {
+        if (s2.saldoCentavos <= 0 || s2.semVencimento || (nat && s2.titulo.natureza !== nat)) return;
+        var sinal = s2.titulo.tipo === 'RECEBER' ? 1 : -1;
+        s2.abertas.forEach(function(p) {
+          if (p.vencimento < ini) return;
+          var j = idx(p.vencimento); if (j < 0) return;
+          partesDoTitulo(b.fin, s2.id, p.abertoCentavos).forEach(function(pt) { linhaG(pt.elemento).valores[j] += sinal * pt.valorCentavos; });
+        });
+      });
+      porGrupo = Object.keys(gs).sort().map(function(k) { return gs[k]; });
+    }
     var avisos = [];
     if (conta) avisos.push('Com uma conta escolhida, só o realizado aparece: títulos a vencer ainda não têm conta definida.');
     if (nat) avisos.push('Com uma natureza escolhida não há saldo projetado; pedidos de compra (várias naturezas) ficam de fora.');
-    return { granularidade: g, colunas: cols, atrasado: atrasado, semData: semData, depois: depois, saldoAtualCentavos: saldo, projetado: projeta, avisos: avisos };
+    var res = { granularidade: g, colunas: cols, atrasado: atrasado, semData: semData, depois: depois, saldoAtualCentavos: saldo, projetado: projeta, avisos: avisos };
+    if (porGrupo) res.porGrupo = porGrupo;
+    return res;
   }
 
   /* DFC pelo método direto, realizado, mês a mês. Atividade de cada natureza: o
@@ -1330,6 +1360,198 @@
     return { ok: true, abatimentos: abat, status: 'DESFEITO', motivoDesfazer: String(x.motivo).trim().slice(0, 300) };
   }
 
+  /* ── F9 (12/11/2026): elementos de custo, classificação, liquidação e aberturas do caixa ──
+     docs/superpowers/specs/2026-11-12-financeiro-f9-design.md. Elemento = "o nome da conta";
+     cada um pertence a uma natureza (que liga à Controladoria e ao DFC por atividade) e a um
+     grupo › subgrupo (DFC por elemento). O título não muda: a classificação (elemento, rateio
+     entre centros, forma de pagamento) é registro à parte em fin/classificacoes/{titulo}. */
+  var GRUPOS_ELEMENTO = { '1': 'Receitas operacionais', '2': 'Custos de produção', '3': 'Despesas operacionais', '4': 'Financeiro', '9': 'A classificar' };
+  function el9(nome, grupo, subgrupo, natureza) { return { nome: nome, grupo: grupo, subgrupo: subgrupo, natureza: natureza }; }
+  // Proposta: os códigos que o vídeo do WebMais mostra (408, 004, 1101, 1103, 2113) + os demais.
+  var ELEMENTOS_PADRAO = {
+    '101': el9('Venda de produtos', '1', 'Vendas', 'RECEITA_VENDA'), '102': el9('Serviço de envase e industrialização', '1', 'Vendas', 'RECEITA_VENDA'),
+    '103': el9('Outras receitas', '1', 'Outras receitas', 'OUTRAS_RECEITAS'),
+    '201': el9('Matéria-prima', '2', 'Materiais', 'MATERIA_PRIMA'), '202': el9('Embalagem', '2', 'Materiais', 'EMBALAGEM'),
+    '203': el9('Material de uso e consumo', '2', 'Materiais', 'USO_E_CONSUMO'), '204': el9('Frete sobre compras', '2', 'Materiais', 'FRETE'),
+    '1101': el9('Adiantamento salarial', '2', 'Mão de obra', 'FOLHA'), '1102': el9('Salários', '2', 'Mão de obra', 'FOLHA'),
+    '1103': el9('Adiantamento 13º', '2', 'Mão de obra', 'FOLHA'), '1104': el9('Encargos e benefícios', '2', 'Mão de obra', 'FOLHA'),
+    '1105': el9('Participação nos resultados (PLR)', '2', 'Mão de obra', 'PLR'),
+    '205': el9('Custos fixos de produção', '2', 'Custos fixos de produção', 'CUSTO_FIXO_PRODUCAO'), '206': el9('Manutenção de máquinas', '2', 'Custos fixos de produção', 'CUSTO_FIXO_PRODUCAO'),
+    '2113': el9('Aluguel', '3', 'Administrativas', 'CUSTO_FIXO_ADM'), '301': el9('Serviços e despesas administrativas', '3', 'Administrativas', 'CUSTO_FIXO_ADM'),
+    '302': el9('Material de escritório', '3', 'Administrativas', 'CUSTO_FIXO_ADM'), '303': el9('Telefone e internet', '3', 'Administrativas', 'CUSTO_FIXO_ADM'),
+    '304': el9('Contabilidade e honorários', '3', 'Administrativas', 'CUSTO_FIXO_ADM'),
+    '305': el9('Despesas comerciais', '3', 'Comerciais', 'DESPESA_COMERCIAL'), '306': el9('Frete sobre vendas', '3', 'Comerciais', 'DESPESA_COMERCIAL'),
+    '307': el9('Impostos e taxas', '3', 'Impostos e taxas', 'IMPOSTOS'),
+    '401': el9('Juros e multas pagos', '4', 'Resultado financeiro', 'RESULTADO_FINANCEIRO'), '402': el9('Tarifas bancárias e IOF', '4', 'Resultado financeiro', 'RESULTADO_FINANCEIRO'),
+    '403': el9('Rendimentos e descontos obtidos', '4', 'Resultado financeiro', 'RESULTADO_FINANCEIRO'),
+    '004': el9('Adiantamento', '4', 'Adiantamentos', 'ADIANTAMENTOS'),
+    '408': el9('A definir', '9', 'A classificar', 'OUTROS')
+  };
+  var ELEMENTO_DA_NATUREZA = { RECEITA_VENDA: '101', OUTRAS_RECEITAS: '103', MATERIA_PRIMA: '201', EMBALAGEM: '202', USO_E_CONSUMO: '203', FRETE: '204', FOLHA: '1102',
+    PLR: '1105', CUSTO_FIXO_PRODUCAO: '205', CUSTO_FIXO_ADM: '301', DESPESA_COMERCIAL: '305', IMPOSTOS: '307', OUTROS: '408', RESULTADO_FINANCEIRO: '401', ADIANTAMENTOS: '004' };
+  var FORMAS_PAGAMENTO = { PIX: 'PIX', BOLETO: 'Boleto', TED: 'TED/DOC', DINHEIRO: 'Dinheiro', CARTAO: 'Cartão', DEBITO_AUTOMATICO: 'Débito automático', CHEQUE: 'Cheque', OUTRA: 'Outra' };
+  var NATUREZAS_ELEMENTO = NATUREZAS.concat(['RESULTADO_FINANCEIRO', 'ADIANTAMENTOS']);
+  function elementoDaNatureza(nat) { return ELEMENTO_DA_NATUREZA[nat] || '408'; }
+  function elementos(fin) {
+    var out = {}, cad = (fin || {}).elementos || {};
+    Object.keys(ELEMENTOS_PADRAO).forEach(function(k) { out[k] = Object.assign({ codigo: k, ativo: true, padrao: true }, ELEMENTOS_PADRAO[k]); });
+    Object.keys(cad).forEach(function(k) { var x = cad[k]; if (x && x.nome) out[k] = Object.assign({}, out[k] || { padrao: false }, x, { codigo: k, ativo: x.ativo !== false }); });
+    return out;
+  }
+  /* d: {codigo, nome, grupo, subgrupo, natureza, ativo?} */
+  function validarElemento(d, fin) {
+    var x = d || {}, cod = String(x.codigo || '').trim().toUpperCase(), nome = String(x.nome || '').trim();
+    if (!/^[0-9A-Z]{1,8}$/.test(cod)) return { ok: false, motivo: 'Código do elemento: de 1 a 8 letras ou números.' };
+    if (!nome) return { ok: false, motivo: 'Informe o nome do elemento.' };
+    if (!GRUPOS_ELEMENTO[x.grupo]) return { ok: false, motivo: 'Grupo inválido.' };
+    if (NATUREZAS_ELEMENTO.indexOf(x.natureza) < 0) return { ok: false, motivo: 'Natureza inválida: ela liga o elemento à Controladoria e ao DFC.' };
+    return { ok: true, registro: { codigo: cod, nome: nome.slice(0, 80), grupo: x.grupo, subgrupo: String(x.subgrupo || GRUPOS_ELEMENTO[x.grupo]).trim().slice(0, 60), natureza: x.natureza, ativo: x.ativo !== false } };
+  }
+  /* sit: situação do título; d: {elemento, formaPagamento?, rateio?: [{centro, percentual}]} */
+  function validarClassificacao(sit, d, fin) {
+    var x = d || {}, els = elementos(fin);
+    if (!sit) return { ok: false, motivo: 'Título não encontrado.' };
+    var cod = String(x.elemento || '').trim().toUpperCase(), el = els[cod];
+    if (!el) return { ok: false, motivo: 'Elemento não encontrado no plano.' };
+    if (!el.ativo) return { ok: false, motivo: 'Elemento inativo.' };
+    if (NATUREZAS.indexOf(el.natureza) < 0) return { ok: false, motivo: 'O elemento ' + cod + ' não classifica título (é de movimento financeiro ou adiantamento).' };
+    var receita = el.natureza === 'RECEITA_VENDA' || el.natureza === 'OUTRAS_RECEITAS';
+    if (receita !== (sit.titulo.tipo === 'RECEBER')) return { ok: false, motivo: sit.titulo.tipo === 'RECEBER' ? 'Título a receber pede elemento de receita.' : 'Elemento de receita não classifica título a pagar.' };
+    var forma = String(x.formaPagamento || '').trim().toUpperCase();
+    if (forma && !FORMAS_PAGAMENTO[forma]) return { ok: false, motivo: 'Forma de pagamento inválida.' };
+    var rat = Array.isArray(x.rateio) ? x.rateio : [], vistos = {}, soma = 0, out = [];
+    if (rat.length > 20) return { ok: false, motivo: 'No máximo 20 centros no rateio.' };
+    for (var i = 0; i < rat.length; i++) {
+      var c = String((rat[i] || {}).centro || '').trim(), pc = Math.round(num(rat[i].percentual) * 100) / 100;
+      if (!/^[A-Z0-9_]{1,40}$/.test(c)) return { ok: false, motivo: 'Centro de custo inválido: ' + c.slice(0, 40) + '.' };
+      if (vistos[c]) return { ok: false, motivo: 'O centro ' + c + ' aparece duas vezes no rateio.' };
+      if (!(pc > 0) || pc > 100) return { ok: false, motivo: 'Percentual do rateio entre 0 e 100.' };
+      vistos[c] = true; soma += pc; out.push({ centro: c, percentual: pc });
+    }
+    if (out.length && Math.abs(soma - 100) > 0.001) return { ok: false, motivo: 'O rateio soma ' + String(Math.round(soma * 100) / 100).replace('.', ',') + '%: precisa dar 100%.' };
+    return { ok: true, registro: { elemento: cod, formaPagamento: forma || null, rateio: out.length ? out : null, versao: VERSAO } };
+  }
+  // Elemento, forma e rateio que valem para o título: classificação > o que o título trouxe > natureza.
+  function classificacaoEfetiva(fin, id) {
+    var f = fin || {}, t = (f.titulos || {})[id] || {}, c = (f.classificacoes || {})[id];
+    if (c && c.elemento) return { elemento: c.elemento, formaPagamento: c.formaPagamento || t.formaPagamento || null, rateio: c.rateio || null, fonte: 'CLASSIFICACAO' };
+    if (t.elemento) return { elemento: t.elemento, formaPagamento: t.formaPagamento || null, rateio: null, fonte: 'TITULO' };
+    return { elemento: null, formaPagamento: t.formaPagamento || null, rateio: null, fonte: 'NATUREZA' };
+  }
+  function repartir(valor, pesos) { // centavos inteiros com sinal; a última fatia absorve o resto
+    var base = pesos.reduce(function(a, w) { return a + w; }, 0), usado = 0;
+    return pesos.map(function(w, i) { var v = i === pesos.length - 1 ? valor - usado : Math.round(valor * w / base); usado += v; return v; });
+  }
+  /* Partes de um valor do título por elemento × centro: [{elemento, natureza, centro, valorCentavos}]. */
+  function partesDoTitulo(fin, id, valor) {
+    var f = fin || {}, t = (f.titulos || {})[id] || {}, ce = classificacaoEfetiva(f, id), els = elementos(f), v = Math.round(num(valor));
+    if (ce.elemento) {
+      var e = els[ce.elemento] || {}, nat = e.natureza || t.natureza || 'OUTROS', rat = ce.rateio && ce.rateio.length ? ce.rateio : [{ centro: t.centroCusto || null, percentual: 100 }];
+      var vs = repartir(v, rat.map(function(r) { return num(r.percentual); }));
+      return rat.map(function(r, i) { return { elemento: ce.elemento, natureza: nat, centro: r.centro || null, valorCentavos: vs[i] }; });
+    }
+    var pn = t.porNatureza, ks = pn ? Object.keys(pn).filter(function(k) { return num(pn[k]) > 0; }).sort() : [];
+    if (ks.length < 2) return [{ elemento: elementoDaNatureza(t.natureza || 'OUTROS'), natureza: t.natureza || 'OUTROS', centro: t.centroCusto || null, valorCentavos: v }];
+    var vs2 = repartir(v, ks.map(function(k) { return num(pn[k]); }));
+    return ks.map(function(k, i) { return { elemento: elementoDaNatureza(k), natureza: k, centro: t.centroCusto || null, valorCentavos: vs2[i] }; });
+  }
+  /* Realizado por elemento (DFC por elemento e fluxo por grupo). Principal da baixa no elemento do
+     título; juros e multa no 401; desconto no 403; tarifa/IOF no 402; juros bancários no 401;
+     rendimento no 403; adiantamento no 004; transferência fora. Soma = fluxosRealizados sem transferência. */
+  function fluxosRealizadosPorElemento(fin) {
+    var f = fin || {}, out = [];
+    vals(f.baixas).forEach(function(x) {
+      if (!x.conta || !x.data) return;
+      var sg = (x.tituloTipo === 'RECEBER' ? 1 : -1) * (x.tipo === 'ESTORNO' ? -1 : 1);
+      partesDoTitulo(f, x.titulo, sg * Math.round(num(x.valorCentavos))).forEach(function(pt) { out.push({ conta: x.conta, data: x.data, elemento: pt.elemento, natureza: pt.natureza, valorCentavos: pt.valorCentavos }); });
+      var jm = Math.round(num(x.jurosCentavos)) + Math.round(num(x.multaCentavos)), ds = Math.round(num(x.descontoCentavos));
+      if (jm) out.push({ conta: x.conta, data: x.data, elemento: '401', natureza: 'RESULTADO_FINANCEIRO', valorCentavos: sg * jm });
+      if (ds) out.push({ conta: x.conta, data: x.data, elemento: '403', natureza: 'RESULTADO_FINANCEIRO', valorCentavos: -sg * ds });
+    });
+    vals(f.movimentos).forEach(function(m) {
+      if (!m.data || m.tipo === 'TRANSFERENCIA') return;
+      var cod = m.tipo === 'RENDIMENTO' ? '403' : m.tipo === 'JUROS_BANCARIOS' ? '401' : '402', ef = efeitosMovimento(m);
+      Object.keys(ef).forEach(function(c) { if (ef[c]) out.push({ conta: c, data: m.data, elemento: cod, natureza: 'RESULTADO_FINANCEIRO', valorCentavos: ef[c] }); });
+    });
+    vals(f.adiantamentos).forEach(function(a) {
+      var ef = efeitosAdiantamento(a); if (!a.data) return;
+      Object.keys(ef).forEach(function(c) { if (ef[c]) out.push({ conta: c, data: a.data, elemento: '004', natureza: 'ADIANTAMENTOS', valorCentavos: ef[c] }); });
+    });
+    return out;
+  }
+  /* DFC realizado aberto por grupo › subgrupo › elemento (CR-03). Saldos e conferência são os do DFC por atividade. */
+  function dfcElementos(fin, deMes, ateMes) {
+    var f = fin || {}, d = dfc(f, deMes, ateMes); if (!d.ok) return d;
+    var els = elementos(f), meses = d.meses, gs = {};
+    fluxosRealizadosPorElemento(f).forEach(function(x) {
+      var mes = String(x.data).slice(0, 7); if (meses.indexOf(mes) < 0) return;
+      var conta = (f.contas_bancarias || {})[x.conta];
+      if (!conta || (conta.dataSaldoInicial && x.data < conta.dataSaldoInicial)) return;
+      var e = els[x.elemento] || { grupo: '9', subgrupo: 'A classificar', nome: x.elemento }, gk = e.grupo || '9', sk = e.subgrupo || '—';
+      var g = gs[gk] = gs[gk] || { grupo: gk, rotulo: GRUPOS_ELEMENTO[gk] || gk, sub: {} };
+      var sg = g.sub[sk] = g.sub[sk] || { subgrupo: sk, els: {} };
+      var le = sg.els[x.elemento] = sg.els[x.elemento] || { elemento: x.elemento, nome: e.nome || x.elemento, meses: {} };
+      meses.forEach(function(m) { if (le.meses[m] == null) le.meses[m] = 0; });
+      le.meses[mes] += x.valorCentavos;
+    });
+    var grupos = Object.keys(gs).sort().map(function(gk) {
+      var g = gs[gk], tot = {};
+      var subgrupos = Object.keys(g.sub).sort().map(function(sk) {
+        var sg = g.sub[sk], st = {};
+        var elsL = Object.keys(sg.els).sort().map(function(k) { return sg.els[k]; });
+        meses.forEach(function(m) { st[m] = elsL.reduce(function(a, l) { return a + l.meses[m]; }, 0); });
+        return { subgrupo: sk, elementos: elsL, totais: st };
+      });
+      meses.forEach(function(m) { tot[m] = subgrupos.reduce(function(a, sg) { return a + sg.totais[m]; }, 0); });
+      return { grupo: gk, rotulo: g.rotulo, subgrupos: subgrupos, totais: tot };
+    });
+    var colunas = d.colunas.map(function(c) {
+      var varEl = grupos.reduce(function(a, g) { return a + g.totais[c.mes]; }, 0), sf = c.saldoInicialCentavos + c.aberturaContasCentavos + varEl;
+      return Object.assign({}, c, { variacaoCentavos: varEl, saldoFinalCentavos: sf, diferencaCentavos: c.saldoFinalBancosCentavos - sf, confere: c.saldoFinalBancosCentavos === sf });
+    });
+    return { ok: true, meses: meses, colunas: colunas, grupos: grupos };
+  }
+  /* Liquidação por filtro (CB-06/07): parcelas abertas. f: {tipo, de?, ate?, q?, elemento?, hoje} */
+  function parcelasParaLiquidar(fin, f) {
+    var o = f || {}, tipo = o.tipo === 'RECEBER' ? 'RECEBER' : 'PAGAR', q = String(o.q || '').trim().toUpperCase(), out = [];
+    carteira(fin).forEach(function(s) {
+      var t = s.titulo;
+      if (t.tipo !== tipo || s.saldoCentavos <= 0 || s.semVencimento) return;
+      if (q && [t.documento, t.parceiro && t.parceiro.nome, t.parceiro && t.parceiro.cnpj, s.id].join(' ').toUpperCase().indexOf(q) < 0) return;
+      var partes = partesDoTitulo(fin, s.id, s.saldoCentavos), cods = partes.map(function(x) { return x.elemento; });
+      if (o.elemento && cods.indexOf(o.elemento) < 0) return;
+      s.abertas.forEach(function(p) {
+        if ((o.de && p.vencimento < o.de) || (o.ate && p.vencimento > o.ate)) return;
+        out.push({ titulo: s.id, n: p.n, de: p.de, parceiro: (t.parceiro && t.parceiro.nome) || '', documento: t.documento || s.id, emissao: t.emissao || null, vencimento: p.vencimento,
+          dias: o.hoje ? Math.max(0, diffDias(o.hoje, p.vencimento)) : 0, valorCentavos: p.valorCentavos, abertoCentavos: p.abertoCentavos,
+          elemento: cods[0] || null, bloqueado: !!(s.bloqueio && tipo === 'PAGAR') });
+      });
+    });
+    out.sort(function(a, b) { return String(a.vencimento).localeCompare(String(b.vencimento)) || a.parceiro.localeCompare(b.parceiro) || a.n - b.n; });
+    return out;
+  }
+  /* d: {itens: [{titulo, valorCentavos}], data, conta} -> uma baixa por título (parcelas somadas). */
+  function montarLiquidacao(fin, d) {
+    var f = fin || {}, x = d || {}, itens = Array.isArray(x.itens) ? x.itens : [];
+    if (!itens.length) return { ok: false, motivo: 'Marque ao menos uma parcela.' };
+    if (itens.length > 500) return { ok: false, motivo: 'No máximo 500 parcelas por vez.' };
+    var soma = {}, ordem = [];
+    itens.forEach(function(i) { var k = String((i || {}).titulo || ''); if (!(k in soma)) { soma[k] = 0; ordem.push(k); } soma[k] += Math.round(num(i.valorCentavos)); });
+    var porId = {}; carteira(f).forEach(function(s) { porId[s.id] = s; });
+    var bloq = f.bloqueios || {}, tipo = null, baixas = [], total = 0;
+    for (var i = 0; i < ordem.length; i++) {
+      var id = ordem[i], sit = porId[id];
+      if (sit) sit.bloqueio = bloq[id] && bloq[id].ativo !== false ? bloq[id] : null;
+      if (sit && tipo && sit.titulo.tipo !== tipo) return { ok: false, motivo: 'Liquide a pagar e a receber separadamente.' };
+      var v = validarBaixa(sit, { valorCentavos: soma[id], data: x.data, conta: x.conta }, f.contas_bancarias);
+      if (!v.ok) return { ok: false, motivo: ((sit && sit.titulo.documento) || id) + ': ' + v.motivo };
+      tipo = sit.titulo.tipo; baixas.push({ titulo: id, registro: v.registro }); total += v.registro.liquidoCentavos;
+    }
+    var neg = caixaNegativo(f, { conta: x.conta, tituloTipo: tipo, liquidoCentavos: total });
+    if (neg) return { ok: false, motivo: neg };
+    return { ok: true, tipo: tipo, baixas: baixas, totalCentavos: total };
+  }
+
   /* ── NF de entrada por XML (F5, 10/11/2026 — docs/financeiro-fase0-lacunas.md) ──
      Lê o XML da NF-e modelo 55 sem DOM (igual no navegador e no servidor), só as
      tags de que o financeiro precisa. As DUPLICATAS (cobr/dup) são o vencimento
@@ -1493,6 +1715,9 @@
     chaveParceiro: chaveParceiro, efeitosAdiantamento: efeitosAdiantamento, saldosAdiantamentos: saldosAdiantamentos, validarAdiantamento: validarAdiantamento,
     validarEstornoAdiantamento: validarEstornoAdiantamento, validarCompensacao: validarCompensacao,
     emLoteAguardando: emLoteAguardando, montarRenegociacao: montarRenegociacao, montarDesfazerRenegociacao: montarDesfazerRenegociacao,
-    podeCancelar: podeCancelar, montarCancelamento: montarCancelamento, montarDesfazerCancelamento: montarDesfazerCancelamento
+    podeCancelar: podeCancelar, montarCancelamento: montarCancelamento, montarDesfazerCancelamento: montarDesfazerCancelamento,
+    GRUPOS_ELEMENTO: GRUPOS_ELEMENTO, ELEMENTOS_PADRAO: ELEMENTOS_PADRAO, FORMAS_PAGAMENTO: FORMAS_PAGAMENTO, elementoDaNatureza: elementoDaNatureza, elementos: elementos,
+    validarElemento: validarElemento, validarClassificacao: validarClassificacao, classificacaoEfetiva: classificacaoEfetiva, partesDoTitulo: partesDoTitulo,
+    fluxosRealizadosPorElemento: fluxosRealizadosPorElemento, dfcElementos: dfcElementos, parcelasParaLiquidar: parcelasParaLiquidar, montarLiquidacao: montarLiquidacao
   };
 });
