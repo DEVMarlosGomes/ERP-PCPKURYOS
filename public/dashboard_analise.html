@@ -662,6 +662,9 @@ function loadFirebaseAndRun() {
             const uph = h > 0 ? u / h : u;
 
             RAW.producao.push({
+              // Dia do apontamento (chave de registros/): é ele que decide em
+              // que dia a produção conta, como no Dashboard Diário e no placar.
+              dia: date,
               dt: dt,
               dt_fim: dtFim,
               h: h,
@@ -749,9 +752,15 @@ const _safeDate = v => { if (!v) return null; const d = new Date(v); return isNa
 function preprocessRawData() {
 RAW.producao.forEach(p => {
   p._d = _safeDate(p.dt);
-  p._ymd = p._d ? p._d.toISOString().slice(0,10) : null;
-  p._ym = p._d ? p._d.getFullYear() + '-' + String(p._d.getMonth()+1).padStart(2,'0') : null;
-  p._wk = p._d ? _weekStart(p._d) : null;
+  // Dia da produção = dia do APONTAMENTO (13/11/2026). Antes vinha do início do
+  // período (fechamento de 12/11 iniciado às 20h de 11/11 caía em 11/11) e em
+  // UTC (depois das 21h pulava de dia): 09–11/11 dava 38.510 contra 33.070.
+  // Sem dia do apontamento (retrato antigo), usa a data local de dt.
+  const diaAp = /^\d{4}-\d{2}-\d{2}$/.test(String(p.dia || '')) ? p.dia : null;
+  const dRef = diaAp ? _safeDate(diaAp + 'T12:00:00') : p._d;
+  p._ymd = diaAp || (p._d ? p._d.getFullYear() + '-' + String(p._d.getMonth()+1).padStart(2,'0') + '-' + String(p._d.getDate()).padStart(2,'0') : null);
+  p._ym = dRef ? dRef.getFullYear() + '-' + String(dRef.getMonth()+1).padStart(2,'0') : null;
+  p._wk = dRef ? _weekStart(dRef) : null;
   // alloc: array de {dia, u, h, frac} - pre-calculado no Python por horas uteis.
   // Fallback: se nao houver alloc, cria alocacao trivial no dia de inicio.
   if (!p.alloc || !p.alloc.length) {
@@ -1020,6 +1029,9 @@ function isLinhaDeProducaoAnalise(name) {
 function filterProducao() {
   return RAW.producao.filter(p => {
     if (!isLinhaDeProducaoAnalise(p.lin)) return false;
+    // Apontamento sem data (importação antiga, balde "sem-data") não pertence
+    // a período nenhum: passava em todo filtro e somava 8.076 un. de março.
+    if ((filters.dateFrom || filters.dateTo) && !p._ymd) return false;
     if (filters.dateFrom && p._ymd && p._ymd < filters.dateFrom) return false;
     if (filters.dateTo && p._ymd && p._ymd > filters.dateTo) return false;
     if (filters.cliente.length && !filters.cliente.includes(p.cli)) return false;

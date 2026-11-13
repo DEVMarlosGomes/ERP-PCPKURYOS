@@ -83,6 +83,11 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   `qtdIncrementoConfirmado` (Dossiê mostrava o número antigo). **Pendente (Marlos):** autorizar a correção de dados
   (62 caminhos `qtdIncrementoConfirmado`, plano e backup em scratch `audit/`) e decidir a 26246/07 (OP 4.849,
   apontamentos 2.560 + 1.400 + 4.849); deploy da VPS (motor do placar no servidor). Arquivos ativos: nenhum.
+- **13/11, Dashboard de Análise: envase por dia do apontamento.** 09–11/11 mostrava 38.510 (print do Marlos: 36.494)
+  contra 33.070 nos apontamentos de envase: o dia vinha do início do período e em UTC, e o balde "sem-data" (8.076 un.
+  de março) passava em todo filtro. Agora `_ymd` = dia do apontamento; sem data só entra sem filtro. Ensaio da tela
+  real com os dados de produção: 09=7.580, 10=12.916, 11=12.574, 12=11.724, igual a Diário e TV. Teste novo
+  `run_dashboard_analise_dia_test` (8). Os 33.118 do Marlos incluem 48 un. da 26309/08 antes da correção no Histórico.
 
 ### Claude (sessão `pcp-kuryos-main-0b`) — Etiqueta de caixa: logo maior com ajuste e peças da caixa parcial (12/11/2026)
 
