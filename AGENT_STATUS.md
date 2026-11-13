@@ -5,6 +5,10 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Codex (sessão `chamados-print`) — Anexar prints nos Chamados do Roadmap (13/11/2026)
+
+- **Concluído somente no protótipo/especificação local** `C:\Users\Marlos\Downloads\Chamados do Roadmap.md`; o módulo de Chamados ainda não existe neste repositório. O formulário agora explicita escolher, arrastar ou colar (`Ctrl+V`) até 3 prints PNG/JPG/WebP de 10 MB, prévia, remoção individual, espera dos uploads, tratamento de falha e imutabilidade após envio. A captura automática foi esclarecida como contexto técnico da tela, não screenshot. Nenhum arquivo funcional do ERP foi alterado. Não toquei em `public/dashboard_analise.html`, `.impeccable/` ou `run_dashboard_analise_ops_test.js`. Arquivos ativos: nenhum.
+
 ### Codex (sessão `yasmin-amostras-mp`) — Integração de usuário e permissão de Amostras de MP (13/11/2026)
 
 - **Código concluído e enviado em `0142047` (status `070ed6b`).** Causa: Amostras de MP reconhecia `role` e `modulos`, mas ignorava `funcoes`; a Yasmin é multi-função (`comercial + pd + qualidade`). Navegador, callable e regra do RTDB agora reconhecem `funcoes.pd`/`funcoes.logistica`, mantendo módulos por compatibilidade. Testes: motor 10, tela 5, UI Chromium 7, emulador 5, identidade e navegação OK. Regra RTDB publicada em `erpkuryos` em 13/11. **Pendente (Marlos):** deploy da VPS em `070ed6b` ou posterior para publicar navegador + callable. Produção conferida só por leitura: login `0VYD…` é o usado pela Yasmin, entrou depois da revogação e tem `amostras_mp`/`cadastros`; existem dois perfis ativos e três contas Auth históricas com o mesmo e-mail, mas não houve fusão/exclusão automática. `/amostras_mp` ainda está vazio. Arquivos ativos: nenhum; não toquei em `public/dashboard_analise.html`, `.impeccable/` ou `run_dashboard_analise_ops_test.js`.
