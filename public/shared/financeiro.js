@@ -418,7 +418,15 @@
         if (p.valorCentavos - usa > 0) abertas.push(Object.assign({}, p, { abertoCentavos: p.valorCentavos - usa }));
       });
     }
-    var status = saldo <= 0 ? (m.abatido >= valor && m.pago <= 0 ? 'ABATIDO' : 'QUITADO') : (m.pago + m.abatido > 0 ? 'PARCIAL' : 'ABERTO');
+    // Entrega B: o abatimento líquido de renegociação/cancelamento (desfazer = abatimento
+    // negativo de mesmo grupo) dá o nome do status quando o saldo zera.
+    var reneg = 0, canc = 0;
+    m.abatimentos.forEach(function(a) {
+      var v = num(a.valorCentavos);
+      if (a.motivo === 'RENEGOCIACAO' || (a.motivo === 'RENEGOCIACAO_DESFEITA' && v < 0)) reneg += v;
+      if (a.motivo === 'CANCELAMENTO' || a.motivo === 'CANCELAMENTO_DESFEITO') canc += v;
+    });
+    var status = saldo <= 0 ? (reneg > 0 ? 'RENEGOCIADO' : canc > 0 ? 'CANCELADO' : m.abatido >= valor && m.pago <= 0 ? 'ABATIDO' : 'QUITADO') : (m.pago + m.abatido > 0 ? 'PARCIAL' : 'ABERTO');
     return { id: id, titulo: t, saldoCentavos: Math.max(0, saldo), pagoCentavos: m.pago, abatidoCentavos: m.abatido, status: status,
       fonteParcelas: fonte, nota: nota ? { chave: nota.chave, numero: nota.numero, serie: nota.serie } : null,
       semVencimento: !ps.ok && saldo > 0, motivoVencimento: ps.ok ? null : ps.motivo, parcelas: ps.ok ? ps.parcelas : [], abertas: abertas,
@@ -831,7 +839,7 @@
     colunas.forEach(function(c) { if (c.tipo === 'valor') t[c.chave] = linhas.reduce(function(s, l) { return s + (Math.round(num(l[c.chave])) || 0); }, 0); });
     return t;
   }
-  var ROT_SIT = { ABERTO: 'Aberto', PARCIAL: 'Parcial', QUITADO: 'Quitado', ABATIDO: 'Abatido' };
+  var ROT_SIT = { ABERTO: 'Aberto', PARCIAL: 'Parcial', QUITADO: 'Quitado', ABATIDO: 'Abatido', RENEGOCIADO: 'Renegociado', CANCELADO: 'Cancelado' };
   /* Títulos por PARCELA. f: {tipo PAGAR|RECEBER, data VENCIMENTO|EMISSAO, de, ate, parceiro, situacao ABERTOS|QUITADOS|TODOS, natureza} */
   function relTitulos(fin, f) {
     var o = f || {}, tipo = o.tipo === 'RECEBER' ? 'RECEBER' : 'PAGAR', q = String(o.parceiro || '').trim().toUpperCase(), linhas = [];
@@ -1200,6 +1208,128 @@
       natureza: sit.titulo.natureza || null, origemTitulo: sit.titulo.origem || null } };
   }
 
+  /* ── Renegociação e cancelamento em lote (Entrega B, 12/11/2026) ──
+     O título nunca muda: o saldo dos originais é ABATIDO (motivo RENEGOCIACAO ou
+     CANCELAMENTO) e a renegociação cria um título NOVO com o total. Desfazer grava
+     abatimento negativo de mesmo grupo e marca o registro; nada se apaga. */
+  function emLoteAguardando(fin) {
+    var out = {}, ls = (fin || {}).lotes_pagamento || {};
+    Object.keys(ls).forEach(function(k) { var l = ls[k]; if (l && l.status === 'AGUARDANDO') Object.keys(l.titulos || {}).forEach(function(t) { out[t] = k; }); });
+    return out;
+  }
+  function textoMin(s, n) { return String(s || '').trim().length >= n; }
+  // Situações dos títulos pedidos, com as recusas comuns (inexistente, repetido, sem saldo, em lote, tipo/parceiro diferente).
+  function selecionarTitulos(fin, ids, mesmoParceiro) {
+    var lista = Array.isArray(ids) ? ids.map(String) : [];
+    if (!lista.length) return { ok: false, motivo: 'Selecione ao menos um título.' };
+    if (lista.length > 200) return { ok: false, motivo: 'No máximo 200 títulos por vez.' };
+    var vistos = {}, porId = {}, lote = emLoteAguardando(fin), sits = [];
+    carteira(fin).forEach(function(s) { porId[s.id] = s; });
+    for (var i = 0; i < lista.length; i++) {
+      var id = lista[i], s = porId[id];
+      if (vistos[id]) return { ok: false, motivo: 'O título ' + id + ' foi escolhido duas vezes.' };
+      vistos[id] = true;
+      if (!s) return { ok: false, motivo: 'Título ' + id + ' não encontrado.' };
+      var nome = s.titulo.documento || id;
+      if (!(s.saldoCentavos > 0)) return { ok: false, motivo: nome + ' não tem saldo em aberto.' };
+      if (lote[id]) return { ok: false, motivo: nome + ' está num lote de pagamento aguardando aprovação: recuse o lote antes.' };
+      if (sits.length && s.titulo.tipo !== sits[0].titulo.tipo) return { ok: false, motivo: 'Não misture títulos a pagar e a receber.' };
+      if (mesmoParceiro && sits.length && chaveParceiro(s.titulo.parceiro) !== chaveParceiro(sits[0].titulo.parceiro)) return { ok: false, motivo: 'Renegociação é de um parceiro só (' + nome + ' é de outro).' };
+      sits.push(s);
+    }
+    return { ok: true, sits: sits };
+  }
+  /* d: {titulos: [ids], data, condicao? | vencimento?, acrescimoCentavos?, descontoCentavos?, motivo} */
+  function montarRenegociacao(fin, d, chave) {
+    var x = d || {}, sel = selecionarTitulos(fin, x.titulos, true);
+    if (!sel.ok) return sel;
+    if (!dataOk(x.data)) return { ok: false, motivo: 'Data inválida.' };
+    if (!textoMin(x.motivo, 5)) return { ok: false, motivo: 'Explique o motivo da renegociação.' };
+    var a = Math.round(num(x.acrescimoCentavos)), dsc = Math.round(num(x.descontoCentavos));
+    if (a < 0 || dsc < 0) return { ok: false, motivo: 'Acréscimo e desconto não podem ser negativos.' };
+    var sits = sel.sits, S = sits.reduce(function(t, s) { return t + s.saldoCentavos; }, 0);
+    if (dsc >= S) return { ok: false, motivo: 'O desconto não pode zerar a dívida: para isso, cancele.' };
+    var data = String(x.data).slice(0, 10), venc = x.vencimento ? String(x.vencimento).slice(0, 10) : null, cond = null;
+    if (venc) { if (!dataOk(venc)) return { ok: false, motivo: 'Vencimento inválido.' }; }
+    else {
+      if (!String(x.condicao || '').trim()) return { ok: false, motivo: 'Informe a nova condição (ex.: 30/60) ou o vencimento.' };
+      cond = normalizarCondicao(x.condicao);
+      if (!cond) return { ok: false, motivo: 'Condição: ' + lerCondicao(x.condicao).motivo };
+    }
+    var V = S + a - dsc, rn = 'RN_' + chave, novo = 'RNG_' + chave, ref = 'fin/renegociacoes/' + rn;
+    var maior = sits.slice().sort(function(p, q) { return q.saldoCentavos - p.saldoCentavos; })[0].titulo;
+    // Natureza na proporção do saldo de cada original (o recebimento já vem dividido em porNatureza).
+    var pn = {};
+    sits.forEach(function(s) {
+      var t = s.titulo, partes = t.porNatureza && Object.keys(t.porNatureza).length > 1 ? t.porNatureza : null;
+      if (!partes) { pn[t.natureza || 'OUTROS'] = (pn[t.natureza || 'OUTROS'] || 0) + s.saldoCentavos; return; }
+      var ks = Object.keys(partes).sort(), base = ks.reduce(function(t2, k) { return t2 + num(partes[k]); }, 0), usado = 0;
+      ks.forEach(function(k, i) { var v = i === ks.length - 1 ? s.saldoCentavos - usado : Math.round(s.saldoCentavos * num(partes[k]) / base); usado += v; pn[k] = (pn[k] || 0) + v; });
+    });
+    var titulo = { tipo: maior.tipo, origem: { tipo: 'RENEGOCIACAO', ref: ref, titulos: sits.map(function(s) { return s.id; }) },
+      parceiro: Object.assign({}, maior.parceiro), documento: ('Reneg. ' + sits.map(function(s) { return s.titulo.documento || s.id; }).join(', ')).slice(0, 60),
+      emissao: data, competencia: data.slice(0, 7), valorCentavos: V, moeda: 'BRL', natureza: maior.natureza || 'OUTROS',
+      porNatureza: Object.keys(pn).length > 1 ? pn : null, centroCusto: maior.centroCusto || null, condicao: cond, vencimentoFixo: venc,
+      baseVencimento: data, historico: String(x.motivo).trim().slice(0, 300), versao: VERSAO };
+    if (!venc && !parcelas(cond, data, V).ok) return { ok: false, motivo: 'Condição: ' + parcelas(cond, data, V).motivo };
+    var tits = {}, abat = {};
+    sits.forEach(function(s) { tits[s.id] = s.saldoCentavos; abat[rn + '_' + san(s.id)] = { titulo: s.id, motivo: 'RENEGOCIACAO', valorCentavos: s.saldoCentavos, data: data, ref: ref }; });
+    return { ok: true, titulo: titulo, abatimentos: abat,
+      registro: { tipo: maior.tipo, parceiro: Object.assign({}, maior.parceiro), titulos: tits, novoTitulo: novo, acrescimoCentavos: a, descontoCentavos: dsc,
+        valorNovoCentavos: V, data: data, motivo: String(x.motivo).trim().slice(0, 300), condicao: cond, vencimento: venc, status: 'ATIVA', versao: VERSAO } };
+  }
+  function montarDesfazerRenegociacao(fin, rnId, d) {
+    var f = fin || {}, x = d || {}, rn = (f.renegociacoes || {})[rnId];
+    if (!rn) return { ok: false, motivo: 'Renegociação não encontrada.' };
+    if (rn.status !== 'ATIVA') return { ok: false, motivo: 'Esta renegociação já foi desfeita.' };
+    if (!textoMin(x.motivo, 5)) return { ok: false, motivo: 'Explique por que desfazer.' };
+    if (!dataOk(x.data)) return { ok: false, motivo: 'Data inválida.' };
+    var mv = movimentosPorTitulo(f)[rn.novoTitulo] || { pago: 0, abatido: 0 };
+    if (mv.pago !== 0 || mv.abatido !== 0) return { ok: false, motivo: 'O título novo já tem baixa ou abatimento: estorne antes de desfazer.' };
+    var data = String(x.data).slice(0, 10), ref = 'fin/renegociacoes/' + rnId, abat = {};
+    abat[rnId + '_desf_novo'] = { titulo: rn.novoTitulo, motivo: 'RENEGOCIACAO_DESFEITA', valorCentavos: Math.round(num(rn.valorNovoCentavos)), data: data, ref: ref };
+    Object.keys(rn.titulos || {}).forEach(function(t) { abat[rnId + '_desf_' + san(t)] = { titulo: t, motivo: 'RENEGOCIACAO_DESFEITA', valorCentavos: -Math.round(num(rn.titulos[t])), data: data, ref: ref }; });
+    return { ok: true, abatimentos: abat, status: 'DESFEITA', motivoDesfazer: String(x.motivo).trim().slice(0, 300) };
+  }
+  // Pode cancelar? Engano desfaz receita/despesa; incobrável vira perda (só a receber).
+  function podeCancelar(sit, motivo) {
+    if (!sit) return { ok: false, motivo: 'Título não encontrado.' };
+    var t = sit.titulo, o = (t.origem || {}).tipo, nome = t.documento || sit.id;
+    if (motivo !== 'ENGANO' && motivo !== 'INCOBRAVEL') return { ok: false, motivo: 'Escolha o motivo: emitido por engano ou incobrável.' };
+    if (!(sit.saldoCentavos > 0)) return { ok: false, motivo: nome + ' não tem saldo em aberto.' };
+    if (t.tipo === 'PAGAR') {
+      if (motivo === 'INCOBRAVEL') return { ok: false, motivo: 'Incobrável é só para título a receber.' };
+      if (o !== 'MANUAL' && o !== 'IMPORTACAO') return { ok: false, motivo: nome + ': a pagar que veio do ' + (o === 'RECEBIMENTO' ? 'recebimento se cancela em Compras (cancelamento do recebimento)' : o === 'RENEGOCIACAO' ? 'renegociação se desfaz na própria renegociação' : 'fato de origem se corrige na origem') + '.' };
+    }
+    if (t.tipo === 'RECEBER' && motivo === 'ENGANO') {
+      if (o === 'NF_SAIDA') return { ok: false, motivo: nome + ': nota emitida por engano se cancela no Faturamento; aqui só como incobrável.' };
+      if (o === 'RENEGOCIACAO') return { ok: false, motivo: nome + ': renegociação errada se desfaz na própria renegociação.' };
+    }
+    return { ok: true };
+  }
+  /* d: {titulos: [ids], data, motivo ENGANO|INCOBRAVEL, justificativa} */
+  function montarCancelamento(fin, d, chave) {
+    var x = d || {}, sel = selecionarTitulos(fin, x.titulos, false);
+    if (!sel.ok) return sel;
+    if (!dataOk(x.data)) return { ok: false, motivo: 'Data inválida.' };
+    if (!textoMin(x.justificativa, 10)) return { ok: false, motivo: 'Escreva a justificativa (ao menos 10 letras): ela fica no histórico.' };
+    for (var i = 0; i < sel.sits.length; i++) { var p = podeCancelar(sel.sits[i], x.motivo); if (!p.ok) return p; }
+    var cn = 'CN_' + chave, ref = 'fin/cancelamentos/' + cn, data = String(x.data).slice(0, 10), tits = {}, abat = {};
+    sel.sits.forEach(function(s) { tits[s.id] = s.saldoCentavos; abat[cn + '_' + san(s.id)] = { titulo: s.id, motivo: 'CANCELAMENTO', tipoCancelamento: x.motivo, valorCentavos: s.saldoCentavos, data: data, ref: ref }; });
+    return { ok: true, abatimentos: abat, registro: { tipo: sel.sits[0].titulo.tipo, titulos: tits, motivo: x.motivo, justificativa: String(x.justificativa).trim().slice(0, 300),
+      data: data, status: 'ATIVO', versao: VERSAO } };
+  }
+  function montarDesfazerCancelamento(fin, cnId, d) {
+    var f = fin || {}, x = d || {}, cn = (f.cancelamentos || {})[cnId];
+    if (!cn) return { ok: false, motivo: 'Cancelamento não encontrado.' };
+    if (cn.status !== 'ATIVO') return { ok: false, motivo: 'Este cancelamento já foi desfeito.' };
+    if (!textoMin(x.motivo, 5)) return { ok: false, motivo: 'Explique por que desfazer.' };
+    if (!dataOk(x.data)) return { ok: false, motivo: 'Data inválida.' };
+    var data = String(x.data).slice(0, 10), ref = 'fin/cancelamentos/' + cnId, abat = {};
+    Object.keys(cn.titulos || {}).forEach(function(t) { abat[cnId + '_desf_' + san(t)] = { titulo: t, motivo: 'CANCELAMENTO_DESFEITO', valorCentavos: -Math.round(num(cn.titulos[t])), data: data, ref: ref }; });
+    return { ok: true, abatimentos: abat, status: 'DESFEITO', motivoDesfazer: String(x.motivo).trim().slice(0, 300) };
+  }
+
   /* ── NF de entrada por XML (F5, 10/11/2026 — docs/financeiro-fase0-lacunas.md) ──
      Lê o XML da NF-e modelo 55 sem DOM (igual no navegador e no servidor), só as
      tags de que o financeiro precisa. As DUPLICATAS (cobr/dup) são o vencimento
@@ -1361,6 +1491,8 @@
     relTitulos: relTitulos, relBaixas: relBaixas, relAging: relAging, relExtrato: relExtrato, relDfc: relDfc, relFluxo: relFluxo,
     relatorioCsv: relatorioCsv, valorCsv: valorCsv, dataCsv: dataCsv,
     chaveParceiro: chaveParceiro, efeitosAdiantamento: efeitosAdiantamento, saldosAdiantamentos: saldosAdiantamentos, validarAdiantamento: validarAdiantamento,
-    validarEstornoAdiantamento: validarEstornoAdiantamento, validarCompensacao: validarCompensacao
+    validarEstornoAdiantamento: validarEstornoAdiantamento, validarCompensacao: validarCompensacao,
+    emLoteAguardando: emLoteAguardando, montarRenegociacao: montarRenegociacao, montarDesfazerRenegociacao: montarDesfazerRenegociacao,
+    podeCancelar: podeCancelar, montarCancelamento: montarCancelamento, montarDesfazerCancelamento: montarDesfazerCancelamento
   };
 });
