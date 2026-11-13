@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Relatório de Pedido</title>
+  <title>Relatório do Pedido</title>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://erpkuryos-default-rtdb.firebaseio.com">
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
@@ -17,67 +17,181 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="shared/theme.css">
   <style>
-    :root{--primary:#0a1c69;--success:#0ca30c;--danger:#d03b3b;--warning:#c9910a;--bg:#f5f5f7;--card:#fff;--border:#d2d2d7;--text:#1d1d1f;--muted:#6e6e73;--surface-2:#f9fafb;--tint-green-bg:#d1fae5;--tint-green-fg:#065f46;--tint-red-bg:#fee2e2;--tint-red-fg:#991b1b;--tint-gray-bg:#f3f4f6;--tint-orange-bg:#fff7ed;--tint-orange-fg:#c2410c;--tint-blue-bg:#eff6ff;--tint-blue-fg:#1e40af}
-    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --primary:#5e83ea; --bg:#000; --card:#1c1c1e; --border:#38383a; --text:#f5f5f7; --muted:#98989d; --surface-2:#242426; --tint-green-bg:rgba(16,185,129,.18); --tint-green-fg:#6ee7b7; --tint-red-bg:rgba(239,68,68,.18); --tint-red-fg:#fca5a5; --tint-gray-bg:rgba(255,255,255,.08); --tint-orange-bg:rgba(251,146,60,.18); --tint-orange-fg:#fdba74; --tint-blue-bg:rgba(94,131,234,.18); --tint-blue-fg:#a5b4fc; } }
-    :root[data-theme="dark"] { color-scheme: dark; --primary:#5e83ea; --bg:#000; --card:#1c1c1e; --border:#38383a; --text:#f5f5f7; --muted:#98989d; --surface-2:#242426; --tint-green-bg:rgba(16,185,129,.18); --tint-green-fg:#6ee7b7; --tint-red-bg:rgba(239,68,68,.18); --tint-red-fg:#fca5a5; --tint-gray-bg:rgba(255,255,255,.08); --tint-orange-bg:rgba(251,146,60,.18); --tint-orange-fg:#fdba74; --tint-blue-bg:rgba(94,131,234,.18); --tint-blue-fg:#a5b4fc; }
+    :root{--primary:#0a1c69;--success:#0ca30c;--danger:#d03b3b;--warning:#c9910a;--bg:#f5f5f7;--card:#fff;--border:#d2d2d7;--text:#1d1d1f;--muted:#6e6e73;--surface-2:#f9fafb;--tint-green-bg:#d1fae5;--tint-green-fg:#065f46;--tint-red-bg:#fee2e2;--tint-red-fg:#991b1b;--tint-gray-bg:#f3f4f6;--tint-orange-bg:#fff7ed;--tint-orange-fg:#c2410c;--tint-blue-bg:#eff6ff;--tint-blue-fg:#1e40af;
+      /* Folha do relatório: o azul-marinho da marca Kuryos carrega a hierarquia. */
+      --doc-ink:#14182b;--doc-sub:#5b6170;--doc-rule:#dfe2ea;--doc-rule-strong:#0a1c69;--doc-band:#f4f6fb;--doc-brand:#0a1c69;--doc-bar:#c9d2ec;--doc-on-brand:#fff}
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --primary:#5e83ea; --bg:#000; --card:#1c1c1e; --border:#38383a; --text:#f5f5f7; --muted:#98989d; --surface-2:#242426; --tint-green-bg:rgba(16,185,129,.18); --tint-green-fg:#6ee7b7; --tint-red-bg:rgba(239,68,68,.18); --tint-red-fg:#fca5a5; --tint-gray-bg:rgba(255,255,255,.08); --tint-orange-bg:rgba(251,146,60,.18); --tint-orange-fg:#fdba74; --tint-blue-bg:rgba(94,131,234,.18); --tint-blue-fg:#a5b4fc;
+      --doc-ink:#f2f3f7;--doc-sub:#a3a8b5;--doc-rule:#34363e;--doc-rule-strong:#8aa3ee;--doc-band:#232428;--doc-brand:#8aa3ee;--doc-bar:#3a4670;--doc-on-brand:#0b1020; } }
+    :root[data-theme="dark"] { color-scheme: dark; --primary:#5e83ea; --bg:#000; --card:#1c1c1e; --border:#38383a; --text:#f5f5f7; --muted:#98989d; --surface-2:#242426; --tint-green-bg:rgba(16,185,129,.18); --tint-green-fg:#6ee7b7; --tint-red-bg:rgba(239,68,68,.18); --tint-red-fg:#fca5a5; --tint-gray-bg:rgba(255,255,255,.08); --tint-orange-bg:rgba(251,146,60,.18); --tint-orange-fg:#fdba74; --tint-blue-bg:rgba(94,131,234,.18); --tint-blue-fg:#a5b4fc;
+      --doc-ink:#f2f3f7;--doc-sub:#a3a8b5;--doc-rule:#34363e;--doc-rule-strong:#8aa3ee;--doc-band:#232428;--doc-brand:#8aa3ee;--doc-bar:#3a4670;--doc-on-brand:#0b1020; }
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:var(--font-ui);background:var(--bg);color:var(--text);min-height:100vh}
+    ::selection{background:color-mix(in srgb, var(--doc-brand) 22%, transparent)}
     .header{padding:26px 0 6px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;max-width:96%;margin:0 auto}
     .header h1{font-size:28px;font-weight:700;letter-spacing:-.02em}
     .header-sub{font-size:12.5px;color:var(--muted);margin-top:2px}
     .status-pill{display:flex;align-items:center;gap:6px;background:color-mix(in srgb, var(--text) 6%, transparent);border-radius:20px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
     .dot{width:8px;height:8px;border-radius:50%;background:#94a3b8}
     .dot.on{background:var(--success)}
-    .main{padding:0 0 40px;max-width:96%;margin:0 auto}
-    .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0 14px}
+    .main{padding:0 0 48px;max-width:96%;margin:0 auto}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0 16px}
     .toolbar input,.toolbar select{padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);color:var(--text);min-width:0}
     #busca{flex:1;min-width:200px}
     #selPedido{flex:2;min-width:240px}
     .chk{display:flex;align-items:center;gap:6px;font-size:13px}
-    .btn{padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:var(--card);color:var(--text);white-space:nowrap}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:var(--card);color:var(--text);white-space:nowrap}
+    .btn svg{width:16px;height:16px;flex:none}
     .btn:hover{background:var(--surface-2)}
+    .btn:focus-visible,.toolbar input:focus-visible,.toolbar select:focus-visible,tr.item:focus-visible{outline:2px solid var(--doc-brand);outline-offset:2px}
     .btn:disabled{opacity:.45;cursor:not-allowed}
-    .card{background:var(--card);border-radius:18px;box-shadow:var(--shadow);margin-bottom:14px;border-left:4px solid var(--primary);padding:16px}
-    .card-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
-    .cab{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
-    .cab h2{font-size:22px}
-    .cab .meta{font-size:13px;color:var(--muted);line-height:1.7}
-    .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:14px}
-    .kpi{background:var(--surface-2);border-radius:12px;padding:10px 12px}
-    .kpi .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
-    .kpi .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
-    .kpi .s{font-size:11.5px;color:var(--muted);margin-top:2px}
-    .table-wrap{overflow-x:auto}
-    table{width:100%;border-collapse:collapse;font-size:12.5px}
-    thead th{background:var(--surface-2);padding:7px 8px;text-align:left;font-weight:700;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid var(--border);white-space:nowrap}
-    td{padding:7px 8px;border-bottom:1px solid var(--tint-gray-bg);vertical-align:top}
-    td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .btn-primario{background:var(--doc-brand);border-color:var(--doc-brand);color:var(--doc-on-brand)}
+    .btn-primario:hover{background:color-mix(in srgb, var(--doc-brand) 90%, var(--doc-ink))}
+    .vazio{background:var(--card);border-radius:14px;text-align:center;padding:48px 20px;color:var(--muted);font-size:14px}
+
+    /* ── Folha ─────────────────────────────────────────────────────────── */
+    .doc{background:var(--card);color:var(--doc-ink);border-radius:6px;box-shadow:0 1px 2px rgb(15 32 68 / 6%),0 8px 28px rgb(15 32 68 / 7%);max-width:1180px;margin:0 auto}
+    .folha{width:100%;border-collapse:collapse;table-layout:fixed}
+    .folha > * > tr > td,.folha > thead,.folha > tfoot{background:transparent!important;border:0!important}
+    /* O tema põe todo <th> em caixa alta 11px (!important) e só a camada da tela
+       desfaz; o documento segue a caixa de frase do sistema também no papel. */
+    .doc th{text-transform:none!important;letter-spacing:0!important}
+    .folha > thead > tr > td,.folha > tbody > tr > td,.folha > tfoot > tr > td{padding:0 44px}
+    .doc-cab{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:30px 0 18px;border-bottom:2px solid var(--doc-rule-strong)}
+    .doc-logo{height:30px;width:auto;display:block}
+    :root[data-theme="dark"] .doc-logo{filter:brightness(0) invert(1)}
+    @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .doc-logo{filter:brightness(0) invert(1)}}
+    .doc-cab-txt{text-align:right}
+    .doc-tipo{font-size:14px;font-weight:700;letter-spacing:-.005em;color:var(--doc-brand)}
+    .doc-cab-id{font-size:13px;color:var(--doc-sub);margin-top:3px}
+    .doc-rod{display:flex;justify-content:space-between;gap:16px;padding:14px 0 26px;margin-top:28px;border-top:1px solid var(--doc-rule);font-size:11px;color:var(--doc-sub)}
+
+    .ident{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 32px;align-items:end;padding:28px 0 22px}
+    .ident h1{font-size:30px;line-height:1.1;font-weight:750;letter-spacing:-.025em;color:var(--doc-ink);text-wrap:balance}
+    .ident .cliente{font-size:16px;font-weight:600;color:var(--doc-sub);margin-top:6px}
+    .ident .status-com{justify-self:end}
+    .meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--doc-rule);border-bottom:1px solid var(--doc-rule)}
+    .meta > div{padding:11px 14px 12px 0}
+    .meta > div + div{padding-left:14px;border-left:1px solid var(--doc-rule)}
+    .meta dt{font-size:12px;font-weight:600;color:var(--doc-sub)}
+    .meta dd{font-size:14px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums}
+
+    .secao{margin-top:34px}
+    .secao h2{font-size:17px;font-weight:700;letter-spacing:-.01em;color:var(--doc-ink)}
+    .secao .sub{font-size:12.5px;color:var(--doc-sub);margin:4px 0 14px;max-width:80ch;line-height:1.5}
+
+    .resumo{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));background:var(--doc-band);border-radius:8px}
+    .resumo > div{padding:16px 18px 15px}
+    .resumo > div + div{border-left:1px solid var(--doc-rule)}
+    .resumo dt{font-size:12px;font-weight:600;color:var(--doc-sub)}
+    .resumo dd{font-size:24px;font-weight:700;letter-spacing:-.02em;margin-top:5px;font-variant-numeric:tabular-nums;color:var(--doc-ink)}
+    .resumo .nota-v{font-size:12px;font-weight:500;color:var(--doc-sub);margin-top:2px;letter-spacing:0}
+    .atend{margin-top:12px;display:flex;align-items:center;gap:12px;font-size:12px;color:var(--doc-sub)}
+    .atend-barra{flex:1;height:6px;border-radius:3px;background:var(--doc-rule);overflow:hidden}
+    .atend-barra span{display:block;height:100%;background:var(--doc-brand);border-radius:3px}
+
+    .rolagem{overflow-x:auto}
+    table.dados{width:100%;border-collapse:collapse;font-size:12.5px}
+    table.dados thead th{padding:8px 10px;text-align:left;font-weight:600;color:var(--doc-sub);font-size:12px;border-bottom:1.5px solid var(--doc-ink);white-space:nowrap}
+    table.dados th.col-item{width:27%}
+    table.perdas th.col-item{width:44%}
+    table.dados td{padding:10px;border-bottom:1px solid var(--doc-rule);vertical-align:top}
+    table.dados td.num,table.dados th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .cod{font-weight:700;letter-spacing:.01em;font-variant-numeric:tabular-nums}
+    .desc{color:var(--doc-sub);font-size:12px;margin-top:2px;line-height:1.35}
+    .pct{display:block;color:var(--doc-sub);font-size:11.5px;margin-top:2px}
     tr.item{cursor:pointer}
-    tr.item:hover td{background:var(--surface-2)}
-    tr.item td:first-child::before{content:'▸ ';color:var(--muted)}
-    tr.item.aberto td:first-child::before{content:'▾ '}
-    tr.lotes-row > td{background:var(--surface-2);padding:6px 10px 12px 26px}
-    tr.lotes-row table{font-size:12px;background:var(--card);border-radius:8px}
-    tr.total td{font-weight:700;border-top:2px solid var(--border)}
+    tr.item:hover td{background:var(--doc-band)}
+    tr.item .seta{display:inline-block;width:12px;color:var(--doc-sub);transition:transform .18s cubic-bezier(.2,.8,.2,1)}
+    tr.item.aberto .seta{transform:rotate(90deg)}
+    tr.lotes-row > td{padding:0 0 14px 22px;background:transparent}
+    table.lotes{width:100%;border-collapse:collapse;font-size:12px}
+    table.lotes th{padding:7px 10px 6px;text-align:left;font-size:11.5px;font-weight:600;color:var(--doc-sub);border-bottom:1px solid var(--doc-rule);white-space:nowrap}
+    table.lotes td{padding:7px 10px;border-bottom:1px dashed var(--doc-rule)}
+    table.lotes tr:last-child td{border-bottom:0}
+    table.lotes td.num,table.lotes th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+    tr.total td{font-weight:700;border-top:1.5px solid var(--doc-ink);border-bottom:0;padding-top:12px}
     .badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
     .b-ok{background:var(--tint-green-bg);color:var(--tint-green-fg)}
     .b-warn{background:var(--tint-orange-bg);color:var(--tint-orange-fg)}
     .b-err{background:var(--tint-red-bg);color:var(--tint-red-fg)}
     .b-gray{background:var(--tint-gray-bg);color:var(--muted)}
     .b-blue{background:var(--tint-blue-bg);color:var(--tint-blue-fg)}
-    .perdas{font-size:11.5px;line-height:1.5}
-    .muted{color:var(--muted)}
-    .nota{font-size:12px;color:var(--muted);line-height:1.55;margin-top:10px}
-    .vazio{text-align:center;padding:40px;color:var(--muted)}
+    .muted{color:var(--doc-sub)}
+    .motivos{font-size:11px;color:var(--doc-sub);margin-top:2px;line-height:1.45}
+
+    .perdas-item{margin-top:18px;break-inside:avoid}
+    .perdas-inicio{break-inside:avoid}
+    .perdas-item:first-of-type{margin-top:0}
+    .perdas-item h3{font-size:13.5px;font-weight:700;display:flex;gap:8px;align-items:baseline;padding-bottom:6px}
+    .perdas-item h3 .desc{font-weight:500;font-size:12.5px;margin:0}
+    table.perdas td{padding:9px 10px}
+    .comp-nome{font-weight:600}
+    .comp-lotes{font-size:11px;color:var(--doc-sub);margin-top:3px;line-height:1.5}
+    .base-org{display:block;font-size:11px;color:var(--doc-sub);margin-top:1px}
+    .pct-forte{font-weight:700;font-size:13.5px}
+    .sem-pct{color:var(--doc-sub);font-size:11.5px}
+    .linha-produto td{color:var(--doc-sub)}
+
+    .nota{font-size:11.5px;color:var(--doc-sub);line-height:1.6;margin-top:30px;max-width:110ch}
+    .nota p + p{margin-top:6px}
+
+    @media (max-width: 760px){
+      .folha > thead > tr > td,.folha > tbody > tr > td,.folha > tfoot > tr > td{padding:0 16px}
+      .doc-cab{padding:20px 0 14px}
+      .doc-logo{height:22px}
+      .ident{grid-template-columns:1fr}
+      .ident .status-com{justify-self:start}
+      .ident h1{font-size:24px}
+      .meta{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .meta > div:nth-child(3){border-left:0;padding-left:0}
+      .meta > div:nth-child(n+3){border-top:1px solid var(--doc-rule)}
+      .resumo{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .resumo > div:nth-child(odd){border-left:0}
+      .resumo > div:nth-child(n+3){border-top:1px solid var(--doc-rule)}
+      .resumo dd{font-size:20px}
+      .doc-rod{flex-direction:column;gap:4px}
+    }
+    @media (prefers-reduced-motion: reduce){tr.item .seta{transition:none}}
+
+    /* ── Impressão A4: a folha vira o documento ─────────────────────────────
+       margem 0 tira data/URL do navegador; o cabeçalho (thead) e o rodapé
+       (tfoot) da tabela .folha se repetem em toda página. */
+    @page{size:A4 portrait;margin:0}
     @media print{
-      body{background:#fff;color:#000}
-      .nao-imprime,#kuryos-sidebar,.kt-sidebar,nav,aside{display:none!important}
+      :root{--doc-ink:#14182b;--doc-sub:#555b69;--doc-rule:#d9dce4;--doc-rule-strong:#0a1c69;--doc-band:#f3f5fa;--doc-brand:#0a1c69;--doc-bar:#c9d2ec;--card:#fff;
+        --tint-green-bg:#e3f5ea;--tint-green-fg:#14532d;--tint-red-bg:#fbe4e4;--tint-red-fg:#7f1d1d;--tint-gray-bg:#eef0f3;--muted:#555b69;--tint-orange-bg:#fdf0e1;--tint-orange-fg:#9a3412;--tint-blue-bg:#e8eefc;--tint-blue-fg:#1e3a8a}
+      html,body{background:#fff!important;color:#000}
+      *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .nao-imprime,.header,#kuryos-sidebar,.kt-sidebar,nav,aside{display:none!important}
       body.has-sidebar{padding-left:0!important;margin-left:0!important}
-      .card{box-shadow:none;border:1px solid #ccc;break-inside:avoid-page}
-      .main,.header{max-width:100%}
+      .main{max-width:100%;padding:0}
+      .doc{box-shadow:none;border-radius:0;max-width:none}
+      .doc-logo{filter:none!important;height:26px}
+      .folha > thead > tr > td,.folha > tbody > tr > td,.folha > tfoot > tr > td{padding:0 14mm}
+      .doc-cab{padding:11mm 0 4mm;margin-bottom:5mm}
+      .doc-rod{padding:4mm 0 8mm;margin-top:6mm}
+      .ident{padding:1mm 0 5mm}
+      .ident h1{font-size:24px}
+      .secao{margin-top:8mm}
+      .resumo dd{font-size:19px}
+      .resumo > div{padding:11px 13px}
+      table.dados{font-size:10.5px}
+      table.dados td{padding:6px 7px}
+      .doc table.dados thead th{padding:6px 7px;font-size:9.5px!important}
+      .doc table.dados th.col-item{min-width:44mm}
+      .doc .badge{white-space:normal;line-height:1.3}
+      .doc table.dados{table-layout:auto;max-width:100%}
+      table.lotes{font-size:10px}
+      .doc table.lotes th{font-size:9px!important;padding:5px 7px}
+      table.lotes td{padding:5px 7px}
+      .desc,.pct,.motivos,.comp-lotes,.base-org{font-size:9.5px}
       tr.lotes-row{display:table-row!important}
-      tr.item td:first-child::before{content:''}
-      .table-wrap{overflow:visible}
+      tr.item{cursor:default}
+      tr.item .seta{display:none}
+      tr.item,tr.lotes-row,.perdas-item tr{break-inside:avoid}
+      .secao h2{break-after:avoid}
+      .rolagem{overflow:visible}
+      .nota{font-size:9.5px}
     }
   </style>
 </head>
@@ -85,21 +199,21 @@
 <div class="header" data-ui="page-header">
   <div>
     <h1>Relatório de Pedido</h1>
-    <div class="header-sub">Por item: produção total, lotes, expedido, em estoque e perdas</div>
+    <div class="header-sub">Produção, lotes, expedição, estoque e perdas por componente</div>
   </div>
   <div class="status-pill nao-imprime"><div class="dot" id="sDot"></div><span id="sTxt">Conectando...</span></div>
 </div>
 
 <div class="main">
   <div class="toolbar nao-imprime" data-ui="filters">
-    <input type="text" id="busca" placeholder="Buscar pedido, cliente ou nº do cliente...">
-    <select id="selPedido"><option value="">Carregando pedidos...</option></select>
+    <input type="text" id="busca" placeholder="Buscar pedido, cliente ou nº do cliente..." aria-label="Buscar pedido">
+    <select id="selPedido" aria-label="Pedido"><option value="">Carregando pedidos...</option></select>
     <label class="chk"><input type="checkbox" id="soAbertos"> Só com itens em aberto</label>
-    <button class="btn" id="btnImprimir" disabled>🖨️ Imprimir / PDF</button>
-    <button class="btn" id="btnCsv" disabled>⬇️ Exportar CSV</button>
+    <button class="btn btn-primario" id="btnImprimir" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="6" y="14" width="12" height="7" rx="1"/><path d="M6 18H4a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2"/></svg>Imprimir / PDF</button>
+    <button class="btn" id="btnCsv" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>Exportar CSV</button>
   </div>
 
-  <div id="relatorio"><div class="card vazio" data-ui="surface">Escolha um pedido.</div></div>
+  <div id="relatorio"><div class="vazio">Escolha um pedido.</div></div>
 </div>
 
 <script>
@@ -123,9 +237,12 @@ var fontes = {pedidos: null, ops: null, perdas: null, pedidos_comerciais: null, 
   estoque_lotes: null, conferencias_pa: null, solicitacoes_descarte: null, devolucoes_cliente: null};
 var conc = null, relAtual = null, abertos = {};
 var pedidoInicial = new URLSearchParams(location.search).get('pedido') || '';
+var TITULO_BASE = 'Relatório do Pedido';
 
 function fmtNum(v) { return Number(v || 0).toLocaleString('pt-BR', {maximumFractionDigits: 3}); }
 function fmtPct(v) { return v == null ? '—' : v.toLocaleString('pt-BR', {maximumFractionDigits: 1}) + '%'; }
+// Perda de componente costuma ficar abaixo de 1%: duas casas para não virar "0%".
+function fmtPctPerda(v) { return v == null ? '—' : v.toLocaleString('pt-BR', {maximumFractionDigits: v < 1 ? 2 : 1}) + '%'; }
 function fmtData(iso) {
   if (!iso) return '—';
   var d = new Date(String(iso).length <= 10 ? iso + 'T00:00:00' : iso);
@@ -136,6 +253,11 @@ function setStatus(on, txt) {
   document.getElementById('sTxt').textContent = txt;
 }
 function carregado() { return Object.keys(fontes).every(function(k) { return fontes[k] !== null; }); }
+function nomeUsuario() { try { return typeof currentUserNome === 'function' ? currentUserNome() : ''; } catch (e) { return ''; } }
+// Título da aba = nome do arquivo ao salvar o PDF: "Relatório do Pedido - PED-0007 - WIKE MAKE COSMETICOS".
+function tituloDoPedido(r) {
+  return r ? [TITULO_BASE, r.pedidoId, r.cliente].filter(Boolean).join(' - ').replace(/[\\/:*?"<>|]+/g, ' ') : TITULO_BASE;
+}
 
 function badgeSituacao(it) {
   var mapa = {OK: ['b-ok', 'Conferido'], OK_APONTADA: ['b-ok', 'Conferido · divergência apontada'],
@@ -149,15 +271,10 @@ function badgeStatusItem(it) {
   var cls = it.status === 'Concluído' ? 'b-ok' : (/Produção|Programado/.test(it.status) ? 'b-blue' : 'b-warn');
   return '<span class="badge ' + cls + '">' + escapeHtml(it.status || '—') + '</span>';
 }
-function perdasHtml(tipos) {
-  var ks = Object.keys(tipos || {}).filter(function(t) { return tipos[t]; });
-  if (!ks.length) return '<span class="muted">—</span>';
-  return '<div class="perdas">' + ks.sort().map(function(t) { return escapeHtml(t) + ': <b>' + fmtNum(tipos[t]) + '</b>'; }).join('<br>') + '</div>';
-}
 function expedidoHtml(total, motivos) {
   var MOT = ConciliacaoPedidos.MOTIVOS_EXPEDIDO;
   var extras = Object.keys(motivos || {}).filter(function(m) { return m !== 'EXPEDIDO' && motivos[m]; });
-  return fmtNum(total) + (extras.length ? '<div class="perdas muted">' + extras.map(function(m) { return escapeHtml(MOT[m] || m) + ': ' + fmtNum(motivos[m]); }).join('<br>') + '</div>' : '');
+  return fmtNum(total) + (extras.length ? '<div class="motivos">' + extras.map(function(m) { return escapeHtml(MOT[m] || m) + ': ' + fmtNum(motivos[m]); }).join('<br>') + '</div>' : '');
 }
 
 // ── Seletor de pedido ────────────────────────────────────────────────
@@ -182,85 +299,159 @@ function renderRelatorio() {
   var id = document.getElementById('selPedido').value;
   var alvo = document.getElementById('relatorio');
   relAtual = id ? RelatorioPedido.montar(id, fontes, conc) : null;
+  document.title = tituloDoPedido(relAtual);
   document.getElementById('btnImprimir').disabled = !relAtual;
   document.getElementById('btnCsv').disabled = !relAtual;
-  if (!relAtual) { alvo.innerHTML = '<div class="card vazio">' + (id ? 'Pedido sem itens.' : 'Escolha um pedido.') + '</div>'; return; }
+  if (!relAtual) { alvo.innerHTML = '<div class="vazio">' + (id ? 'Pedido sem itens.' : 'Escolha um pedido.') + '</div>'; return; }
   var r = relAtual, t = r.totais;
-  var tiposPerda = Object.keys(t.perdas).filter(function(k) { return t.perdas[k]; });
+  var emitido = new Date().toLocaleString('pt-BR', {dateStyle: 'short', timeStyle: 'short'});
+  var usuario = nomeUsuario();
 
-  var cab = '<div class="card"><div class="cab"><div><h2>Pedido ' + escapeHtml(r.pedidoId) + ' · ' + escapeHtml(r.cliente || '—') + '</h2>' +
-    '<div class="meta">' + (r.dataPedido ? 'Data do pedido: ' + fmtData(r.dataPedido) + ' · ' : '') +
-    (r.numeroCliente ? 'Nº do cliente: ' + escapeHtml(r.numeroCliente) + ' · ' : '') +
-    (r.previsaoEntrega ? 'Previsão de entrega: ' + fmtData(r.previsaoEntrega) + ' · ' : '') +
-    r.itens.length + (r.itens.length > 1 ? ' itens' : ' item') + ' · ' + t.lotes + (t.lotes === 1 ? ' lote' : ' lotes') + '</div></div>' +
-    '<div class="meta">Emitido em ' + escapeHtml(new Date().toLocaleString('pt-BR')) + '</div></div>' +
-    '<div class="kpis">' +
-      kpi(fmtNum(t.qtdPedido), 'Pedido', 'unidades') +
-      kpi(fmtNum(t.produzido), 'Produzido', fmtPct(t.atendidoPct) + ' do pedido') +
-      kpi(fmtNum(t.aProduzir), 'A produzir', 'itens em aberto') +
-      kpi(fmtNum(t.expedido), 'Expedido', t.motivos.DEVOLVIDO ? 'já descontada devolução' : 'saiu do galpão') +
-      kpi(fmtNum(t.estoque), 'Em estoque', 'paletes de PA') +
-      kpi(tiposPerda.length ? fmtNum(t.perdasTotal) : '—', 'Perdas de componentes', tiposPerda.length ? fmtPct(t.perdaPct) + ' s/ produzido' : 'nenhuma lançada') +
-    '</div></div>';
+  var cabecalho = '<header class="doc-cab"><img class="doc-logo" src="kuryos-logo.svg" alt="Kuryos">' +
+    '<div class="doc-cab-txt"><div class="doc-tipo">Relatório do Pedido</div>' +
+    '<div class="doc-cab-id">' + escapeHtml(r.pedidoId) + (r.cliente ? ' · ' + escapeHtml(r.cliente) : '') + '</div></div></header>';
+  var rodape = '<footer class="doc-rod"><span>Kuryos · Relatório do Pedido ' + escapeHtml(r.pedidoId) + '</span>' +
+    '<span>Emitido em ' + escapeHtml(emitido) + (usuario ? ' por ' + escapeHtml(usuario) : '') + '</span></footer>';
+
+  var ident = '<section class="ident"><div><h1>Pedido ' + escapeHtml(r.pedidoId) + '</h1>' +
+    '<div class="cliente">' + escapeHtml(r.cliente || 'Cliente não informado') + '</div></div>' +
+    (r.statusComercial ? '<div class="status-com"><span class="badge b-blue">' + escapeHtml(statusLegivel(r.statusComercial)) + '</span></div>' : '') +
+    '</section>' +
+    '<dl class="meta">' +
+      metaItem('Data do pedido', fmtData(r.dataPedido)) +
+      metaItem('Nº do pedido do cliente', r.numeroCliente || '—') +
+      metaItem('Previsão de entrega', fmtData(r.previsaoEntrega)) +
+      metaItem('Itens · lotes', r.itens.length + (r.itens.length > 1 ? ' itens' : ' item') + ' · ' + t.lotes + (t.lotes === 1 ? ' lote' : ' lotes')) +
+    '</dl>';
+
+  var atendido = Math.max(0, Math.min(100, t.atendidoPct || 0));
+  var resumo = '<section class="secao"><h2>Resumo</h2><p class="sub">Quantidades em unidades de produto acabado.</p>' +
+    '<dl class="resumo">' +
+      resumoItem('Pedido', fmtNum(t.qtdPedido), 'unidades') +
+      resumoItem('Produzido', fmtNum(t.produzido), fmtPct(t.atendidoPct) + ' do pedido') +
+      resumoItem('A produzir', fmtNum(t.aProduzir), 'itens em aberto') +
+      resumoItem('Expedido', fmtNum(t.expedido), t.motivos.DEVOLVIDO ? 'já descontada devolução' : 'saiu do galpão') +
+      resumoItem('Em estoque', fmtNum(t.estoque), 'paletes de PA') +
+    '</dl>' +
+    '<div class="atend" role="img" aria-label="Atendimento do pedido: ' + escapeAttr(fmtPct(t.atendidoPct)) + '"><span>Atendimento do pedido</span>' +
+      '<div class="atend-barra"><span style="width:' + atendido + '%"></span></div><b>' + fmtPct(t.atendidoPct) + '</b></div></section>';
 
   var linhas = r.itens.map(function(it, i) {
     var aberto = !!abertos[it.key];
-    return '<tr class="item' + (aberto ? ' aberto' : '') + '" data-i="' + i + '">' +
-      '<td><b>' + escapeHtml(it.sku) + '</b><div class="muted">' + escapeHtml(it.produto) + '</div></td>' +
+    return '<tr class="item' + (aberto ? ' aberto' : '') + '" data-i="' + i + '" tabindex="0" aria-expanded="' + aberto + '">' +
+      '<td><span class="seta" aria-hidden="true">›</span> <span class="cod">' + escapeHtml(it.sku) + '</span><div class="desc">' + escapeHtml(it.produto) + '</div></td>' +
       '<td>' + badgeStatusItem(it) + '</td>' +
       '<td class="num">' + fmtNum(it.qtdPedido) + '</td>' +
-      '<td class="num">' + fmtNum(it.produzido) + '<div class="muted">' + fmtPct(it.atendidoPct) + '</div></td>' +
+      '<td class="num">' + fmtNum(it.produzido) + '<span class="pct">' + fmtPct(it.atendidoPct) + '</span></td>' +
       '<td class="num">' + fmtNum(it.aProduzir) + '</td>' +
       '<td class="num">' + expedidoHtml(it.expedido, it.motivos) + '</td>' +
       '<td class="num">' + fmtNum(it.estoque) + '</td>' +
       '<td class="num">' + it.lotes.length + '</td>' +
-      '<td>' + perdasHtml(it.perdas) + (it.perdasTotal ? '<div class="muted perdas">' + fmtPct(it.perdaPct) + ' s/ produzido</div>' : '') + '</td>' +
       '<td>' + badgeSituacao(it) + '</td>' +
     '</tr>' +
-    '<tr class="lotes-row" data-lotes="' + i + '"' + (aberto ? '' : ' style="display:none"') + '><td colspan="10">' + tabelaLotes(it) + '</td></tr>';
+    '<tr class="lotes-row" data-lotes="' + i + '"' + (aberto ? '' : ' style="display:none"') + '><td colspan="9">' + tabelaLotes(it) + '</td></tr>';
   }).join('');
   var totalLinha = '<tr class="total"><td>Total do pedido</td><td></td>' +
-    '<td class="num">' + fmtNum(t.qtdPedido) + '</td><td class="num">' + fmtNum(t.produzido) + '<div class="muted">' + fmtPct(t.atendidoPct) + '</div></td>' +
+    '<td class="num">' + fmtNum(t.qtdPedido) + '</td><td class="num">' + fmtNum(t.produzido) + '<span class="pct">' + fmtPct(t.atendidoPct) + '</span></td>' +
     '<td class="num">' + fmtNum(t.aProduzir) + '</td><td class="num">' + expedidoHtml(t.expedido, t.motivos) + '</td>' +
-    '<td class="num">' + fmtNum(t.estoque) + '</td><td class="num">' + t.lotes + '</td><td>' + perdasHtml(t.perdas) + '</td><td></td></tr>';
+    '<td class="num">' + fmtNum(t.estoque) + '</td><td class="num">' + t.lotes + '</td><td></td></tr>';
+  var itens = '<section class="secao"><h2>Produção por item</h2>' +
+    '<p class="sub">Produzido = expedido + em estoque, a mesma conta da tela de Pedidos.<span class="nao-imprime"> Clique no item para ver os lotes.</span></p>' +
+    '<div class="rolagem"><table class="dados"><thead><tr><th class="col-item">Item</th><th>Status</th><th class="num">Pedido</th><th class="num">Produzido</th><th class="num">A produzir</th>' +
+    '<th class="num">Expedido</th><th class="num">Em estoque</th><th class="num">Lotes</th><th>Conciliação</th></tr></thead>' +
+    '<tbody>' + linhas + totalLinha + '</tbody></table></div></section>';
 
-  alvo.innerHTML = cab +
-    '<div class="card"><div class="card-title">Itens do pedido <span class="nao-imprime" style="text-transform:none;font-weight:500">— clique no item para ver os lotes</span></div>' +
-    '<div class="table-wrap"><table><thead><tr><th>Item</th><th>Status</th><th class="num">Pedido</th><th class="num">Produzido</th><th class="num">A produzir</th>' +
-    '<th class="num">Expedido</th><th class="num">Em estoque</th><th class="num">Lotes</th><th>Perdas (componentes)</th><th>Conciliação</th></tr></thead>' +
-    '<tbody>' + linhas + totalLinha + '</tbody></table></div>' +
-    '<div class="nota">Produzido, expedido e em estoque usam a mesma conta da tela de Pedidos (produzido = expedido + em estoque). ' +
-    'Perdas são de componentes (frasco, rótulo, cartucho...), na unidade de cada um, como lançadas no apontamento — por isso não se somam às unidades de produto; ' +
-    'o % compara a quantidade perdida com o que foi produzido. Lotes antigos sem lançamento no apontamento usam as perdas importadas do Excel.</div></div>';
+  var nota = '<div class="nota"><p><b>Como ler as perdas.</b> O apontamento registra a perda de cada componente na unidade dele. ' +
+    'O percentual compara o que foi perdido com a base daquele componente na OP: a quantidade separada para a OP ou, quando a separação não foi registrada, o empenho da OP. ' +
+    'A base de um item soma todos os lotes que usam o componente. Componentes diferentes não se somam.</p>' +
+    '<p>Quando o componente não tem base conhecida (OP antiga sem empenho, material fora da lista da OP ou apontamento sem identificação do material), ' +
+    'aparece só a quantidade perdida. Lotes antigos sem lançamento no apontamento usam as perdas importadas do Excel.</p></div>';
+
+  alvo.innerHTML = '<article class="doc" data-kt-sem-fixa><table class="folha" role="presentation">' +
+    '<thead><tr><td>' + cabecalho + '</td></tr></thead>' +
+    '<tfoot><tr><td>' + rodape + '</td></tr></tfoot>' +
+    '<tbody><tr><td>' + ident + resumo + itens + secaoPerdas(r) + nota + '</td></tr></tbody>' +
+    '</table></article>';
 
   alvo.querySelectorAll('tr.item').forEach(function(tr) {
-    tr.addEventListener('click', function() {
+    function alternar() {
       var it = relAtual.itens[Number(tr.getAttribute('data-i'))];
       abertos[it.key] = !abertos[it.key];
       tr.classList.toggle('aberto', abertos[it.key]);
+      tr.setAttribute('aria-expanded', abertos[it.key]);
       alvo.querySelector('tr[data-lotes="' + tr.getAttribute('data-i') + '"]').style.display = abertos[it.key] ? '' : 'none';
-    });
+    }
+    tr.addEventListener('click', alternar);
+    tr.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternar(); } });
   });
 }
-function kpi(v, l, s) { return '<div class="kpi"><div class="v">' + v + '</div><div class="l">' + escapeHtml(l) + '</div><div class="s">' + escapeHtml(s) + '</div></div>'; }
+// Status comercial vem como código ("LIBERADO_PCP"): no documento, em português corrido.
+function statusLegivel(st) {
+  var siglas = {PCP: 1, OP: 1, NF: 1, PA: 1, CQ: 1};
+  return String(st).split(/[_\s]+/).filter(Boolean).map(function(p, i) {
+    var u = p.toUpperCase();
+    if (siglas[u]) return u;
+    var l = p.toLowerCase();
+    return i === 0 ? l.charAt(0).toUpperCase() + l.slice(1) : l;
+  }).join(' ');
+}
+function metaItem(rotulo, valor) { return '<div><dt>' + escapeHtml(rotulo) + '</dt><dd>' + escapeHtml(valor) + '</dd></div>'; }
+function resumoItem(rotulo, valor, nota) { return '<div><dt>' + escapeHtml(rotulo) + '</dt><dd>' + valor + '<div class="nota-v">' + escapeHtml(nota) + '</div></dd></div>'; }
 function tabelaLotes(it) {
-  if (!it.lotes.length && !it.semOp.produzido && !it.semOp.expedido && !it.semOp.estoque) return '<div class="muted">Nenhum lote emitido para este item.</div>';
+  if (!it.lotes.length && !it.semOp.produzido && !it.semOp.expedido && !it.semOp.estoque) return '<div class="muted" style="padding:8px 10px">Nenhum lote emitido para este item.</div>';
   var linhas = it.lotes.map(function(l) {
     return '<tr><td><b>' + escapeHtml(l.lote) + '</b>' + (l.retrabalho ? ' <span class="badge b-warn">retrabalho</span>' : '') + '</td>' +
       '<td>' + escapeHtml(l.status || '—') + '</td><td>' + escapeHtml(l.linha || '—') + '</td>' +
       '<td>' + fmtData(l.inicio) + (l.fim ? ' → ' + fmtData(l.fim) : '') + '</td>' +
       '<td class="num">' + fmtNum(l.planejado) + '</td><td class="num">' + fmtNum(l.produzido) + '</td>' +
-      '<td class="num">' + expedidoHtml(l.expedido, l.motivos) + '</td><td class="num">' + fmtNum(l.estoque) + '</td>' +
-      '<td>' + perdasHtml(l.perdas) + '</td><td class="num">' + (l.perdasTotal ? fmtPct(l.perdaPct) : '—') + '</td></tr>';
+      '<td class="num">' + expedidoHtml(l.expedido, l.motivos) + '</td><td class="num">' + fmtNum(l.estoque) + '</td></tr>';
   }).join('');
   var s = it.semOp;
   if (s.produzido || s.expedido || s.estoque) {
     linhas += '<tr><td colspan="4" class="muted" title="Produção apontada sem OP identificada (apontamentos antigos) ou saídas/paletes sem OP">Sem OP identificada</td>' +
       '<td></td><td class="num">' + (s.produzido ? fmtNum(s.produzido) : '—') + '</td><td class="num">' + (s.expedido ? fmtNum(s.expedido) : '—') + '</td>' +
-      '<td class="num">' + (s.estoque ? fmtNum(s.estoque) : '—') + '</td><td></td><td></td></tr>';
+      '<td class="num">' + (s.estoque ? fmtNum(s.estoque) : '—') + '</td></tr>';
   }
-  return '<div class="table-wrap"><table><thead><tr><th>Lote</th><th>Status</th><th>Linha</th><th>Produção</th><th class="num">Planejado</th><th class="num">Produzido</th>' +
-    '<th class="num">Expedido</th><th class="num">Em estoque</th><th>Perdas</th><th class="num">% perda</th></tr></thead><tbody>' + linhas + '</tbody></table></div>';
+  return '<table class="lotes"><thead><tr><th>Lote</th><th>Status</th><th>Linha</th><th>Produção</th><th class="num">Planejado</th><th class="num">Produzido</th>' +
+    '<th class="num">Expedido</th><th class="num">Em estoque</th></tr></thead><tbody>' + linhas + '</tbody></table>';
+}
+
+// ── Perdas por componente ───────────────────────────────────────────
+// Cada componente com a SUA base (separado ou empenho da OP) e o SEU %.
+// Nada de somar frasco com rótulo com válvula (pedido de 12/11/2026).
+function baseHtml(c) {
+  if (c.base == null || c.baseIncompleta) return '<span class="sem-pct">' + (c.baseIncompleta ? 'base incompleta' : 'sem base') + '</span>';
+  return fmtNum(c.base) + '<span class="base-org">' + escapeHtml(RelatorioPedido.ORIGEM_BASE[c.baseOrigem] || '') + '</span>';
+}
+function linhaComponente(c, lotes) {
+  var porLote = lotes.map(function(l) {
+    var x = l.componentes.filter(function(y) { return y.chave === c.chave; })[0];
+    if (!x) return '';
+    return escapeHtml(l.lote) + ': ' + fmtNum(x.perdido) + (x.base != null ? ' de ' + fmtNum(x.base) + ' (' + fmtPctPerda(x.pct) + ')' : '');
+  }).filter(Boolean);
+  return '<tr><td><div class="comp-nome">' + escapeHtml(c.tipo) + '</div>' + (c.nome ? '<div class="desc">' + escapeHtml(c.nome) + '</div>' : '') +
+      (porLote.length > 1 || (porLote.length === 1 && lotes.length > 1) ? '<div class="comp-lotes">' + porLote.join(' · ') + '</div>' : '') + '</td>' +
+    '<td>' + escapeHtml(c.codigo || '—') + '</td>' +
+    '<td class="num">' + baseHtml(c) + '</td>' +
+    '<td class="num">' + fmtNum(c.perdido) + (c.unidade ? ' <span class="muted">' + escapeHtml(c.unidade) + '</span>' : '') + '</td>' +
+    '<td class="num">' + (c.pct != null ? '<span class="pct-forte">' + fmtPctPerda(c.pct) + '</span>' : '<span class="sem-pct">—</span>') + '</td></tr>';
+}
+function secaoPerdas(r) {
+  var blocos = r.itens.filter(function(it) { return it.componentes.length || Object.keys(it.perdasProduto).length; }).map(function(it) {
+    var linhas = it.componentes.map(function(c) { return linhaComponente(c, it.lotes); }).join('');
+    Object.keys(it.perdasProduto).sort().forEach(function(tipo) {
+      linhas += '<tr class="linha-produto"><td><div class="comp-nome">' + escapeHtml(tipo === 'Produto envasado (un)' ? 'Produto envasado descartado' : tipo) + '</div>' +
+        '<div class="desc">perda do produto, não de componente</div></td><td>—</td><td class="num">—</td>' +
+        '<td class="num">' + fmtNum(it.perdasProduto[tipo]) + ' <span class="muted">' + (/kg/.test(tipo) ? 'kg' : 'un') + '</span></td><td class="num">—</td></tr>';
+    });
+    return '<div class="perdas-item"><h3><span class="cod">' + escapeHtml(it.sku) + '</span><span class="desc">' + escapeHtml(it.produto) + '</span></h3>' +
+      '<div class="rolagem"><table class="dados perdas"><thead><tr><th class="col-item">Componente</th><th>Código</th><th class="num">Base</th><th class="num">Perdido</th><th class="num">% perda</th></tr></thead>' +
+      '<tbody>' + linhas + '</tbody></table></div></div>';
+  });
+  var cab = '<h2>Perdas por componente</h2>' +
+    '<p class="sub">Percentual de cada componente sobre a quantidade separada para as OPs do item, ou sobre o empenho quando a separação não foi registrada.</p>';
+  if (!blocos.length) return '<section class="secao">' + cab + '<p class="muted">Nenhuma perda lançada para este pedido.</p></section>';
+  return '<section class="secao"><div class="perdas-inicio">' + cab + blocos[0] + '</div>' + blocos.slice(1).join('') + '</section>';
 }
 
 function exportarCsv() {

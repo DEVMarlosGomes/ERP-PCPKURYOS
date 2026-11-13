@@ -88,52 +88,74 @@ async function abrir(browser, viewport, url, role) {
   {
     const {page: p, errors, context} = await abrir(browser, null, 'relatorio_pedido.html?pedido=0008');
     assert.equal(await p.inputValue('#selPedido'), '0008');
-    const cab = await p.locator('#relatorio .card').first().innerText();
-    assert.match(cab, /Pedido 0008 · MISS ROSE/);
-    assert.match(cab, /Nº do cliente: PO-77/);
-    assert.match(cab, /18\.000\s+PEDIDO/i);
-    assert.match(cab, /16\.700\s+PRODUZIDO\s+92,8% do pedido/i);
-    assert.match(cab, /12\.200\s+EXPEDIDO/i);
-    assert.match(cab, /3\.200\s+EM ESTOQUE/i);
-    ok('link direto abre o pedido com os totais');
+    // Documento: logo da Kuryos, e o título da aba vira o nome do PDF salvo.
+    assert.equal(await p.title(), 'Relatório do Pedido - 0008 - MISS ROSE');
+    assert.equal(await p.locator('.doc .doc-logo[src="kuryos-logo.svg"]').count(), 1, 'logo no cabeçalho do documento');
+    const cab = await p.locator('.doc .ident').innerText() + '\n' + await p.locator('.doc .meta').innerText();
+    assert.match(cab, /Pedido 0008[\s\S]*MISS ROSE/);
+    assert.match(cab, /Nº do pedido do cliente\s+PO-77/);
+    const resumo = await p.locator('.doc .resumo').innerText();
+    assert.match(resumo, /Pedido\s+18\.000/);
+    assert.match(resumo, /Produzido\s+16\.700\s+92,8% do pedido/);
+    assert.match(resumo, /Expedido\s+12\.200/);
+    assert.match(resumo, /Em estoque\s+3\.200/);
+    ok('link direto abre o pedido com logo, título do PDF e totais');
 
     const itens = await p.locator('tr.item').allInnerTexts();
     assert.equal(itens.length, 3);
-    assert.match(itens[0], /MRARBS06[\s\S]*Produção Parcial[\s\S]*10\.000[\s\S]*9\.000[\s\S]*90%[\s\S]*1\.000[\s\S]*4\.800[\s\S]*3\.200[\s\S]*2[\s\S]*Frascos: 24[\s\S]*Rótulos: 5[\s\S]*Válvula: 2/);
-    assert.match(itens[1], /MRARBS07[\s\S]*Devolvido \(estorno\): -100[\s\S]*Cartuchos: 16/);
-    assert.match(itens[2], /MRARBS08[\s\S]*Encerrado[\s\S]*Rótulos \(envase\): 12/);
+    assert.match(itens[0], /MRARBS06[\s\S]*Produção Parcial[\s\S]*10\.000[\s\S]*9\.000[\s\S]*90%[\s\S]*1\.000[\s\S]*4\.800[\s\S]*3\.200[\s\S]*2/);
+    assert.match(itens[1], /MRARBS07[\s\S]*Devolvido \(estorno\): -100/);
+    assert.match(itens[2], /MRARBS08[\s\S]*Encerrado/);
     assert.match(await p.locator('tr.total').innerText(), /Total do pedido[\s\S]*18\.000[\s\S]*16\.700/);
-    ok('um item por linha: pedido, produzido, a produzir, expedido, estoque, lotes, perdas por tipo');
+    ok('um item por linha: pedido, produzido, a produzir, expedido, estoque, lotes');
+
+    // Perdas (12/11/2026): cada componente com a sua base e o seu %; nunca a
+    // soma de frasco + rótulo + válvula sobre o produzido.
+    const blocos = await p.locator('.perdas-item').allInnerTexts();
+    assert.equal(blocos.length, 3);
+    assert.match(blocos[0], /MRARBS06[\s\S]*Frascos\s+FRASCO PET 120ML[\s\S]*26146\/01: 24 de 5\.000 \(0,48%\)[\s\S]*EP-1\s+10\.200\s+Separado \+ empenho\s+24 un\s+0,24%/);
+    assert.match(blocos[0], /Rótulos[\s\S]*ES-1\s+10\.100[\s\S]*5 un\s+0,05%/);
+    assert.match(blocos[0], /Tampas\/Válvulas[\s\S]*EP-2\s+10\.000\s+Empenho\s+2 un\s+0,02%/);
+    assert.match(blocos[2], /MRARBS08[\s\S]*Rótulos[\s\S]*sem base\s+12\s+—[\s\S]*Cartuchos[\s\S]*sem base\s+3\s+—/, 'Excel antigo: quantidade, sem %');
+    assert.doesNotMatch(await p.locator('.doc').innerText(), /s\/ produzido/, 'nenhum % de perda sobre o produzido');
+    ok('perdas por componente: base (separado/empenho), perdido e % de cada um, com o detalhe por lote');
 
     assert.equal(await p.locator('tr[data-lotes="0"]').isVisible(), false);
     await p.click('tr.item[data-i="0"]');
     const lotes = await p.locator('tr[data-lotes="0"]').innerText();
-    assert.match(lotes, /26146\/01[\s\S]*Concluído[\s\S]*Linha 02[\s\S]*10\/09\/2026[\s\S]*5\.000[\s\S]*5\.000[\s\S]*4\.800[\s\S]*200[\s\S]*Frascos: 24[\s\S]*0,6%/);
+    assert.match(lotes, /26146\/01[\s\S]*Concluído[\s\S]*Linha 02[\s\S]*10\/09\/2026[\s\S]*5\.000[\s\S]*5\.000[\s\S]*4\.800[\s\S]*200/);
     assert.match(lotes, /26147\/01[\s\S]*3\.000/);
     assert.doesNotMatch(lotes, /26148\/01/, 'OP cancelada fora');
     assert.match(lotes, /Sem OP identificada[\s\S]*1\.000/);
-    ok('clique no item abre os lotes com produzido, expedido, estoque e perdas');
+    // Documento fica fora do cabeçalho congelado (tabela-fixa.js respeita
+    // data-kt-sem-fixa): rolagem interna cortava a última linha das tabelas.
+    assert.equal(await p.locator('.doc [data-kt-fixa-rolagem]').count(), 0);
+    ok('clique no item abre os lotes, sem rolagem interna cortando linhas');
 
     const [download] = await Promise.all([p.waitForEvent('download'), p.click('#btnCsv')]);
     assert.equal(download.suggestedFilename(), 'relatorio-pedido-0008.csv');
     const csv = fs.readFileSync(await download.path(), 'utf8');
     assert.equal(csv.charCodeAt(0), 0xfeff, 'BOM para o Excel abrir acentos');
-    assert.equal(csv.trim().split('\r\n').length, 5);
-    assert.match(csv, /26146\/01;Concluído;Linha 02;5000;5000;4800;200/);
-    ok('CSV baixa com uma linha por lote');
+    assert.equal(csv.trim().split('\r\n').length, 1 + 3 + 1 + 1 + 2);
+    assert.match(csv, /26146\/01;Concluído;Linha 02;5000;5000;4800;200;Frascos — FRASCO PET 120ML;EP-1;24;5000;Empenho;0,48/);
+    ok('CSV baixa com uma linha por lote e componente');
 
     await p.emulateMedia({media: 'print'});
     assert.equal(await p.locator('tr[data-lotes="1"]').isVisible(), true, 'impressão abre todos os lotes');
     assert.equal(await p.locator('.toolbar').isVisible(), false);
+    assert.equal(await p.locator('.header').isVisible(), false, 'cabeçalho da tela (e o ícone dele) não vai para o papel');
+    assert.equal(await p.locator('.doc-cab').isVisible(), true, 'documento tem cabeçalho próprio com o logo');
+    assert.equal(await p.locator('.doc th').first().evaluate((e) => getComputedStyle(e).textTransform), 'none', 'cabeçalho de tabela em caixa de frase também no papel');
     await p.emulateMedia({media: 'screen'});
-    ok('impressão sai com todos os lotes e sem a barra de busca');
+    ok('impressão sai com todos os lotes, logo, sem a barra de busca');
 
     await p.fill('#busca', 'febella');
     assert.deepEqual(await p.locator('#selPedido option').allInnerTexts(), ['Selecione o pedido (1)...', '05 · FEBELLA · 30/04/2026 · 1 item · 1 em aberto']);
     await p.selectOption('#selPedido', '05');
     assert.match(page_url(p), /\?pedido=05$/);
-    assert.match(await p.locator('#relatorio').innerText(), /Pedido 05 · FEBELLA/);
-    ok('busca e troca de pedido (link atualizado)');
+    assert.match(await p.locator('#relatorio').innerText(), /Pedido 05[\s\S]*FEBELLA/);
+    assert.equal(await p.title(), 'Relatório do Pedido - 05 - FEBELLA');
+    ok('busca e troca de pedido (link e título atualizados)');
 
     assert.equal(await p.locator('a[href="relatorio_pedido"]').count(), 1, 'PCP: um link só no menu');
     assert.deepEqual(errors, []);

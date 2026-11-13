@@ -22,6 +22,7 @@ body{margin:0;background:#f5f5f7;font:13px sans-serif}
 <div id="wrapX" style="overflow-x:auto">${tabela('t3')}</div>
 <div id="jaLimitado" style="overflow:auto;max-height:200px">${tabela('t4')}</div>
 <div id="transp" class="card">${tabela('t5', 80, 'background:transparent')}</div>
+<article data-kt-sem-fixa><div id="docWrap" style="overflow-x:auto">${tabela('t7')}</div></article>
 <div id="vazio"></div>
 <script>${js}</script></body></html>`;
 
@@ -71,6 +72,12 @@ body{margin:0;background:#f5f5f7;font:13px sans-serif}
   await page.waitForTimeout(300);
   confere(await page.$eval('#t6', (e) => e.classList.contains('kt-fixa')), 'tabela dinâmica não foi tratada');
   confere(/px$/.test(await page.$eval('#t6', (e) => e.parentElement.style.maxHeight)), 'contêiner da tabela dinâmica sem max-height');
+
+  // 6b. Documento (relatório para ler e imprimir) pede para ficar de fora:
+  // contêiner sem altura limitada, tabela sem sticky -- senão a última linha
+  // some numa rolagem interna (Relatório do Pedido, 12/11/2026).
+  confere(await page.$eval('#docWrap', (e) => e.style.maxHeight) === '', 'tabela em [data-kt-sem-fixa] ganhou max-height');
+  confere(!(await page.$eval('#t7', (e) => e.classList.contains('kt-fixa'))), 'tabela em [data-kt-sem-fixa] virou kt-fixa');
 
   // 7. Impressão: nada de sticky nem altura limitada.
   await page.emulateMedia({media: 'print'});

@@ -11,8 +11,18 @@ function base() {
     },
     pedidos_comerciais: {'0008': {cliente: 'MISS ROSE', dataPedido: '2026-09-17', numeroPedidoCliente: 'PO-77'}, '05': {cliente: 'FEBELLA', dataPedido: '2026-04-30'}},
     ops: {
-      '26146-01': {lote: '26146/01', sku: 'MRARBS06', skuPedidoKey: '0008__MRARBS06', status: 'Concluído', linha: 'Linha 02', qtdPlanejada: 5000, produzido: 5000, dataInicioReal: '2026-09-10T08:00:00'},
-      '26147-01': {lote: '26147/01', sku: 'MRARBS06', skuPedidoKey: '0008__MRARBS06', status: 'Produção Parcial', linha: 'Linha 02', qtdPlanejada: 5000, produzido: 3000},
+      // Empenho da OP (materiaisConsumo): é a base do % de perda de cada componente.
+      '26146-01': {lote: '26146/01', sku: 'MRARBS06', skuPedidoKey: '0008__MRARBS06', status: 'Concluído', linha: 'Linha 02', qtdPlanejada: 5000, produzido: 5000, dataInicioReal: '2026-09-10T08:00:00',
+        materiaisConsumo: {b1: {mpCodigo: 'EP-1', mpNome: 'FRASCO PET 120ML', origem: 'bom', quantidade: 5000, unidade: 'un'},
+          b2: {mpCodigo: 'ES-1', mpNome: 'ROTULO CEU 120ML', origem: 'bom', quantidade: 5000, unidade: 'un'},
+          b3: {mpCodigo: 'EP-2', mpNome: 'VALVULA SPRAY 24/410', origem: 'bom', quantidade: 5000, unidade: 'un'},
+          f1: {mpCodigo: 'MPGR-1', mpNome: 'ALCOOL', origem: 'formula', quantidade: 300, unidade: 'kg'}}},
+      // Separação registrada: a base passa a ser o separado, não o empenho.
+      '26147-01': {lote: '26147/01', sku: 'MRARBS06', skuPedidoKey: '0008__MRARBS06', status: 'Produção Parcial', linha: 'Linha 02', qtdPlanejada: 5000, produzido: 3000,
+        materiaisConsumo: {b1: {mpCodigo: 'EP-1', mpNome: 'FRASCO PET 120ML', origem: 'bom', quantidade: 5000, unidade: 'un'},
+          b2: {mpCodigo: 'ES-1', mpNome: 'ROTULO CEU 120ML', origem: 'bom', quantidade: 5000, unidade: 'un'},
+          b3: {mpCodigo: 'EP-2', mpNome: 'VALVULA SPRAY 24/410', origem: 'bom', quantidade: 5000, unidade: 'un'}},
+        separacaoConcluida: {em: '2026-09-11T08:00:00Z', por: 'Log', itens: {'EP-1': 5200, 'ES-1': 5100}}},
       '26148-01': {lote: '26148/01', sku: 'MRARBS06', skuPedidoKey: '0008__MRARBS06', status: 'Cancelado', qtdPlanejada: 5000, produzido: 0},
       '26204-04-v2': {lote: '26204/04-v2', sku: 'MRARBS07', skuPedidoKey: '0008__MRARBS07', status: 'Concluído', qtdPlanejada: 5000, produzido: 5200},
       '26100-01': {lote: '26100/01', sku: 'MRARBS08', skuPedidoKey: '0008__MRARBS08', status: 'Concluído', qtdPlanejada: 3000, produzido: 2500,

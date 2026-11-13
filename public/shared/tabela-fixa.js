@@ -105,6 +105,9 @@
       if (t.__ktFixa) continue;
       if (!t.tHead) continue;
       t.__ktFixa = true;
+      // Documento para ler e imprimir (ex.: Relatório do Pedido) pede para
+      // ficar de fora: rolagem interna esconde as últimas linhas da tabela.
+      if (t.closest && t.closest('[data-kt-sem-fixa]')) continue;
       try { prepararTabela(t); } catch (e) { /* cosmético: nunca quebra a tela */ }
     }
   }

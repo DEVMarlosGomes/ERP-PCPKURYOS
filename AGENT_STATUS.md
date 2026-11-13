@@ -42,6 +42,15 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   (3) Conciliação ganhou "Fazer nova contagem física" (mesma regra 2 de 3). Testes: `run_conferencia_pa_test`,
   `_server_test`, `_uncx_test`, novo `run_conferencia_pa_conciliacao_ui_test` (Chrome; falha no código antigo),
   seletor/propriedade UI, coerência 427. **Pendente (Marlos):** deploy da VPS (callable muda). Arquivos ativos: nenhum.
+- **12/11, Relatório de Pedido: perdas por componente + documento A4 (pedido do Marlos).** O % somava frasco +
+  rótulo + válvula e dividia pelo produzido (PED-0007: 99,8% na 26267/04). Agora `relatorio-pedido.js` dá o % de
+  CADA componente sobre a base dele na OP: separado (`separacaoConcluida/itens`, hoje 0 OPs) ou empenho
+  (`materiaisConsumo`); apontamento sem código liga ao único candidato do tipo na OP; sem base, só a quantidade.
+  Ensaio no PED-0007 real: 26267/04 = frascos 21,6% e rótulos 23,9%. Tela vira folha A4 com logo, cabeçalho e
+  rodapé repetidos, sem data/URL do navegador; título/PDF "Relatório do Pedido - id - cliente". `tabela-fixa.js`
+  ganhou a saída `[data-kt-sem-fixa]` (rolagem interna cortava a última linha). Testes: motor 12, tela 8 (Chrome),
+  tabela-fixa 17, navegação 39, conciliação, coerência. Menu segue "Relatório de Pedido" (guarda de rótulo do
+  menu). Achado de dados, sem código: 26267/04 com linha 2.281, rotulagem 6.000 e estoque 3.769. Arquivos ativos: nenhum.
 
 ### Claude (sessão `pcp-kuryos-main-0b`) — Etiqueta de caixa: logo maior com ajuste e peças da caixa parcial (12/11/2026)
 
