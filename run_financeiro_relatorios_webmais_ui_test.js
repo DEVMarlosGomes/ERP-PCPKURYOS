@@ -112,7 +112,7 @@ const cent = (s) => s === '' ? 0 : Math.round(Number(String(s).replace(/\./g, ''
     await page.click('.aba[data-aba="relatorios"]');
     await page.waitForSelector('#relTabela');
     const grupos = await page.$$eval('#relTipo optgroup', (gs) => gs.map((g) => g.label + ':' + g.children.length));
-    ok(JSON.stringify(grupos) === JSON.stringify(['Caixas e bancos:9', 'A pagar:10', 'A receber:10']), 'seletor agrupado como no WebMais: ' + grupos.join(', '));
+    ok(JSON.stringify(grupos) === JSON.stringify(['Caixas e bancos:9', 'A pagar:11', 'A receber:11']), 'seletor agrupado como no WebMais: ' + grupos.join(', '));
     const tabela = () => page.locator('#relTabela').innerText();
     const sel = async (v) => { await page.selectOption('#relTipo', v); await page.waitForSelector('#relTabela, .alerta.warn'); };
 

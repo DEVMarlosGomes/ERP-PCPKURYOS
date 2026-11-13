@@ -12,7 +12,7 @@
   // Fatos dos outros módulos: lidos uma vez (botão "Recarregar"). O fin/ é ao vivo.
   var NOS_UMA_VEZ = ['pedidos_compra', 'processos_cotacao', 'fornecedores', 'clientes', 'estoque_lotes', 'pedidos_comerciais', 'agendamentos_expedicao', 'produtos', 'ops'];
   var D = {}, fin = {}, fechamentos = {}, avisos = [];
-  var S = {aba: 'painel', q: '', filtro: 'abertos', fatFiltro: 'faturamento', conta: '', sel: {}, extratoConta: '', previaNotas: [], extConta: '', extDe: '', extAte: '', flG: 'SEMANA', flConta: '', flNat: '', dfcDe: '', dfcAte: '',
+  var S = {aba: 'painel', q: '', tsel: {}, filtro: 'abertos', fatFiltro: 'faturamento', conta: '', sel: {}, extratoConta: '', previaNotas: [], extConta: '', extDe: '', extAte: '', flG: 'SEMANA', flConta: '', flNat: '', dfcDe: '', dfcAte: '',
     rel: {tipo: 'pagar', de: '', ate: '', dataBase: 'VENCIMENTO', situacao: 'ABERTOS', natureza: '', parceiro: '', conta: '', granularidade: 'SEMANA',
       data: '', destino: '', tipoMov: '', dataAnt: '', granRP: 'MES', base2: 'EMISSAO', centroCusto: '', usuario: '', agrupar: 'PARCEIRO', top: '', meses: 6, taxa: ''}};
   var pronto = {fatos: false, fin: false};
@@ -38,8 +38,8 @@
   function chamar(nome, dados) { return firebase.functions().httpsCallable(nome)(dados).then(function(r) { return r.data; }); }
   function kpi(cls, r, v, d) { return '<div class="kpi ' + cls + '"><div class="r">' + r + '</div><div class="v">' + v + '</div><div class="d">' + (d || '') + '</div></div>'; }
   function lerReais(v) { var c = F.centavos(v); return c == null ? null : c; }
-  var ROT_ORIGEM = {RECEBIMENTO: 'Recebimento', NF_SAIDA: 'NF de saída', OPERACAO: 'Operação do mês', BONUS: 'PLR', MANUAL: 'Manual', IMPORTACAO: 'Saldo de abertura'};
-  var ROT_STATUS = {ABERTO: ['info', 'Aberto'], PARCIAL: ['warn', 'Parcial'], QUITADO: ['ok', 'Quitado'], ABATIDO: ['mute', 'Abatido']};
+  var ROT_ORIGEM = {RECEBIMENTO: 'Recebimento', NF_SAIDA: 'NF de saída', OPERACAO: 'Operação do mês', BONUS: 'PLR', MANUAL: 'Manual', IMPORTACAO: 'Saldo de abertura', RENEGOCIACAO: 'Renegociação'};
+  var ROT_STATUS = {ABERTO: ['info', 'Aberto'], PARCIAL: ['warn', 'Parcial'], QUITADO: ['ok', 'Quitado'], ABATIDO: ['mute', 'Abatido'], RENEGOCIADO: ['mute', 'Renegociado'], CANCELADO: ['bad', 'Cancelado']};
 
   function base() { return Object.assign({}, D, {fin: fin, ctl: {fechamentos: fechamentos}}); }
 
@@ -185,18 +185,145 @@
       .map(function(x) { return kpi(ag[x[0]] ? x[2] : 'ok', x[1], brl(ag[x[0]]), ''); }).join('') + '</div>';
     h += '<div class="card"><div class="barra"><input class="busca" id="qTit" placeholder="Buscar documento, ' + (tipo === 'PAGAR' ? 'fornecedor' : 'cliente') + ', PC…" value="' + e(S.q) + '">' +
       '<select class="sel" id="fFiltro">' + [['abertos', 'Em aberto'], ['vencidos', 'Vencidos'], ['semvenc', 'Sem vencimento'], ['todos', 'Todos']].map(function(o) { return '<option value="' + o[0] + '"' + (S.filtro === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
-      '<button class="btn sm" data-manual="' + tipo + '">+ Título manual</button></div>';
-    h += '<div class="tw"><table><thead><tr><th>Documento</th><th>' + (tipo === 'PAGAR' ? 'Fornecedor' : 'Cliente') + '</th><th>Origem</th><th>Emissão</th><th>Próx. vencimento</th><th>Parcelas</th><th class="n">Valor</th><th class="n">Saldo</th><th>Situação</th><th></th></tr></thead><tbody>' +
+      '<button class="btn sm" data-manual="' + tipo + '">+ Título manual</button><button class="btn sm" data-adiant="' + tipo + '">+ Adiantamento</button></div>' + barraSelecao(tipo);
+    h += '<div class="tw"><table><thead><tr><th></th><th>Documento</th><th>' + (tipo === 'PAGAR' ? 'Fornecedor' : 'Cliente') + '</th><th>Origem</th><th>Emissão</th><th>Próx. vencimento</th><th>Parcelas</th><th class="n">Valor</th><th class="n">Saldo</th><th>Situação</th><th></th></tr></thead><tbody>' +
       (lista.length ? lista.map(function(s) {
         var t = s.titulo, p = s.abertas[0], st = ROT_STATUS[s.status] || ['mute', s.status];
         var vencido = p && p.vencimento < hoje;
-        return '<tr><td><a href="#" data-det="' + e(s.id) + '">' + e(t.documento || s.id) + '</a></td><td>' + e(t.parceiro && t.parceiro.nome) + '</td><td>' + e(ROT_ORIGEM[t.origem && t.origem.tipo] || (t.origem && t.origem.tipo)) + (t.origem && t.origem.pc ? ' <span class="mut">' + e(t.origem.pc) + '</span>' : '') + '</td>' +
+        return '<tr><td>' + (s.saldoCentavos > 0 ? '<input type="checkbox" data-tsel="' + e(s.id) + '"' + (S.tsel[s.id] ? ' checked' : '') + ' aria-label="Selecionar ' + e(t.documento || s.id) + '">' : '') + '</td><td><a href="#" data-det="' + e(s.id) + '">' + e(t.documento || s.id) + '</a></td><td>' + e(t.parceiro && t.parceiro.nome) + '</td><td>' + e(ROT_ORIGEM[t.origem && t.origem.tipo] || (t.origem && t.origem.tipo)) + (t.origem && t.origem.pc ? ' <span class="mut">' + e(t.origem.pc) + '</span>' : '') + '</td>' +
           '<td>' + dataBR(t.emissao) + '</td><td>' + (s.semVencimento ? '<span class="tg warn">sem prazo</span>' : p ? '<span class="' + (vencido ? 'neg' : '') + '">' + dataBR(p.vencimento) + '</span>' + (p.de > 1 ? ' <span class="mut">' + p.n + '/' + p.de + '</span>' : '') : '—') + '</td>' +
           '<td>' + e(F.resumoParcelas(s)) + '</td><td class="n">' + brl(t.valorCentavos) + '</td><td class="n">' + brl(s.saldoCentavos) + '</td><td><span class="tg ' + st[0] + '">' + st[1] + '</span>' + (s.bloqueio ? ' <span class="tg bad">bloqueado</span>' : '') + '</td>' +
           '<td class="mini-acoes">' + (s.saldoCentavos > 0 ? '<button class="btn sm pri" data-baixar="' + e(s.id) + '">' + (tipo === 'PAGAR' ? 'Pagar' : 'Receber') + '</button>' : '') +
           (tipo === 'PAGAR' && s.saldoCentavos > 0 ? '<button class="btn sm" data-bloq="' + e(s.id) + '">' + (s.bloqueio ? 'Desbloquear' : 'Bloquear') + '</button>' : '') + '</td></tr>';
-      }).join('') : '<tr><td colspan="10"><div class="vazio"><b>Nenhum título ' + (S.filtro === 'abertos' ? 'em aberto' : 'neste filtro') + '.</b>' + (tipo === 'PAGAR' ? 'Títulos a pagar nascem dos recebimentos contra pedido de compra.' : 'Títulos a receber nascem das notas registradas nas cargas (Faturamento) — o faturamento ainda não opera neste banco.') + '</div></td></tr>') +
+      }).join('') : '<tr><td colspan="11"><div class="vazio"><b>Nenhum título ' + (S.filtro === 'abertos' ? 'em aberto' : 'neste filtro') + '.</b>' + (tipo === 'PAGAR' ? 'Títulos a pagar nascem dos recebimentos contra pedido de compra.' : 'Títulos a receber nascem das notas registradas nas cargas (Faturamento) — o faturamento ainda não opera neste banco.') + '</div></td></tr>') +
       '</tbody></table></div></div>';
+    return h + cardAdiantamentos(tipo);
+  }
+
+  /* ── Entrega B: seleção, adiantamento, renegociação e cancelamento ─────── */
+  function porIdCarteira() { var m = {}; F.carteira(fin).forEach(function(x) { m[x.id] = x; }); return m; }
+  function selecionados(tipo) {
+    var m = porIdCarteira();
+    return Object.keys(S.tsel).filter(function(k) { var x = m[k]; return x && x.titulo.tipo === tipo && x.saldoCentavos > 0; }).map(function(k) { return m[k]; });
+  }
+  function barraSelecao(tipo) {
+    var sel = selecionados(tipo), tot = sel.reduce(function(a, x) { return a + x.saldoCentavos; }, 0), dis = sel.length ? '' : ' disabled';
+    return '<div class="barra" id="barraSel"><span class="pill">' + sel.length + ' selecionado(s) · ' + brl(tot) + '</span>' +
+      '<button class="btn sm" data-reneg="' + tipo + '"' + dis + '>Renegociar selecionados</button>' +
+      '<button class="btn sm perigo" data-cancel="' + tipo + '"' + dis + '>Cancelar selecionados</button>' +
+      (sel.length ? '<button class="btn sm" data-limpar-sel="1">Limpar seleção</button>' : '<span class="dica">Marque os títulos na primeira coluna para renegociar ou cancelar.</span>') + '</div>';
+  }
+  function cardAdiantamentos(tipo) {
+    var ads = F.saldosAdiantamentos(fin);
+    var ks = Object.keys(ads).filter(function(k) { return ads[k].tipo === tipo && !ads[k].estornado; })
+      .sort(function(a, b) { return (ads[b].saldoCentavos > 0) - (ads[a].saldoCentavos > 0) || String(ads[b].data).localeCompare(String(ads[a].data)); });
+    if (!ks.length) return '';
+    var abertos = ks.filter(function(k) { return ads[k].saldoCentavos > 0; }).reduce(function(a, k) { return a + ads[k].saldoCentavos; }, 0);
+    return '<div class="card" id="cardAdiant"><h3>Adiantamentos ' + (tipo === 'PAGAR' ? 'a fornecedores' : 'de clientes') + ' · disponível ' + brl(abertos) + '</h3>' +
+      '<div class="sub" style="margin-bottom:8px">O dinheiro já ' + (tipo === 'PAGAR' ? 'saiu' : 'entrou') + '. Para abater um título do mesmo ' + (tipo === 'PAGAR' ? 'fornecedor' : 'cliente') + ', abra o título e use "Compensar".</div>' +
+      '<div class="tw"><table><thead><tr><th>Data</th><th>' + (tipo === 'PAGAR' ? 'Fornecedor' : 'Cliente') + '</th><th>Documento</th><th>Conta</th><th class="n">Valor</th><th class="n">Compensado</th><th class="n">Disponível</th><th></th></tr></thead><tbody>' +
+      ks.map(function(k) {
+        var a = ads[k];
+        return '<tr><td>' + dataBR(a.data) + '</td><td>' + e(a.parceiro.nome) + '</td><td>' + e(a.documento || '') + '</td><td>' + e(((fin.contas_bancarias || {})[a.conta] || {}).nome || a.conta) + '</td>' +
+          '<td class="n">' + brl(a.valorCentavos) + '</td><td class="n">' + brl(a.compensadoCentavos) + '</td><td class="n"><b>' + brl(a.saldoCentavos) + '</b></td>' +
+          '<td>' + (a.compensadoCentavos === 0 ? '<button class="btn sm perigo" data-est-ad="' + e(k) + '">Estornar</button>' : '') + '</td></tr>';
+      }).join('') + '</tbody></table></div></div>';
+  }
+  function formAdiantamento(tipo) {
+    var nomes = {};
+    vals0(fin.titulos).forEach(function(x) { if (x.tipo === tipo && x.parceiro && x.parceiro.nome) nomes[x.parceiro.nome] = x.parceiro.cnpj || nomes[x.parceiro.nome] || ''; });
+    var h = '<datalist id="adParcLista">' + Object.keys(nomes).sort().map(function(n) { return '<option value="' + e(n) + '">'; }).join('') + '</datalist>' +
+      '<div class="form"><div><label for="adParc">' + (tipo === 'PAGAR' ? 'Fornecedor' : 'Cliente') + '</label><input class="inp" id="adParc" list="adParcLista" data-cnpjs="' + e(JSON.stringify(nomes)) + '"></div>' +
+      '<div><label for="adCnpj">CNPJ</label><input class="inp" id="adCnpj"><div class="dica">Com o CNPJ, a compensação reconhece o parceiro mesmo com o nome escrito diferente.</div></div>' +
+      '<div><label for="adConta">Conta</label><select class="sel" id="adConta">' + contasOpcoes(S.conta) + '</select></div>' +
+      '<div><label for="adData">Data</label><input class="inp" type="date" id="adData" value="' + hojeISO() + '"></div>' +
+      '<div><label for="adValor">Valor (R$)</label><input class="inp" id="adValor" inputmode="decimal"></div>' +
+      '<div><label for="adDoc">Documento</label><input class="inp" id="adDoc" placeholder="recibo, PIX…"></div>' +
+      '<div style="grid-column:1/-1"><label for="adHist">Histórico</label><input class="inp" id="adHist"></div></div>' +
+      '<div style="margin-top:12px"><button class="btn pri" id="adOk" data-tipo="' + tipo + '">Lançar adiantamento</button> <span class="dica">' + (tipo === 'PAGAR' ? 'Sai' : 'Entra') + ' da conta agora; depois compensa os títulos.</span></div>';
+    abrir('Adiantamento ' + (tipo === 'PAGAR' ? 'a fornecedor' : 'de cliente'), h);
+  }
+  function vals0(o) { return Object.keys(o || {}).map(function(k) { return o[k]; }).filter(Boolean); }
+  function formCompensar(adId, titId) {
+    var a = F.saldosAdiantamentos(fin)[adId], x = porIdCarteira()[titId]; if (!a || !x) return;
+    var sug = Math.min(a.saldoCentavos, x.saldoCentavos);
+    var h = '<div class="sub" style="margin-bottom:12px">' + e(x.titulo.documento || titId) + ' · saldo ' + brl(x.saldoCentavos) + ' · adiantamento de ' + dataBR(a.data) + ' com ' + brl(a.saldoCentavos) + ' disponível</div>' +
+      '<div class="form"><div><label for="cpValor">Valor a compensar (R$)</label><input class="inp" id="cpValor" value="' + (sug / 100).toFixed(2).replace('.', ',') + '"></div>' +
+      '<div><label for="cpData">Data</label><input class="inp" type="date" id="cpData" value="' + hojeISO() + '"></div></div>' +
+      '<div style="margin-top:12px"><button class="btn pri" id="cpOk" data-ad="' + e(adId) + '" data-tit="' + e(titId) + '">Compensar</button> <span class="dica">Não mexe no banco: o dinheiro já ' + (a.tipo === 'PAGAR' ? 'saiu' : 'entrou') + ' no adiantamento.</span></div>';
+    abrir('Compensar com adiantamento', h);
+  }
+  function formRenegociar(tipo) {
+    var sel = selecionados(tipo); if (!sel.length) return;
+    var h = '<div class="tw"><table><thead><tr><th>Título</th><th>' + (tipo === 'PAGAR' ? 'Fornecedor' : 'Cliente') + '</th><th class="n">Saldo</th></tr></thead><tbody>' +
+      sel.map(function(x) { return '<tr><td>' + e(x.titulo.documento || x.id) + '</td><td>' + e(x.titulo.parceiro && x.titulo.parceiro.nome) + '</td><td class="n">' + brl(x.saldoCentavos) + '</td></tr>'; }).join('') + '</tbody></table></div>' +
+      '<div class="form" style="margin-top:10px"><div><label for="rnAcr">Acréscimo / juros (R$)</label><input class="inp" id="rnAcr" value="0"></div><div><label for="rnDesc">Desconto (R$)</label><input class="inp" id="rnDesc" value="0"></div>' +
+      '<div><label for="rnVenc">Vencimento único</label><input class="inp" type="date" id="rnVenc"><div class="dica">Preenchido, vale ele e o parcelamento é ignorado.</div></div>' +
+      '<div><label for="rnNParc">Nº de parcelas</label><input class="inp" type="number" min="1" max="60" id="rnNParc" placeholder="2"></div>' +
+      '<div><label for="rnPrim">1º vencimento (dias)</label><input class="inp" type="number" min="0" max="365" id="rnPrim" value="30"></div>' +
+      '<div><label for="rnInt">Intervalo (dias)</label><input class="inp" type="number" min="1" max="365" id="rnInt" value="30"></div>' +
+      '<div><label for="rnCond">Condição</label><input class="inp" id="rnCond" placeholder="30/60"></div>' +
+      '<div style="grid-column:1/-1"><label for="rnMotivo">Motivo</label><input class="inp" id="rnMotivo" placeholder="ex.: acordo com o fornecedor"></div>' +
+      '<div style="grid-column:1/-1" id="rnPrev" aria-live="polite"></div></div>' +
+      '<div style="margin-top:12px"><button class="btn pri" id="rnOk" data-tipo="' + tipo + '">Renegociar</button> <span class="dica">Os originais ficam como "Renegociado" e nasce um título novo; dá para desfazer enquanto o novo não tiver baixa.</span></div>';
+    abrir('Renegociar ' + sel.length + ' título(s)', h);
+    previaReneg();
+  }
+  function dadosReneg() {
+    return {titulos: Object.keys(S.tsel).filter(function(k) { return S.tsel[k]; }), data: hojeISO(), vencimento: el('rnVenc').value || null, condicao: el('rnCond').value,
+      acrescimoCentavos: lerReais(el('rnAcr').value || '0') || 0, descontoCentavos: lerReais(el('rnDesc').value || '0') || 0, motivo: el('rnMotivo').value};
+  }
+  function previaReneg() {
+    var alvo = el('rnPrev'); if (!alvo) return;
+    var tipo = el('rnOk').dataset.tipo, d = dadosReneg();
+    d.titulos = selecionados(tipo).map(function(x) { return x.id; });
+    var m = F.montarRenegociacao(fin, Object.assign({}, d, {motivo: d.motivo || 'prévia'}), 'previa');
+    if (!m.ok) { alvo.innerHTML = '<div class="alerta warn"><div><b>Prévia:</b> ' + e(m.motivo) + '</div></div>'; return; }
+    var sx = F.situacao('previa', m.titulo, null, null, null);
+    alvo.innerHTML = '<h3 style="margin:4px 0 6px">Título novo: ' + brl(m.titulo.valorCentavos) + '</h3><div class="tw"><table><thead><tr><th>Parcela</th><th>Vencimento</th><th class="n">Valor</th></tr></thead><tbody>' +
+      sx.parcelas.map(function(x) { return '<tr><td>' + x.n + '/' + x.de + '</td><td>' + dataBR(x.vencimento) + '</td><td class="n">' + brl(x.valorCentavos) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+  }
+  function formCancelar(tipo) {
+    var sel = selecionados(tipo); if (!sel.length) return;
+    var h = '<div class="form"><div><label for="cnMotivo">Motivo</label><select class="sel" id="cnMotivo"><option value="ENGANO">Emitido por engano (desfaz a ' + (tipo === 'PAGAR' ? 'despesa' : 'receita') + ')</option>' +
+      (tipo === 'RECEBER' ? '<option value="INCOBRAVEL">Incobrável (vira perda com clientes)</option>' : '') + '</select></div>' +
+      '<div style="grid-column:1/-1"><label for="cnJust">Justificativa</label><input class="inp" id="cnJust" placeholder="fica no histórico (ao menos 10 letras)"></div></div>' +
+      '<div id="cnLista" style="margin-top:10px"></div>' +
+      '<div style="margin-top:12px"><button class="btn perigo" id="cnOk" data-tipo="' + tipo + '">Cancelar títulos</button> <span class="dica">O saldo de cada título é abatido; dá para desfazer.</span></div>';
+    abrir('Cancelar ' + sel.length + ' título(s)', h);
+    previaCancel();
+  }
+  function previaCancel() {
+    var alvo = el('cnLista'); if (!alvo) return;
+    var tipo = el('cnOk').dataset.tipo, motivo = el('cnMotivo').value, sel = selecionados(tipo), bloq = 0;
+    alvo.innerHTML = '<div class="tw"><table><thead><tr><th>Título</th><th>Parceiro</th><th class="n">Saldo</th><th>Situação</th></tr></thead><tbody>' + sel.map(function(x) {
+      var pc = F.podeCancelar(x, motivo); if (!pc.ok) bloq++;
+      return '<tr><td>' + e(x.titulo.documento || x.id) + '</td><td>' + e(x.titulo.parceiro && x.titulo.parceiro.nome) + '</td><td class="n">' + brl(x.saldoCentavos) + '</td><td>' + (pc.ok ? '<span class="tg ok">pode cancelar</span>' : '<span class="tg bad">não</span> ' + e(pc.motivo)) + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
+    el('cnOk').disabled = !!bloq;
+  }
+  function blocoEntregaB(id, s) {
+    var h = '';
+    var rns = Object.keys(fin.renegociacoes || {}).filter(function(k) { var r = fin.renegociacoes[k]; return r && ((r.titulos || {})[id] != null || r.novoTitulo === id); });
+    var cns = Object.keys(fin.cancelamentos || {}).filter(function(k) { var c = fin.cancelamentos[k]; return c && (c.titulos || {})[id] != null; });
+    rns.forEach(function(k) {
+      var r = fin.renegociacoes[k], ativa = r.status === 'ATIVA', docs = Object.keys(r.titulos || {}).map(function(x) { return ((fin.titulos || {})[x] || {}).documento || x; }).join(', ');
+      h += '<div class="alerta ' + (ativa ? 'info' : 'warn') + '" style="margin-top:10px"><div><b>Renegociação de ' + dataBR(r.data) + (ativa ? '' : ' (desfeita)') + ':</b> ' + e(docs) + ' → ' +
+        e(((fin.titulos || {})[r.novoTitulo] || {}).documento || r.novoTitulo) + ' ' + brl(r.valorNovoCentavos) + ' · ' + e(r.motivo) + (r.criadoPor ? ' · ' + e(r.criadoPor) : '') +
+        (ativa ? ' <button class="btn sm perigo" data-desf-rn="' + e(k) + '">Desfazer</button>' : '') + '</div></div>';
+    });
+    cns.forEach(function(k) {
+      var c = fin.cancelamentos[k], ativo = c.status === 'ATIVO';
+      h += '<div class="alerta ' + (ativo ? 'warn' : 'info') + '" style="margin-top:10px"><div><b>Cancelamento de ' + dataBR(c.data) + (ativo ? '' : ' (desfeito)') + ':</b> ' +
+        (c.motivo === 'INCOBRAVEL' ? 'incobrável' : 'emitido por engano') + ' · ' + e(c.justificativa) + (c.criadoPor ? ' · ' + e(c.criadoPor) : '') +
+        (ativo ? ' <button class="btn sm" data-desf-cn="' + e(k) + '">Desfazer</button>' : '') + '</div></div>';
+    });
+    if (s.saldoCentavos > 0) {
+      var ads = F.saldosAdiantamentos(fin), chaveT = F.chaveParceiro(s.titulo.parceiro);
+      var disp = Object.keys(ads).filter(function(k) { var a = ads[k]; return a.tipo === s.titulo.tipo && a.saldoCentavos > 0 && F.chaveParceiro(a.parceiro) === chaveT; });
+      if (disp.length) h += '<h3 style="margin-top:14px">Adiantamentos disponíveis deste ' + (s.titulo.tipo === 'PAGAR' ? 'fornecedor' : 'cliente') + '</h3><div class="tw"><table><tbody>' +
+        disp.map(function(k) { var a = ads[k]; return '<tr><td>' + dataBR(a.data) + '</td><td>' + e(a.documento || '') + '</td><td class="n">' + brl(a.saldoCentavos) + '</td><td><button class="btn sm pri" data-comp-ad="' + e(k) + '" data-comp-tit="' + e(id) + '">Compensar</button></td></tr>'; }).join('') + '</tbody></table></div>';
+    }
     return h;
   }
 
@@ -216,10 +343,11 @@
       (s.parcelas.length ? s.parcelas.map(function(p) { var ab = s.abertas.filter(function(a) { return a.n === p.n; })[0]; return '<tr><td>' + p.n + '/' + p.de + (p.tipo !== 'PRAZO' ? ' <span class="mut">' + e(p.tipo) + '</span>' : '') + '</td><td>' + dataBR(p.vencimento) + '</td><td class="n">' + brl(p.valorCentavos) + '</td><td class="n">' + brl(ab ? ab.abertoCentavos : 0) + '</td></tr>'; }).join('') : '<tr><td colspan="4" class="mut">Sem parcelas (sem condição).</td></tr>') + '</tbody></table></div>';
     var estornadas = {}; s.baixas.forEach(function(x) { if (x.tipo === 'ESTORNO') estornadas[x.estorna] = true; });
     h += '<h3 style="margin-top:14px">Baixas e abatimentos</h3><div class="tw"><table><thead><tr><th>Data</th><th>Tipo</th><th class="n">Principal</th><th class="n">Juros+multa</th><th class="n">Desconto</th><th>Conta</th><th></th></tr></thead><tbody>' +
-      s.baixas.map(function(x) { return '<tr><td>' + dataBR(x.data) + '</td><td>' + (x.tipo === 'ESTORNO' ? '<span class="tg bad">Estorno</span> ' + e(x.motivo || '') : 'Baixa' + (x.loteKey ? ' (lote)' : '')) + '</td><td class="n">' + brl(x.valorCentavos) + '</td><td class="n">' + brl(num(x.jurosCentavos) + num(x.multaCentavos)) + '</td><td class="n">' + brl(x.descontoCentavos) + '</td><td>' + e(((fin.contas_bancarias || {})[x.conta] || {}).nome || x.conta) + '</td><td>' + (x.tipo === 'BAIXA' && !estornadas[x.id] ? '<button class="btn sm perigo" data-estornar="' + e(x.id) + '">Estornar</button>' : '') + '</td></tr>'; }).join('') +
+      s.baixas.map(function(x) { return '<tr><td>' + dataBR(x.data) + '</td><td>' + (x.tipo === 'ESTORNO' ? '<span class="tg bad">Estorno</span> ' + e(x.motivo || '') : 'Baixa' + (x.forma === 'ADIANTAMENTO' ? ' (compensação de adiantamento)' : x.loteKey ? ' (lote)' : '')) + '</td><td class="n">' + brl(x.valorCentavos) + '</td><td class="n">' + brl(num(x.jurosCentavos) + num(x.multaCentavos)) + '</td><td class="n">' + brl(x.descontoCentavos) + '</td><td>' + e(((fin.contas_bancarias || {})[x.conta] || {}).nome || x.conta) + '</td><td>' + (x.tipo === 'BAIXA' && !estornadas[x.id] ? '<button class="btn sm perigo" data-estornar="' + e(x.id) + '">Estornar</button>' : '') + '</td></tr>'; }).join('') +
       s.abatimentos.map(function(a) { return '<tr><td>' + dataBR(a.data) + '</td><td><span class="tg mute">Abatimento</span> ' + e(a.motivo) + '</td><td class="n">' + brl(a.valorCentavos) + '</td><td></td><td></td><td></td><td></td></tr>'; }).join('') +
       (!s.baixas.length && !s.abatimentos.length ? '<tr><td colspan="7" class="mut">Nenhuma.</td></tr>' : '') + '</tbody></table></div>';
     if (t.itens && t.itens.length) h += '<h3 style="margin-top:14px">Itens da nota</h3><div class="tw"><table><thead><tr><th>SKU</th><th>Lote</th><th class="n">Unidades</th><th class="n">Valor</th></tr></thead><tbody>' + t.itens.map(function(i) { return '<tr><td>' + e(i.sku) + '</td><td>' + e(i.lote) + '</td><td class="n">' + num(i.unidades).toLocaleString('pt-BR') + '</td><td class="n">' + brl(i.valorCentavos) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    h += blocoEntregaB(id, s);
     abrir(e((t.tipo === 'PAGAR' ? 'A pagar · ' : 'A receber · ') + (t.documento || id)), h);
   }
   function formBaixa(id, extrato) {
@@ -346,10 +474,10 @@
       ['gastos', 'Gastos por centro de custo e elemento']]],
     ['A pagar', [['pagar', 'Contas a pagar'], ['despesas', 'Lançamento de despesas'], ['aberto_pagar', 'Fornecedores em aberto'], ['ranking_pagar', 'Principais fornecedores'],
       ['evolucao_pagar', 'Evolução de pagamento'], ['composicao_pagar', 'Composição de vencimentos (a pagar)'], ['conta_pagar', 'Conta corrente do fornecedor'],
-      ['conciliacao_pagar', 'Conciliação de fornecedores'], ['pmp', 'Prazo médio de pagamento (PMP)'], ['aging_pagar', 'Aging a pagar']]],
+      ['conciliacao_pagar', 'Conciliação de fornecedores'], ['pmp', 'Prazo médio de pagamento (PMP)'], ['aging_pagar', 'Aging a pagar'], ['adiantamentos_pagar', 'Adiantamentos a fornecedores']]],
     ['A receber', [['receber', 'Contas a receber'], ['aberto_receber', 'Clientes em aberto'], ['ranking_receber', 'Principais clientes'], ['evolucao_receber', 'Evolução de recebimento'],
       ['composicao_receber', 'Composição de vencimentos (a receber)'], ['conta_receber', 'Conta corrente do cliente'], ['conciliacao_receber', 'Conciliação de clientes'],
-      ['antecipacao', 'Cálculo de antecipação'], ['pmr', 'Prazo médio de recebimento (PMR)'], ['aging_receber', 'Aging a receber']]]
+      ['antecipacao', 'Cálculo de antecipação'], ['pmr', 'Prazo médio de recebimento (PMR)'], ['aging_receber', 'Aging a receber'], ['adiantamentos_receber', 'Adiantamentos de clientes']]]
   ];
   var RELS = {}; REL_GRUPOS.forEach(function(g) { g[1].forEach(function(x) { RELS[x[0]] = x[1]; }); });
   // Filtros de cada relatório (a ordem é a da barra).
@@ -357,7 +485,7 @@
     pagar: ['periodo', 'dataBase', 'situacao', 'natureza', 'parceiro'], receber: ['periodo', 'dataBase', 'situacao', 'natureza', 'parceiro'],
     baixas: ['periodo', 'conta'], aging_pagar: [], aging_receber: [], extrato: ['periodo', 'contaUnica'], fluxo: ['conta', 'granularidade'], dfc: ['periodo'],
     saldos: ['periodo'], espelho: ['data', 'conta'], movimentos: ['periodo', 'conta', 'destino', 'tipoMov'], realizado: ['periodo', 'granRP'],
-    gastos: ['periodo', 'base2', 'centro', 'natureza'], despesas: ['periodo', 'situacao', 'natureza', 'centro', 'usuario', 'parceiro'],
+    gastos: ['periodo', 'base2', 'centro', 'natureza', 'semAdiant'], adiantamentos_pagar: ['parceiro'], adiantamentos_receber: ['parceiro'], despesas: ['periodo', 'situacao', 'natureza', 'centro', 'usuario', 'parceiro'],
     aberto_pagar: ['natureza', 'parceiro'], aberto_receber: ['parceiro'], ranking_pagar: ['periodo', 'base2', 'natureza', 'top'], ranking_receber: ['periodo', 'base2', 'top'],
     evolucao_pagar: ['periodo', 'agrupar', 'natureza'], evolucao_receber: ['periodo'], composicao_pagar: ['meses', 'parceiro'], composicao_receber: ['meses', 'parceiro'],
     conta_pagar: ['periodo', 'parceiro'], conta_receber: ['periodo', 'parceiro'], conciliacao_pagar: ['periodo', 'parceiro'], conciliacao_receber: ['periodo', 'parceiro'],
@@ -386,7 +514,8 @@
       case 'espelho': return RX.relEspelhoDiario(fin, {data: r.data, conta: r.conta || null});
       case 'movimentos': return RX.relMovimentos(fin, Object.assign({conta: r.conta || null, destino: r.destino || null, tipo: r.tipoMov || null}, per));
       case 'realizado': return RX.relRealizadoPrevisto(fin, Object.assign({granularidade: r.granRP || 'MES'}, per));
-      case 'gastos': return RX.relGastosCentroCusto(fin, Object.assign({dataBase: r.base2, centroCusto: cc, natureza: nat, centros: centrosCtl}, per));
+      case 'gastos': return RX.relGastosCentroCusto(fin, Object.assign({dataBase: r.base2, centroCusto: cc, natureza: nat, centros: centrosCtl, semAdiantamentos: !!r.semAdiant}, per));
+      case 'adiantamentos_pagar': case 'adiantamentos_receber': return RX.relAdiantamentos(fin, {tipo: tp, parceiro: r.parceiro});
       case 'despesas': return RX.relLancamentoDespesas(fin, Object.assign({situacao: r.situacao, natureza: nat, centroCusto: cc, usuario: r.usuario, parceiro: r.parceiro, centros: centrosCtl}, per));
       case 'aberto_pagar': case 'aberto_receber': return RX.relEmAberto(fin, {tipo: tp, hoje: hoje, natureza: tp === 'PAGAR' ? nat : '', parceiro: r.parceiro});
       case 'ranking_pagar': case 'ranking_receber': return RX.relRanking(fin, Object.assign({tipo: tp, dataBase: r.base2, natureza: tp === 'PAGAR' ? nat : '', top: r.top}, per));
@@ -416,6 +545,7 @@
     if (r.usuario && fs.indexOf('usuario') >= 0) p.push('lançado por "' + r.usuario + '"');
     if (r.parceiro && fs.indexOf('parceiro') >= 0) p.push('parceiro contém "' + r.parceiro + '"');
     if (r.top && fs.indexOf('top') >= 0) p.push('os ' + r.top + ' maiores');
+    if (r.semAdiant && fs.indexOf('semAdiant') >= 0) p.push('sem adiantamentos');
     return p.join(' · ');
   }
   function celRel(c, v) {
@@ -458,6 +588,7 @@
       case 'agrupar': return '<select class="sel" id="relAgrupar" aria-label="Agrupar">' + opcoes([['PARCEIRO', 'por fornecedor'], ['NATUREZA', 'por natureza']], r.agrupar || 'PARCEIRO') + '</select>';
       case 'top': return '<select class="sel" id="relTop" aria-label="Quantos">' + opcoes([['', 'Todos'], ['10', 'Os 10 maiores'], ['20', 'Os 20 maiores'], ['50', 'Os 50 maiores']], r.top) + '</select>';
       case 'meses': return '<select class="sel" id="relMeses" aria-label="Meses">' + opcoes([['3', 'Próximos 3 meses'], ['6', 'Próximos 6 meses'], ['12', 'Próximos 12 meses']], String(r.meses || 6)) + '</select>';
+      case 'semAdiant': return '<label class="mut"><input type="checkbox" id="relSemAd"' + (r.semAdiant ? ' checked' : '') + '> não exibir adiantamentos</label>';
       case 'taxa': return '<label class="mut">taxa ao mês (%) <input class="inp" id="relTaxa" inputmode="decimal" style="width:80px" placeholder="2,5" value="' + e(r.taxa || '') + '"></label>';
     }
     return '';
@@ -567,7 +698,7 @@
   /* ── Fluxo de caixa por período e DFC — F7 ─────────────────────────────── */
   var ROT_NAT = {MATERIA_PRIMA: 'Matéria-prima', EMBALAGEM: 'Embalagem', USO_E_CONSUMO: 'Uso e consumo', OUTROS: 'Outros', FRETE: 'Frete', FOLHA: 'Folha',
     CUSTO_FIXO_PRODUCAO: 'Custo fixo da produção', CUSTO_FIXO_ADM: 'Custo fixo administrativo', DESPESA_COMERCIAL: 'Despesa comercial', PLR: 'PLR',
-    IMPOSTOS: 'Impostos', RECEITA_VENDA: 'Receita de vendas', OUTRAS_RECEITAS: 'Outras receitas', RESULTADO_FINANCEIRO: 'Resultado financeiro (juros, multas, descontos, tarifas, IOF, rendimentos)'};
+    IMPOSTOS: 'Impostos', RECEITA_VENDA: 'Receita de vendas', OUTRAS_RECEITAS: 'Outras receitas', ADIANTAMENTOS: 'Adiantamentos', RESULTADO_FINANCEIRO: 'Resultado financeiro (juros, multas, descontos, tarifas, IOF, rendimentos)'};
   function rotNat(n) { return ROT_NAT[n] || n; }
   var MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
   function rotMes(m) { return MESES[Number(String(m).slice(5, 7)) - 1] + '/' + String(m).slice(2, 4); }
@@ -579,7 +710,7 @@
     var h = '<div class="card"><h3>Fluxo de caixa</h3><div class="barra">' +
       '<select class="sel" id="flG" aria-label="Período">' + [['DIA', 'Por dia'], ['SEMANA', 'Por semana'], ['MES', 'Por mês']].map(function(o) { return '<option value="' + o[0] + '"' + (g === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
       '<select class="sel" id="flConta" aria-label="Conta"><option value="">Todas as contas</option>' + Object.keys(fin.contas_bancarias || {}).map(function(k) { return '<option value="' + e(k) + '"' + (S.flConta === k ? ' selected' : '') + '>' + e(fin.contas_bancarias[k].nome || k) + '</option>'; }).join('') + '</select>' +
-      '<select class="sel" id="flNat" aria-label="Natureza"><option value="">Todas as naturezas</option>' + F.NATUREZAS.concat(['RESULTADO_FINANCEIRO']).map(function(n) { return '<option value="' + n + '"' + (S.flNat === n ? ' selected' : '') + '>' + e(rotNat(n)) + '</option>'; }).join('') + '</select></div>' +
+      '<select class="sel" id="flNat" aria-label="Natureza"><option value="">Todas as naturezas</option>' + F.NATUREZAS.concat(['RESULTADO_FINANCEIRO', 'ADIANTAMENTOS']).map(function(n) { return '<option value="' + n + '"' + (S.flNat === n ? ' selected' : '') + '>' + e(rotNat(n)) + '</option>'; }).join('') + '</select></div>' +
       '<div class="sub" style="margin-bottom:10px">Título é <b>fato</b> (recebimento, nota, operação); "previsto" é <b>expectativa</b> (pedido de compra ainda não recebido e carteira comercial ainda não faturada) e aparece separado. Valor sem data fica de fora do saldo projetado — inventar data daria um caixa preciso e falso.</div>' +
       (fl.avisos.length ? '<div class="alerta info"><div>' + fl.avisos.map(e).join('<br>') + '</div></div>' : '') +
       '<div class="tw"><table class="dre"><thead><tr><th>' + ({DIA: 'Dia', SEMANA: 'Semana de', MES: 'Mês'}[g]) + '</th>' + cols.map(function(c) { return '<th class="n">' + rotColuna(c, g) + (c.passada ? '<br><span class="mut">realizado</span>' : '') + '</th>'; }).join('') + '</tr></thead><tbody>' +
@@ -653,7 +784,7 @@
     var atvMap = par.dfcAtividades || {};
     h += '<div class="card"><h3>Demonstrativo de fluxo de caixa — atividade de cada natureza</h3><div class="sub" style="margin-bottom:8px">Padrão: tudo operacional. Empréstimo, financiamento ou compra de máquina pedem natureza própria (lançamento manual) marcada aqui como financiamento ou investimento.</div>' +
       '<div class="tw"><table><thead><tr><th>Natureza</th><th>Atividade no DFC</th></tr></thead><tbody>' +
-      F.NATUREZAS.concat(['RESULTADO_FINANCEIRO']).map(function(n) {
+      F.NATUREZAS.concat(['RESULTADO_FINANCEIRO', 'ADIANTAMENTOS']).map(function(n) {
         var atual = F.atividadeDe(n, par);
         return '<tr><td>' + e(rotNat(n)) + '</td><td><select class="sel" data-dfc-nat="' + n + '" aria-label="Atividade de ' + e(rotNat(n)) + '">' +
           Object.keys(F.ATIVIDADES).filter(function(a) { return a !== 'NAO_CLASSIFICADO'; }).map(function(a) { return '<option value="' + a + '"' + (atual === a ? ' selected' : '') + '>' + e(F.ATIVIDADES[a]) + '</option>'; }).join('') +
@@ -717,12 +848,53 @@
   document.addEventListener('click', function(ev) {
     var t = ev.target.closest('button, a, [data-aba]'); if (!t) return;
     var d = t.dataset;
-    if (t.classList.contains('aba')) { S.aba = d.aba; S.q = ''; render(); return; }
+    if (t.classList.contains('aba')) { S.aba = d.aba; S.q = ''; S.tsel = {}; render(); return; }
     if (t.id === 'btnRecarregar') { lerFatos(); return; }
     if (d.det) { ev.preventDefault(); detalhe(d.det); return; }
     if (d.baixar) { formBaixa(d.baixar); return; }
     if (d.manual) { formManual(d.manual); return; }
     if (t.id === 'relCsv') { baixarCsvRel(); return; }
+    // Entrega B.
+    if (d.adiant) { formAdiantamento(d.adiant); return; }
+    if (d.limparSel) { S.tsel = {}; render(); return; }
+    if (d.reneg) { formRenegociar(d.reneg); return; }
+    if (d.cancel) { formCancelar(d.cancel); return; }
+    if (d.compAd) { formCompensar(d.compAd, d.compTit); return; }
+    if (t.id === 'adOk') {
+      var ad = {acao: 'CRIAR', chave: chave(), tipo: d.tipo, parceiro: el('adParc').value, cnpj: el('adCnpj').value, conta: el('adConta').value, data: el('adData').value,
+        valorCentavos: lerReais(el('adValor').value), documento: el('adDoc').value, historico: el('adHist').value};
+      var va = F.validarAdiantamento(ad, fin); if (!va.ok) { toast(va.motivo); return; }
+      travar(t, chamar('finAdiantamento', ad)).then(function() { fechar(); toast('Adiantamento lançado.'); });
+      return;
+    }
+    if (d.estAd) {
+      var mEa = prompt('Motivo do estorno do adiantamento (fica no histórico):'); if (!mEa) return;
+      travar(t, chamar('finAdiantamento', {acao: 'ESTORNAR', adiantamento: d.estAd, motivo: mEa, data: hojeISO()})).then(function() { toast('Adiantamento estornado.'); });
+      return;
+    }
+    if (t.id === 'cpOk') {
+      travar(t, chamar('finCompensarAdiantamento', {chave: chave(), adiantamento: d.ad, titulo: d.tit, valorCentavos: lerReais(el('cpValor').value), data: el('cpData').value}))
+        .then(function() { fechar(); toast('Compensado.'); });
+      return;
+    }
+    if (t.id === 'rnOk') {
+      var rd = dadosReneg(); rd.titulos = selecionados(d.tipo).map(function(x) { return x.id; });
+      var mr = F.montarRenegociacao(fin, rd, 'previa'); if (!mr.ok) { toast(mr.motivo); return; }
+      travar(t, chamar('finRenegociar', Object.assign({acao: 'CRIAR', chave: chave()}, rd))).then(function() { S.tsel = {}; fechar(); toast('Renegociado: título novo criado.'); });
+      return;
+    }
+    if (t.id === 'cnOk') {
+      var cdd = {acao: 'CRIAR', chave: chave(), titulos: selecionados(d.tipo).map(function(x) { return x.id; }), data: hojeISO(), motivo: el('cnMotivo').value, justificativa: el('cnJust').value};
+      var mc = F.montarCancelamento(fin, cdd, 'previa'); if (!mc.ok) { toast(mc.motivo); return; }
+      travar(t, chamar('finCancelarTitulos', cdd)).then(function() { S.tsel = {}; fechar(); toast('Cancelado(s): ' + cdd.titulos.length + '.'); });
+      return;
+    }
+    if (d.desfRn || d.desfCn) {
+      var mD = prompt('Por que desfazer? (fica no histórico)'); if (!mD) return;
+      var pr = d.desfRn ? chamar('finRenegociar', {acao: 'DESFAZER', renegociacao: d.desfRn, motivo: mD, data: hojeISO()}) : chamar('finCancelarTitulos', {acao: 'DESFAZER', cancelamento: d.desfCn, motivo: mD, data: hojeISO()});
+      travar(t, pr).then(function() { fechar(); toast('Desfeito: os títulos voltaram ao saldo de antes.'); });
+      return;
+    }
     if (t.id === 'fatCsv') { baixarCsvFat(); return; }
     if (t.id === 'relImprimir') { imprimirRel(); return; }
     if (d.mov) { formMovimento(null); return; }
@@ -841,6 +1013,10 @@
     if (t.id === 'fFiltro') { S.filtro = t.value; render(); }
     if (t.id === 'fFat') { S.fatFiltro = t.value; render(); }
     if (d.sel) { if (t.checked) S.sel[d.sel] = Number(d.valor); else delete S.sel[d.sel]; render(); }
+    if (d.tsel) { if (t.checked) S.tsel[d.tsel] = true; else delete S.tsel[d.tsel]; render(); }
+    if (t.id === 'relSemAd') { S.rel.semAdiant = t.checked; render(); }
+    if (t.id === 'cnMotivo') previaCancel();
+    if (t.id === 'adParc') { try { var cj = JSON.parse(t.dataset.cnpjs || '{}'); if (cj[t.value] && !el('adCnpj').value) el('adCnpj').value = cj[t.value]; } catch (x) { /* ok */ } }
     if (t.id === 'ltConta') { S.conta = t.value; render(); }
     if (t.id === 'exConta') { S.extratoConta = t.value; render(); }
     if (t.id === 'extConta') { S.extConta = t.value; render(); }
@@ -908,6 +1084,11 @@
     // Condição digitada à mão manda: o Nº de parcelas deixa de valer (não fica contradizendo).
     if (id === 'mCond') el('mNParc').value = '';
     if (/^m(Valor|Emi|Venc|Cond)$/.test(id)) { previaManual(); return; }
+    if (id === 'rnNParc' || id === 'rnPrim' || id === 'rnInt') {
+      if (String(el('rnNParc').value).trim() !== '') { var rc = F.montarCondicao({nParcelas: el('rnNParc').value, primeiroPrazoDias: el('rnPrim').value, intervaloDias: el('rnInt').value}); el('rnCond').value = rc.ok ? rc.condicao : ''; }
+      previaReneg(); return;
+    }
+    if (/^rn(Acr|Desc|Venc|Cond)$/.test(id)) { if (id === 'rnCond') el('rnNParc').value = ''; previaReneg(); return; }
     if (id !== 'qTit') return;
     clearTimeout(tBusca);
     var t = ev.target;

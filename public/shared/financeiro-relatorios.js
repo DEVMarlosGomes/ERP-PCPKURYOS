@@ -269,7 +269,7 @@
       { chave: 'documento', rotulo: 'Documento', tipo: 'texto' }, { chave: 'parceiro', rotulo: 'Fornecedor', tipo: 'texto' },
       { chave: 'data', rotulo: pag ? 'Pagamento' : 'Emissão', tipo: 'data' }, { chave: 'valor', rotulo: 'Valor', tipo: 'valor' }, { chave: 'subtotal', rotulo: 'Subtotal', tipo: 'valor', semTotal: true }];
     var av = [];
-    if (itens.some(function(it) { return !it.cc; })) av.push('Recebimentos contra pedido de compra nascem sem centro de custo: aparecem em "' + SEM_CC + '". O título manual já pede o centro.');
+    if (itens.some(function(it) { return !it.cc; })) av.push('Títulos sem centro de custo aparecem em "' + SEM_CC + '": o recebimento contra pedido de compra nasce assim; no título manual, informe o centro ao lançar.');
     if (rateado) av.push('Recebimento com mais de uma natureza (ex.: matéria-prima e embalagem) é dividido na proporção dos itens.');
     return { titulo: titulo, colunas: colunas, linhas: linhas, totais: somaCol(linhas, colunas), avisos: av };
   }
