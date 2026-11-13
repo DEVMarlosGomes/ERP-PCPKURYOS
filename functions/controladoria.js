@@ -486,10 +486,16 @@
       if (passivoDoTitulo(t, (b.fin || {}).titulos) !== 'FORNECEDORES') return;
       pagarForn += s.saldoCentavos;
       // Recebimento anterior ao custo no lote (27/10): o título existe, a ENTRADA no razão de custos não.
+      // O razão nunca teve o crédito do título INTEIRO, e cada pagamento (ou compensação, ou o título
+      // novo de uma renegociação) debita Fornecedores: a parte explicada é o valor do título menos as
+      // devoluções, pago ou não (até 12/11 era o saldo aberto, e o pagamento deixava a diferença sem
+      // explicação -- achado do ensaio da Entrega B na base real).
       if (t.origem && t.origem.tipo === 'RECEBIMENTO') {
         var p = String(t.origem.ref).split('/'), rec = (((b.pedidos_compra || {})[p[0]] || {}).recebimentos || {})[p[1]] || {};
         var temCusto = vals(rec.itensRecebidos).some(function(l) { var lo = (lotes[san(l.materialCodigo)] || {})[l.loteKey]; return lo && lo.custoFonte === 'PAGO'; });
-        if (!temCusto) { semRazao += s.saldoCentavos; semRazaoLista.push({ titulo: s.id, documento: t.documento, parceiro: t.parceiro && t.parceiro.nome, saldoCentavos: s.saldoCentavos }); }
+        var abat = s.abatimentos.filter(function(a) { return String(a.motivo || '').indexOf('RENEGOCIACAO') !== 0; }).reduce(function(x, a) { return x + Math.round(num(a.valorCentavos)); }, 0);
+        var expl = Math.round(num(t.valorCentavos)) - abat;
+        if (!temCusto && expl > 0) { semRazao += expl; semRazaoLista.push({ titulo: s.id, documento: t.documento, parceiro: t.parceiro && t.parceiro.nome, saldoCentavos: expl }); }
       }
     });
     var contas = [

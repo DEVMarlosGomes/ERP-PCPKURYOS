@@ -46,6 +46,13 @@ const nega = async (p, msg) => { await negado(p, msg); n++; };
   await nega(fin.ref('fin/baixas/B2').set({tipo: 'BAIXA', titulo: 'T1', valorCentavos: 50}), 'baixa: só pelo servidor (callable)');
   await nega(adm.ref('fin/baixas/B1').remove(), 'baixa não se apaga (estorno)');
   await nega(fin.ref('fin/abatimentos/A1').set({valorCentavos: 1}), 'abatimento: só o servidor');
+  // Entrega B (12/11/2026): adiantamento, renegociação e cancelamento só pelo servidor (callables).
+  for (const no of ['adiantamentos/AD_x', 'renegociacoes/RN_x', 'cancelamentos/CN_x']) {
+    await nega(fin.ref('fin/' + no).set({tipo: 'PAGAR', valorCentavos: 1}), no + ': o Financeiro não grava pela tela');
+    await nega(adm.ref('fin/' + no).set({tipo: 'PAGAR', valorCentavos: 1}), no + ': nem o ADM grava pela tela');
+  }
+  await ok(fin.ref('fin/adiantamentos').once('value'));
+  await nega(pcp.ref('fin/adiantamentos').once('value'), 'PCP não lê adiantamentos');
 
   // ── fin/: o que a tela grava ──
   await ok(fin.ref('fin/contas_bancarias/itau').set({nome: 'Itaú', saldoInicialCentavos: 100000, dataSaldoInicial: '2026-10-01'}));

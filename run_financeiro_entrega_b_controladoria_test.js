@@ -119,6 +119,32 @@ r = derivar(b); b = r.b;
 confereZero(b, 'depois do estorno do adiantamento');
 eq(reconcilia(b).ADIANT_FORNECEDORES.razaoCentavos, 0, 'adiantamento estornado zera a conta');
 
+// Achado do ensaio na base real: título de recebimento anterior ao custo no lote (sem ENTRADA no
+// razão) é "explicado" na reconciliação; renegociado, o título novo herda a explicação.
+{
+  const r0 = {pedidos_compra: {PC1: {recebimentos: {R1: {itensRecebidos: {l1: {materialCodigo: 'MP1', loteKey: 'L1'}}}}}}, estoque_lotes: {},
+    fin: {titulos: {PR: tit('PAGAR', 40000, {natureza: 'MATERIA_PRIMA', documento: 'NF 77', parceiro: {nome: 'Química SA', cnpj: '01234567000190'}, origem: {tipo: 'RECEBIMENTO', ref: 'PC1/R1'}})},
+      baixas: {}, abatimentos: {}, renegociacoes: {}}, ctl: {fechamentos: {}}};
+  const antesR = derivar(r0).b, recA = reconcilia(antesR).FORNECEDORES;
+  eq([recA.diferencaCentavos, recA.naoExplicadoCentavos], [-40000, 0], 'antes: diferença explicada (sem ENTRADA no razão)');
+  const mr = F.montarRenegociacao(r0.fin, {titulos: ['PR'], data: D, condicao: '30', acrescimoCentavos: 500, motivo: 'acordo'}, 'rr');
+  const r1 = clone(r0); r1.fin.renegociacoes.RN_rr = mr.registro; r1.fin.titulos.RNG_rr = mr.titulo; Object.assign(r1.fin.abatimentos, mr.abatimentos);
+  const recD = reconcilia(derivar(r1).b).FORNECEDORES;
+  eq(recD.naoExplicadoCentavos, 0, 'depois da renegociação continua explicado (era ' + recD.naoExplicadoCentavos + ')');
+  ok(recD.itens.some((i) => i.titulo === 'PR' && i.saldoCentavos === 40000), 'a explicação fica no recebimento de origem, pelo valor');
+  // Pago (ou compensado) em parte: o razão nunca teve o crédito, então a explicação é o valor, não o saldo.
+  const r2 = clone(r1);
+  r2.fin.baixas.BX = {tipo: 'BAIXA', titulo: 'RNG_rr', tituloTipo: 'PAGAR', data: D, conta: 'itau', valorCentavos: 10000, jurosCentavos: 0, multaCentavos: 0, descontoCentavos: 0, liquidoCentavos: 10000};
+  r2.fin.contas_bancarias = {itau: {nome: 'Itaú', saldoInicialCentavos: 100000, dataSaldoInicial: '2026-11-01'}};
+  eq(reconcilia(derivar(r2).b).FORNECEDORES.naoExplicadoCentavos, 0, 'pagamento do título renegociado não cria diferença sem explicação');
+  const r3 = clone(r0);
+  r3.fin.baixas.BX = {tipo: 'BAIXA', titulo: 'PR', tituloTipo: 'PAGAR', data: D, conta: 'itau', valorCentavos: 40000, jurosCentavos: 0, multaCentavos: 0, descontoCentavos: 0, liquidoCentavos: 40000};
+  r3.fin.contas_bancarias = r2.fin.contas_bancarias;
+  eq(reconcilia(derivar(r3).b).FORNECEDORES.naoExplicadoCentavos, 0, 'recebimento sem custo pago por inteiro continua explicado (defeito anterior à Entrega B)');
+  const r4 = clone(r0); r4.fin.abatimentos = {DEV: {titulo: 'PR', motivo: 'DEVOLUCAO', valorCentavos: 15000, data: D}};
+  eq(reconcilia(derivar(r4).b).FORNECEDORES.naoExplicadoCentavos, 0, 'devolução abate a explicação');
+}
+
 // Base sem nada novo: nada muda.
 ok(Object.keys(Ctl.documentosEsperados({fin: {}})).length === 0, 'base vazia, sem documento');
 eq(fs.readFileSync('public/shared/controladoria.js', 'utf8'), fs.readFileSync('functions/controladoria.js', 'utf8'), 'controladoria idêntica nas duas cópias');
