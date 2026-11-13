@@ -42,7 +42,7 @@
       '.ac-caixa{background:var(--surface,#fff);color:var(--text,#1f2937);max-width:640px;width:100%;max-height:86vh;overflow:auto;border-radius:12px;border:2px solid #dc2626;box-shadow:0 20px 50px rgba(0,0,0,.35)}' +
       '.ac-topo{background:#dc2626;color:#fff;padding:14px 18px;font-weight:700;font-size:16px;display:flex;gap:8px;align-items:center}' +
       '.ac-corpo{padding:14px 18px;font-size:13.5px;line-height:1.45}' +
-      '.ac-item{border:1px solid rgba(220,38,38,.35);border-left:4px solid #dc2626;border-radius:8px;padding:10px 12px;margin:10px 0;background:rgba(220,38,38,.05)}' +
+      '.ac-item{border:1px solid rgba(220,38,38,.4);border-radius:8px;padding:10px 12px;margin:10px 0;background:rgba(220,38,38,.06)}' +
       '.ac-item b{color:#b91c1c}' +
       '.ac-meta{font-size:12px;opacity:.75;margin-top:4px}' +
       '.ac-rodape{display:flex;gap:8px;justify-content:flex-end;padding:0 18px 16px;flex-wrap:wrap}' +
