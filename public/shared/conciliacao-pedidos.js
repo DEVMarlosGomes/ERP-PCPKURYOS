@@ -13,6 +13,11 @@
    - Pedido produzido sem nenhum registro de saída nem de estoque fica
      "sem registro" (neutro), não divergente: provavelmente é anterior à
      planilha ou ficou fora dela.
+   - OP emitida depois da Conferência de PA existir (10/09) e ainda não
+     conferida está AGUARDANDO CONFERÊNCIA (13/11): a produção existe e só
+     não entrou no WMS. Antes disto a tela acusava "diferença" -- caso real do
+     Sunrise (OP 26264/14, 1.962 un. confirmadas em 12/11, conferidas em
+     13/11), lido como unidade sumida.
 
    Fontes (todas legíveis por qualquer usuário logado):
      pedidos/{k}.produzido                     produzido (apontamento)
@@ -34,6 +39,9 @@
      expedido, e a unidade volta para o estoque como palete de devolução. Sem
      o estorno ela contaria duas vezes -- na carga e no palete. Retrabalho NÃO
      entra na conta (é o mesmo lote voltando para a linha): só é informado. */
+  // Conferência de PA em produção desde esta data (mesmo corte de
+  // scripts/auditar-fluxo.js): OP mais antiga nunca teve como ser conferida.
+  var CORTE_CONFERENCIA_PA = '2026-09-10';
   var MOTIVOS_EXPEDIDO = {EXPEDIDO: 'Expedido', FURTO: 'Furto', DESCARTE: 'Descarte', DEVOLVIDO: 'Devolvido (estorno)'};
   var ORIGENS_ESTOQUE = {WMS: 'Paletes no WMS', RETRABALHO: 'Retrabalho (planilha)', DEVOLUCAO: 'Devolução (planilha)'};
   // tipoLegado da planilha -> [lado da conta, motivo/origem]. O que não está
@@ -52,6 +60,7 @@
       expedido: {total: 0, motivos: {}},
       estoque: {total: 0, origens: {}},
       divergenciaApontada: {total: 0, ocorrencias: []},
+      aguardandoConferencia: {total: 0, ocorrencias: []},
       esperado: 0, contabilizado: 0, diferenca: 0, situacao: 'SEM_PRODUCAO',
       // Informação ao lado da conta (pedido do usuário em 23/09): quanto voltou
       // do cliente e quanto foi para retrabalho. Não somam no contabilizado.
@@ -72,6 +81,7 @@
         opKey: opKey || null, opLote: opLote || opKey || null, produzido: 0,
         expedido: {total: 0, motivos: {}}, estoque: {total: 0, origens: {}},
         divergenciaApontada: {total: 0, ocorrencias: []},
+        aguardandoConferencia: {total: 0, ocorrencias: []},
         esperado: 0, contabilizado: 0, diferenca: 0, situacao: 'SEM_PRODUCAO'
       };
     }
@@ -205,6 +215,24 @@
       bo.divergenciaApontada.ocorrencias.push(ocorrencia);
     });
 
+    // ── Produção aguardando a Conferência de PA ───────────────────────
+    // Só a OP inteira sem NENHUM registro (saída ou palete): se algo dela já
+    // saiu ou está no WMS, a conta normal vale e a diferença é real.
+    Object.keys(porPedido).forEach(function(k) {
+      Object.keys(porPedido[k].porOp).forEach(function(o) {
+        var bo = porPedido[k].porOp[o], op = bo.opKey ? ops[bo.opKey] || {} : null;
+        if (!op || !(bo.produzido > 0) || bo.expedido.total || bo.estoque.total) return;
+        if (op.tipoOrdem === 'RETRABALHO' || String(op.dataEmissao || '') < CORTE_CONFERENCIA_PA) return;
+        var cf = (base.conferencias_pa || {})[bo.opKey];
+        if (cf && cf.finalizadoEm) return;
+        var oc = {opKey: bo.opKey, opLote: bo.opLote || bo.opKey, qtd: bo.produzido, confirmadoEm: op.confirmadoEm || null};
+        [bo.aguardandoConferencia, porPedido[k].aguardandoConferencia].forEach(function(a) {
+          a.total = arred(a.total + bo.produzido);
+          a.ocorrencias.push(oc);
+        });
+      });
+    });
+
     Object.keys(porPedido).forEach(function(k) {
       fechar(porPedido[k]);
       Object.keys(porPedido[k].porOp).forEach(function(o) { fechar(porPedido[k].porOp[o]); });
@@ -215,18 +243,20 @@
   // Esperado = produzido corrigido pelo que a Logística apontou.
   function fechar(r) {
     r.esperado = arred(r.produzido + r.divergenciaApontada.total);
-    r.contabilizado = arred(r.expedido.total + r.estoque.total);
+    var aguardando = r.aguardandoConferencia ? r.aguardandoConferencia.total : 0;
+    r.contabilizado = arred(r.expedido.total + r.estoque.total + aguardando);
     r.diferenca = arred(r.contabilizado - r.esperado);
     if (!r.produzido && !r.contabilizado) r.situacao = 'SEM_PRODUCAO';
     else if (r.produzido > 0 && !r.contabilizado) r.situacao = 'SEM_REGISTRO';
     else if (r.diferenca !== 0) r.situacao = 'DIVERGENTE';
+    else if (aguardando) r.situacao = 'AGUARDANDO_CONFERENCIA';
     else r.situacao = r.divergenciaApontada.ocorrencias.length ? 'OK_APONTADA' : 'OK';
     return r;
   }
 
   // Soma vários pedidos (itens de um pedido comercial). A situação é a PIOR
   // dos itens: somar diferenças de sinais opostos esconderia divergência.
-  var GRAVIDADE = {SEM_PRODUCAO: 0, OK: 1, OK_APONTADA: 2, SEM_REGISTRO: 3, DIVERGENTE: 4};
+  var GRAVIDADE = {SEM_PRODUCAO: 0, OK: 1, OK_APONTADA: 2, AGUARDANDO_CONFERENCIA: 3, SEM_REGISTRO: 4, DIVERGENTE: 5};
   function agregar(resultados) {
     var total = novo(0), pior = 'SEM_PRODUCAO', itens = 0;
     (resultados || []).forEach(function(r) {
@@ -237,7 +267,7 @@
       Object.keys(r.estoque.origens).forEach(function(o) { somar(total.estoque, o, r.estoque.origens[o]); });
       total.divergenciaApontada.total = arred(total.divergenciaApontada.total + r.divergenciaApontada.total);
       total.divergenciaApontada.ocorrencias = total.divergenciaApontada.ocorrencias.concat(r.divergenciaApontada.ocorrencias);
-      ['devolvido', 'retrabalho'].forEach(function(c) {
+      ['devolvido', 'retrabalho', 'aguardandoConferencia'].forEach(function(c) {
         if (!r[c]) return;
         total[c].total = arred(total[c].total + r[c].total);
         total[c].ocorrencias = total[c].ocorrencias.concat(r[c].ocorrencias);
@@ -251,6 +281,10 @@
         Object.keys(de.estoque.origens).forEach(function(g) { somar(para.estoque, g, de.estoque.origens[g]); });
         para.divergenciaApontada.total = arred(para.divergenciaApontada.total + de.divergenciaApontada.total);
         para.divergenciaApontada.ocorrencias = para.divergenciaApontada.ocorrencias.concat(de.divergenciaApontada.ocorrencias);
+        if (de.aguardandoConferencia) {
+          para.aguardandoConferencia.total = arred(para.aguardandoConferencia.total + de.aguardandoConferencia.total);
+          para.aguardandoConferencia.ocorrencias = para.aguardandoConferencia.ocorrencias.concat(de.aguardandoConferencia.ocorrencias);
+        }
         fechar(para);
       });
       if (GRAVIDADE[r.situacao] > GRAVIDADE[pior]) pior = r.situacao;
@@ -282,6 +316,7 @@
   function descrever(r) {
     var rotulo = {
       OK: 'OK', OK_APONTADA: 'OK · divergência apontada', SEM_REGISTRO: 'Sem registro de saída',
+      AGUARDANDO_CONFERENCIA: 'Aguardando conferência',
       SEM_PRODUCAO: '—', DIVERGENTE: 'Diferença ' + sinal(r.diferenca)
     }[r.situacao];
     var linhas = ['Produzido: ' + fmt(r.produzido)];
@@ -298,7 +333,10 @@
     Object.keys(ORIGENS_ESTOQUE).forEach(function(o) {
       if (r.estoque.origens[o]) linhas.push('  ' + ORIGENS_ESTOQUE[o] + ': ' + fmt(r.estoque.origens[o]));
     });
-    linhas.push('Expedido + Em estoque: ' + fmt(r.contabilizado));
+    var ag = r.aguardandoConferencia || {total: 0, ocorrencias: []};
+    if (ag.total) linhas.push('Aguardando conferência de PA: ' + fmt(ag.total) + ' · ' +
+      ag.ocorrencias.map(function(o) { return o.opLote; }).join(', '));
+    linhas.push((ag.total ? 'Expedido + Em estoque + Aguardando: ' : 'Expedido + Em estoque: ') + fmt(r.contabilizado));
     if (r.devolvido && r.devolvido.total) linhas.push('Devolvido pelo cliente (já estornado do expedido): ' + fmt(r.devolvido.total));
     if (r.retrabalho && r.retrabalho.total) linhas.push('Em retrabalho (informativo, não soma): ' + fmt(r.retrabalho.total) +
       ' · ' + r.retrabalho.ocorrencias.map(function(o) { return o.lote; }).join(', '));
@@ -309,6 +347,6 @@
   }
 
   return {calcular: calcular, agregar: agregar, descrever: descrever, fechar: fechar,
-    linhasPorOp: linhasPorOp, SEM_OP: SEM_OP,
+    linhasPorOp: linhasPorOp, SEM_OP: SEM_OP, CORTE_CONFERENCIA_PA: CORTE_CONFERENCIA_PA,
     MOTIVOS_EXPEDIDO: MOTIVOS_EXPEDIDO, ORIGENS_ESTOQUE: ORIGENS_ESTOQUE};
 });

@@ -213,6 +213,15 @@ antes de fechar.
   null). Operação multi-nó do servidor usa `functions/transacao_raiz.js` (fila no processo,
   leitura fresca, update só dos caminhos mudados); `run_agenda_expedicao_test.js` recusa
   transação na raiz e `run_transacao_raiz_emulator_test.js` prova o limite no emulador.
+- **`dbOnValue` não espera o login** (13/11/2026). Cálculo que roda quando os dados chegam e decide
+  por `window.currentUser` (ex.: "pode abrir RNC?") vê `null` e desiste para sempre. Espere
+  `kuryos-auth-pronto` (padrão em `varrerConsistencia`, `pedidos.html`/`ops.html`). Só o teste de UI
+  com a tela real pegou; o motor isolado passava.
+- **Consistência produção × estoque × expedição** (13/11/2026, `AUDITORIA_CONSISTENCIA_PA_20261113.md`):
+  RNC-SP (> 150% do planejado na confirmação), RNC-CS (OP conferida e descasada), RNC-PA (contagem) e
+  alerta vermelho para ADM/PCP/Expedição em `shared/consistencia-producao.js` +
+  `shared/alerta-consistencia.js`. Limites calibrados na base: não baixe para 110% (22% das OPs) nem
+  transforme "aguardando conferência" em RNC (68% das OPs passam de 24 h).
 - **`.catch()` não protege contra throw síncrono** (cache velho após deploy quebrava
   consumo e perdas) — envolva com `Promise.resolve().then(...)`.
 - **Buscar `db.ref` por regex não acha escrita mediada por função** (`ajustarEstoque`,

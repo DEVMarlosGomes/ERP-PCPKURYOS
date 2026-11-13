@@ -1,5 +1,31 @@
 # Melhorias Futuras — Sistema PCP Kuryos
 
+## Consistência produção × estoque × expedição — o que ficou para depois (13/11/2026)
+
+Já entregue: RNC automática de superprodução (> 150%), de saldo descasado depois da conferência e o
+alerta vermelho para ADM/PCP/Expedição (`AUDITORIA_CONSISTENCIA_PA_20261113.md`). Ficou de fora:
+
+- **Retrabalho com troca de SKU (reclassificação).** É o caso Rose Absolut × Sunrise: o líquido de uma
+  OP foi envasado com o frasco de outro SKU e reenvasado depois. Hoje não há como **transferir
+  unidades de uma OP/SKU para outra**. O caminho é corrigir o apontamento da OP errada no Histórico e
+  apontar a certa, o que funciona, mas não deixa o elo registrado. Também não estorna o frasco e o
+  rótulo consumidos em dobro. Ponto de partida: `functions/retrabalhos.js` (hoje o retrabalho é "o
+  mesmo lote volta à linha") e `ajustarProduzidoOp`.
+- **Contagem cega na Conferência de PA.** A conferência da 26302/01 (13/11) aceitou uma contagem só,
+  idêntica ao apontamento de 3.470, e liberou o palete. Se a tela não mostrasse o apontado antes da
+  contagem, ou se OP com RNC-SP aberta exigisse as três contagens, a contagem copiada seria pega.
+  Ponto de partida: `analisarTripla` / `prepararFinalizacao` em `functions/conferencia_pa.js` e a tela
+  em `estoque.html`.
+- **Fechar a RNC "resolvida pela conta".** Hoje a RNC de consistência fecha pelo fluxo normal da
+  Qualidade (causa, ação). A conta do pedido volta a fechar sozinha quando o apontamento é corrigido;
+  não há vínculo automático entre uma coisa e a outra.
+- **166 itens de pedido "com diferença"** na base de 13/11, quase todos de OPs anteriores à Conferência
+  de PA (10/09) e à planilha. É história, não regra nova: pede uma regularização própria, nos moldes da
+  `AUDITORIA_REGULARIZACAO_46_20261102.md`.
+- **Servidor antigo no Render** (`pcp-kuryos-functions.onrender.com`): a Vercel legada chamava as
+  callables por ele. Com a Vercel redirecionada, ninguém mais chega lá pelo site, mas ele continua no ar
+  com credencial de produção. Desligar no painel do Render (sem acesso por aqui).
+
 ## Financeiro × WebMais — o que ficou para depois (12–13/11/2026)
 
 Já entregue: Entrega A (relatórios), Entrega B (adiantamento, renegociação, cancelamento em lote) e a

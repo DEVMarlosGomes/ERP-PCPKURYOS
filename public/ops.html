@@ -20,6 +20,7 @@
   <script src="shared/manipulacao.js"></script>
   <script src="shared/expedicao.js"></script>
   <script src="shared/conciliacao-pedidos.js"></script>
+  <script src="shared/consistencia-producao.js"></script>
   <script src="shared/progresso-op.js"></script>
   <script src="shared/situacao-op.js"></script>
   <script src="shared/confirmacao-etapas.js"></script>
@@ -903,12 +904,49 @@
         });
         conciliacaoPorOp = idx;
         qualidadePorOp = ProgressoOp.paletesPorOp(conciliacaoFontes.estoque_lotes);
+        varrerConsistencia(r);
       } catch (e) {
         console.error('Falha ao calcular o produto acabado das OPs:', e);
         conciliacaoPorOp = null;
       }
       recalculateAndRenderOps();
     }, 200);
+  }
+  // RNC automática de consistência (shared/consistencia-producao.js): quem
+  // pode gravar RNC (ADM/PCP/Qualidade) abre, ao abrir a tela, a que ainda não
+  // existe. Uma tentativa por chave nesta aba -- a transação só cria.
+  const rncsConsistenciaTentadas = {};
+  function abrirRncsConsistencia(itens) {
+    const CO = window.ConsistenciaProducao;
+    if (!CO || !CO.podeAbrirRnc(window.currentUser)) return Promise.resolve([]);
+    const novos = (itens || []).filter(i => !rncsConsistenciaTentadas[i.chave]);
+    novos.forEach(i => { rncsConsistenciaTentadas[i.chave] = true; });
+    if (!novos.length) return Promise.resolve([]);
+    const quem = (window.currentUser && (window.currentUser.nome || window.currentUser.email)) || 'sistema';
+    return Promise.resolve().then(() => CO.abrirRncs(database, novos, new Date().toISOString(), quem)).then(abertas => {
+      if (abertas.length) showToast('⚠ Inconsistência de dados: ' + abertas.join(', ') + ' aberta(s) automaticamente.');
+      return abertas;
+    }).catch(err => {
+      novos.forEach(i => { delete rncsConsistenciaTentadas[i.chave]; });
+      console.error('Falha ao abrir RNC de consistência:', err);
+      showToast('Inconsistência detectada, mas a RNC não foi gravada: ' + err.message);
+      return [];
+    });
+  }
+  let varreduraAguardandoLogin = false;
+  function varrerConsistencia(conciliacao) {
+    if (!window.ConsistenciaProducao) return;
+    // As fontes chegam sem esperar o login; sem o perfil, podeAbrirRnc daria
+    // "não" e a varredura nunca mais rodaria nesta aba.
+    if (!window.currentUser) {
+      if (!varreduraAguardandoLogin) {
+        varreduraAguardandoLogin = true;
+        window.addEventListener('kuryos-auth-pronto', () => { varreduraAguardandoLogin = false; varrerConsistencia(conciliacao); }, {once: true});
+      }
+      return;
+    }
+    abrirRncsConsistencia(ConsistenciaProducao.avaliar(
+      {ops: opsGlobal, conferencias_pa: conciliacaoFontes.conferencias_pa}, conciliacao, {}));
   }
   let paradasHistoricoGlobal = {};
   let pendenciasPcpGlobal = {};
@@ -1332,12 +1370,18 @@
     const op = opsGlobal[opKey];
     if (!op) return;
     const quem = (window.currentUser && (window.currentUser.nome || window.currentUser.email)) || 'desconhecido';
+    const confirmadoEm = new Date().toISOString();
     database.ref('ops/' + opKey).update({
       status: 'Concluído',
       confirmadoPor: quem,
-      confirmadoEm: new Date().toISOString()
+      confirmadoEm: confirmadoEm
     }).then(() => {
       showToast('OP ' + (op.lote || opKey) + ' confirmada como concluída.');
+      // Superprodução grosseira (> 150% do planejado) abre RNC na hora: foi
+      // o que faltou na 26302/01 (690 planejadas, 3.470 apontadas).
+      if (window.ConsistenciaProducao) {
+        abrirRncsConsistencia(ConsistenciaProducao.avaliarOp(opKey, op, null, null, {confirmandoEm: confirmadoEm}));
+      }
       // Achado do Auditor: liberarEmpenhoLote só era chamado no cancelamento
       // (executarCancelamentoOp) -- toda OP concluída pelo fluxo normal
       // (este aqui) nunca liberava a sobra reservada na emissão, deixando

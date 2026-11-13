@@ -1896,3 +1896,31 @@ function _autoAjustarPlanejamentoInterno(db, pedidoKey) {
   else iniciarSeguro();
   if (typeof window !== 'undefined') window.__kuryosSessaoEncerrada = sessaoEncerrada;
 })();
+
+// ── Alerta vermelho de inconsistência de dados (13/11/2026) ──────────────
+// ADM, PCP e Expedição/Logística veem em QUALQUER tela as RNCs automáticas
+// de consistência (apontamento × contagem × estoque/expedição) ainda não
+// concluídas. Carregado sob demanda: quem não vê o alerta não baixa nada.
+(function() {
+  var script = document.currentScript;
+  var base = script && script.src ? script.src.replace(/auth_check\.js(\?.*)?$/, '') : '';
+  function carregar(src) {
+    return new Promise(function(ok, falha) {
+      var s = document.createElement('script');
+      s.src = base + src;
+      s.onload = ok;
+      s.onerror = falha;
+      document.head.appendChild(s);
+    });
+  }
+  window.addEventListener('kuryos-auth-pronto', function(ev) {
+    var u = ev.detail || window.currentUser;
+    if (!u || window.__PCP_EMBEDDED__ || window.__alertaConsistenciaInstalado) return;
+    var ve = funcoesDoUsuario(u).some(function(p) { return p === 'admin' || p === 'pcp' || p === 'logistica'; }) ||
+      !!(u.modulos && u.modulos.logistica === true);
+    if (!ve) return;
+    Promise.resolve(window.ConsistenciaProducao ? null : carregar('shared/consistencia-producao.js'))
+      .then(function() { return carregar('shared/alerta-consistencia.js'); })
+      .catch(function(e) { console.warn('Alerta de consistência não carregou', e); });
+  });
+})();

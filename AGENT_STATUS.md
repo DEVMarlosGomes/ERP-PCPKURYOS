@@ -5,6 +5,34 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude (sessão `consistencia-pa`) — Produzido × Expedição divergentes + RNC automática (13/11/2026)
+
+- **Código concluído em `hostinger-deploy`** (relato do cliente, PED-0001 Bioflora; auditoria em
+  `AUDITORIA_CONSISTENCIA_PA_20261113.md`). As diferenças do cliente batem OP por OP:
+  - Rose 3.470 = OP 26302/01 (690 planejadas, granel do Sunrise envasado como Rose, confirmada a 503% sem RNC);
+  - Sunrise 1.962 = 26264/14 aguardando conferência;
+  - Infinity 58 = duas RNC-PA concluídas.
+
+  Novo: `shared/consistencia-producao.js` com RNC-SP (> 150% na confirmação) e RNC-CS (conferida e
+  descasada; hoje só a 26282/03, 2.516 un. sem destino). Também `shared/alerta-consistencia.js`
+  (modal e selo vermelhos para ADM/PCP/Logística, carregado pelo `auth_check.js`) e "Aguardando
+  conferência" na conciliação. Nenhuma regra do banco mudou; nenhum dado de produção foi alterado
+  (decisão do usuário).
+
+  Testes: `run_consistencia_producao_test`, `run_alerta_consistencia_ui_test` e
+  `run_confirmacao_superproducao_ui_test` (Chrome), mais a regressão de Pedidos/OPs/Relatório/Gestão
+  Comercial/Conferência de PA. O `run_navegacao_test` falha só pelo link `chamados`, que é trabalho
+  em andamento do Codex.
+
+  **Pendente (Marlos):**
+  - deploy da VPS;
+  - contar o palete GAL-1-3-1 (3.470 Rose da 26302/01, liberado hoje às 16:37 com uma contagem só);
+  - autorizar o push do redirecionamento da Vercel: commit pronto no worktree
+    `../PCP-Kuryos-vercel-redirect`, branch `vercel/redirecionar-vps`, sem commit; o push no `main`
+    foi bloqueado pela permissão.
+
+  Arquivos ativos: nenhum.
+
 ### Codex (sessão `chamados-print`) — Anexar prints nos Chamados do Roadmap (13/11/2026)
 
 - **Concluído somente no protótipo/especificação local** `C:\Users\Marlos\Downloads\Chamados do Roadmap.md`; o módulo de Chamados ainda não existe neste repositório. O formulário agora explicita escolher, arrastar ou colar (`Ctrl+V`) até 3 prints PNG/JPG/WebP de 10 MB, prévia, remoção individual, espera dos uploads, tratamento de falha e imutabilidade após envio. A captura automática foi esclarecida como contexto técnico da tela, não screenshot. Nenhum arquivo funcional do ERP foi alterado. Não toquei em `public/dashboard_analise.html`, `.impeccable/` ou `run_dashboard_analise_ops_test.js`. Arquivos ativos: nenhum.
