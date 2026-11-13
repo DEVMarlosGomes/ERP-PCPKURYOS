@@ -18,9 +18,10 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   `finCompensarAdiantamento`, `finRenegociar`, `finCancelarTitulos`, `finClassificar`, `finCadastrarElemento`,
   `finLiquidar`). Testes: entrega_b 104/42/74 + tela 18; f9 126/19/9 + tela 17; regras 63 (emulador); bateria do
   Financeiro, Controladoria, navegação e telas verde; hashes da Controladoria na base real idênticos (0 relançamento).
-  `run_custos_servidor_test` falha por ambiente (URL do Firebase) também com o index.js anterior. **Pendente
-  (Marlos), nesta ordem:** publicar regras (`firebase deploy --only database --project erpkuryos`, inclui a da
-  Entrega A) e deploy da VPS (callables novas). Arquivos ativos: nenhum.
+  `run_custos_servidor_test` falha por ambiente (URL do Firebase) também com o index.js anterior. Regras: conferidas no ar em
+  13/11 = repo (0 diferença; backup no scratchpad `regras-no-ar-20261113.json`), nada a publicar. **Pendente (Marlos):**
+  deploy da VPS: `cd /opt/kuryos/repo && ./scripts/hostinger/deploy.sh 8be13f6` (ou posterior); conferir 54 funções
+  (eram 47; 7 `fin*` novas) e a aba Liquidação no Financeiro. Arquivos ativos: nenhum.
 
 ### Claude (sessão `fin-webmais`) — Financeiro: relatórios do WebMais (Entrega A) (12/11/2026)
 
