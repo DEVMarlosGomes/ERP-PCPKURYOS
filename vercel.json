@@ -92,6 +92,11 @@
   ],
   "redirects": [
     {
+      "source": "/",
+      "destination": "https://kuryoserp.com.br/",
+      "permanent": false
+    },
+    {
       "source": "/:path*",
       "destination": "https://kuryoserp.com.br/:path*",
       "permanent": false
