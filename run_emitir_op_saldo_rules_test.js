@@ -4,7 +4,7 @@
    (--project igual ao projectId daqui; sem isso o emulador não aplica database.rules.json ao namespace.)
    - config/emitirOp/bloquearSemSaldo: só o ADM liga/desliga (PCP e módulo config não);
    - ops/{op}/liberacaoSemSaldo: só o ADM, em nome próprio e com motivo;
-   - quem emite OP (PCP, módulo emitir_op) segue emitindo sem liberação;
+   - a OP nasce só no servidor (A3, 13/11): PCP/módulo emitir_op/ADM não criam OP pela tela;
    - regravar a OP inteira com a liberação que já estava (apontamento) continua valendo. */
 const assert = require('assert/strict');
 const admin = require('./functions/node_modules/firebase-admin');
@@ -48,24 +48,26 @@ const negado = (p) => assert.rejects(p, /PERMISSION_DENIED|permission_denied/i);
   await cfg.ref('config/linhas').set(['Linha 1']);
   passo('demais chaves de config/ seguem abertas para PCP e módulo config');
 
-  // OP sem liberação: quem emite segue emitindo.
+  // A3 (auditoria 13/11/2026): desde 01/11 a OP nasce só no servidor (emitirOpServidor), que
+  // grava a liberação sem saldo. O navegador não cria OP -- nem PCP, nem módulo emitir_op, nem ADM.
   const op = {lote: '26302/01', sku: 'MRARBS04', status: 'Não Iniciado', qtdPlanejada: 1000};
-  await pcp.ref('ops/26302-01').set(op);
-  await emi.ref('ops/26302-02').set(Object.assign({}, op, {lote: '26302/02'}));
-  passo('PCP e módulo emitir_op emitem OP sem liberação');
+  await raiz.database().ref('ops/26302-00').set(Object.assign({}, op, {lote: '26302/00'}));   // nó povoado, como em produção
+  await negado(pcp.ref('ops/26302-01').set(op));
+  await negado(emi.ref('ops/26302-02').set(Object.assign({}, op, {lote: '26302/02'})));
+  passo('PCP e módulo emitir_op não criam OP pelo navegador (só o servidor)');
 
-  // Liberação: só o ADM, em nome próprio, com motivo.
   const lib = {motivo: 'Material chega amanhã cedo, NF 123', por: 'ADM', porUid: 'adm', em: '2026-10-29T10:05:00Z', faltas: [{mpCodigo: 'EP-1', necessario: 1000, saldo: 200, unidade: 'un'}]};
-  await negado(pcp.ref('ops/26302-03').set(Object.assign({}, op, {lote: '26302/03', liberacaoSemSaldo: Object.assign({}, lib, {porUid: 'pcp'})})));
+  await negado(adm.ref('ops/26302-03').set(Object.assign({}, op, {lote: '26302/03', liberacaoSemSaldo: lib})));
+  passo('nem o ADM cria OP com liberação pelo navegador');
+  // O servidor emite com a liberação gravada.
+  await raiz.database().ref('ops/26302-03').set(Object.assign({}, op, {lote: '26302/03', liberacaoSemSaldo: lib}));
+  await raiz.database().ref('ops/26302-01').set(op);
   await negado(emi.ref('ops/26302-01/liberacaoSemSaldo').set(Object.assign({}, lib, {porUid: 'emi'})));
-  passo('PCP/módulo emitir_op não gravam liberação nem em nome próprio');
-  await negado(adm.ref('ops/26302-03').set(Object.assign({}, op, {liberacaoSemSaldo: Object.assign({}, lib, {porUid: 'pcp'})})));
-  await negado(adm.ref('ops/26302-03').set(Object.assign({}, op, {liberacaoSemSaldo: Object.assign({}, lib, {motivo: 'curto'})})));
-  passo('ADM não libera em nome de outro nem sem motivo');
-  await adm.ref('ops/26302-03').set(Object.assign({}, op, {lote: '26302/03', liberacaoSemSaldo: lib}));
+  await negado(pcp.ref('ops/26302-01/liberacaoSemSaldo').set(Object.assign({}, lib, {porUid: 'pcp'})));
+  passo('PCP/módulo emitir_op não gravam liberação em OP existente');
   const salvo = (await raiz.database().ref('ops/26302-03/liberacaoSemSaldo/motivo').once('value')).val();
   assert.equal(salvo, lib.motivo);
-  passo('ADM emite com liberação e motivo gravados na OP');
+  passo('liberação gravada pelo servidor fica na OP');
 
   // Apontamento regrava a OP com a liberação de antes: continua valendo.
   const atual = (await raiz.database().ref('ops/26302-03').once('value')).val();
