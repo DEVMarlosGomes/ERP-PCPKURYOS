@@ -169,7 +169,9 @@ async function campo(page, seletor, valor) {
 }
 
 (async () => {
-  const browser = await chromium.launch({headless: true, channel: 'chrome'});
+  // Câmera falsa do Chrome: prova a câmera DENTRO da página (16/11/2026) sem celular.
+  const browser = await chromium.launch({headless: true, channel: 'chrome',
+    args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream']});
   try {
     // ── Operador da pesagem ─────────────────────────────────────────────
     const {page, errors} = await abrir(browser, 'pes');
@@ -351,6 +353,8 @@ async function campo(page, seletor, valor) {
     // (outro operador, baixa de estoque da mesma MP) redesenhava a MP e trocava o
     // <input type=file>; a foto voltava para um campo fora da tela e não abria o formulário.
     {
+      // Este bloco é o caminho do APP de câmera do celular (sem câmera na página).
+      await page.evaluate(() => { window.__camDisp = CameraPagina.disponivel; CameraPagina.disponivel = () => false; });
       const [seletor] = await Promise.all([page.waitForEvent('filechooser'), page.click('#mBlocoPesagem .btn-camera')]);
       await page.evaluate(() => firebase.database().ref('estoque_lotes/MPES-003/LX').set(
         {itemCodigo: 'MPES-003', itemTipo: 'material', status: 'LIBERADO', saldoLote: 5, loteInterno: 'AK-2026-000999'}));
@@ -370,6 +374,68 @@ async function campo(page, seletor, valor) {
       await page.waitForSelector('#formParcela .fp-preview');
       assert.equal(await page.evaluate(() => formParcela.arquivo.type), 'image/jpeg');
       await page.click('#fpCancelar');
+      await page.evaluate(() => { CameraPagina.disponivel = window.__camDisp; });
+    }
+    // Câmera DENTRO da página (16/11/2026): "clica, carrega e some; só funciona na quinta
+    // tentativa". O app de câmera tirava o navegador de cena e o Android descartava a aba.
+    // Agora o botão abre a câmera aqui; a foto sai reduzida e abre o formulário.
+    {
+      await page.waitForSelector('#pzFoto', {state: 'attached'});
+      let abriuSeletor = false;
+      page.once('filechooser', () => { abriuSeletor = true; });
+      await page.click('#mBlocoPesagem .btn-camera');
+      await page.waitForSelector('.cam-pag video');
+      await page.waitForFunction(() => document.querySelector('.cam-pag video').videoWidth > 0, null, {timeout: 8000});
+      assert.equal(abriuSeletor, false, 'não abre o app de câmera do celular');
+      assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.cam-pag')).backgroundColor), 'rgb(0, 0, 0)',
+        'fundo preto: o tema de diálogos não pode pintar a câmera de branco');
+      // Banco muda com a câmera aberta: a câmera continua (ela não depende do painel).
+      await page.evaluate(() => firebase.database().ref('estoque_lotes/MPES-003/LY').set(
+        {itemCodigo: 'MPES-003', itemTipo: 'material', status: 'LIBERADO', saldoLote: 5, loteInterno: 'AK-2026-000998'}));
+      await page.click('.cam-pag [data-cam="disparo"]');
+      await page.waitForSelector('.cam-pag [data-cam="previa"]');
+      await page.click('.cam-pag [data-cam="refazer"]');
+      await page.waitForSelector('.cam-pag video');
+      await page.waitForFunction(() => document.querySelector('.cam-pag video').videoWidth > 0);
+      await page.click('.cam-pag [data-cam="disparo"]');
+      await page.click('.cam-pag [data-cam="usar"]');
+      await page.waitForSelector('#formParcela .fp-preview');
+      assert.equal(await page.locator('.cam-pag').count(), 0, 'a câmera fecha');
+      const arq = await page.evaluate(() => ({tipo: formParcela.arquivo.type, bytes: formParcela.arquivo.size, nome: formParcela.arquivo.name}));
+      assert.equal(arq.tipo, 'image/jpeg');
+      assert.ok(arq.bytes > 0 && arq.bytes < 900 * 1024, 'foto já sai pequena: ' + arq.bytes);
+      assert.match(arq.nome, /^balanca_\d{14}\.jpg$/);
+      const ativas = await page.evaluate(() => document.querySelectorAll('video').length);
+      assert.equal(ativas, 0, 'câmera desligada depois da foto');
+      await page.click('#fpCancelar');
+      // Cancelar na câmera não abre formulário nem deixa a câmera ligada.
+      await page.click('#mBlocoPesagem .btn-camera');
+      await page.waitForSelector('.cam-pag');
+      await page.click('.cam-pag [data-cam="fechar"]');
+      assert.equal(await page.locator('.cam-pag').count(), 0);
+      assert.equal(await page.locator('#formParcela').count(), 0);
+      // Permissão negada: o painel explica e oferece o caminho antigo (câmera do celular / galeria).
+      await page.evaluate(() => { window.__gum = navigator.mediaDevices.getUserMedia;
+        navigator.mediaDevices.getUserMedia = () => Promise.reject(Object.assign(new Error('x'), {name: 'NotAllowedError'})); });
+      await page.click('#mBlocoPesagem .btn-camera');
+      await page.waitForSelector('.cam-pag [data-cam="erro"]');
+      assert.match(await page.locator('.cam-pag [data-cam="erro"]').innerText(), /não liberou a câmera/);
+      assert.equal(await page.locator('.cam-pag input[type=file][capture]').count(), 1, 'câmera do celular como alternativa');
+      await page.setInputFiles('.cam-pag input[type=file][capture]', foto('pelo app.jpg'));
+      await page.waitForSelector('#formParcela .fp-preview');
+      assert.equal(await page.locator('.cam-pag').count(), 0);
+      await page.click('#fpCancelar');
+      await page.evaluate(() => { navigator.mediaDevices.getUserMedia = window.__gum; });
+      if (process.env.MANIP_CAMERA_SHOT) {
+        await page.setViewportSize({width: 390, height: 844});
+        await page.locator('#mBlocoPesagem .btn-camera').scrollIntoViewIfNeeded();
+        await page.locator('#mBlocoPesagem .btn-camera').click({force: true});
+        await page.waitForFunction(() => { const v = document.querySelector('.cam-pag video'); return v && v.videoWidth > 0; });
+        await page.screenshot({path: process.env.MANIP_CAMERA_SHOT});
+        await page.click('.cam-pag [data-cam="fechar"]');
+        await page.setViewportSize({width: 1500, height: 1200});
+      }
+      await page.evaluate(() => firebase.database().ref('estoque_lotes/MPES-003/LY').remove());
     }
     await page.click('[data-voltar-lista]');
     await page.waitForFunction(() => /fora do previsto/.test(document.getElementById('mPesagemErros').innerText));
@@ -601,6 +667,20 @@ async function campo(page, seletor, valor) {
     const depois = await envase.page.evaluate(() => Manipulacao.podeEnvasar({manipulacao: {status: 'LIBERADO'}}));
     assert.equal(depois.ok, true);
     await envase.page.close();
+
+    // Página recarregada pelo celular com o app de câmera aberto: volta à mesma OP e MP e explica.
+    {
+      const r = await abrir(browser, 'pes');
+      await r.page.waitForSelector('#mListaBody tr');
+      await r.page.evaluate(() => sessionStorage.setItem('manipulacao.cameraAberta',
+        JSON.stringify({op: '26260-01', mp: 'MPGR-002', em: Date.now()})));
+      await r.page.reload();
+      await r.page.waitForFunction(() => /recarregou a página/.test(document.getElementById('alertBox').innerText), null, {timeout: 8000});
+      assert.equal(await r.page.evaluate(() => [opAtual, mpAberta].join('|')), '26260-01|MPGR-002');
+      assert.equal(await r.page.evaluate(() => sessionStorage.getItem('manipulacao.cameraAberta')), null, 'retoma uma vez só');
+      assert.deepEqual(r.errors, []);
+      await r.page.close();
+    }
 
     assert.deepEqual(errors, [], 'erros na tela do pesador: ' + errors.join(' | '));
     assert.deepEqual(r2.errors, [], 'erros na tela do manipulador: ' + r2.errors.join(' | '));

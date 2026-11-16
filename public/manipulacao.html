@@ -15,6 +15,7 @@
   <script src="shared/manipulacao.js"></script>
   <script src="shared/perdas-etapa.js"></script>
   <script src="shared/anexos.js"></script>
+  <script src="shared/camera-pagina.js"></script>
   <script src="auth_check.js"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="shared/theme.css">
@@ -349,7 +350,7 @@ function eu() {
     (firebase.auth().currentUser && firebase.auth().currentUser.email) || 'Desconhecido';
 }
 
-dbOnValue(db.ref('ops'), function(snap) { allOps = snap.val() || {}; setStatus(true, 'Conectado'); render(); });
+dbOnValue(db.ref('ops'), function(snap) { allOps = snap.val() || {}; setStatus(true, 'Conectado'); render(); retomarDepoisDaCamera(); });
 dbOnValue(db.ref('produtos'), function(snap) { allProdutos = snap.val() || {}; render(); });
 dbOnValue(db.ref('formulas'), function(snap) { allFormulas = snap.val() || {}; render(); });
 dbOnValue(db.ref('bom'), function(snap) { allBom = snap.val() || {}; render(); });
@@ -358,7 +359,7 @@ dbOnValue(db.ref('estoque_lotes'), function(snap) { allLotes = snap.val() || {};
 dbOnValue(db.ref('enderecos_estoque'), function(snap) { allEnderecos = snap.val() || {}; if (opAtual) renderPainel(); });
 dbOnValue(db.ref('config/conferenciaPesagem'), function(snap) { configConfPesagem = snap.val() || {}; render(); });
 // O perfil (window.currentUser) chega depois do primeiro desenho.
-var esperaPerfilManip = setInterval(function() { if (window.currentUser) { clearInterval(esperaPerfilManip); render(); } }, 300);
+var esperaPerfilManip = setInterval(function() { if (window.currentUser) { clearInterval(esperaPerfilManip); render(); retomarDepoisDaCamera(); } }, 300);
 
 /* Previstos da fórmula (o granel). O BOM de embalagem não entra aqui: ele é
    consumido no envase, não na manipulação. */
@@ -758,11 +759,50 @@ function planoDaMp(itemKey) {
    redesenhada; ela fecha na foto, no cancelar ou no próximo toque na tela. */
 var cameraAbertaAte = 0;
 function cameraAberta() { return Date.now() < cameraAbertaAte; }
-function abriuCamera() { cameraAbertaAte = Date.now() + 10 * 60 * 1000; }
+/* 16/11/2026: "clica, carrega e some; só funciona na quinta tentativa". O app de câmera
+   do celular tira o navegador do primeiro plano e, com pouca memória, o Android descarta
+   a aba: a página recarrega e a foto se perde. O caminho principal agora é a câmera
+   DENTRO da página (shared/camera-pagina.js). Quando o app do celular ainda é usado,
+   a OP e a MP ficam guardadas para a página voltar ao mesmo ponto se recarregar. */
+var CHAVE_CAMERA = 'manipulacao.cameraAberta';
+function abriuCamera() {
+  cameraAbertaAte = Date.now() + 10 * 60 * 1000;
+  try { sessionStorage.setItem(CHAVE_CAMERA, JSON.stringify({op: opAtual, mp: mpAberta, em: Date.now()})); } catch (e) { /* nada */ }
+}
 function fechouCamera(redesenhar) {
+  try { sessionStorage.removeItem(CHAVE_CAMERA); } catch (e) { /* nada */ }
   if (!cameraAbertaAte) return;
   cameraAbertaAte = 0;
   if (redesenhar && opAtual) renderPainel();
+}
+var retomadaCameraFeita = false;
+function retomarDepoisDaCamera() {
+  if (retomadaCameraFeita || !window.currentUser || !Object.keys(allOps).length) return;
+  retomadaCameraFeita = true;
+  var salvo = null;
+  try { salvo = JSON.parse(sessionStorage.getItem(CHAVE_CAMERA) || 'null'); sessionStorage.removeItem(CHAVE_CAMERA); } catch (e) { salvo = null; }
+  if (!salvo || !salvo.op || !allOps[salvo.op] || Date.now() - Number(salvo.em || 0) > 15 * 60 * 1000) return;
+  abrirOp(salvo.op);
+  if (salvo.mp && previstos[salvo.mp]) { mpAberta = salvo.mp; renderPainel(); }
+  showAlert('O celular recarregou a página enquanto a câmera do aparelho estava aberta, e a foto se perdeu. ' +
+    'Toque em Fotografar de novo: a câmera agora abre aqui dentro da página.', 'danger');
+}
+// Abre a câmera da página; sem ela, segue o seletor do <input> (app do celular).
+function ligarCamera(input, itemKeyDaFoto) {
+  input.onclick = function(e) {
+    var chave = itemKeyDaFoto();
+    if (window.CameraPagina && CameraPagina.disponivel()) {
+      e.preventDefault();
+      var mp = (previstos[chave] || {}).mpCodigo || '';
+      CameraPagina.abrir({titulo: 'Balança' + (mp ? ' · ' + mp : '')}).then(function(arquivo) {
+        if (arquivo) receberArquivoFoto(arquivo, chave);
+      });
+      return;
+    }
+    abriuCamera();
+  };
+  input.oncancel = function() { fechouCamera(true); };
+  input.onchange = function() { fechouCamera(false); receberFoto(this, itemKeyDaFoto()); };
 }
 document.addEventListener('pointerdown', function(e) {
   if (!cameraAbertaAte || (e.target && e.target.closest && e.target.closest('.btn-camera, label.pz-link'))) return;
@@ -987,11 +1027,7 @@ function ligarPesagem() {
   });
   // Foto primeiro: o botão da MP abre a câmera; escolhida a foto, abre o formulário.
   var cam = document.getElementById('pzFoto');
-  if (cam) {
-    cam.onclick = abriuCamera;
-    cam.oncancel = function() { fechouCamera(true); };
-    cam.onchange = function() { fechouCamera(false); receberFoto(this, mpAberta); };
-  }
+  if (cam) ligarCamera(cam, function() { return mpAberta; });
   var semFoto = document.getElementById('pzSemFoto');
   if (semFoto) semFoto.onclick = function() {
     descartarFormParcela();
@@ -1013,11 +1049,7 @@ function ligarPesagem() {
   var motivoSemFoto = document.getElementById('fpSemFoto');
   if (motivoSemFoto) motivoSemFoto.oninput = function() { formParcela.semFotoMotivo = motivoSemFoto.value; atualizarFormParcela(); };
   var refazer = document.getElementById('fpFoto');
-  if (refazer) {
-    refazer.onclick = abriuCamera;
-    refazer.oncancel = function() { fechouCamera(true); };
-    refazer.onchange = function() { fechouCamera(false); receberFoto(this, formParcela && formParcela.itemKey); };
-  }
+  if (refazer) ligarCamera(refazer, function() { return formParcela && formParcela.itemKey; });
   if (!formParcela) return;
   var peso = document.getElementById('fpPeso');
   if (peso) peso.oninput = function() { formParcela.peso = peso.value; atualizarFormParcela(); };
@@ -1062,13 +1094,19 @@ function comTipoDeImagem(arquivo) {
 
 function receberFoto(input, itemKey) {
   if (!itemKey) return;
-  var arquivo = comTipoDeImagem(input.files && input.files[0]);
+  var arquivo = input.files && input.files[0];
   if (!arquivo) {
     showAlert('Nenhuma foto chegou da câmera. Fotografe de novo; se repetir, use "Sem foto? Registrar por escrito".', 'danger');
     return;
   }
+  if (!receberArquivoFoto(arquivo, itemKey)) input.value = '';
+}
+
+function receberArquivoFoto(arquivoBruto, itemKey) {
+  if (!itemKey) return false;
+  var arquivo = comTipoDeImagem(arquivoBruto);
   var v = Anexos.validar(arquivo, {perfil: 'imagem'});
-  if (!v.ok) { showAlert(v.erros.join(' '), 'danger'); input.value = ''; return; }
+  if (!v.ok) { showAlert(v.erros.join(' '), 'danger'); return false; }
   var url = (window.URL && URL.createObjectURL) ? URL.createObjectURL(arquivo) : '';
   if (formParcela && formParcela.itemKey === itemKey) {
     if (formParcela.previewUrl && URL.revokeObjectURL) { try { URL.revokeObjectURL(formParcela.previewUrl); } catch (e) { /* nada */ } }
@@ -1087,6 +1125,7 @@ function receberFoto(input, itemKey) {
   renderPainel();
   var campo = document.getElementById('fpPeso');
   if (campo) campo.focus();
+  return true;
 }
 
 function atualizarEnvioParcela(fp, texto) {
