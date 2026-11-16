@@ -92,44 +92,9 @@
   ],
   "redirects": [
     {
-      "source": "/",
-      "destination": "/login",
+      "source": "/:path*",
+      "destination": "https://kuryoserp.com.br/:path*",
       "permanent": false
-    },
-    {
-      "source": "/crm1.html",
-      "destination": "/crm1",
-      "permanent": true
-    },
-    {
-      "source": "/crm2.html",
-      "destination": "/crm2",
-      "permanent": true
-    },
-    {
-      "source": "/crm3.html",
-      "destination": "/crm3",
-      "permanent": true
-    },
-    {
-      "source": "/crm-admin.html",
-      "destination": "/crm-admin",
-      "permanent": true
-    },
-    {
-      "source": "/kickoffs.html",
-      "destination": "/kickoffs",
-      "permanent": true
-    },
-    {
-      "source": "/contratos.html",
-      "destination": "/contratos",
-      "permanent": true
-    },
-    {
-      "source": "/pd.html",
-      "destination": "/pd",
-      "permanent": true
     }
   ]
 }
