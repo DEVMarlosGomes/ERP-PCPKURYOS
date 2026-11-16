@@ -7,8 +7,9 @@
  *     anda para frente; buraco antigo fica como "não registrado", não trava);
  *   - ele libera quando passa, desde a leitura anterior (ou do início do estudo),
  *     a diferença de dias entre os dois checkpoints (D24h→D48h = 24 h; D48h→D7 = 5 d);
- *   - a leitura só grava com todos os parâmetros preenchidos ("N/A" vale para o
- *     que não se aplica);
+ *   - a leitura só grava com Aspecto, Cor e Odor preenchidos; os demais
+ *     parâmetros são opcionais (pedido de 16/11/2026: "o mais importante é
+ *     aspecto, cor, odor");
  *   - ADM pode registrar antes do prazo (atraso de lançamento), nunca fora de ordem.
  * Funções puras: nada aqui lê ou grava no banco. */
 
@@ -18,8 +19,13 @@ export const rotuloDia = (d) => (d === 1 ? "D24h" : d === 2 ? "D48h" : `D${d}`);
 
 const texto = (v) => String(v ?? "").trim();
 
+// Únicos parâmetros obrigatórios em toda leitura (16/11/2026). Os demais podem ficar em branco.
+export const PARAMETROS_OBRIGATORIOS = Object.freeze(["appearance", "color", "odor"]);
+
+export const parametroObrigatorio = (p) => PARAMETROS_OBRIGATORIOS.includes(p?.code);
+
 export function parametrosFaltando(parametros, valores) {
-  return (parametros || []).filter((p) => !texto(valores?.[p.code])).map((p) => p.label);
+  return (parametros || []).filter((p) => parametroObrigatorio(p) && !texto(valores?.[p.code])).map((p) => p.label);
 }
 
 export function proximoCheckpoint({ checkpoints, leituras, iniciadoEm, agora }) {
@@ -62,6 +68,6 @@ export function validarLeitura({ checkpoints, leituras, iniciadoEm, agora, param
     return `${rotuloDia(d)} libera em ${formatarEspera(prox.faltaMs)} (${intervalo === 1 ? "24 h" : `${intervalo} dias`} ${desde}).`;
   }
   const faltando = parametrosFaltando(parametros, valores);
-  if (faltando.length) return `Leitura incompleta — preencha todos os parâmetros (use N/A quando não se aplica): ${faltando.join(", ")}.`;
+  if (faltando.length) return `Leitura incompleta — preencha os parâmetros obrigatórios: ${faltando.join(", ")}.`;
   return null;
 }

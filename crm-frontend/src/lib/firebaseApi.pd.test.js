@@ -340,8 +340,9 @@ describe("estabilidade em sequência (Fase 6)", () => {
     await recusa(leitura(1), /D24h libera em 24 h \(24 h do início do estudo\)/);
     memory.write(`${T}/pd_stability_studies/${estudo}/started_at`, new Date(Date.now() - 25 * 3600e3).toISOString());
     await recusa(leitura(2), /um checkpoint por vez: o próximo é o D24h/);
-    await recusa(leitura(1, { appearance: "Conforme" }), /incompleta.*Cor.*Variação de massa/);
-    const { data } = await leitura(1);
+    await recusa(leitura(1, { appearance: "Conforme", ph: "6,5" }), /incompleta.*: Cor, Odor\.$/);
+    // Só Aspecto, Cor e Odor são obrigatórios (16/11/2026): o resto pode ficar em branco.
+    const { data } = await leitura(1, { appearance: "Conforme", color: "Conforme", odor: "Conforme" });
     expect(Date.parse(data.reading.reading_at)).toBeGreaterThan(Date.now() - 60e3);
   });
 

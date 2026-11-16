@@ -161,8 +161,42 @@
       .sort(function(a, b) { return String(b.dataEmissao || '').localeCompare(String(a.dataEmissao || '')); });
   }
 
+  /* Quem pode abrir retrabalho. Espelha a regra de ops/$opKey em
+     database.rules.json (16/11/2026): papéis que apontam e a Qualidade
+     criam OP nova só com tipoOrdem RETRABALHO. Mostrar o botão a quem a
+     regra recusa geraria PERMISSION_DENIED na cara do usuário. */
+  var PAPEIS_ABRIR = ['admin', 'pcp', 'production', 'rotulagem', 'qualidade'];
+  var MODULOS_ABRIR = ['qualidade', 'planejamento', 'emitir_op', 'apontamento', 'manipulacao', 'rotulagem'];
+  function podeAbrir(usuario) {
+    var u = usuario || {};
+    if (PAPEIS_ABRIR.indexOf(u.role) >= 0) return true;
+    var m = u.modulos || {};
+    return MODULOS_ABRIR.some(function(k) { return m[k] === true; });
+  }
+
+  /* OPs que podem ser retrabalhadas, para a busca da tela de Retrabalhos
+     (botão da Qualidade, 16/11/2026). Fica de fora: OP cancelada (não
+     produziu nada) e OP que já é retrabalho (o retrabalho de um retrabalho
+     é outro RT do lote ORIGINAL, aberto a partir dele). Mais recentes
+     primeiro; a busca casa lote, produto, cliente ou SKU. */
+  function candidatas(ops, busca, limite) {
+    var termo = texto(busca, 100).toLowerCase();
+    var max = n(limite) || 20;
+    return Object.keys(ops || {})
+      .filter(function(k) {
+        var op = ops[k];
+        if (!op || !op.lote || ehRetrabalho(op) || op.status === 'Cancelado') return false;
+        if (!termo) return true;
+        return [op.lote, op.produto, op.cliente, op.sku].join(' ').toLowerCase().indexOf(termo) >= 0;
+      })
+      .map(function(k) { return Object.assign({_key: k}, ops[k]); })
+      .sort(function(a, b) { return String(b.dataEmissao || '').localeCompare(String(a.dataEmissao || '')); })
+      .slice(0, max);
+  }
+
   return {
     TIPO: TIPO, DESTINOS: DESTINOS,
+    podeAbrir: podeAbrir, candidatas: candidatas,
     ehRetrabalho: ehRetrabalho, proximoNumero: proximoNumero,
     validar: validar, montar: montar,
     rotulo: rotulo, destinoRotulo: destinoRotulo,

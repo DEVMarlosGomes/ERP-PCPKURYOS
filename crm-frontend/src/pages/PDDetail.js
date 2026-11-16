@@ -37,7 +37,7 @@ import FechamentoFormulaDialog, { detalheNaoFecha } from "@/components/Fechament
 import { fechamentoFormula, pendenciasDoLote, textoFechamento } from "@/lib/fechamentoFormula";
 import { mesmaBase } from "@/lib/formulacaoBase";
 import { ROTULO_ORIGEM } from "@/lib/cambio";
-import { formatarEspera, parametrosFaltando, proximoCheckpoint, rotuloDia } from "@/lib/estabilidade";
+import { formatarEspera, parametroObrigatorio, parametrosFaltando, proximoCheckpoint, rotuloDia } from "@/lib/estabilidade";
 import {
   BASE_CALCULO, COTACAO_USD_PADRAO, UNIDADES_AMOSTRA, VOLUME_AMOSTRA_PADRAO,
   camposDePreco, formatarQuantidade, precoBrlKg, precoUsd, quantidadeNaEscala, volumeEmKg,
@@ -3586,7 +3586,7 @@ function StabilityGridPanel({ reqId, canEdit, onReadingsLoaded, showStudyHeader 
   const submitReading = async () => {
     if (!readingDialog || !study) return;
     const faltando = parametrosFaltando(constants.parameters, readingForm.parameters);
-    if (faltando.length) return toast.error(`Leitura incompleta — preencha: ${faltando.join(", ")} (use N/A quando não se aplica)`);
+    if (faltando.length) return toast.error(`Leitura incompleta — preencha: ${faltando.join(", ")}`);
     setSavingReading(true);
     try {
       await api.post(`/pd/stability/studies/${study.id}/readings`, {
@@ -3752,15 +3752,15 @@ function StabilityGridPanel({ reqId, canEdit, onReadingsLoaded, showStudyHeader 
                   <p className="text-xs text-amber-700 mt-1">Ainda no prazo: libera em {formatarEspera(readingDialog.prox.faltaMs)}. Como ADM você pode lançar agora (atraso de lançamento).</p>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground">Preencha todos os parâmetros — use <b>N/A</b> no que não se aplica a este checkpoint.</p>
+              <p className="text-xs text-muted-foreground">Obrigatórios: <b>Aspecto, Cor e Odor</b>. Os demais parâmetros são opcionais — deixe em branco o que não foi avaliado neste checkpoint.</p>
               <div className="grid grid-cols-2 gap-3">
                 {constants.parameters.map(param => (
                   <div key={param.code}>
-                    <Label className="text-xs text-muted-foreground">{param.label} <span className="text-red-500">*</span></Label>
+                    <Label className="text-xs text-muted-foreground">{param.label}{parametroObrigatorio(param) && <span className="text-red-500"> *</span>}</Label>
                     <Input
                       value={readingForm.parameters[param.code] || ""}
                       onChange={e => setReadingForm(p => ({ ...p, parameters: { ...p.parameters, [param.code]: e.target.value } }))}
-                      placeholder={param.label}
+                      placeholder={parametroObrigatorio(param) ? param.label : `${param.label} (opcional)`}
                       className="h-8 text-sm mt-1"
                       data-testid={`param-${param.code}`}
                     />

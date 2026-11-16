@@ -129,4 +129,28 @@ assert.equal(longo.retrabalhoMotivo.length, 1000);
 assert.equal(longo.retrabalhoEscopo.length, 200);
 assert.equal(R.montar(dados({escopo: ''})).retrabalhoEscopo, 'Lote inteiro', 'escopo tem padrão');
 
+// ── 10. Botão da Qualidade na tela de Retrabalhos (16/11/2026) ───────
+// Quem vê o botão é exatamente quem a regra de ops/$opKey deixa criar.
+assert.equal(R.podeAbrir({role: 'qualidade'}), true, 'Qualidade abre retrabalho');
+['admin', 'pcp', 'production', 'rotulagem'].forEach((r) => assert.equal(R.podeAbrir({role: r}), true, r));
+assert.equal(R.podeAbrir({role: 'comercial', modulos: {qualidade: true}}), true, 'módulo Qualidade marcado');
+assert.equal(R.podeAbrir({role: 'logistica', modulos: {apontamento: true}}), true);
+assert.equal(R.podeAbrir({role: 'logistica'}), false, 'a regra recusa: o botão não aparece');
+assert.equal(R.podeAbrir({role: 'comercial', modulos: {qualidade: false}}), false);
+assert.equal(R.podeAbrir(null), false);
+
+const opsBusca = {
+  a: {lote: '26216/04', produto: 'PERFUME TAWUS 30ML', cliente: 'DAPOP', status: 'Concluído', dataEmissao: '2026-09-01'},
+  b: {lote: '26216/04-RT1', tipoOrdem: 'RETRABALHO', produto: 'PERFUME TAWUS 30ML', dataEmissao: '2026-09-22'},
+  c: {lote: '26300/02', produto: 'BRUMA MATTE', cliente: 'MISS RÔSE', status: 'Cancelado', dataEmissao: '2026-10-01'},
+  d: {lote: '26302/01', produto: 'BODY SPLASH ROSE', cliente: 'BIOFLORA', sku: 'PRF-BIOF-0006', status: 'Concluído', dataEmissao: '2026-10-29'},
+  e: null,
+};
+assert.deepEqual(R.candidatas(opsBusca, '').map((o) => o.lote), ['26302/01', '26216/04'],
+  'sem cancelada, sem retrabalho, mais nova primeiro');
+assert.deepEqual(R.candidatas(opsBusca, 'biof-0006').map((o) => o._key), ['d'], 'busca por SKU');
+assert.deepEqual(R.candidatas(opsBusca, 'tawus').map((o) => o.lote), ['26216/04']);
+assert.deepEqual(R.candidatas(opsBusca, 'bruma'), [], 'cancelada não aparece nem buscando');
+assert.equal(R.candidatas(opsBusca, '', 1).length, 1, 'respeita o limite');
+
 console.log('run_retrabalho_op_test: OK');

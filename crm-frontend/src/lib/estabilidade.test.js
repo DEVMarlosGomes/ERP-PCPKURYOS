@@ -1,8 +1,9 @@
 import { formatarEspera, parametrosFaltando, proximoCheckpoint, rotuloDia, validarLeitura } from "./estabilidade";
 
 const CK = [1, 2, 7, 30, 60, 90];
-const PARAMS = [{ code: "ph", label: "pH" }, { code: "color", label: "Cor" }, { code: "microbiology", label: "Microbiologia" }];
-const COMPLETO = { ph: "6,5", color: "Conforme", microbiology: "N/A" };
+const PARAMS = [{ code: "appearance", label: "Aspecto" }, { code: "color", label: "Cor" }, { code: "odor", label: "Odor" }, { code: "ph", label: "pH" }, { code: "microbiology", label: "Microbiologia" }];
+// Só Aspecto, Cor e Odor são obrigatórios (16/11/2026); pH/Microbiologia podem ficar em branco.
+const COMPLETO = { appearance: "Conforme", color: "Conforme", odor: "Característico" };
 const INICIO = "2026-10-01T10:00:00Z";
 const h = (iso, horas) => new Date(Date.parse(iso) + horas * 3600e3).toISOString();
 
@@ -33,7 +34,7 @@ describe("estabilidade em sequência", () => {
   test("validação: um por vez, no prazo e completo; ADM só passa o prazo", () => {
     const base = { checkpoints: CK, leituras: [], iniciadoEm: INICIO, agora: h(INICIO, 30), parametros: PARAMS };
     expect(validarLeitura({ ...base, dia: 2, valores: COMPLETO })).toMatch(/um checkpoint por vez: o próximo é o D24h/);
-    expect(validarLeitura({ ...base, dia: 1, valores: { ph: "6,5" } })).toMatch(/incompleta.*Cor, Microbiologia/);
+    expect(validarLeitura({ ...base, dia: 1, valores: { ph: "6,5", appearance: "ok" } })).toMatch(/incompleta.*: Cor, Odor\.$/);
     expect(validarLeitura({ ...base, dia: 1, valores: COMPLETO })).toBeNull();
     const cedo = { ...base, agora: h(INICIO, 5) };
     expect(validarLeitura({ ...cedo, dia: 1, valores: COMPLETO })).toMatch(/D24h libera em 19 h \(24 h do início do estudo\)/);
@@ -46,7 +47,8 @@ describe("estabilidade em sequência", () => {
 
   test("auxiliares", () => {
     expect([1, 2, 7].map(rotuloDia)).toEqual(["D24h", "D48h", "D7"]);
-    expect(parametrosFaltando(PARAMS, { ph: " ", color: "ok" })).toEqual(["pH", "Microbiologia"]);
+    expect(parametrosFaltando(PARAMS, { ph: " ", color: "ok" })).toEqual(["Aspecto", "Odor"]);
+    expect(parametrosFaltando(PARAMS, COMPLETO)).toEqual([]);
     expect(formatarEspera(0)).toBe("agora");
     expect(formatarEspera(25 * 60000)).toBe("25 min");
   });

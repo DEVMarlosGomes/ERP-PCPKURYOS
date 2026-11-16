@@ -103,15 +103,22 @@
     .aviso-erro{background:var(--tint-red-bg);color:var(--tint-red-fg)}
     .no-data{text-align:center;padding:30px;color:var(--muted);font-size:13.5px}
     .hint{font-size:12px;color:var(--muted)}
-    @media(max-width:700px){.rt-lista{grid-template-columns:1fr}}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+    /* Busca da OP de origem no "Abrir retrabalho" (botão da Qualidade, 16/11/2026). */
+    .rt-busca-lista{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto;margin-top:8px}
+    .rt-busca-item{display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);cursor:pointer;font:inherit}
+    .rt-busca-item:hover,.rt-busca-item:focus-visible{border-color:var(--primary)}
+    .rt-escolhida{background:var(--surface-2);border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:12px;display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+    @media(max-width:700px){.rt-lista{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body class="kuryos-theme has-sidebar" data-kuryos-operational="">
 <div class="header" data-ui="page-header">
   <div>
     <h1>Retrabalhos</h1>
-    <div class="header-sub">Retrabalho é uma OP como qualquer outra — só que sem vínculo de pedido e sem BOM, para não contar a mesma produção duas vezes. Abre-se pelo ♻️ no Controle de OPs e executa-se na linha, na rotulagem ou no posto.</div>
+    <div class="header-sub">Retrabalho é uma OP como qualquer outra — só que sem vínculo de pedido e sem BOM, para não contar a mesma produção duas vezes. Abre-se aqui, em <b>Abrir retrabalho</b>, ou pelo ♻️ no Controle de OPs, e executa-se na linha, na rotulagem ou no posto.</div>
   </div>
+  <button class="btn btn-primary" id="rtAbrirNovo" style="display:none">♻️ Abrir retrabalho</button>
 </div>
 
 <div class="main">
@@ -125,8 +132,8 @@
     <div class="card-body">
       <div class="rt-lista" id="rtOpsLista"></div>
       <div class="no-data" id="rtOpsVazio" style="display:none">
-        Nenhuma OP de retrabalho aberta. Para abrir uma, vá em
-        <a href="ops.html">Controle de OPs</a>, filtre por Concluído (ou busque o lote) e clique no ♻️.
+        Nenhuma OP de retrabalho aberta. Para abrir uma, use <b>Abrir retrabalho</b> no topo desta tela
+        (ou o ♻️ no <a href="ops.html">Controle de OPs</a>).
       </div>
     </div>
   </div>
@@ -161,6 +168,75 @@
     <div class="modal-body" id="rtModalBody" data-ui="dialog-body"></div>
     <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="rtModalFechar">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL: abrir OP de retrabalho ══════════
+     Botão da Qualidade (16/11/2026): a Qualidade constata o problema e
+     abre o retrabalho daqui, sem depender do Controle de OPs. A OP nasce
+     igual à do ♻️ de ops.html (RetrabalhoOp.montar): sem pedido e sem BOM. -->
+<div class="modal-bg" id="rtNovoBg">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header" data-ui="dialog-head">
+      <h2 id="rtNovoTitulo">Abrir retrabalho</h2>
+      <button class="modal-close" id="rtNovoClose" title="Fechar" aria-label="Fechar">×</button>
+    </div>
+    <div class="modal-body" data-ui="dialog-body">
+      <div id="rtNovoPasso1">
+        <div class="form-group" style="margin-bottom:0">
+          <label for="rtNovoBusca">OP que será retrabalhada</label>
+          <input type="search" id="rtNovoBusca" placeholder="Buscar por lote, produto, cliente ou SKU" autocomplete="off">
+          <div class="rt-busca-lista" id="rtNovoCandidatas"></div>
+        </div>
+      </div>
+      <div id="rtNovoPasso2" style="display:none">
+        <div class="rt-escolhida">
+          <div id="rtNovoInfo"></div>
+          <button class="btn btn-ghost btn-sm" id="rtNovoTrocar" type="button">Trocar OP</button>
+        </div>
+        <div class="form-group">
+          <label for="rtNovoMotivo">Motivo do retrabalho</label>
+          <textarea id="rtNovoMotivo" rows="2" placeholder="O que foi constatado e por que o lote volta para a linha"></textarea>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="rtNovoEscopo">Escopo</label>
+            <input type="text" id="rtNovoEscopo" value="Lote inteiro" placeholder="Lote inteiro / parte identificada">
+          </div>
+          <div class="form-group">
+            <label for="rtNovoQtd">Unidades a retrabalhar</label>
+            <input type="number" id="rtNovoQtd" min="1" step="1">
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="rtNovoDestinoTipo">Onde vai ser executado</label>
+            <select id="rtNovoDestinoTipo">
+              <option value="linha">Linha de produção</option>
+              <option value="rotulagem">Estação de rotulagem</option>
+              <option value="posto">Posto de trabalho</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="rtNovoDestinoNome">Recurso</label>
+            <select id="rtNovoDestinoNome"></select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="rtNovoObs">Observação (opcional)</label>
+          <input type="text" id="rtNovoObs">
+        </div>
+        <div class="aviso aviso-info" style="margin-bottom:0">
+          A OP de retrabalho <b>não credita pedido</b> e <b>não baixa BOM</b> — as unidades já foram
+          contadas na OP original. O que for consumido de verdade no retrabalho é lançado à parte.
+        </div>
+      </div>
+      <div id="rtNovoErro" class="aviso aviso-erro" style="display:none;margin:12px 0 0"></div>
+    </div>
+    <div class="modal-footer" data-ui="dialog-foot">
+      <button class="btn btn-ghost" id="rtNovoCancelar">Cancelar</button>
+      <button class="btn btn-primary" id="rtNovoConfirmar" disabled>Abrir OP de retrabalho</button>
     </div>
   </div>
 </div>
@@ -478,6 +554,7 @@ document.getElementById('rtModalBg').addEventListener('click', function(e) {
    acompanha -- uma corrida que só aparece de vez em quando, que é o pior
    tipo de defeito. */
 window.addEventListener('kuryos-auth-pronto', function() {
+  document.getElementById('rtAbrirNovo').style.display = RetrabalhoOp.podeAbrir(window.currentUser) ? '' : 'none';
   render();
   if (casoAberto && todos[casoAberto]) abrirCaso(casoAberto);
 });
@@ -485,7 +562,161 @@ window.addEventListener('kuryos-auth-pronto', function() {
 dbOnValue(db.ref('ops'), function(snap) {
   opsTodas = snap.val() || {};
   render();
+  if (document.getElementById('rtNovoBg').classList.contains('open') && !rtNovoKey) renderCandidatas();
 });
+
+/* ── Abrir OP de retrabalho (botão da Qualidade, 16/11/2026) ──────────
+   Mesmo registro que o ♻️ do Controle de OPs grava: RetrabalhoOp.validar
+   e .montar, numeração lote + RT. A regra de ops/$opKey deixa a Qualidade
+   criar OP nova só com tipoOrdem RETRABALHO. */
+var configRecursos = {linhas: ['Linha 1', 'Linha 2', 'Linha 3', 'Linha 4'], rotulagem: [], postos: []};
+var rtNovoKey = null;
+
+dbOnValue(db.ref('config'), function(snap) {
+  var val = snap.val() || {};
+  if (val.linhas) configRecursos.linhas = val.linhas;
+  configRecursos.rotulagem = val.rotulagem || [];
+  configRecursos.postos = val.postosTrabalho || val.postos || [];
+  if (rtNovoKey) preencherRecursos();
+});
+
+function listaRecursos(v) {
+  return (Array.isArray(v) ? v : Object.values(v || {})).filter(function(x) { return typeof x === 'string' && x.trim(); });
+}
+function preencherRecursos() {
+  var tipo = document.getElementById('rtNovoDestinoTipo').value;
+  var lista = listaRecursos(tipo === 'rotulagem' ? configRecursos.rotulagem : tipo === 'posto' ? configRecursos.postos : configRecursos.linhas);
+  var sel = document.getElementById('rtNovoDestinoNome');
+  var atual = sel.value;
+  sel.innerHTML = lista.length
+    ? lista.map(function(r) { return '<option value="' + escapeAttr(r) + '">' + escapeHtml(r) + '</option>'; }).join('')
+    : '<option value="">— nenhum cadastrado em Ajustes —</option>';
+  if (lista.indexOf(atual) >= 0) sel.value = atual;
+}
+function erroNovo(msg) {
+  var box = document.getElementById('rtNovoErro');
+  box.style.display = msg ? '' : 'none';
+  box.textContent = msg || '';
+}
+function renderCandidatas() {
+  var lista = RetrabalhoOp.candidatas(opsTodas, document.getElementById('rtNovoBusca').value, 20);
+  document.getElementById('rtNovoCandidatas').innerHTML = lista.length
+    ? lista.map(function(op) {
+        var feito = getProduzido(op, 'linha') || op.produzido || 0;
+        return '<button type="button" class="rt-busca-item" data-op="' + escapeAttr(op._key) + '">' +
+          '<span><span class="rt-lote">OP ' + escapeHtml(op.lote) + '</span><br>' +
+          '<b>' + escapeHtml(op.produto || op.sku || '') + '</b><br>' +
+          '<span class="rt-meta">' + escapeHtml(op.cliente || '—') + ' · ' + fmtNum(feito) + ' un. produzidas</span></span>' +
+          '<span class="badge ' + (opEstaAtiva(op) ? 'b-azul' : 'b-cinza') + '">' + escapeHtml(op.status || '') + '</span>' +
+        '</button>';
+      }).join('')
+    : '<div class="no-data" style="padding:16px">Nenhuma OP encontrada.</div>';
+}
+function escolherOp(opKey) {
+  var op = opsTodas[opKey];
+  if (!op) return;
+  rtNovoKey = opKey;
+  var jaFeitos = RetrabalhoOp.doLote(opsTodas, op.lote);
+  var produzido = getProduzido(op, 'linha') || op.produzido || 0;
+  document.getElementById('rtNovoTitulo').textContent = 'Abrir retrabalho — OP ' + op.lote;
+  document.getElementById('rtNovoInfo').innerHTML =
+    '<b>' + escapeHtml(op.produto || op.sku || '') + '</b><br>' +
+    escapeHtml(op.cliente || '—') + ' · ' + fmtNum(produzido) + ' un. produzidas · ' + escapeHtml(op.status || '') +
+    (jaFeitos.length
+      ? '<br><span style="color:var(--warning)">Este lote já tem ' + jaFeitos.length + ' retrabalho(s): ' +
+        jaFeitos.map(function(r) { return escapeHtml(r.lote); }).join(', ') + '</span>'
+      : '') +
+    '<br>A nova OP será <b>' + escapeHtml(RetrabalhoOp.proximoNumero(op.lote, opsTodas)) + '</b>.';
+  document.getElementById('rtNovoMotivo').value = '';
+  document.getElementById('rtNovoEscopo').value = 'Lote inteiro';
+  document.getElementById('rtNovoQtd').value = produzido || '';
+  document.getElementById('rtNovoObs').value = '';
+  document.getElementById('rtNovoDestinoTipo').value = 'linha';
+  preencherRecursos();
+  document.getElementById('rtNovoPasso1').style.display = 'none';
+  document.getElementById('rtNovoPasso2').style.display = '';
+  document.getElementById('rtNovoConfirmar').disabled = false;
+  erroNovo('');
+  document.getElementById('rtNovoMotivo').focus();
+}
+function voltarParaBusca() {
+  rtNovoKey = null;
+  document.getElementById('rtNovoTitulo').textContent = 'Abrir retrabalho';
+  document.getElementById('rtNovoPasso1').style.display = '';
+  document.getElementById('rtNovoPasso2').style.display = 'none';
+  document.getElementById('rtNovoConfirmar').disabled = true;
+  erroNovo('');
+  renderCandidatas();
+}
+function abrirNovoRetrabalho() {
+  document.getElementById('rtNovoBusca').value = '';
+  voltarParaBusca();
+  document.getElementById('rtNovoBg').classList.add('open');
+  document.getElementById('rtNovoBusca').focus();
+}
+function fecharNovoRetrabalho() {
+  document.getElementById('rtNovoBg').classList.remove('open');
+  rtNovoKey = null;
+}
+
+document.getElementById('rtAbrirNovo').addEventListener('click', abrirNovoRetrabalho);
+document.getElementById('rtNovoBusca').addEventListener('input', renderCandidatas);
+document.getElementById('rtNovoCandidatas').addEventListener('click', function(e) {
+  var item = e.target.closest('[data-op]');
+  if (item) escolherOp(item.getAttribute('data-op'));
+});
+document.getElementById('rtNovoTrocar').addEventListener('click', voltarParaBusca);
+document.getElementById('rtNovoDestinoTipo').addEventListener('change', preencherRecursos);
+['rtNovoClose', 'rtNovoCancelar'].forEach(function(id) {
+  document.getElementById(id).addEventListener('click', fecharNovoRetrabalho);
+});
+document.getElementById('rtNovoBg').addEventListener('click', function(e) { if (e.target === this) fecharNovoRetrabalho(); });
+
+document.getElementById('rtNovoConfirmar').addEventListener('click', function() {
+  var original = rtNovoKey && opsTodas[rtNovoKey];
+  if (!original) return;
+  var dados = {
+    opOriginal: original, opOriginalKey: rtNovoKey, ops: opsTodas,
+    motivo: document.getElementById('rtNovoMotivo').value,
+    escopo: document.getElementById('rtNovoEscopo').value,
+    qtdPlanejada: document.getElementById('rtNovoQtd').value,
+    observacao: document.getElementById('rtNovoObs').value,
+    destino: {tipo: document.getElementById('rtNovoDestinoTipo').value,
+      nome: document.getElementById('rtNovoDestinoNome').value},
+    autor: (window.currentUser && (window.currentUser.nome || window.currentUser.email)) || 'desconhecido',
+  };
+  var v = RetrabalhoOp.validar(dados);
+  if (!v.ok) { erroNovo(v.erros.join(' ')); return; }
+  if (v.avisos.length && !confirm(v.avisos.join('\n\n') + '\n\nAbrir mesmo assim?')) return;
+
+  var nova = RetrabalhoOp.montar(dados);
+  var key = sanitizeKey(nova.lote);
+  var btn = this;
+  btn.disabled = true;
+  erroNovo('');
+  /* transaction, não set: duas pessoas abrindo retrabalho do mesmo lote
+     chegariam ao mesmo -RT1. Aborta só quando a OP JÁ existe (a regra
+     recusaria regravar OP existente para a Qualidade); no null grava, e o
+     servidor devolve a passada se o cache local estava atrasado. */
+  var jaExistia = false;
+  db.ref('ops/' + key).transaction(function(atual) {
+    jaExistia = false;
+    if (atual) { jaExistia = true; return; }
+    return nova;
+  }).then(function(res) {
+    btn.disabled = false;
+    if (!res.committed || jaExistia) {
+      erroNovo('A OP ' + nova.lote + ' já existe — alguém pode ter aberto este retrabalho agora há pouco. Feche e tente de novo.');
+      return;
+    }
+    fecharNovoRetrabalho();
+    alert('Retrabalho aberto: OP ' + nova.lote + ' em ' + nova.linha + '.');
+  }).catch(function(err) {
+    btn.disabled = false;
+    erroNovo('Erro ao abrir o retrabalho: ' + (err && err.message ? err.message : err));
+  });
+});
+
 
 dbOnValue(db.ref('retrabalhos'), function(snap) {
   todos = snap.val() || {};

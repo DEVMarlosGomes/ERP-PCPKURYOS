@@ -5,6 +5,10 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude (sessão `estab-retrabalho-qual`) — Estabilidade só com Aspecto/Cor/Odor + botão de retrabalho da Qualidade (16/11/2026)
+
+- **Código concluído em `hostinger-deploy`.** (1) Leitura de estabilidade do P&D: só Aspecto, Cor e Odor são obrigatórios (`PARAMETROS_OBRIGATORIOS` em `crm-frontend/src/lib/estabilidade.js`, vale na tela e no `firebaseApi`); demais parâmetros opcionais. vitest 512 OK; CRM recompilado e integrado. (2) `retrabalhos.html`: botão **Abrir retrabalho** (busca a OP de origem; mesma OP do ♻️ de `ops.html`, sem pedido e sem BOM), visível a quem a regra de `ops/$opKey` deixa criar retrabalho (`RetrabalhoOp.podeAbrir`). Nenhuma regra do banco mudou. Testes: `run_retrabalho_op_test`, `run_retrabalhos_abrir_ui_test` (novo), `run_retrabalhos_gestao_ui_test`, `run_retrabalhos_ui_test`, `run_retrabalho_op_ui_test`. **Pendente (Marlos):** deploy da VPS. Arquivos ativos: nenhum.
+
 ### Claude (sessão `consistencia-pa`) — Produzido × Expedição divergentes + RNC automática (13/11/2026)
 
 - **Código concluído em `hostinger-deploy`** (relato do cliente, PED-0001 Bioflora; auditoria em
