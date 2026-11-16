@@ -1,0 +1,223 @@
+{
+ "_origem": "Leitura de produção (erpkuryos) em 16/11/2026, só campos estruturais e numéricos; sem nomes de pessoas.",
+ "ops": {
+  "26302-01": {
+   "lote": "26302/01",
+   "sku": "PRF-BIOF-0006",
+   "produto": "BODY SPLASH B.BALM ROSE ABSOLUT VITAMINA E 200ML",
+   "cliente": "BIOFLORA INDUSTRIA E COMERCIO LTDA - EPP",
+   "clienteKey": "BIOF",
+   "skuPedidoKey": "PED-0001__PRF-BIOF-0006",
+   "status": "Concluído",
+   "qtdPlanejada": 690,
+   "produzido": 3470,
+   "produzidoLinha": 3470,
+   "produzidoRotulagem": 3489,
+   "produzidoPosto": 0,
+   "confirmadoEm": "2026-11-04T11:18:41.543Z",
+   "confirmadoProduzido": 3470,
+   "dataFimReal": "2026-11-03T14:18:00.000Z",
+   "dataEmissao": "2026-10-29T12:51:23.215Z",
+   "massaLoteKg": 130.062,
+   "pesoTeoricoUnG": 184.8
+  },
+  "26264-14": {
+   "lote": "26264/14",
+   "sku": "PRF-BIOF-0004",
+   "produto": "BODY SPLASH B.BALM SUNRISE MUSE VITAMINA E 200ML",
+   "cliente": "BIOFLORA INDUSTRIA E COMERCIO LTDA - EPP",
+   "skuPedidoKey": "PED-0001__PRF-BIOF-0004",
+   "status": "Concluído",
+   "qtdPlanejada": 2750,
+   "produzido": 1962,
+   "produzidoLinha": 1962,
+   "produzidoRotulagem": 2750,
+   "produzidoPosto": 0,
+   "confirmadoEm": "2026-11-12T11:53:31.256Z",
+   "dataFimReal": "2026-11-11T18:44:00.000Z",
+   "dataEmissao": "2026-09-21T18:30:27.942Z",
+   "massaLoteKg": 526.139,
+   "pesoTeoricoUnG": 187.572
+  }
+ },
+ "conferencias_pa": {
+  "26302-01": {
+   "opKey": "26302-01",
+   "opLote": "26302/01",
+   "sku": "PRF-BIOF-0006",
+   "produto": "BODY SPLASH B.BALM ROSE ABSOLUT VITAMINA E 200ML",
+   "qtdApontada": 3470,
+   "qtdPaletizada": 3470,
+   "finalizadoEm": "2026-11-13T16:37:52.222Z",
+   "conferidoEm": "2026-11-13T16:37:52.222Z",
+   "status": "CONFERIDO",
+   "divergencia": 0,
+   "finalizacaoStatus": "FINALIZADO",
+   "ultimaContagem": 3470
+  },
+  "26264-14": {
+   "opKey": "26264-14",
+   "opLote": "26264/14",
+   "sku": "PRF-BIOF-0004",
+   "produto": "BODY SPLASH B.BALM SUNRISE MUSE VITAMINA E 200ML",
+   "qtdApontada": 1962,
+   "qtdPaletizada": 1965,
+   "finalizadoEm": "2026-11-13T16:46:06.979Z",
+   "conferidoEm": "2026-11-13T16:46:06.979Z",
+   "status": "CONFERIDO_COM_DIVERGENCIA",
+   "divergencia": 3,
+   "rncNumero": "RNC-PA-26264-14",
+   "finalizacaoStatus": "FINALIZADO",
+   "ultimaContagem": 1965
+  }
+ },
+ "estoque_lotes": {
+  "PRF-BIOF-0006": {
+   "pa_26264-17_p1": {
+    "itemCodigo": "PRF-BIOF-0006",
+    "itemTipo": "produto",
+    "loteOrigem": "26264/17",
+    "opKey": "26264-17",
+    "opLote": "26264/17",
+    "origemRef": "26264-17",
+    "origemTipo": "conferencia_pa",
+    "qtdOriginal": 2304,
+    "saldoLote": 2304,
+    "skuPedidoKey": "PED-0001__PRF-BIOF-0006",
+    "status": "LIBERADO_EXPEDICAO",
+    "unidade": "un",
+    "enderecoKey": "FAB-3-1-3",
+    "cliente": "BIOFLORA INDUSTRIA E COMERCIO LTDA - EPP"
+   },
+   "pa_26264-17_p2": {
+    "itemCodigo": "PRF-BIOF-0006",
+    "itemTipo": "produto",
+    "loteOrigem": "26264/17",
+    "opKey": "26264-17",
+    "opLote": "26264/17",
+    "origemRef": "26264-17",
+    "origemTipo": "conferencia_pa",
+    "qtdOriginal": 2250,
+    "saldoLote": 2250,
+    "skuPedidoKey": "PED-0001__PRF-BIOF-0006",
+    "status": "LIBERADO_EXPEDICAO",
+    "unidade": "un",
+    "enderecoKey": "FAB-3-1-4",
+    "cliente": "BIOFLORA INDUSTRIA E COMERCIO LTDA - EPP"
+   },
+   "pa_26302-01_p1": {
+    "itemCodigo": "PRF-BIOF-0006",
+    "itemTipo": "produto",
+    "loteOrigem": "26302/01",
+    "opKey": "26302-01",
+    "opLote": "26302/01",
+    "origemRef": "26302-01",
+    "origemTipo": "conferencia_pa",
+    "qtdOriginal": 3470,
+    "saldoLote": 3470,
+    "skuPedidoKey": "PED-0001__PRF-BIOF-0006",
+    "status": "LIBERADO_EXPEDICAO",
+    "unidade": "un",
+    "enderecoKey": "GAL-1-3-1",
+    "cliente": "BIOFLORA INDUSTRIA E COMERCIO LTDA - EPP"
+   }
+  },
+  "PRF-BIOF-0004": {
+   "pa_26264-13_p1": {
+    "itemCodigo": "PRF-BIOF-0004",
+    "itemTipo": "produto",
+    "loteOrigem": "26264/13",
+    "opKey": "26264-13",
+    "opLote": "26264/13",
+    "origemRef": "26264-13",
+    "origemTipo": "conferencia_pa",
+    "qtdOriginal": 2016,
+    "saldoLote": 2016,
+    "skuPedidoKey": "PED-0001__PRF-BIOF-0004",
+    "status": "LIBERADO_EXPEDICAO",
+    "unidade": "un",
+    "enderecoKey": "FAB-4-1-3",
+    "cliente": "BIOFLORA INDUSTRIA E COMERCIO LTDA - EPP"
+   },
+   "pa_26264-13_p2": {
+    "itemCodigo": "PRF-BIOF-0004",
+    "itemTipo": "produto",
+    "loteOrigem": "26264/13",
+    "opKey": "26264-13",
+    "opLote": "26264/13",
+    "origemRef": "26264-13",
+    "origemTipo": "conferencia_pa",
+    "qtdOriginal": 780,
+    "saldoLote": 780,
+    "skuPedidoKey": "PED-0001__PRF-BIOF-0004",
+    "status": "LIBERADO_EXPEDICAO",
+    "unidade": "un",
+    "enderecoKey": "FAB-4-1-4",
+    "cliente": "BIOFLORA INDUSTRIA E COMERCIO LTDA - EPP"
+   },
+   "pa_26264-14_p1": {
+    "itemCodigo": "PRF-BIOF-0004",
+    "itemTipo": "produto",
+    "loteOrigem": "26264/14",
+    "opKey": "26264-14",
+    "opLote": "26264/14",
+    "origemRef": "26264-14",
+    "origemTipo": "conferencia_pa",
+    "qtdOriginal": 1965,
+    "saldoLote": 1965,
+    "skuPedidoKey": "PED-0001__PRF-BIOF-0004",
+    "status": "LIBERADO_EXPEDICAO",
+    "unidade": "un",
+    "enderecoKey": "FAB-5-1-4",
+    "cliente": "BIOFLORA INDUSTRIA E COMERCIO LTDA - EPP"
+   }
+  }
+ },
+ "pedidos": {
+  "PED-0001__PRF-BIOF-0006": {
+   "id": "PED-0001",
+   "parentPedidoId": "PED-0001",
+   "sku": "PRF-BIOF-0006",
+   "produto": "BODY SPLASH B.BALM ROSE ABSOLUT VITAMINA E 200ML",
+   "cliente": "BIOFLORA INDUSTRIA E COMERCIO LTDA - EPP",
+   "produzido": 8024,
+   "qtdTotal": 5500,
+   "status": "Concluído"
+  },
+  "PED-0001__PRF-BIOF-0004": {
+   "id": "PED-0001",
+   "parentPedidoId": "PED-0001",
+   "sku": "PRF-BIOF-0004",
+   "produto": "BODY SPLASH B.BALM SUNRISE MUSE VITAMINA E 200ML",
+   "cliente": "BIOFLORA INDUSTRIA E COMERCIO LTDA - EPP",
+   "produzido": 4758,
+   "qtdTotal": 5500,
+   "status": "Produção Parcial"
+  }
+ },
+ "nao_conformidades": {
+  "RNC-2026-011": {
+   "numero": "RNC-2026-011",
+   "status": "CONCLUIDA",
+   "classificacao": "MAIOR",
+   "origem": "PRODUCAO",
+   "opLote": "26266/14 E 26302/01",
+   "qtdEnvolvida": 3000,
+   "disposicao": "RETRABALHO",
+   "itemCodigo": "BODY SPLASH ROSÉ ABSOLUT |  SUNRISE MUSE  B. BALM",
+   "automatica": false,
+   "descricao": "Envasado como Rosé Absolut o Body Splash Sunrise Muse (resumo da RNC real)."
+  },
+  "RNC-PA-26264-14": {
+   "numero": "RNC-PA-26264-14",
+   "status": "EM_ANALISE",
+   "classificacao": "MENOR",
+   "origem": "PRODUCAO",
+   "opLote": "26264/14",
+   "qtdEnvolvida": 3,
+   "itemCodigo": "PRF-BIOF-0004",
+   "automatica": true,
+   "conferenciaOpKey": "26264-14"
+  }
+ }
+}

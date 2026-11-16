@@ -11,6 +11,10 @@ alerta vermelho para ADM/PCP/Expedição (`AUDITORIA_CONSISTENCIA_PA_20261113.md
   apontar a certa, o que funciona, mas não deixa o elo registrado. Também não estorna o frasco e o
   rótulo consumidos em dobro. Ponto de partida: `functions/retrabalhos.js` (hoje o retrabalho é "o
   mesmo lote volta à linha") e `ajustarProduzidoOp`.
+  **16/11/2026:** o lado documental existe — aba "Registros de retrabalho" da Qualidade
+  (`shared/registro-retrabalho.js`, callable `registroRetrabalho`, `AUDITORIA_RETRABALHO_26302_01_20261116.md`)
+  registra RNC + etapas + balanço sem efeito operacional; o primeiro caso é este. Continua faltando a
+  transferência de unidades e o estorno de materiais.
 - **Contagem cega na Conferência de PA.** A conferência da 26302/01 (13/11) aceitou uma contagem só,
   idêntica ao apontamento de 3.470, e liberou o palete. Se a tela não mostrasse o apontado antes da
   contagem, ou se OP com RNC-SP aberta exigisse as três contagens, a contagem copiada seria pega.

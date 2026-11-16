@@ -820,6 +820,20 @@ exports.amostraMp = onCall({timeoutSeconds: 30}, async (request) => {
   }
 });
 
+// ── Registro retrospectivo de retrabalho (functions/registro_retrabalho.js, 16/11/2026) ──
+// A Qualidade documenta RNC + etapas + balanço de um retrabalho já executado. Só lê OP/RNC/
+// conferência; só grava registros_retrabalho/ (regras do banco: navegador não grava).
+const servicoRegistroRetrabalho = require("./registro_retrabalho").criarServico({db});
+exports.registroRetrabalho = onCall({timeoutSeconds: 30}, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para registrar o retrabalho.");
+  try {
+    return await servicoRegistroRetrabalho.executar(request.auth.uid, request.data || {});
+  } catch (e) {
+    if (e && e.code && !(e instanceof HttpsError)) throw new HttpsError(e.code, e.message);
+    throw e;
+  }
+});
+
 // ── Compras: rascunho de cotação por e-mail (Fase 4) ───────────────────
 // Chamada pelo botão "Solicitar Cotação" em compras.html. Cria um RASCUNHO
 // (POST /messages, sem /send) na caixa da Kuryos -- nunca envia sozinho, é

@@ -5,6 +5,10 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude (sessão `registro-retrabalho-26302`) — Registro retrospectivo RNC + retrabalho + envase do lote 26302/01 (16/11/2026)
+
+- **Código concluído em `hostinger-deploy`** (`PROMPT_RNC_RETRABALHO_26302_01.md`, auditoria `AUDITORIA_RETRABALHO_26302_01_20261116.md`). Aba "♻️ Registros de retrabalho" em `qualidade.html`, motor `shared/registro-retrabalho.js` (cópia `functions/registro_retrabalho_motor.js`), callable `registroRetrabalho` (`functions/registro_retrabalho.js`, só grava `registros_retrabalho*`), regra nova em `database.rules.json` (bloco próprio, fora de `ops`). Em `functions/index.js` entrou só o bloco da callable; as mudanças do Codex (`chamados`) não foram commitadas. Testes: motor/serviço/não interferência 11, emulador 4, UI Chrome 8; regressão Qualidade OK. Achados: RNC-2026-011 já era a RNC do caso (lote digitado "26266/14"); granel Rose da 26302/01 (130 kg ≈ 704 un.) não sustenta 1.460 Rose. **Pendente (Marlos):** publicar regras + deploy da VPS; decidir palete GAL-1-3-1 (3.470 no sistema × 1.460 físico) antes do despacho. Arquivos ativos: nenhum.
+
 ### Claude (sessão `ativos-integracao`) — Manutenção › Ativos ligada a Cadastros, Compras e Logística (16/11/2026)
 
 - **Em andamento.** Escopo: fornecedores do ativo (fabricante e assistência técnica) escolhidos do cadastro;

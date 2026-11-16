@@ -10,6 +10,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-functions-compat.js"></script>
   <script src="shared/utils.js"></script>
   <script src="shared/pendencias-setor.js"></script><script src="shared/pendencias-setor-ui.js"></script>
   <script src="shared/anexos.js"></script>
@@ -20,6 +21,7 @@
   <script src="shared/inspecao-pa.js"></script>
   <script src="shared/laudo-pa-lote.js"></script>
   <script src="shared/retrabalho-op.js"></script>
+  <script src="shared/registro-retrabalho.js"></script>
   <script src="shared/inspecao-total-pa.js"></script>
   <script src="shared/campo-decimal.js"></script><script src="shared/spec-material.js"></script><script src="shared/analise-granel.js"></script>
   <script src="shared/inspecao-embalagem.js"></script>
@@ -180,6 +182,20 @@
     .rnc-campo b{color:var(--muted);font-weight:600}
     .barra{height:8px;border-radius:4px;background:var(--tint-gray-bg);overflow:hidden;min-width:70px}
     .barra-fill{height:100%;border-radius:4px}
+    /* Registros de retrabalho (shared/registro-retrabalho-tela.js, 16/11/2026) */
+    .rr-aviso{background:var(--tint-blue-bg);color:var(--text);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px}
+    .rr-grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 12px}
+    .rr-grid5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0 10px}
+    .rr-bal{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;font-size:14px;margin-bottom:12px}
+    .rr-dif{padding:4px 10px;border-radius:8px}
+    .rr-dif.ok{background:var(--tint-green-bg,#e7f6ec);color:var(--success)}
+    .rr-dif.erro{background:var(--tint-red-bg);color:var(--tint-red-fg,var(--danger))}
+    .rr-etapa .card-header{display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .rr-pend{margin:10px 0;color:var(--danger);font-size:13px}
+    .rr-acoes{display:flex;gap:10px;justify-content:flex-end;margin:12px 0}
+    .rr-sel td{background:var(--surface-2)}
+    .rr-hist{margin:8px 0 24px}
+    @media(max-width:800px){.rr-grid4,.rr-grid5{grid-template-columns:1fr 1fr}}
   </style>
 </head>
 <body class="kuryos-theme has-sidebar" data-kuryos-operational="">
@@ -194,6 +210,7 @@
 <div class="tabs" id="mainTabsQualidade" data-ui="tabs">
   <button class="tab active" data-tab="fila" data-ui="tab">🔬 Fila de Inspeção</button>
   <button class="tab" data-tab="rnc" data-ui="tab">⚠️ Não Conformidades</button>
+  <button class="tab" data-tab="registros" data-ui="tab">♻️ Registros de retrabalho</button>
   <button class="tab" data-tab="fornecedores" data-ui="tab">🏭 Desempenho de Fornecedor</button>
   <button class="tab" data-tab="especificacoes" data-ui="tab">📋 Especificações</button>
 </div>
@@ -372,6 +389,23 @@
         </table>
       </div>
     </div>
+  </div>
+
+  <!-- ════════════════ REGISTROS DE RETRABALHO (16/11/2026) ════════════════ -->
+  <div class="tab-panel" id="tab-registros">
+    <div class="section-note">
+      Documenta, etapa por etapa, um retrabalho <b>já executado</b>: a RNC, a identificação e segregação,
+      o retrabalho e o envase de retrabalho, com o balanço de quantidades. <b>É só registro</b>: não muda
+      OP, pedido, estoque, palete, conferência nem expedição. O caso só fecha quando origem = destinos + perdas.
+    </div>
+    <div class="kt-toolbar" data-ui="filters" style="justify-content:flex-end">
+      <button class="btn btn-primary" id="rrNovo" style="display:none">+ Novo registro</button>
+    </div>
+    <div class="card" data-ui="surface">
+      <div class="card-header" data-ui="surface-head"><h3>Registros</h3></div>
+      <div id="rrLista"><div class="no-data">Carregando...</div></div>
+    </div>
+    <div id="rrDetalhe"></div>
   </div>
 
   <!-- ════════════════ DESEMPENHO DE FORNECEDOR ════════════════ -->
@@ -1203,7 +1237,7 @@ function diasDesde(iso) {
 /* ══════════════ Tabs ══════════════ */
 // Mesmo padrão de estoque.html: whitelist + ?tab= pra permitir link direto
 // de outra tela (a aba de Qualidade que saiu de estoque.html aponta pra cá).
-var ABAS_QUALIDADE = { fila: 1, rnc: 1, fornecedores: 1, especificacoes: 1 };
+var ABAS_QUALIDADE = { fila: 1, rnc: 1, registros: 1, fornecedores: 1, especificacoes: 1 };
 function ativarAbaQualidade(target, pushUrl) {
   if (!ABAS_QUALIDADE[target]) return;
   document.querySelectorAll('#mainTabsQualidade .tab').forEach(function(t) { t.classList.toggle('active', t.getAttribute('data-tab') === target); });
@@ -4581,6 +4615,33 @@ document.addEventListener('keydown', function(ev) {
      Filho DIRETO do body: a regra de impressao esconde `body > *` que nao
      seja esta div. -->
 <div id="laudoPrintArea"></div>
+
+<!-- Abrir registro retrospectivo de retrabalho (shared/registro-retrabalho-tela.js) -->
+<div class="modal-bg" id="rrNovoBg">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header" data-ui="dialog-head"><h2>Novo registro de retrabalho</h2><button class="modal-close" id="rrNovoClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
+      <div class="form-group"><label for="rrNovoRnc">RNC do caso</label><select id="rrNovoRnc"></select></div>
+      <div class="form-grid">
+        <div class="form-group"><label for="rrNovoOrigem">Lote de origem (OP)</label><input id="rrNovoOrigem" placeholder="ex.: 26302/01"></div>
+        <div class="form-group"><label for="rrNovoQtd">Unidades de origem</label><input id="rrNovoQtd" type="number" min="0" step="1"></div>
+      </div>
+      <div class="field-hint" id="rrNovoInfo" style="margin:-6px 0 10px"></div>
+      <div id="rrNovoDestinos"></div>
+      <button type="button" class="btn btn-ghost btn-sm" id="rrNovoAddDest">+ Lote de destino</button>
+      <div class="form-grid" style="margin-top:10px">
+        <div class="form-group"><label for="rrNovoRel">RNCs relacionadas</label><input id="rrNovoRel" placeholder="ex.: RNC-PA-26264-14"></div>
+        <div class="form-group"><label for="rrNovoData">Ocorrida em</label><input id="rrNovoData" type="date"></div>
+      </div>
+      <div class="form-group"><label for="rrNovoDesc">Descrição</label><textarea id="rrNovoDesc" rows="3"></textarea></div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:10px;justify-content:flex-end;padding:12px 18px">
+      <button class="btn btn-ghost" id="rrNovoCancelar">Cancelar</button>
+      <button class="btn btn-primary" id="rrNovoSalvar">Abrir registro</button>
+    </div>
+  </div>
+</div>
+<script src="shared/registro-retrabalho-tela.js"></script>
 
 </body>
 </html>
