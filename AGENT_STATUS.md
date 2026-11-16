@@ -27,9 +27,7 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   **Pendente (Marlos):**
   - deploy da VPS;
   - contar o palete GAL-1-3-1 (3.470 Rose da 26302/01, liberado hoje às 16:37 com uma contagem só);
-  - autorizar o push do redirecionamento da Vercel: commit pronto no worktree
-    `../PCP-Kuryos-vercel-redirect`, branch `vercel/redirecionar-vps`, sem commit; o push no `main`
-    foi bloqueado pela permissão.
+  - Vercel legada resolvida em 16/11: `origin/main` `9067939`/`9d34759` redireciona todas as rotas (307, inclusive a raiz) para `kuryoserp.com.br`; conferido com curl. Rollback = reverter esses commits. O servidor antigo no Render segue no ar (desligar no painel).
 
   Arquivos ativos: nenhum.
 
