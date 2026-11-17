@@ -17,12 +17,79 @@ const ATIVAS = ['AGENDADO', 'EXPEDIDO_PARCIAL'];
 function ativa(agenda) { return !!agenda && ATIVAS.includes(agenda.status); }
 function pendente(p) { return Math.max(Number(p.quantidade || 0) - Number(p.embarcado || 0), 0); }
 function paletesPendentes(agenda) { return ((agenda && agenda.paletes) || []).filter(p => pendente(p) > 0); }
+/* ── Editar os paletes de uma carga agendada (16/11/2026) ─────────────
+   Pedido do Gustavo e do Vicenzo: "vamos ter que remontar para atender o
+   frete do cliente" -- reordenar e remontar paletes e cargas como um CRUD.
+   Até aqui a composição da carga era fixa: para mudar, só cancelando.
+   Regras (as mesmas do agendamento, para cada palete NOVO):
+   - só carga que ainda não saiu (AGENDADO, sem viagem) e sem NF emitida;
+   - com faturamento SOLICITADO, a solicitação fica marcada como
+     desatualizada: o Financeiro precisa de uma nova (o servidor recusa a NF);
+   - mesmo cliente, destino e CIF/FOB; palete liberado e fora de outra carga;
+   - nada se apaga: antes/depois e o motivo ficam no histórico da carga. */
+function editarPaletesAgenda(base, dados, autor, agora, anterior) {
+  if (!anterior) falhar('Agendamento não encontrado.', 'not-found');
+  if (anterior.status !== 'AGENDADO' || Object.keys(anterior.viagens || {}).length)
+    falhar('Parte desta carga já saiu: a composição não muda mais. O saldo segue na próxima viagem.');
+  const fat = JSON.parse(JSON.stringify(anterior.faturamento || {}));
+  if (fat.status === 'FATURADO')
+    falhar('Carga já faturada: a NF foi emitida com estes paletes. Trate a NF com o Financeiro (cancelar ou complementar) antes de mudar a composição.');
+  const motivo = texto(dados.motivo, 500);
+  if (motivo.length < 5) falhar('Informe o motivo da mudança na carga (ex.: remontada para o frete do cliente).', 'invalid-argument');
+  const paletes = dados.paletes;
+  if (!Array.isArray(paletes) || paletes.length < 1 || paletes.length > 100) falhar('A carga precisa de 1 a 100 paletes.', 'invalid-argument');
+  const hoje = new Date(agora).toLocaleDateString('en-CA', {timeZone: 'America/Sao_Paulo'});
+  const antes = {};
+  (anterior.paletes || []).forEach(p => { antes[p.itemKey + '/' + p.loteKey] = p; });
+  const vistos = new Set(), analisadas = [], pedidos = {};
+  let cliente = anterior.cliente, clienteKey = anterior.clienteKey;
+  const lista = paletes.map(p => {
+    if (!p || !chave(p.loteKey) || typeof p.itemKey !== 'string' || !p.itemKey || /[.#$[\]/]/.test(p.itemKey)) falhar('Referência do palete inválida.', 'invalid-argument');
+    const ref = p.itemKey + '/' + p.loteKey;
+    if (vistos.has(ref)) falhar('Palete duplicado na carga.', 'invalid-argument');
+    vistos.add(ref);
+    const l = analisar(base, p.itemKey, p.loteKey, hoje);
+    const id = (l.lote && l.lote.identificadorPalete) || p.loteKey;
+    if (!l.disponivel) falhar(id + ': ' + l.motivo);
+    const ja = antes[ref];
+    if (!ja) {
+      if (Number(p.quantidade) !== Number(l.lote.saldoLote) || p.enderecoKey !== l.lote.enderecoKey || p.skuPedidoKey !== l.skuPedidoKey)
+        falhar('O palete ' + id + ' mudou. Atualize a tela antes de salvar a carga.');
+      if (!mesmoCliente({cliente, clienteKey}, l)) falhar(mensagemOutroCliente({cliente}, l));
+      if (l.frete.tipo && (l.frete.tipo === 'FOB' ? 'COLETA' : 'ENTREGA') !== anterior.tipo) falhar(mensagemFrete(l, anterior.tipo));
+    }
+    analisadas.push(l);
+    pedidos[l.pedidoId] = l.pedidoNumero;
+    return {itemKey: p.itemKey, loteKey: p.loteKey, quantidade: Number(l.lote.saldoLote), enderecoKey: l.lote.enderecoKey,
+      skuPedidoKey: l.skuPedidoKey, identificadorPalete: l.lote.identificadorPalete, sku: l.lote.itemCodigo,
+      descricao: l.lote.itemNome || '', pedidoId: l.pedidoId, pedidoNumero: l.pedidoNumero};
+  });
+  const d = destinoDaCarga(analisadas);
+  if (d.conflito) falhar(d.conflito);
+  for (const [k, agenda] of Object.entries(base.agendamentos_expedicao || {})) {
+    if (k === dados.agendaKey || !ativa(agenda)) continue;
+    const preso = paletesPendentes(agenda).find(p => vistos.has(p.itemKey + '/' + p.loteKey));
+    if (preso) falhar('O palete ' + (preso.identificadorPalete || preso.loteKey) + ' já está na carga de ' + (agenda.cliente || 'outro cliente') +
+      (agenda.dataAgendada ? ' agendada para ' + String(agenda.dataAgendada).split('-').reverse().join('/') : '') + '. Tire-o daquela carga antes.');
+  }
+  const resumo = ps => ps.map(p => ({ref: p.itemKey + '/' + p.loteKey, palete: p.identificadorPalete || p.loteKey, sku: p.sku || '', quantidade: Number(p.quantidade) || 0}));
+  const revisao = anterior.revisao + 1;
+  const historico = {...(anterior.historico || {})};
+  historico['r' + revisao] = {em: agora, por: autor, acao: 'EDITAR_PALETES', motivo, antes: resumo(anterior.paletes || []), depois: resumo(lista)};
+  if (fat.status === 'SOLICITADO') fat.desatualizada = {em: agora, por: autor, motivo: 'Paletes da carga alterados depois da solicitação: ' + motivo};
+  return {...anterior, paletes: lista, pedidos, enderecoEntrega: d.endereco || anterior.enderecoEntrega || '',
+    pedidosSemEndereco: d.semEndereco.length ? d.semEndereco : null, revisao, historico,
+    faturamento: Object.keys(fat).length ? fat : (anterior.faturamento || null),
+    atualizadoEm: agora, atualizadoPor: autor};
+}
+
 function prepararAgenda(base, dados, autor, uid, agora) {
   if (!chave(dados.agendaKey)) falhar('Identificador do agendamento inválido.', 'invalid-argument');
   const anterior = (base.agendamentos_expedicao || {})[dados.agendaKey];
   if (anterior && !ativa(anterior)) falhar('Esta agenda já foi encerrada.');
   if (anterior && Number(dados.revisao) !== anterior.revisao) falhar('O agendamento mudou em outra tela. Reabra antes de salvar.', 'aborted');
   if (!anterior && Number(dados.revisao || 0) !== 0) falhar('Agendamento não encontrado.', 'not-found');
+  if (dados.editarPaletes) return editarPaletesAgenda(base, dados, autor, agora, anterior);
   if (dados.cancelar) {
     if (!anterior) falhar('Agendamento não encontrado.', 'not-found');
     if (texto(dados.motivo).length < 5) falhar('Informe o motivo do cancelamento.');

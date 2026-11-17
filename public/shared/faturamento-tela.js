@@ -54,6 +54,8 @@
     var f = a.faturamento || {}, sol = CargasPA.ultimaSolicitacao(a);
     if (!sol) return '';
     var em = sol.email || {};
+    if (f.desatualizada) return '<div class="aviso-rnc">⚠ Os paletes desta carga mudaram depois da solicitação (' + e(f.desatualizada.por || '') + ', ' + dataBR(f.desatualizada.em) +
+      '). Solicite o faturamento de novo: a NF só é registrada sobre a composição atual.</div>';
     return '<div class="sub">Solicitado em ' + dataBR(sol.em) + ' por ' + e(sol.por) + (sol.observacoes ? ' · "' + e(sol.observacoes) + '"' : '') +
       (em.status ? ' · <span' + (em.status === 'ENVIADO' ? '' : ' style="color:#b42318"') + '>' + e(EMAIL[em.status] || em.status) + '</span>' : '') +
       (em.status === 'ENVIADO' && em.para ? ' para ' + e([].concat(em.para).join(', ')) : '') +

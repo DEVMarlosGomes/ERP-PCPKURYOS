@@ -23,7 +23,10 @@ eq(C.etapa(com({status: 'CANCELADO'})).codigo, 'CANCELADA');
 eq(C.etapa(com({faturamento: {status: 'FATURADO'}})).codigo, 'AGENDADA', 'FATURADO sem NF não conta como faturada');
 
 // 2. Ações: saída só com NF; cancelar só antes de faturar.
-eq(C.acoes(base), {solicitarFaturamento: true, registrarNf: true, carregar: false, editarTransporte: true, cancelar: true});
+eq(C.acoes(base), {solicitarFaturamento: true, registrarNf: true, carregar: false, editarTransporte: true, editarPaletes: true, cancelar: true});
+// Editar paletes (16/11/2026): só antes de sair e sem NF.
+eq(C.acoes(com({status: 'EXPEDIDO_PARCIAL'})).editarPaletes, false);
+eq(C.acoes(com({faturamento: {status: 'FATURADO'}})).editarPaletes, false);
 eq(C.acoes(faturada).carregar, true);
 eq(C.acoes(faturada).cancelar, false, 'faturada não cancela');
 eq(C.acoes(faturada).solicitarFaturamento, false);

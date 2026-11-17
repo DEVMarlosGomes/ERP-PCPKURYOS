@@ -63,8 +63,11 @@
     return {
       // Faturamento: carga que ainda não saiu. Carga já faturada aceita outra
       // NF (por pedido, por exemplo), como o servidor já permite.
-      solicitarFaturamento: e === 'AGENDADA',
-      registrarNf: e === 'AGENDADA' || e === 'FATURAMENTO_SOLICITADO' || e === 'FATURADA' || e === 'AGUARDANDO_EMBARQUE',
+      // Paletes mudaram depois da solicitação (editar carga, 16/11/2026): pede de novo; a NF espera.
+      solicitarFaturamento: e === 'AGENDADA' || (e === 'FATURAMENTO_SOLICITADO' && !!f.desatualizada),
+      registrarNf: !f.desatualizada && (e === 'AGENDADA' || e === 'FATURAMENTO_SOLICITADO' || e === 'FATURADA' || e === 'AGUARDANDO_EMBARQUE'),
+      // Composição da carga: só antes de sair e sem NF emitida (o servidor confere de novo).
+      editarPaletes: !!a && a.status === 'AGENDADO' && !Object.keys(a.viagens || {}).length && f.status !== 'FATURADO',
       // Saída física só com NF: a carga não roda sem nota (usuário, 29/09:
       // "uma vez agendada a carga, ele vai para a página de faturamento").
       carregar: e === 'FATURADA' || e === 'AGUARDANDO_EMBARQUE',

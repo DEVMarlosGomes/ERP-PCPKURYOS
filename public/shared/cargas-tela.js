@@ -141,6 +141,70 @@
       '<button class="btn" id="confirmarSaida"' + ((ocupado || mudou || !ls.length) && !tentativa ? ' disabled' : '') + '>' + (ocupado ? 'Processando…' : tentativa ? 'Verificar / repetir confirmação' : 'Confirmar saída física') + '</button></div></div>';
   }
 
+  /* ── Editar os paletes da carga (16/11/2026) ─────────────────────────
+     "Remontar carga, editar como um CRUD": tirar e pôr paletes numa carga
+     agendada, sem cancelar. O servidor (salvarAgendamentoExpedicaoPA,
+     editarPaletes) confere tudo de novo e guarda antes/depois e o motivo. */
+  function livresParaCarga(a) {
+    if (!window.ExpedicaoPA) return [];
+    var naCarga = {};
+    (a.paletes || []).forEach(function(p) { naCarga[p.itemKey + '/' + p.loteKey] = true; });
+    return ExpedicaoPA.listar(base, hoje()).filter(function(l) {
+      var k = idLinha(l);
+      if (naCarga[k] || !l.disponivel) return false;
+      var outra = Object.keys(agendas).some(function(x) { return x !== a._key && CargasPA.ativa(agendas[x]) && (agendas[x].paletes || []).some(function(p) { return p.itemKey + '/' + p.loteKey === k && CargasPA.pendente(p) > 0; }); });
+      if (outra) return false;
+      return ExpedicaoGrade.compativel({cliente: a.cliente, clienteKey: a.clienteKey, frete: {tipo: a.tipo === 'COLETA' ? 'FOB' : 'CIF', enderecoEntrega: a.enderecoEntrega}}, l);
+    });
+  }
+  function painelPaletesHTML(a) {
+    var sel = painel.paletes, livres = livresParaCarga(a);
+    var linha = function(k, lote, dentro, extra) {
+      var c = ExpedicaoGrade.resumoCarga([{itemKey: k.split('/')[0], loteKey: k.split('/')[1], quantidade: Number(lote.saldoLote)}], base);
+      return '<tr><td><input type="checkbox" data-palete-carga="' + e(k) + '"' + (sel[k] ? ' checked' : '') + (ocupado ? ' disabled' : '') + ' aria-label="' + (dentro ? 'Manter ' : 'Incluir ') + e(lote.identificadorPalete || k) + '"></td>' +
+        '<td>' + e(lote.identificadorPalete || k) + (extra || '') + '</td><td><b>' + e(lote.itemCodigo || '') + '</b> ' + e(lote.itemNome || '') + '</td><td>' + e(lote.opLote || lote.loteOrigem || '—') + '</td>' +
+        '<td class="num">' + num(lote.saldoLote) + '<div class="sub">' + e(c.texto) + '</div></td><td>' + e(lote.enderecoCodigo || '—') + '</td></tr>';
+    };
+    var atuais = (a.paletes || []).map(function(p) {
+      var k = p.itemKey + '/' + p.loteKey, lote = ((base.estoque_lotes || {})[p.itemKey] || {})[p.loteKey] || {identificadorPalete: p.identificadorPalete, itemCodigo: p.sku, itemNome: p.descricao, saldoLote: p.quantidade};
+      return linha(k, lote, true, avisoRncHTML(rncsDoItem(p)));
+    }).join('');
+    var novos = livres.map(function(l) { return linha(idLinha(l), l.lote, false, avisoRncHTML(rncsDoItem({itemKey: l.itemKey, loteKey: l.loteKey}))); }).join('');
+    var escolhidos = Object.keys(sel).filter(function(k) { return sel[k]; }).map(function(k) { var x = k.split('/'); return {itemKey: x[0], loteKey: x[1]}; });
+    var rc = ExpedicaoGrade.resumoCarga(escolhidos.map(function(r) { var l = ((base.estoque_lotes || {})[r.itemKey] || {})[r.loteKey] || {}; return {itemKey: r.itemKey, loteKey: r.loteKey, quantidade: Number(l.saldoLote)}; }), base);
+    var fat = a.faturamento || {};
+    return '<div class="carga-form" data-painel="PALETES"><h3>Paletes da carga</h3>' +
+      (a.revisao !== painel.revisao ? '<div class="notice error">A carga mudou em outra tela. Feche e abra de novo para editar a versão atual.</div>' : '') +
+      (fat.status === 'SOLICITADO' ? '<div class="notice">O faturamento já foi solicitado: ao salvar, a solicitação fica desatualizada e a Expedição precisa solicitar de novo antes da NF.</div>' : '') +
+      '<p class="sub">Desmarque para tirar da carga; marque um palete livre do mesmo cliente para incluir. Para dividir caixas entre paletes, use <a href="expedicao.html">Montar carga › Remontar</a> (palete fora de carga).</p>' +
+      '<div class="table-wrap"><table class="carga-itens"><thead><tr><th></th><th>Palete</th><th>Produto</th><th>Lote</th><th class="num">Unidades</th><th>Endereço</th></tr></thead><tbody>' +
+      '<tr><td colspan="6" class="sub"><b>Na carga</b></td></tr>' + atuais +
+      '<tr><td colspan="6" class="sub"><b>Livres do mesmo cliente</b>' + (livres.length ? '' : ' — nenhum') + '</td></tr>' + novos +
+      '</tbody></table></div>' +
+      '<div class="carga-volumes"><b>Ficará:</b> ' + num(escolhidos.length) + ' palete(s) · ' + e(rc.texto) + ' · ' + e(ExpedicaoGrade.textoPesoKg(rc)) + '</div>' +
+      '<label for="p_motivo">Motivo da mudança</label><input id="p_motivo" data-campo="motivo" maxlength="500" value="' + e(painel.valores.motivo || '') + '" placeholder="Ex.: remontada para o frete do cliente (rota PF)"' + (ocupado ? ' disabled' : '') + '>' +
+      (painel.erro ? '<p class="carga-erro">' + e(painel.erro) + '</p>' : '') +
+      '<div class="carga-acoes"><button class="btn ghost" data-fechar-painel>Fechar</button><button class="btn" id="salvarPaletes"' + (ocupado || a.revisao !== painel.revisao || !escolhidos.length ? ' disabled' : '') + '>Salvar paletes da carga</button></div></div>';
+  }
+  async function salvarPaletes() {
+    if (ocupado || !painel) return;
+    var a = agendas[painel.key];
+    var escolhidos = Object.keys(painel.paletes).filter(function(k) { return painel.paletes[k]; });
+    if (!escolhidos.length) { painel.erro = 'A carga precisa de ao menos um palete. Para desfazer a carga, use Cancelar carga.'; return render(); }
+    if (String(painel.valores.motivo || '').trim().length < 5) { painel.erro = 'Informe o motivo da mudança.'; return render(); }
+    var paletes = escolhidos.map(function(k) {
+      var x = k.split('/'), l = ((base.estoque_lotes || {})[x[0]] || {})[x[1]] || {};
+      var linha = (window.ExpedicaoPA ? ExpedicaoPA.listar(base, hoje()) : []).find(function(y) { return idLinha(y) === k; });
+      return {itemKey: x[0], loteKey: x[1], quantidade: Number(l.saldoLote), enderecoKey: l.enderecoKey, skuPedidoKey: linha ? linha.skuPedidoKey : l.skuPedidoKey};
+    });
+    ocupado = true; render();
+    try {
+      await fn.httpsCallable('salvarAgendamentoExpedicaoPA')({agendaKey: painel.key, revisao: painel.revisao, editarPaletes: true, motivo: String(painel.valores.motivo).trim(), paletes: paletes});
+      painel = null; aviso('Paletes da carga atualizados. A mudança ficou na linha do tempo da carga.');
+    } catch (err) { if (painel) painel.erro = err.message || 'Não foi possível salvar. Feche e abra de novo para conferir a carga atual.'; }
+    finally { ocupado = false; render(); }
+  }
+
   function painelTransporteHTML(a) {
     var v = painel.valores, bloqueado = ocupado;
     var campo = function(id, rot, tipo) {
@@ -221,9 +285,10 @@
         (ac.carregar ? '<button class="btn" data-acao="CARREGAR" data-k="' + e(k) + '">' + (et.codigo === 'AGUARDANDO_EMBARQUE' ? 'Carregar o saldo (próxima viagem)' : 'Carregar e confirmar saída') + '</button>' : '') +
         (!ac.carregar && CargasPA.ativa(a) ? '<button class="btn" disabled title="Registre a NF no Faturamento">Carregar (aguardando NF)</button>' : '') +
         (ac.editarTransporte ? '<button class="btn ghost" data-acao="TRANSPORTE" data-k="' + e(k) + '">Transporte</button>' : '') +
+        (ac.editarPaletes ? '<button class="btn ghost" data-acao="PALETES" data-k="' + e(k) + '" title="Tirar ou incluir paletes nesta carga, sem cancelar">Editar paletes</button>' : '') +
         (ac.cancelar ? '<button class="btn ghost" data-acao="CANCELAR" data-k="' + e(k) + '">Cancelar carga</button>' : '') +
       '</div>') +
-      (painelAqui ? (painel.tipo === 'CARREGAR' ? painelCarregarHTML(a) : painelTransporteHTML(a)) : '') +
+      (painelAqui ? (painel.tipo === 'CARREGAR' ? painelCarregarHTML(a) : painel.tipo === 'PALETES' ? painelPaletesHTML(a) : painelTransporteHTML(a)) : '') +
       '</article>';
   }
 
@@ -281,6 +346,8 @@
     var bs = el('confirmarSaida'); if (bs) bs.onclick = confirmarSaida;
     var bd = el('descartarTentativa'); if (bd) bd.onclick = descartarTentativa;
     var bt = el('salvarTransporte'); if (bt) bt.onclick = salvarTransporte;
+    var bp = el('salvarPaletes'); if (bp) bp.onclick = salvarPaletes;
+    box.querySelectorAll('[data-palete-carga]').forEach(function(x) { x.onchange = function() { painel.paletes[x.dataset.paleteCarga] = x.checked; painel.erro = ''; render(); }; });
   }
 
   function acao(tipo, k) {
@@ -293,6 +360,10 @@
       ? {data: hoje(), transportadora: a.transportadora || '', motorista: a.motorista || '', contatoMotorista: a.contatoMotorista || '', placa: a.placa || '', observacoes: a.observacoes || ''}
       : {dataAgendada: a.dataAgendada || '', janela: a.janela || '', transportadora: a.transportadora || '', motorista: a.motorista || '', contatoMotorista: a.contatoMotorista || '', placa: a.placa || '', observacoes: a.observacoes || ''};
     painel = {key: k, tipo: tipo, revisao: a.revisao, valores: valores, carregamento: {}, selecionados: {}, faltas: [], contato: undefined, erro: ''};
+    if (tipo === 'PALETES') {
+      painel.valores = {motivo: ''}; painel.paletes = {};
+      (a.paletes || []).forEach(function(p) { painel.paletes[p.itemKey + '/' + p.loteKey] = true; });
+    }
     if (tipo === 'CARREGAR') {
       if (tentativa) { painel.valores = Object.assign(painel.valores, {data: tentativa.data}); painel.revisao = tentativa.agendaRevisao; (tentativa.paletes || []).forEach(function(p) { if (p.carregar) painel.carregamento[p.itemKey + '/' + p.loteKey] = p.carregar; }); }
       var s = montarSelecao(a); painel.selecionados = s.selecionados; painel.faltas = s.faltas;

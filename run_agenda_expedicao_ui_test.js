@@ -50,6 +50,32 @@ const agora='2026-09-11T18:00:00Z';
     await page.waitForFunction(()=>document.querySelectorAll('#paletes tr [data-palete]').length===2);
     assert.match(await page.locator('#paletes').innerText(),/12 cx × 24/);
     assert.equal(await page.locator('#paletes .partial').count(),2,'Caixa parcial fica na linha do próprio palete');
+    // ── Remontar palete (16/11/2026): modal com validação ao vivo, sem gravar ──
+    await page.locator('[data-remontar="PA001/pa_op1_p1"]').click();
+    await page.waitForSelector('.rm-fundo');
+    assert.match(await page.locator('.rm-fundo').innerText(),/12 cx × 24 \+ 1 parcial de 7 un = 295 un/);
+    await page.fill('#rmCaixas','13');
+    assert.match(await page.locator('#rmMsg').innerText(),/só 12 caixa/,'não tira mais caixas do que o palete tem');
+    await page.fill('#rmCaixas','5');
+    assert.match(await page.locator('#rmMsg').innerText(),/Move 120 un \(5 cx\) para PA-26254-01-P\d+ \(palete novo\)\. Fica no original: 7 cx \+ parcial = 175 un/);
+    await page.locator('[name="rmDest"][value="REGISTRO"]').check();
+    assert.match(await page.locator('#rmMsg').innerText(),/para PA-SO-PARCIAL/,'palete existente como destino');
+    await page.click('#rmFechar');
+    assert.equal(await page.locator('.rm-fundo').count(),0);
+    // ── Plano por rota: caixas por produto e rota, sobra e paletes ──
+    await page.selectOption('#filtroCliente',{label:'Cliente A'});
+    await page.click('#planoRotasAbrir');
+    await page.waitForSelector('[data-rota="0"][data-sku="PA001"]');
+    assert.match(await page.locator('#planoRotasCorpo').innerText(),/PA001[\s\S]*12/,'caixas livres do cliente');
+    await page.fill('[data-rota="0"][data-sku="PA001"]','5');
+    await page.fill('[data-rota="1"][data-sku="PA001"]','4');
+    assert.match(await page.locator('#planoRotasCorpo tbody tr').first().innerText(),/\b3$/,'sobra 12 − 9 = 3');
+    await page.click('#rotaCalcular');
+    const res=await page.locator('#rotaResultado').innerText();
+    assert.match(res,/Rota PF · 5 cx/); assert.match(res,/Tirar caixas: 5 cx de PA-26254-01-P1 → R-PF-PA001/);
+    assert.match(res,/Rota GVT · 4 cx/); assert.match(res,/Executar as 2 transferência/);
+    await page.click('#planoRotasAbrir');
+    await page.selectOption('#filtroCliente','');
     await page.locator('[data-palete="PA001/pa_op1_p1"]').check();await page.locator('[data-palete="PA001/parcial"]').check();
     assert.match(await page.locator('#selecaoResumo').innerText(),/302 un.*12 cx \+ 2 cx parciais \(14 un\) = 14 volumes/);
     assert.equal(await page.locator('#contatoClienteCarga [data-valor=nome]').inputValue(),'Ana Recebimento');
@@ -91,6 +117,27 @@ const agora='2026-09-11T18:00:00Z';
     state.nao_conformidades={'RNC-CS-26254-01':{numero:'RNC-CS-26254-01',automatica:true,categoria:'CONSISTENCIA',status:'ABERTA',opKey:'op1',opLote:'26254/01'}};await notificar();
     await cargasPage.waitForFunction(()=>/RNC de consistência aberta \(RNC-CS-26254-01\)/.test(document.getElementById('listaCargas').innerText),null,{timeout:5000});
     state.nao_conformidades={};await notificar();
+    // ── Editar os paletes da carga (16/11/2026): tira o palete parcial, com motivo ──
+    await card.locator('[data-acao="PALETES"]').click();
+    await cargasPage.waitForSelector('[data-painel="PALETES"]');
+    assert.equal(await cargasPage.locator('[data-palete-carga]:checked').count(),2,'os dois paletes da carga vêm marcados');
+    await cargasPage.locator('[data-palete-carga="PA001/parcial"]').uncheck();
+    assert.match(await cargasPage.locator('[data-painel="PALETES"]').innerText(),/Ficará: 1 palete\(s\) · 12 cx \+ 1 cx parcial \(7 un\)/);
+    await cargasPage.click('#salvarPaletes');
+    assert.match(await cargasPage.locator('[data-painel="PALETES"] .carga-erro').innerText(),/motivo/);
+    await cargasPage.fill('#p_motivo','Remontada para o frete do cliente');
+    await cargasPage.click('#salvarPaletes');
+    await cargasPage.waitForFunction(()=>/Paletes da carga atualizados/.test(document.getElementById('resultado').innerText));
+    assert.deepEqual(state.agendamentos_expedicao[agendaKey].paletes.map(p=>p.loteKey),['pa_op1_p1'],'servidor real gravou a nova composição');
+    const hist=Object.values(state.agendamentos_expedicao[agendaKey].historico).find(h=>h.acao==='EDITAR_PALETES');
+    assert.equal(hist.motivo,'Remontada para o frete do cliente'); assert.equal(hist.antes.length,2); assert.equal(hist.depois.length,1);
+    // Inclui de volta: o palete livre do mesmo cliente aparece para marcar.
+    await card.locator('[data-acao="PALETES"]').click();
+    await cargasPage.locator('[data-palete-carga="PA001/parcial"]').check();
+    await cargasPage.fill('#p_motivo','Volta o palete parcial');
+    await cargasPage.click('#salvarPaletes');
+    await cargasPage.waitForFunction(()=>/Paletes da carga atualizados/.test(document.getElementById('resultado').innerText)&&!document.querySelector('[data-painel="PALETES"]'));
+    assert.equal(state.agendamentos_expedicao[agendaKey].paletes.length,2,'palete incluído de volta');
 
     // NF registrada no Faturamento (outra tela) -> a carga libera.
     const f=prepararFaturamento(state,{agendaKey,revisao:state.agendamentos_expedicao[agendaKey].revisao,acao:'REGISTRAR_NF',nf:{numero:'2200',serie:'1',valor:3000,emitidaEm:'2026-09-11'}},'Financeiro','u2',agora);

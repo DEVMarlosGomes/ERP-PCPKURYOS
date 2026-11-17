@@ -101,6 +101,7 @@ function prepararFaturamento(base, dados, autor, uid, agora) {
       itensSemPeso: itens.filter(i => !(i.pesoKg > 0)).length
     };
     fat.status = 'SOLICITADO';
+    delete fat.desatualizada;  // nova solicitação com a composição atual da carga
     fat.solicitadoEm = agora;
     fat.solicitadoPor = autor;
     fat.solicitacoes = {...(fat.solicitacoes || {}), [dados.solicitacaoId]: solicitacao};
@@ -108,6 +109,8 @@ function prepararFaturamento(base, dados, autor, uid, agora) {
     return {agenda: {...agenda, faturamento: fat, revisao, historico, atualizadoEm: agora, atualizadoPor: autor}, solicitacao, repetida: false};
   }
 
+  if (dados.acao === 'REGISTRAR_NF' && fat.desatualizada && fat.status !== 'FATURADO')
+    falhar('Os paletes desta carga mudaram depois da solicitação de faturamento. A Expedição precisa solicitar de novo antes da NF.');
   if (dados.acao === 'REGISTRAR_NF') {
     const nf = dados.nf || {};
     const numero = texto(nf.numero, 30);
