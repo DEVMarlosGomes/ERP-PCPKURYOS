@@ -12,6 +12,11 @@
   var base = {estoque_lotes: {}, produtos: {}};
   var destaque = new URLSearchParams(location.search).get('carga');
   var destaqueRolado = false;
+  // Remontar/desmembrar palete da carga, só ADM (17/11/2026): shared/faturamento-paletes-adm.js.
+  var adm = window.FaturamentoPaletesAdm ? FaturamentoPaletesAdm.tela({
+    agendas: function() { return agendas; }, lotes: function() { return base.estoque_lotes; },
+    aviso: function(h, erro) { aviso(h, erro); }, render: function() { render(); }
+  }) : null;
   function el(id) { return document.getElementById(id); }
   function e(v) { return escapeHtml(String(v == null ? '' : v)); }
   function num(v) { return Number(v || 0).toLocaleString('pt-BR'); }
@@ -36,8 +41,8 @@
     var t = CargasPA.totais(a);
     var rc = ExpedicaoGrade.resumoCarga(a.paletes || [], base);
     return '<div class="carga-volumes"><b>Volumes da NF:</b> ' + e(rc.texto) + ' · <b>Peso total:</b> ' + e(ExpedicaoGrade.textoPesoKg(rc)) + '</div>' +
-      '<table class="carga-itens"><thead><tr><th>Palete</th><th>Produto</th><th>Pedido</th><th>Lote</th><th class="num">Unidades</th><th class="num">Preço un.</th><th class="num">Valor</th></tr></thead><tbody>' + linhas + '</tbody>' +
-      '<tfoot><tr><td colspan="4"><b>Total</b> · ' + e(rc.texto) + ' · ' + e(ExpedicaoGrade.textoPesoKg(rc)) + '</td><td class="num"><b>' + num(t.unidades) + '</b></td><td></td><td class="num"><b>' + (sol && sol.totalValor ? brl(sol.totalValor) : '—') + '</b></td></tr></tfoot></table>' +
+      '<div style="overflow-x:auto"><table class="carga-itens"><thead><tr><th>Palete</th><th>Produto</th><th>Pedido</th><th>Lote</th><th class="num">Unidades</th><th class="num">Preço un.</th><th class="num">Valor</th></tr></thead><tbody>' + linhas + '</tbody>' +
+      '<tfoot><tr><td colspan="4"><b>Total</b> · ' + e(rc.texto) + ' · ' + e(ExpedicaoGrade.textoPesoKg(rc)) + '</td><td class="num"><b>' + num(t.unidades) + '</b></td><td></td><td class="num"><b>' + (sol && sol.totalValor ? brl(sol.totalValor) : '—') + '</b></td></tr></tfoot></table></div>' +
       (!sol ? '<div class="sub">Preços e valores aparecem ao solicitar o faturamento (vêm do pedido).</div>' : sol.itensSemPreco ? '<div class="sub" style="color:#b42318">' + sol.itensSemPreco + ' item(ns) sem preço no pedido.</div>' : '');
   }
 
@@ -113,6 +118,7 @@
       (formAberto && formAberto.key === k ? '' : '<div class="carga-acoes">' +
         (ac.solicitarFaturamento ? '<button class="btn" data-abrir-form="SOLICITAR" data-k="' + e(k) + '">Solicitar faturamento</button>' : '') +
         (ac.registrarNf ? '<button class="btn' + (ac.solicitarFaturamento ? ' ghost' : '') + '" data-abrir-form="REGISTRAR_NF" data-k="' + e(k) + '">' + (CargasPA.faturada(a) ? 'Registrar outra NF' : 'Registrar NF') + '</button>' : '') +
+        (adm ? adm.botoesHTML(a) : '') +
         '<a class="btn ghost" href="cargas.html?carga=' + encodeURIComponent(k) + '">' + (CargasPA.faturada(a) ? 'Ir para o Acompanhamento →' : 'Acompanhar') + '</a>' +
       '</div>') + formHTML(k, a) + '</article>';
   }
@@ -152,6 +158,7 @@
     document.querySelectorAll('[data-form] [data-fechar]').forEach(function(b) { b.onclick = function() { if (!ocupado) { formAberto = null; render(); } }; });
     document.querySelectorAll('[data-form] [data-enviar]').forEach(function(b) { b.onclick = function() { enviar(b.dataset.enviar, b); }; });
     document.querySelectorAll('[data-reenviar]').forEach(function(b) { b.onclick = function() { reenviar(b); }; });
+    if (adm) adm.ligar(el('listaFat'));
   }
 
   async function enviar(acao, botao) {
@@ -192,5 +199,7 @@
   el('filtro').onchange = render;
   el('busca').oninput = render;
   dbOnValue(db.ref('agendamentos_expedicao'), function(s) { agendas = s.val() || {}; render(); });
+  // O botão ADM depende do login, que pode chegar depois dos dados.
+  window.addEventListener('kuryos-auth-pronto', function() { render(); });
   ['estoque_lotes', 'produtos'].forEach(function(no) { dbOnValue(db.ref(no), function(s) { base[no] = s.val() || {}; if (!ocupado) render(); }); });
 })();
