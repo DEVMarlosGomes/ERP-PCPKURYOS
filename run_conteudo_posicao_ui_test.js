@@ -84,7 +84,7 @@ function dados() {
     assert.match(resumo, /2\s*itens no palete/);
     assert.match(resumo, /9\.195 un\s*quantidade/);
     assert.match(resumo, /160\s*volumes/, '158 do palete de PA + 2 do recebimento');
-    assert.match(resumo, /~268,6 kg\s*1 item\(ns\) sem peso/, 'peso aproximado quando falta dado em algum item');
+    assert.match(resumo, /~268,5 kg\s*1 item\(ns\) sem peso/, 'peso aproximado quando falta dado em algum item');
     assert.match(resumo, /2 Quarentena|2 QUARENTENA|2 Em quarentena/i);
     const linhas = await page.locator('#mapaDetalheBody-end tr').allInnerTexts();
     assert.equal(linhas.length, 2);
@@ -92,7 +92,7 @@ function dados() {
     assert.doesNotMatch(mp, /fornecedor: NA/, '"NA" é lote não informado, não aparece como lote do fornecedor');
     assert.match(mp, /AK-2026-000577[\s\S]*LOMAR PACK · NF 18413[\s\S]*entrada 14\/09\/2026[\s\S]*2 volumes[\s\S]*7\.300 un[\s\S]*sem peso unitário no cadastro/);
     assert.match(mp, /31\/12\/2026/, 'validade no dia certo: data pura não pode voltar um dia pelo fuso');
-    assert.match(pa, /PA-26251-15-P1[\s\S]*OP 26251\/15 · AFEER OF ARABIAN[\s\S]*157 cx × 12 \+ 1 parcial com 11[\s\S]*1\.895 un[\s\S]*268,6[\s\S]*kg\/cx do cadastro/);
+    assert.match(pa, /PA-26251-15-P1[\s\S]*OP 26251\/15 · AFEER OF ARABIAN[\s\S]*157 cx × 12 \+ 1 parcial com 11[\s\S]*1\.895 un[\s\S]*268,5[\s\S]*kg\/cx do cadastro/);
 
     // fechar pelo X
     await page.click('#mapaDetalheFechar-end');

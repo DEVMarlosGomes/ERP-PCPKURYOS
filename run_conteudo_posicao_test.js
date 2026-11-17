@@ -38,7 +38,7 @@ const pa = CP.analisarLote('PA1', 'p1', {itemTipo: 'produto', itemCodigo: 'PA1',
 assert.equal(pa.tipo, 'PA');
 assert.equal(pa.volumes.n, 158, '157 caixas + a parcial');
 assert.equal(pa.volumes.texto, '157 cx × 12 + 1 parcial com 11');
-assert.equal(pa.peso.kg, 268.6);
+assert.equal(pa.peso.kg, 268.458, 'parcial pela regra de três (16/11/2026): 157 × 1,7 + 11/12 × 1,7');
 assert.equal(pa.peso.fonte, 'CADASTRO');
 assert.equal(pa.lote, 'PA-26251-15-P1');
 assert.equal(pa.origem, 'OP 26251/15 · AFEER');
@@ -73,7 +73,7 @@ assert.equal(r.totais.itens, 3);
 assert.deepEqual(r.totais.porUnidade, {un: 9195, kg: 20}, 'quantidade separada por unidade, nunca somando un com kg');
 assert.equal(r.totais.volumes, 160, '158 do palete + 2 do recebimento');
 assert.equal(r.totais.semVolumes, 1, 'material sem recebimento conta como sem volumes');
-assert.equal(r.totais.kg, 288.6, '268,6 do PA + 20 kg');
+assert.equal(r.totais.kg, 288.458, '268,458 do PA + 20 kg');
 assert.equal(r.totais.semPeso, 1, 'EP-00036 sem peso unitário');
 assert.deepEqual(r.itens.map(i => i.tipo), ['MP', 'MP', 'PA'], 'ordenado por tipo e código');
 assert.deepEqual(CP.analisar([], cad).totais, {itens: 0, porUnidade: {}, volumes: 0, semVolumes: 0, kg: 0, semPeso: 0});
