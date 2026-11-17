@@ -46,6 +46,12 @@
   }
   function linha(partes) { return '<div class="laudo-campo-linha">' + partes.join('') + '</div>'; }
   function obs(t) { return '<div class="laudo-obs">' + esc(t || '') + '</div>'; }
+  // "3.470 → 1.460 (ajuste)" quando o apontamento foi ajustado depois do fato.
+  function apontado(x) {
+    var aj = T.lista(x.ajustesApontamento);
+    if (!aj.length || x.qtdApontadaOriginal == null) return num(x.qtdApontada);
+    return num(x.qtdApontadaOriginal) + ' → ' + num(x.qtdApontada) + ' (ajuste)';
+  }
   function sku(v) { return {html: '<span style="white-space:nowrap">' + esc(v || '') + '</span>'}; }
   function tabela(cols, linhas) {
     return '<table class="laudo-tabela"><thead><tr>' + cols.map(function(c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>' +
@@ -85,8 +91,8 @@
 
     h += titulo(2, 'BALANÇO DE QUANTIDADES') +
       tabela(['', 'Lote', 'SKU', 'Produto', 'Apontado no sistema', 'Conferido (PA)', 'Unidades finais', 'Granel de origem', 'Observação'],
-        [['Origem', o.lote, sku(o.sku), o.produto, num(o.qtdApontada) + (o.qtdPlanejada != null ? ' (plan. ' + num(o.qtdPlanejada) + ')' : ''), '', num(o.qtd), '', '']]
-          .concat(destinos.map(function(d) { return ['Destino', d.lote, sku(d.sku), d.produto, num(d.qtdApontada), num(d.qtdConferida), num(d.qtd), d.granelLote, d.observacao]; }))
+        [['Origem', o.lote, sku(o.sku), o.produto, apontado(o) + (o.qtdPlanejada != null ? ' (plan. ' + num(o.qtdPlanejada) + ')' : ''), '', num(o.qtd), '', '']]
+          .concat(destinos.map(function(d) { return ['Destino', d.lote, sku(d.sku), d.produto, apontado(d), num(d.qtdConferida), num(d.qtd), d.granelLote, d.observacao]; }))
           .concat(perdas.map(function(p) { return ['Perda', '', '', T.MOTIVOS_PERDA[p.motivo] || '', '', '', num(p.qtd), '', p.observacao]; }))) +
       '<div class="laudo-campo-linha">' + campo('Origem', num(b.origem)) + campo('Destinos', num(b.destinos)) + campo('Perdas', num(b.perdas)) +
         campo('Diferença', num(b.diferenca)) + '<span class="laudo-par"><b>' + (b.fecha ? 'Balanço fechado' : 'Balanço NÃO fechado') + '</b></span></div>' +

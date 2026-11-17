@@ -10,6 +10,11 @@
   var registros = {}, rncs = {}, selecionado = null, fotosPorEtapa = {}, perfil = T.perfil(null), sujo = false;
 
   function novoReq() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+  function apontadoHtml(x) {
+    var aj = T.lista(x.ajustesApontamento);
+    if (!aj.length || x.qtdApontadaOriginal == null) return fmt(x.qtdApontada);
+    return fmt(x.qtdApontadaOriginal) + ' → ' + fmt(x.qtdApontada) + ' <span class="field-hint">(ajuste ao físico)</span>';
+  }
   function fmt(v) { return v == null || v === '' ? '—' : Number(v).toLocaleString('pt-BR'); }
   function dataHora(iso) { return iso ? new Date(iso).toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short'}) : ''; }
   function chamar(acao, id, dados) {
@@ -90,8 +95,10 @@
     db.ref('ops/' + k).once('value').then(function(s) {
       var op = s.val();
       if (!op) { $('rrNovoInfo').textContent = 'OP ' + k + ' não encontrada.'; return; }
-      $('rrNovoInfo').textContent = (op.produto || '') + ' — planejado ' + fmt(op.qtdPlanejada) + ', apontado ' + fmt(op.produzido) + ' un.';
-      if (!$('rrNovoQtd').value) $('rrNovoQtd').value = op.produzido || '';
+      var orig = T.apontamentoOriginal(op), aj = T.ajustesApontamento(op);
+      $('rrNovoInfo').textContent = (op.produto || '') + ' — planejado ' + fmt(op.qtdPlanejada) + ', apontado ' + fmt(op.produzido) + ' un.' +
+        (aj.length ? ' Antes do ajuste ao físico: ' + fmt(orig) + ' un. (sugerido como origem).' : '');
+      if (!$('rrNovoQtd').value) $('rrNovoQtd').value = orig || '';
     }).catch(function(e) { $('rrNovoInfo').textContent = msg(e); });
   }
   function criar() {
@@ -184,10 +191,10 @@
       '<div class="card" data-ui="surface"><div class="card-header" data-ui="surface-head"><h3>Balanço de quantidades</h3></div><div class="card-body">' +
       '<div class="rr-bal" id="rrBal"></div>' +
       '<div class="table-wrap"><table><thead><tr><th></th><th>Lote</th><th>Produto</th><th>Apontado no sistema</th><th>Conferido (PA)</th><th>Unidades finais</th><th>Granel de origem</th><th>Observação</th></tr></thead><tbody>' +
-      '<tr><td><b>Origem</b></td><td>' + escapeHtml(o.lote || '') + '</td><td>' + escapeHtml(o.produto || '') + '</td><td>' + fmt(o.qtdApontada) + ' <span class="field-hint">(planejado ' + fmt(o.qtdPlanejada) + ')</span></td><td>—</td>' +
+      '<tr><td><b>Origem</b></td><td>' + escapeHtml(o.lote || '') + '</td><td>' + escapeHtml(o.produto || '') + '</td><td>' + apontadoHtml(o) + ' <span class="field-hint">(planejado ' + fmt(o.qtdPlanejada) + ')</span></td><td>—</td>' +
       '<td>' + inp('rr-origem-qtd rr-num', o.qtd, 'number', dis, ' min="0" step="1" style="width:110px"') + '</td><td></td><td></td></tr>' +
       destinos.map(function(d) {
-        return '<tr class="rr-dest-linha" data-k="' + escapeAttr(d._k) + '"><td>Destino</td><td>' + escapeHtml(d.lote || '') + '</td><td>' + escapeHtml(d.produto || '') + '</td><td>' + fmt(d.qtdApontada) + '</td><td>' + fmt(d.qtdConferida) + '</td>' +
+        return '<tr class="rr-dest-linha" data-k="' + escapeAttr(d._k) + '"><td>Destino</td><td>' + escapeHtml(d.lote || '') + '</td><td>' + escapeHtml(d.produto || '') + '</td><td>' + apontadoHtml(d) + '</td><td>' + fmt(d.qtdConferida) + '</td>' +
           '<td>' + inp('rr-d-qtd rr-num', d.qtd, 'number', dis, ' min="0" step="1" style="width:110px"') + '</td>' +
           '<td>' + inp('rr-d-granel', d.granelLote, '', dis, ' style="width:110px"') + '</td><td>' + inp('rr-d-obs', d.observacao, '', dis) + '</td></tr>';
       }).join('') + '</tbody></table></div>' +

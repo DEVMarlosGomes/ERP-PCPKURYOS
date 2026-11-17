@@ -134,3 +134,30 @@ FECHADO**. Campo vazio sai em branco. O PDF foi gerado e conferido visualmente: 
 - `run_registro_retrabalho_test` (11).
 
 Regressão da Qualidade: filtros, fotos, alerta de consistência e devolução de cliente.
+
+## 7. Depois do ajuste ao físico (17/11/2026)
+
+O ajuste da Bioflora (`9fb5124`, `AUDITORIA_AJUSTE_BIOFLORA_20261116.md`) resolveu as pendências 1 e 2 da seção 5:
+- o palete GAL-1-3-1 tem agora 1.460;
+- o apontamento da 26302/01 tem agora 1.460;
+- o PED-0001 Rose tem agora 6.014.
+
+A trilha ficou em `ops/26302-01/ajustesProducao/aj_bioflora_20261116` (antes 3.470).
+
+Efeito no registro: a origem sugerida passaria a ser 1.460, o apontado atual, e o balanço daria −1.965. Correção:
+- o motor (`ajustesApontamento`, `apontamentoOriginal`) lê a trilha da OP, **só lendo**;
+- a origem sugerida volta a ser 3.470, o apontado antes do ajuste;
+- o registro guarda `qtdApontadaOriginal` e os ajustes da origem e dos destinos.
+
+Tela e FOR-QUA-0001 mostram "3.470 → 1.460 (ajuste)", e o balanço avisa uma vez: "apontamento ajustado de 3.470 para
+1.460 em 17/11/2026 (ajuste ao físico, fora deste registro)". Como a Conferência de PA também passou a 1.460, o aviso
+"a Conferência de PA contou 3.470" some.
+
+O balanço segue 3.470 − 1.460 − 1.965 = **45 un. sem destino**.
+
+Testes: doc 5 (novo grupo com a base pós-ajuste, OP intacta), motor/serviço 11, UI 12, varredor de transações OK.
+
+Ficam pendentes:
+- deploy da VPS;
+- granel Rose (achado 3);
+- as 45 un., a declarar pela Roberta.

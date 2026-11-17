@@ -65,6 +65,26 @@
     if (Array.isArray(v)) return v.filter(Boolean);
     return Object.keys(v).sort().map(function(k) { return Object.assign({_k: k}, v[k]); });
   }
+  /* Ajuste de apontamento feito depois do fato (ex.: ajuste ao físico, ops/{k}/ajustesProducao):
+     o registro mostra o apontado original e a trilha, só lendo a OP. */
+  function ajustesApontamento(op) {
+    return lista((op || {}).ajustesProducao).filter(function(a) {
+      return a && a.antes != null && (!a.campo || a.campo === 'produzidoLinha' || a.campo === 'produzido');
+    }).sort(function(a, b) { return String(a.em || '') < String(b.em || '') ? -1 : 1; }).slice(0, 10).map(function(a) {
+      return {ref: texto(a._k, 80), em: texto(a.em, 40), antes: num(a.antes), depois: a.depois != null ? num(a.depois) : null,
+        motivo: texto(a.motivo, 300), por: texto(typeof a.por === 'string' ? a.por : (a.por && a.por.nome), 120)};
+    });
+  }
+  function apontamentoOriginal(op) {
+    var aj = ajustesApontamento(op);
+    if (aj.length) return aj[0].antes;
+    return op && op.produzido != null ? num(op.produzido) : null;
+  }
+  function mapaAjustes(op) {
+    var m = {};
+    ajustesApontamento(op).forEach(function(a, i) { m['a' + (i + 1)] = a; });
+    return m;
+  }
   function clonar(v) { return v == null ? v : JSON.parse(JSON.stringify(v)); }
 
   /* ── Permissão ──────────────────────────────────────────────────────
@@ -111,6 +131,13 @@
     var somaPerda = perdas.reduce(function(s, p) { return s + num(p.qtd); }, 0);
     var dif = Math.round((origem - somaDest - somaPerda) * 1000) / 1000;
     var avisos = [];
+    [r.origem || {}].concat(destinos).forEach(function(x) {
+      lista(x.ajustesApontamento).forEach(function(a) {
+        var t = 'Lote ' + (x.lote || '?') + ': apontamento ajustado de ' + milhar(num(a.antes)) + ' para ' + milhar(num(a.depois)) +
+          (a.em ? ' em ' + String(a.em).slice(8, 10) + '/' + String(a.em).slice(5, 7) + '/' + String(a.em).slice(0, 4) : '') + ' (ajuste ao físico, fora deste registro).';
+        if (avisos.indexOf(t) < 0) avisos.push(t);
+      });
+    });
     destinos.forEach(function(d) {
       if (d.qtdConferida != null && num(d.qtd) !== num(d.qtdConferida)) {
         avisos.push('Lote ' + (d.lote || '?') + ': informado ' + milhar(num(d.qtd)) + ' un., a Conferência de PA contou ' + milhar(num(d.qtdConferida)) + '.');
@@ -204,7 +231,7 @@
     var op = c.opOrigem;
     if (!opKey || !op) throw erro('invalid-argument', 'Escolha a OP de origem.');
     if (op.tipoOrdem === 'RETRABALHO') throw erro('invalid-argument', 'A origem é a OP original, não uma OP de retrabalho.');
-    var qtdOrigem = normalizarQtd(d.qtdOrigem != null && d.qtdOrigem !== '' ? d.qtdOrigem : op.produzido, 'Origem');
+    var qtdOrigem = normalizarQtd(d.qtdOrigem != null && d.qtdOrigem !== '' ? d.qtdOrigem : apontamentoOriginal(op), 'Origem');
     if (!qtdOrigem) throw erro('invalid-argument', 'Informe a quantidade de origem.');
     var destinos = {};
     var dd = lista(d.destinos);
@@ -217,6 +244,7 @@
         opKey: k, lote: o.lote || k, sku: o.sku || '', produto: o.produto || '',
         qtd: normalizarQtd(x.qtd, 'Destino ' + (i + 1)),
         qtdApontada: o.produzido != null ? num(o.produzido) : null,
+        qtdApontadaOriginal: apontamentoOriginal(o), ajustesApontamento: mapaAjustes(o),
         qtdConferida: conf && conf.qtdPaletizada != null ? num(conf.qtdPaletizada) : null,
         granelLote: texto(x.granelLote, 60), observacao: texto(x.observacao, 500)
       };
@@ -237,7 +265,8 @@
       ocorridaEm: texto(d.ocorridaEm, 10),
       origem: {opKey: opKey, lote: op.lote || opKey, sku: op.sku || '', produto: op.produto || '', cliente: op.cliente || '',
         pedidoKey: op.skuPedidoKey || '', qtdPlanejada: op.qtdPlanejada != null ? num(op.qtdPlanejada) : null,
-        qtdApontada: op.produzido != null ? num(op.produzido) : null, qtd: qtdOrigem},
+        qtdApontada: op.produzido != null ? num(op.produzido) : null,
+        qtdApontadaOriginal: apontamentoOriginal(op), ajustesApontamento: mapaAjustes(op), qtd: qtdOrigem},
       destinos: destinos,
       perdas: {},
       etapas: etapasPadrao(),
@@ -345,6 +374,7 @@
     STATUS: STATUS, ACOES: ACOES, CAMPOS: CAMPOS, TIPOS_ETAPA: TIPOS_ETAPA, ORDEM_ETAPAS: ORDEM_ETAPAS, MOTIVOS_PERDA: MOTIVOS_PERDA,
     perfil: perfil, etapasPadrao: etapasPadrao, etapas: etapas, lista: lista,
     balanco: balanco, pendencias: pendencias, montar: montar, aplicarAcao: aplicarAcao,
-    proximaChave: proximaChave, chaveSegura: chaveSegura
+    proximaChave: proximaChave, chaveSegura: chaveSegura,
+    ajustesApontamento: ajustesApontamento, apontamentoOriginal: apontamentoOriginal
   };
 });

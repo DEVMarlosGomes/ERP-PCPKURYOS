@@ -85,5 +85,29 @@ const etapa = (ent, sai, per) => ({recurso: 'Linha 1', inicio: '2026-11-10T08:00
   assert.match(dois, /RR-26302-01-1/); assert.doesNotMatch(dois, /RR-OUTRO-1/);
   ok('anexos só dos registros da RNC pedida, em ordem de abertura; RNC sem registro não ganha anexo');
 
+  // 5. Base depois do ajuste ao físico (17/11): OP 26302/01 com 1.460 e trilha 3.470 → 1.460.
+  //    A origem sugerida é o apontado ANTES do ajuste, e o papel mostra a trilha. A OP não muda.
+  const opAj = Object.assign(JSON.parse(JSON.stringify(FIX.ops['26302-01'])), {produzido: 1460, produzidoLinha: 1460,
+    ajustesProducao: {aj_bioflora_20261116: {em: '2026-11-17T04:30:00.000Z', por: 'Claude', campo: 'produzidoLinha', antes: 3470, depois: 1460, motivo: 'Ajuste ao físico final'}}});
+  const antesOp = JSON.stringify(opAj);
+  assert.equal(T.apontamentoOriginal(opAj), 3470);
+  assert.equal(T.apontamentoOriginal(FIX.ops['26264-14']), Number(FIX.ops['26264-14'].produzido), 'sem ajuste = apontado atual');
+  const ctxAj = Object.assign({}, ctx, {opOrigem: opAj, opsDestino: {'26302-01': opAj, '26264-14': FIX.ops['26264-14']},
+    conferencias: {'26302-01': Object.assign({}, FIX.conferencias_pa['26302-01'], {qtdPaletizada: 1460}), '26264-14': FIX.conferencias_pa['26264-14']}});
+  const dadosSemQtd = Object.assign({}, DADOS); delete dadosSemQtd.qtdOrigem;
+  const ra = T.aplicarAcao(null, 'CRIAR', ator, dadosSemQtd, '2026-11-17T12:00:00Z', ctxAj).registro;
+  assert.equal(ra.origem.qtd, 3470, 'origem sugerida = apontado antes do ajuste');
+  assert.equal(ra.origem.qtdApontada, 1460); assert.equal(ra.origem.qtdApontadaOriginal, 3470);
+  assert.equal(T.balanco(ra).diferenca, 45, 'balanço continua 3.470 − 1.460 − 1.965 = 45');
+  assert.equal(JSON.stringify(opAj), antesOp, 'OP não é alterada');
+  const bal = T.balanco(ra);
+  assert.equal(bal.avisos.filter((a) => /apontamento ajustado de 3\.470 para 1\.460 em 17\/11\/2026/.test(a)).length, 1,
+    'um aviso só, mesmo com a OP na origem e no destino: ' + bal.avisos.join(' | '));
+  assert.ok(!bal.avisos.some((a) => /Conferência de PA contou/.test(a)), 'conferência já bate com 1.460');
+  h = D.paginasRegistro('RR-26302-01-1', ra, FIX.nao_conformidades['RNC-2026-011']);
+  assert.match(h, /3\.470 → 1\.460 \(ajuste\)/);
+  assert.doesNotMatch(h, /undefined|NaN|null/);
+  ok('após o ajuste ao físico: origem sugerida 3.470, trilha no papel e no aviso, OP intacta');
+
   console.log('run_registro_retrabalho_doc_test: ' + n + ' grupos OK');
 })().catch((e) => { console.error(e); process.exit(1); });
