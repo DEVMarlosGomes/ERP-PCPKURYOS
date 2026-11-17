@@ -834,6 +834,20 @@ exports.registroRetrabalho = onCall({timeoutSeconds: 30}, async (request) => {
   }
 });
 
+// ── Relatório de Análise de PA por e-mail ao cliente (functions/laudo_email.js, 17/11/2026) ──
+// PDF gerado no navegador a partir do mesmo HTML da impressão; o servidor confere perfil,
+// laudo concluído, anexo e destinatários, envia pelo provedor do sistema e registra em laudos_envios/.
+const servicoLaudoEmail = require("./laudo_email").criarServico({db, enviarEmail: enviarEmailSistema});
+exports.laudoEmailCliente = onCall({timeoutSeconds: 120, memory: "512MiB", secrets: [MS_GRAPH_TENANT_ID, MS_GRAPH_CLIENT_ID, MS_GRAPH_CLIENT_SECRET, MS_GRAPH_SENDER_EMAIL]}, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para encaminhar o laudo.");
+  try {
+    return await servicoLaudoEmail.executar(request.auth.uid, request.data || {});
+  } catch (e) {
+    if (e && e.code && !(e instanceof HttpsError)) throw new HttpsError(e.code, e.message);
+    throw e;
+  }
+});
+
 // ── Compras: rascunho de cotação por e-mail (Fase 4) ───────────────────
 // Chamada pelo botão "Solicitar Cotação" em compras.html. Cria um RASCUNHO
 // (POST /messages, sem /send) na caixa da Kuryos -- nunca envia sozinho, é

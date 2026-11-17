@@ -27,6 +27,7 @@
   <script src="shared/campo-decimal.js"></script><script src="shared/spec-material.js"></script><script src="shared/analise-granel.js"></script>
   <script src="shared/inspecao-embalagem.js"></script>
   <script src="shared/laudo-cq.js"></script>
+  <script src="shared/contatos-cliente.js"></script><script src="shared/laudo-email.js"></script><script src="shared/laudo-pdf.js"></script>
   <script src="shared/filtro-qualidade.js"></script>
   <script src="shared/laudo-pa-resultados.js"></script>
   <script src="shared/manipulacao.js"></script>
@@ -101,6 +102,13 @@
     .no-data{text-align:center;padding:40px;color:var(--muted);font-size:14px}
     .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
     .modal-bg.open{display:flex}
+    /* Prévia do cabeçalho do laudo no modal de emissão (17/11): mesma marcação do documento, reduzida. */
+    .laudo-prev-topo{background:#fff;color:#000;border-radius:6px;padding:8px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;font-size:11px}
+    .laudo-prev-topo .laudo-topo{border:1px solid #000;padding:6px 8px;text-align:center}
+    .laudo-prev-topo .laudo-topo-org{font-size:9px}
+    .laudo-prev-topo .laudo-topo-doc{font-size:13px;font-weight:700;margin-top:3px}
+    .q-envio-contato{display:flex;align-items:flex-start;gap:8px;padding:4px 0;cursor:pointer}
+    .q-envio-contato input{width:auto;margin:3px 0 0}
     .modal{background:var(--card);border-radius:14px;width:100%;max-width:560px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden}
     .modal-header{background:linear-gradient(135deg,#065f46,var(--success));color:white;padding:16px 20px;display:flex;align-items:center;justify-content:space-between}
     .modal-header.red{background:linear-gradient(135deg,#7f1d1d,var(--danger))}
@@ -945,10 +953,49 @@
         <label>Laudo externo (nº / laboratório)</label>
         <input type="text" id="qEmitLab" placeholder="Opcional — aparece abaixo da tabela microbiológica">
       </div>
+      <!-- Logos do relatório de PA (17/11): Kuryos sempre à esquerda; o do cliente, só se
+           arquivado no cadastro, com tamanho ajustável (como na etiqueta de caixa). -->
+      <div class="form-group" id="qEmitLogosBox" style="display:none">
+        <label>Cabeçalho</label>
+        <div id="qEmitLogoPrev" class="laudo-prev-topo" aria-label="Prévia do cabeçalho"></div>
+        <div id="qEmitLogoCliBox" style="display:none;margin-top:8px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600">
+            <input type="checkbox" id="qEmitLogoCli" checked style="width:auto;margin:0"> Incluir o logo do cliente
+          </label>
+          <div id="qEmitLogoTamBox" style="display:flex;align-items:center;gap:10px;margin-top:6px">
+            <span style="font-size:13px">Tamanho</span>
+            <button type="button" class="btn btn-ghost btn-sm" id="qEmitLogoMenos" aria-label="Diminuir o logo do cliente">−</button>
+            <input id="qEmitLogoTam" type="range" min="50" max="200" step="5" value="100" style="flex:1" aria-label="Tamanho do logo do cliente">
+            <button type="button" class="btn btn-ghost btn-sm" id="qEmitLogoMais" aria-label="Aumentar o logo do cliente">+</button>
+            <span id="qEmitLogoTamValor" style="min-width:42px;font-variant-numeric:tabular-nums">100%</span>
+            <button type="button" class="btn btn-ghost btn-sm" id="qEmitLogoPadrao">Padrão</button>
+          </div>
+        </div>
+        <div class="field-hint" id="qEmitLogoHint"></div>
+      </div>
+
+      <!-- Encaminhar ao cliente (17/11): só com o laudo concluído. -->
+      <div id="qEnvioBox" style="display:none">
+        <div class="form-group">
+          <label>Enviar para</label>
+          <div id="qEnvioContatos"></div>
+          <input type="text" id="qEnvioExtras" placeholder="Outros e-mails, separados por vírgula" style="margin-top:8px" autocomplete="off">
+          <div class="field-hint" id="qEnvioHint">O PDF vai anexado, igual ao impresso.</div>
+        </div>
+        <div class="form-group">
+          <label>Mensagem <span class="field-hint" style="font-weight:400">(opcional, entra no corpo do e-mail)</span></label>
+          <textarea id="qEnvioMensagem" rows="2" maxlength="2000"></textarea>
+        </div>
+        <div id="qEnvioHistorico" class="field-hint"></div>
+      </div>
     </div>
     <div class="modal-footer" data-ui="dialog-foot">
+      <span class="field-hint" id="qEnvioStatus" aria-live="polite" style="margin-right:auto"></span>
       <button class="btn btn-ghost" id="qEmitCancelar">Cancelar</button>
+      <button class="btn btn-ghost" id="qEnvioVoltar" style="display:none">← Voltar</button>
+      <button class="btn btn-ghost" id="qEmitEncaminhar" style="display:none" title="Enviar o relatório em PDF por e-mail ao cliente">✉ Encaminhar ao cliente</button>
       <button class="btn btn-primary" id="qEmitImprimir">🖨 Gerar PDF / imprimir</button>
+      <button class="btn btn-primary" id="qEnvioEnviar" style="display:none">✉ Enviar e-mail</button>
     </div>
   </div>
 </div>
@@ -3494,7 +3541,8 @@ function dadosLaudoPa(itemCodigo, loteKey, lote, q, opcoes) {
     conclusao: liberado ? 'APROVADO' : (q.decisao === 'REPROVADO' ? 'REPROVADO' : ''),
     observacoes: q.observacao || '',
     dataAnalise: q.dataInspecao || String(q.inspecionadoEm || '').slice(0, 10),
-    responsavel: o.responsavel || {}
+    responsavel: o.responsavel || {},
+    logos: o.logos || null
   };
 }
 
@@ -3591,37 +3639,116 @@ function abrirEmissaoLaudo(itemCodigo, loteKey) {
   document.getElementById('qEmitRegistro').value = '';
   document.getElementById('qEmitMicro').checked = true;
   document.getElementById('qEmitLab').value = (lote.qualidade.ck7 || {}).laboratorio || '';
+  document.getElementById('qEnvioStatus').textContent = '';
+  modoEnvio(false);
+  if (roteiro === 'PA') carregarClienteDaEmissao(emissaoAtual);
   document.getElementById('modalEmitirBg').classList.add('open');
 }
 function fecharEmissao() {
+  if (envioEmCurso) return; // o PDF ainda está sendo gerado/enviado
   document.getElementById('modalEmitirBg').classList.remove('open');
   emissaoAtual = null;
 }
-document.getElementById('qEmitResponsavel').addEventListener('change', function() {
-  document.getElementById('qEmitOutro').style.display = this.value === 'outro' ? '' : 'none';
-});
-document.getElementById('modalEmitirClose').addEventListener('click', fecharEmissao);
-document.getElementById('qEmitCancelar').addEventListener('click', fecharEmissao);
-document.getElementById('modalEmitirBg').addEventListener('click', function(e) { if (e.target === this) fecharEmissao(); });
 
-document.getElementById('qEmitImprimir').addEventListener('click', function() {
-  if (!emissaoAtual) return;
-  var sel = document.getElementById('qEmitResponsavel').value;
-  var resp;
-  if (sel === 'outro') {
-    resp = {nome: document.getElementById('qEmitNome').value.trim(),
-            registro: document.getElementById('qEmitRegistro').value.trim()};
-    if (!resp.nome) { showAlert('Informe o nome de quem assina o laudo.', 'danger'); return; }
-    // A lista cresce sozinha -- best-effort: falhar aqui não pode impedir
-    // a impressão do laudo, que é o que a pessoa veio fazer.
-    var nova = responsaveisCq.concat([resp]);
-    db.ref('config/responsaveisCq').set(nova).catch(function(e) {
-      console.error('Não foi possível guardar o responsável na lista:', e);
-    });
-  } else {
-    resp = responsaveisCq[Number(sel)] || {};
+/* ─────────── Logos e envio ao cliente (17/11, pedido do Marlos) ───────────
+   O relatório de PA sai com o logo da Kuryos no canto superior esquerdo; o do
+   cliente entra à direita quando há logo arquivado no cadastro (o mesmo da
+   etiqueta de caixa), com tamanho ajustável. Concluído o laudo, "Encaminhar ao
+   cliente" mostra os e-mails do cadastro, aceita outros e envia o PDF pela
+   callable laudoEmailCliente (functions/laudo_email.js), que confere tudo de
+   novo e registra o envio em laudos_envios/. */
+var LOGO_KURYOS_URL = 'kuryos-logo.svg';
+var envioEmCurso = false;
+
+function clienteDaEmissao(e) {
+  var prod = produtoPorSku(e.itemCodigo) || {};
+  var op = opPorLote(e.lote.opLote || e.lote.loteOrigem) || {};
+  var key = prod.clienteKey || op.clienteKey || null;
+  if (key) {
+    return db.ref('clientes/' + key).once('value').then(function(snap) { return {key: key, dados: snap.val() || {}}; });
   }
+  var nome = norm(prod.cliente || op.cliente || '');
+  if (!nome) return Promise.resolve({key: null, dados: {}});
+  return db.ref('clientes').once('value').then(function(snap) {
+    var todos = snap.val() || {};
+    var k = Object.keys(todos).find(function(x) { return norm((todos[x] || {}).nome) === nome; });
+    return {key: k || null, dados: k ? todos[k] : {}};
+  });
+}
+function carregarClienteDaEmissao(e) {
+  e.cliente = {key: null, dados: {}, carregado: false};
+  e.logo = {url: '', pct: 100, incluir: false};
+  renderLogosEmissao();
+  clienteDaEmissao(e).then(function(c) {
+    if (emissaoAtual !== e) return;
+    e.cliente = {key: c.key, dados: c.dados || {}, carregado: true};
+    var url = (c.dados || {}).logoEtiquetaUrl || '';
+    e.logo = {url: url, pct: LaudoCQ.logoClientePct((c.dados || {}).logoLaudoTamanho), incluir: !!url};
+    document.getElementById('qEmitLogoCli').checked = !!url;
+    document.getElementById('qEmitLogoTam').value = e.logo.pct;
+    renderLogosEmissao();
+  }).catch(function(err) {
+    console.error('Cliente do laudo:', err);
+    if (emissaoAtual !== e) return;
+    e.cliente.carregado = true;
+    renderLogosEmissao();
+  });
+}
+function logosDaEmissao(e) {
+  var l = (e && e.logo) || {};
+  var cli = ((e && e.cliente) || {}).dados || {};
+  return {kuryos: LOGO_KURYOS_URL, cliente: l.incluir && l.url ? l.url : '', clientePct: l.pct, clienteNome: cli.nome || ''};
+}
+function renderLogosEmissao() {
   var e = emissaoAtual;
+  if (!e || e.roteiro !== 'PA') return;
+  var l = e.logo || {};
+  document.getElementById('qEmitLogoCliBox').style.display = l.url ? '' : 'none';
+  document.getElementById('qEmitLogoTamBox').style.display = l.url && l.incluir ? 'flex' : 'none';
+  document.getElementById('qEmitLogoTamValor').textContent = (l.pct || 100) + '%';
+  document.getElementById('qEmitLogoHint').textContent = !e.cliente || !e.cliente.carregado
+    ? 'Carregando o cadastro do cliente…'
+    : l.url ? 'O tamanho escolhido fica guardado no cliente quando o laudo é enviado por e-mail.'
+    : 'Cliente sem logo arquivado: sai só o logo da Kuryos. Para usar o do cliente, envie o logo em Cadastros › Clientes.';
+  document.getElementById('qEmitLogoPrev').innerHTML = LaudoCQ.cabecalhoComLogos(logosDaEmissao(e), 'RELATÓRIO DE ANÁLISE –', 'PRODUTO ACABADO');
+}
+document.getElementById('qEmitLogoCli').addEventListener('change', function() {
+  if (!emissaoAtual || !emissaoAtual.logo) return;
+  emissaoAtual.logo.incluir = this.checked;
+  renderLogosEmissao();
+});
+function definirTamanhoLogo(v) {
+  if (!emissaoAtual || !emissaoAtual.logo) return;
+  emissaoAtual.logo.pct = LaudoCQ.logoClientePct(v);
+  document.getElementById('qEmitLogoTam').value = emissaoAtual.logo.pct;
+  renderLogosEmissao();
+}
+document.getElementById('qEmitLogoTam').addEventListener('input', function() { definirTamanhoLogo(this.value); });
+document.getElementById('qEmitLogoMenos').addEventListener('click', function() { definirTamanhoLogo(Number(document.getElementById('qEmitLogoTam').value) - 5); });
+document.getElementById('qEmitLogoMais').addEventListener('click', function() { definirTamanhoLogo(Number(document.getElementById('qEmitLogoTam').value) + 5); });
+document.getElementById('qEmitLogoPadrao').addEventListener('click', function() { definirTamanhoLogo(100); });
+
+/* Responsável que assina, escolhido no modal. null = falta o nome (já avisou). */
+function responsavelDaEmissao() {
+  var sel = document.getElementById('qEmitResponsavel').value;
+  if (sel !== 'outro') return responsaveisCq[Number(sel)] || {};
+  var resp = {nome: document.getElementById('qEmitNome').value.trim(),
+              registro: document.getElementById('qEmitRegistro').value.trim()};
+  if (!resp.nome) { showAlert('Informe o nome de quem assina o laudo.', 'danger'); return null; }
+  // A lista cresce sozinha -- best-effort: falhar aqui não pode impedir
+  // a impressão do laudo, que é o que a pessoa veio fazer.
+  var jaTem = responsaveisCq.some(function(r) { return norm(r.nome) === norm(resp.nome) && (r.registro || '') === resp.registro; });
+  if (!jaTem) {
+    var nova = responsaveisCq.concat([resp]);
+    db.ref('config/responsaveisCq').set(nova).catch(function(err) {
+      console.error('Não foi possível guardar o responsável na lista:', err);
+    });
+  }
+  return resp;
+}
+
+/* O documento da emissão: {dados, html, prefixo}. Mesma montagem para imprimir e para o e-mail. */
+function documentoDaEmissao(e, resp) {
   var dados, html, prefixo;
   if (e.roteiro === 'EMBALAGEM') {
     dados = dadosLaudoEmbalagem(e.itemCodigo, e.loteKey, e.lote, e.q, {responsavel: resp});
@@ -3635,14 +3762,151 @@ document.getElementById('qEmitImprimir').addEventListener('click', function() {
     dados = dadosLaudoPa(e.itemCodigo, e.loteKey, e.lote, e.q, {
       responsavel: resp,
       micro: document.getElementById('qEmitMicro').checked,
-      laboratorio: document.getElementById('qEmitLab').value.trim()
+      laboratorio: document.getElementById('qEmitLab').value.trim(),
+      logos: logosDaEmissao(e)
     });
     html = LaudoCQ.paginaProdutoAcabado(dados);
     prefixo = 'Relatório de análise';
   }
-  document.getElementById('laudoPrintArea').innerHTML = html;
+  return {dados: dados, html: html, prefixo: prefixo};
+}
+
+/* Liga/desliga o painel de envio dentro do mesmo modal. */
+function modoEnvio(ligado) {
+  var e = emissaoAtual || {};
+  var pa = e.roteiro === 'PA';
+  var microNoLaudo = pa && !!(e.q || {}).resultadosPa;
+  document.getElementById('qEmitResponsavel').closest('.form-group').style.display = ligado ? 'none' : '';
+  document.getElementById('qEmitOutro').style.display = !ligado && document.getElementById('qEmitResponsavel').value === 'outro' ? '' : 'none';
+  document.getElementById('qEmitMicroBox').style.display = !ligado && pa && !microNoLaudo ? '' : 'none';
+  document.getElementById('qEmitLabBox').style.display = !ligado && pa && !microNoLaudo ? '' : 'none';
+  document.getElementById('qEmitLogosBox').style.display = !ligado && pa ? '' : 'none';
+  document.getElementById('qEnvioBox').style.display = ligado ? '' : 'none';
+  document.getElementById('qEmitImprimir').style.display = ligado ? 'none' : '';
+  document.getElementById('qEmitEncaminhar').style.display = !ligado && pa && LaudoEmail.conclusao((e.q || {}).decisao) ? '' : 'none';
+  document.getElementById('qEnvioEnviar').style.display = ligado ? '' : 'none';
+  document.getElementById('qEnvioVoltar').style.display = ligado ? '' : 'none';
+  document.getElementById('modalEmitirTitle').textContent = ligado ? 'Encaminhar laudo ao cliente' : 'Emitir laudo';
+}
+
+function novoPedidoEnvio() { return 'le_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10); }
+
+function renderContatosEnvio(e) {
+  var box = document.getElementById('qEnvioContatos');
+  var c = (e.cliente || {}).dados || {};
+  var contatos = LaudoEmail.contatosDoCliente(c);
+  e.envioContatos = contatos;
+  if (!contatos.length) {
+    box.innerHTML = '<div class="field-hint">' + (c.nome ? escapeHtml(c.nome) + ' não tem' : 'O cliente deste lote não tem') +
+      ' e-mail no cadastro (Cadastros › Clientes › Contatos). Digite o e-mail abaixo.</div>';
+    return;
+  }
+  box.innerHTML = '<div class="field-hint" style="margin-bottom:4px">E-mails no cadastro de <b>' + escapeHtml(c.nome || 'cliente') + '</b>:</div>' +
+    contatos.map(function(p, i) {
+      return '<label class="q-envio-contato"><input type="checkbox" data-envio-contato="' + i + '"' + (p.marcado ? ' checked' : '') + '>' +
+        '<span><b>' + escapeHtml(p.email) + '</b><br><span class="field-hint">' + escapeHtml(p.rotulo) + '</span></span></label>';
+    }).join('');
+}
+function fmtDataHoraEnvio(iso) {
+  var d = new Date(iso);
+  if (isNaN(d)) return String(iso || '');
+  return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
+}
+function renderHistoricoEnvio(e) {
+  var box = document.getElementById('qEnvioHistorico');
+  box.textContent = '';
+  db.ref('laudos_envios/' + sanitizeKey(e.itemCodigo) + '/' + e.loteKey).once('value').then(function(snap) {
+    if (emissaoAtual !== e) return;
+    var h = LaudoEmail.historico(snap.val());
+    if (!h.length) { box.textContent = 'Este laudo ainda não foi enviado ao cliente.'; return; }
+    box.innerHTML = '<b>Envios anteriores</b><ul style="margin:4px 0 0 18px;padding:0">' + h.slice(0, 5).map(function(x) {
+      return '<li>' + escapeHtml(fmtDataHoraEnvio(x.em)) + ' · ' + escapeHtml(x.status === 'ENVIADO' ? 'enviado' : x.status === 'ERRO' ? 'falhou' : 'enviando') +
+        ' para ' + escapeHtml((x.para || []).join(', ')) + (x.por ? ' · por ' + escapeHtml(x.por) : '') + '</li>';
+    }).join('') + '</ul>';
+  }).catch(function() { box.textContent = ''; });
+}
+
+document.getElementById('qEmitEncaminhar').addEventListener('click', function() {
+  var e = emissaoAtual;
+  if (!e) return;
+  if (!LaudoEmail.conclusao((e.q || {}).decisao)) { showAlert('Conclua o laudo (aprovar ou reprovar) antes de encaminhar ao cliente.', 'danger'); return; }
+  if (!e.cliente || !e.cliente.carregado) { showAlert('Aguarde: carregando o cadastro do cliente.', 'warning'); return; }
+  var resp = responsavelDaEmissao();
+  if (!resp) return;
+  e.respEnvio = resp;
+  e.requestId = novoPedidoEnvio();
+  document.getElementById('qEnvioExtras').value = '';
+  document.getElementById('qEnvioMensagem').value = '';
+  document.getElementById('qEnvioStatus').textContent = '';
+  renderContatosEnvio(e);
+  renderHistoricoEnvio(e);
+  modoEnvio(true);
+});
+document.getElementById('qEnvioVoltar').addEventListener('click', function() {
+  if (envioEmCurso) return;
+  document.getElementById('qEnvioStatus').textContent = '';
+  modoEnvio(false);
+});
+
+document.getElementById('qEnvioEnviar').addEventListener('click', function() {
+  var e = emissaoAtual;
+  if (!e || envioEmCurso) return;
+  var marcados = [];
+  document.querySelectorAll('#qEnvioContatos [data-envio-contato]').forEach(function(cb) {
+    if (cb.checked) marcados.push(e.envioContatos[Number(cb.getAttribute('data-envio-contato'))].email);
+  });
+  var dest = LaudoEmail.destinatarios(marcados, document.getElementById('qEnvioExtras').value);
+  if (dest.erro) { showAlert(dest.erro, 'danger'); return; }
+  var doc = documentoDaEmissao(e, e.respEnvio || {});
+  var status = document.getElementById('qEnvioStatus');
+  var botao = document.getElementById('qEnvioEnviar');
+  var voltar = document.getElementById('qEnvioVoltar');
+  envioEmCurso = true;
+  botao.disabled = true; voltar.disabled = true;
+  status.textContent = 'Gerando o PDF…';
+  LaudoPdf.gerar(doc.html).then(function(pdf) {
+    if (pdf.avisos.length) showAlert(pdf.avisos.join(' ') + ' O PDF segue sem ela.', 'warning');
+    status.textContent = 'Enviando para ' + dest.para.length + ' destinatário' + (dest.para.length === 1 ? '' : 's') + '…';
+    return firebase.functions().httpsCallable('laudoEmailCliente')({
+      itemKey: sanitizeKey(e.itemCodigo), loteKey: e.loteKey, requestId: e.requestId,
+      para: dest.para, pdfBase64: pdf.base64, nomeArquivo: LaudoCQ.nomeArquivo(doc.prefixo, doc.dados),
+      mensagem: document.getElementById('qEnvioMensagem').value.trim(),
+      clienteNome: ((e.cliente || {}).dados || {}).nome || '',
+      itemCodigo: e.itemCodigo,
+      logoTamanho: e.logo && e.logo.url && e.logo.incluir ? e.logo.pct : null
+    });
+  }).then(function(r) {
+    var res = (r && r.data) || {};
+    envioEmCurso = false;
+    showAlert(res.repetido ? 'Este envio já tinha sido feito.' : 'Laudo enviado para ' + dest.para.join(', ') + '.', 'success');
+    fecharEmissao();
+  }).catch(function(err) {
+    envioEmCurso = false;
+    console.error('Envio do laudo:', err);
+    status.textContent = '';
+    // Nova tentativa = novo pedido (o anterior ficou registrado como falha no servidor).
+    e.requestId = novoPedidoEnvio();
+    showAlert('Não foi possível enviar: ' + ((err && err.message) || err), 'danger');
+  }).finally(function() {
+    botao.disabled = false; voltar.disabled = false;
+  });
+});
+
+document.getElementById('qEmitResponsavel').addEventListener('change', function() {
+  document.getElementById('qEmitOutro').style.display = this.value === 'outro' ? '' : 'none';
+});
+document.getElementById('modalEmitirClose').addEventListener('click', fecharEmissao);
+document.getElementById('qEmitCancelar').addEventListener('click', fecharEmissao);
+document.getElementById('modalEmitirBg').addEventListener('click', function(e) { if (e.target === this) fecharEmissao(); });
+
+document.getElementById('qEmitImprimir').addEventListener('click', function() {
+  if (!emissaoAtual) return;
+  var resp = responsavelDaEmissao();
+  if (!resp) return;
+  var doc = documentoDaEmissao(emissaoAtual, resp);
+  document.getElementById('laudoPrintArea').innerHTML = doc.html;
   fecharEmissao();
-  imprimirComNome(LaudoCQ.nomeArquivo(prefixo, dados));
+  imprimirComNome(LaudoCQ.nomeArquivo(doc.prefixo, doc.dados));
 });
 
 /* Emitir direto do laudo aberto. Só depois de registrado: o relatório é o

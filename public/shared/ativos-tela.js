@@ -338,7 +338,7 @@
       var box = el('pcCompras');
       if (!box || S.modalAtivo !== id) return;
       var lista = A.comprasDoAtivo(id, S.scs, r[0].val() || {}, r[1].val() || {});
-      box.innerHTML = lista.length ? '<div class="tw"><table><thead><tr><th>SC</th><th>Itens</th><th>Etapa</th><th>Pedido de Compra</th></tr></thead><tbody>' + lista.map(function(c) {
+      box.innerHTML = lista.length ? '<div class="tw"><table><thead><tr><th>SC / compra direta</th><th>Itens</th><th>Etapa</th><th>Pedido de Compra</th></tr></thead><tbody>' + lista.map(function(c) {
         var et = A.etapaCompra(c);
         return '<tr><td><b>' + e(c.numero) + '</b><div class="dica">' + e(dataBR(c.criadoEm)) + '</div></td>' +
           '<td>' + c.itens.map(function(it) { return e((it.tipoItem === 'SERVICO' ? 'Serviço: ' : '') + (it.materialNome || it.materialCodigo || it.descricao || '')) + ' <span class="mut">(' + fmt(it.qtd) + ' ' + e(it.unidade || '') + ')</span>'; }).join('<br>') + '</td>' +

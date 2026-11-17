@@ -16,6 +16,7 @@
   <script src="shared/ultimo-preco.js"></script>
   <script src="shared/propriedade-estoque.js"></script>
   <script src="shared/servico-compra.js"></script>
+  <script src="shared/ativos.js"></script>
   <script src="auth_check.js"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="shared/theme.css">
@@ -460,6 +461,18 @@
       <div class="section-label">Rota confirmada</div>
       <div id="pcdRotaEditor"></div>
 
+      <!-- Equipamento (17/11/2026): compra direta para um ativo de Manutenção. O PC leva
+           origem.tipo ATIVO (mesmo formato da SC do ativo) e aparece na ficha do equipamento. -->
+      <div class="section-label">Equipamento <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional — compra para um ativo)</span></div>
+      <div class="form-group full" style="position:relative">
+        <div style="display:flex;gap:6px">
+          <input type="text" id="pcdAtivo" placeholder="Buscar equipamento por código, nome, tipo, área ou linha..." autocomplete="off" style="flex:1">
+          <button type="button" class="btn btn-ghost btn-sm" id="pcdAtivoLimpar" style="display:none" title="Tirar o equipamento" aria-label="Tirar o equipamento">×</button>
+        </div>
+        <input type="hidden" id="pcdAtivoKey">
+        <div id="pcdAtivoPainel" class="field-hint" style="margin-top:6px"></div>
+      </div>
+
       <div class="section-label">Itens recebidos</div>
       <div class="item-row-head"><div>Material</div><div>Fornecedores homologados</div><div>Quantidade</div><div>Un.</div><div>Preço unit. (opcional)</div><div></div></div>
       <div id="pcdItensBuilder"></div>
@@ -871,6 +884,7 @@ var allMateriais = {};
 var allPedidos = {};      // backlog de pedidos comerciais -- só pra "Gerar de Pedido"
 var allProdutosCompras = {};
 var allClientesCompras = {};  // cadastro de clientes -- cliente e pedido de cada item do PC
+var allAtivosCompras = {};    // Manutenção › Ativos -- equipamento do PC direto (17/11)
 var allFormulasCompras = {};
 var allBomCompras = {};
 var skuHistoricoCompras = {};
@@ -2126,7 +2140,7 @@ function renderPedidos() {
         (p.obsDireta ? ' · ' + escapeAttr(p.obsDireta) : '') + '">⚡ direto</span>'
       : '';
     return '<tr>' +
-      '<td class="code-cell">' + escapeHtml(p.numeroFormatado || '—') + seloDireto + '</td>' +
+      '<td class="code-cell">' + escapeHtml(p.numeroFormatado || '—') + seloDireto + origemAtivoHtml(p) + '</td>' +
       '<td>' + escapeHtml(p.fornecedorNome || '—') + '</td>' +
       '<td style="font-size:12px">' + fmtData(p.dataCriacao) + '</td>' +
       '<td style="font-size:12.5px">' + (itensResumo || '—') + '</td>' +
@@ -5211,10 +5225,108 @@ function renderPcdItensBuilder() {
   document.querySelectorAll('.pcdi-remove').forEach(function(el) {
     el.addEventListener('click', function() { pcdItensBuilder.splice(+el.getAttribute('data-idx'), 1); renderPcdItensBuilder(); });
   });
+  if (typeof renderPcdAtivo === 'function' && document.getElementById('pcdAtivoPainel')) renderPcdAtivo();
+}
+
+/* ── Equipamento do PC direto (17/11/2026) ──
+   Pedido do Marlos: lista de ativos no PC Direto, para pesquisar o equipamento e
+   encaminhar o que ele precisa. Escolher o ativo: (1) grava origem.tipo ATIVO no PC
+   (Ativos.origemDoPc), que a ficha do equipamento lê em "Peças e compras";
+   (2) oferece as peças cadastradas no ativo como itens; (3) sugere a assistência
+   técnica / fabricante do ativo como fornecedor; (4) material de equipamento é da
+   Kuryos para uso e consumo, então propriedade e vínculo vêm preenchidos (editáveis). */
+var pcdAtivoId = null;
+function pcdAtivoItems() {
+  return Ativos.paraSelecao(allAtivosCompras).map(function(a) {
+    var extra = [a.tipoRotulo, a.areaRotulo, a.linha].filter(Boolean).join(' · ');
+    var label = a.rotulo + (extra ? ' — ' + extra : '') + (a.situacao === 'EM_MANUTENCAO' ? ' (em manutenção)' : '');
+    return {key: a.id, value: label, label: label};
+  });
+}
+function escolherFornecedorPcd(key) {
+  var f = allFornecedores[key];
+  if (!f) return;
+  var label = fornecedorNome(f);
+  document.getElementById('pcdFornecedor').value = label;
+  document.getElementById('pcdFornecedorKey').value = key;
+  var atual = lerRotaEditor('pcd', pcdRotaBase, document.getElementById('pcdNatureza').value, document.getElementById('pcdResponsavelTransporte').value, null);
+  atual.origem = RotasPC.origemFornecedor(f, key, label);
+  pcdRotaBase = atual;
+  RotasPC.preencherEditor('pcdOrigem', atual.origem);
+  document.getElementById('pcdRotaConfirmada').checked = false;
+  document.getElementById('pcdRotaHint').textContent = 'Origem preenchida pelo cadastro — confira antes de confirmar.';
+}
+function selecionarAtivoPcd(id) {
+  var a = id ? allAtivosCompras[id] : null;
+  pcdAtivoId = a ? id : null;
+  document.getElementById('pcdAtivoKey').value = pcdAtivoId || '';
+  document.getElementById('pcdAtivoLimpar').style.display = pcdAtivoId ? '' : 'none';
+  if (!pcdAtivoId) { document.getElementById('pcdAtivo').value = ''; renderPcdAtivo(); return; }
+  // Material de equipamento: Kuryos, uso e consumo. Só ajusta se a pessoa ainda
+  // não escolheu outro cliente/pedido.
+  var prop = document.getElementById('pcdPropriedade');
+  var ed = document.querySelector('#pcdVinculo .vinc-editor');
+  var vinc = lerVinculoEditor(ed);
+  if (prop.value === 'KURYOS' && (!vinc || (!vinc.clienteKey && !(vinc.pedidos || []).length))) {
+    var boxVinculo = document.getElementById('pcdVinculo');
+    boxVinculo.innerHTML = vinculoEditorHtml('pcd', {geral: true}, false);
+    ligarVinculoEditores(boxVinculo);
+  }
+  renderPcdAtivo();
+}
+function renderPcdAtivo() {
+  var box = document.getElementById('pcdAtivoPainel');
+  if (!pcdAtivoId) {
+    box.innerHTML = 'Escolha o equipamento quando a compra for para um ativo da Manutenção: o pedido aparece na ficha dele e as peças cadastradas entram com um clique.';
+    return;
+  }
+  var a = allAtivosCompras[pcdAtivoId] || {};
+  var forn = [];
+  [['fornecedorAssistenciaKey', 'assistência técnica'], ['fornecedorFabricanteKey', 'fabricante']].forEach(function(x) {
+    var k = a[x[0]];
+    if (k && allFornecedores[k] && !forn.some(function(f) { return f.key === k; })) forn.push({key: k, papel: x[1]});
+  });
+  var pecas = Ativos.pecasParaCompra(a, function(cod) { return !!findMaterialByCodigo(cod); });
+  var noPc = {};
+  pcdItensBuilder.forEach(function(it) { if (it.materialCodigo) noPc[it.materialCodigo] = true; });
+  box.innerHTML =
+    '<div style="color:var(--text)"><b>🔧 ' + escapeHtml(a.codigo || '') + ' — ' + escapeHtml(a.nome || '') + '</b>' +
+      (a.fabricante ? ' · fabricante ' + escapeHtml(a.fabricante) : '') + (a.modelo ? ' · modelo ' + escapeHtml(a.modelo) : '') + '</div>' +
+    (forn.length ? '<div style="margin-top:6px">Fornecedor do equipamento: ' + forn.map(function(f) {
+      var ativo = document.getElementById('pcdFornecedorKey').value === f.key;
+      return '<button type="button" class="btn btn-ghost btn-sm" data-pcd-forn="' + escapeAttr(f.key) + '"' + (ativo ? ' disabled' : '') + '>' +
+        (ativo ? '✓ ' : 'Usar ') + escapeHtml(fornecedorNome(allFornecedores[f.key])) + ' (' + f.papel + ')</button>';
+    }).join(' ') + '</div>' : '') +
+    '<div style="margin-top:6px">' + (pecas.length
+      ? 'Peças cadastradas no equipamento: ' + pecas.map(function(p) {
+          var ja = noPc[p.materialCodigo];
+          return '<button type="button" class="btn btn-ghost btn-sm" data-pcd-peca="' + escapeAttr(p.materialCodigo) + '" data-qtd="' + escapeAttr(p.qtd) + '"' + (ja ? ' disabled' : '') + '>' +
+            (ja ? '✓ ' : '+ ') + escapeHtml(p.materialCodigo) + ' ' + escapeHtml(p.materialNome) + '</button>';
+        }).join(' ') +
+        (pecas.some(function(p) { return !noPc[p.materialCodigo]; }) ? ' <button type="button" class="btn btn-ghost btn-sm" id="pcdPecasTodas">+ todas</button>' : '')
+      : 'Nenhuma peça cadastrada neste equipamento (Manutenção › Ativos › Peças e compras). Inclua os itens abaixo normalmente.') + '</div>';
+  box.querySelectorAll('[data-pcd-forn]').forEach(function(b) {
+    b.addEventListener('click', function() { escolherFornecedorPcd(b.getAttribute('data-pcd-forn')); renderPcdAtivo(); });
+  });
+  function incluir(cod, qtd) {
+    if (pcdItensBuilder.some(function(it) { return it.materialCodigo === cod; })) return;
+    var vazio = pcdItensBuilder.findIndex(function(it) { return !it.materialCodigo; });
+    var item = {materialCodigo: cod, qtd: Number(qtd) > 0 ? Number(qtd) : 1, precoUnit: null};
+    if (vazio >= 0) pcdItensBuilder[vazio] = item; else pcdItensBuilder.push(item);
+  }
+  box.querySelectorAll('[data-pcd-peca]').forEach(function(b) {
+    b.addEventListener('click', function() { incluir(b.getAttribute('data-pcd-peca'), b.getAttribute('data-qtd')); renderPcdItensBuilder(); });
+  });
+  var todas = document.getElementById('pcdPecasTodas');
+  if (todas) todas.addEventListener('click', function() { pecas.forEach(function(p) { incluir(p.materialCodigo, p.qtd); }); renderPcdItensBuilder(); });
 }
 
 function openModalPcDireto() {
   pcdItensBuilder = [{ materialCodigo: '', qtd: null, precoUnit: null }];
+  pcdAtivoId = null;
+  document.getElementById('pcdAtivo').value = '';
+  document.getElementById('pcdAtivoKey').value = '';
+  document.getElementById('pcdAtivoLimpar').style.display = 'none';
   document.getElementById('pcdFornecedor').value = '';
   document.getElementById('pcdFornecedorKey').value = '';
   document.getElementById('pcdNatureza').value = 'COMPRA_KURYOS';
@@ -5338,6 +5450,8 @@ function salvarPcDireto() {
       dataCriacao: agora, dataEmissao: agora,
       itens: itensObj,
       condicaoPagamento: compra && fornecedor ? (fornecedor.condicaoPagamento || '') : '',
+      // Equipamento (17/11): mesmo formato da SC do ativo; a ficha do ativo lê daqui.
+      origem: pcdAtivoId ? Ativos.origemDoPc(pcdAtivoId, allAtivosCompras[pcdAtivoId]) : null,
       // ── marca de auditoria ──
       origemDireta: true,
       motivoDireto: motivo,
@@ -5376,6 +5490,14 @@ document.addEventListener('DOMContentLoaded', function() {
     pcdItensBuilder.push({ materialCodigo: '', qtd: null, precoUnit: null });
     renderPcdItensBuilder();
   });
+  attachAutocomplete(document.getElementById('pcdAtivo'), pcdAtivoItems, {
+    onSelect: function(item) { selecionarAtivoPcd(item.key); }
+  });
+  document.getElementById('pcdAtivo').addEventListener('input', function() {
+    // Digitar sem escolher da lista não conta (mesmo padrão do material).
+    if (pcdAtivoId) { pcdAtivoId = null; document.getElementById('pcdAtivoKey').value = ''; document.getElementById('pcdAtivoLimpar').style.display = 'none'; renderPcdAtivo(); }
+  });
+  document.getElementById('pcdAtivoLimpar').addEventListener('click', function() { selecionarAtivoPcd(null); });
   attachAutocomplete(document.getElementById('pcdFornecedor'), function() { return pcFornecedorItems; }, {
     onSelect: function(item) {
       document.getElementById('pcdFornecedorKey').value = item.key;
@@ -5537,6 +5659,7 @@ document.addEventListener('DOMContentLoaded', function() {
     dbOnValue(db.ref('pedidos'), function(snap) { allPedidos = snap.val() || {}; });
     dbOnValue(db.ref('produtos'), function(snap) { allProdutosCompras = snap.val() || {}; });
     dbOnValue(db.ref('clientes'), function(snap) { allClientesCompras = snap.val() || {}; });
+    dbOnValue(db.ref('ativos'), function(snap) { allAtivosCompras = snap.val() || {}; });
     dbOnValue(db.ref('formulas'), function(snap) { allFormulasCompras = snap.val() || {}; });
     dbOnValue(db.ref('bom'), function(snap) { allBomCompras = snap.val() || {}; });
     dbOnValue(db.ref('sku_historico'), function(snap) { skuHistoricoCompras = snap.val() || {}; });

@@ -22,7 +22,12 @@
   /* Tamanho e margem explícitos -- sem isto cada Chrome aplica a margem
      padrão dele e o mesmo laudo cabe aqui e vaza ali. */
   @page { size: A4; margin: 12mm; }
+}
 
+/* Estilos do documento FORA do @media print (17/11): o PDF que vai por e-mail ao
+   cliente (shared/laudo-pdf.js) é desenhado na tela, fora da impressão, a partir do
+   mesmo HTML. Na tela nada disso aparece: #laudoPrintArea é display:none e a área do
+   PDF fica fora da janela. */
   .laudo-page{page-break-after:always;font-size:11px;color:#000;line-height:1.35;
     font-family:Arial,Helvetica,sans-serif}
   .laudo-page:last-child{page-break-after:auto}
@@ -89,4 +94,12 @@
     padding:0 3px;white-space:normal}
   .laudo-check{display:inline-block;width:10px;height:10px;border:1px solid #000;
     margin:0 3px;vertical-align:middle}
-}
+
+/* Cabeçalho com logos do Relatório de Análise de PA (17/11). */
+.laudo-topo-logos{display:flex;align-items:center;gap:8px;text-align:center}
+.laudo-topo-lado{flex:0 0 auto;min-width:34mm;display:flex;align-items:center;min-height:12mm}
+.laudo-topo-esq{justify-content:flex-start}
+.laudo-topo-dir{justify-content:flex-end}
+.laudo-topo-centro{flex:1;min-width:0}
+.laudo-logo-kuryos{height:10mm;width:auto;max-width:34mm;display:block}
+.laudo-logo-cliente{width:auto;height:auto;display:block;object-fit:contain}

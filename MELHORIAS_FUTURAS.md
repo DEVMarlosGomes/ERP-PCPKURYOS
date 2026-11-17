@@ -1,5 +1,34 @@
 # Melhorias Futuras — Sistema PCP Kuryos
 
+## Laudo de PA por e-mail + ativos no PC Direto — o que ficou para depois (17/11/2026)
+
+Já entregue: o Relatório de Análise de PA sai com o logo da Kuryos no canto superior esquerdo e
+o logo do cliente opcional à direita, com tamanho ajustável. Concluído o laudo, **Encaminhar ao
+cliente** mostra os e-mails do cadastro, aceita outros e envia o PDF pela callable
+`laudoEmailCliente`, registrada em `laudos_envios/`. No PC Direto, o campo **Equipamento**
+busca os ativos, oferece as peças e o fornecedor do ativo e grava `origem.tipo ATIVO` no PC.
+Arquivos: `shared/laudo-cq.js`, `shared/laudo-pdf.js`, `shared/laudo-email.js`,
+`functions/laudo_email.js`, `shared/ativos.js`, `compras.html`. Ficou de fora:
+
+- **Área "Qualidade" nos contatos do cliente.** Hoje o laudo já vem marcado para Técnico,
+  Comercial e Compras (`LaudoEmail.contatosDoCliente`). Uma área QUALIDADE em
+  `shared/contatos-cliente.js` deixaria o cliente dizer quem recebe o laudo. Essa área também
+  aparece no CRM (`crm-frontend`), por isso não entrou junto.
+- **PDF em texto (vetorial).** O PDF do e-mail é imagem (html2canvas + jsPDF): fiel ao impresso,
+  mas o texto não é selecionável. Se algum cliente pedir PDF pesquisável, gerar no servidor
+  (pdfkit, como o `faturamento_email.js`) a partir dos mesmos dados de `dadosLaudoPa`.
+- **Laudos de MP (F0070) e embalagem (F009) por e-mail.** Só o de PA vai ao cliente. O de
+  recebimento poderia ir ao fornecedor em caso de reprovação. A mesma callable serve, mas é
+  preciso trocar o destinatário pelo contato do fornecedor.
+- **Envio automático ao liberar o lote.** Hoje é um clique deliberado (Encaminhar). Daria para
+  oferecer o envio já na decisão "Liberar lote para expedição".
+- **Serviço no PC Direto do ativo.** O PC Direto aceita só material (peças MN/MU). Serviço de
+  equipamento segue pela SC do ativo (Manutenção › Ativos › Peças e compras), que tem o atesto.
+  Para levar serviço ao PC Direto, ele precisaria do `tipoItem: SERVICO` e de ficar fora de
+  "A Receber" na Logística, como em `shared/servico-compra.js`.
+
+- **Teste instável `run_ativos_integracao_ui_test.js`.** Falha às vezes no passo 2 (Peças): a lista suspensa do material ("bico" → BICO DE IMPRESSÃO) abre e fecha antes do clique (timeout). Medido em 17/11: 1 falha em 2 execuções no HEAD limpo `773fecb`, sem as mudanças do dia. Provável redesenho do modal por um ouvinte do banco falso enquanto a lista está aberta; investigar em `shared/ativos-tela.js` (`abrirPecasCompras`/`preencherCompras`).
+
 ## Manutenção › Ativos × Cadastros/Compras — o que ficou para depois (16/11/2026)
 
 Já entregue:

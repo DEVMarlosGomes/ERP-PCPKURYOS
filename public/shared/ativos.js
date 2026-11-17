@@ -316,9 +316,49 @@
     }};
   }
 
+  /* Pedido de Compra Direto para um equipamento (17/11/2026, pedido do Marlos:
+     "colocar lista de ativos nessa página [PC Direto] para pesquisa e encaminhar
+     tudo que for necessário nesses equipamentos"). O PC direto não passa por SC,
+     então leva a origem no próprio PC, com o MESMO formato da SC do ativo --
+     quem já lê origem.tipo === 'ATIVO' (selo 🔧, fornecedores do ativo) lê igual. */
+  function origemDoPc(ativoId, ativo) {
+    ativo = ativo || {};
+    if (!ativoId || !ativo.codigo) return null;
+    return {tipo: 'ATIVO', ativoId: ativoId, ativoCodigo: ativo.codigo, ativoNome: txt(ativo.nome) || null,
+      fornecedorAssistenciaKey: ativo.fornecedorAssistenciaKey || null, fornecedorFabricanteKey: ativo.fornecedorFabricanteKey || null};
+  }
+
+  /* Peças cadastradas no ativo (ativos/{id}/pecas), em ordem de código, para
+     entrarem como itens do PC com um clique. Peça cujo material saiu do
+     cadastro fica de fora (não há como comprar o que não existe). */
+  function pecasParaCompra(ativo, materialExiste) {
+    var pecas = (ativo && ativo.pecas) || {};
+    return Object.keys(pecas).map(function(k) { return pecas[k] || {}; })
+      .filter(function(p) { return txt(p.materialCodigo) && (!materialExiste || materialExiste(p.materialCodigo)); })
+      .map(function(p) { return {materialCodigo: txt(p.materialCodigo), materialNome: txt(p.materialNome), unidade: txt(p.unidade) || null,
+        qtd: num(p.qtdReferencia) > 0 ? num(p.qtdReferencia) : 1}; })
+      .sort(function(a, b) { return a.materialCodigo.localeCompare(b.materialCodigo, 'pt-BR'); });
+  }
+
   /* De volta: o que foi pedido para este ativo e em que pé está.
-     SC (origem.ativoId) -> cotações (solicitacoesOrigem) -> PCs (item.origemSolicitacaoKey). */
+     SC (origem.ativoId) -> cotações (solicitacoesOrigem) -> PCs (item.origemSolicitacaoKey).
+     Mais os PCs diretos (pc.origem.ativoId, 17/11), que não têm SC. */
   function comprasDoAtivo(ativoId, solicitacoes, processos, pedidosCompra) {
+    var viaSc = comprasViaSc(ativoId, solicitacoes, processos, pedidosCompra);
+    var diretos = Object.keys(pedidosCompra || {}).filter(function(p) {
+      var pc = pedidosCompra[p] || {};
+      return pc.origem && pc.origem.tipo === 'ATIVO' && pc.origem.ativoId === ativoId;
+    }).map(function(p) {
+      var pc = pedidosCompra[p];
+      var itens = Object.keys(pc.itens || {}).map(function(i) { return pc.itens[i]; });
+      return {key: p, direto: true, numero: 'Compra direta', status: pc.status || '', criadoEm: pc.criadoEm || pc.dataCriacao || '',
+        justificativa: txt(pc.motivoDireto).replace(/_/g, ' ').toLowerCase(), itens: itens, cotacoes: [],
+        pcs: [{key: p, numero: pc.numeroFormatado || pc.numero || p, status: pc.status || '', fornecedor: pc.fornecedorNome || '',
+          dataPrevista: pc.dataPrevista || pc.dataPrevistaEntrega || null}]};
+    });
+    return viaSc.concat(diretos).sort(function(a, b) { return String(b.criadoEm).localeCompare(String(a.criadoEm)); });
+  }
+  function comprasViaSc(ativoId, solicitacoes, processos, pedidosCompra) {
     var scs = Object.keys(solicitacoes || {}).filter(function(k) {
       var s = solicitacoes[k];
       return s && s.origem && s.origem.tipo === 'ATIVO' && s.origem.ativoId === ativoId;
@@ -359,6 +399,7 @@
   return {
     TIPOS_PECA: TIPOS_PECA, nomeFornecedor: nomeFornecedor, sugerirFornecedores: sugerirFornecedores,
     pecaDoMaterial: pecaDoMaterial, montarSolicitacao: montarSolicitacao, comprasDoAtivo: comprasDoAtivo, etapaCompra: etapaCompra,
+    origemDoPc: origemDoPc, pecasParaCompra: pecasParaCompra,
     TIPOS: TIPOS, AREAS: AREAS, SITUACOES: SITUACOES, PERIODICIDADE_PADRAO_MESES: PERIODICIDADE_PADRAO_MESES,
     padroesDoTipo: padroesDoTipo, normalizar: normalizar, validar: validar, sugerirCodigo: sugerirCodigo,
     lista: lista, resumo: resumo, filtrar: filtrar, mudarSituacao: mudarSituacao, daLinha: daLinha, porTipo: porTipo,

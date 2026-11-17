@@ -448,6 +448,12 @@
       ".read": false,
       ".write": false
     },
+    // Envios do Relatório de Análise de PA ao cliente (17/11/2026): só a callable laudoEmailCliente grava
+    // (functions/laudo_email.js); Qualidade e ADM leem o histórico no modal de emissão.
+    "laudos_envios": {
+      ".read": "(auth != null && root.child('usuarios').child(auth.uid).child('role').exists() && root.child('usuarios').child(auth.uid).child('role').val() != 'pending' && root.child('usuarios').child(auth.uid).child('desativado').val() != true && (!root.child('security_sessions').child(auth.uid).child('revokedAfter').exists() || auth.token.auth_time > root.child('security_sessions').child(auth.uid).child('revokedAfter').val())) && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'qualidade' || root.child('usuarios').child(auth.uid).child('funcoes').child('admin').val() == true || root.child('usuarios').child(auth.uid).child('funcoes').child('qualidade').val() == true || root.child('usuarios').child(auth.uid).child('modulos').child('qualidade').val() == true)",
+      ".write": false
+    },
     "solicitacoes_descarte": {
       ".read": "(auth != null && root.child('usuarios').child(auth.uid).child('role').exists() && root.child('usuarios').child(auth.uid).child('role').val() != 'pending' && root.child('usuarios').child(auth.uid).child('desativado').val() != true && (!root.child('security_sessions').child(auth.uid).child('revokedAfter').exists() || auth.token.auth_time > root.child('security_sessions').child(auth.uid).child('revokedAfter').val())) && (auth != null)",
       ".write": "(auth != null && root.child('usuarios').child(auth.uid).child('role').exists() && root.child('usuarios').child(auth.uid).child('role').val() != 'pending' && root.child('usuarios').child(auth.uid).child('desativado').val() != true && (!root.child('security_sessions').child(auth.uid).child('revokedAfter').exists() || auth.token.auth_time > root.child('security_sessions').child(auth.uid).child('revokedAfter').val())) && ((auth != null && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('role').val() == 'pcp' || root.child('usuarios').child(auth.uid).child('role').val() == 'logistica')) || (auth != null && root.child('usuarios').child(auth.uid).child('modulos').child('logistica').val() == true))"

@@ -74,6 +74,33 @@
         return '<tr>' + l.map(function(c) { return '<td>' + esc(ou(c, '')) + '</td>'; }).join('') + '</tr>';
       }).join('') + '</tbody></table>';
   }
+  /* Logos do Relatório de Análise de PA (17/11, pedido do Marlos): Kuryos sempre no canto
+     superior esquerdo; o do cliente, opcional, à direita, só quando há logo arquivado no
+     cadastro (clientes/{k}/logoEtiquetaUrl, o mesmo da etiqueta) e com tamanho ajustável
+     (50% a 200% da faixa). Sem logo do cliente, a coluna direita fica vazia para o título
+     continuar centrado. `logos` ausente = cabeçalho antigo, sem logo nenhum. */
+  var LOGO_CLIENTE_MIN = 50, LOGO_CLIENTE_MAX = 200;
+  function logoClientePct(v) {
+    var n = Math.round(Number(v));
+    return v == null || v === '' || !isFinite(n) || n <= 0 ? 100 : Math.min(LOGO_CLIENTE_MAX, Math.max(LOGO_CLIENTE_MIN, n));
+  }
+  function cabecalhoComLogos(logos, titulo1, titulo2) {
+    var l = logos || {};
+    var pct = logoClientePct(l.clientePct);
+    var esquerda = l.kuryos ? '<img class="laudo-logo-kuryos" src="' + esc(l.kuryos) + '" alt="Kuryos">' : '';
+    var direita = l.cliente
+      ? '<img class="laudo-logo-cliente" src="' + esc(l.cliente) + '" alt="' + esc(l.clienteNome || 'Cliente') + '"' +
+        ' style="max-height:' + (14 * pct / 100).toFixed(1) + 'mm;max-width:' + Math.min(48, 30 * pct / 100).toFixed(1) + 'mm">'
+      : '';
+    return '<div class="laudo-topo laudo-topo-logos">' +
+      '<div class="laudo-topo-lado laudo-topo-esq">' + esquerda + '</div>' +
+      '<div class="laudo-topo-centro">' +
+        '<div class="laudo-topo-org">LABORATÓRIO DE CONTROLE DE QUALIDADE E DESENVOLVIMENTO</div>' +
+        '<div class="laudo-topo-doc">' + esc(titulo1) + (titulo2 ? '<br>' + esc(titulo2) : '') + '</div>' +
+      '</div>' +
+      '<div class="laudo-topo-lado laudo-topo-dir">' + direita + '</div>' +
+    '</div>';
+  }
   function cabecalho(pop, formulario, titulo1, titulo2) {
     return '<div class="laudo-topo">' +
       '<div class="laudo-topo-org">LABORATÓRIO DE CONTROLE DE QUALIDADE E DESENVOLVIMENTO</div>' +
@@ -218,7 +245,8 @@
     });
 
     return '<div class="laudo-page">' +
-      cabecalho(null, null, 'RELATÓRIO DE ANÁLISE –', 'PRODUTO ACABADO') +
+      (d.logos ? cabecalhoComLogos(d.logos, 'RELATÓRIO DE ANÁLISE –', 'PRODUTO ACABADO')
+        : cabecalho(null, null, 'RELATÓRIO DE ANÁLISE –', 'PRODUTO ACABADO')) +
 
       titulo(1, 'Identificação do Produto') +
       itens([
@@ -787,6 +815,8 @@
     MICRO_PADRAO: MICRO_PADRAO, NOTA_MICRO: NOTA_MICRO, DISPENSA_MICRO: DISPENSA_MICRO,
     cnc: cnc, tabelaPesos: tabelaPesos, blocoMicro: blocoMicro,
     paginaProdutoAcabado: paginaProdutoAcabado,
+    cabecalhoComLogos: cabecalhoComLogos,
+    logoClientePct: logoClientePct,
     paginaMateriaPrima: paginaMateriaPrima, paginaEmbalagem: paginaEmbalagem,
     ORIGEM_FORMULARIO: ORIGEM_FORMULARIO, PERGUNTAS_CONTENCAO: PERGUNTAS_CONTENCAO,
     paginaRnc: paginaRnc, paginaTermoConcessao: paginaTermoConcessao,
