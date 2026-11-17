@@ -66,13 +66,21 @@
 
   function padroesDoTipo(tipo) { return TIPOS[tipo] || TIPOS.OUTRO; }
 
-  // Ativo pronto para gravar: textos limpos, código em maiúsculas, números.
-  function normalizar(f) {
+  function nomeFornecedor(f) { f = f || {}; return txt(f.nomeFantasia) || txt(f.razaoSocial) || ''; }
+
+  /* Ativo pronto para gravar: textos limpos, código em maiúsculas, números.
+     `fornecedores` (opcional, o nó inteiro): com ele, o fabricante e a
+     assistência técnica escolhidos do cadastro (16/11/2026) gravam também o
+     nome -- a lista e a busca não precisam ler fornecedores/ para mostrar. */
+  function normalizar(f, fornecedores) {
     f = f || {};
     var tipo = TIPOS[f.tipo] ? f.tipo : 'OUTRO';
     var p = padroesDoTipo(tipo);
     var exigeCalibracao = bool(f.exigeCalibracao, p.calibracao);
     var per = num(f.calibracaoPeriodicidadeMeses);
+    var fabKey = txt(f.fornecedorFabricanteKey) || null, assKey = txt(f.fornecedorAssistenciaKey) || null;
+    var fabNome = fabKey && fornecedores && fornecedores[fabKey] ? nomeFornecedor(fornecedores[fabKey]) : txt(f.fornecedorFabricanteNome);
+    var assNome = assKey && fornecedores && fornecedores[assKey] ? nomeFornecedor(fornecedores[assKey]) : txt(f.fornecedorAssistenciaNome);
     return {
       codigo: txt(f.codigo).toUpperCase().replace(/\s+/g, '-'),
       nome: txt(f.nome),
@@ -81,7 +89,13 @@
       linha: txt(f.linha) || null,
       capacidade: num(f.capacidade),
       capacidadeUnidade: txt(f.capacidadeUnidade) || p.unidade || null,
-      fabricante: txt(f.fabricante) || null,
+      // Texto livre continua valendo (68 dos 70 ativos importados têm só o
+      // texto); escolhido do cadastro, o nome do fornecedor preenche o vazio.
+      fabricante: txt(f.fabricante) || fabNome || null,
+      fornecedorFabricanteKey: fabKey,
+      fornecedorFabricanteNome: fabKey ? (fabNome || null) : null,
+      fornecedorAssistenciaKey: assKey,
+      fornecedorAssistenciaNome: assKey ? (assNome || null) : null,
       modelo: txt(f.modelo) || null,
       numeroSerie: txt(f.numeroSerie) || null,
       patrimonio: txt(f.patrimonio) || null,
@@ -153,7 +167,7 @@
       if (f.marcador === 'assepsia' && !(a.exigeAssepsia && a.situacao !== 'INATIVO')) return false;
       if (f.marcador === 'calibracao' && !(a.exigeCalibracao && a.situacao !== 'INATIVO')) return false;
       if (!ps.length) return true;
-      var alvo = chave([a.codigo, a.nome, (TIPOS[a.tipo] || {}).rotulo, AREAS[a.area], a.linha, a.fabricante, a.modelo, a.numeroSerie, a.patrimonio].join(' '));
+      var alvo = chave([a.codigo, a.nome, (TIPOS[a.tipo] || {}).rotulo, AREAS[a.area], a.linha, a.fabricante, a.fornecedorAssistenciaNome, a.modelo, a.numeroSerie, a.patrimonio].join(' '));
       return ps.every(function(p) { return alvo.indexOf(p) >= 0; });
     }).sort(function(x, y) { return String(x.codigo).localeCompare(String(y.codigo), 'pt-BR', {numeric: true}); });
   }
@@ -206,7 +220,145 @@
       });
   }
 
+  /* ── Integração com Cadastros, Compras e Logística (16/11/2026) ──────────
+     Pedido do usuário: "ao precisar de algo para orçamentos, logística,
+     compras e afins tudo esteja conectado". O ativo passa a apontar para o
+     cadastro (fornecedores e materiais) e a abrir a Solicitação de Compra do
+     fluxo normal de Compras, com a origem no equipamento:
+       ativo -> SC (origem.tipo ATIVO) -> cotação -> PC -> recebimento/atesto
+     O elo SC -> cotação -> PC já existe (origemSolicitacaoKey nos itens);
+     comprasDoAtivo só o percorre de volta. */
+
+  // Peça de reposição é material MN (Peça de manutenção); MU (Uso e Consumo)
+  // também serve -- lubrificante, EPI, material de limpeza do equipamento.
+  var TIPOS_PECA = ['MN', 'MU'];
+
+  /* Fabricante em texto livre -> fornecedores do cadastro com nome parecido.
+     Medido em 16/11: dos 26 fabricantes distintos, só 4 casam com o
+     cadastro; o resto pede cadastro novo, e a tela diz isso em vez de
+     escolher sozinha. */
+  /* A MARCA (primeira palavra que não é genérica) precisa casar. O ensaio com
+     os 70 ativos reais mostrou o porquê: casando qualquer palavra, "CYCLOP
+     SISTEMA DE EMBALAGENS" sugeria "AZ EMBALAGENS" e "ERLI MAQUINAS" sugeria
+     três fábricas de máquinas sem relação. */
+  var GENERICAS = ['LTDA', 'EIRELI', 'ME', 'EPP', 'SA', 'SRL', 'INDUSTRIA', 'INDUSTRIAL', 'COMERCIO', 'DE', 'DO', 'DA', 'DOS', 'DAS', 'E',
+    'MAQ', 'MAQUINA', 'MAQUINAS', 'MACHINES', 'SISTEMA', 'SISTEMAS', 'EMBALAGEM', 'EMBALAGENS', 'EQUIPAMENTO', 'EQUIPAMENTOS',
+    'BRASIL', 'DO BRASIL', 'TECNOLOGIA', 'SOLUCOES', 'SERVICOS', 'LINE', 'GROUP', 'GRUPO'];
+  function sugerirFornecedores(texto, fornecedores, limite) {
+    var alvo = chave(texto).replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (alvo.length < 3 || /^(N ?I|NAO INFORMADO|MADE IN CHINA)$/.test(alvo)) return [];
+    var palavras = alvo.split(' ').filter(function(p) { return p.length >= 3 && GENERICAS.indexOf(p) < 0; });
+    if (!palavras.length || palavras[0].length < 4) return [];
+    var marca = palavras[0], colada = palavras.length > 1 ? palavras[0] + palavras[1] : null;
+    return Object.keys(fornecedores || {}).map(function(k) {
+      var f = fornecedores[k] || {};
+      if (f.ativo === false) return null;
+      var nome = chave(nomeFornecedor(f) + ' ' + txt(f.razaoSocial)).replace(/[^A-Z0-9 ]/g, ' ');
+      var compacto = nome.replace(/ /g, '');
+      var temMarca = (' ' + nome + ' ').indexOf(' ' + marca) >= 0 || (colada && compacto.indexOf(colada) >= 0);
+      if (!temMarca) return null;
+      var acertos = palavras.filter(function(p) { return nome.indexOf(p) >= 0; }).length;
+      return {key: k, nome: nomeFornecedor(f), acertos: acertos};
+    }).filter(Boolean).sort(function(a, b) { return b.acertos - a.acertos || a.nome.localeCompare(b.nome, 'pt-BR'); })
+      .slice(0, limite || 5).map(function(x) { return {key: x.key, nome: x.nome}; });
+  }
+
+  // Peça do ativo a partir do material do cadastro. o = {qtd, obs}.
+  function pecaDoMaterial(material, o) {
+    o = o || {};
+    if (!material || !txt(material.mpCodigo)) return {erro: 'Escolha o material no cadastro.'};
+    if (TIPOS_PECA.indexOf(material.tipo) < 0) {
+      return {erro: txt(material.mpCodigo) + ' é ' + (material.tipo || 'sem tipo') + '. Peça de equipamento é MN (Peça de manutenção) ou MU (Uso e Consumo); cadastre a peça em Cadastros › Materiais.'};
+    }
+    var qtd = num(o.qtd);
+    if (qtd != null && (isNaN(qtd) || qtd < 0)) return {erro: 'A quantidade de referência precisa ser um número maior ou igual a zero.'};
+    return {materialCodigo: txt(material.mpCodigo), materialNome: txt(material.mpNome), unidade: txt(material.unidade) || null,
+      qtdReferencia: qtd == null ? null : qtd, obs: txt(o.obs).slice(0, 200) || null};
+  }
+
+  /* Solicitação de Compra aberta pelo ativo. linhas = [{tipo: 'PECA',
+     materialCodigo, materialNome, unidade, qtd, obs} | {tipo: 'SERVICO',
+     descricao, qtd, obs}]. o = {justificativa, por, agora, novaChave()}.
+     Devolve {erro} ou {registro} SEM número (o número sai do contador de SC
+     na hora de gravar, como em Compras). */
+  function montarSolicitacao(ativoId, ativo, linhas, o) {
+    o = o || {};
+    ativo = ativo || {};
+    if (!ativoId || !ativo.codigo) return {erro: 'Equipamento não encontrado.'};
+    var just = txt(o.justificativa);
+    if (just.length < 10) return {erro: 'Explique o motivo da compra (mínimo 10 caracteres): o que quebrou, o que vai ser trocado.'};
+    var itens = {}, erros = [];
+    (linhas || []).forEach(function(l, i) {
+      var qtd = num(l && l.qtd);
+      if (l && l.tipo === 'SERVICO') {
+        var d = txt(l.descricao);
+        if (d.length < 5) { erros.push('Linha ' + (i + 1) + ': descreva o serviço.'); return; }
+        if (!(qtd > 0)) { erros.push('Linha ' + (i + 1) + ': informe a quantidade.'); return; }
+        itens[o.novaChave()] = {tipoItem: 'SERVICO', descricao: d.slice(0, 300), materialCodigo: '', materialNome: d.slice(0, 300),
+          qtd: qtd, unidade: 'SV', obs: txt(l.obs).slice(0, 300)};
+        return;
+      }
+      if (!l || !txt(l.materialCodigo)) { erros.push('Linha ' + (i + 1) + ': escolha a peça.'); return; }
+      if (!(qtd > 0)) { erros.push('Linha ' + (i + 1) + ': informe a quantidade.'); return; }
+      itens[o.novaChave()] = {materialCodigo: txt(l.materialCodigo), materialNome: txt(l.materialNome), qtd: qtd,
+        unidade: txt(l.unidade), obs: txt(l.obs).slice(0, 300)};
+    });
+    if (erros.length) return {erro: erros.join(' ')};
+    if (!Object.keys(itens).length) return {erro: 'Inclua ao menos uma peça ou um serviço.'};
+    return {registro: {
+      itens: itens,
+      justificativa: 'Manutenção ' + ativo.codigo + ' — ' + txt(ativo.nome) + ': ' + just,
+      solicitante: o.por || null, status: 'PENDENTE', aprovacao: null, rejeicao: null,
+      criadoPor: o.por || null, criadoEm: o.agora || null,
+      origemModulo: 'MANUTENCAO', origemTela: 'ativos',
+      origem: {tipo: 'ATIVO', ativoId: ativoId, ativoCodigo: ativo.codigo, ativoNome: txt(ativo.nome) || null,
+        fornecedorAssistenciaKey: ativo.fornecedorAssistenciaKey || null, fornecedorFabricanteKey: ativo.fornecedorFabricanteKey || null}
+    }};
+  }
+
+  /* De volta: o que foi pedido para este ativo e em que pé está.
+     SC (origem.ativoId) -> cotações (solicitacoesOrigem) -> PCs (item.origemSolicitacaoKey). */
+  function comprasDoAtivo(ativoId, solicitacoes, processos, pedidosCompra) {
+    var scs = Object.keys(solicitacoes || {}).filter(function(k) {
+      var s = solicitacoes[k];
+      return s && s.origem && s.origem.tipo === 'ATIVO' && s.origem.ativoId === ativoId;
+    });
+    return scs.map(function(k) {
+      var s = solicitacoes[k];
+      var cotacoes = Object.keys(processos || {}).filter(function(p) { return processos[p] && (processos[p].solicitacoesOrigem || {})[k]; })
+        .map(function(p) { return {key: p, numero: processos[p].numeroFormatado || processos[p].numero || p, status: processos[p].status || ''}; });
+      var pcs = Object.keys(pedidosCompra || {}).filter(function(p) {
+        var pc = pedidosCompra[p] || {};
+        return Object.keys(pc.itens || {}).some(function(i) { return (pc.itens[i] || {}).origemSolicitacaoKey === k; });
+      }).map(function(p) {
+        var pc = pedidosCompra[p];
+        return {key: p, numero: pc.numeroFormatado || pc.numero || p, status: pc.status || '', fornecedor: pc.fornecedorNome || '',
+          dataPrevista: pc.dataPrevista || pc.dataPrevistaEntrega || null};
+      });
+      var itens = Object.keys(s.itens || {}).map(function(i) { return s.itens[i]; });
+      return {key: k, numero: s.numeroFormatado || s.numero || k, status: s.status || 'PENDENTE', criadoEm: s.criadoEm || '',
+        justificativa: s.justificativa || '', itens: itens, cotacoes: cotacoes, pcs: pcs};
+    }).sort(function(a, b) { return String(b.criadoEm).localeCompare(String(a.criadoEm)); });
+  }
+
+  // Etapa legível da compra de um ativo (para a lista do equipamento).
+  function etapaCompra(c) {
+    var pcs = c.pcs || [];
+    if (c.status === 'REJEITADA') return {rotulo: 'Rejeitada por Compras', cor: 'bad'};
+    if (pcs.length) {
+      if (pcs.every(function(p) { return p.status === 'RECEBIDO_TOTAL'; })) return {rotulo: 'Recebido / serviço atestado', cor: 'ok'};
+      if (pcs.every(function(p) { return p.status === 'CANCELADO'; })) return {rotulo: 'PC cancelado', cor: 'bad'};
+      if (pcs.some(function(p) { return p.status === 'RECEBIDO_PARCIAL'; })) return {rotulo: 'Recebido em parte', cor: 'warn'};
+      return {rotulo: 'Pedido de Compra emitido', cor: 'info'};
+    }
+    if (c.cotacoes && c.cotacoes.length) return {rotulo: 'Em cotação (orçamento)', cor: 'info'};
+    if (c.status === 'APROVADA' || c.status === 'CONSOLIDADA') return {rotulo: 'Aprovada, aguardando cotação', cor: 'info'};
+    return {rotulo: 'Aguardando aprovação de Compras', cor: 'warn'};
+  }
+
   return {
+    TIPOS_PECA: TIPOS_PECA, nomeFornecedor: nomeFornecedor, sugerirFornecedores: sugerirFornecedores,
+    pecaDoMaterial: pecaDoMaterial, montarSolicitacao: montarSolicitacao, comprasDoAtivo: comprasDoAtivo, etapaCompra: etapaCompra,
     TIPOS: TIPOS, AREAS: AREAS, SITUACOES: SITUACOES, PERIODICIDADE_PADRAO_MESES: PERIODICIDADE_PADRAO_MESES,
     padroesDoTipo: padroesDoTipo, normalizar: normalizar, validar: validar, sugerirCodigo: sugerirCodigo,
     lista: lista, resumo: resumo, filtrar: filtrar, mudarSituacao: mudarSituacao, daLinha: daLinha, porTipo: porTipo,

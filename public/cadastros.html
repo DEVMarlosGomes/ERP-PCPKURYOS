@@ -359,6 +359,7 @@
         <option value="ES">Embalagem Secundária</option>
         <option value="ET">Embalagem Terciária</option>
         <option value="MU">Uso e Consumo</option>
+        <option value="MN">Peça de manutenção</option>
       </select>
       <select class="kt-select" id="filterAtivo-mat">
         <option value="">Todos</option>
@@ -463,6 +464,7 @@
                 <option value="ES">Embalagem Secundária</option>
                 <option value="ET">Embalagem Terciária</option>
                 <option value="MU">Uso e Consumo</option>
+        <option value="MN">Peça de manutenção</option>
               </select>
               <div class="field-hint" id="tipoDescricaoHint-mat"></div>
             </div>
@@ -643,7 +645,7 @@
           </div>
 
           <div id="avisoFornecedorPd-mat" class="field-hint" style="display:none;margin:10px 0 4px;padding:8px;border:1px solid #f0c36d;border-radius:6px;background:#fff7e6"></div>
-          <div class="tipo-fields" data-tipo-for="MPGR,MU">
+          <div class="tipo-fields" data-tipo-for="MPGR,MU,MN">
             <div class="section-label">Fornecedores homologados</div>
             <div class="section-note">Cada material pode ter vários fornecedores homologados -- o Pedido de Compra escolhe entre eles. Cadastro de fornecedor em si fica na aba Fornecedores, aqui mesmo em Cadastros.</div>
             <div class="table-wrap" style="margin-bottom:10px" data-ui="table-scroll">
@@ -2346,8 +2348,8 @@ document.addEventListener('DOMContentLoaded', function() {
   var fornecedoresHomologadosStaged = {}; // fornecedorKey -> {nomeComercial, codigoFornecedor, statusHomologacao, custoReferencia} -- staged em memória até salvar
   var matSortable = makeSortableTable(document.getElementById('matThead-mat'), 'mpCodigo', 'asc');
 
-  var TIPO_LABELS = { MPGR: 'MP Geral', MPES: 'Fragrância/Essência', EP: 'Embalagem Primária', ES: 'Embalagem Secundária', ET: 'Embalagem Terciária', MU: 'Uso e Consumo' };
-  var TIPO_BADGE_CLASS = { MPGR: 'badge-blue', MPES: 'badge-orange', EP: 'badge-purple', ES: 'badge-purple', ET: 'badge-purple', MU: 'badge-gray' };
+  var TIPO_LABELS = { MPGR: 'MP Geral', MPES: 'Fragrância/Essência', EP: 'Embalagem Primária', ES: 'Embalagem Secundária', ET: 'Embalagem Terciária', MU: 'Uso e Consumo', MN: 'Peça de manutenção' };
+  var TIPO_BADGE_CLASS = { MPGR: 'badge-blue', MPES: 'badge-orange', EP: 'badge-purple', ES: 'badge-purple', ET: 'badge-purple', MU: 'badge-gray', MN: 'badge-gray' };
 
   // ── % de preenchimento (ver calcularPreenchimento em shared/utils.js) ──
   // Campos comuns valem pra qualquer tipo; os por-tipo só entram na conta
@@ -2385,6 +2387,7 @@ document.addEventListener('DOMContentLoaded', function() {
     ES: 'Embalagem Secundária -- agrupa/comunica, não toca o produto (rótulo, cartucho, bula, selo, celofane...). Geralmente é o que o cliente final vê na prateleira.',
     ET: 'Embalagem Terciária -- transporte/logística, não vista pelo consumidor final (display de PDV, caixa de embarque, divisória, cantoneira...).',
     MU: 'Uso e Consumo -- insumo indireto, não faz parte do produto nem entra em BOM (limpeza, EPI, laboratório, escritório...). Item que vai junto com o produto de alguma forma (ex: etiqueta de identificação de caixa de embarque) deve ser cadastrado como Embalagem, não como Uso e Consumo.'
+    ,MN: 'Peça de manutenção -- peça de reposição ou consumível de máquina e equipamento (rolamento, correia, vedação, bico, filtro, lâmpada UV...). Liga-se ao equipamento em Manutenção › Ativos e é comprada pela Solicitação de Compra aberta no próprio ativo.'
   };
 
   // Só faz sentido homologar fornecedor do TIPO certo pro material -- MP/

@@ -48,7 +48,8 @@
     EP: 'EMBALAGEM',
     ES: 'EMBALAGEM',
     ET: 'EMBALAGEM',
-    MU: 'USO_E_CONSUMO'
+    MU: 'USO_E_CONSUMO',
+    MN: 'USO_E_CONSUMO'   // peça de manutenção (16/11/2026): despesa indireta, como MU
   };
 
   function num(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }

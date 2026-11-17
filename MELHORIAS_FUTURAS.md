@@ -1,5 +1,32 @@
 # Melhorias Futuras — Sistema PCP Kuryos
 
+## Manutenção › Ativos × Cadastros/Compras — o que ficou para depois (16/11/2026)
+
+Já entregue:
+- fornecedor fabricante e assistência técnica do ativo, escolhidos do cadastro;
+- peças MN/MU ligadas ao ativo;
+- SC aberta pelo ativo, com linha de serviço;
+- serviço atestado por Compras, sem passar pela doca;
+- andamento SC → cotação → PC visto no próprio equipamento.
+
+Arquivos: `shared/ativos.js`, `shared/servico-compra.js`. Ficou de fora:
+
+- **Ordem de Serviço (corretiva/preventiva, MTBF/MTTR).** Técnico, horas, peças usadas e parada da
+  linha, ligadas ao ativo e à SC. Fora do escopo escolhido em 16/11. Ponto de partida:
+  `ativos_historico` (já registra parada/volta) e `comprasDoAtivo`.
+- **Lançamento financeiro do serviço.** O serviço atestado não gera título sozinho: o título vem do
+  recebimento físico (servidor), e serviço não passa por ele. Hoje a despesa entra pelo Financeiro
+  (NF de entrada ou título manual). Para automatizar, o atesto (`ServicoCompra.atestar`) passaria por
+  uma callable que crie o título como o recebimento faz.
+- **Baixa de peça no estoque pela manutenção.** Peça MN entra no estoque pelo recebimento, mas não há
+  saída "consumida no ativo X". Faz par com a Ordem de Serviço.
+- **Cadastrar os fabricantes que faltam.** Medido em 16/11: dos 26 fabricantes distintos nos 70 ativos,
+  só 6 têm sugestão no cadastro de fornecedores. O resto (CYCLOP, PLASMAQ, KARR, PRESTOMAQ, JBR, FANEM,
+  ZEBRA, HP, IBBL...) precisa de cadastro em Fornecedores. É operação, não código.
+- **Regras do banco:** a exceção "Manutenção cria SC do ativo" está em `database.rules.json` e precisa
+  ser **publicada** (`firebase deploy --only database --project erpkuryos`) antes de a Manutenção
+  conseguir enviar. Sem isso, a tela mostra "seu usuário precisa do módulo Manutenção ou Compras".
+
 ## Consistência produção × estoque × expedição — o que ficou para depois (13/11/2026)
 
 Já entregue: RNC automática de superprodução (> 150%), de saldo descasado depois da conferência e o

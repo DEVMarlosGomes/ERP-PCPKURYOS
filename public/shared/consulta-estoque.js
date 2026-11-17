@@ -34,10 +34,11 @@
     ES: {rotulo: 'Embalagem secundária', curto: 'Emb. 2ª', cor: '#c9910a'},
     ET: {rotulo: 'Embalagem terciária', curto: 'Emb. 3ª', cor: '#b5651d'},
     MU: {rotulo: 'Uso e consumo', curto: 'Consumo', cor: '#6e6e73'},
+    MN: {rotulo: 'Peça de manutenção', curto: 'Manutenção', cor: '#5b6472'},
     PA: {rotulo: 'Produto acabado', curto: 'PA', cor: '#0a1c69'},
     OUTRO: {rotulo: 'Outros', curto: 'Outros', cor: '#6e6e73'}
   };
-  var ORDEM_GRUPOS = ['MPGR', 'MPES', 'EP', 'ES', 'ET', 'MU', 'PA', 'OUTRO'];
+  var ORDEM_GRUPOS = ['MPGR', 'MPES', 'EP', 'ES', 'ET', 'MU', 'MN', 'PA', 'OUTRO'];
   var STATUS_OK = {LIBERADO: 1, APROVADO_CONCESSAO: 1, LIBERADO_EXPEDICAO: 1, LEGADO_ESTOQUE: 1};
   var DIAS_VENCENDO = 30;
 

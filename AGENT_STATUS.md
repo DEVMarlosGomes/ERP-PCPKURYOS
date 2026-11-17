@@ -11,21 +11,7 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ### Claude (sessão `ativos-integracao`) — Manutenção › Ativos ligada a Cadastros, Compras e Logística (16/11/2026)
 
-- **Em andamento.** Escopo: fornecedores do ativo (fabricante e assistência técnica) escolhidos do cadastro;
-  peças do ativo (tipo de material novo **MN – Peça de manutenção**); SC aberta pelo ativo
-  (`origem.tipo = ATIVO`), com linha de **serviço** sem material; serviço atestado por Compras
-  (não passa pelo recebimento físico); vínculo `{geral: true}` automático no PC.
-
-  Arquivos ativos:
-  - `public/shared/ativos.js`, `public/shared/ativos-tela.js`, `public/ativos.html`;
-  - `public/shared/servico-compra.js` (novo);
-  - `public/cadastros.html` (só o tipo MN), `public/compras.html`, `public/logistica.html`
-    (só o filtro de serviço), `public/shared/consulta-estoque.js`, `public/shared/custos.js` (tipo MN);
-  - `database.rules.json`: **só** os blocos `solicitacoes_compra` e `config/contadores/solicitacaoCompra`;
-    commit só do meu trecho;
-  - testes `run_ativos_*` e `run_servico_compra_*`.
-
-  Não toco em `functions/` nem em `navegacao.js`.
+- **Código concluído em `hostinger-deploy`.** Ativo com fabricante e assistência técnica do cadastro (sugestão pela MARCA: o ensaio nos 70 ativos reais derrubou a busca por qualquer palavra, que sugeria "AZ EMBALAGENS" para CYCLOP); peças MN/MU (tipo novo **MN – Peça de manutenção** no Cadastros, Custos = USO_E_CONSUMO); "Peças e compras" no ativo abre SC PENDENTE com `origem.tipo ATIVO` (peça + **serviço**), numerada pelo contador de SC, e mostra SC → cotação → PC. Compras: "+ Serviço" na SC, origem 🔧 na lista, assistência/fabricante do ativo como candidatos na cotação, `tipoItem` propagado até o PC, vínculo `{geral: true}` automático, **Atestar serviço** (`shared/servico-compra.js`, status pela mesma regra de `functions/recebimento.js`). Logística: PC só de serviço fora de A Receber; serviço não aparece para receber. Regra: módulo `manutencao` só CRIA SC do ativo PENDENTE + contador (emulador: `run_ativos_compras_rules_test`). Testes: `run_ativos_test` 12, `run_servico_compra_test` 5, UI Chrome `run_ativos_integracao_ui_test` e `run_servico_compra_ui_test` (pegou um erro de sintaxe no Compras antes do commit), regressão Ativos/Compras/Logística/Custos/coerência verde. **Pendente (Marlos):** publicar regras (`firebase deploy --only database --project erpkuryos`) e deploy da VPS. Arquivos ativos: nenhum.
 
 ### Claude (sessão `estab-retrabalho-qual`) — Estabilidade só com Aspecto/Cor/Odor + botão de retrabalho da Qualidade (16/11/2026)
 

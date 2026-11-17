@@ -15,6 +15,7 @@
   <script src="shared/cancelamento-pc.js"></script>
   <script src="shared/ultimo-preco.js"></script>
   <script src="shared/propriedade-estoque.js"></script>
+  <script src="shared/servico-compra.js"></script>
   <script src="auth_check.js"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="shared/theme.css">
@@ -397,6 +398,7 @@
       <div class="item-row-head"><div>Material</div><div>Fornecedores homologados</div><div>Quantidade</div><div>Un.</div><div>Observação</div><div></div></div>
       <div id="scItensBuilder"></div>
       <button class="btn btn-ghost btn-sm" id="btnAddScItem">+ Item</button>
+      <button class="btn btn-ghost btn-sm" id="btnAddScServico" title="Conserto, assistência técnica, calibração externa: sem material do cadastro, não entra no estoque">+ Serviço</button>
 
       <div class="section-label">Justificativa</div>
       <div class="form-group full">
@@ -1075,6 +1077,10 @@ function renderSolicitacoes() {
       // material E de possíveis similares (🔗 candidatosCotacaoParaMaterial,
       // mesma função que já monta a coluna do builder de Nova Solicitação).
       var itensResumo = itens.map(function(i) {
+        if (ServicoCompra.ehServico(i)) {
+          return '<div style="margin-bottom:4px"><span class="badge badge-gray">Serviço</span> ' + escapeHtml(ServicoCompra.nomeItem(i)) + ' (' + fmtNum(i.qtd) + ' ' + escapeHtml(i.unidade || '') + ')' +
+            '<div style="font-size:11px;color:var(--muted)">sem estoque — Compras atesta no PC</div></div>';
+        }
         var candidatos = candidatosCotacaoParaMaterial(i.materialCodigo);
         var fornHtml = candidatos.length
           ? candidatos.map(function(c) { return escapeHtml(c.nome) + (c.viaVariante ? ' <span title="Fornecedor de outro cadastro do mesmo item (código diferente)">🔗</span>' : ''); }).join(', ')
@@ -1116,7 +1122,7 @@ function renderSolicitacoes() {
         '<td>' + checkbox + '</td>' +
         '<td class="code-cell">' + escapeHtml(s.numeroFormatado || '—') + '</td>' +
         '<td style="font-size:12px">' + fmtData(s.criadoEm) + '</td>' +
-        '<td>' + escapeHtml(s.solicitante || '—') + '</td>' +
+        '<td>' + escapeHtml(s.solicitante || '—') + origemAtivoHtml(s) + '</td>' +
         '<td style="font-size:12.5px">' + (itensResumo || '—') + '</td>' +
         '<td style="font-size:12px;max-width:200px">' + escapeHtml(s.justificativa || '—') + '</td>' +
         '<td>' + statusBadge + '</td>' +
@@ -1292,6 +1298,18 @@ function renderScItensBuilder() {
     return;
   }
   box.innerHTML = scItensBuilder.map(function(it, idx) {
+    // Linha de serviço (16/11/2026, shared/servico-compra.js): descrição livre,
+    // sem material do cadastro; não entra no estoque, Compras atesta no PC.
+    if (ServicoCompra.ehServico(it)) {
+      return '<div><div class="item-row" data-idx="' + idx + '">' +
+        '<input type="text" class="sci-desc" data-idx="' + idx + '" value="' + escapeAttr(it.descricao || '') + '" placeholder="Serviço: o que fazer e em qual equipamento" aria-label="Descrição do serviço">' +
+        '<span style="color:var(--muted);font-size:12px">Serviço — sem estoque</span>' +
+        '<input type="number" class="sci-qtd" data-idx="' + idx + '" min="0" step="any" value="' + (it.qtd != null ? it.qtd : '') + '">' +
+        '<div style="font-size:12px;color:var(--muted)">' + ServicoCompra.UNIDADE + '</div>' +
+        '<input type="text" class="sci-obs" data-idx="' + idx + '" value="' + escapeAttr(it.obs || '') + '" placeholder="Opcional">' +
+        '<button class="btn btn-danger-ghost btn-sm sci-remove" data-idx="' + idx + '" title="Remover item" aria-label="Remover item">×</button>' +
+      '</div></div>';
+    }
     var mat = findMaterialByCodigo(it.materialCodigo);
     var unidade = mat ? mat.unidade : '';
     var referencia = it.materialCodigo ? referenciaMaterialHtml(it.materialCodigo, null, {ocultarFornecedores: true}) : '';
@@ -1336,6 +1354,9 @@ function renderScItensBuilder() {
   document.querySelectorAll('.sci-qtd').forEach(function(el) {
     el.addEventListener('input', function() { scItensBuilder[+el.getAttribute('data-idx')].qtd = parseFloat(el.value) || 0; });
   });
+  document.querySelectorAll('.sci-desc').forEach(function(el) {
+    el.addEventListener('input', function() { scItensBuilder[+el.getAttribute('data-idx')].descricao = el.value; });
+  });
   document.querySelectorAll('.sci-obs').forEach(function(el) {
     el.addEventListener('input', function() { scItensBuilder[+el.getAttribute('data-idx')].obs = el.value; });
   });
@@ -1355,7 +1376,12 @@ function openModalSolicitacao(prefill) {
 }
 function closeModalSolicitacao() { document.getElementById('modalSc').classList.remove('open'); scPrefillOrigem = null; }
 function saveSolicitacao() {
-  var itensValidos = scItensBuilder.filter(function(it) { return it.materialCodigo && it.qtd > 0; });
+  var servicos = scItensBuilder.filter(function(it) { return ServicoCompra.ehServico(it); });
+  for (var si = 0; si < servicos.length; si++) {
+    var chk = ServicoCompra.linhaServico(servicos[si]);
+    if (chk.erro) { showAlert(chk.erro, 'danger'); return; }
+  }
+  var itensValidos = scItensBuilder.filter(function(it) { return ServicoCompra.ehServico(it) || (it.materialCodigo && it.qtd > 0); });
   if (!itensValidos.length) { showAlert('Adicione ao menos um item com material e quantidade válidos.', 'danger'); return; }
 
   // Achado do Auditor: o mesmo material em duas linhas não é bloqueado (pode
@@ -1363,6 +1389,7 @@ function saveSolicitacao() {
   // não avisava nada, então um duplicado por engano passava batido.
   var codigosVistos = {};
   var temDuplicado = itensValidos.some(function(it) {
+    if (ServicoCompra.ehServico(it)) return false;
     var k = norm(it.materialCodigo);
     if (codigosVistos[k]) return true;
     codigosVistos[k] = true;
@@ -1372,6 +1399,7 @@ function saveSolicitacao() {
 
   var itensObj = {};
   itensValidos.forEach(function(it) {
+    if (ServicoCompra.ehServico(it)) { itensObj[db.ref('solicitacoes_compra').push().key] = ServicoCompra.linhaServico(it); return; }
     var mat = findMaterialByCodigo(it.materialCodigo);
     var itemKey = db.ref('solicitacoes_compra').push().key;
     itensObj[itemKey] = {
@@ -2026,7 +2054,13 @@ function renderPedidos() {
     var key = entry[0], p = entry[1];
     var itens = Object.values(p.itens || {});
     // Pedido do usuário: mostrar a descrição do item, não só o código.
-    var itensResumo = itens.map(function(i) { return escapeHtml(i.materialCodigo) + (i.materialNome ? ' — ' + escapeHtml(i.materialNome) : '') + ' (' + fmtNum(i.qtd) + ' ' + escapeHtml(i.unidade || '') + ')'; }).join(', ');
+    var itensResumo = itens.map(function(i) {
+      if (ServicoCompra.ehServico(i)) {
+        return 'Serviço: ' + escapeHtml(ServicoCompra.nomeItem(i)) + ' (' + fmtNum(i.qtd) + ' ' + escapeHtml(i.unidade || '') + ')' +
+          (i.atestado ? ' <span class="badge badge-green" title="' + escapeAttr('Atestado por ' + (i.atestado.por || '—') + ' em ' + fmtData(i.atestado.em) + (i.atestado.obs ? ' · ' + i.atestado.obs : '')) + '">atestado</span>' : '');
+      }
+      return escapeHtml(i.materialCodigo) + (i.materialNome ? ' — ' + escapeHtml(i.materialNome) : '') + ' (' + fmtNum(i.qtd) + ' ' + escapeHtml(i.unidade || '') + ')';
+    }).join(', ');
     var statusBadge = {
       ABERTO: '<span class="badge badge-orange">Aberto</span>',
       ENVIADO: '<span class="badge badge-blue">Enviado</span>',
@@ -2068,6 +2102,10 @@ function renderPedidos() {
       (['ABERTO', 'ENVIADO', 'RECEBIDO_PARCIAL'].indexOf(p.status) >= 0
         ? ' <button class="btn btn-ghost btn-sm pc-vinculo" data-key="' + escapeAttr(key) + '" title="De quem é o material e para qual cliente e pedido">🔗 Cliente/pedido</button>'
         : '') +
+      // Serviço não passa pela Logística: Compras atesta que foi prestado.
+      ((p.status === 'ENVIADO' || p.status === 'RECEBIDO_PARCIAL') && ServicoCompra.servicosPendentes(p).length
+        ? ' <button class="btn btn-green btn-sm pc-atestar" data-key="' + escapeAttr(key) + '" title="Confirmar que o serviço foi prestado (não entra no estoque)">✔ Atestar serviço</button>'
+        : '') +
       botaoCancelar;
     // De quem é e para quem: o que a Logística vai ver no recebimento.
     var vinc = PropriedadeEstoque.validarVinculoPC(p);
@@ -2098,6 +2136,9 @@ function renderPedidos() {
   }).join('');
   document.querySelectorAll('.pc-enviar').forEach(function(btn) {
     btn.addEventListener('click', function() { marcarPedidoEnviado(btn.getAttribute('data-key')); });
+  });
+  document.querySelectorAll('.pc-atestar').forEach(function(btn) {
+    btn.addEventListener('click', function() { atestarServicosPC(btn.getAttribute('data-key')); });
   });
   document.querySelectorAll('.pc-etiquetas').forEach(function(btn) {
     btn.addEventListener('click', function() { abrirModalEtiquetaPC(btn.getAttribute('data-key')); });
@@ -2868,6 +2909,30 @@ function fecharModalEditarPC() {
   pcEditKey = null;
 }
 
+/* Atesto do serviço (16/11/2026, shared/servico-compra.js): cada linha de
+   serviço pendente do PC, com quem/quando e uma observação (ex.: NF do
+   prestador). Status do PC pela mesma regra do recebimento do servidor. */
+function atestarServicosPC(key) {
+  var pc = allPedidosCompra[key];
+  if (!pc) return;
+  var pend = ServicoCompra.servicosPendentes(pc);
+  if (!pend.length) return;
+  var nomes = pend.map(function(e) { return '• ' + ServicoCompra.nomeItem(e[1]); }).join('\n');
+  var obs = prompt('Atestar que o serviço foi prestado (' + (pc.numeroFormatado || key) + '):\n' + nomes +
+    '\n\nObservação (ex.: NF do prestador, técnico, data):', '');
+  if (obs === null) return;
+  var agora = new Date().toISOString(), quem = currentUserNome(), updates = {}, atual = JSON.parse(JSON.stringify(pc));
+  for (var i = 0; i < pend.length; i++) {
+    var r = ServicoCompra.atestar(key, atual, pend[i][0], {por: quem, agora: agora, obs: obs});
+    if (r.erro) { showAlert(r.erro, 'danger'); return; }
+    Object.assign(updates, r.updates);
+    atual.itens[pend[i][0]].qtdRecebida = atual.itens[pend[i][0]].qtd;
+  }
+  db.ref().update(updates).then(function() {
+    showAlert('Serviço atestado em ' + (pc.numeroFormatado || key) + '.', 'success');
+  }).catch(function(err) { showAlert('Não foi possível atestar: ' + err.message, 'danger'); });
+}
+
 function marcarPedidoEnviado(key) {
   var pc = allPedidosCompra[key];
   if (!pc) return;
@@ -2987,6 +3052,25 @@ function fornecedorEhHomologadoPara(fKey, materialCodigo) {
   });
 }
 
+/* ── Origem no ativo (Manutenção, 16/11/2026) ── */
+function scDeAtivo(sc) { return !!(sc && sc.origem && sc.origem.tipo === 'ATIVO'); }
+function origemAtivoHtml(sc) {
+  return scDeAtivo(sc) ? ' <span class="badge badge-blue" title="Aberta em Manutenção › Ativos">🔧 ' + escapeHtml(sc.origem.ativoCodigo || '') +
+    (sc.origem.ativoNome ? ' — ' + escapeHtml(sc.origem.ativoNome) : '') + '</span>' : '';
+}
+function fornecedoresDoAtivoDaSc(sc, servico) {
+  if (!scDeAtivo(sc)) return [];
+  var out = [], o = sc.origem;
+  function add(k, papel) {
+    if (!k || !allFornecedores[k] || out.some(function(x) { return x.key === k; })) return;
+    var f = allFornecedores[k];
+    out.push({key: k, nome: f.nomeFantasia || f.razaoSocial || k, papel: papel + ' de ' + (o.ativoCodigo || 'equipamento')});
+  }
+  add(o.fornecedorAssistenciaKey, 'assistência técnica');
+  if (!servico) add(o.fornecedorFabricanteKey, 'fabricante');
+  return out;
+}
+
 /* ── Modal Iniciar Cotação ── */
 // A seleção de solicitações é a mesma da aba Solicitações (checkbox .sc-check
 // -> cotacaoSelecionadas) -- esse modal só consolida os itens e escolhe quem
@@ -3011,8 +3095,20 @@ function renderCotModalConteudo() {
     // Identidade da LINHA (item de uma solicitação), não do material: o mesmo
     // material pode vir de duas solicitações e ser convidado diferente em cada.
     var linhaId = r.scKey + '/' + r.itemKey;
-    var candidatos = candidatosCotacaoParaMaterial(r.it.materialCodigo);
-    var candidatosHtml = candidatos.length
+    var servico = ServicoCompra.ehServico(r.it);
+    var candidatos = servico ? [] : candidatosCotacaoParaMaterial(r.it.materialCodigo);
+    // Fornecedores do ATIVO que pediu (16/11/2026): assistência técnica para
+    // tudo, fabricante para peça. Não são homologados -- só ficam à mão.
+    var doAtivo = fornecedoresDoAtivoDaSc(allSolicitacoes[r.scKey], servico).filter(function(c) {
+      return !candidatos.some(function(h) { return h.key === c.key; });
+    });
+    var doAtivoHtml = doAtivo.map(function(c) {
+      return '<label class="chk-row" style="cursor:pointer;padding:5px 0">' +
+        '<input type="checkbox" class="cot-cand-check" data-linha="' + escapeAttr(linhaId) + '" data-fkey="' + escapeAttr(c.key) + '"' +
+          ((cotConvidadosSelecionados[linhaId] || {})[c.key] ? ' checked' : '') + '>' +
+        '<div class="chk-row-body">' + escapeHtml(c.nome) + ' <span style="color:var(--muted);font-size:11px">(' + escapeHtml(c.papel) + ')</span></div></label>';
+    }).join('');
+    var candidatosHtml = doAtivoHtml + (candidatos.length
       ? candidatos.map(function(c) {
           var origem = c.viaVariante ? ('homologado via variante equivalente ' + escapeHtml(c.origemMaterial)) : 'homologado';
           return '<label class="chk-row" style="cursor:pointer;padding:5px 0">' +
@@ -3022,7 +3118,8 @@ function renderCotModalConteudo() {
               ' <span style="color:var(--muted);font-size:11px">(' + origem + ')</span></div>' +
           '</label>';
         }).join('')
-      : '<div class="empty-hint" style="padding:6px 0">Nenhum fornecedor <b>homologado</b> pra esse material. Adicione um abaixo, ou homologue em <a href="cadastros.html?tab=materiais" target="_blank">Cadastros › Materiais</a>.</div>';
+      : (servico ? (doAtivoHtml ? '' : '<div class="empty-hint" style="padding:6px 0">Serviço: convide quem presta, em "+ Outro fornecedor".</div>')
+        : '<div class="empty-hint" style="padding:6px 0">Nenhum fornecedor <b>homologado</b> pra esse material. Adicione um abaixo, ou homologue em <a href="cadastros.html?tab=materiais" target="_blank">Cadastros › Materiais</a>.</div>'));
 
     // Extras deste item: escolhidos do cadastro (fora da homologação) e
     // digitados por CNPJ. Ficam POR ITEM, não no processo -- um fornecedor
@@ -3052,7 +3149,7 @@ function renderCotModalConteudo() {
       '</div>';
     }).join('');
 
-    var similares = possiveisSimilaresPorVolume(r.it.materialCodigo);
+    var similares = servico ? [] : possiveisSimilaresPorVolume(r.it.materialCodigo);
     var similaresHtml = similares.length ? '<div style="margin:7px 0 5px;padding:7px 8px;background:var(--tint-blue-bg);border-radius:7px">' +
       '<div style="font-size:11px;font-weight:700">🔎 Possíveis similares por volume — inclusão opcional</div>' +
       '<div class="field-hint" style="margin:2px 0 5px">Não são equivalentes nem homologados para este item. Confira dimensões, peso, material e acabamento antes de convidar.</div>' +
@@ -3065,7 +3162,10 @@ function renderCotModalConteudo() {
           }).join('') + '</div></div>';
       }).join('') + '</div>' : '';
     return '<div style="border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden">' +
-      '<div style="padding:8px 12px;background:var(--surface-2);font-size:12.5px"><b>' + escapeHtml(r.it.materialCodigo) + '</b> — ' + escapeHtml(r.it.materialNome || '') + ' · ' + fmtNum(r.it.qtd) + ' ' + escapeHtml(r.it.unidade || '') + '</div>' +
+      '<div style="padding:8px 12px;background:var(--surface-2);font-size:12.5px">' + (servico
+        ? '<span class="badge badge-gray">Serviço</span> ' + escapeHtml(ServicoCompra.nomeItem(r.it))
+        : '<b>' + escapeHtml(r.it.materialCodigo) + '</b> — ' + escapeHtml(r.it.materialNome || '')) + ' · ' + fmtNum(r.it.qtd) + ' ' + escapeHtml(r.it.unidade || '') +
+        origemAtivoHtml(allSolicitacoes[r.scKey]) + '</div>' +
       '<div style="padding:4px 12px">' + candidatosHtml + extras + avulsos + similaresHtml +
         '<button type="button" class="btn btn-ghost btn-sm cot-add-outro" data-linha="' + escapeAttr(linhaId) + '" ' +
           'data-material="' + escapeAttr(r.it.materialCodigo) + '" style="margin:6px 0">+ Outro fornecedor</button>' +
@@ -3347,7 +3447,8 @@ function salvarIniciarCotacao() {
     // redigitar o que o sistema já sabe.
     var matCad = findMaterialByCodigo(r.it.materialCodigo) || {};
     itensObj[itemKey] = {
-      materialCodigo: r.it.materialCodigo, materialNome: r.it.materialNome || '',
+      materialCodigo: r.it.materialCodigo || '', materialNome: r.it.materialNome || '',
+      tipoItem: r.it.tipoItem || null, descricao: r.it.descricao || null,
       qtd: r.it.qtd, unidade: r.it.unidade || '',
       unidadeCompra: matCad.unidadeCompra || null,
       fatorConversao: matCad.fatorConversao != null ? matCad.fatorConversao : null,
@@ -4566,7 +4667,8 @@ function criarPedidoCotacaoPorFornecedor(procKey, proc, convidadoKey, itemKeys) 
     var calc = calcVenc[origItemKey] || {};
     var itemKey = db.ref('pedidos_compra').push().key;
     itensObj[itemKey] = {
-      materialCodigo: it.materialCodigo, materialNome: it.materialNome || '', qtd: it.qtd, unidade: it.unidade || '',
+      materialCodigo: it.materialCodigo || '', materialNome: it.materialNome || '', qtd: it.qtd, unidade: it.unidade || '',
+      tipoItem: it.tipoItem || null, descricao: it.descricao || null,
       precoUnit: resp.precoUnit != null ? parseFloat(resp.precoUnit) : null,
       qtdCotada: resp.qtdCotada != null ? parseFloat(resp.qtdCotada) : null,
       unidadeCotada: calc.unidadeCotada || it.unidadeCompra || it.unidade || null,
@@ -4725,7 +4827,8 @@ function gerarPedidoDeCotacao(procKey, convidadoKey, liberado) {
       var calc = calcVenc[origItemKey] || {};
       var itemKey = db.ref('pedidos_compra').push().key;
       itensObj[itemKey] = {
-        materialCodigo: it.materialCodigo, materialNome: it.materialNome || '', qtd: it.qtd, unidade: it.unidade || '',
+        materialCodigo: it.materialCodigo || '', materialNome: it.materialNome || '', qtd: it.qtd, unidade: it.unidade || '',
+      tipoItem: it.tipoItem || null, descricao: it.descricao || null,
         precoUnit: resp.precoUnit != null ? parseFloat(resp.precoUnit) : null,
         // Quantidade que o fornecedor de fato cotou (lote mínimo pode diferir
         // da pedida) -- é ela que vale pro valor do pedido.
@@ -4836,6 +4939,8 @@ function clientesOrdenadosCompras() {
 function vinculoSugeridoDaSolicitacao(scKey) {
   var sc = scKey && allSolicitacoes[scKey];
   if (!sc || typeof PropriedadeEstoque === 'undefined') return null;
+  // Compra de Manutenção (peça/serviço de um ativo) é da Kuryos, sem cliente.
+  if (scDeAtivo(sc)) return {geral: true};
   var chaves = (sc.pedidoKeys && sc.pedidoKeys.length) ? sc.pedidoKeys : (sc.pedidoOrigemKey ? [sc.pedidoOrigemKey] : []);
   return PropriedadeEstoque.vinculoSugeridoDasChavesPedido(chaves, allPedidos, allProdutosCompras, allClientesCompras);
 }
@@ -5289,6 +5394,7 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('modalScCancel').addEventListener('click', closeModalSolicitacao);
   document.getElementById('modalScSave').addEventListener('click', saveSolicitacao);
   document.getElementById('btnAddScItem').addEventListener('click', function() { scItensBuilder.push({materialCodigo: '', qtd: null, obs: ''}); renderScItensBuilder(); });
+  document.getElementById('btnAddScServico').addEventListener('click', function() { scItensBuilder.push({tipoItem: 'SERVICO', descricao: '', materialCodigo: '', qtd: 1, obs: ''}); renderScItensBuilder(); });
   document.getElementById('modalSc').addEventListener('click', function(e) { if (e.target === this) closeModalSolicitacao(); });
 
   document.getElementById('btnVerPadraoEtiqueta').addEventListener('click', function() {
