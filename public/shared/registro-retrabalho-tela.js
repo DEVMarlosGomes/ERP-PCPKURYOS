@@ -31,9 +31,23 @@
 
   // ── Lista ──────────────────────────────────────────────────────────
   function renderLista() {
-    var ids = Object.keys(registros).sort(function(a, b) { return String((registros[b] || {}).criadoEm || '').localeCompare(String((registros[a] || {}).criadoEm || '')); });
+    var todos = Object.keys(registros).sort(function(a, b) { return String((registros[b] || {}).criadoEm || '').localeCompare(String((registros[a] || {}).criadoEm || '')); });
     $('rrNovo').style.display = perfil.edita ? '' : 'none';
-    if (!ids.length) { $('rrLista').innerHTML = '<div class="no-data">Nenhum registro de retrabalho ainda.</div>'; return; }
+    var k = {EM_PREENCHIMENTO: 0, AGUARDANDO_DECISAO: 0, ENCERRADO: 0, dif: 0};
+    todos.forEach(function(id) { var r = registros[id] || {}; k[r.status] = (k[r.status] || 0) + 1; if (r.status !== 'ENCERRADO' && !T.balanco(r).fecha) k.dif++; });
+    $('rrKpiPreench').textContent = k.EM_PREENCHIMENTO; $('rrKpiDecisao').textContent = k.AGUARDANDO_DECISAO;
+    $('rrKpiEncerrado').textContent = k.ENCERRADO; $('rrKpiDif').textContent = k.dif;
+    var busca = String($('rrBusca').value || '').toLowerCase().trim(), st = $('rrFiltroStatus').value;
+    var ids = todos.filter(function(id) {
+      var r = registros[id] || {};
+      if (st === 'ABERTOS' ? r.status === 'ENCERRADO' : (st && r.status !== st)) return false;
+      if (!busca) return true;
+      var o = r.origem || {};
+      return [id, r.rncNumero, o.lote, o.produto, o.cliente, r.descricao].concat(T.lista(r.destinos).map(function(d) { return d.lote + ' ' + d.produto; }))
+        .join(' ').toLowerCase().indexOf(busca) !== -1;
+    });
+    $('rrCount').textContent = 'Registros (' + (ids.length === todos.length ? ids.length : ids.length + ' de ' + todos.length) + ')';
+    if (!ids.length) { $('rrLista').innerHTML = '<div class="no-data">' + (todos.length ? 'Nenhum registro com esse filtro.' : 'Nenhum registro de retrabalho ainda.') + '</div>'; return; }
     $('rrLista').innerHTML = '<div class="table-wrap"><table><thead><tr><th>Registro</th><th>Origem</th><th>Destinos</th><th>RNC</th><th>Balanço</th><th>Status</th></tr></thead><tbody>' +
       ids.map(function(id) {
         var r = registros[id] || {}, b = T.balanco(r), o = r.origem || {};
@@ -66,7 +80,7 @@
     }).join('');
     $('rrNovoOrigem').value = ''; $('rrNovoQtd').value = ''; $('rrNovoRel').value = ''; $('rrNovoData').value = ''; $('rrNovoDesc').value = '';
     $('rrNovoDestinos').innerHTML = linhaDestino('', '');
-    $('rrNovoInfo').textContent = '';
+    $('rrNovoInfo').textContent = ''; $('rrNovoErro').textContent = '';
     $('rrNovoBg').classList.add('open');
   }
   function opKeyDe(lote) { return String(lote || '').trim().replace(/[.#$\[\]\/]/g, '-'); }
@@ -87,11 +101,19 @@
     var dados = {rncNumero: $('rrNovoRnc').value, opKeyOrigem: opKeyDe($('rrNovoOrigem').value), qtdOrigem: $('rrNovoQtd').value,
       destinos: destinos, rncsRelacionadas: $('rrNovoRel').value.split(/[,;\s]+/).filter(Boolean),
       ocorridaEm: $('rrNovoData').value, descricao: $('rrNovoDesc').value};
+    var falta = [];
+    if (!dados.rncNumero) falta.push('Escolha a RNC do caso.');
+    if (!dados.opKeyOrigem) falta.push('Informe o lote de origem.');
+    if (!(Number(dados.qtdOrigem) > 0)) falta.push('Informe as unidades de origem.');
+    if (!destinos.length) falta.push('Informe ao menos um lote de destino.');
+    if (destinos.some(function(d) { return d.qtd === '' || !(Number(d.qtd) >= 0); })) falta.push('Informe as unidades finais de cada destino.');
+    $('rrNovoErro').textContent = falta.join(' ');
+    if (falta.length) return;
     var btn = $('rrNovoSalvar'); btn.disabled = true;
     chamar('CRIAR', null, dados).then(function(r) {
       $('rrNovoBg').classList.remove('open'); selecionado = r.id; sujo = false;
       renderLista(); renderDetalhe(); showAlert('Registro ' + r.id + ' aberto. Preencha as três etapas.', 'success');
-    }).catch(function(e) { showAlert('Erro: ' + msg(e), 'danger'); }).then(function() { btn.disabled = false; });
+    }).catch(function(e) { $('rrNovoErro').textContent = msg(e); }).then(function() { btn.disabled = false; });
   }
 
   // ── Detalhe ────────────────────────────────────────────────────────
@@ -105,14 +127,14 @@
     return '<div class="rr-perda rr-grid4">' +
       campo('Motivo', '<select class="rr-perda-motivo"' + (dis ? ' disabled' : '') + '>' + opcoes(T.MOTIVOS_PERDA, p.motivo, 'Escolha') + '</select>') +
       campo('Unidades', inp('rr-perda-qtd', p.qtd, 'number', dis, ' min="0" step="1"')) +
-      campo('Observação', inp('rr-perda-obs', p.observacao, '', dis), 2) + '</div>';
+      campo('Observação', inp('rr-perda-obs', p.observacao, '', dis), 2) + (dis ? '' : '<button type="button" class="btn btn-ghost btn-sm rr-del" title="Remover esta perda" aria-label="Remover esta perda">✕</button>') + '</div>';
   }
   function linhaMaterial(m, dis) {
     return '<div class="rr-mat rr-grid5">' +
       campo('Código', inp('rr-mat-cod', m.codigo, '', dis)) + campo('Material', inp('rr-mat-nome', m.nome, '', dis)) +
       campo('Consumido', inp('rr-mat-cons', m.consumido, 'number', dis, ' min="0"')) +
       campo('Recuperado', inp('rr-mat-rec', m.recuperado, 'number', dis, ' min="0"')) +
-      campo('Descartado', inp('rr-mat-desc', m.descartado, 'number', dis, ' min="0"')) + '</div>';
+      campo('Descartado', inp('rr-mat-desc', m.descartado, 'number', dis, ' min="0"')) + (dis ? '' : '<button type="button" class="btn btn-ghost btn-sm rr-del" title="Remover este material" aria-label="Remover este material">✕</button>') + '</div>';
   }
   function cartaoEtapa(e, dis) {
     var k = e._k;
@@ -148,7 +170,9 @@
     box.innerHTML =
       '<div class="rr-aviso">📄 <b>Registro retrospectivo.</b> Documenta um retrabalho já executado. <b>Não altera</b> OP, pedido, estoque, palete, conferência nem expedição: salvar, enviar ou encerrar não libera nem bloqueia nada.</div>' +
       '<div class="card" data-ui="surface"><div class="card-header" data-ui="surface-head"><h3>' + escapeHtml(selecionado) + ' ' + badge(r.status) + '</h3>' +
-      '<div><button type="button" class="btn btn-ghost btn-sm" id="rrImprimir">🖨️ Imprimir</button></div></div><div class="card-body">' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-ghost btn-sm" id="rrVerRnc">⚠️ Ver ' + escapeHtml(r.rncNumero || 'RNC') + '</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm" id="rrImprimir" title="Relatório da RNC (FOR-QUA-0001) com este registro anexado">🖨 Relatório da RNC + anexo</button></div></div><div class="card-body">' +
+      (perfil.edita ? '' : '<div class="field-hint" style="margin-bottom:8px">Você tem acesso só de leitura a este registro.</div>') +
       '<div class="rr-grid4">' +
       campo('RNC', '<div><b>' + escapeHtml(r.rncNumero || '') + '</b> <span class="field-hint">' + escapeHtml([rs.classificacao, rs.status, rs.disposicao].filter(Boolean).join(' · ')) + '</span>' +
         (rs.opLoteNaRnc ? '<div class="field-hint">Lote escrito na RNC: ' + escapeHtml(rs.opLoteNaRnc) + '</div>' : '') + '</div>') +
@@ -183,7 +207,7 @@
       Object.keys(r.historico || {}).sort().map(function(h) {
         var ev = r.historico[h] || {};
         return '<div class="field-hint">' + dataHora(ev.em) + ' · ' + escapeHtml(ev.por || '') + ' · ' + escapeHtml(T.ACOES[ev.acao] || ev.acao) +
-          (ev.motivo ? ' — ' + escapeHtml(ev.motivo) : '') + (ev.mudou ? ' · mudou: ' + escapeHtml(Object.keys(ev.mudou).join(', ')) : '') + '</div>';
+          (ev.motivo ? ' — ' + escapeHtml(ev.motivo) : '') + (ev.mudou ? ' · mudou: ' + escapeHtml(Object.keys(ev.mudou).map(function(c) { return T.CAMPOS[c] || c; }).join(', ')) : '') + '</div>';
       }).join('') + '</details>';
     fotosPorEtapa = {};
     if (!dis) Array.prototype.forEach.call(box.querySelectorAll('.rr-fotos'), function(el) { fotosPorEtapa[el.getAttribute('data-k')] = FotosQualidade.montar(el, {}); });
@@ -258,6 +282,17 @@
     var on = function(id, fn) { var el = $(id); if (el) el.addEventListener('click', fn); };
     var trava = function(fn) { return function(ev) { var b = ev.currentTarget; b.disabled = true; Promise.resolve().then(fn).catch(function(e) { showAlert('Erro: ' + msg(e), 'danger'); }).then(function() { b.disabled = false; }); }; };
     on('rrAddPerda', function() { $('rrPerdas').insertAdjacentHTML('beforeend', linhaPerda({}, false)); });
+    box.onclick = function(ev) {
+      var del = ev.target.closest && ev.target.closest('.rr-del');
+      if (!del) return;
+      var linhaEl = del.closest('.rr-perda, .rr-mat');
+      if (linhaEl) { linhaEl.parentNode.removeChild(linhaEl); sujo = true; atualizarBalanco(); }
+    };
+    on('rrVerRnc', function() {
+      if (sujo && !confirm('Há alterações não salvas neste registro. Sair assim mesmo?')) return;
+      sujo = false;
+      if (typeof mostrarRnc === 'function') mostrarRnc(typeof chaveDaRnc === 'function' ? chaveDaRnc(r.rncNumero) : r.rncNumero, r.rncNumero);
+    });
     Array.prototype.forEach.call(box.querySelectorAll('.rr-add-mat'), function(b) {
       b.addEventListener('click', function() { b.previousElementSibling.insertAdjacentHTML('beforeend', linhaMaterial({}, false)); });
     });
@@ -265,45 +300,74 @@
     on('rrEnviar', trava(function() {
       return salvar(r).then(function() { return chamar('ENVIAR', selecionado); }).then(function() { renderDetalhe(); showAlert('Registro enviado para a decisão da Qualidade.', 'success'); });
     }));
-    on('rrReabrir', trava(function() {
-      var m = prompt('Por que o registro volta ao preenchimento?'); if (!m) return;
-      return chamar('REABRIR', selecionado, {motivo: m}).then(function() { renderDetalhe(); showAlert('Registro devolvido ao preenchimento.', 'success'); });
-    }));
-    on('rrEncerrar', trava(function() {
-      var a = prompt('Análise da Qualidade (obrigatória):'); if (!a) return;
-      var c = prompt('Conclusão / destino final dos lotes (opcional):') || '';
-      return chamar('ENCERRAR', selecionado, {analise: a, conclusao: c}).then(function() { renderDetalhe(); showAlert('Registro encerrado.', 'success'); });
-    }));
-    on('rrImprimir', function() { imprimir(registros[selecionado]); });
+    on('rrReabrir', function() { abrirDecisao('REABRIR'); });
+    on('rrEncerrar', function() { abrirDecisao('ENCERRAR'); });
+    on('rrImprimir', function() {
+      if (sujo) { showAlert('Salve as alterações antes de emitir o relatório: ele é o espelho do que está gravado.', 'warning'); return; }
+      if (typeof imprimirRelatorioRnc === 'function' && rncs[r.rncNumero]) imprimirRelatorioRnc(r.rncNumero, false);
+      else showAlert('RNC ' + (r.rncNumero || '') + ' não encontrada para emitir o relatório.', 'danger');
+    });
   }
 
-  // ── Impressão (relatório da RNC + registro) ────────────────────────
-  function imprimir(r) {
-    if (!r) return;
-    var o = r.origem || {}, b = T.balanco(r), rnc = rncs[r.rncNumero] || {};
-    var linhas = function(arr, f) { return arr.map(f).join(''); };
-    var html = '<!doctype html><html><head><meta charset="utf-8"><title>' + escapeHtml(selecionado) + '</title><style>body{font:12px/1.45 system-ui,sans-serif;margin:24px;color:#111}' +
-      'h1{font-size:18px}h2{font-size:14px;margin:18px 0 6px;border-bottom:1px solid #999}table{border-collapse:collapse;width:100%}td,th{border:1px solid #bbb;padding:4px 6px;text-align:left}</style></head><body>' +
-      '<h1>Registro retrospectivo de retrabalho ' + escapeHtml(selecionado) + '</h1><p>Status: ' + escapeHtml(T.STATUS[r.status] || r.status) + ' · Cliente: ' + escapeHtml(o.cliente || '') + '</p>' +
-      '<h2>RNC ' + escapeHtml(r.rncNumero || '') + '</h2><p>' + escapeHtml(rnc.descricao || '') + '</p><p><b>Causa raiz:</b> ' + escapeHtml(rnc.causaRaiz || '') + '<br><b>Ação imediata:</b> ' + escapeHtml(rnc.acaoImediata || '') +
-      '<br><b>Ação corretiva:</b> ' + escapeHtml(rnc.acaoCorretiva || '') + '<br><b>Disposição:</b> ' + escapeHtml(rnc.disposicao || '') + '</p>' +
-      '<h2>Balanço</h2><table><tr><th></th><th>Lote</th><th>Produto</th><th>Unidades</th></tr><tr><td>Origem</td><td>' + escapeHtml(o.lote) + '</td><td>' + escapeHtml(o.produto) + '</td><td>' + fmt(o.qtd) + '</td></tr>' +
-      linhas(T.lista(r.destinos), function(d) { return '<tr><td>Destino</td><td>' + escapeHtml(d.lote) + '</td><td>' + escapeHtml(d.produto) + '</td><td>' + fmt(d.qtd) + '</td></tr>'; }) +
-      linhas(T.lista(r.perdas), function(p) { return '<tr><td>Perda</td><td colspan="2">' + escapeHtml(T.MOTIVOS_PERDA[p.motivo] || '') + ' ' + escapeHtml(p.observacao || '') + '</td><td>' + fmt(p.qtd) + '</td></tr>'; }) +
-      '<tr><th colspan="3">Diferença</th><th>' + fmt(b.diferenca) + '</th></tr></table>' +
-      linhas(T.etapas(r), function(e) {
-        return '<h2>Etapa ' + e.n + ' — ' + escapeHtml(T.TIPOS_ETAPA[e.tipo] || e.tipo) + '</h2><p><b>Recurso:</b> ' + escapeHtml(e.recurso) + ' · <b>Início:</b> ' + escapeHtml(e.inicio) + ' · <b>Fim:</b> ' + escapeHtml(e.fim) +
-          ' · <b>Responsáveis:</b> ' + escapeHtml(e.responsaveis) + '</p><p>' + escapeHtml(e.procedimento) + '</p><p>Entrada ' + fmt(e.qtdEntrada) + ' · Saída ' + fmt(e.qtdSaida) + ' · Perda ' + fmt(e.qtdPerda) + '</p>' +
-          (e.materiais.length ? '<table><tr><th>Material</th><th>Consumido</th><th>Recuperado</th><th>Descartado</th></tr>' + linhas(e.materiais, function(m) {
-            return '<tr><td>' + escapeHtml((m.codigo || '') + ' ' + (m.nome || '')) + '</td><td>' + fmt(m.consumido) + '</td><td>' + fmt(m.recuperado) + '</td><td>' + fmt(m.descartado) + '</td></tr>'; }) + '</table>' : '') +
-          (e.evidencias.length ? '<p>Evidências: ' + e.evidencias.length + ' arquivo(s)</p>' : '');
-      }) +
-      (r.decisao ? '<h2>Decisão</h2><p>' + escapeHtml(r.decisao.analise) + '</p><p>' + escapeHtml(r.decisao.conclusao || '') + '</p><p>' + escapeHtml(r.decisao.por || '') + ' — ' + dataHora(r.decisao.em) + '</p>' : '') +
-      '<p style="margin-top:24px;color:#555">Registro retrospectivo: documenta o retrabalho executado e não altera OP, estoque ou expedição.</p></body></html>';
-    var w = window.open('', '_blank');
-    if (!w) { showAlert('O navegador bloqueou a janela de impressão.', 'warning'); return; }
-    w.document.write(html); w.document.close(); w.focus(); w.print();
+  // ── Decisão (Encerrar / Devolver) em janela própria ───────────────
+  var acaoDecisao = null;
+  function abrirDecisao(acao) {
+    var r = registros[selecionado]; if (!r) return;
+    acaoDecisao = acao;
+    var enc = acao === 'ENCERRAR', b = T.balanco(r);
+    $('rrDecTitulo').textContent = enc ? 'Encerrar ' + selecionado : 'Devolver ' + selecionado + ' ao preenchimento';
+    $('rrDecResumo').innerHTML = enc
+      ? 'Origem <b>' + fmt(b.origem) + '</b> = destinos <b>' + fmt(b.destinos) + '</b> + perdas <b>' + fmt(b.perdas) + '</b>. ' +
+        'Encerrar não libera nem bloqueia lote, palete ou estoque: só fecha o registro com a análise da Qualidade.'
+      : 'O registro volta a ser editável. O motivo fica no histórico.';
+    $('rrDecAnaliseBox').style.display = enc ? '' : 'none';
+    $('rrDecConclusaoBox').style.display = enc ? '' : 'none';
+    $('rrDecMotivoBox').style.display = enc ? 'none' : '';
+    $('rrDecAnalise').value = ''; $('rrDecConclusao').value = ''; $('rrDecMotivo').value = ''; $('rrDecErro').textContent = '';
+    $('rrDecConfirmar').textContent = enc ? 'Encerrar registro' : 'Devolver ao preenchimento';
+    $('rrDecisaoBg').classList.add('open');
+    (enc ? $('rrDecAnalise') : $('rrDecMotivo')).focus();
   }
+  function confirmarDecisao() {
+    var enc = acaoDecisao === 'ENCERRAR';
+    var dados = enc ? {analise: $('rrDecAnalise').value.trim(), conclusao: $('rrDecConclusao').value.trim()} : {motivo: $('rrDecMotivo').value.trim()};
+    if (enc && !dados.analise) { $('rrDecErro').textContent = 'Escreva a análise da Qualidade.'; $('rrDecAnalise').focus(); return; }
+    if (!enc && !dados.motivo) { $('rrDecErro').textContent = 'Diga por que o registro volta ao preenchimento.'; $('rrDecMotivo').focus(); return; }
+    var btn = $('rrDecConfirmar'); btn.disabled = true;
+    chamar(acaoDecisao, selecionado, dados).then(function() {
+      $('rrDecisaoBg').classList.remove('open'); renderDetalhe();
+      showAlert(enc ? 'Registro encerrado.' : 'Registro devolvido ao preenchimento.', 'success');
+    }).catch(function(e) { $('rrDecErro').textContent = msg(e); }).then(function() { btn.disabled = false; });
+  }
+
+  // ── Vínculo com a RNC (só leitura: nada é gravado na RNC, no PA ou no estoque) ──
+  function doRnc(numero) {
+    return Object.keys(registros).filter(function(id) { return (registros[id] || {}).rncNumero === numero; }).map(function(id) {
+      var r = registros[id] || {};
+      return {id: id, status: r.status, balanco: T.balanco(r), origem: r.origem || {}, destinos: T.lista(r.destinos)};
+    });
+  }
+  function htmlDaRnc(numero) {
+    var l = doRnc(numero);
+    if (!l.length) return '';
+    return '<div class="rr-vinculo"><b>♻️ Registros de retrabalho vinculados</b>' + l.map(function(x) {
+      return '<div class="rr-vinculo-item">' + badge(x.status) + ' <b>' + escapeHtml(x.id) + '</b> · ' + escapeHtml(x.origem.lote || '') + ' (' + fmt(x.balanco.origem) + ') → ' +
+        x.destinos.map(function(d) { return escapeHtml(d.lote) + ' (' + fmt(d.qtd) + ')'; }).join(' + ') +
+        (x.balanco.perdas ? ' + perdas (' + fmt(x.balanco.perdas) + ')' : '') + ' · ' +
+        (x.balanco.fecha ? '<span class="badge badge-green">balanço fecha</span>' : '<span class="badge badge-red">diferença ' + fmt(x.balanco.diferenca) + '</span>') +
+        ' <button type="button" class="btn btn-ghost btn-sm" data-rr-abrir="' + escapeAttr(x.id) + '">Abrir registro</button></div>';
+    }).join('') + '<div class="field-hint">Só consulta: o registro não altera lote, palete, estoque nem expedição.</div></div>';
+  }
+  function abrir(id) {
+    if (!registros[id]) return;
+    if (sujo && selecionado !== id && !confirm('Há alterações não salvas no registro aberto. Descartar?')) return;
+    if (selecionado !== id) sujo = false;
+    selecionado = id;
+    if (typeof ativarAbaQualidade === 'function') ativarAbaQualidade('registros', true);
+    renderLista(); renderDetalhe();
+    var el = $('rrDetalhe'); if (el && el.scrollIntoView) el.scrollIntoView({block: 'start'});
+  }
+  window.RegistroRetrabalhoTela = {doRnc: doRnc, htmlDaRnc: htmlDaRnc, abrir: abrir, registros: function() { return registros; }};
 
   // ── Dados ──────────────────────────────────────────────────────────
   function iniciar() {
@@ -312,6 +376,7 @@
     dbOnValue(db.ref('registros_retrabalho'), function(s) {
       registros = s.val() || {};
       renderLista();
+      if (typeof renderRncs === 'function') renderRncs();
       // Não redesenha por cima de uma edição em curso (mesma lição da câmera da pesagem, 13/11).
       if (!sujo) renderDetalhe();
     });
@@ -322,6 +387,15 @@
   $('rrNovoCancelar').addEventListener('click', function() { $('rrNovoBg').classList.remove('open'); });
   $('rrNovoSalvar').addEventListener('click', criar);
   $('rrNovoOrigem').addEventListener('change', conferirOrigem);
+  $('rrBusca').addEventListener('input', renderLista);
+  $('rrFiltroStatus').addEventListener('change', renderLista);
+  $('rrDecConfirmar').addEventListener('click', confirmarDecisao);
+  ['rrDecClose', 'rrDecCancelar'].forEach(function(id) { $(id).addEventListener('click', function() { $('rrDecisaoBg').classList.remove('open'); }); });
+  document.addEventListener('keydown', function(ev) {
+    if (ev.key !== 'Escape') return;
+    ['rrNovoBg', 'rrDecisaoBg'].forEach(function(id) { $(id).classList.remove('open'); });
+  });
+  window.addEventListener('beforeunload', function(ev) { if (sujo) { ev.preventDefault(); ev.returnValue = ''; } });
   $('rrNovoAddDest').addEventListener('click', function() { $('rrNovoDestinos').insertAdjacentHTML('beforeend', linhaDestino('', '')); });
   // Espera o login: perfil decide o que aparece (armadilha de 13/11, dbOnValue não espera o login).
   if (window.currentUser) iniciar(); else window.addEventListener('kuryos-auth-pronto', iniciar, {once: true});

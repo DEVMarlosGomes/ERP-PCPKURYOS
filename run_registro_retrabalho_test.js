@@ -104,7 +104,7 @@ const etapaCheia = (ent, sai, per) => ({recurso: 'Linha 1', inicio: '2026-11-10T
   assert.deepEqual(Object.keys(c.etapas).map((k) => c.etapas[k].tipo), T.ORDEM_ETAPAS);
   const b0 = T.balanco(c);
   assert.equal(b0.diferenca, 45); assert.equal(b0.fecha, false);
-  assert.ok(b0.avisos.some((a) => /26302\/01.*1460.*3470/.test(a)), 'avisa que o palete da 26302/01 foi conferido com 3.470');
+  assert.ok(b0.avisos.some((a) => /26302\/01.*1\.460.*3\.470/.test(a)), 'avisa que o palete da 26302/01 foi conferido com 3.470');
   const pend0 = T.pendencias(c);
   assert.match(pend0[0], /Balanço não fecha.*45/);
   assert.equal(pend0.filter((x) => /^Etapa/.test(x)).length, 12, '3 etapas × 4 pendências');

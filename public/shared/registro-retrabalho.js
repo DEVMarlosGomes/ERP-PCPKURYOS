@@ -54,6 +54,10 @@
     return isFinite(n) ? Math.round(n * 1000) / 1000 : NaN;
   }
   function num(v) { var n = qtd(v); return n == null || isNaN(n) ? 0 : n; }
+  function milhar(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+  // Nome legível dos campos que o histórico guarda (relatório e tela).
+  var CAMPOS = {status: 'Situação', descricao: 'Descrição', ocorridaEm: 'Data da ocorrência', origem: 'Origem',
+    destinos: 'Destinos', perdas: 'Perdas', etapas: 'Etapas', decisao: 'Decisão'};
   function chaveSegura(v) { return String(v == null ? '' : v).replace(/[.#$\[\]\/]/g, '-'); }
   // O RTDB não grava objeto/array vazio: tudo que é lista chega como objeto, array ou ausente.
   function lista(v) {
@@ -109,7 +113,7 @@
     var avisos = [];
     destinos.forEach(function(d) {
       if (d.qtdConferida != null && num(d.qtd) !== num(d.qtdConferida)) {
-        avisos.push('Lote ' + (d.lote || '?') + ': informado ' + num(d.qtd) + ' un., a Conferência de PA contou ' + num(d.qtdConferida) + '.');
+        avisos.push('Lote ' + (d.lote || '?') + ': informado ' + milhar(num(d.qtd)) + ' un., a Conferência de PA contou ' + milhar(num(d.qtdConferida)) + '.');
       }
     });
     var ets = etapas(r).map(function(e) {
@@ -338,7 +342,7 @@
   }
 
   return {
-    STATUS: STATUS, ACOES: ACOES, TIPOS_ETAPA: TIPOS_ETAPA, ORDEM_ETAPAS: ORDEM_ETAPAS, MOTIVOS_PERDA: MOTIVOS_PERDA,
+    STATUS: STATUS, ACOES: ACOES, CAMPOS: CAMPOS, TIPOS_ETAPA: TIPOS_ETAPA, ORDEM_ETAPAS: ORDEM_ETAPAS, MOTIVOS_PERDA: MOTIVOS_PERDA,
     perfil: perfil, etapasPadrao: etapasPadrao, etapas: etapas, lista: lista,
     balanco: balanco, pendencias: pendencias, montar: montar, aplicarAcao: aplicarAcao,
     proximaChave: proximaChave, chaveSegura: chaveSegura

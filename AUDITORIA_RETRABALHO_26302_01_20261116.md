@@ -93,3 +93,44 @@ Os três ficam idênticos, e todo caminho gravado começa por `registros_retraba
 5. **Abrir o registro RR-26302-01-1 em produção.** Depende do deploy da VPS (callable) e da publicação das regras.
    Depois disso, a Roberta abre o registro pela própria aba em um minuto: RNC-2026-011, origem 26302/01, destinos
    26302/01 (1.460) e 26264/14 (1.965), relacionada RNC-PA-26264-14.
+
+## 6. Segunda entrega (17/11/2026): vínculo, relatório completo e acabamento
+
+**Vínculo RNC ↔ registro, só leitura.** O elo é o `rncNumero` gravado no registro, e a RNC não é alterada.
+- Na lista de RNCs aparece o selo "♻️ retrabalho".
+- No detalhe da RNC aparece o bloco "Registros de retrabalho vinculados" (situação, lote de origem → destinos +
+  perdas, balanço), com "Abrir registro".
+- No registro há o botão "⚠️ Ver RNC".
+
+Nenhum caminho novo grava em `nao_conformidades`, `estoque_lotes`, `estoque`, `conferencias_pa`, `ops` ou `pedidos`.
+O PA pronto para expedir e o estoque físico não mudam. O teste de tela confere que esses nós ficam idênticos depois do
+fluxo inteiro.
+
+**Relatório da RNC completo.** O botão "🖨 Relatório da RNC (FOR-QUA-0001)" (e "Relatório da RNC + anexo" no
+registro) emite a RNC seguida do **anexo de cada registro vinculado**, montado por `shared/registro-retrabalho-doc.js`
+no mesmo A4 e com as mesmas classes de `laudo-cq.css`. O anexo traz:
+- identificação;
+- balanço (apontado, conferido e unidades finais por lote, perdas, diferença);
+- as 3 etapas com recurso, datas, responsáveis, procedimento, quantidades, conferência entrada = saída + perda e
+  materiais;
+- decisão da Qualidade, histórico com os campos alterados e assinaturas (elaborado e aprovado);
+- anexo fotográfico (fotos da RNC e das etapas; PDF listado pelo nome).
+
+Registro não encerrado sai com a faixa **DOCUMENTO PROVISÓRIO**. Balanço aberto sai com a faixa **BALANÇO NÃO
+FECHADO**. Campo vazio sai em branco. O PDF foi gerado e conferido visualmente: 4 folhas para o caso 26302/01.
+
+**Acabamento:**
+- Encerrar e Devolver em janela própria, com resumo do balanço e campos obrigatórios (antes eram caixas `prompt`).
+- Validação inline ao abrir o registro, Esc fecha as janelas.
+- Busca, filtro de situação (padrão "Em aberto") e 4 indicadores.
+- Remover linha de perda e de material.
+- Aviso de alterações não salvas (ao trocar de registro, ir para a RNC ou fechar a página).
+- O relatório exige que o registro esteja salvo e mostra aviso de só leitura para PCP e Logística.
+
+**Testes:**
+- `run_registro_retrabalho_doc_test` (4 grupos, novo);
+- `run_registro_retrabalho_ui_test` (12 cenários: validação, Esc, remover linha, devolver, encerrar, indicadores e
+  filtros, relatório, vínculo na RNC, não interferência, PCP só leitura, celular);
+- `run_registro_retrabalho_test` (11).
+
+Regressão da Qualidade: filtros, fotos, alerta de consistência e devolução de cliente.

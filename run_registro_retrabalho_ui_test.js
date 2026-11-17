@@ -46,6 +46,9 @@ async function abrir(browser, estado, uid, viewport) {
   await page.addInitScript(([data, uidPagina]) => {
     const db = data;
     window.__db = db;
+    // Impressão: guarda o que foi para a folha em vez de abrir o diálogo do sistema.
+    window.__impressoes = [];
+    window.print = () => { const a = document.getElementById('laudoPrintArea'); window.__impressoes.push({titulo: document.title, html: a ? a.innerHTML : ''}); };
     let iniciado = false;
     const partes = (p) => String(p || '').split('/').filter(Boolean);
     const ler = (p) => partes(p).reduce((o, k) => (o == null ? undefined : o[k]), db);
@@ -138,8 +141,14 @@ const ESTADO = Object.assign(JSON.parse(JSON.stringify(FIX)), {
     assert.equal(await page.locator('#rrNovo').isVisible(), true);
     ok('aba Registros de retrabalho abre vazia e a Qualidade vê "+ Novo registro"');
 
-    // 2. Abrir o caso 26302/01 pelo modal.
+    // 2. Abrir o caso 26302/01 pelo modal (com validação e Esc).
     await page.click('#rrNovo');
+    await page.click('#rrNovoSalvar');
+    assert.match(await texto('#rrNovoErro'), /Escolha a RNC do caso..*lote de origem.*unidades de origem/);
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('#rrNovoBg.open').count(), 0, 'Esc fecha a janela');
+    await page.click('#rrNovo');
+    assert.equal((await texto('#rrNovoErro')).trim(), '', 'erro limpo ao reabrir');
     await page.selectOption('#rrNovoRnc', 'RNC-2026-011');
     await page.fill('#rrNovoOrigem', '26302/01');
     await page.locator('#rrNovoOrigem').dispatchEvent('change');
@@ -160,7 +169,7 @@ const ESTADO = Object.assign(JSON.parse(JSON.stringify(FIX)), {
     assert.match(await texto('#rrDetalhe'), /Não altera/i);
     assert.match(await texto('#rrBal'), /Diferença 45/);
     assert.match(await texto('#rrBal'), /declare o destino/);
-    assert.match(await texto('#rrBal'), /26302\/01: informado 1460 un\., a Conferência de PA contou 3470/);
+    assert.match(await texto('#rrBal'), /26302\/01: informado 1\.460 un\., a Conferência de PA contou 3\.470/);
     assert.match(await texto('#rrPend'), /Balanço não fecha/);
     assert.match(await texto('#rrDetalhe'), /26266\/14 E 26302\/01/, 'lote como escrito na RNC aparece');
     ok('abre RR-26302-01-1 com RNC-2026-011; balanço mostra 45 un. sem destino e o aviso do palete conferido com 3.470');
@@ -185,6 +194,11 @@ const ESTADO = Object.assign(JSON.parse(JSON.stringify(FIX)), {
     await mat.locator('.rr-mat-desc').fill('2010');
     await page.selectOption('#rrPerdas .rr-perda-motivo', 'PERDA_DESENVASE');
     await page.fill('#rrPerdas .rr-perda-qtd', '45');
+    await page.click('#rrAddPerda');
+    await page.locator('#rrPerdas .rr-perda-qtd').nth(1).fill('10');
+    await page.waitForFunction(() => /Diferença -10/.test(document.getElementById('rrBal').innerText));
+    await page.locator('#rrPerdas .rr-perda .rr-del').nth(1).click();
+    assert.equal(await page.locator('#rrPerdas .rr-perda').count(), 1, '✕ remove a linha de perda');
     await page.waitForFunction(() => /fecha/.test(document.getElementById('rrBal').innerText) && /Diferença 0/.test(document.getElementById('rrBal').innerText));
     assert.equal(await page.locator('.rr-etapa-bal .badge-green').count(), 3, 'as 3 etapas fecham');
     assert.equal((await texto('#rrPend')).trim(), '');
@@ -202,12 +216,76 @@ const ESTADO = Object.assign(JSON.parse(JSON.stringify(FIX)), {
     assert.equal(await page.locator('.rr-e-recurso').first().isDisabled(), true, 'aguardando decisão não edita');
     ok('Enviar salva e manda para decisão: perdas, etapas e materiais gravados pela callable; campos travados');
 
-    // 5. Encerrar com análise.
-    page.__respostas.push('Retrabalho conforme RNC-2026-011.', '1.460 Rose e 1.965 Sunrise Muse.');
+    // 4b. Devolver ao preenchimento em janela própria (motivo obrigatório) e reenviar.
+    await page.click('#rrReabrir');
+    await page.waitForSelector('#rrDecisaoBg.open');
+    assert.equal(await page.locator('#rrDecMotivoBox').isVisible(), true);
+    assert.equal(await page.locator('#rrDecAnaliseBox').isVisible(), false);
+    await page.click('#rrDecConfirmar');
+    assert.match(await texto('#rrDecErro'), /Diga por que/);
+    await page.fill('#rrDecMotivo', 'conferir válvulas descartadas');
+    await page.click('#rrDecConfirmar');
+    await page.waitForFunction(() => !document.querySelector('#rrDecisaoBg.open') && document.getElementById('rrEnviar'));
+    await page.click('#rrEnviar');
+    await page.waitForSelector('#rrEncerrar');
+    ok('Devolver abre janela própria, exige motivo, volta ao preenchimento; reenvio funciona');
+
+    // 5. Encerrar em janela própria: análise obrigatória.
     await page.click('#rrEncerrar');
+    await page.waitForSelector('#rrDecisaoBg.open');
+    assert.ok((await texto('#rrDecResumo')).includes('Origem 3.470 = destinos 3.425 + perdas 45'));
+    assert.match(await texto('#rrDecResumo'), /não libera nem bloqueia lote, palete ou estoque/);
+    await page.click('#rrDecConfirmar');
+    assert.match(await texto('#rrDecErro'), /análise da Qualidade/);
+    await page.fill('#rrDecAnalise', 'Retrabalho conforme RNC-2026-011.');
+    await page.fill('#rrDecConclusao', '1.460 Rose e 1.965 Sunrise Muse.');
+    await page.click('#rrDecConfirmar');
     await page.waitForFunction(() => /Encerrado/i.test(document.getElementById('rrDetalhe').innerText) && /Decisão da Qualidade/i.test(document.getElementById('rrDetalhe').innerText));
     assert.equal(await page.locator('#rrEncerrar').count(), 0);
-    ok('Encerrar grava a análise e a conclusão; registro encerrado sem botões de ação');
+    const hist = await page.evaluate(() => Object.values(window.__db.registros_retrabalho['RR-26302-01-1'].historico).map((h) => h.acao));
+    assert.deepEqual(hist.sort(), ['CRIAR', 'ENCERRAR', 'ENVIAR', 'ENVIAR', 'REABRIR', 'SALVAR', 'SALVAR'].sort());
+    ok('Encerrar abre janela com o balanço, exige análise e grava; histórico completo (criar, salvar, enviar, devolver, encerrar)');
+
+    // 5b. Lista: indicadores, filtro e busca.
+    await page.selectOption('#rrFiltroStatus', '');
+    assert.equal(await texto('#rrKpiEncerrado'), '1');
+    assert.equal(await texto('#rrKpiPreench'), '0');
+    await page.selectOption('#rrFiltroStatus', 'ABERTOS');
+    await page.waitForFunction(() => /Nenhum registro com esse filtro/.test(document.getElementById('rrLista').innerText));
+    await page.selectOption('#rrFiltroStatus', '');
+    await page.fill('#rrBusca', 'sunrise');
+    await page.waitForFunction(() => /RR-26302-01-1/.test(document.getElementById('rrLista').innerText));
+    await page.fill('#rrBusca', 'nada-disso');
+    await page.waitForFunction(() => /Nenhum registro com esse filtro/.test(document.getElementById('rrLista').innerText));
+    await page.fill('#rrBusca', '');
+    ok('indicadores, filtro de situação e busca da lista');
+
+    // 5c. Relatório completo: FOR-QUA-0001 + anexo do registro.
+    await page.click('#rrImprimir');
+    let imp = await page.evaluate(() => window.__impressoes[window.__impressoes.length - 1]);
+    assert.match(imp.titulo, /FOR-QUA-0001/);
+    assert.match(imp.html, /RELATÓRIO DE NÃO CONFORMIDADE/);
+    assert.match(imp.html, /REGISTRO DE RETRABALHO RR-26302-01-1/);
+    ['BALANÇO DE QUANTIDADES', 'ETAPA 2 — RETRABALHO', 'DECISÃO DA QUALIDADE', 'HISTÓRICO DO REGISTRO', 'Retrabalho conforme RNC-2026-011.', 'EP-00182', 'Perda no desenvase']
+      .forEach((t) => assert.ok(imp.html.includes(t), 'relatório traz ' + t));
+    assert.doesNotMatch(imp.html, /PROVISÓRIO|NÃO FECHADO/);
+    ok('"Relatório da RNC + anexo" emite o FOR-QUA-0001 com o registro completo (balanço, etapas, materiais, decisão, histórico)');
+
+    // 5d. Vínculo na RNC (só leitura) e volta ao registro.
+    await page.click('#rrVerRnc');
+    await page.waitForSelector('#tab-rnc.active');
+    await page.waitForFunction(() => /Registros de retrabalho vinculados/i.test(document.getElementById('rncBody').innerText));
+    assert.equal(await page.locator('#rncBody .badge[title="Há registro de retrabalho vinculado"]').count(), 1, 'selo de retrabalho na linha da RNC');
+    assert.match(await texto('#rncBody'), /RR-26302-01-1/);
+    assert.match(await texto('#rncBody'), /balanço fecha/i);
+    assert.match(await texto('#rncBody'), /Só consulta/);
+    await page.click('#rncBody [data-rnc-doc][data-doc="rnc"]');
+    imp = await page.evaluate(() => window.__impressoes[window.__impressoes.length - 1]);
+    assert.match(imp.html, /REGISTRO DE RETRABALHO RR-26302-01-1/, 'o relatório emitido pela própria RNC também leva o anexo');
+    await page.click('#rncBody [data-rr-abrir="RR-26302-01-1"]');
+    await page.waitForSelector('#tab-registros.active');
+    await page.waitForSelector('#rrBal');
+    ok('RNC mostra selo e bloco do registro vinculado; relatório da RNC leva o anexo; "Abrir registro" volta ao detalhe');
 
     // 6. Nada operacional mudou na página.
     const db = await page.evaluate(() => ({ops: window.__db.ops, conferencias_pa: window.__db.conferencias_pa, estoque_lotes: window.__db.estoque_lotes,
@@ -220,6 +298,8 @@ const ESTADO = Object.assign(JSON.parse(JSON.stringify(FIX)), {
 
     // 7. PCP vê, não edita.
     const v = await abrir(browser, Object.assign({}, estadoFinal, {usuarios: ESTADO.usuarios}), 'pcp');
+    await v.page.waitForFunction(() => /Nenhum registro com esse filtro/.test(document.getElementById('rrLista').innerText));
+    await v.page.selectOption('#rrFiltroStatus', '');
     await v.page.waitForFunction(() => /RR-26302-01-1/.test(document.getElementById('rrLista').innerText));
     assert.equal(await v.page.locator('#rrNovo').isVisible(), false);
     await v.page.click('#rrLista .rr-linha');
@@ -231,6 +311,7 @@ const ESTADO = Object.assign(JSON.parse(JSON.stringify(FIX)), {
 
     // 8. Celular: a aba não cria rolagem horizontal.
     const m = await abrir(browser, Object.assign({}, estadoFinal, {usuarios: ESTADO.usuarios}), 'rob', {width: 390, height: 844});
+    await m.page.selectOption('#rrFiltroStatus', '');
     await m.page.waitForFunction(() => /RR-26302-01-1/.test(document.getElementById('rrLista').innerText));
     await m.page.click('#rrLista .rr-linha');
     await m.page.waitForSelector('#rrBal');

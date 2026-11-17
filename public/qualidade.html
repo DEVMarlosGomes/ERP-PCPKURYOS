@@ -22,6 +22,7 @@
   <script src="shared/laudo-pa-lote.js"></script>
   <script src="shared/retrabalho-op.js"></script>
   <script src="shared/registro-retrabalho.js"></script>
+  <script src="shared/registro-retrabalho-doc.js"></script>
   <script src="shared/inspecao-total-pa.js"></script>
   <script src="shared/campo-decimal.js"></script><script src="shared/spec-material.js"></script><script src="shared/analise-granel.js"></script>
   <script src="shared/inspecao-embalagem.js"></script>
@@ -195,7 +196,13 @@
     .rr-acoes{display:flex;gap:10px;justify-content:flex-end;margin:12px 0}
     .rr-sel td{background:var(--surface-2)}
     .rr-hist{margin:8px 0 24px}
-    @media(max-width:800px){.rr-grid4,.rr-grid5{grid-template-columns:1fr 1fr}}
+    .rr-perda.rr-grid4{grid-template-columns:repeat(4,minmax(0,1fr)) auto;align-items:end}
+    .rr-mat.rr-grid5{grid-template-columns:repeat(5,minmax(0,1fr)) auto;align-items:end}
+    .rr-del{margin-bottom:12px}
+    .rr-vinculo{margin-top:10px;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface-2)}
+    .rr-vinculo-item{margin:6px 0;font-size:13px}
+    .rr-erro{color:var(--danger);font-size:12.5px;min-height:1em;margin-top:6px}
+    @media(max-width:800px){.rr-grid4,.rr-grid5,.rr-perda.rr-grid4,.rr-mat.rr-grid5{grid-template-columns:1fr 1fr}}
   </style>
 </head>
 <body class="kuryos-theme has-sidebar" data-kuryos-operational="">
@@ -398,11 +405,25 @@
       o retrabalho e o envase de retrabalho, com o balanço de quantidades. <b>É só registro</b>: não muda
       OP, pedido, estoque, palete, conferência nem expedição. O caso só fecha quando origem = destinos + perdas.
     </div>
-    <div class="kt-toolbar" data-ui="filters" style="justify-content:flex-end">
+    <div class="kt-toolbar" data-ui="filters">
+      <div class="kt-search"><span>🔎</span><input type="text" id="rrBusca" placeholder="Buscar por registro, RNC, lote, produto ou cliente..." aria-label="Buscar registros de retrabalho"></div>
+      <select class="kt-select" id="rrFiltroStatus" aria-label="Situação">
+        <option value="ABERTOS">Em aberto</option>
+        <option value="">Todos</option>
+        <option value="EM_PREENCHIMENTO">Só em preenchimento</option>
+        <option value="AGUARDANDO_DECISAO">Só aguardando decisão</option>
+        <option value="ENCERRADO">Só encerrados</option>
+      </select>
       <button class="btn btn-primary" id="rrNovo" style="display:none">+ Novo registro</button>
     </div>
+    <div class="stats">
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="rrKpiPreench" style="color:var(--warning)">—</div><div class="stat-lbl">Em preenchimento</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="rrKpiDecisao" style="color:var(--primary)">—</div><div class="stat-lbl">Aguardando decisão</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="rrKpiDif" style="color:var(--danger)">—</div><div class="stat-lbl">Em aberto com balanço sem fechar</div></div>
+      <div class="stat" data-ui="kpi"><div class="stat-val" id="rrKpiEncerrado" style="color:var(--success)">—</div><div class="stat-lbl">Encerrados</div></div>
+    </div>
     <div class="card" data-ui="surface">
-      <div class="card-header" data-ui="surface-head"><h3>Registros</h3></div>
+      <div class="card-header" data-ui="surface-head"><h3 id="rrCount">Registros</h3></div>
       <div id="rrLista"><div class="no-data">Carregando...</div></div>
     </div>
     <div id="rrDetalhe"></div>
@@ -3724,7 +3745,8 @@ function renderRncs() {
       '<td>' + (r.itemCodigo ? '<b>' + escapeHtml(r.itemCodigo) + '</b> ' : '') +
         '<span class="field-hint">' + escapeHtml(String(r.descricao || '').slice(0, 90)) + (String(r.descricao || '').length > 90 ? '…' : '') + '</span>' +
         (r.fotos ? ' ' + FotosQualidade.botao(r.fotos, r.numero + ' · abertura') : '') +
-        (r.fotosEncerramento ? ' ' + FotosQualidade.botao(r.fotosEncerramento, r.numero + ' · evidência do encerramento') : '') + '</td>' +
+        (r.fotosEncerramento ? ' ' + FotosQualidade.botao(r.fotosEncerramento, r.numero + ' · evidência do encerramento') : '') +
+        (window.RegistroRetrabalhoTela && window.RegistroRetrabalhoTela.doRnc(r.numero).length ? ' <span class="badge badge-blue" title="Há registro de retrabalho vinculado">♻️ retrabalho</span>' : '') + '</td>' +
       '<td>' + escapeHtml(r.fornecedorNome || '—') + '</td>' +
       '<td>' + fmtData(r.abertaEm) + (dias != null && (RNC_STATUS[r.status] || {}).aberta ? '<br><span class="badge ' + (dias > 30 ? 'badge-red' : dias > 15 ? 'badge-orange' : 'badge-gray') + '">há ' + dias + 'd</span>' : '') + '</td>' +
       '<td><span class="badge ' + st.badge + '">' + escapeHtml(st.rotulo) + '</span></td>' +
@@ -3765,6 +3787,9 @@ function renderRncs() {
   tbody.querySelectorAll('.rnc-cancelar').forEach(function(b) {
     b.addEventListener('click', function() { abrirModalCancelarRnc(b.getAttribute('data-rnc')); });
   });
+  tbody.querySelectorAll('[data-rr-abrir]').forEach(function(b) {
+    b.addEventListener('click', function() { window.RegistroRetrabalhoTela.abrir(b.getAttribute('data-rr-abrir')); });
+  });
   tbody.querySelectorAll('[data-rnc-doc]').forEach(function(b) {
     b.addEventListener('click', function() { imprimirRelatorioRnc(b.getAttribute('data-rnc-doc'), b.getAttribute('data-doc') === 'termo'); });
   });
@@ -3792,8 +3817,14 @@ function detalheRncHtml(r) {
     (r.encerradaPor ? campo('Encerrada por', r.encerradaPor + ' em ' + fmtDataHora(r.encerradaEm)) : '') +
     blocoCancelamentoHtml(r) +
     blocoConsultaClienteHtml(r) +
+    blocoRegistrosRetrabalhoHtml(r) +
     botoesDocumentosRnc(r) +
     botaoLaudoDaRnc(r);
+}
+// Registros de retrabalho que tratam esta RNC (shared/registro-retrabalho-tela.js).
+// Só consulta: nada aqui grava na RNC, no PA ou no estoque.
+function blocoRegistrosRetrabalhoHtml(r) {
+  return window.RegistroRetrabalhoTela ? window.RegistroRetrabalhoTela.htmlDaRnc(r.numero || r._key) : '';
 }
 
 // O motivo do cancelamento vai junto do registro: é ele que responde por que
@@ -3896,8 +3927,12 @@ function imprimirRelatorioRnc(numero, termo) {
   var r = allRncs[numero];
   if (!r) { showAlert('RNC não encontrada.', 'danger'); return; }
   var dados = dadosRncDoc(Object.assign({_key: numero}, r));
+  var anexos = '';
+  if (!termo && window.RegistroRetrabalhoDoc && window.RegistroRetrabalhoTela) {
+    anexos = RegistroRetrabalhoDoc.anexosDaRnc(window.RegistroRetrabalhoTela.registros(), r.numero || numero, r);
+  }
   document.getElementById('laudoPrintArea').innerHTML =
-    termo ? LaudoCQ.paginaTermoConcessao(dados) : LaudoCQ.paginaRnc(dados);
+    termo ? LaudoCQ.paginaTermoConcessao(dados) : LaudoCQ.paginaRnc(dados) + anexos;
   imprimirComNome(LaudoCQ.nomeArquivo(termo ? 'Termo de anuencia' : 'FOR-QUA-0001 - RNC', dados));
 }
 // O laudo impresso existe só para lote em estoque que já foi laudado.
@@ -4634,10 +4669,28 @@ document.addEventListener('keydown', function(ev) {
         <div class="form-group"><label for="rrNovoData">Ocorrida em</label><input id="rrNovoData" type="date"></div>
       </div>
       <div class="form-group"><label for="rrNovoDesc">Descrição</label><textarea id="rrNovoDesc" rows="3"></textarea></div>
+      <div class="rr-erro" id="rrNovoErro" role="alert"></div>
     </div>
-    <div class="modal-footer" style="display:flex;gap:10px;justify-content:flex-end;padding:12px 18px">
+    <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="rrNovoCancelar">Cancelar</button>
       <button class="btn btn-primary" id="rrNovoSalvar">Abrir registro</button>
+    </div>
+  </div>
+</div>
+<!-- Encerrar / devolver o registro de retrabalho -->
+<div class="modal-bg" id="rrDecisaoBg">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header" data-ui="dialog-head"><h2 id="rrDecTitulo">Decisão</h2><button class="modal-close" id="rrDecClose" title="Fechar" aria-label="Fechar">×</button></div>
+    <div class="modal-body" data-ui="dialog-body">
+      <div class="rr-aviso" id="rrDecResumo"></div>
+      <div class="form-group" id="rrDecAnaliseBox"><label for="rrDecAnalise">Análise da Qualidade (obrigatória)</label><textarea id="rrDecAnalise" rows="4"></textarea></div>
+      <div class="form-group" id="rrDecConclusaoBox"><label for="rrDecConclusao">Conclusão / destino final dos lotes</label><textarea id="rrDecConclusao" rows="3"></textarea></div>
+      <div class="form-group" id="rrDecMotivoBox"><label for="rrDecMotivo">Motivo da devolução (obrigatório)</label><textarea id="rrDecMotivo" rows="3"></textarea></div>
+      <div class="rr-erro" id="rrDecErro" role="alert"></div>
+    </div>
+    <div class="modal-footer" data-ui="dialog-foot">
+      <button class="btn btn-ghost" id="rrDecCancelar">Cancelar</button>
+      <button class="btn btn-primary" id="rrDecConfirmar">Confirmar</button>
     </div>
   </div>
 </div>
