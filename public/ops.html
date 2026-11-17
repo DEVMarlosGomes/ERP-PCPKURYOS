@@ -16,6 +16,8 @@
   <script src="shared/identificacao-ibc.js"></script>
   <script src="shared/transferencia-op.js"></script>
   <script src="shared/retrabalho-op.js"></script>
+  <script src="shared/retrabalho-encerramento.js"></script>
+  <script src="shared/ficha-retrabalho.js"></script>
   <script src="shared/impacto-pedido-ops.js"></script>
   <script src="shared/manipulacao.js"></script>
   <script src="shared/expedicao.js"></script>
@@ -2085,12 +2087,18 @@
           ${!isCancelada && !RetrabalhoOp.ehRetrabalho(op)
             ? `<button class="btn-edit-inline" onclick="abrirRetrabalhoModal('${escapedKeyAttr}')" title="Abrir uma OP de retrabalho deste lote — não cria produção nova" aria-label="Abrir retrabalho">♻️</button>`
             : ``}
+          ${RetrabalhoOp.ehRetrabalho(op)
+            ? `<button class="btn-edit-inline" data-ficha-rt="${escapedKeyAttr}" onclick="imprimirFichaRetrabalho('${escapedKeyAttr}')" title="Ficha de retrabalho (em branco para preencher, ou preenchida depois do encerramento)" aria-label="Ficha de retrabalho">🖨️</button>` +
+              `<button class="btn-edit-inline" onclick="etiquetasRetrabalho('${escapedKeyAttr}')" title="Etiquetas de caixa com o lote do produto" aria-label="Etiquetas do retrabalho">🏷️</button>` +
+              (RetrabalhoEncerramento.encerravel(op) && RetrabalhoEncerramento.podeEncerrar(window.currentUser)
+                ? `<a class="btn-edit-inline" data-encerrar-rt="${escapedKeyAttr}" href="retrabalhos.html?encerrar=${encodeURIComponent(op.key || '')}" title="Encerrar o retrabalho: quantidades, perdas, inspeção e decisão da Qualidade" aria-label="Encerrar retrabalho">✅</a>` : ``)
+            : ``}
           ${isAdmin
             ? (!isCancelada
                 ? `<button class="btn-cancel-op" onclick="cancelOp('${escapedKeyAttr}')" title="Cancelar OP (mantém o registro, some das listas ativas)" aria-label="Cancelar OP">🚫</button>`
                 : ``)
             : ``}
-          ${!op.materiaisConsumo && (!isAdmin || isCancelada) ? `<span style="grid-column:1/-1;color:var(--muted)">—</span>` : ``}
+          ${!op.materiaisConsumo && !RetrabalhoOp.ehRetrabalho(op) && (!isAdmin || isCancelada) ? `<span style="grid-column:1/-1;color:var(--muted)">—</span>` : ``}
         </div></td>
       </tr>
     `;
@@ -2355,6 +2363,23 @@
     IdentificacaoIbc.abrirDialogo({op, opKey, db: database});
   }
   window.imprimirIdentificacaoIbc = imprimirIdentificacaoIbc;
+
+  /* OP de retrabalho (16/11/2026): ficha própria e etiquetas com o lote do
+     PRODUTO -- as 5 fichas e as etiquetas da OP normal exigem BOM, que o
+     retrabalho não tem de propósito. */
+  function imprimirFichaRetrabalho(opKey) {
+    const op = opsGlobal[opKey];
+    if (!op) return;
+    FichaRetrabalho.imprimir(op, {opOrigem: opsGlobal[op.retrabalhoDeOpKey] || {}, por: window.currentUser && window.currentUser.nome});
+  }
+  window.imprimirFichaRetrabalho = imprimirFichaRetrabalho;
+  function etiquetasRetrabalho(opKey) {
+    const op = opsGlobal[opKey];
+    if (!op) return;
+    const produto = Object.values(produtosGlobal || {}).find(p => p && p.sku === op.sku) || null;
+    EtiquetaCaixa.abrirDialogo({op: Object.assign({}, op, {lote: op.retrabalhoDe || op.lote}), opKey, produto, db: database});
+  }
+  window.etiquetasRetrabalho = etiquetasRetrabalho;
 
   function reimprimirEtiquetas(opKey) {
     const op = opsGlobal[opKey];

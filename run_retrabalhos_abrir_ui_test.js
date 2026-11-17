@@ -66,7 +66,7 @@ async function abrir(browser, data, papel) {
           onAuthStateChanged(cb) { setTimeout(() => cb({uid: 'u1', email: 'qualidade@kuryos.com', displayName: 'Roberta'}), 0); },
           signOut() { return Promise.resolve(); }};
       },
-      functions() { return {httpsCallable() { return () => Promise.resolve({data: {}}); }}; },
+      functions() { return {httpsCallable(nome) { return (payload) => { (window.__chamadas = window.__chamadas || []).push({nome, payload}); return Promise.resolve({data: {}}); }; }}; },
       database() {
         const ref = (path) => {
           const valor = () => { const v = ler(path); return v === undefined ? null : structuredClone(v); };
@@ -171,6 +171,59 @@ async function abrir(browser, data, papel) {
     await page.click('#rtNovoConfirmar');
     await page.waitForFunction(() => /já existe/.test(document.getElementById('rtNovoErro').innerText));
     assert.equal((await page.evaluate(() => window.__gravacoes)).length, 1, 'nada gravado por cima');
+
+    // ── 5. Encerrar o retrabalho (16/11/2026: "como eu faço para concluir?")
+    await page.click('#rtNovoCancelar');
+    const cartao = page.locator('.rt-card', {hasText: '26302/01-RT1'});
+    await cartao.locator('[data-rt-acao="encerrar"]').click();
+    await page.waitForSelector('#rtEncBg.open');
+    assert.match(await page.locator('#rtEncInfo').innerText(), /Retrabalho de 26302\/01/);
+    // Sem preencher: a validação do motor aparece, nada é enviado.
+    await page.click('#rtEncConfirmar');
+    assert.match(await page.locator('#rtEncErro').innerText(), /quem executou/);
+    assert.equal(await page.evaluate(() => (window.__chamadas || []).length), 0, 'nada enviado');
+    await page.fill('#encInicio', '2026-11-14T08:00');
+    assert.equal(await page.locator('#rtEncErro').isVisible(), false, 'mexeu no formulário: o erro velho sai');
+    await page.fill('#encFim', '2026-11-14T17:30');
+    await page.fill('#encExecutores', 'Equipe Linha 1');
+    await page.fill('#encQtd', '3470');
+    await page.fill('#encAprov', '3425');
+    await page.fill('#encReprov', '45');
+    assert.match(await page.locator('#encFecha').innerText(), /Fecha: 3\.425 aprovadas \+ 45 reprovadas = 3\.470/);
+    assert.equal(await page.locator('#encDestinoBox').isVisible(), true, 'com reprovadas, pede o destino');
+    await page.selectOption('#encDestino', 'DESCARTE');
+    await page.fill('#encPerdas [data-perda="material"]', 'VÁLVULA');
+    await page.fill('#encPerdas [data-perda="quantidade"]', '120');
+    await page.click('#encMaisPerda');
+    assert.equal(await page.locator('#encPerdas .enc-perda').count(), 2);
+    await page.fill('#encInspecao', 'Análise sensorial 100%');
+    await page.selectOption('#encDecisao', 'LIBERADO_COM_RESTRICAO');
+    assert.equal(await page.locator('#encRestricaoBox').isVisible(), true);
+    await page.fill('#encRestricao', 'Confirmar granel antes do despacho');
+    await page.fill('#encAnalise', 'Segregação sensorial; Sunrise reenvasado no frasco certo.');
+    await page.fill('#encRnc', 'RNC-2026-011');
+    if (process.env.RT_SCREENSHOT3) await page.screenshot({path: process.env.RT_SCREENSHOT3, fullPage: true});
+    await page.click('#rtEncConfirmar');
+    await page.waitForFunction(() => (window.__chamadas || []).some((c) => c.payload && c.payload.acao === 'encerrar_op'));
+    const enc = (await page.evaluate(() => window.__chamadas)).find((c) => c.payload.acao === 'encerrar_op');
+    assert.equal(enc.nome, 'apontarRetrabalho', 'mesma callable do retrabalho, sem função nova no servidor');
+    assert.equal(enc.payload.opKey, '26302-01-RT1');
+    assert.match(enc.payload.operacaoId, /^rto_/);
+    assert.equal(enc.payload.dados.qtdAprovada, '3425');
+    assert.equal(enc.payload.dados.destinoReprovadas, 'DESCARTE');
+    assert.equal(enc.payload.dados.perdas[0].material, 'VÁLVULA');
+    assert.equal(enc.payload.dados.rncVinculada, 'RNC-2026-011');
+    await page.waitForSelector('#rtEncBg', {state: 'hidden'});
+    // O servidor grava; a lista mostra o resultado e tira o botão.
+    await page.evaluate(() => firebase.database().ref('ops/26302-01-RT1').transaction((op) => Object.assign({}, op, {status: 'Concluído',
+      retrabalhoEncerramento: {decisao: 'LIBERADO_COM_RESTRICAO', qtdRetrabalhada: 3470, qtdAprovada: 3425, qtdReprovada: 45, destinoReprovadas: 'DESCARTE',
+        perdas: [{material: 'VÁLVULA', quantidade: 120}], encerradoPor: 'Roberta Ramos', encerradoEm: '2026-11-16T18:00:00.000Z', rncVinculada: 'RNC-2026-011'}})));
+    await page.evaluate(() => { filtroAtual = ''; render(); });
+    await page.waitForFunction(() => /Liberado com restrição/.test(document.getElementById('rtOpsLista').innerText));
+    const fim = await page.locator('.rt-card', {hasText: '26302/01-RT1'}).innerText();
+    assert.match(fim, /3\.425 aprovadas, 45 reprovadas \(Descarte\)/);
+    assert.equal(await page.locator('.rt-card', {hasText: '26302/01-RT1'}).locator('[data-rt-acao="encerrar"]').count(), 0, 'encerrada: sem botão de encerrar');
+    assert.equal(await page.locator('.rt-card', {hasText: '26302/01-RT1'}).locator('[data-rt-acao="ficha"]').count(), 1, 'a ficha continua disponível');
 
     assert.deepEqual(errors, [], 'sem erro de JavaScript na tela');
     await page.close();

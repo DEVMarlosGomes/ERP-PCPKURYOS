@@ -156,6 +156,22 @@ async function abrir(browser) {
     // ── 5. OP de retrabalho não abre retrabalho de si mesma ────────────
     assert.equal(await page.locator('[onclick^="abrirRetrabalhoModal(\'26216-04-RT1\')"]').count(), 0);
 
+    // ── 6. "Como eu faço para concluir?" (16/11/2026): a linha da OP de
+    // retrabalho tem ficha, etiquetas e o encerramento da Qualidade.
+    await page.keyboard.press('Escape').catch(() => null);
+    await page.evaluate(() => { const bg = document.getElementById('rtNovoBg'); if (bg) bg.classList.remove('open'); });
+    // A OP de retrabalho nasce "Não Iniciado": aparece nas ativas (o filtro estava em Concluído).
+    await page.selectOption('#opsFiltroStatus', 'todos');
+    await page.waitForSelector('[data-ficha-rt="26216-04-RT1"]', {timeout: 8000});
+    assert.equal(await page.locator('[data-ficha-rt="26216-04-RT1"]').count(), 1, 'ficha de retrabalho na linha');
+    assert.equal(await page.locator('[onclick^="etiquetasRetrabalho(\'26216-04-RT1\')"]').count(), 1, 'etiquetas na linha');
+    assert.equal(await page.locator('[data-encerrar-rt="26216-04-RT1"]').getAttribute('href'), 'retrabalhos.html?encerrar=26216-04-RT1', 'leva ao encerramento');
+    assert.equal(await page.locator('[data-encerrar-rt="26216-04"]').count(), 0, 'OP normal não tem encerramento de retrabalho');
+    const [popup] = await Promise.all([page.waitForEvent('popup'), page.click('[data-ficha-rt="26216-04-RT1"]')]);
+    await popup.waitForLoadState();
+    assert.match(await popup.content(), /Ficha de Retrabalho — OP 26216\/04-RT1/);
+    await popup.close();
+
     assert.deepEqual(errors, [], 'erros de página: ' + errors.join(' | '));
     console.log('run_retrabalho_op_ui_test: OK — OP de retrabalho aberta num posto, sem pedido e sem BOM.');
   } finally {

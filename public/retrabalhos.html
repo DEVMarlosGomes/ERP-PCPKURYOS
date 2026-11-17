@@ -12,6 +12,10 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-functions-compat.js"></script>
   <script src="shared/utils.js"></script>
   <script src="shared/retrabalho-op.js"></script>
+  <script src="shared/retrabalho-encerramento.js"></script>
+  <script src="shared/ficha-retrabalho.js"></script>
+  <script src="shared/qrcode-lib.js"></script>
+  <script src="shared/etiqueta-caixa.js"></script>
   <script src="shared/retrabalhos-gestao.js"></script>
   <script src="auth_check.js"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -104,6 +108,12 @@
     .no-data{text-align:center;padding:30px;color:var(--muted);font-size:13.5px}
     .hint{font-size:12px;color:var(--muted)}
     .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+    .form-grid.enc-3{grid-template-columns:1fr 1fr 1fr}
+    .enc-sec{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px}
+    .enc-perda{display:grid;grid-template-columns:2fr .8fr .6fr 2fr auto;gap:6px;margin-bottom:6px}
+    .rt-enc{background:var(--tint-green-bg);color:var(--tint-green-fg);border-radius:10px;padding:8px 12px;font-size:12.5px}
+    .rt-enc.reprovado{background:var(--tint-red-bg);color:var(--tint-red-fg)}
+    @media(max-width:700px){.enc-perda{grid-template-columns:1fr 1fr}.form-grid.enc-3{grid-template-columns:1fr}}
     /* Busca da OP de origem no "Abrir retrabalho" (botão da Qualidade, 16/11/2026). */
     .rt-busca-lista{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto;margin-top:8px}
     .rt-busca-item{display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);cursor:pointer;font:inherit}
@@ -241,6 +251,62 @@
   </div>
 </div>
 
+<!-- ══════════ MODAL: encerrar a OP de retrabalho (16/11/2026) ══════════
+     "Como eu faço para concluir?" (Roberta). Grava pela callable
+     apontarRetrabalho (acao encerrar_op); regras em
+     shared/retrabalho-encerramento.js. Não lança produção nem palete. -->
+<div class="modal-bg" id="rtEncBg">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-header" data-ui="dialog-head">
+      <h2 id="rtEncTitulo">Encerrar retrabalho</h2>
+      <button class="modal-close" id="rtEncClose" title="Fechar" aria-label="Fechar">×</button>
+    </div>
+    <div class="modal-body" data-ui="dialog-body">
+      <div id="rtEncInfo" class="rt-escolhida" style="display:block"></div>
+      <div class="aviso aviso-info">Encerrar <b>não lança produção, não credita pedido, não baixa BOM e não cria palete</b>: as unidades já foram contadas na OP de origem. As quantidades abaixo ficam registradas na OP e na ficha de retrabalho.</div>
+      <h3 class="enc-sec">Execução</h3>
+      <div class="form-grid">
+        <div class="form-group"><label for="encInicio">Início</label><input type="datetime-local" id="encInicio"></div>
+        <div class="form-group"><label for="encFim">Fim</label><input type="datetime-local" id="encFim"></div>
+        <div class="form-group"><label for="encRecurso">Recurso (linha / posto)</label><input type="text" id="encRecurso" maxlength="80"></div>
+        <div class="form-group"><label for="encExecutores">Quem executou</label><input type="text" id="encExecutores" maxlength="300" placeholder="Nomes de quem fez o retrabalho"></div>
+      </div>
+      <h3 class="enc-sec">Quantidades</h3>
+      <div class="form-grid enc-3">
+        <div class="form-group"><label for="encQtd">Retrabalhadas</label><input type="number" id="encQtd" min="0" step="1"></div>
+        <div class="form-group"><label for="encAprov">Aprovadas</label><input type="number" id="encAprov" min="0" step="1"></div>
+        <div class="form-group"><label for="encReprov">Reprovadas</label><input type="number" id="encReprov" min="0" step="1"></div>
+      </div>
+      <div class="hint" id="encFecha" style="margin:-4px 0 10px"></div>
+      <div class="form-grid" id="encDestinoBox">
+        <div class="form-group"><label for="encDestino">Destino das reprovadas</label><select id="encDestino"></select></div>
+        <div class="form-group"><label for="encDestinoObs">Detalhe do destino</label><input type="text" id="encDestinoObs" maxlength="500"></div>
+      </div>
+      <h3 class="enc-sec">Perdas de material no retrabalho</h3>
+      <div id="encPerdas"></div>
+      <button type="button" class="btn btn-ghost btn-sm" id="encMaisPerda">+ Linha de perda</button>
+      <h3 class="enc-sec">Inspeção e decisão da Qualidade</h3>
+      <div class="form-group"><label for="encInspecao">Inspeção realizada</label><textarea id="encInspecao" rows="2" maxlength="1000" placeholder="Ex.: inspeção visual 100%, análise sensorial, conferência de rótulo e lote"></textarea></div>
+      <div class="form-grid">
+        <div class="form-group"><label for="encAmostragem">Amostragem</label><input type="text" id="encAmostragem" maxlength="300" placeholder="Ex.: 100% / NQA 1,0 nível II"></div>
+        <div class="form-group"><label for="encDecisao">Decisão</label><select id="encDecisao"></select></div>
+      </div>
+      <div class="form-group" id="encRestricaoBox" style="display:none"><label for="encRestricao">Restrição da liberação</label><input type="text" id="encRestricao" maxlength="1000"></div>
+      <div class="form-group"><label for="encAnalise">Análise da Qualidade</label><textarea id="encAnalise" rows="3" maxlength="2000" placeholder="O que foi verificado e com que resultado"></textarea></div>
+      <div class="form-grid">
+        <div class="form-group"><label for="encRnc">RNC vinculada</label><input type="text" id="encRnc" maxlength="60" placeholder="Ex.: RNC-2026-011"></div>
+        <div class="form-group"><label for="encRegistro">Registro de retrabalho</label><input type="text" id="encRegistro" maxlength="80" placeholder="Ex.: RR-26302-01-1"></div>
+      </div>
+      <div class="form-group"><label for="encObs">Observações (opcional)</label><textarea id="encObs" rows="2" maxlength="2000"></textarea></div>
+      <div id="rtEncErro" class="aviso aviso-erro" style="display:none;margin:12px 0 0"></div>
+    </div>
+    <div class="modal-footer" data-ui="dialog-foot">
+      <button class="btn btn-ghost" id="rtEncCancelar">Fechar</button>
+      <button class="btn btn-green" id="rtEncConfirmar">✓ Encerrar retrabalho</button>
+    </div>
+  </div>
+</div>
+
 <script>
 var firebaseConfig = {
   apiKey: "AIzaSyBvASzcbKyv3uW7NBzDFDyLsKls3An3UUs",
@@ -319,11 +385,31 @@ function cartaoOp(op) {
       '<div>As unidades já foram contadas na OP ' + escapeHtml(op.retrabalhoDe || '') + '. ' +
         'O que for consumido no retrabalho entra à parte.</div>' +
     '</div>' +
+    encerramentoHtml(op) +
     '<div class="rt-acoes">' +
+      (RetrabalhoEncerramento.encerravel(op) && RetrabalhoEncerramento.podeEncerrar(window.currentUser)
+        ? '<button type="button" class="btn btn-green btn-sm" data-rt-acao="encerrar" data-op="' + escapeAttr(op._key) + '">✓ Encerrar retrabalho</button>' : '') +
+      '<button type="button" class="btn btn-ghost btn-sm" data-rt-acao="ficha" data-op="' + escapeAttr(op._key) + '" title="Ficha de retrabalho: em branco para preencher, ou preenchida depois do encerramento">🖨 Ficha de retrabalho</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-rt-acao="etiquetas" data-op="' + escapeAttr(op._key) + '" title="Etiquetas de caixa com o lote do produto">🏷️ Etiquetas</button>' +
+      (RetrabalhoEncerramento.encerravel(op) && RetrabalhoEncerramento.podeEncerrar(window.currentUser)
+        ? '<button type="button" class="btn btn-ghost btn-sm" data-rt-acao="cancelar" data-op="' + escapeAttr(op._key) + '" title="Cancelar a OP de retrabalho (com motivo)">Cancelar OP</button>' : '') +
       '<a class="btn btn-ghost btn-sm" href="ops.html">Ver no Controle de OPs</a>' +
-      '<a class="btn btn-ghost btn-sm" href="form.html">Ir para o Apontamento</a>' +
+      (ativa ? '<a class="btn btn-ghost btn-sm" href="form.html">Ir para o Apontamento</a>' : '') +
     '</div>' +
   '</div>';
+}
+// Resultado do encerramento no cartão (16/11/2026).
+function encerramentoHtml(op) {
+  var enc = op.retrabalhoEncerramento;
+  if (op.status === 'Cancelado') return '<div class="rt-enc reprovado"><b>Cancelada</b>' + (op.motivoCancelamento ? ': ' + escapeHtml(op.motivoCancelamento) : '') +
+    (op.canceladoPor ? ' <span class="hint">(' + escapeHtml(op.canceladoPor) + ', ' + escapeHtml(dataHora(op.canceladoEm)) + ')</span>' : '') + '</div>';
+  if (!enc) return '';
+  var dec = RetrabalhoEncerramento.DECISOES[enc.decisao] || enc.decisao;
+  return '<div class="rt-enc' + (enc.decisao === 'REPROVADO' ? ' reprovado' : '') + '"><b>' + escapeHtml(dec) + '</b> · ' +
+    fmtNum(enc.qtdRetrabalhada) + ' retrabalhadas: ' + fmtNum(enc.qtdAprovada) + ' aprovadas, ' + fmtNum(enc.qtdReprovada) + ' reprovadas' +
+    (enc.qtdReprovada ? ' (' + escapeHtml(RetrabalhoEncerramento.DESTINOS_REPROVADAS[enc.destinoReprovadas] || '') + ')' : '') +
+    (enc.perdas && enc.perdas.length ? ' · ' + enc.perdas.length + ' perda(s) de material' : '') +
+    '<br><span class="hint">' + escapeHtml(enc.encerradoPor || '') + ', ' + escapeHtml(dataHora(enc.encerradoEm)) + (enc.rncVinculada ? ' · ' + escapeHtml(enc.rncVinculada) : '') + '</span></div>';
 }
 
 function render() {
@@ -563,6 +649,7 @@ dbOnValue(db.ref('ops'), function(snap) {
   opsTodas = snap.val() || {};
   render();
   if (document.getElementById('rtNovoBg').classList.contains('open') && !rtNovoKey) renderCandidatas();
+  tentarAbrirPedido();
 });
 
 /* ── Abrir OP de retrabalho (botão da Qualidade, 16/11/2026) ──────────
@@ -725,6 +812,191 @@ dbOnValue(db.ref('retrabalhos'), function(snap) {
   // efeito do que acabou de gravar sem fechar e abrir de novo.
   if (casoAberto && todos[casoAberto]) abrirCaso(casoAberto);
 });
+
+/* ── Encerrar / cancelar a OP de retrabalho (16/11/2026) ───────────────
+   Pela callable apontarRetrabalho (acao encerrar_op / cancelar_op). A regra
+   e a validação são as de shared/retrabalho-encerramento.js, as mesmas do
+   servidor. Ficha e etiquetas também saem daqui. */
+var produtosRt = {};
+dbOnValue(db.ref('produtos'), function(snap) { produtosRt = snap.val() || {}; });
+var rtEncKey = null, rtEncOperacao = null, rtEncAssinatura = null;
+
+function paraLocal(iso) {
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  var p = function(n) { return String(n).padStart(2, '0'); };
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+function opcoesSelect(mapa, vazio) {
+  return (vazio ? '<option value="">' + escapeHtml(vazio) + '</option>' : '') + Object.keys(mapa).map(function(k) {
+    return '<option value="' + escapeAttr(k) + '">' + escapeHtml(mapa[k]) + '</option>';
+  }).join('');
+}
+function linhaPerdaHtml(p) {
+  p = p || {};
+  return '<div class="enc-perda"><input type="text" data-perda="material" maxlength="160" placeholder="Material (ex.: VÁLVULA 24/410)" value="' + escapeAttr(p.material || '') + '">' +
+    '<input type="number" data-perda="quantidade" min="0" step="any" placeholder="Qtd." value="' + escapeAttr(p.quantidade == null ? '' : p.quantidade) + '">' +
+    '<input type="text" data-perda="unidade" maxlength="12" placeholder="un" value="' + escapeAttr(p.unidade || 'un') + '">' +
+    '<input type="text" data-perda="motivo" maxlength="300" placeholder="Motivo" value="' + escapeAttr(p.motivo || '') + '">' +
+    '<button type="button" class="btn btn-ghost btn-sm" data-tirar-perda title="Tirar esta linha" aria-label="Tirar esta linha">✕</button></div>';
+}
+function lerPerdas() {
+  return Array.prototype.map.call(document.querySelectorAll('#encPerdas .enc-perda'), function(l) {
+    var o = {};
+    l.querySelectorAll('[data-perda]').forEach(function(i) { o[i.getAttribute('data-perda')] = i.value; });
+    return o;
+  });
+}
+function lerEncerramento() {
+  var iso = function(v) { var d = new Date(v); return v && !isNaN(d.getTime()) ? d.toISOString() : ''; };
+  return {
+    dataInicio: iso(document.getElementById('encInicio').value), dataFim: iso(document.getElementById('encFim').value),
+    recurso: document.getElementById('encRecurso').value, executores: document.getElementById('encExecutores').value,
+    qtdRetrabalhada: document.getElementById('encQtd').value, qtdAprovada: document.getElementById('encAprov').value,
+    qtdReprovada: document.getElementById('encReprov').value,
+    destinoReprovadas: document.getElementById('encDestino').value, destinoReprovadasObs: document.getElementById('encDestinoObs').value,
+    perdas: lerPerdas(), inspecao: document.getElementById('encInspecao').value, amostragem: document.getElementById('encAmostragem').value,
+    decisao: document.getElementById('encDecisao').value, restricao: document.getElementById('encRestricao').value,
+    analise: document.getElementById('encAnalise').value, rncVinculada: document.getElementById('encRnc').value,
+    registroRetrabalho: document.getElementById('encRegistro').value, observacoes: document.getElementById('encObs').value
+  };
+}
+function atualizarFechamento() {
+  var q = Number(document.getElementById('encQtd').value), a = Number(document.getElementById('encAprov').value),
+    r = Number(document.getElementById('encReprov').value);
+  var box = document.getElementById('encFecha');
+  document.getElementById('encDestinoBox').style.display = r > 0 ? '' : 'none';
+  document.getElementById('encRestricaoBox').style.display = document.getElementById('encDecisao').value === 'LIBERADO_COM_RESTRICAO' ? '' : 'none';
+  if (!q) { box.textContent = ''; return; }
+  var dif = q - (a || 0) - (r || 0);
+  box.textContent = dif === 0 ? 'Fecha: ' + fmtNum(a || 0) + ' aprovadas + ' + fmtNum(r || 0) + ' reprovadas = ' + fmtNum(q) + ' retrabalhadas.'
+    : 'Ainda não fecha: faltam ' + fmtNum(dif) + ' un. entre aprovadas e reprovadas.';
+  box.style.color = dif === 0 ? 'var(--success)' : 'var(--warning)';
+}
+function erroEnc(msg) {
+  var b = document.getElementById('rtEncErro');
+  b.style.display = msg ? '' : 'none';
+  b.textContent = msg || '';
+}
+function abrirEncerrar(opKey) {
+  var op = opsTodas[opKey];
+  if (!op || !RetrabalhoEncerramento.encerravel(op)) return;
+  if (!RetrabalhoEncerramento.podeEncerrar(window.currentUser)) { alert('Somente a Qualidade, o PCP ou o administrador encerram a OP de retrabalho.'); return; }
+  rtEncKey = opKey; rtEncOperacao = null; rtEncAssinatura = null;
+  var feito = getProduzido(op, op.retrabalhoDestino === 'rotulagem' ? 'rotulagem' : op.retrabalhoDestino === 'posto' ? 'posto' : 'linha') || 0;
+  document.getElementById('rtEncTitulo').textContent = 'Encerrar retrabalho — OP ' + op.lote;
+  document.getElementById('rtEncInfo').innerHTML = '<b>' + escapeHtml(op.produto || op.sku || '') + '</b> · ' + escapeHtml(op.cliente || '—') +
+    '<br>Retrabalho de ' + escapeHtml(op.retrabalhoDe || '—') + ' · ' + escapeHtml(op.retrabalhoEscopo || '') + ' · planejado ' + fmtNum(op.qtdPlanejada || 0) + ' un.' +
+    '<br>Motivo: ' + escapeHtml(op.retrabalhoMotivo || '—');
+  document.getElementById('encInicio').value = paraLocal(op.dataInicioReal || op.setupInicio || '');
+  document.getElementById('encFim').value = paraLocal(op.dataFimReal || new Date().toISOString());
+  document.getElementById('encRecurso').value = op.linha || '';
+  document.getElementById('encExecutores').value = '';
+  document.getElementById('encQtd').value = feito || op.qtdPlanejada || '';
+  document.getElementById('encAprov').value = '';
+  document.getElementById('encReprov').value = '0';
+  document.getElementById('encDestino').innerHTML = opcoesSelect(RetrabalhoEncerramento.DESTINOS_REPROVADAS, 'Escolha…');
+  document.getElementById('encDestinoObs').value = '';
+  document.getElementById('encPerdas').innerHTML = linhaPerdaHtml();
+  document.getElementById('encInspecao').value = '';
+  document.getElementById('encAmostragem').value = '';
+  document.getElementById('encDecisao').innerHTML = opcoesSelect(RetrabalhoEncerramento.DECISOES, 'Escolha…');
+  document.getElementById('encRestricao').value = '';
+  document.getElementById('encAnalise').value = '';
+  document.getElementById('encRnc').value = '';
+  document.getElementById('encRegistro').value = '';
+  document.getElementById('encObs').value = '';
+  document.getElementById('rtEncConfirmar').disabled = false;
+  erroEnc('');
+  atualizarFechamento();
+  document.getElementById('rtEncBg').classList.add('open');
+}
+function fecharEncerrar() { document.getElementById('rtEncBg').classList.remove('open'); rtEncKey = null; }
+function chamarRetrabalhoOp(payload) {
+  return firebase.functions().httpsCallable('apontarRetrabalho')(payload);
+}
+function novaOperacao() { return 'rto_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10); }
+
+['encQtd', 'encAprov', 'encReprov', 'encDecisao'].forEach(function(id) {
+  document.getElementById(id).addEventListener('input', atualizarFechamento);
+  document.getElementById(id).addEventListener('change', atualizarFechamento);
+});
+document.getElementById('encMaisPerda').addEventListener('click', function() {
+  document.getElementById('encPerdas').insertAdjacentHTML('beforeend', linhaPerdaHtml());
+});
+document.getElementById('encPerdas').addEventListener('click', function(e) {
+  var b = e.target.closest('[data-tirar-perda]');
+  if (b) b.closest('.enc-perda').remove();
+});
+// Mexeu no formulário: o erro da tentativa anterior sai (fica velho e confunde).
+document.getElementById('rtEncBg').addEventListener('input', function() { if (document.getElementById('rtEncErro').style.display !== 'none') erroEnc(''); });
+['rtEncClose', 'rtEncCancelar'].forEach(function(id) { document.getElementById(id).addEventListener('click', fecharEncerrar); });
+document.getElementById('rtEncBg').addEventListener('click', function(e) { if (e.target === this) fecharEncerrar(); });
+document.getElementById('rtEncConfirmar').addEventListener('click', function() {
+  var op = rtEncKey && opsTodas[rtEncKey];
+  if (!op) return;
+  var dados = lerEncerramento();
+  var v = RetrabalhoEncerramento.validar(op, dados, new Date().toISOString());
+  if (!v.ok) { erroEnc(v.erros.join(' ')); return; }
+  if (v.avisos.length && !confirm(v.avisos.join('\n\n') + '\n\nEncerrar mesmo assim?')) return;
+  // Mesmo conteúdo = mesma operação: o retry depois de falha de rede não encerra duas vezes.
+  var assinatura = JSON.stringify([rtEncKey, dados]);
+  if (assinatura !== rtEncAssinatura) { rtEncAssinatura = assinatura; rtEncOperacao = novaOperacao(); }
+  var btn = this, chave = rtEncKey;
+  btn.disabled = true; erroEnc('');
+  chamarRetrabalhoOp({acao: 'encerrar_op', opKey: chave, operacaoId: rtEncOperacao, dados: dados}).then(function() {
+    fecharEncerrar();
+    var lote = op.lote;
+    if (confirm('Retrabalho ' + lote + ' encerrado. Imprimir a ficha de retrabalho agora?')) {
+      var atual = opsTodas[chave] || op;
+      FichaRetrabalho.imprimir(atual, {opOrigem: opsTodas[atual.retrabalhoDeOpKey] || {}, por: window.currentUser && window.currentUser.nome});
+    }
+  }).catch(function(e) {
+    btn.disabled = false;
+    erroEnc((e && e.message) || 'Não foi possível encerrar. Tente de novo.');
+  });
+});
+
+function cancelarRetrabalhoOp(opKey) {
+  var op = opsTodas[opKey];
+  if (!op || !RetrabalhoEncerramento.encerravel(op)) return;
+  var motivo = prompt('Cancelar a OP de retrabalho ' + op.lote + '?\n\nUse quando o retrabalho não vai acontecer ou já foi documentado em outro lugar ' +
+    '(ex.: "documentado no registro RR-26302-01-1"). Explique o motivo:');
+  if (motivo == null) return;
+  chamarRetrabalhoOp({acao: 'cancelar_op', opKey: opKey, operacaoId: novaOperacao(), motivo: motivo}).then(function() {
+    alert('OP ' + op.lote + ' cancelada.');
+  }).catch(function(e) { alert((e && e.message) || 'Não foi possível cancelar.'); });
+}
+function imprimirFichaRt(opKey) {
+  var op = opsTodas[opKey];
+  if (!op) return;
+  FichaRetrabalho.imprimir(op, {opOrigem: opsTodas[op.retrabalhoDeOpKey] || {}, por: window.currentUser && window.currentUser.nome});
+}
+function etiquetasRt(opKey) {
+  var op = opsTodas[opKey];
+  if (!op || !window.EtiquetaCaixa) return;
+  // A etiqueta leva o lote do PRODUTO (o da OP de origem), não o número da OP de retrabalho.
+  var opEtq = Object.assign({}, op, {lote: op.retrabalhoDe || op.lote});
+  var produto = Object.values(produtosRt || {}).find(function(p) { return p && p.sku === op.sku; }) || null;
+  EtiquetaCaixa.abrirDialogo({op: opEtq, opKey: opKey, produto: produto, db: db});
+}
+document.getElementById('rtOpsLista').addEventListener('click', function(e) {
+  var b = e.target.closest('[data-rt-acao]');
+  if (!b) return;
+  var k = b.getAttribute('data-op'), a = b.getAttribute('data-rt-acao');
+  if (a === 'encerrar') abrirEncerrar(k);
+  else if (a === 'cancelar') cancelarRetrabalhoOp(k);
+  else if (a === 'ficha') imprimirFichaRt(k);
+  else if (a === 'etiquetas') etiquetasRt(k);
+});
+// Vindo do Controle de OPs (✓ na linha da OP de retrabalho): abre o encerramento.
+var encerrarPedido = new URLSearchParams(location.search).get('encerrar');
+function tentarAbrirPedido() {
+  if (!encerrarPedido || !window.currentUser || !opsTodas[encerrarPedido]) return;
+  var k = encerrarPedido; encerrarPedido = null;
+  abrirEncerrar(k);
+}
+window.addEventListener('kuryos-auth-pronto', tentarAbrirPedido);
 </script>
 </body>
 </html>

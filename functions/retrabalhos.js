@@ -18,7 +18,31 @@ function totalizar(rt) {
 const PODE_EXECUTAR = user => ['admin','production','pcp'].includes(user.role) || !!(user.modulos && user.modulos.apontamento);
 const PODE_DECIDIR = user => ['admin','qualidade'].includes(user.role);
 
+/* Encerrar/cancelar a OP de retrabalho pela Qualidade (16/11/2026). Entra pela
+   mesma callable (apontarRetrabalho) para não abrir uma função nova no servidor;
+   regras e validação em retrabalho_encerramento.js (cópia de public/shared). */
+function executarOp(base,d,uid,agora) {
+  const RE=require('./retrabalho_encerramento');
+  const user=(base.usuarios || {})[uid] || {};
+  if(!RE.podeEncerrar(user)) fail('Somente a Qualidade, o PCP ou o administrador encerram a OP de retrabalho.');
+  if(!/^[a-zA-Z0-9_-]{12,100}$/.test(d.operacaoId || '')) fail('Operação inválida.');
+  if(typeof d.opKey!=='string' || !/^[^.#$[\]/]{1,128}$/.test(d.opKey)) fail('OP inválida.');
+  const op=(base.ops || {})[d.opKey];
+  if(!op) fail('OP não encontrada.');
+  const feita=(op.historicoRetrabalho || {})[d.operacaoId];
+  if(feita) return {id:d.opKey,revisao:0,repetida:true};
+  const ctx={opKey:d.opKey,autor:user.nome || user.email || uid,uid,agora,operacaoId:d.operacaoId};
+  const plano=d.acao==='encerrar_op' ? RE.planoEncerrar(op,d.dados || {},ctx) : RE.planoCancelar(op,d,ctx);
+  for(const [path,value] of Object.entries(plano.updates)) {
+    const partes=path.split('/');let no=base;
+    for(const p of partes.slice(0,-1)) no=no[p] || (no[p]={});
+    no[partes[partes.length-1]]=clone(value);
+  }
+  return {id:d.opKey,revisao:0};
+}
+
 function executar(base,d,uid,agora) {
+  if(d && (d.acao==='encerrar_op' || d.acao==='cancelar_op')) return executarOp(base,d,uid,agora);
   const user=(base.usuarios || {})[uid] || {};
   if(d.acao==='decidir') { if(!PODE_DECIDIR(user)) fail('Somente a Qualidade (ou o administrador) decide o retrabalho.'); }
   else if(!PODE_EXECUTAR(user)) fail('Seu perfil não pode apontar retrabalho.');
