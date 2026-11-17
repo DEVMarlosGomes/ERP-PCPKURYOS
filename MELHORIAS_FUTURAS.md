@@ -1791,3 +1791,13 @@ curta obrigatória ao editar) em `historico_{materiais|produtos|fornecedores}`, 
 (`fornecedores/{k}/revisado`, `cadastros.html`), os parâmetros de MRP editados no card do MRP
 (`insumos.html`) e gravações feitas por outras telas (CRM cria produto; Compras edita fornecedor):
 passam a registrar quando forem tocadas, com `HistoricoCadastro.entradas` no mesmo update.
+
+## Testes de regra antigos quebram com o firebase-admin 14 (17/11/2026)
+
+`run_retrabalhos_rules_test`, `run_emitir_op_saldo_rules_test`, `run_operacao_rules_test`,
+`run_separacao_consolidada_rules_test` e `run_correcao_bulk_rules_test` usam `app.database()` e
+`admin.apps`, que o `firebase-admin` 14 (`functions/node_modules`) não tem mais: param com "app.database is
+not a function" antes de testar qualquer regra. Em 17/11 rodaram verdes com um adaptador carregado por
+`node -r` (`FirebaseApp.prototype.database = getDatabase(this)`), fora do repo. Retomar: trocar para
+`getDatabase(app)` de `firebase-admin/lib/database`, como em `run_ops_regra_criacao_rules_test`, e fechar
+com `Promise.all(getApps().map(deleteApp))`.
