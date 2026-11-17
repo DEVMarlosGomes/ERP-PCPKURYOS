@@ -9,6 +9,9 @@
 (function(){var k=new URLSearchParams(location.search).get('agenda');if(k)location.replace('cargas.html?carga='+encodeURIComponent(k));})();
 var db=firebase.database(), fn=firebase.functions();
 var base={estoque_lotes:{},ops:{},pedidos:{},pedidos_comerciais:{},conferencias_pa:{},enderecos_estoque:{},produtos:{}};
+// RNCs de consistência abertas (16/11/2026): avisa no palete; não bloqueia.
+var rncsAtivas=[];
+function rncsDoLote(lote){return window.ConsistenciaProducao?ConsistenciaProducao.rncsDoPalete(rncsAtivas,lote):[];}
 var clientesContatos={}, contatoCargaUI=ContatosClienteUI.seletor(document.getElementById('contatoClienteCarga'),['LOGISTICA']);
 var selecionados={}, agendas={}, carregados=new Set(), agendaPronta=false;
 var enviando=false, novaAgendaKey=null, selecionaveisVisiveis=[];
@@ -77,8 +80,10 @@ function refsSelecionadas(){return Object.values(selecionados).map(function(l){r
 function resumo(){
   var ls=Object.values(selecionados), t=ExpedicaoGrade.totais(ls.map(function(l){return l.lote;}));
   var clienteDaCarga=ls[0];contatoCargaUI.carregar(clienteDaCarga?clientesContatos[clienteDaCarga.clienteKey]||{}:{},clienteDaCarga?(clienteDaCarga.clienteKey||clienteDaCarga.cliente):'');
-  el('selecaoResumo').textContent=t.paletes?num(t.paletes)+' palete(s) · '+num(t.unidades)+' un · '+num(t.caixasFechadas)+' cx completas + '+num(t.caixasParciais)+' parciais'+(t.composicoesPendentes?' · composição pendente':'')+' · '+textoPeso(ExpedicaoGrade.somaPeso(ls.map(pesoDaLinha))):'Nenhum palete selecionado';
-  el('resumo').innerHTML=ls.length?'<b>'+e(ls[0].cliente)+'</b><br>Pedido(s): '+e(Array.from(new Set(ls.map(function(l){return l.pedidoNumero;}))).join(', '))+'<br>Destino: '+e(ls[0].frete.enderecoEntrega||'Não informado no pedido')+'<br>Peso da carga: <b>'+e(textoPeso(ExpedicaoGrade.somaPeso(ls.map(pesoDaLinha))))+'</b>':'Selecione os paletes na grade.';
+  var rc=ExpedicaoGrade.resumoCarga(ls.map(function(l){return {itemKey:l.itemKey,loteKey:l.loteKey,quantidade:Number(l.lote.saldoLote)};}),base);
+  var comRnc=ls.filter(function(l){return rncsDoLote(l.lote).length;});
+  el('selecaoResumo').textContent=t.paletes?num(t.paletes)+' palete(s) · '+num(t.unidades)+' un · '+rc.texto+(t.composicoesPendentes?' · composição pendente':'')+' · '+ExpedicaoGrade.textoPesoKg(rc)+(comRnc.length?' · ⚠ '+num(comRnc.length)+' com RNC aberta':''):'Nenhum palete selecionado';
+  el('resumo').innerHTML=ls.length?'<b>'+e(ls[0].cliente)+'</b><br>Pedido(s): '+e(Array.from(new Set(ls.map(function(l){return l.pedidoNumero;}))).join(', '))+'<br>Destino: '+e(ls[0].frete.enderecoEntrega||'Não informado no pedido')+'<br>Volumes: <b>'+e(rc.texto)+'</b><br>Peso da carga: <b>'+e(ExpedicaoGrade.textoPesoKg(rc))+'</b>'+(comRnc.length?'<div class="aviso-rnc">⚠ '+num(comRnc.length)+' palete(s) com RNC de consistência aberta. Confira o físico com a Qualidade antes de expedir.</div>':''):'Selecione os paletes na grade.';
   el('agendar').disabled=enviando||!pronto()||!ls.length;
   el('agendar').textContent=enviando?'Agendando…':'Agendar carga';
   el('limpar').disabled=enviando;
@@ -113,7 +118,7 @@ function renderPaletes(){
     return '<tr class="'+(selecionado?'selected':!l.disponivel?'blocked':'')+'"><td><input type="checkbox" aria-label="Selecionar '+e(l.lote.identificadorPalete||l.loteKey)+'" data-palete="'+e(k)+'" '+(selecionado?'checked ':'')+(bloqueado?'disabled':'')+'></td>'+
       '<td><span class="state '+(!l.disponivel?'pending':ag?'scheduled':'')+'">'+(!l.disponivel?'Pendente':ag?'Agendado':'Disponível')+'</span>'+(!l.disponivel?'<div class="sub product">'+e(l.motivo)+'</div>':'')+(ag?'<div class="sub">'+e(etapaAg.curto)+'</div><div><a class="btn ghost" data-agenda="'+e(ag[0])+'" href="cargas.html?carga='+encodeURIComponent(ag[0])+'">Acompanhar</a></div>':'')+'</td>'+
       '<td>'+e(l.cliente)+'</td><td>'+e(l.pedidoNumero||'Sem vínculo')+'</td><td class="product"><b>'+e(l.lote.itemCodigo)+'</b><div class="sub">'+e(l.lote.itemNome)+'</div></td>'+
-      '<td>'+e(l.lote.opLote||l.lote.opKey)+'<div class="sub">'+e(l.lote.identificadorPalete||l.loteKey)+'</div>'+(!ag&&!enviando&&DesmembrarPalete.podeDesmembrar(l.lote)?'<div><button type="button" class="btn ghost" data-desmembrar="'+e(k)+'" title="O apontamento juntou paletes que fisicamente são separados: divide este palete em vários, sem mexer no total">✂️ Desmembrar</button></div>':'')+'</td><td>'+composicaoHTML(l.lote)+'</td><td class="numeric"><b>'+num(l.lote.saldoLote)+'</b></td>'+celulasPeso(l)+
+      '<td>'+e(l.lote.opLote||l.lote.opKey)+'<div class="sub">'+e(l.lote.identificadorPalete||l.loteKey)+'</div>'+(rncsDoLote(l.lote).length?'<div class="aviso-rnc" title="Não expeça antes da conferência física e do tratamento da RNC pela Qualidade">⚠ RNC aberta: '+e(rncsDoLote(l.lote).map(function(r){return r.numero;}).join(', '))+'</div>':'')+(!ag&&!enviando&&DesmembrarPalete.podeDesmembrar(l.lote)?'<div><button type="button" class="btn ghost" data-desmembrar="'+e(k)+'" title="O apontamento juntou paletes que fisicamente são separados: divide este palete em vários, sem mexer no total">✂️ Desmembrar</button></div>':'')+'</td><td>'+composicaoHTML(l.lote)+'</td><td class="numeric"><b>'+num(l.lote.saldoLote)+'</b></td>'+celulasPeso(l)+
       '<td>'+e(l.endereco.codigo||l.lote.enderecoCodigo||'—')+'</td><td class="numeric">'+(dias==null?'—':dias)+'</td>'+
       '<td class="extra-col">'+dataBR(l.op.dataFimReal)+'</td><td class="extra-col">'+dataBR(l.lote.criadoEm)+'</td><td class="extra-col">'+dataBR(ExpedicaoPA.validadeDoLote(l.lote))+'</td></tr>';
   }).join('')||'<tr><td colspan="15">Nenhum palete neste filtro. O PA aparece após a conferência no estoque.</td></tr>';
@@ -155,6 +160,7 @@ el('extras').onchange=function(){el('gradeEstoque').classList.toggle('show-extra
 el('dataAgendada').value=hoje();
 Object.keys(base).forEach(function(no){dbOnValue(db.ref(no),function(s){base[no]=s.val()||{};carregados.add(no);renderPaletes();});});
 dbOnValue(db.ref('clientes'),function(s){clientesContatos=s.val()||{};renderPaletes();});
+dbOnValue(db.ref('nao_conformidades'),function(s){rncsAtivas=window.ConsistenciaProducao?ConsistenciaProducao.alertasAtivos(s.val()||{}):[];renderPaletes();});
 dbOnValue(db.ref('agendamentos_expedicao'),function(s){agendas=s.val()||{};agendaPronta=true;CargasFluxo.render(el('fluxoCargas'),'expedicao.html',agendas);renderPaletes();});
 
 /* Desmembrar palete: divide o registro físico sem alterar o total disponível. */

@@ -155,11 +155,25 @@
     if (!user) return [];
     return [user.role].concat(Object.keys(user.funcoes || {}).filter(function(f) { return user.funcoes[f] === true; }));
   }
-  // ADM, PCP e Expedição (Logística) -- pedido do usuário.
+  // Quem vê o alerta vermelho: Qualidade (papel, função ou módulo) e ADM.
+  // Pedido de 16/11/2026: "essa tela de inconsistências deve aparecer apenas
+  // para o Setor de Qualidade" (inclui ADMs). Antes: ADM, PCP e Logística --
+  // a Logística passou a ver o aviso no próprio palete (rncsDoPalete).
   function veAlertas(user) {
     if (!user) return false;
-    return papeis(user).some(function(p) { return p === 'admin' || p === 'pcp' || p === 'logistica'; }) ||
-      !!(user.modulos && user.modulos.logistica === true);
+    return papeis(user).some(function(p) { return p === 'admin' || p === 'qualidade'; }) ||
+      !!(user.modulos && user.modulos.qualidade === true);
+  }
+  // RNCs de consistência ainda não concluídas que tocam este palete/lote
+  // (pela OP de origem). A expedição só AVISA -- decisão de 16/11/2026.
+  function rncsDoPalete(alertas, lote) {
+    var l = lote || {};
+    var opKey = l.opKey || '', opLote = l.opLote || l.loteOrigem || '';
+    if (!opKey && !opLote) return [];
+    return (alertas || []).filter(function(r) {
+      return !!r && ((opKey && (r.opKey === opKey || r.conferenciaOpKey === opKey)) ||
+        (opLote && (r.opLote === opLote || r.loteOrigem === opLote)));
+    });
   }
   // Espelha a regra de escrita de nao_conformidades (database.rules.json).
   function podeAbrirRnc(user) {
@@ -169,5 +183,6 @@
 
   return {avaliarOp: avaliarOp, avaliar: avaliar, registroRnc: registroRnc, abrirRncs: abrirRncs,
     alertasAtivos: alertasAtivos, ehDeConsistencia: ehDeConsistencia, veAlertas: veAlertas, podeAbrirRnc: podeAbrirRnc,
+    rncsDoPalete: rncsDoPalete,
     chaveRnc: chaveRnc, TITULO: TITULO, LIMITE_SUPERPRODUCAO: LIMITE_SUPERPRODUCAO, CORTE_SUPERPRODUCAO: CORTE_SUPERPRODUCAO};
 });

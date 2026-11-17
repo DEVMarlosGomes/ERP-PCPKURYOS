@@ -130,7 +130,8 @@
       (l.identificadorPalete ? ' · ' + e(l.identificadorPalete) : '') + (l.pedidoNumero ? ' · Pedido ' + e(l.pedidoNumero) : '') + '</span></td>' +
       '<td>' + e(l.lote || '—') + '</td><td>' + dataBR(l.fabricacao) + '</td><td>' + dataBR(l.validade) + '</td>' +
       '<td class="n">' + inteiro(l.caixasFechadas) + (l.unidadesPorCaixa ? '<br><span class="mut" style="font-size:12px">de ' + inteiro(l.unidadesPorCaixa) + ' un</span>' : '') + '</td>' +
-      '<td class="n">' + inteiro(l.unidadesAvulsas) + '</td><td class="n"><b>' + inteiro(l.totalUnidades) + '</b></td>' +
+      '<td class="n">' + (l.unidadesAvulsas ? '1 cx<br><span class="mut" style="font-size:12px">' + inteiro(l.unidadesAvulsas) + ' un</span>' : '—') + '</td>' +
+      '<td class="n">' + (l.pesoKg == null ? '<span class="mut">—</span>' : Number(l.pesoKg).toLocaleString('pt-BR', {maximumFractionDigits: 2})) + '</td><td class="n"><b>' + inteiro(l.totalUnidades) + '</b></td>' +
       '<td class="n">' + reais(l.valorCaixa) + '</td><td class="n">' + reais(l.valorUnitario) + '</td><td class="n">' + reais(l.valorTotal) + '</td></tr>';
   }
   function cartaoEspelho(c) {
@@ -149,12 +150,17 @@
       (c.sol && c.sol.observacoes ? '<br>Observações: ' + e(c.sol.observacoes) : '') + '</div>' +
       (falta.length ? '<div class="alerta warn"><div><b>Falta para emitir:</b> ' + e(falta.join(' · ')) + '</div></div>' : '') +
       '<div class="tw"><table><thead><tr><th>Descrição do SKU</th><th>Lote</th><th>Fabricação</th><th>Validade</th><th class="n">Caixas fechadas</th>' +
-      '<th class="n">Unid. avulsas</th><th class="n">Total unid.</th><th class="n">Valor por caixa</th><th class="n">Valor unitário</th><th class="n">Valor total</th></tr></thead><tbody>' +
+      '<th class="n">Caixa parcial</th><th class="n">Peso (kg)</th><th class="n">Total unid.</th><th class="n">Valor por caixa</th><th class="n">Valor unitário</th><th class="n">Valor total</th></tr></thead><tbody>' +
       c.linhas.map(linhaEspelho).join('') +
       '<tr><td colspan="4"><b>Total da carga</b> (' + c.linhas.length + (c.linhas.length === 1 ? ' palete' : ' paletes') + ')</td>' +
-      '<td class="n"><b>' + inteiro(t.caixasFechadas) + '</b></td><td class="n"><b>' + inteiro(t.unidadesAvulsas) + '</b></td><td class="n"><b>' + inteiro(t.totalUnidades) + '</b></td>' +
+      '<td class="n"><b>' + inteiro(t.caixasFechadas) + '</b></td><td class="n"><b>' + (t.caixasParciais ? inteiro(t.caixasParciais) + ' cx' : '—') + '</b>' +
+        (t.caixasParciais ? '<br><span class="mut" style="font-size:12px">' + inteiro(t.unidadesAvulsas) + ' un</span>' : '') + '</td>' +
+      '<td class="n"><b>' + (t.semPeso === c.linhas.length ? '—' : Number(t.pesoKg).toLocaleString('pt-BR', {maximumFractionDigits: 2})) + '</b></td><td class="n"><b>' + inteiro(t.totalUnidades) + '</b></td>' +
       '<td></td><td></td><td class="n"><b>' + (c.sol ? reais(t.valorTotal) + (t.semPreco ? ' <span class="mut">(parcial)</span>' : '') : '<span class="mut">—</span>') + '</b></td></tr>' +
-      '</tbody></table></div></div>';
+      '</tbody></table></div>' +
+      '<div style="margin-top:8px;font-size:13px"><b>Volumes da NF:</b> ' + e(EspelhoFaturamento.textoCaixas(t)) +
+        ' · <b>Peso total:</b> ' + (t.semPeso === c.linhas.length ? 'sem peso (cadastre o kg por caixa)' : Number(t.pesoKg).toLocaleString('pt-BR', {maximumFractionDigits: 2}) + ' kg' +
+        (t.semPeso ? ' <span class="mut">(' + t.semPeso + ' palete(s) sem peso)</span>' : '')) + '</div></div>';
   }
   function abaFaturamento() {
     var cargas = cargasDoEspelho();

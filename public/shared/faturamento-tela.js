@@ -8,6 +8,8 @@
 (function() {
   var db = firebase.database(), fn = firebase.functions();
   var agendas = {}, formAberto = null, ocupado = false, solicitacaoIds = {};
+  // Paletes e produtos: volumes (caixas + parciais) e peso da carga (16/11/2026).
+  var base = {estoque_lotes: {}, produtos: {}};
   var destaque = new URLSearchParams(location.search).get('carga');
   var destaqueRolado = false;
   function el(id) { return document.getElementById(id); }
@@ -32,8 +34,10 @@
         '<td class="num">' + (i.precoUnitario ? brl(i.precoUnitario) : '—') + '</td><td class="num">' + (i.valor ? brl(i.valor) : '—') + '</td></tr>';
     }).join('');
     var t = CargasPA.totais(a);
-    return '<table class="carga-itens"><thead><tr><th>Palete</th><th>Produto</th><th>Pedido</th><th>Lote</th><th class="num">Unidades</th><th class="num">Preço un.</th><th class="num">Valor</th></tr></thead><tbody>' + linhas + '</tbody>' +
-      '<tfoot><tr><td colspan="4"><b>Total</b>' + (sol && sol.totalPesoKg ? ' · ' + num(sol.totalPesoKg) + ' kg' : '') + '</td><td class="num"><b>' + num(t.unidades) + '</b></td><td></td><td class="num"><b>' + (sol && sol.totalValor ? brl(sol.totalValor) : '—') + '</b></td></tr></tfoot></table>' +
+    var rc = ExpedicaoGrade.resumoCarga(a.paletes || [], base);
+    return '<div class="carga-volumes"><b>Volumes da NF:</b> ' + e(rc.texto) + ' · <b>Peso total:</b> ' + e(ExpedicaoGrade.textoPesoKg(rc)) + '</div>' +
+      '<table class="carga-itens"><thead><tr><th>Palete</th><th>Produto</th><th>Pedido</th><th>Lote</th><th class="num">Unidades</th><th class="num">Preço un.</th><th class="num">Valor</th></tr></thead><tbody>' + linhas + '</tbody>' +
+      '<tfoot><tr><td colspan="4"><b>Total</b> · ' + e(rc.texto) + ' · ' + e(ExpedicaoGrade.textoPesoKg(rc)) + '</td><td class="num"><b>' + num(t.unidades) + '</b></td><td></td><td class="num"><b>' + (sol && sol.totalValor ? brl(sol.totalValor) : '—') + '</b></td></tr></tfoot></table>' +
       (!sol ? '<div class="sub">Preços e valores aparecem ao solicitar o faturamento (vêm do pedido).</div>' : sol.itensSemPreco ? '<div class="sub" style="color:#b42318">' + sol.itensSemPreco + ' item(ns) sem preço no pedido.</div>' : '');
   }
 
@@ -98,7 +102,8 @@
     return '<article class="carga-card' + (k === destaque ? ' destaque' : '') + '" data-carga="' + e(k) + '">' +
       '<div class="carga-topo"><div><h3>' + e(a.cliente) + '</h3><div class="carga-meta">Pedido(s) ' + e(pedidos || '—') + ' · ' +
         (a.tipo === 'COLETA' ? 'Coleta FOB' : 'Entrega CIF') + ' em <b>' + dataBR(a.dataAgendada) + '</b>' + (a.janela ? ' ' + e(a.janela) : '') +
-        ' · ' + num(t.paletes) + ' palete(s) · ' + num(t.unidades) + ' un<br>' + e([a.transportadora || 'Transportadora a definir', a.motorista, a.placa].filter(Boolean).join(' · ')) +
+        ' · ' + num(t.paletes) + ' palete(s) · ' + num(t.unidades) + ' un · ' + e(ExpedicaoGrade.resumoCarga(a.paletes || [], base).texto) + ' · ' + e(ExpedicaoGrade.textoPesoKg(ExpedicaoGrade.resumoCarga(a.paletes || [], base))) +
+        '<br>' + e([a.transportadora || 'Transportadora a definir', a.motorista, a.placa].filter(Boolean).join(' · ')) +
         (a.enderecoEntrega ? '<br>Destino: ' + e(typeof a.enderecoEntrega === 'string' ? a.enderecoEntrega : JSON.stringify(a.enderecoEntrega)) : '') + '</div></div>' +
         '<span class="etapa-tag etapa-' + et.cor + '">' + e(et.curto) + '</span></div>' +
       solicitacaoHTML(a) + nfHTML(a) + itensHTML(a) +
@@ -185,4 +190,5 @@
   el('filtro').onchange = render;
   el('busca').oninput = render;
   dbOnValue(db.ref('agendamentos_expedicao'), function(s) { agendas = s.val() || {}; render(); });
+  ['estoque_lotes', 'produtos'].forEach(function(no) { dbOnValue(db.ref(no), function(s) { base[no] = s.val() || {}; if (!ocupado) render(); }); });
 })();

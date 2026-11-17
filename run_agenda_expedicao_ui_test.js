@@ -51,7 +51,7 @@ const agora='2026-09-11T18:00:00Z';
     assert.match(await page.locator('#paletes').innerText(),/12 cx × 24/);
     assert.equal(await page.locator('#paletes .partial').count(),2,'Caixa parcial fica na linha do próprio palete');
     await page.locator('[data-palete="PA001/pa_op1_p1"]').check();await page.locator('[data-palete="PA001/parcial"]').check();
-    assert.match(await page.locator('#selecaoResumo').innerText(),/302 un.*12 cx completas \+ 2 parciais/);
+    assert.match(await page.locator('#selecaoResumo').innerText(),/302 un.*12 cx \+ 2 cx parciais \(14 un\) = 14 volumes/);
     assert.equal(await page.locator('#contatoClienteCarga [data-valor=nome]').inputValue(),'Ana Recebimento');
     await page.locator('#dataAgendada').fill('2026-09-20');await page.locator('#transportadora').fill('Transporte A');await page.locator('#motorista').fill('João');await page.locator('#placa').fill('ABC1D23');
     if(process.env.EXPEDICAO_SCREENSHOT)await page.screenshot({path:process.env.EXPEDICAO_SCREENSHOT,fullPage:true});
@@ -82,6 +82,15 @@ const agora='2026-09-11T18:00:00Z';
     assert.match(await card.innerText(),/Maria.*DEF4G56/,'transporte editado na Logística aparece no acompanhamento');
     assert.equal(await card.locator('[data-acao="CARREGAR"]').count(),0,'sem NF não há carregamento');
     assert.match(await card.innerText(),/A saída física só é liberada com a NF/);
+    // 16/11/2026: volumes da NF (caixa parcial como CAIXA) e peso pela regra de três.
+    assert.match(await card.innerText(),/Volumes: 12 cx \+ 2 cx parciais \(14 un\) = 14 volumes/,'caixas fechadas + caixas parciais, não "+ 14 un"');
+    assert.match(await card.innerText(),/Peso: sem peso \(cadastre o kg por caixa\)/,'sem kg/cx no cadastro: peso desconhecido, nunca zero');
+    state.produtos=Object.assign(state.produtos||{}, {PA001:{sku:'PA001',kgCaixa:10,unCx:24}});await notificar();
+    await cargasPage.waitForFunction(()=>/Peso: 125,83 kg/.test(document.getElementById('listaCargas').innerText),null,{timeout:5000});
+    // RNC de consistência aberta na OP do palete: a expedição AVISA (não bloqueia).
+    state.nao_conformidades={'RNC-CS-26254-01':{numero:'RNC-CS-26254-01',automatica:true,categoria:'CONSISTENCIA',status:'ABERTA',opKey:'op1',opLote:'26254/01'}};await notificar();
+    await cargasPage.waitForFunction(()=>/RNC de consistência aberta \(RNC-CS-26254-01\)/.test(document.getElementById('listaCargas').innerText),null,{timeout:5000});
+    state.nao_conformidades={};await notificar();
 
     // NF registrada no Faturamento (outra tela) -> a carga libera.
     const f=prepararFaturamento(state,{agendaKey,revisao:state.agendamentos_expedicao[agendaKey].revisao,acao:'REGISTRAR_NF',nf:{numero:'2200',serie:'1',valor:3000,emitidaEm:'2026-09-11'}},'Financeiro','u2',agora);

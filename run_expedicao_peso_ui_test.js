@@ -75,12 +75,12 @@ function cenario() {
     assert.ok(ths.includes('Kg/cx') && ths.includes('Peso (kg)'));
     assert.equal(await page.locator('#paletes tr').first().locator('td').count(), 15);
     const linhaP1 = page.locator('#paletes tr', {has: page.locator('[data-palete="PA001/pa_op1_p1"]')});
-    assert.match(await linhaP1.innerText(), /\b5\b[\s\S]*\b65\b[\s\S]*cadastro/, '13 volumes (12 cx + parcial) × 5 kg = 65 kg, fonte cadastro');
+    assert.match(await linhaP1.innerText(), /\b5\b[\s\S]*\b61,5\b[\s\S]*cadastro/, '12 cx × 5 kg + parcial de 7/24 × 5 kg = 61,5 kg (regra de três, 16/11/2026), fonte cadastro');
 
     // ── 2. Painel de peso ────────────────────────────────────────────────
     const painel = await page.locator('#pesoResumo').innerText();
-    assert.match(painel, /Liberado para expedir\s*155 kg\s*3 palete\(s\) · 690 un/, 'A: 65 + 65; B: 5 volumes × 5 = 25');
-    assert.match(painel, /Aguardando Qualidade\s*~65 kg\s*1 palete\(s\) · 295 un/);
+    assert.match(painel, /Liberado para expedir\s*143,7 kg\s*3 palete\(s\) · 690 un/, 'regra de três na parcial: A 61,46 + 61,46; B 4 cx + 4/24 = 20,83');
+    assert.match(painel, /Aguardando Qualidade\s*~61,5 kg\s*1 palete\(s\) · 295 un/);
     assert.match(painel, /Aguardando Conferência de PA · teórico\s*~105 kg · 1 sem peso\s*2 OP\(s\) · 600 un/, '500 ÷ 24 → 21 volumes × 5 kg; SEMKG sem kg/cx; OP antiga fora');
     await page.locator('#pesoResumo summary').click();
     const ops = await page.locator('#pesoResumo details tbody tr').allInnerTexts();
@@ -97,11 +97,11 @@ function cenario() {
     // ── 4. Filtra o Cliente A e seleciona todos ──────────────────────────
     await page.selectOption('#filtroCliente', 'Cliente A');
     assert.equal(await page.locator('#selecionarTodos').innerText(), 'Selecionar todos (2)');
-    assert.match(await page.locator('#pesoResumo').innerText(), /Liberado para expedir\s*130 kg/, 'o painel segue o filtro');
+    assert.match(await page.locator('#pesoResumo').innerText(), /Liberado para expedir\s*122,9 kg/, 'o painel segue o filtro');
     await page.click('#selecionarTodos');
     assert.equal(await page.locator('[data-palete]:checked').count(), 2);
-    assert.match(await page.locator('#selecaoResumo').innerText(), /2 palete\(s\) · 590 un · 24 cx completas \+ 2 parciais · 130 kg/);
-    assert.match(await page.locator('#resumo').innerText(), /Peso da carga: 130 kg/);
+    assert.match(await page.locator('#selecaoResumo').innerText(), /2 palete\(s\) · 590 un · 24 cx \+ 2 cx parciais \(14 un\) = 26 volumes · 122,92 kg/);
+    assert.match(await page.locator('#resumo').innerText(), /Peso da carga: 122,92 kg/);
     assert.equal(await page.locator('#selecionarTodos').isDisabled(), true, 'nada mais a selecionar neste filtro');
 
     // ── 5. Tira o filtro: o Cliente B não entra na carga do A ────────────

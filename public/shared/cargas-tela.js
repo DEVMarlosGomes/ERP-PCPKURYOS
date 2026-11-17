@@ -11,6 +11,17 @@
   var db = firebase.database(), fn = firebase.functions();
   var base = {estoque_lotes: {}, ops: {}, pedidos: {}, pedidos_comerciais: {}, conferencias_pa: {}, enderecos_estoque: {}, produtos: {}};
   var agendas = {}, cargas = {}, clientesContatos = {}, carregados = new Set(), agendaPronta = false;
+  // RNCs de consistência abertas (16/11/2026): a expedição AVISA no palete (não bloqueia).
+  var rncsAtivas = [];
+  function rncsDoItem(p) {
+    if (!window.ConsistenciaProducao) return [];
+    var lote = ((base.estoque_lotes || {})[p.itemKey] || {})[p.loteKey] || {};
+    return ConsistenciaProducao.rncsDoPalete(rncsAtivas, lote);
+  }
+  function avisoRncHTML(rs) {
+    return rs.length ? '<div class="aviso-rnc" title="Não expeça antes da conferência física e do tratamento da RNC pela Qualidade">⚠ RNC aberta: ' +
+      e(rs.map(function(r) { return r.numero; }).join(', ')) + '</div>' : '';
+  }
   // Painel aberto numa carga: {key, tipo: 'CARREGAR'|'TRANSPORTE', revisao, valores, carregamento, selecionados, faltas, contato}
   var painel = null, contatoUI = null, ocupado = false, tentativa = null;
   var destaque = new URLSearchParams(location.search).get('carga'), destaqueRolado = false;
@@ -178,8 +189,9 @@
     return '<details' + (painel && painel.key === a._key ? '' : '') + '><summary class="sub" style="cursor:pointer">Paletes da carga (' + num((a.paletes || []).length) + ')</summary>' +
       '<table class="carga-itens"><thead><tr><th>Palete</th><th>Produto</th><th>Pedido</th><th class="num">Unidades</th><th class="num">Embarcado</th><th class="num">Pendente</th></tr></thead><tbody>' +
       (a.paletes || []).map(function(p) {
-        return '<tr><td>' + e(p.identificadorPalete || p.loteKey) + '</td><td><b>' + e(p.sku) + '</b> ' + e(p.descricao || '') + '</td><td>' + e(p.pedidoNumero || '—') + '</td>' +
-          '<td class="num">' + num(p.quantidade) + '</td><td class="num">' + num(p.embarcado) + '</td><td class="num">' + num(CargasPA.pendente(p)) + '</td></tr>';
+        var c = ExpedicaoGrade.resumoCarga([p], base);
+        return '<tr><td>' + e(p.identificadorPalete || p.loteKey) + avisoRncHTML(rncsDoItem(p)) + '</td><td><b>' + e(p.sku) + '</b> ' + e(p.descricao || '') + '</td><td>' + e(p.pedidoNumero || '—') + '</td>' +
+          '<td class="num">' + num(p.quantidade) + '<div class="sub">' + e(c.texto) + '</div></td><td class="num">' + num(p.embarcado) + '</td><td class="num">' + num(CargasPA.pendente(p)) + '</td></tr>';
       }).join('') + '</tbody></table></details>';
   }
 
@@ -187,12 +199,17 @@
     var k = a._key, et = CargasPA.etapa(a), ac = CargasPA.acoes(a), t = CargasPA.totais(a);
     var pedidos = Object.keys(a.pedidos || {}).map(function(x) { return a.pedidos[x]; }).join(', ');
     var tempo = CargasPA.linhaDoTempo(a);
+    var rc = ExpedicaoGrade.resumoCarga(a.paletes || [], base);
+    var rncsCarga = CargasPA.ativa(a) ? (a.paletes || []).reduce(function(acc, p) { return acc.concat(rncsDoItem(p)); }, []) : [];
     var cc = a.contatoCliente;
     var painelAqui = painel && painel.key === k;
     return '<article class="carga-card' + (k === destaque ? ' destaque' : '') + '" data-carga="' + e(k) + '">' +
       '<div class="carga-topo"><div><h3>' + e(a.cliente) + '</h3><div class="carga-meta">Pedido(s) ' + e(pedidos || '—') + ' · ' +
         (a.tipo === 'COLETA' ? 'Coleta FOB' : 'Entrega CIF') + ' em <b>' + dataBR(a.dataAgendada) + '</b>' + (a.janela ? ' ' + e(a.janela) : '') +
         ' · ' + num(t.paletes) + ' palete(s) · ' + num(t.unidades) + ' un' + (t.embarcado ? ' · <b>' + num(t.embarcado) + ' embarcadas</b>' : '') + (t.pendente && t.embarcado ? ' · ' + num(t.pendente) + ' aguardando embarque' : '') +
+        '<br><b>Volumes:</b> ' + e(rc.texto) + ' · <b>Peso:</b> ' + e(ExpedicaoGrade.textoPesoKg(rc)) +
+        (rncsCarga.length ? '<div class="aviso-rnc">⚠ Esta carga tem palete com RNC de consistência aberta (' + e(rncsCarga.map(function(r) { return r.numero; }).filter(function(x, i, l) { return l.indexOf(x) === i; }).join(', ')) +
+          '). Confira o físico com a Qualidade antes de expedir.</div>' : '') +
         '<br>' + e([a.transportadora || 'Transportadora a definir', a.motorista || 'motorista a definir', a.placa || 'placa a definir'].join(' · ')) +
         (cc && [cc.nome, cc.telefone, cc.email].filter(Boolean).length ? '<br>Recebimento: ' + e([cc.nome, cc.telefone, cc.email].filter(Boolean).join(' · ')) : '') + '</div></div>' +
         '<span class="etapa-tag etapa-' + et.cor + '" title="' + e(et.rotulo) + '">' + e(et.curto) + '</span></div>' +
@@ -361,6 +378,10 @@
   el('buscaHistorico').oninput = renderHistorico;
   Object.keys(base).forEach(function(no) { dbOnValue(db.ref(no), function(s) { base[no] = s.val() || {}; carregados.add(no); if (!ocupado) render(); }); });
   dbOnValue(db.ref('clientes'), function(s) { clientesContatos = s.val() || {}; });
+  dbOnValue(db.ref('nao_conformidades'), function(s) {
+    rncsAtivas = window.ConsistenciaProducao ? ConsistenciaProducao.alertasAtivos(s.val() || {}) : [];
+    if (!ocupado) render();
+  });
   dbOnValue(db.ref('expedicoes_comerciais'), function(s) { cargas = s.val() || {}; renderHistorico(); });
   dbOnValue(db.ref('agendamentos_expedicao'), function(s) {
     agendas = s.val() || {}; agendaPronta = true;

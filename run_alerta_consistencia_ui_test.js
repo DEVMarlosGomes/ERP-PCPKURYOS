@@ -111,9 +111,18 @@ async function abrir(ctx, role, modulos) {
 (async () => {
   const browser = await chromium.launch({headless: true, channel: 'chrome'});
   try {
-    // ── PCP: varredura abre a RNC, modal vermelho, selo ─────────────────
+    // ── PCP: a varredura abre a RNC, mas o alerta é só de Qualidade/ADM (16/11/2026)
+    const ctxPcp = await browser.newContext();
+    let {page, errors} = await abrir(ctxPcp, 'pcp');
+    await page.waitForFunction(() => (window.__transacoes || []).length > 0, null, {timeout: 8000});
+    await page.waitForTimeout(600);
+    assert.equal(await page.locator('.ac-fundo, .ac-selo').count(), 0, 'PCP não vê mais o alerta vermelho');
+    assert.deepEqual(errors, []);
+    await ctxPcp.close();
+
+    // ── ADM: modal vermelho e selo ──────────────────────────────────────
     const ctx = await browser.newContext();
-    let {page, errors} = await abrir(ctx, 'pcp');
+    ({page, errors} = await abrir(ctx, 'admin'));
     await page.waitForSelector('.ac-fundo', {timeout: 8000});
     await page.waitForFunction(() => /RNC-CS-26282-03/.test((document.querySelector('.ac-fundo') || {}).innerText || ''), null, {timeout: 8000});
     const modal = await page.locator('.ac-fundo').innerText();
@@ -126,7 +135,7 @@ async function abrir(ctx, role, modulos) {
     assert.match(modal, /Não expeça o lote envolvido/);
     assert.equal(await page.evaluate(() => window.__xss), undefined, 'descrição da RNC é escapada');
     assert.match(modal, /<img src=x/, 'o texto aparece literal');
-    assert.equal(await page.locator('.ac-fundo a[href="qualidade.html?tab=rnc&rnc=RNC-CS-26282-03"]').count(), 1, 'PCP abre a Qualidade: link direto da RNC');
+    assert.equal(await page.locator('.ac-fundo a[href="qualidade.html?tab=rnc&rnc=RNC-CS-26282-03"]').count(), 1, 'ADM abre a Qualidade: link direto da RNC');
     const trans = await page.evaluate(() => window.__transacoes);
     assert.deepEqual(trans, ['RNC-CS-26282-03'], 'só a OP conferida e descasada abre RNC; Sunrise aguardando conferência não');
 
@@ -147,16 +156,33 @@ async function abrir(ctx, role, modulos) {
     // Ciente fechou; o selo fica.
     assert.equal(await page.locator('.ac-fundo').count(), 0);
     assert.match(await page.locator('.ac-selo').innerText(), /2 inconsistências de dados/);
-    await page.click('.ac-selo');
+    // Fora da barra lateral: canto inferior direito.
+    const pos = await page.evaluate(() => { const r = document.querySelector('.ac-selo').getBoundingClientRect(); return {dir: innerWidth - r.right, esq: r.left}; });
+    assert.ok(pos.dir < 40 && pos.esq > 300, 'selo no canto direito: ' + JSON.stringify(pos));
+    await page.click('.ac-selo .ac-selo-abrir');
     assert.equal(await page.locator('.ac-fundo').count(), 1, 'o selo reabre o alerta');
     await page.click('[data-ac-ciente]');
+    // ✕: some por 30 minutos e volta sozinho enquanto houver pendência.
+    await page.click('.ac-selo .ac-selo-x');
+    assert.equal(await page.locator('.ac-selo').count(), 0, 'o ✕ esconde o selo');
+    const ate = await page.evaluate(() => Number(localStorage.getItem('kuryos-consistencia-selo-adiado-ate')) - Date.now());
+    assert.ok(ate > 29 * 60 * 1000 && ate <= 30 * 60 * 1000, 'adiado por 30 minutos: ' + ate);
+    await page.reload();
+    await page.waitForSelector('#tableBody tr', {timeout: 8000});
+    await page.waitForTimeout(800);
+    assert.equal(await page.locator('.ac-selo').count(), 0, 'continua escondido dentro dos 30 minutos');
+    await page.evaluate(() => localStorage.setItem('kuryos-consistencia-selo-adiado-ate', String(Date.now() + 1500)));
+    await page.reload();
+    await page.waitForSelector('#tableBody tr', {timeout: 8000});
+    await page.waitForSelector('.ac-selo', {timeout: 6000});
+    assert.match(await page.locator('.ac-selo').innerText(), /2 inconsistências de dados/, 'o selo volta depois do prazo');
     assert.deepEqual(errors, []);
     await page.close();
 
     // Mesma sessão (aba nova do mesmo contexto): não reabre sozinho, selo segue.
     // sessionStorage é por aba: o "Ciente" de uma aba não vale na outra -- e é
     // o que se quer: cada entrada no sistema mostra de novo.
-    ({page, errors} = await abrir(ctx, 'pcp'));
+    ({page, errors} = await abrir(ctx, 'admin'));
     await page.waitForSelector('.ac-selo', {timeout: 8000});
     await page.waitForSelector('.ac-fundo', {timeout: 8000});
     await page.click('[data-ac-ciente]');
@@ -167,16 +193,23 @@ async function abrir(ctx, role, modulos) {
     assert.deepEqual(errors, []);
     await ctx.close();
 
-    // ── Logística vê o alerta, mas não grava RNC ────────────────────────
+    // ── Logística: não vê o alerta (o aviso fica no palete, na expedição) ─
     const ctxLog = await browser.newContext();
     ({page, errors} = await abrir(ctxLog, 'logistica', {pedidos: true, logistica: true}));
-    await page.waitForSelector('.ac-fundo', {timeout: 8000});
-    await page.waitForTimeout(600);
-    assert.match(await page.locator('.ac-fundo').innerText(), /RNC-PA-26315-02/, 'Expedição/Logística vê o alerta');
+    await page.waitForSelector('#tableBody tr', {timeout: 8000});
+    await page.waitForTimeout(800);
+    assert.equal(await page.locator('.ac-fundo, .ac-selo').count(), 0, 'Logística não vê mais o alerta vermelho');
     assert.equal(await page.evaluate(() => window.__transacoes.length), 0, 'logística não tenta gravar RNC (a regra do banco não deixa)');
-    assert.equal(await page.locator('.ac-fundo a[href^="qualidade.html"]').count(), 0, 'sem módulo Qualidade: sem link que daria acesso negado');
     assert.deepEqual(errors, []);
     await ctxLog.close();
+
+    // ── Qualidade pelo módulo, em outro papel: vê ───────────────────────
+    const ctxQ = await browser.newContext();
+    ({page, errors} = await abrir(ctxQ, 'pcp', {qualidade: true, pedidos: true}));
+    await page.waitForSelector('.ac-fundo', {timeout: 8000});
+    assert.match(await page.locator('.ac-fundo').innerText(), /RNC-CS-26282-03/, 'módulo Qualidade vê o alerta');
+    assert.deepEqual(errors, []);
+    await ctxQ.close();
 
     // ── Produção não vê nada nem baixa o script ─────────────────────────
     const ctxProd = await browser.newContext();
@@ -191,7 +224,7 @@ async function abrir(ctx, role, modulos) {
     assert.deepEqual(errors, []);
     await ctxProd.close();
 
-    console.log('OK alerta de consistência: varredura abre RNC-CS, modal vermelho escapado, Ciente por sessão, selo, aguardando conferência laranja, logística só lê.');
+    console.log('OK alerta de consistência: só Qualidade/ADM veem; varredura abre RNC-CS, modal escapado, Ciente por sessão, selo à direita com ✕ por 30 min, aguardando conferência laranja.');
   } finally {
     await browser.close();
   }

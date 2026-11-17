@@ -1916,8 +1916,9 @@ function _autoAjustarPlanejamentoInterno(db, pedidoKey) {
   window.addEventListener('kuryos-auth-pronto', function(ev) {
     var u = ev.detail || window.currentUser;
     if (!u || window.__PCP_EMBEDDED__ || window.__alertaConsistenciaInstalado) return;
-    var ve = funcoesDoUsuario(u).some(function(p) { return p === 'admin' || p === 'pcp' || p === 'logistica'; }) ||
-      !!(u.modulos && u.modulos.logistica === true);
+    // Mesma regra de ConsistenciaProducao.veAlertas: Qualidade e ADM (16/11/2026).
+    var ve = funcoesDoUsuario(u).some(function(p) { return p === 'admin' || p === 'qualidade'; }) ||
+      !!(u.modulos && u.modulos.qualidade === true);
     if (!ve) return;
     Promise.resolve(window.ConsistenciaProducao ? null : carregar('shared/consistencia-producao.js'))
       .then(function() { return carregar('shared/alerta-consistencia.js'); })

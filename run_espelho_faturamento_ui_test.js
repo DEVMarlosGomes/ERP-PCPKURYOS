@@ -96,17 +96,17 @@ async function abrir(browser) {
     const cards = page.locator('#conteudo > .card').filter({has: page.locator('table')});
     ok(await cards.count() === 2, 'a faturar: as duas cargas sem NF');
     const cab = await cards.nth(0).locator('thead').innerText();
-    ok(['Descrição do SKU', 'Lote', 'Fabricação', 'Validade', 'Caixas fechadas', 'Unid. avulsas', 'Total unid.', 'Valor por caixa', 'Valor unitário'].every((c) => cab.includes(c)), 'colunas pedidas');
+    ok(['Descrição do SKU', 'Lote', 'Fabricação', 'Validade', 'Caixas fechadas', 'Caixa parcial', 'Peso (kg)', 'Total unid.', 'Valor por caixa', 'Valor unitário'].every((c) => cab.includes(c)), 'colunas pedidas');
     const t1 = await cards.nth(0).innerText();
     ok(/Cliente A · 18\/09\/2026/.test(t1) && /Aguardando NF/.test(t1) && /Solicitado em 17\/09\/2026 por Logística/.test(t1) && /Coleta 8h/.test(t1), 'carga solicitada: cliente, data, etapa, quem pediu e observação');
     const linha = await cards.nth(0).locator('tbody tr').first().innerText();
     ok(/Creme Hidratante/.test(linha) && /Interno: PA001/.test(linha) && /Externo: CLI-7788/.test(linha), 'descrição com código interno e externo');
     ok(/26254\/01/.test(linha) && /15\/09\/2026/.test(linha) && /10\/09\/2028/.test(linha), 'lote, fabricação e validade');
     const nums = linha.replace(/\s+/g, ' ');
-    ok(/\b12 de 24 un 7 295\b/.test(nums), 'caixas fechadas 12 (de 24), avulsas 7, total 295: ' + nums);
+    ok(/\b12 de 24 un 1 cx 7 un 98,33 295\b/.test(nums), 'caixas fechadas 12 (de 24), 1 cx parcial com 7 un, 98,33 kg (regra de três), total 295: ' + nums);
     ok(/R\$ 64,80 R\$ 2,70 R\$ 796,50/.test(nums), 'valor por caixa 64,80, unitário 2,70, total 796,50');
     const t2 = await cards.nth(1).innerText();
-    ok(/ainda não solicitado/.test(t2) && /\b10 de 24 un 0 240\b/.test(t2.replace(/\s+/g, ' ')), 'carga só agendada: quantidades, sem preço');
+    ok(/ainda não solicitado/.test(t2) && /\b10 de 24 un — (—|[\d.,]+) 240\b/.test(t2.replace(/\s+/g, ' ')), 'carga só agendada: quantidades, sem preço');
 
     // Busca e filtro (mesma régua da Expedição).
     await page.fill('#qTit', 'transp y');
@@ -123,7 +123,7 @@ async function abrir(browser) {
     ok(/^faturamento-expedicao-\d{4}-\d{2}-\d{2}\.csv$/.test(down.suggestedFilename()), 'arquivo ' + down.suggestedFilename());
     const csv = fs.readFileSync(await down.path(), 'utf8');
     const ls = csv.replace(/^﻿/, '').trim().split('\r\n');
-    ok(ls.length === 3 && ls[1].includes(';PA001;CLI-7788;Creme Hidratante;26254/01;15/09/2026;10/09/2028;12;7;295;64,8;2,7;796,5'), 'CSV com as duas cargas e os mesmos valores da tela');
+    ok(ls.length === 3 && /;PA001;CLI-7788;Creme Hidratante;26254\/01;15\/09\/2026;10\/09\/2028;12;1;7;13;98,333;295;64,8;2,7;796,5/.test(ls[1]), 'CSV com as duas cargas e os mesmos valores da tela');
     ok(!erros.length, 'sem erro de JS: ' + erros.join(' | '));
   } finally { await browser.close(); }
   console.log('OK espelho do faturamento (tela): ' + n + ' verificações');

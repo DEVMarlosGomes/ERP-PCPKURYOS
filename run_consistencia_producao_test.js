@@ -186,16 +186,27 @@ function dbFalso(inicial) {
   assert.equal(CO.alertasAtivos(null).length, 0);
 
   // ── 7. Quem vê o alerta e quem abre RNC ─────────────────────────────────
+  // 16/11/2026: o alerta é só da Qualidade (papel, função ou módulo) e do ADM.
   assert.equal(CO.veAlertas({role: 'admin'}), true);
-  assert.equal(CO.veAlertas({role: 'pcp'}), true);
-  assert.equal(CO.veAlertas({role: 'logistica'}), true);
-  assert.equal(CO.veAlertas({role: 'comercial', funcoes: {logistica: true}}), true, 'função extra conta');
+  assert.equal(CO.veAlertas({role: 'qualidade'}), true);
+  assert.equal(CO.veAlertas({role: 'comercial', funcoes: {qualidade: true}}), true, 'função extra conta');
+  assert.equal(CO.veAlertas({role: 'production', modulos: {qualidade: true}}), true, 'módulo Qualidade conta');
+  assert.equal(CO.veAlertas({role: 'pcp'}), false);
+  assert.equal(CO.veAlertas({role: 'logistica'}), false);
+  assert.equal(CO.veAlertas({role: 'comercial', funcoes: {logistica: true}}), false);
   assert.equal(CO.veAlertas({role: 'production'}), false);
   assert.equal(CO.veAlertas(null), false);
+  // Expedição: aviso no palete pela OP de origem (opKey ou lote).
+  const alertasPal = [{numero: 'RNC-CS-26282-03', opKey: '26282-03', opLote: '26282/03'}, {numero: 'RNC-PA-26315-02', conferenciaOpKey: '26315-02'}];
+  assert.deepEqual(CO.rncsDoPalete(alertasPal, {opKey: '26282-03'}).map(r => r.numero), ['RNC-CS-26282-03']);
+  assert.deepEqual(CO.rncsDoPalete(alertasPal, {opLote: '26282/03'}).map(r => r.numero), ['RNC-CS-26282-03'], 'pelo lote também');
+  assert.deepEqual(CO.rncsDoPalete(alertasPal, {opKey: '26315-02'}).map(r => r.numero), ['RNC-PA-26315-02'], 'RNC de contagem pela conferência');
+  assert.deepEqual(CO.rncsDoPalete(alertasPal, {opKey: '26999-01'}), []);
+  assert.deepEqual(CO.rncsDoPalete(alertasPal, {}), [], 'palete sem OP não casa com nada');
   assert.equal(CO.podeAbrirRnc({role: 'pcp'}), true, 'mesmos papéis da regra de nao_conformidades');
   assert.equal(CO.podeAbrirRnc({role: 'qualidade'}), true);
   assert.equal(CO.podeAbrirRnc({role: 'production', modulos: {qualidade: true}}), true);
-  assert.equal(CO.podeAbrirRnc({role: 'logistica'}), false, 'logística vê o alerta, mas a regra não deixa gravar RNC');
+  assert.equal(CO.podeAbrirRnc({role: 'logistica'}), false, 'a regra não deixa a logística gravar RNC');
 
   console.log('run_consistencia_producao_test: OK');
 })().catch(e => { console.error(e); process.exit(1); });

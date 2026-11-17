@@ -39,16 +39,25 @@ function itensDaCarga(base, agenda, hoje) {
     const produto = produtoDoSku(base.produtos, lote.itemCodigo) || {};
     const unidades = n(ap.quantidade);
     const preco = n(itemPedido.valorUnitario) > 0 ? n(itemPedido.valorUnitario) : n(l.demanda && l.demanda.valorUnitario);
-    const caixas = n(lote.caixasFechadas), parcial = n(lote.unidadesCaixaParcial);
+    // Caixas desta carga (16/11/2026): saem das unidades carregadas e das un/cx do
+    // palete (senão do cadastro). Uma caixa parcial física por palete. O peso da
+    // parcial é regra de três: 12 un numa caixa de 48 un e 10 kg pesam 2,5 kg.
+    const upc = n(lote.unidadesPorCaixa) || n(produto.unCx);
+    let caixas, parcial;
+    if (upc > 0) { caixas = Math.floor(unidades / upc); parcial = unidades - caixas * upc; }
+    else { caixas = n(lote.caixasFechadas); parcial = n(lote.unidadesCaixaParcial); }
     const kgCx = n(lote.pesoPorCaixaKg) || n(produto.kgCaixa);
     const volumes = caixas + (parcial > 0 ? 1 : 0);
+    const fracaoParcial = parcial > 0 ? (upc > 0 ? parcial / upc : 1) : 0;
+    const pesoKg = kgCx && volumes ? Math.round((caixas + fracaoParcial) * kgCx * 1000) / 1000
+      : (n(lote.pesoTotalKg) && n(lote.saldoLote) ? Math.round(n(lote.pesoTotalKg) * unidades / n(lote.saldoLote) * 1000) / 1000 : 0);
     return {
       itemKey: ap.itemKey, loteKey: ap.loteKey, identificadorPalete: lote.identificadorPalete || ap.identificadorPalete || '',
       disponivel: l.disponivel, motivo: l.motivo || '',
       sku: lote.itemCodigo || ap.sku || '', descricao: lote.itemNome || ap.descricao || produto.descricao || '',
       lote: lote.opLote || lote.loteOrigem || '', validade: validadeDoLote(lote) || '',
-      caixas, unidadesPorCaixa: n(lote.unidadesPorCaixa), caixaParcial: parcial, unidades,
-      pesoKg: n(lote.pesoTotalKg) || (kgCx && volumes ? Math.round(volumes * kgCx * 1000) / 1000 : 0),
+      caixas, unidadesPorCaixa: upc, caixaParcial: parcial, volumes, unidades, kgPorCaixa: kgCx || 0,
+      pesoKg,
       pedidoId: l.pedidoId || ap.pedidoId || '', pedidoNumero: l.pedidoNumero || ap.pedidoNumero || '',
       numeroPedidoCliente: (l.comercial && l.comercial.numeroPedidoCliente) || '',
       precoUnitario: preco, valor: Math.round(unidades * preco * 100) / 100
@@ -83,7 +92,13 @@ function prepararFaturamento(base, dados, autor, uid, agora) {
       cliente: agenda.cliente || '', clienteKey: agenda.clienteKey || '', tipo: agenda.tipo, dataAgendada: agenda.dataAgendada,
       janela: agenda.janela || '', enderecoEntrega: agenda.enderecoEntrega || '', transportadora: agenda.transportadora || '',
       itens, totalUnidades: itens.reduce((t, i) => t + i.unidades, 0), totalValor: Math.round(itens.reduce((t, i) => t + i.valor, 0) * 100) / 100,
-      totalPesoKg: Math.round(itens.reduce((t, i) => t + i.pesoKg, 0) * 1000) / 1000, itensSemPreco: semPreco
+      totalPesoKg: Math.round(itens.reduce((t, i) => t + i.pesoKg, 0) * 1000) / 1000, itensSemPreco: semPreco,
+      // Volumes da NF (16/11/2026): "100 cx + 1 cx parcial", nunca "100 cx + 38 un".
+      totalCaixasFechadas: itens.reduce((t, i) => t + i.caixas, 0),
+      totalCaixasParciais: itens.filter(i => i.caixaParcial > 0).length,
+      totalUnidadesParciais: itens.reduce((t, i) => t + i.caixaParcial, 0),
+      totalVolumes: itens.reduce((t, i) => t + i.volumes, 0),
+      itensSemPeso: itens.filter(i => !(i.pesoKg > 0)).length
     };
     fat.status = 'SOLICITADO';
     fat.solicitadoEm = agora;

@@ -125,8 +125,9 @@ ok('sem preço, código externo, fabricação ou validade: fica vazio e é conta
 // ── 6. CSV para Excel
 const csv = E.csv([{cliente: 'Cliente A', dataAgendada: '2026-09-18', linhas: ls}]);
 const linhasCsv = csv.replace(/^﻿/, '').split('\r\n');
-assert.equal(linhasCsv[0], 'Cliente;Data agendada;Pedido;Palete;Código interno;Código externo;Descrição;Lote;Fabricação;Validade;Caixas fechadas;Unidades avulsas;Total de unidades;Valor por caixa;Valor unitário;Valor total');
-assert.ok(linhasCsv[1].includes(';PA001;CLI-7788;Creme;26254/01;15/09/2026;10/09/2028;12;7;295;64,8;2,7;796,5'), linhasCsv[1]);
+assert.equal(linhasCsv[0], 'Cliente;Data agendada;Pedido;Palete;Código interno;Código externo;Descrição;Lote;Fabricação;Validade;Caixas fechadas;Caixas parciais;Unidades na caixa parcial;Volumes;Peso (kg);Total de unidades;Valor por caixa;Valor unitário;Valor total');
+// 16/11/2026: a caixa parcial conta como CAIXA (1 cx com 7 un) e entram volumes e peso.
+assert.ok(/;PA001;CLI-7788;Creme;26254\/01;15\/09\/2026;10\/09\/2028;12;1;7;13;[0-9,]*;295;64,8;2,7;796,5/.test(linhasCsv[1]), linhasCsv[1]);
 assert.equal(linhasCsv.length, 3);
 ok('CSV com BOM, ";" e vírgula decimal, datas dd/mm/aaaa');
 

@@ -1,13 +1,16 @@
 /* Alerta vermelho de inconsistência de dados (13/11/2026).
 
-   Carregado pelo auth_check.js, em qualquer tela, para ADM, PCP e
-   Expedição/Logística (ConsistenciaProducao.veAlertas). Escuta
+   Carregado pelo auth_check.js, em qualquer tela, para Qualidade e ADM
+   (ConsistenciaProducao.veAlertas; até 16/11 eram ADM, PCP e Logística). Escuta
    nao_conformidades (nó pequeno: ~50 registros) e mostra as RNCs automáticas
    de consistência que ainda não foram concluídas:
    - modal vermelho quando surge RNC ABERTA que a pessoa ainda não viu nesta
      sessão ("Ciente" guarda só nesta aba -- na próxima entrada aparece de
      novo, até alguém tratar a RNC);
-   - selo vermelho fixo no canto enquanto houver qualquer uma não concluída.
+   - selo vermelho fixo no canto INFERIOR DIREITO (fora da barra lateral)
+     enquanto houver qualquer uma não concluída. O ✕ esconde o selo por 30
+     minutos (vale para todas as abas); passado o prazo ele volta, até as
+     RNCs serem concluídas (pedido de 16/11/2026).
    Só lê. Quem abre a RNC é a confirmação da OP, a Conferência de PA e a
    varredura das telas de Pedidos/OPs (shared/consistencia-producao.js). */
 (function() {
@@ -16,6 +19,11 @@
   window.__alertaConsistenciaInstalado = true;
   var CO = window.ConsistenciaProducao;
   var CHAVE_VISTOS = 'kuryos-consistencia-vistos';
+  var CHAVE_ADIADO = 'kuryos-consistencia-selo-adiado-ate';
+  var ADIAR_MS = 30 * 60 * 1000;
+  var relogioSelo = null;
+  function adiadoAte() { try { return Number(localStorage.getItem(CHAVE_ADIADO)) || 0; } catch (e) { return 0; } }
+  function adiarSelo() { try { localStorage.setItem(CHAVE_ADIADO, String(Date.now() + ADIAR_MS)); } catch (e) { /* aba privada */ } }
   var ativos = [], user = null, modal = null, selo = null;
 
   function esc(v) {
@@ -49,8 +57,11 @@
       '.ac-btn{border:0;border-radius:8px;padding:9px 14px;font-weight:600;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}' +
       '.ac-btn-forte{background:#dc2626;color:#fff}' +
       '.ac-btn-leve{background:transparent;color:inherit;border:1px solid rgba(127,127,127,.4)}' +
-      '.ac-selo{position:fixed;left:16px;bottom:16px;z-index:10040;background:#dc2626;color:#fff;border:0;border-radius:999px;padding:9px 14px;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 6px 18px rgba(220,38,38,.45)}' +
-      '@media (max-width:600px){.ac-selo{left:12px;bottom:12px}}';
+      '.ac-selo{position:fixed;right:16px;bottom:16px;z-index:10040;display:flex;align-items:center;background:#dc2626;color:#fff;border-radius:999px;box-shadow:0 6px 18px rgba(220,38,38,.45);font-weight:700;font-size:13px}' +
+      '.ac-selo-abrir{background:none;border:0;color:inherit;font:inherit;padding:9px 6px 9px 14px;cursor:pointer}' +
+      '.ac-selo-x{background:rgba(255,255,255,.18);border:0;color:#fff;width:26px;height:26px;border-radius:50%;margin:0 6px 0 4px;cursor:pointer;font-size:14px;line-height:1}' +
+      '.ac-selo-x:hover{background:rgba(255,255,255,.32)}' +
+      '@media (max-width:600px){.ac-selo{right:12px;bottom:12px}}';
     document.head.appendChild(s);
   }
 
@@ -94,17 +105,27 @@
   }
 
   function atualizarSelo() {
-    if (!ativos.length) { if (selo) { selo.remove(); selo = null; } return; }
+    if (relogioSelo) { clearTimeout(relogioSelo); relogioSelo = null; }
+    var falta = adiadoAte() - Date.now();
+    if (!ativos.length || falta > 0) {
+      if (selo) { selo.remove(); selo = null; }
+      // Fechado no ✕: volta sozinho quando os 30 minutos passarem.
+      if (ativos.length && falta > 0) relogioSelo = setTimeout(atualizarSelo, Math.min(falta + 500, ADIAR_MS + 500));
+      return;
+    }
     estilo();
     if (!selo) {
-      selo = document.createElement('button');
-      selo.type = 'button';
+      selo = document.createElement('div');
       selo.className = 'ac-selo';
-      selo.addEventListener('click', abrirModal);
+      selo.innerHTML = '<button type="button" class="ac-selo-abrir"></button>' +
+        '<button type="button" class="ac-selo-x" aria-label="Esconder por 30 minutos" title="Esconder por 30 minutos (volta enquanto houver pendência)">✕</button>';
+      selo.querySelector('.ac-selo-abrir').addEventListener('click', abrirModal);
+      selo.querySelector('.ac-selo-x').addEventListener('click', function() { adiarSelo(); atualizarSelo(); });
       document.body.appendChild(selo);
     }
-    selo.textContent = '⚠ ' + ativos.length + ' inconsistência' + (ativos.length > 1 ? 's' : '') + ' de dados';
-    selo.title = 'RNCs automáticas de consistência ainda não concluídas. Clique para ver.';
+    var abrir = selo.querySelector('.ac-selo-abrir');
+    abrir.textContent = '⚠ ' + ativos.length + ' inconsistência' + (ativos.length > 1 ? 's' : '') + ' de dados';
+    abrir.title = 'RNCs automáticas de consistência ainda não concluídas. Clique para ver.';
   }
 
   function aoMudar(snap) {
@@ -126,6 +147,9 @@
 
   if (window.currentUser) iniciar(window.currentUser);
   else window.addEventListener('kuryos-auth-pronto', function(ev) { iniciar(ev.detail || window.currentUser); }, {once: true});
+
+  // Outra aba fechou o selo (ou o prazo foi renovado): reflete aqui também.
+  window.addEventListener('storage', function(ev) { if (ev.key === CHAVE_ADIADO) atualizarSelo(); });
 
   // Exposto para a confirmação da OP mostrar o alerta na hora, sem esperar o listener.
   window.AlertaConsistencia = {abrir: abrirModal};

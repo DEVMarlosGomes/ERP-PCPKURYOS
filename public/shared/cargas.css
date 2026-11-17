@@ -42,3 +42,7 @@
    expedicao-grade.css, onde o .ghost da Expedição mora). */
 .btn.ghost{background:#fff;color:#344054;border:1px solid #d0d5dd}
 a.btn{text-decoration:none;display:inline-flex;align-items:center}
+
+/* Aviso de RNC de consistência aberta no palete (16/11/2026): a expedição avisa, não bloqueia. */
+.aviso-rnc{margin-top:4px;padding:4px 8px;border-radius:6px;background:#fef2f2;color:#b42318;border:1px solid #fecaca;font-size:12px;font-weight:600}
+.carga-volumes{margin:8px 0;font-size:13px}

@@ -42,10 +42,9 @@
   /* ── Peso da carga ───────────────────────────────────────────────────
      Pedido do usuário (2026-09-15): peso da carga como na planilha, e o
      teórico do que ainda aguarda Qualidade ou Conferência de PA.
-     Convenção da PLANILHA: cada volume pesa uma caixa cheia -- a parcial
-     conta como caixa ("1 cx × 10, carga 8,4 kg" com 8,4 kg/cx). Superestima
-     um pouco a parcial, o que é o lado seguro para lotação de veículo, e mantém
-     o peso dos paletes novos coerente com o dos importados da planilha.
+     Caixa PARCIAL pela regra de três (pedido de 16/11/2026, para a NF): se a
+     caixa de 48 un pesa 10 kg, a parcial com 12 un pesa 12 × 10 ÷ 48 = 2,5 kg.
+     Até 16/11 a parcial pesava uma caixa cheia (convenção da planilha).
      Ordem das fontes: peso real do palete (planilha) > kg/cx gravado no palete >
      kg/cx do cadastro do produto. Sem nenhuma, o peso é DESCONHECIDO (null),
      nunca zero -- zero somaria como se a carga fosse mais leve. */
@@ -72,7 +71,79 @@
       if (unCx != null && total != null) volumes = Math.ceil(total / unCx);
     }
     if (volumes == null) return {kg: null, kgPorCaixa: kgCx, fonte: null, falta: 'composição das caixas'};
-    return {kg: arred(volumes * kgCx), kgPorCaixa: kgCx, fonte: fonte, volumes: volumes};
+    // Regra de três na parcial quando a composição fecha; estimada pelo cadastro, por volume.
+    var kg = c.valida ? pesoCaixas(c.caixas, c.parcial, c.multiplo, kgCx) : volumes * kgCx;
+    return {kg: arred(kg), kgPorCaixa: kgCx, fonte: fonte, volumes: volumes};
+  }
+  // Peso de caixas fechadas + uma parcial: a parcial pesa a fração das unidades.
+  function pesoCaixas(caixas, parcial, multiplo, kgCx) {
+    var m = positivo(multiplo);
+    var fracao = parcial > 0 ? (m ? parcial / m : 1) : 0;
+    return (caixas + fracao) * kgCx;
+  }
+
+  /* ── Caixas e peso de uma CARGA (pedido de 16/11/2026) ──────────────
+     "Se tem 100 cx com 48 un + 1 cx parcial com 30 un, hoje mostra 100 cx +
+     38 un; preciso que mostre 100 cx + 1 cx parcial" -- é o número de volumes
+     da NF. A composição sai das UNIDADES QUE ESTÃO NA CARGA e das unidades por
+     caixa do palete (senão, do cadastro): palete desmembrado leva só parte das
+     caixas. Cada palete tem no máximo uma caixa parcial física.
+     itens: [{itemKey, loteKey, quantidade}]; base: {estoque_lotes, produtos}. */
+  function composicaoDaQuantidade(lote, produto, quantidade) {
+    lote = lote || {};
+    var q = Number(quantidade);
+    if (!(q > 0)) return {valida: false, total: 0};
+    var upc = positivo(lote.unidadesPorCaixa) || positivo((produto || {}).unCx);
+    if (upc) {
+      var cx = Math.floor(q / upc);
+      return {valida: true, caixas: cx, parcial: q - cx * upc, multiplo: upc, total: q};
+    }
+    var c = composicao(lote);
+    if (c.valida && c.total === q) return {valida: true, caixas: c.caixas, parcial: c.parcial, multiplo: c.multiplo, total: q};
+    return {valida: false, total: q};
+  }
+  function resumoCarga(itens, base) {
+    base = base || {};
+    var t = {paletes: 0, unidades: 0, caixasFechadas: 0, caixasParciais: 0, unidadesParciais: 0, volumes: 0,
+      pesoKg: 0, semPeso: 0, semComposicao: 0, linhas: []};
+    (itens || []).forEach(function(it) {
+      if (!it) return;
+      var lote = ((base.estoque_lotes || {})[it.itemKey] || {})[it.loteKey] || {};
+      var produto = produtoDoSku(base.produtos, lote.itemCodigo || it.sku) || {};
+      var q = Number(it.quantidade != null ? it.quantidade : lote.saldoLote) || 0;
+      var c = composicaoDaQuantidade(lote, produto, q);
+      var kgCx = positivo(lote.pesoPorCaixaKg) || positivo(produto.kgCaixa);
+      var kg = null;
+      if (c.valida && kgCx) kg = arred(pesoCaixas(c.caixas, c.parcial, c.multiplo, kgCx));
+      else if (positivo(lote.pesoTotalKg) && positivo(lote.saldoLote)) kg = arred(lote.pesoTotalKg * q / lote.saldoLote);
+      t.paletes++; t.unidades += q;
+      if (c.valida) {
+        t.caixasFechadas += c.caixas;
+        if (c.parcial > 0) { t.caixasParciais++; t.unidadesParciais += c.parcial; }
+        t.volumes += c.caixas + (c.parcial > 0 ? 1 : 0);
+      } else t.semComposicao++;
+      if (kg == null) t.semPeso++; else t.pesoKg = arred(t.pesoKg + kg);
+      t.linhas.push({itemKey: it.itemKey, loteKey: it.loteKey, quantidade: q, caixas: c.valida ? c.caixas : null,
+        parcial: c.valida ? c.parcial : null, unidadesPorCaixa: c.valida ? c.multiplo : null, kgPorCaixa: kgCx, pesoKg: kg});
+    });
+    t.texto = textoCaixas(t);
+    return t;
+  }
+  // "100 cx + 1 cx parcial (30 un)" -- o que vai na NF como volumes.
+  function textoCaixas(t) {
+    var partes = [];
+    if (t.caixasFechadas) partes.push(numero(t.caixasFechadas) + ' cx');
+    if (t.caixasParciais) partes.push(numero(t.caixasParciais) + ' cx parcia' + (t.caixasParciais > 1 ? 'is' : 'l') +
+      ' (' + numero(t.unidadesParciais) + ' un)');
+    var txt = partes.join(' + ') || '—';
+    if (t.caixasParciais) txt += ' = ' + numero(t.volumes) + ' volumes';
+    return txt;
+  }
+  function textoPesoKg(t) {
+    if (!t || !t.paletes) return '—';
+    if (t.semPeso === t.paletes) return 'sem peso (cadastre o kg por caixa)';
+    return Number(t.pesoKg).toLocaleString('pt-BR', {maximumFractionDigits: 2}) + ' kg' +
+      (t.semPeso ? ' (' + t.semPeso + ' palete' + (t.semPeso > 1 ? 's' : '') + ' sem peso)' : '');
   }
   // OP produzida que ainda não virou palete (aguarda Conferência de PA ou a
   // confirmação do PCP): o palete não existe, então o peso é TEÓRICO pelo
@@ -152,5 +223,6 @@
 
   return {composicao: composicao, diasEstoque: diasEstoque, totais: totais,
     produtoDoSku: produtoDoSku, pesoPalete: pesoPalete, pesoTeoricoOp: pesoTeoricoOp, somaPeso: somaPeso,
+    pesoCaixas: pesoCaixas, composicaoDaQuantidade: composicaoDaQuantidade, resumoCarga: resumoCarga, textoCaixas: textoCaixas, textoPesoKg: textoPesoKg,
     compativel: compativel, selecionarTodos: selecionarTodos, LIMITE_PALETES_CARGA: LIMITE_PALETES_CARGA};
 });

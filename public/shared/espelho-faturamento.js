@@ -68,6 +68,10 @@
       if (upc > 0) { caixas = Math.floor(unidades / upc); avulsas = unidades - caixas * upc; }
       else { caixas = n(sol ? it.caixas : lote.caixasFechadas); avulsas = n(sol ? it.caixaParcial : lote.unidadesCaixaParcial); }
       var preco = sol && n(it.precoUnitario) > 0 ? n(it.precoUnitario) : null;
+      // Peso (16/11/2026): o da solicitação; senão kg/cx × caixas, parcial pela regra de três.
+      var kgCx = n(lote.pesoPorCaixaKg) || n(prod.kgCaixa);
+      var pesoKg = sol && n(it.pesoKg) > 0 ? n(it.pesoKg)
+        : (kgCx > 0 && (caixas || avulsas) ? Math.round((caixas + (avulsas > 0 ? (upc > 0 ? avulsas / upc : 1) : 0)) * kgCx * 1000) / 1000 : null);
       return {
         identificadorPalete: txt(it.identificadorPalete || lote.identificadorPalete),
         sku: sku,
@@ -79,6 +83,9 @@
         unidadesPorCaixa: upc || null,
         caixasFechadas: caixas,
         unidadesAvulsas: avulsas,
+        caixasParciais: avulsas > 0 ? 1 : 0,
+        volumes: caixas + (avulsas > 0 ? 1 : 0),
+        pesoKg: pesoKg,
         totalUnidades: unidades,
         valorUnitario: preco,
         valorCaixa: preco != null && upc > 0 ? r2(preco * upc) : null,
@@ -90,9 +97,11 @@
   }
 
   function totais(ls) {
-    var t = {caixasFechadas: 0, unidadesAvulsas: 0, totalUnidades: 0, valorTotal: 0, semPreco: 0, semCodExterno: 0, semFabricacao: 0, semValidade: 0};
+    var t = {caixasFechadas: 0, unidadesAvulsas: 0, caixasParciais: 0, volumes: 0, pesoKg: 0, semPeso: 0, totalUnidades: 0, valorTotal: 0, semPreco: 0, semCodExterno: 0, semFabricacao: 0, semValidade: 0};
     (ls || []).forEach(function(l) {
       t.caixasFechadas += l.caixasFechadas; t.unidadesAvulsas += l.unidadesAvulsas; t.totalUnidades += l.totalUnidades;
+      t.caixasParciais += l.caixasParciais || 0; t.volumes += l.volumes || 0;
+      if (l.pesoKg == null) t.semPeso++; else t.pesoKg = Math.round((t.pesoKg + l.pesoKg) * 1000) / 1000;
       if (l.valorTotal == null) t.semPreco++; else t.valorTotal += l.valorTotal;
       if (!l.codExterno) t.semCodExterno++;
       if (!l.fabricacao) t.semFabricacao++;
@@ -102,10 +111,21 @@
     return t;
   }
 
+  /* "100 cx + 1 cx parcial (30 un) = 101 volumes" -- o número de volumes da NF. */
+  function textoCaixas(t) {
+    var p = [];
+    if (t.caixasFechadas) p.push(Number(t.caixasFechadas).toLocaleString('pt-BR') + ' cx');
+    if (t.caixasParciais) p.push(Number(t.caixasParciais).toLocaleString('pt-BR') + ' cx parcia' + (t.caixasParciais > 1 ? 'is' : 'l') +
+      ' (' + Number(t.unidadesAvulsas).toLocaleString('pt-BR') + ' un)');
+    var txt = p.join(' + ') || '—';
+    return t.caixasParciais ? txt + ' = ' + Number(t.volumes).toLocaleString('pt-BR') + ' volumes' : txt;
+  }
+
   /* CSV (Excel pt-BR: ';' e vírgula decimal) de uma ou mais cargas. */
   var COLUNAS = [['cliente', 'Cliente'], ['carga', 'Data agendada'], ['pedidoNumero', 'Pedido'], ['identificadorPalete', 'Palete'],
     ['sku', 'Código interno'], ['codExterno', 'Código externo'], ['descricao', 'Descrição'], ['lote', 'Lote'], ['fabricacao', 'Fabricação'],
-    ['validade', 'Validade'], ['caixasFechadas', 'Caixas fechadas'], ['unidadesAvulsas', 'Unidades avulsas'], ['totalUnidades', 'Total de unidades'],
+    ['validade', 'Validade'], ['caixasFechadas', 'Caixas fechadas'], ['caixasParciais', 'Caixas parciais'], ['unidadesAvulsas', 'Unidades na caixa parcial'],
+    ['volumes', 'Volumes'], ['pesoKg', 'Peso (kg)'], ['totalUnidades', 'Total de unidades'],
     ['valorCaixa', 'Valor por caixa'], ['valorUnitario', 'Valor unitário'], ['valorTotal', 'Valor total']];
   function csv(cargas) {
     var cel = function(v) {
@@ -125,5 +145,5 @@
     return '﻿' + out.join('\r\n');
   }
 
-  return {linhas: linhas, totais: totais, csv: csv, ultimaSolicitacao: ultimaSolicitacao};
+  return {linhas: linhas, totais: totais, csv: csv, ultimaSolicitacao: ultimaSolicitacao, textoCaixas: textoCaixas};
 });

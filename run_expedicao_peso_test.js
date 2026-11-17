@@ -17,7 +17,32 @@ assert.equal(p.kg, 84); assert.equal(p.fonte, 'PALETE');
 p = G.pesoPalete({caixasFechadas: 157, unidadesPorCaixa: 12, unidadesCaixaParcial: 11, saldoLote: 1895}, {kgCaixa: 1.7});
 assert.equal(p.fonte, 'CADASTRO');
 assert.equal(p.volumes, 158, 'a caixa parcial conta como volume');
-assert.equal(p.kg, 268.6, 'convenção da planilha: a parcial pesa uma caixa cheia');
+// 16/11/2026: a parcial pesa pela regra de três (11 de 12 un de uma caixa de 1,7 kg).
+assert.equal(p.kg, 268.458, '157 × 1,7 + 11/12 × 1,7');
+
+// ── 1b. Caixas e peso da CARGA (16/11/2026) ─────────────────────────────
+// Exemplo do pedido: 100 cx de 48 un + 1 cx parcial de 30 un, caixa de 10 kg.
+{
+  const base = {estoque_lotes: {I: {L1: {itemCodigo: 'S', unidadesPorCaixa: 48, caixasFechadas: 100, unidadesCaixaParcial: 30, saldoLote: 4830, pesoPorCaixaKg: 10},
+    L2: {itemCodigo: 'S', unidadesPorCaixa: 48, caixasFechadas: 10, unidadesCaixaParcial: 12, saldoLote: 492},
+    L3: {itemCodigo: 'SEMPESO', saldoLote: 50}}}, produtos: {S: {sku: 'S', kgCaixa: 10, unCx: 48}}};
+  let r = G.resumoCarga([{itemKey: 'I', loteKey: 'L1', quantidade: 4830}], base);
+  assert.equal(r.texto, '100 cx + 1 cx parcial (30 un) = 101 volumes', 'mostra a caixa parcial, não "38 un"');
+  assert.equal(r.pesoKg, 1006.25, '100 × 10 kg + 30/48 × 10 kg');
+  assert.equal(G.textoPesoKg(r), '1.006,25 kg');
+  // A parcial do exemplo: 12 peças numa caixa de 48 que pesa 10 kg = 2,5 kg.
+  assert.equal(G.pesoCaixas(0, 12, 48, 10), 2.5);
+  // Duas paletes, duas parciais; palete parcialmente carregado recalcula pelas unidades.
+  r = G.resumoCarga([{itemKey: 'I', loteKey: 'L1', quantidade: 4830}, {itemKey: 'I', loteKey: 'L2', quantidade: 492}], base);
+  assert.equal(r.caixasFechadas, 110); assert.equal(r.caixasParciais, 2); assert.equal(r.unidadesParciais, 42); assert.equal(r.volumes, 112);
+  assert.equal(r.texto, '110 cx + 2 cx parciais (42 un) = 112 volumes');
+  assert.equal(r.pesoKg, 1108.75, 'L2 pelo kg/cx do cadastro: 10 × 10 + 12/48 × 10');
+  r = G.resumoCarga([{itemKey: 'I', loteKey: 'L1', quantidade: 480}], base);
+  assert.equal(r.texto, '10 cx', 'só caixas fechadas: sem parcial no texto');
+  // Sem kg/cx: desconhecido, nunca zero.
+  r = G.resumoCarga([{itemKey: 'I', loteKey: 'L3', quantidade: 50}], base);
+  assert.equal(r.semPeso, 1); assert.equal(r.semComposicao, 1); assert.match(G.textoPesoKg(r), /sem peso/);
+}
 // sem kg/cx em lugar nenhum: DESCONHECIDO, nunca zero
 p = G.pesoPalete({caixasFechadas: 10, unidadesPorCaixa: 24, saldoLote: 240}, {kgCaixa: 0});
 assert.equal(p.kg, null);
