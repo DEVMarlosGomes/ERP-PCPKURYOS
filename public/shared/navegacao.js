@@ -195,6 +195,8 @@
     // Financeiro sem Expedição (10/11): recebe o e-mail e registra a NF na carga.
     {p: 'faturamento.html', r: 'Faturamento de cargas', i: 'clipboard', b: 'Financeiro', q: function(c) { return !c.podeAbrir('expedicao.html'); }},
     {p: 'controladoria.html', r: 'Controladoria', i: 'scale', b: 'Financeiro'},
+    // Fiscal (18/11/2026): SPED Fiscal, SINTEGRA, livros e apuração.
+    {p: 'fiscal.html', r: 'Fiscal (SPED e SINTEGRA)', i: 'clipboard', b: 'Financeiro'},
     {p: 'admin.html', r: 'Ajustes / Config', i: 'sliders', b: 'ADM'},
     {p: 'usuarios.html', r: 'Usuários', i: 'people', b: 'ADM'},
     // Auditoria (PORT-05, porte do Gustavo): eventos e gravações das telas de operação.

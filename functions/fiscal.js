@@ -596,6 +596,20 @@
     return { valorCentavos: valor, fonte: fonte, temRetornoSimbolico: temSimb, receitaItensCentavos: receita, vNF: doc.totais.vNF };
   }
 
+  /* Receita de UMA NF própria de saída, por classe (venda, industrialização, simbólico), com IPI e
+     ST de cada item. É o que a Controladoria lança (A2) e o que o Financeiro cobra (B1). */
+  function receitaDoDocumento(doc) {
+    if (!doc || doc.tipo !== 'NFE' || doc.indEmit !== '0' || doc.indOper !== '1' || doc.situacao !== '00') return null;
+    var r = { vendaCentavos: 0, industrializacaoCentavos: 0, simbolicoCentavos: 0, outrasCentavos: 0 };
+    (doc.itens || []).forEach(function(i) {
+      var ic = i.icms || {}, ip = i.ipi || {};
+      var v = num(i.vProd) + i.vFrete + i.vSeg + i.vOutro - i.vDesc + (ic.vICMSST || 0) + (ic.vFCPST || 0) + (ip.vIPI || 0);
+      r[{ VENDA: 'vendaCentavos', INDUSTRIALIZACAO: 'industrializacaoCentavos', SIMBOLICO: 'simbolicoCentavos', OUTRAS: 'outrasCentavos' }[classeSaida(i.cfop)]] += v;
+    });
+    r.receitaCentavos = r.vendaCentavos + r.industrializacaoCentavos;
+    return r;
+  }
+
   /* ── 5. Apuração ──────────────────────────────────────────────────────── */
   // Ajuste E111: COD_AJ_APUR de 8 posições (UF + 0 + utilização + seq). A 4ª posição diz para onde vai.
   function apurarIcms(lv, o) {
@@ -1089,7 +1103,7 @@
     relativo: relativo, dataEscrituracao: dataEscrituracao, mesDoDocumento: mesDoDocumento,
     sugerirRegra: sugerirRegra, regraDoItem: regraDoItem, validarRegra: validarRegra, validarItem: validarItem, validarDePara: validarDePara,
     validarEstabelecimento: validarEstabelecimento, chaveDePara: chaveDePara, buscarDePara: buscarDePara, chaveItem: chaveItem, cstIcms: cstIcms,
-    escriturar: escriturar, livro: livro, classeSaida: classeSaida, receitaPorCfop: receitaPorCfop, valorCobrado: valorCobrado,
+    escriturar: escriturar, livro: livro, classeSaida: classeSaida, receitaPorCfop: receitaPorCfop, valorCobrado: valorCobrado, receitaDoDocumento: receitaDoDocumento,
     apurarIcms: apurarIcms, apurarIpi: apurarIpi, inconsistenciasCadastro: inconsistenciasCadastro,
     gerarEfd: gerarEfd, gerarSintegra: gerarSintegra, codSintegra: codSintegra, montarInventario: montarInventario, tipoDoMaterial: tipoDoMaterial,
     conferenciaTerceiros: conferenciaTerceiros, cruzamentos: cruzamentos, livroCsv: livroCsv, latin1: latin1, fVal: fVal, linhaSped: linhaSped

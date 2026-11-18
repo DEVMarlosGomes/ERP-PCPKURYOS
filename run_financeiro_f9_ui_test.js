@@ -80,7 +80,7 @@ async function abrir(browser) {
   }, {data: banco()});
   await page.exposeFunction('__servidor', async (nome, payload, base) => {
     try {
-      const quem = {uid: 'u1', nome: 'Gustavo'}, agora = new Date().toISOString();
+      const quem = {uid: 'u1', nome: 'Gustavo', role: 'admin', perfil: {role: 'admin'}}, agora = new Date().toISOString();
       const fn = {finLiquidar: FS.prepararLiquidacao, finClassificar: FS.prepararClassificacao, finCadastrarElemento: FS.prepararElemento}[nome];
       if (fn) { const r = fn(base, payload, quem, agora); return {updates: r.updates, data: {id: r.id || null}}; }
       if (nome === 'finLancarTitulos') { const r = FS.prepararTitulos(base, payload, quem, agora); return {updates: r.updates, data: {criados: r.criados, repetidos: r.repetidos, erros: r.erros}}; }

@@ -33,10 +33,16 @@ recusa(() => S.prepararClassificacao(base(), {titulo: 'P1', elemento: 'NADA'}, q
 recusa(() => S.prepararClassificacao(base(), {titulo: 'NAO', elemento: '2113'}, quem, AGORA), /Título/, 'título inexistente');
 
 // Cadastro de elemento.
-r = S.prepararElemento(base(), {codigo: '2120', nome: 'Seguro predial', grupo: '3', subgrupo: 'Administrativas', natureza: 'CUSTO_FIXO_ADM'}, quem, AGORA);
+// B9 (17/11): só ADM ou módulo Controladoria altera o plano; a versão anterior vai para o histórico.
+const ctlQuem = Object.assign({}, quem, {perfil: {role: 'financeiro', modulos: {financeiro: true, controladoria: true}}});
+recusa(() => S.prepararElemento(base(), {codigo: '2120', nome: 'Seguro predial', grupo: '3', subgrupo: 'Administrativas', natureza: 'CUSTO_FIXO_ADM'}, Object.assign({}, quem, {perfil: {modulos: {financeiro: true}}}), AGORA), /ADM ou da Controladoria/, 'só Financeiro não altera o plano de elementos');
+r = S.prepararElemento(base(), {codigo: '2120', nome: 'Seguro predial', grupo: '3', subgrupo: 'Administrativas', natureza: 'CUSTO_FIXO_ADM'}, ctlQuem, AGORA);
 eq(Object.keys(r.updates), ['fin/elementos/2120']);
 eq([r.updates['fin/elementos/2120'].nome, r.updates['fin/elementos/2120'].alteradoPor], ['Seguro predial', 'Ana']);
-recusa(() => S.prepararElemento(base(), {codigo: '9', nome: '', grupo: '3', natureza: 'OUTROS'}, quem, AGORA), /nome/, 'elemento sem nome');
+const bEl = base(); bEl.fin.elementos = Object.assign({}, bEl.fin.elementos || {}, {2120: {codigo: '2120', nome: 'Seguro', grupo: '3', natureza: 'CUSTO_FIXO_ADM', ativo: true}});
+r = S.prepararElemento(bEl, {codigo: '2120', nome: 'Seguro predial', grupo: '3', subgrupo: 'Administrativas', natureza: 'CUSTO_FIXO_ADM', ativo: false}, Object.assign({}, quem, {role: 'admin'}), AGORA);
+ok(Object.keys(r.updates).some((k) => /^fin\/elementos_historico\/2120\/h/.test(k)), 'alteração guarda a versão anterior no histórico');
+recusa(() => S.prepararElemento(base(), {codigo: '9', nome: '', grupo: '3', natureza: 'OUTROS'}, ctlQuem, AGORA), /nome/, 'elemento sem nome');
 
 // Liquidação.
 r = S.prepararLiquidacao(base(), {chave: 'lq000001', itens: [{titulo: 'P1', valorCentavos: 30000}, {titulo: 'P2', valorCentavos: 10000}], data: D, conta: 'itau'}, quem, AGORA);

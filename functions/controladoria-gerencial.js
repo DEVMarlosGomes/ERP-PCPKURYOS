@@ -88,6 +88,8 @@
   ];
   var GRUPO_DA_CONTA = {};
   GRUPOS_DRE.forEach(function(g) { (g.contas || []).forEach(function(c) { GRUPO_DA_CONTA[c] = g.cod; }); });
+  // Receita separada pelo XML (A2): industrialização por encomenda (5124/5125) × venda.
+  var ELEMENTOS_RECEITA = { RECEITA_VENDA: 'VENDA DE PRODUÇÃO (XML)', RECEITA_INDUSTRIALIZACAO: 'INDUSTRIALIZAÇÃO POR ENCOMENDA 5124/5125 (XML)' };
   var PERIODICIDADES = { MENSAL: 1, BIMESTRAL: 2, TRIMESTRAL: 3, SEMESTRAL: 6, ANUAL: 12 };
 
   function colunasDe(de, ate, periodicidade) {
@@ -143,7 +145,7 @@
           var nf = nc.folhas[f];
           if (vazio(nf.v) && !x.mostrarZerado) return;
           var cod3 = cod2 + '.' + ('00' + (j + 1)).slice(-3), k = f.slice(2);
-          var nome = f[0] === 'E' ? k + ' - ' + String((els[k] || {}).nome || 'Elemento ' + k).toUpperCase() : ((plano[k] || {}).codigo || '') + ' - ' + String((plano[k] || {}).nome || k).toUpperCase();
+          var nome = f[0] === 'E' ? (ELEMENTOS_RECEITA[k] ? ELEMENTOS_RECEITA[k] : k + ' - ' + String((els[k] || {}).nome || 'Elemento ' + k).toUpperCase()) : ((plano[k] || {}).codigo || '') + ' - ' + String((plano[k] || {}).nome || k).toUpperCase();
           linhas.push({ nivel: 2, tipo: f[0] === 'E' ? 'ELEMENTO' : 'CONTA', codigo: cod3, chave: k, rotulo: cod3 + ' - ' + nome, valores: nf.v, total: tot(nf.v) });
         });
       });

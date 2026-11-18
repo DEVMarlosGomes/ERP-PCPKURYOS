@@ -40,6 +40,8 @@ const NOVAS_FASE8 = ['ativos', 'manual_ativos', 'auditoria_5s', 'manual_auditori
   'auditoria', 'manual_auditoria', 'inspecao_total'];
 // Amostras de MP (11/11/2026): aba do Cadastros para P&D, logística e PCP (módulo amostras_mp).
 NOVAS_FASE8.push('cadastros?tab=amostras');
+// Fiscal (18/11/2026): SPED Fiscal e SINTEGRA, módulo fiscal (padrão só do ADM).
+NOVAS_FASE8.push('fiscal');
 // Financeiro sem Expedição registra a NF da carga (10/11/2026).
 const novasDoPerfil = (u) => (u.modulos && u.modulos.financeiro === true ? ['faturamento'] : []);
 
@@ -118,7 +120,7 @@ assert.deepEqual(rotulos(admin, 'P&D'), ['P&D', 'Amostras de MP'], 'Amostras de 
 assert.ok(rotulos(menu('logistica'), 'Armazém').includes('Amostras de MP'), 'logística vê Amostras de MP no Armazém');
 assert.ok(!rotulos(menu('logistica'), 'Cadastros').length, 'logística não ganha o link geral do Cadastros');
 assert.deepEqual(rotulos(menu('pd'), 'P&D'), ['P&D', 'Amostras de MP']);
-assert.deepEqual(rotulos(admin, 'Financeiro'), ['Financeiro', 'Controladoria']);
+assert.deepEqual(rotulos(admin, 'Financeiro'), ['Financeiro', 'Controladoria', 'Fiscal (SPED e SINTEGRA)']);
 assert.deepEqual([...new Set(doBloco(admin, 'Armazém').map((l) => l.sub))], ['Estoque', 'Fluxo'], 'Armazém: Estoque e Fluxo');
 assert.deepEqual([...new Set(doBloco(admin, 'Operação').map((l) => l.sub).filter(Boolean))], ['Produção', 'Manipulação', 'Rotulagem']);
 assert.deepEqual(rotulos(admin, 'Expedição'), ['Expedição de Vendas', 'Relatório de Expedição']);

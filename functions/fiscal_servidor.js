@@ -98,7 +98,12 @@ function prepararImportacao(base, dados, quem, agora, util) {
       if (!rel.ok) falhar(rel.motivo);
       const k = rel.chave, ant = novos[k] || docs[k];
       if (ant) {
-        if (ant.hashXml === hash) { resultados.push(Object.assign(r0, {ok: true, repetido: true, tipo: r.tipo, chave: k, numero: rel.numero})); return; }
+        if (ant.hashXml === hash) {
+          // O Financeiro recebe de novo a nota de entrada repetida: ele tem a própria idempotência.
+          if (r.tipo === "NFE" && ant.modelo === "55" && ant.indEmit === "1" && ant.indOper === "0") xmlsEntrada.push({nome, texto});
+          resultados.push(Object.assign(r0, {ok: true, repetido: true, tipo: r.tipo, chave: k, numero: rel.numero}));
+          return;
+        }
         if (!(ant.situacao === "SEM_PROTOCOLO" && rel.situacao && rel.situacao !== "SEM_PROTOCOLO")) falhar(`a chave ${k} já foi importada com outro conteúdo: XML é imutável (correção é evento ou nota nova).`);
       }
       checarPeriodo(base, Fis.dataEscrituracao(rel), "Documento");
@@ -109,6 +114,12 @@ function prepararImportacao(base, dados, quem, agora, util) {
       doc.eventos = eventos;
       doc.situacao = situacaoComEventos(doc, eventos);
       if (doc.situacao === "02") { const c = Object.values(eventos).find((e) => e && e.tpEvento === "110111"); doc.canceladoEm = (c && c.dhEvento) || agora; }
+      // NF própria de saída: o valor cobrado (fatura do XML) e a receita por classe, para o
+      // Financeiro (título) e a Controladoria (receita) lerem sem depender do motor fiscal.
+      if (doc.tipo === "NFE" && doc.indEmit === "0" && doc.indOper === "1") {
+        doc.valorCobrado = Fis.valorCobrado(doc);
+        doc.receita = Fis.receitaDoDocumento(Object.assign({}, doc, {situacao: "00"}));
+      }
       Object.assign(doc, {avisos: r.avisos || [], arquivo: nome, origem: d.origem === "FINANCEIRO" ? "FIN_F5" : "UPLOAD", hashXml: hash,
         importadoEm: agora, importadoPor: quem.nome, importadoPorUid: quem.uid, versaoMotor: Fis.VERSAO});
       novos[k] = doc;

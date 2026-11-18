@@ -321,10 +321,20 @@ function prepararClassificacao(base, dados, quem, agora) {
   if (!v.ok) falhar(v.motivo);
   return {updates: {[`fin/classificacoes/${d.titulo}`]: Object.assign({}, v.registro, {em: agora, por: quem.nome, porUid: quem.uid})}};
 }
+// B9 (decisão do Marlos, 17/11/2026): o plano de elementos é da Controladoria. Quem só tem o
+// Financeiro usa os elementos, mas não renomeia nem inativa. Cada versão anterior fica no histórico.
+function podeEditarElementos(quem) {
+  const p = (quem && quem.perfil) || {};
+  return !!quem && (quem.role === "admin" || p.role === "admin" || !!(p.modulos && p.modulos.controladoria === true));
+}
 function prepararElemento(base, dados, quem, agora) {
+  if (!podeEditarElementos(quem)) falhar("O plano de elementos é do ADM ou da Controladoria: peça a alteração a eles.", "permission-denied");
   const v = F.validarElemento(dados || {}, base.fin || {});
   if (!v.ok) falhar(v.motivo);
-  return {updates: {[`fin/elementos/${v.registro.codigo}`]: Object.assign({}, v.registro, {alteradoEm: agora, alteradoPor: quem.nome, alteradoPorUid: quem.uid})}};
+  const ant = ((base.fin || {}).elementos || {})[v.registro.codigo];
+  const updates = {[`fin/elementos/${v.registro.codigo}`]: Object.assign({}, v.registro, {alteradoEm: agora, alteradoPor: quem.nome, alteradoPorUid: quem.uid})};
+  if (ant) updates[`fin/elementos_historico/${v.registro.codigo}/h${agora.replace(/[^0-9]/g, "").slice(0, 17)}`] = ant;
+  return {updates};
 }
 function prepararLiquidacao(base, dados, quem, agora) {
   const d = dados || {}, chave = chaveDe(d, "da liquidação"), fin = base.fin || {};
@@ -351,4 +361,4 @@ function fechado(base, dataISO) {
 module.exports = {VERSAO, ehFinanceiro, prepararDerivacao, prepararBaixa, prepararEstorno, prepararTitulos, prepararDecisaoLote, situacaoDe, fechado,
   prepararNotasEntrada, vincularNotas, prepararMovimento, prepararEstornoMovimento,
   prepararAdiantamento, prepararEstornoAdiantamento, prepararCompensacao, prepararRenegociacao, prepararDesfazerRenegociacao,
-  prepararCancelamento, prepararDesfazerCancelamento, prepararClassificacao, prepararElemento, prepararLiquidacao};
+  prepararCancelamento, prepararDesfazerCancelamento, prepararClassificacao, prepararElemento, podeEditarElementos, prepararLiquidacao};

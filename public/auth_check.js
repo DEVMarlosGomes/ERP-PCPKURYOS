@@ -282,6 +282,10 @@ const KURYOS_MODULOS = {
                   paginas: ['financeiro.html', 'faturamento.html'] },
   controladoria:{ rotulo: 'Controladoria',         desc: 'Razão gerencial, DRE, rentabilidade, orçamento e fechamento do mês (dado sensível)',
                   paginas: ['controladoria.html'] },
+  // Fiscal (18/11/2026, PROMPT_FISCAL.md): documentos fiscais (XML), livros, apuração, SPED Fiscal,
+  // SINTEGRA e inventário. Padrão só do ADM; as regras do banco leem este módulo.
+  fiscal:       { rotulo: 'Fiscal',                desc: 'XML de NF-e/CT-e, livros, apuração de ICMS/IPI, SPED Fiscal, SINTEGRA e inventário (dado sensível)',
+                  paginas: ['fiscal.html'] },
   // ── Fase 8 (reunião 28/10/2026), portes do repositório do Gustavo -- Dev 3 (PORT-06 a PORT-09).
   // Manutenção › Ativos (PORT-06): o cadastro que a Qualidade, a Operação e o Kickoff (KO-13) consomem.
   manutencao:   { rotulo: 'Manutenção — Ativos',   desc: 'Cadastro de máquinas e equipamentos (reatores, linhas, instrumentos) usado pelos outros módulos',
@@ -460,7 +464,7 @@ function podeAbrirPagina(user, pagina) {
 // página de destino ela acessa. A TV da fábrica (papel tv) segue no placar.
 const ORDEM_HOME = ['inicio.html', 'dashboard_executivo.html', 'dashboard.html', 'form.html', 'qualidade.html', 'manipulacao.html', 'planejamento.html',
                     'logistica.html', 'comercial.html', 'pd.html', 'compras.html', 'cadastros.html', 'pedidos.html',
-                    'rh_dashboard.html', 'rh_avaliacao.html', 'placar.html', 'financeiro.html', 'controladoria.html'];
+                    'rh_dashboard.html', 'rh_avaliacao.html', 'placar.html', 'financeiro.html', 'controladoria.html', 'fiscal.html'];
 function temInicio(user) { return !!user && user.role !== 'tv' && user.role !== 'pending'; }
 function homeDoUsuario(user) {
   for (var i = 0; i < ORDEM_HOME.length; i++) {

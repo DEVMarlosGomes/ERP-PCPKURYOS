@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fiscal</title>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://erpkuryos-default-rtdb.firebaseio.com">
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-functions-compat.js"></script>
+<script src="shared/utils.js"></script>
+<script src="auth_check.js"></script>
+<script src="shared/fiscal.js"></script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="shared/theme.css">
+<link rel="stylesheet" href="shared/gestao-financeira.css">
+</head>
+<body class="kuryos-theme has-sidebar" data-kuryos-operational="">
+<main class="pg">
+  <div class="head" data-ui="page-header">
+    <div>
+      <h1>Fiscal</h1>
+      <div class="sub">Livro fiscal digital a partir dos XMLs autorizados: NF-e de entrada e de saída, CT-e, cancelamentos e inutilizações. Daqui saem o <b>SPED Fiscal</b> (EFD ICMS/IPI), o <b>SINTEGRA</b>, os livros, a apuração e o inventário. O XML é a fonte: nada se digita que a nota já traz, nada se edita (correção é evento ou nota nova). Quem assina e transmite é o contador.</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select class="sel" id="selMes" aria-label="Mês"></select>
+      <span class="pill"><span class="dot" id="sDot"></span><span id="sTxt">Carregando…</span></span>
+    </div>
+  </div>
+  <div class="abas" role="tablist" id="abas">
+    <button class="aba" role="tab" data-aba="docs" aria-selected="true">Documentos</button>
+    <button class="aba" role="tab" data-aba="regras" aria-selected="false">Regras de entrada</button>
+    <button class="aba" role="tab" data-aba="itens" aria-selected="false">Itens fiscais</button>
+    <button class="aba" role="tab" data-aba="livros" aria-selected="false">Livros</button>
+    <button class="aba" role="tab" data-aba="apuracao" aria-selected="false">Apuração</button>
+    <button class="aba" role="tab" data-aba="sped" aria-selected="false">SPED Fiscal</button>
+    <button class="aba" role="tab" data-aba="sintegra" aria-selected="false">SINTEGRA</button>
+    <button class="aba" role="tab" data-aba="inventario" aria-selected="false">Inventário</button>
+    <button class="aba" role="tab" data-aba="dominio" aria-selected="false">Exportação Domínio</button>
+    <button class="aba" role="tab" data-aba="estab" aria-selected="false">Estabelecimento e contabilista</button>
+  </div>
+  <div id="conteudo"><div class="vazio"><b>Carregando o Fiscal…</b>Documentos, regras e arquivos.</div></div>
+</main>
+<dialog id="dlg"><div class="dlg-h"><div id="dlgT"></div><button type="button" class="btn sm" id="dlgX">Fechar</button></div><div class="dlg-b" id="dlgB"></div></dialog>
+<script>var firebaseConfig={apiKey:'AIzaSyBvASzcbKyv3uW7NBzDFDyLsKls3An3UUs',authDomain:'erpkuryos.firebaseapp.com',databaseURL:kuryosDatabaseURL('https://erpkuryos-default-rtdb.firebaseio.com'),projectId:'erpkuryos',storageBucket:'erpkuryos.firebasestorage.app',messagingSenderId:'272752392739',appId:'1:272752392739:web:047a6c4aa60145d77f4f96'};firebase.initializeApp(firebaseConfig);kuryosConnectEmulatorsIfLocal();</script>
+<script src="shared/fiscal-tela.js"></script>
+</body>
+</html>

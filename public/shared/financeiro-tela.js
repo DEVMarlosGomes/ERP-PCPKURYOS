@@ -272,17 +272,20 @@
       '<div style="margin-top:12px"><button class="btn pri" id="clOk" data-tit="' + e(id) + '">Salvar classificação</button> <span class="dica">O título não muda: a classificação vale nos relatórios de gastos, no DFC por elemento e, no título manual, na Controladoria.</span></div>';
     abrir('Classificar título', h);
   }
+  // B9: o plano de elementos é do ADM e da Controladoria (o servidor recusa os demais).
+  function podeEditarElementos() { var u = window.currentUser || {}; return u.role === 'admin' || (typeof window.podeAbrirPagina === 'function' && window.podeAbrirPagina(u, 'controladoria.html')); }
   function cardElementos() {
+    var pode = podeEditarElementos();
     var els = F.elementos(fin), ks = Object.keys(els).sort(function(a, b) { return String(els[a].grupo).localeCompare(String(els[b].grupo)) || String(els[a].subgrupo).localeCompare(String(els[b].subgrupo)) || a.localeCompare(b); });
     return '<div class="card" id="cardElementos"><h3>Plano de elementos de custo</h3><div class="sub" style="margin-bottom:8px">Elemento é o nome da conta (ex.: 2113 Aluguel). A natureza liga o elemento à Controladoria e ao DFC por atividade; o grupo e o subgrupo abrem o DFC por elemento. Proposta inicial de ' + Object.keys(F.ELEMENTOS_PADRAO).length + ' elementos: ajuste os códigos aos do WebMais. Elemento não se apaga; inative.</div>' +
       '<div class="tw"><table><thead><tr><th>Código</th><th>Nome</th><th>Grupo</th><th>Subgrupo</th><th>Natureza</th><th>Situação</th><th></th></tr></thead><tbody>' +
-      ks.map(function(k) { var x = els[k]; return '<tr><td>' + e(k) + '</td><td>' + e(x.nome) + '</td><td>' + e(x.grupo + ' ' + (F.GRUPOS_ELEMENTO[x.grupo] || '')) + '</td><td>' + e(x.subgrupo) + '</td><td>' + e(rotNat(x.natureza)) + '</td><td>' + (x.ativo ? '<span class="tg ok">ativo</span>' : '<span class="tg mute">inativo</span>') + (x.padrao === false ? ' <span class="tg info">cadastrado</span>' : '') + '</td><td><button class="btn sm" data-el-edit="' + e(k) + '">Editar</button></td></tr>'; }).join('') +
-      '</tbody></table></div><div class="form" style="margin-top:12px"><div><label for="elCod">Código</label><input class="inp" id="elCod" placeholder="2120"></div><div><label for="elNome">Nome</label><input class="inp" id="elNome"></div>' +
+      ks.map(function(k) { var x = els[k]; return '<tr><td>' + e(k) + '</td><td>' + e(x.nome) + '</td><td>' + e(x.grupo + ' ' + (F.GRUPOS_ELEMENTO[x.grupo] || '')) + '</td><td>' + e(x.subgrupo) + '</td><td>' + e(rotNat(x.natureza)) + '</td><td>' + (x.ativo ? '<span class="tg ok">ativo</span>' : '<span class="tg mute">inativo</span>') + (x.padrao === false ? ' <span class="tg info">cadastrado</span>' : '') + '</td><td>' + (pode ? '<button class="btn sm" data-el-edit="' + e(k) + '">Editar</button>' : '') + '</td></tr>'; }).join('') +
+      '</tbody></table></div>' + (pode ? '' : '<div class="dica" style="margin-top:8px">Só o ADM ou a Controladoria altera o plano de elementos (decisão de 17/11/2026). Peça a eles.</div>') + '<div class="form" style="margin-top:12px' + (pode ? '' : ';display:none') + '"><div><label for="elCod">Código</label><input class="inp" id="elCod" placeholder="2120"></div><div><label for="elNome">Nome</label><input class="inp" id="elNome"></div>' +
       '<div><label for="elGrupo">Grupo</label><select class="sel" id="elGrupo">' + Object.keys(F.GRUPOS_ELEMENTO).map(function(g) { return '<option value="' + g + '">' + e(g + ' ' + F.GRUPOS_ELEMENTO[g]) + '</option>'; }).join('') + '</select></div>' +
       '<div><label for="elSub">Subgrupo</label><input class="inp" id="elSub"></div>' +
       '<div><label for="elNat">Natureza</label><select class="sel" id="elNat">' + F.NATUREZAS.concat(['RESULTADO_FINANCEIRO', 'ADIANTAMENTOS']).map(function(n) { return '<option value="' + n + '">' + e(rotNat(n)) + '</option>'; }).join('') + '</select></div>' +
       '<div><label><input type="checkbox" id="elAtivo" checked> ativo</label></div></div>' +
-      '<div style="margin-top:10px"><button class="btn sm pri" id="elOk">Salvar elemento</button></div></div>';
+      (pode ? '<div style="margin-top:10px"><button class="btn sm pri" id="elOk">Salvar elemento</button></div>' : '') + '</div>';
   }
 
   /* ── Entrega B: seleção, adiantamento, renegociação e cancelamento ─────── */

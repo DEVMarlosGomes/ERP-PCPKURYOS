@@ -2839,7 +2839,7 @@ const ControladoriaSrv = require("./controladoria_servidor");
 const CAMINHOS_FIN = ["pedidos_compra", "processos_cotacao", "fornecedores", "clientes", "estoque_lotes", "pedidos_comerciais",
   "agendamentos_expedicao", "custos/operacao", "resultado/fechamentos", "fin/titulos", "fin/abatimentos", "fin/baixas", "fin/condicoes",
   "fin/bloqueios", "fin/contas_bancarias", "fin/parametros", "fin/lotes_pagamento", "fin/conciliacoes", "fin/notas_entrada", "fin/movimentos", "fin/adiantamentos", "fin/renegociacoes",
-  "fin/cancelamentos", "fin/elementos", "fin/classificacoes", "ctl/fechamentos", "ctl/bloqueio_periodo"];
+  "fin/cancelamentos", "fin/elementos", "fin/classificacoes", "ctl/fechamentos", "ctl/bloqueio_periodo", "fis/documentos"];
 const CAMINHOS_CTL = ["ops", "custos/razao", "custos/razao_ops", "custos/fichas", "custos/taxas", "custos/parametros",
   "ctl/derivados", "ctl/plano_contas", "ctl/lancamentos", "ctl/indices"];
 const _cacheGestao = {valores: {}, escutas: {}};
@@ -2868,6 +2868,8 @@ async function baseGestao(comCtl) {
       elementos: v["fin/elementos"], classificacoes: v["fin/classificacoes"]},
     ctl: {fechamentos: v["ctl/fechamentos"], derivados: v["ctl/derivados"], plano_contas: v["ctl/plano_contas"], lancamentos: v["ctl/lancamentos"],
       bloqueio_periodo: v["ctl/bloqueio_periodo"], indices: v["ctl/indices"]},
+    // Fiscal (B1/A2): o título e a receita da NF própria leem o valor cobrado do XML.
+    fis: {documentos: v["fis/documentos"]},
   };
 }
 async function perfilDe(request) {
@@ -2977,14 +2979,23 @@ exports.finEstornarMovimento = onCall({timeoutSeconds: 60, memory: "512MiB"}, co
   return {ok: true};
 }));
 // F5 (10/11/2026): NF de entrada por XML. Sem XML, só vincula as notas pendentes.
+// Desde 18/11 (Q8: um upload só) o XML passa pelo Fiscal, que guarda o documento completo, e o
+// Financeiro grava a nota resumida a partir do mesmo arquivo (importarXmlUnificado, mais abaixo).
 exports.finImportarNfEntrada = onCall({timeoutSeconds: 120, memory: "512MiB"}, comoHttps(async (request) => {
   const quem = await exigirFinanceiro(request);
-  const r = await filaFinanceiro(async () => {
-    const x = FinanceiroSrv.prepararNotasEntrada(await baseGestao(false), request.data, quem, new Date().toISOString());
-    if (Object.keys(x.updates).length) await db.ref().update(x.updates);
-    return x;
-  });
-  return {ok: true, importadas: r.importadas, repetidas: r.repetidas, erros: r.erros, vinculadas: r.vinculadas};
+  const xmls = Array.isArray((request.data || {}).xmls) ? request.data.xmls : [];
+  if (!xmls.length) {
+    const r = await filaFinanceiro(async () => {
+      const x = FinanceiroSrv.prepararNotasEntrada(await baseGestao(false), request.data, quem, new Date().toISOString());
+      if (Object.keys(x.updates).length) await db.ref().update(x.updates);
+      return x;
+    });
+    return {ok: true, importadas: r.importadas, repetidas: r.repetidas, erros: r.erros, vinculadas: r.vinculadas};
+  }
+  const r = await importarXmlUnificado(xmls, quem, "FINANCEIRO");
+  const fin = r.financeiro || {importadas: 0, repetidas: [], erros: [], vinculadas: 0};
+  const errosFiscais = r.resultados.filter((x) => !x.ok).map((x) => `${x.arquivo}: ${x.motivo}`);
+  return {ok: true, importadas: fin.importadas, repetidas: fin.repetidas, erros: (fin.erros || []).concat(errosFiscais), vinculadas: fin.vinculadas, fiscal: r.resultados};
 }));
 exports.finDecidirLote = onCall({timeoutSeconds: 120, memory: "512MiB"}, comoHttps(async (request) => {
   const quem = await exigirFinanceiro(request);
@@ -3031,4 +3042,123 @@ exports.ctlReabrirMes = onCall({timeoutSeconds: 60, memory: "512MiB"}, comoHttps
   const r = ControladoriaSrv.prepararReabertura(await baseGestao(true), request.data, quem, new Date().toISOString());
   await db.ref().update(r.updates);
   return {ok: true};
+}));
+
+// ── Fiscal (PROMPT_FISCAL.md, 18/11/2026): SPED Fiscal (EFD ICMS/IPI), SINTEGRA, livros e
+// inventário. Documentos, XML, apuração, arquivos e fechamento só o servidor grava.
+const FiscalSrv = require("./fiscal_servidor");
+const FiscalMotor = require("./fiscal");
+const zlibFiscal = require("zlib");
+const utilFiscal = {
+  gzip: (t) => zlibFiscal.gzipSync(Buffer.from(String(t), "utf8")).toString("base64"),
+  gunzip: (b) => zlibFiscal.gunzipSync(Buffer.from(String(b), "base64")).toString("utf8"),
+  sha256: (t) => crypto.createHash("sha256").update(String(t), "utf8").digest("hex"),
+};
+const CAMINHOS_FIS = ["fis/documentos", "fis/regras_entrada", "fis/itens", "fis/de_para_itens", "fis/estabelecimento", "fis/apuracao",
+  "fis/fechamentos", "fis/arquivos", "fis/inventarios", "fis/eventos_pendentes", "ctl/bloqueio_periodo", "agendamentos_expedicao",
+  "fin/notas_entrada", "pedidos_compra", "fornecedores", "clientes"];
+async function baseFiscal(extra) {
+  await Promise.all(CAMINHOS_FIS.map(escutarGestao));
+  const v = _cacheGestao.valores;
+  const b = {
+    fis: {documentos: v["fis/documentos"], regras_entrada: v["fis/regras_entrada"], itens: v["fis/itens"], de_para_itens: v["fis/de_para_itens"],
+      estabelecimento: v["fis/estabelecimento"], apuracao: v["fis/apuracao"], fechamentos: v["fis/fechamentos"], arquivos: v["fis/arquivos"],
+      inventarios: v["fis/inventarios"], eventos_pendentes: v["fis/eventos_pendentes"]},
+    ctl: {bloqueio_periodo: v["ctl/bloqueio_periodo"]}, agendamentos_expedicao: v.agendamentos_expedicao, fin: {notas_entrada: v["fin/notas_entrada"]},
+    pedidos_compra: v.pedidos_compra, fornecedores: v.fornecedores, clientes: v.clientes,
+  };
+  // Estoque, materiais e preços só para o inventário: leitura única (não ficam escutando).
+  if (extra) {
+    const [e, m, p] = await Promise.all(["estoque", "materiais", "custos_precos"].map((c) => db.ref(c).get()));
+    Object.assign(b, {estoque: e.val() || {}, materiais: m.val() || {}, custos_precos: p.val() || {}});
+  }
+  return b;
+}
+async function exigirFiscal(request) {
+  const q = await perfilDe(request);
+  if (!FiscalSrv.ehFiscal(q.perfil)) throw new HttpsError("permission-denied", "O Fiscal é do ADM ou de quem tem o módulo Fiscal.");
+  return q;
+}
+/* Upload único de XML (Q8): o Fiscal grava o documento e o XML; a NF-e de entrada de terceiro
+   também vira a nota resumida do Financeiro (fin/notas_entrada), no MESMO update. */
+async function importarXmlUnificado(arquivos, quem, origem) {
+  return filaFinanceiro(async () => {
+    const agora = new Date().toISOString();
+    const x = FiscalSrv.prepararImportacao(await baseFiscal(false), {arquivos, origem}, quem, agora, utilFiscal);
+    const updates = Object.assign({}, x.updates);
+    let financeiro = null;
+    if (x.xmlsEntrada.length) {
+      try {
+        financeiro = FinanceiroSrv.prepararNotasEntrada(await baseGestao(false), {xmls: x.xmlsEntrada}, quem, agora);
+        Object.assign(updates, financeiro.updates);
+      } catch (e) {
+        financeiro = {importadas: 0, repetidas: [], erros: [e.message], vinculadas: 0};
+      }
+    }
+    if (Object.keys(updates).length) await db.ref().update(updates);
+    return {resultados: x.resultados, financeiro};
+  });
+}
+exports.fisImportarXml = onCall({timeoutSeconds: 120, memory: "512MiB"}, comoHttps(async (request) => {
+  const q = await perfilDe(request);
+  if (!FiscalSrv.podeImportar(q.perfil)) throw new HttpsError("permission-denied", "Importar XML é do Fiscal ou do Financeiro.");
+  const r = await importarXmlUnificado((request.data || {}).arquivos || [], q, "UPLOAD");
+  return {ok: true, resultados: r.resultados, financeiro: r.financeiro ? {importadas: r.financeiro.importadas, vinculadas: r.financeiro.vinculadas} : null};
+}));
+function chamadaFis(preparar, opcoes) {
+  return comoHttps(async (request) => {
+    const quem = await exigirFiscal(request);
+    return filaFinanceiro(async () => {
+      const x = preparar(await baseFiscal(!!(opcoes && opcoes.comEstoque)), request.data || {}, quem, new Date().toISOString(), utilFiscal);
+      if (x.updates && Object.keys(x.updates).length) await db.ref().update(x.updates);
+      const out = Object.assign({}, x); delete out.updates;
+      return out;
+    });
+  });
+}
+exports.fisSalvarCadastro = onCall({timeoutSeconds: 60, memory: "512MiB"}, chamadaFis(FiscalSrv.prepararCadastro));
+exports.fisSalvarApuracao = onCall({timeoutSeconds: 60, memory: "512MiB"}, chamadaFis(FiscalSrv.prepararApuracao));
+exports.fisGerarSintegra = onCall({timeoutSeconds: 120, memory: "512MiB"}, chamadaFis(FiscalSrv.prepararSintegra));
+exports.fisGerarInventario = onCall({timeoutSeconds: 120, memory: "1GiB"}, chamadaFis(FiscalSrv.prepararInventario, {comEstoque: true}));
+exports.fisFecharMes = onCall({timeoutSeconds: 60, memory: "512MiB"}, chamadaFis(FiscalSrv.prepararFechamento));
+exports.fisReabrirMes = onCall({timeoutSeconds: 60, memory: "512MiB"}, chamadaFis(FiscalSrv.prepararReabertura));
+exports.fisRegistrarTransmissao = onCall({timeoutSeconds: 60, memory: "512MiB"}, chamadaFis(FiscalSrv.prepararTransmissao));
+exports.fisGerarEfd = onCall({timeoutSeconds: 120, memory: "512MiB"}, comoHttps(async (request) => {
+  const quem = await exigirFiscal(request);
+  return filaFinanceiro(async () => {
+    const x = FiscalSrv.prepararEfd(await baseFiscal(false), request.data || {}, quem, new Date().toISOString(), utilFiscal);
+    if (x.jaFechado) {
+      // Mês fechado: o arquivo guardado no fechamento, sem regerar.
+      const c = (await db.ref("fis_arquivos/" + x.arquivo).get()).val();
+      return {ok: true, jaFechado: true, id: x.arquivo, texto: c ? utilFiscal.gunzip(c.gz) : ""};
+    }
+    if (x.updates && Object.keys(x.updates).length) await db.ref().update(x.updates);
+    return {ok: x.ok, id: x.id || null, texto: x.texto || "", inconsistencias: x.inconsistencias || []};
+  });
+}));
+// Arquivo já gerado (histórico): o conteúdo mora em fis_arquivos, que a tela não lê.
+exports.fisBaixarArquivo = onCall({timeoutSeconds: 60, memory: "512MiB"}, comoHttps(async (request) => {
+  await exigirFiscal(request);
+  const id = String((request.data || {}).id || "").replace(/[.#$/[\]]/g, "_");
+  const c = (await db.ref("fis_arquivos/" + id).get()).val();
+  if (!c) throw new HttpsError("not-found", "Arquivo não encontrado.");
+  return {ok: true, id, texto: utilFiscal.gunzip(c.gz), tipo: c.tipo, mes: c.mes};
+}));
+// Exportação fiscal para o Domínio (F7): os XMLs autorizados do mês (e eventos), para a tela montar o ZIP.
+exports.fisXmlsDoPeriodo = onCall({timeoutSeconds: 120, memory: "1GiB"}, comoHttps(async (request) => {
+  await exigirFiscal(request);
+  const mes = String((request.data || {}).mes || "");
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) throw new HttpsError("invalid-argument", "Mês inválido.");
+  const docs = ((await baseFiscal(false)).fis.documentos) || {};
+  const chaves = Object.keys(docs).filter((k) => docs[k] && FiscalMotor.mesDoDocumento(docs[k]) === mes).slice(0, 800);
+  const out = [];
+  for (const k of chaves) {
+    const d = docs[k], x = (await db.ref("fis_xml/" + k).get()).val();
+    if (x) out.push({nome: (d.tipo === "CTE" ? "CTe" : d.tipo === "INUT" ? "Inut" : "NFe") + k + ".xml", pasta: d.tipo === "INUT" ? "inutilizacoes" : d.indOper === "1" ? "saidas" : "entradas", texto: utilFiscal.gunzip(x.gz)});
+    for (const ek of Object.keys(d.eventos || {})) {
+      const ev = (await db.ref("fis_xml/EV_" + k + "_" + ek).get()).val();
+      if (ev) out.push({nome: "Evento" + ek + "_" + k + ".xml", pasta: "eventos", texto: utilFiscal.gunzip(ev.gz)});
+    }
+  }
+  return {ok: true, mes, arquivos: out, total: chaves.length};
 }));

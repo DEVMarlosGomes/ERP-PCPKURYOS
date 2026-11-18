@@ -170,9 +170,21 @@
     Object.keys(b.agendamentos_expedicao || {}).forEach(function(ak) {
       var a = b.agendamentos_expedicao[ak], fat = a && a.faturamento;
       Object.keys((fat && fat.nfs) || {}).forEach(function(nk) {
-        var nf = fat.nfs[nk], v = nf && Math.round(num(nf.valor) * 100); if (!(v > 0)) return;
+        var nf = fat.nfs[nk], v = nf && Math.round(num(nf.valor) * 100);
+        // A2 (industrialização por encomenda): com o XML no Fiscal, a receita é a dele -- 5124/5125
+        // (industrialização) + vendas, nunca o retorno simbólico 5902/5903; NF cancelada não é receita.
+        var chF = String((nf && nf.chaveNfe) || '').toUpperCase().replace(/[^0-9A-Z]/g, ''), docF = chF && ((b.fis || {}).documentos || {})[chF];
+        if (docF && docF.situacao === '02') return;
+        var rf = docF && docF.situacao === '00' && docF.receita && docF.valorCobrado && docF.valorCobrado.valorCentavos > 0 ? docF.receita : null;
+        if (rf) v = docF.valorCobrado.valorCentavos;
+        if (!(v > 0)) return;
         var comp = String(nf.emitidaEm || '').slice(0, 7), ex = { cliente: a.cliente || null };
-        var ps = [D('CLIENTES', v, ex), C('RECEITA_BRUTA', v, Object.assign({ cc: 'COMERCIAL' }, ex))];
+        var ps = [D('CLIENTES', v, ex)];
+        if (rf) {
+          var ind = rf.receitaCentavos > 0 ? Math.round(v * rf.industrializacaoCentavos / rf.receitaCentavos) : 0;
+          if (v - ind > 0) ps.push(C('RECEITA_BRUTA', v - ind, Object.assign({ cc: 'COMERCIAL', elemento: 'RECEITA_VENDA' }, ex)));
+          if (ind > 0) ps.push(C('RECEITA_BRUTA', ind, Object.assign({ cc: 'COMERCIAL', elemento: 'RECEITA_INDUSTRIALIZACAO' }, ex)));
+        } else ps.push(C('RECEITA_BRUTA', v, Object.assign({ cc: 'COMERCIAL' }, ex)));
         var imp = Custos.impostosPct(cus.parametros, a.clienteKey);
         if (imp != null && imp > 0) { var ded = Math.round(v * imp / 100); ps.push(D('DEDUCOES', ded, ex), C('IMPOSTOS_RECOLHER', ded, ex)); }
         var itens = Fin.itensDaNf(fat, nf), somaItens = itens.reduce(function(s, i) { return s + num(i.valor); }, 0);
@@ -195,7 +207,8 @@
         });
         add('NF_' + san(ak) + '_' + san(nk), { data: String(nf.emitidaEm).slice(0, 10), competencia: comp, historico: 'NF ' + nf.numero + (nf.serie ? '/' + nf.serie : '') + ' · ' + (a.cliente || ''),
           origem: { tipo: 'NF_SAIDA', ref: 'agendamentos_expedicao/' + ak + '/faturamento/nfs/' + nk }, partidas: ps,
-          analitico: { cliente: a.cliente || null, clienteKey: a.clienteKey || null, itens: analitico, cobertura: cob, impostosPct: imp, semItens: !itens.length } });
+          analitico: Object.assign({ cliente: a.cliente || null, clienteKey: a.clienteKey || null, itens: analitico, cobertura: cob, impostosPct: imp, semItens: !itens.length },
+            rf ? { receitaFiscal: { fonte: 'XML', chave: chF, industrializacaoCentavos: rf.industrializacaoCentavos, vendaCentavos: rf.vendaCentavos, simbolicoCentavos: rf.simbolicoCentavos, valorCobradoCentavos: v, digitadoCentavos: Math.round(num(nf.valor) * 100) } } : {}) });
       });
     });
     // 4. Operação do mês: folha e custos fixos (o que a MOD aplicada não absorver é a ociosidade/absorção).

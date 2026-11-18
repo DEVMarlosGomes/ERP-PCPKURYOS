@@ -292,6 +292,12 @@
   /* Títulos a receber das NFs registradas nas cargas. O título é o valor DA NOTA.
      Pedido com parte fora da nota (percentualNF < 100) aparece como complemento
      DIFERENCA_FISCAL -- o módulo não inventa recebível nem esconde a diferença. */
+  /* Documento fiscal da NF registrada no Faturamento (B1 do prompt mestre): o Fiscal guarda o
+     XML e, para a NF própria de saída, o valor cobrado (fatura) e a receita por classe. */
+  function docFiscalDaNf(b, nf) {
+    var docs = (b.fis && b.fis.documentos) || {}, ch = normChaveNfe(nf && nf.chaveNfe);
+    return ch && docs[ch] && docs[ch].tipo === 'NFE' ? docs[ch] : null;
+  }
   function derivarNfs(base) {
     var b = base || {}, titulos = {}, complementos = [];
     Object.keys(b.agendamentos_expedicao || {}).forEach(function(ak) {
@@ -302,14 +308,25 @@
         var nf = fat.nfs[nk]; if (!nf) return;
         var id = 'NF_' + san(ak) + '_' + san(nk);
         var ref = { tipo: 'NF_SAIDA', ref: ak + '/' + nk, nf: nf.numero + (nf.serie ? '/' + nf.serie : '') };
-        var v = centavos(nf.valor);
+        var v = centavos(nf.valor), docF = docFiscalDaNf(b, nf), fonteValor = null;
+        if (docF && docF.situacao === '02') {
+          complementos.push({ id: 'NFC_' + id, tipo: 'NF_CANCELADA_XML', origem: ref, texto: 'NF ' + ref.nf + ' de ' + (a.cliente || 'cliente') + ' está CANCELADA no XML (Fiscal), mas segue registrada no Faturamento', acao: 'Retirar a NF da carga no Faturamento; se já houver título, cancelá-lo' });
+          return;
+        }
+        var cob = docF && docF.situacao === '00' && docF.valorCobrado && docF.valorCobrado.valorCentavos > 0 ? docF.valorCobrado : null;
+        if (cob) {
+          if (v !== cob.valorCentavos) complementos.push({ id: 'NFX_' + id, tipo: 'NF_VALOR_XML', origem: ref, valorCentavos: (v || 0) - cob.valorCentavos,
+            texto: 'NF ' + ref.nf + ' de ' + (a.cliente || 'cliente') + ': digitado R$ ' + ((v || 0) / 100).toFixed(2) + ', cobrado no XML R$ ' + (cob.valorCentavos / 100).toFixed(2) + (cob.temRetornoSimbolico ? ' (o retorno simbólico 5902/5903 não é recebível)' : ''),
+            acao: 'O título usa o valor cobrado do XML; se o título já existia com o digitado, abata a diferença' });
+          v = cob.valorCentavos; fonteValor = cob.fonte;
+        }
         if (!(v > 0)) { complementos.push({ id: id, tipo: 'SEM_VALOR', origem: ref, texto: 'NF ' + ref.nf + ' de ' + (a.cliente || 'cliente') + ' registrada sem valor', acao: 'Lançar o título a receber manualmente com o valor da nota' }); return; }
         somaNfs += v;
         var itens = itensDaNf(fat, nf), cond = condicaoDoCliente(b, a, itens);
         titulos[id] = {
           tipo: 'RECEBER', origem: ref, parceiro: Object.assign({ tipo: 'CLIENTE' }, nomeParceiro(b.clientes, a.clienteKey, a.cliente)),
           documento: 'NF ' + ref.nf, chaveNfe: nf.chaveNfe || null, emissao: String(nf.emitidaEm || '').slice(0, 10) || null,
-          competencia: String(nf.emitidaEm || '').slice(0, 7) || null, valorCentavos: v, moeda: 'BRL',
+          competencia: String(nf.emitidaEm || '').slice(0, 7) || null, valorCentavos: v, moeda: 'BRL', valorFonte: fonteValor ? 'XML_' + fonteValor : 'DIGITADO',
           natureza: 'RECEITA_VENDA', porNatureza: { RECEITA_VENDA: v }, centroCusto: 'COMERCIAL',
           condicao: cond.texto, condicaoFonte: cond.fonte, baseVencimento: String(nf.emitidaEm || '').slice(0, 10) || null,
           itens: itens.map(function(i) { return { sku: i.sku || null, lote: i.lote || null, unidades: num(i.unidades), valorCentavos: centavos(i.valor) || 0, pedidoId: i.pedidoId || null }; }),
