@@ -20,7 +20,9 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 - Provas: suíte nova + controladoria, gestão servidor e 13 suítes do Financeiro verdes. Emulador e ensaio com a base real
   **não rodados** (nuvem).
 - **GitHub:** a sessão não tem o GitHub vinculado para enviar; commit local entregue ao Marlos como patch.
-- 17/11 (noite): `PROMPT_FISCAL.md` escrito (SPED Fiscal EFD ICMS/IPI + SINTEGRA, fases F0–F8). Nada construído.
+- 17/11 (noite): `PROMPT_FISCAL.md` escrito (SPED Fiscal EFD ICMS/IPI + SINTEGRA, fases F0–F8) e atualizado com as decisões do Marlos
+  (regime depois, sem emissão de NF-e, industrialização por encomenda sim, escritório usa Domínio). Prompt mestre das três frentes:
+  `PROMPT_CONTROLADORIA_FINANCEIRO_FISCAL.md`. Nada construído do Fiscal.
 - **Arquivos ativos: nenhum.**
 
 ### Claude (sessão `laudo-email-ativos`) — Laudo de PA por e-mail ao cliente + logos; ativos no PC Direto (17/11/2026)

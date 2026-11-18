@@ -253,7 +253,7 @@ escrita pela tela, com validação, em `fis/estabelecimento`, `fis/regras_entrad
 | **F4 — SPED Fiscal** | Tela igual à do WebMais (§1) + relatório de inconsistências + arquivo TXT + histórico de arquivos gerados (hash, totais por registro, retificador) | Arquivo do mês de teste **validado no PVA sem erro**; diff registro a registro contra o arquivo do WebMais explicado linha por linha |
 | **F5 — Inventário (Bloco H)** | Retrato do estoque em 31/12 (ou data escolhida): quantidade (kardex) × custo unitário (`custos/`), IND_PROP (próprio, em poder de terceiros, de terceiros em poder da Kuryos: ver §13 P3) | H010 de 31/12/2026 conferido pelo contador antes da EFD de fev/2027 |
 | **F6 — SINTEGRA** | Tela igual à do WebMais (§1), arquivo de 126 posições, inconsistências | Arquivo do mês de teste aceito pelo validador SINTEGRA |
-| **F7 — Exportação fiscal Domínio** | Só se o contador usar (§13 P5): ZIP dos XMLs do período + livro em CSV, ou o leiaute de importação que o escritório indicar | Escritório importa sem retrabalho |
+| **F7 — Exportação fiscal Domínio** (obrigatória: o escritório vai usar o Domínio) | ZIP dos XMLs do período (entradas, saídas, CT-e, eventos) + TXT da EFD + livro em CSV, ou o leiaute de importação de notas que o escritório indicar (§13 P5) | O escritório importa um mês real no Domínio sem retrabalho e confirma por escrito |
 | **F8 (depois)** | Distribuição DF-e (baixar automaticamente as NF-e contra o CNPJ, certificado A1), Bloco K, CIAP (Bloco G), manifestação do destinatário | Cada um com seu "pronto" |
 
 ---
@@ -344,37 +344,45 @@ exportar com inconsistência, abre o relatório com as mesmas colunas. Sem incon
 
 ---
 
-## 13. Perguntas que a Fase 0 responde (não chute)
+## 13. Decisões do Marlos (17/11/2026) e perguntas que restam
 
-- **P1. Regime tributário** da Kuryos (Lucro Real ou Presumido? Simples?). Se for Simples, a EFD não é
-  obrigatória em SP e o SINTEGRA só vale se a SEFAZ notificou: o escopo muda inteiro.
-  O índice "% imposto Simples Nacional" do WebMais e o `impostosPct` do Custos sugerem atenção.
-- **P2. Quem emite a NF-e de saída hoje** (WebMais?) e **quem vai emitir** quando o WebMais sair. Sem
-  emissor, o KuryosERP só **recebe** o XML de saída. Emissão de NF-e é outro projeto (certificado,
-  SEFAZ, contingência) e fica **fora deste prompt**.
-- **P3. Industrialização por encomenda.** O cliente-marca manda embalagem ou matéria-prima (CFOP
-  1901/5902/5124)? Isso decide o IND_PROP do inventário (material de terceiros em poder da Kuryos) e as
-  regras de entrada.
+**Decididas:**
+- **P1. Regime tributário: decisão posterior.** Construa o **regime como parâmetro**
+  (`fis/estabelecimento/regime`: `NORMAL` | `SIMPLES`), sem bifurcar o código.
+  - O caminho principal é o regime normal: EFD obrigatória, apuração E110 e E520, CST de ICMS.
+  - No Simples, a EFD deixa de ser obrigatória em SP e o SINTEGRA só vale se a SEFAZ notificar.
+    O parser já lê CSOSN, e o livro e o SINTEGRA continuam saindo.
+  - Nenhuma tela pode assumir um dos dois.
+- **P2. Emissão de NF-e: em decisão, nada nesta etapa.** O KuryosERP **só recebe** o XML de saída, por
+  upload de XML/ZIP exportado do emissor atual (WebMais). Nenhuma linha de emissão, certificado de
+  emissão ou comunicação com a SEFAZ para autorizar nota.
+- **P3. Industrialização por encomenda: sim.** Clientes mandam produtos e insumos para a Kuryos
+  industrializar. Ver §15: muda as regras de entrada, a saída, o inventário (H010 IND_PROP = 2) e o
+  SINTEGRA (74, código de posse 3).
+- **P5. O escritório vai usar o Domínio.** A F7 (exportação fiscal Domínio) é **obrigatória**, não
+  opcional. O Domínio importa XML de NF-e/CT-e e o próprio TXT da EFD. Confirme com o escritório o que
+  ele prefere receber: ZIP de XMLs + TXT da EFD, ou o leiaute de importação de notas do Domínio. A
+  exportação **contábil** Domínio já existe na Controladoria (`exportarDominio`) e o escritório também
+  precisa validar o leiaute dela.
+
+**Ainda abertas (não chute):**
 - **P4. Energia e água**: chegam como NF3e (XML modelo 66) ou conta em papel? Há crédito de ICMS de energia
   na produção?
-- **P5. O escritório usa o Domínio?** Se sim, ele importa XML e SPED direto; a "Exportação Fiscal Domínio"
-  talvez seja só o ZIP de XMLs.
 - **P6. "Tipo de arquivo: Importação Sis…"** no SPED do WebMais: quais são as opções? (Abrir o seletor no
   WebMais e fotografar.)
 - **P7. Onde guardar o XML bruto**: RTDB em raiz separada (`fis_xml`) ou disco da VPS com backup? Medir o
-  volume da F0 (nº de notas × tamanho médio).
-- **P8. CNPJ alfanumérico.** O Financeiro usa `soDigitos` no CNPJ (`lerXmlNfe`, `casarNotaEntrada`). Isso
-  quebra com CNPJ que tem letra. Corrigir no Financeiro é mudança fora do módulo: perguntar e registrar em
-  `MELHORIAS_FUTURAS.md`. **Aqui** já nasce certo.
+  volume na F0 (nº de notas × tamanho médio).
+- **P8. CNPJ alfanumérico.** O Financeiro usa `soDigitos` no CNPJ. A correção está no
+  `PROMPT_CONTROLADORIA_FINANCEIRO_FISCAL.md`, trilha B0. **Aqui** já nasce certo.
 - **P9. Empresas 002 CONNEXXA e 003 NEXT21** (estão no WebMais): entram? Cada CNPJ e IE é um arquivo próprio.
-- **P10. Unificar o upload de XML de entrada** com o Financeiro F5 (hoje cada um importaria o seu)? Proposta:
-  o Fiscal guarda o XML e o Financeiro passa a ler `fis/documentos`. Isso muda o Financeiro: perguntar.
-
----
+- **P10. Unificar o upload de XML de entrada** com o Financeiro F5. Proposta no prompt mestre, trilha B:
+  o Fiscal guarda o XML e o Financeiro passa a ler `fis/documentos`.
+- **P11. Tributação do 5124** (industrialização para outra empresa): ICMS e IPI sobre o valor agregado
+  ou ISS? Depende do produto e do destino. É decisão do contador, guardada como regra de saída.
 
 ## 14. Fora de escopo
 
-- **Emissão de NF-e/NFC-e/CT-e** (autorização na SEFAZ, DANFE, contingência). Projeto separado (P2).
+- **Emissão de NF-e/NFC-e/CT-e** (autorização na SEFAZ, DANFE, contingência): em decisão; nada nesta etapa (P2).
 - Transmissão do SPED: quem assina e transmite é o contador, no PVA. Aqui só se registra o recibo.
 - EFD-Contribuições (PIS/COFINS), ECD, ECF, EFD-Reinf, DCTFWeb e apuração de IBS/CBS: outros arquivos e
   outro projeto. Os dados de PIS/COFINS e IBS/CBS ficam guardados no documento para quando vier.
@@ -382,9 +390,49 @@ exportar com inconsistência, abre o relatório com as mesmas colunas. Sem incon
 
 ---
 
-## 15. Estado da implementação
+## 15. Industrialização por encomenda (decisão de 17/11: a Kuryos faz)
 
-Nada construído. Prompt escrito em 17/11/2026. Base:
+**O que já existe.**
+- O estoque já separa o material do cliente: `shared/propriedade-estoque.js`. A propriedade vem do PC de
+  remessa; `estoque/{material}/porCliente/{clienteKey}/saldoAtual` guarda o saldo de cada cliente.
+- O Custos já trata esse material como custo zero (`PROCEDENCIA.CLIENTE`).
+- O Fiscal **lê** isso. Não recria propriedade.
+
+**CFOPs a cobrir** (SP → SP com 5/1, interestadual com 6/2):
+
+| Operação | Quem emite | CFOP na nota | Escrituração na Kuryos |
+|---|---|---|---|
+| Cliente remete insumo/embalagem para industrializar | cliente | 5901 / 6901 | entrada **1901 / 2901**. Não gera crédito nem custo; vira estoque de terceiro (IND_PROP 2) |
+| Fornecedor do cliente entrega direto na Kuryos, por conta e ordem do cliente | fornecedor | 5924 / 6924 (e a nota simbólica do cliente) | entrada **1924 / 2924**. Estoque de terceiro do cliente |
+| Kuryos devolve o material do cliente aplicado no produto | Kuryos | **5902 / 6902** | saída simbólica. **Não é receita** |
+| Kuryos cobra o que agregou (material próprio + serviço) | Kuryos | **5124 / 6124** (ou 5125 / 6125 quando o insumo não transitou pelo cliente) | **é a receita**. Tributação conforme P11 |
+| Kuryos devolve material do cliente não aplicado | Kuryos | **5903 / 6903** | saída simbólica. Baixa o estoque de terceiro |
+
+**Regras:**
+1. **Regra de entrada** (§5): 1901/1924 nascem com `geraLivro: true`, `creditaICMS: false`,
+   `creditaIPI: false` e `propriedade: 'CLIENTE'`. A sugestão automática (F2) já propõe isso para 5901/6901
+   e 5924/6924 do fornecedor.
+2. **Saída.** Numa NF com itens 5902 e 5124, o **valor da operação para receita** é só o dos itens
+   5124/5125, mais o IPI/ICMS deles. O 5902 entra no livro (C190 próprio) mas não é faturamento.
+   `livro()` expõe `receitaPorCfop` para a Controladoria ler (trilha A do prompt mestre).
+3. **Inventário (H010).** O item de cliente sai com **IND_PROP = 2** e COD_PART do cliente (CNPJ pelo
+   cadastro do cliente → 0150), quantidade de `porCliente`, valor = o valor da nota de remessa (custo
+   para a Kuryos é zero, mas o H010 pede o valor do item: use o da NF de entrada 1901, média ponderada
+   por cliente × item). Item próprio em poder de terceiro: IND_PROP = 1.
+4. **SINTEGRA 74:** código de posse 1 (próprio em seu poder), 2 (próprio em poder de terceiro) e 3 (de
+   terceiro em seu poder), com o CNPJ e a IE do dono.
+5. **Bloco K, se vier a ser exigido:** K200 com IND_EST 2 para o estoque de terceiros. A produção por
+   encomenda vai para K230/K235, com o insumo de terceiro identificado.
+6. **Conferência nova no relatório de inconsistências:**
+   - saldo físico de terceiro (`porCliente`) × Σ entradas 1901/1924 − Σ saídas 5902/5903 do cliente,
+     por item;
+   - divergência é aviso, com o cliente e o item.
+7. **Teste com XML real** de cada CFOP da tabela (§9). Se algum não existir na base, registre "não
+   medido", não invente.
+
+## 16. Estado da implementação
+
+Nada construído. Prompt escrito em 17/11/2026 e atualizado no mesmo dia com as decisões do Marlos (§13). Prompt mestre que junta as quatro frentes: `PROMPT_CONTROLADORIA_FINANCEIRO_FISCAL.md`. Base:
 - os prints do WebMais (§1);
 - o código do repositório em `hostinger-deploy` `3da5ad9` + `controladoria/paridade-webmais` `9eefc72`;
 - as fontes de §2: Portal SPED (Guia Prático EFD ICMS/IPI 3.2.x, NT 2025.001 leiaute 020 e NT 2026.001
