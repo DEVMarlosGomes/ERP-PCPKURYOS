@@ -70,3 +70,73 @@ const h = E.revisoes({edicoes: {k1: {numero: 1}, k2: {numero: 2}}});
 assert.deepEqual(h.map((x) => x.numero), [2, 1]);
 
 console.log('edicao-pc: ok');
+
+// ── Cancelar e adicionar material (18/11): cancelado fica no pedido como histórico ──
+{
+  const base = pc({status: 'RECEBIDO_PARCIAL'});
+  base.itens.a.qtdRecebida = 40; // 40 de 100 kg
+  // Cancelar: saldo zera pelo qtd (= recebido); cotada proporcional; quantidades antes guardadas.
+  const mc = E.mudancasCancelarItem(base.itens.a, {motivo: 'Fornecedor sem estoque', autor: 'Ana', agora: '2026-11-18T12:00:00Z'});
+  assert.equal(mc.cancelado, true);
+  assert.equal(mc.qtd, 40);
+  assert.equal(mc.qtdCotada, 40);
+  assert.equal(mc.qtdEmUnidadeEstoque, 40);
+  assert.deepEqual([mc.cancelamento.qtdAntes, mc.cancelamento.qtdRecebida, mc.cancelamento.motivo], [100, 40, 'Fornecedor sem estoque']);
+  const b = E.mudancasCancelarItem(base.itens.b, {}); // 0 recebido, cotado em kg
+  assert.deepEqual([b.qtd, b.qtdCotada, b.qtdEmUnidadeEstoque], [0, 0, 0]);
+  // Quem pode cancelar.
+  assert.equal(E.avaliarCancelarItem(base, 'a'), null);
+  const cheio = pc(); cheio.itens.a.qtdRecebida = 100;
+  assert.match(E.avaliarCancelarItem(cheio, 'a'), /recebido por inteiro/);
+  assert.match(E.avaliarCancelarItem(pc({status: 'CANCELADO'}), 'a'), /cancelado/);
+  assert.ok(E.validarMotivoItem('abc'));
+  assert.equal(E.validarMotivoItem('Fornecedor descontinuou'), null);
+
+  // Revisão: uma linha "Material cancelado", sem repetir a queda de quantidade; status recalculado.
+  const rel = {};
+  Object.keys(mc).forEach((c) => { rel['itens/a/' + c] = mc[c]; });
+  base.itens.b.qtdRecebida = 3; // b já completo -> com a cancelado, pedido fecha
+  const r = E.montarRevisao(base, rel, {acesso: {compras: true}, justificativa: 'Fornecedor não tem o restante'});
+  assert.ok(!r.erro, r.erro);
+  const linhasA = r.revisao.alteracoes.filter((x) => x.item === 'MP-1');
+  assert.equal(linhasA.length, 1);
+  assert.equal(linhasA[0].rotulo, 'Material cancelado');
+  assert.match(linhasA[0].depois, /fica o recebido: 40 kg/);
+  assert.match(linhasA[0].depois, /Fornecedor sem estoque/);
+  assert.equal(r.revisao.statusApos, 'RECEBIDO_TOTAL');
+  const depois = E.aplicarMudancas(base, rel);
+  assert.ok(depois.itens.a, 'item cancelado continua no pedido');
+  assert.equal(E.saldoItem(depois.itens.a), 0);
+
+  // Tudo cancelado sem nada recebido = cancelar o pedido: recusado.
+  const env = pc();
+  const tudo = {};
+  ['a', 'b'].forEach((k) => { const m = E.mudancasCancelarItem(env.itens[k], {motivo: 'x x x x x'}); Object.keys(m).forEach((c) => { tudo['itens/' + k + '/' + c] = m[c]; }); });
+  assert.match(E.montarRevisao(env, tudo, {papel: 'admin', justificativa: 'Cancelando tudo de uma vez'}).erro, /cancelar o pedido inteiro/);
+
+  // Adicionar: item no formato do PC direto, saldo pela unidade de estoque, vínculo do pedido.
+  const comVinc = pc(); comVinc.itens.a.vinculo = {geral: true};
+  assert.deepEqual(E.vinculoSugerido(comVinc), {geral: true});
+  const novo = E.novoItem({materialCodigo: 'MP-9', materialNome: 'Óleo', unidade: 'kg', qtdCotada: 25, precoUnit: 8,
+    vinculo: {geral: true}, autor: 'Ana', agora: '2026-11-18T12:00:00Z', revisao: 3});
+  assert.deepEqual([novo.qtd, novo.qtdRecebida, novo.adicionado.revisao, novo.origemSolicitacaoKey], [25, 0, 3, null]);
+  const conv = E.novoItem({materialCodigo: 'ET-9', unidade: 'rolo', qtdCotada: 35, unidadeCotada: 'kg', unidadeDiferente: true, qtdEmUnidadeEstoque: 3});
+  assert.equal(conv.qtd, 3, 'saldo na unidade de estoque');
+  const ra = E.montarRevisao(comVinc, {'itens/n1': novo}, {papel: 'admin', justificativa: 'Faltou o óleo no pedido'});
+  assert.ok(!ra.erro, ra.erro);
+  assert.equal(ra.revisao.alteracoes[0].rotulo, 'Material adicionado');
+  assert.equal(ra.revisao.alteracoes[0].item, 'MP-9');
+  // Duplicado, sem material, sem quantidade e em pedido cancelado: recusados.
+  assert.match(E.montarRevisao(comVinc, {'itens/n1': E.novoItem({materialCodigo: 'MP-1', qtdCotada: 5})}, {papel: 'admin', justificativa: 'duplicando material'}).erro, /já está no pedido/);
+  assert.match(E.conferirItens(comVinc, {'itens/n1': E.novoItem({qtdCotada: 5})}), /Escolha o material/);
+  assert.match(E.conferirItens(comVinc, {'itens/n1': E.novoItem({materialCodigo: 'MP-9', qtdCotada: 0})}), /quantidade/);
+  assert.match(E.conferirItens(pc({status: 'CANCELADO'}), {'itens/n1': novo}), /cancelado/);
+  // Material cancelado pode voltar como linha nova (não é duplicado).
+  const relC = {}; Object.keys(mc).forEach((c) => { relC['itens/a/' + c] = mc[c]; });
+  const comCanc = E.aplicarMudancas(pc(), relC);
+  assert.equal(E.conferirItens(comCanc, {'itens/n2': E.novoItem({materialCodigo: 'MP-1', qtdCotada: 10})}), null);
+  // RECEBIDO_TOTAL + material novo reabre o pedido.
+  const tot = pc({status: 'RECEBIDO_TOTAL'}); tot.itens.a.qtdRecebida = 100; tot.itens.b.qtdRecebida = 3;
+  assert.equal(E.montarRevisao(tot, {'itens/n1': novo}, {papel: 'admin', justificativa: 'Complemento do pedido'}).revisao.statusApos, 'RECEBIDO_PARCIAL');
+}
+console.log('edicao-pc (cancelar/adicionar material): ok');

@@ -150,7 +150,41 @@
      própria (confirmadaPor/Em) e o custo é consequência do preço. */
   function alteracoes(pc, mudancas) {
     var out = [];
+    var itensAntes = (pc && pc.itens) || {};
+    // Item cancelado nesta edição: uma linha só ("Material cancelado"), sem
+    // repetir a queda de quantidade, que é consequência do cancelamento.
+    var cancelados = {};
     Object.keys(mudancas || {}).forEach(function(caminho) {
+      var m = /^itens\/([^/]+)\/cancelado$/.exec(caminho);
+      if (m && mudancas[caminho] === true && !itemCancelado(itensAntes[m[1]])) cancelados[m[1]] = true;
+    });
+    Object.keys(mudancas || {}).forEach(function(caminho) {
+      var novo = /^itens\/([^/]+)$/.exec(caminho);
+      if (novo) {
+        var obj = mudancas[caminho];
+        if (obj && typeof obj === 'object' && !itensAntes[novo[1]]) {
+          out.push({
+            campo: caminho, rotulo: 'Material adicionado', item: obj.materialCodigo || novo[1], antes: null,
+            depois: descreverQtd(obj.qtdCotada != null ? obj.qtdCotada : obj.qtd, obj.unidadeCotada || obj.unidade) +
+              (obj.precoUnit != null ? ' × ' + obj.precoUnit : '')
+          });
+        }
+        return;
+      }
+      var mi = /^itens\/([^/]+)\//.exec(caminho);
+      if (mi && cancelados[mi[1]]) {
+        if (/\/cancelado$/.test(caminho)) {
+          var it = itensAntes[mi[1]] || {};
+          var canc = mudancas['itens/' + mi[1] + '/cancelamento'] || {};
+          out.push({
+            campo: caminho, rotulo: 'Material cancelado', item: it.materialCodigo || mi[1],
+            antes: descreverQtd(it.qtdCotada != null ? it.qtdCotada : it.qtd, it.unidadeCotada || it.unidade),
+            depois: 'cancelado' + (numero(it.qtdRecebida) > LIMIAR ? ' (fica o recebido: ' + descreverQtd(it.qtdRecebida, it.unidade) + ')' : '') +
+              (canc.motivo ? ' — ' + canc.motivo : '')
+          });
+        }
+        return;
+      }
       var m = /^itens\/([^/]+)\/(.+)$/.exec(caminho);
       var rotulo, item = null;
       if (m) {
@@ -172,6 +206,120 @@
     return out;
   }
 
+  function descreverQtd(q, un) {
+    var n = numero(q);
+    return (Math.round(n * 10000) / 10000) + (un ? ' ' + un : '');
+  }
+
+  /* ── Cancelar e adicionar material (18/11) ──
+     Pedido do usuário: "opção para cancelar um material, ou adicionar
+     material", e "esse material cancelado deve continuar ali no pedido como
+     histórico". O item cancelado NÃO sai de `itens/`: ganha `cancelado` e
+     `cancelamento` (motivo, quem, quando, quantidades antes) e o saldo a
+     receber vira zero. Zerar o saldo pelo próprio `qtd` (= recebido) é o que
+     faz recebimento (limite no servidor), MRP, a receber do Financeiro,
+     Logística e status do pedido pararem de esperar o material sem cada um
+     precisar conhecer o campo novo. O que já chegou continua valendo. */
+  function itemCancelado(it) { return !!(it && it.cancelado === true); }
+  function saldoItem(it) { return Math.max(0, numero(it && it.qtd) - numero(it && it.qtdRecebida)); }
+
+  function avaliarCancelarItem(pc, itemKey) {
+    var it = ((pc && pc.itens) || {})[itemKey];
+    if (!it) return 'Item não encontrado no pedido.';
+    if (pc.status === 'CANCELADO') return 'O pedido está cancelado: não há material a cancelar.';
+    if (itemCancelado(it)) return 'O material ' + (it.materialCodigo || itemKey) + ' já está cancelado.';
+    if (saldoItem(it) <= LIMIAR) return 'O material ' + (it.materialCodigo || itemKey) + ' já foi recebido por inteiro: não há saldo a cancelar.';
+    return null;
+  }
+
+  /* Mudanças (relativas ao item) do cancelamento. Quantidade cotada fica
+     proporcional ao recebido, para o valor do pedido refletir só o que
+     entrou; as quantidades antes ficam no próprio `cancelamento`. */
+  function mudancasCancelarItem(it, dados) {
+    dados = dados || {};
+    var rec = numero(it.qtdRecebida), qtdAntes = numero(it.qtd);
+    var cotAntes = it.qtdCotada != null ? numero(it.qtdCotada) : qtdAntes;
+    var cotResidual = qtdAntes > LIMIAR ? Math.round(cotAntes * rec / qtdAntes * 10000) / 10000 : 0;
+    return {
+      cancelado: true,
+      cancelamento: {
+        motivo: texto(dados.motivo).slice(0, 500), por: dados.autor || null, porUid: dados.uid || null,
+        em: dados.agora || new Date().toISOString(),
+        qtdAntes: qtdAntes, qtdCotadaAntes: it.qtdCotada != null ? numero(it.qtdCotada) : null,
+        qtdEmUnidadeEstoqueAntes: it.qtdEmUnidadeEstoque != null ? numero(it.qtdEmUnidadeEstoque) : null,
+        qtdRecebida: rec
+      },
+      qtd: rec,
+      qtdCotada: cotResidual,
+      qtdEmUnidadeEstoque: rec
+    };
+  }
+
+  var MOTIVO_ITEM_MINIMO = 5;
+  function validarMotivoItem(m) {
+    return texto(m).length < MOTIVO_ITEM_MINIMO ? 'Diga por que o material foi cancelado (mínimo ' + MOTIVO_ITEM_MINIMO + ' caracteres).' : null;
+  }
+
+  /* Item novo. `dados` = {materialCodigo, materialNome, unidade (estoque),
+     qtdCotada, unidadeCotada, fatorConversao, qtdEmUnidadeEstoque,
+     unidadeDiferente, precoUnit, vinculo, autor, uid, agora, revisao}. */
+  function novoItem(dados) {
+    dados = dados || {};
+    return {
+      materialCodigo: texto(dados.materialCodigo), materialNome: texto(dados.materialNome), unidade: texto(dados.unidade),
+      qtd: qtdAReceberApos({}, { qtdCotada: dados.qtdCotada, unidadeDiferente: !!dados.unidadeDiferente,
+        qtdEmUnidadeEstoque: dados.qtdEmUnidadeEstoque }),
+      qtdCotada: dados.qtdCotada != null ? numero(dados.qtdCotada) : null,
+      unidadeCotada: dados.unidadeCotada || null,
+      fatorConversao: dados.fatorConversao != null ? dados.fatorConversao : null,
+      qtdEmUnidadeEstoque: dados.qtdEmUnidadeEstoque != null ? dados.qtdEmUnidadeEstoque : null,
+      precoUnit: dados.precoUnit != null ? numero(dados.precoUnit) : null,
+      obs: '', qtdRecebida: 0, origemSolicitacaoKey: null,
+      vinculo: dados.vinculo || null,
+      adicionado: { por: dados.autor || null, porUid: dados.uid || null, em: dados.agora || new Date().toISOString(),
+        revisao: dados.revisao != null ? dados.revisao : null }
+    };
+  }
+
+  /* Vínculo (cliente/pedido) sugerido para o item novo: o do primeiro item
+     ativo do pedido. Ajustável depois no botão "Cliente/pedido". */
+  function vinculoSugerido(pc) {
+    var itens = (pc && pc.itens) || {};
+    var ks = Object.keys(itens);
+    for (var i = 0; i < ks.length; i++) {
+      if (!itemCancelado(itens[ks[i]]) && itens[ks[i]].vinculo) return JSON.parse(JSON.stringify(itens[ks[i]].vinculo));
+    }
+    return null;
+  }
+
+  /* Conferência dos itens novos e do pedido depois da edição. */
+  function conferirItens(pc, mudancas) {
+    var antes = (pc && pc.itens) || {};
+    var novos = Object.keys(mudancas || {}).filter(function(c) { return /^itens\/[^/]+$/.test(c) && !antes[c.slice(6)]; });
+    if (novos.length && pc.status === 'CANCELADO') return 'O pedido está cancelado: não dá para adicionar material.';
+    for (var i = 0; i < novos.length; i++) {
+      var it = mudancas[novos[i]] || {};
+      if (!texto(it.materialCodigo)) return 'Escolha o material da linha nova na lista de sugestões.';
+      if (!(numero(it.qtdCotada != null ? it.qtdCotada : it.qtd) > 0)) return 'Informe a quantidade do material ' + it.materialCodigo + '.';
+    }
+    var depois = aplicarMudancas(pc, mudancas).itens || {};
+    var ativos = {};
+    var dup = null;
+    Object.keys(depois).forEach(function(k) {
+      var it = depois[k] || {};
+      if (itemCancelado(it) || !texto(it.materialCodigo)) return;
+      if (ativos[it.materialCodigo] && !dup) dup = it.materialCodigo;
+      ativos[it.materialCodigo] = true;
+    });
+    if (dup) return 'O material ' + dup + ' já está no pedido: altere a quantidade da linha existente em vez de adicionar outra.';
+    var temAtivo = Object.keys(ativos).length > 0;
+    var temRecebido = Object.keys(depois).some(function(k) { return numero(depois[k].qtdRecebida) > LIMIAR; });
+    if (pc.status !== 'CANCELADO' && !temAtivo && !temRecebido) {
+      return 'Todos os materiais ficariam cancelados sem nada recebido: isso é cancelar o pedido inteiro (botão Cancelar, administrador).';
+    }
+    return null;
+  }
+
   /* Monta a revisão a gravar em edicoes/{id}. {erro} se não pode. */
   function montarRevisao(pc, mudancas, dados) {
     dados = dados || {};
@@ -179,6 +327,8 @@
     if (!av.pode) return { erro: av.motivo };
     var ej = validarJustificativa(dados.justificativa);
     if (ej) return { erro: ej };
+    var ei = conferirItens(pc, mudancas);
+    if (ei) return { erro: ei };
     var lista = alteracoes(pc, mudancas);
     if (!lista.length && !dados.rotaAlterada) return { erro: 'Nada foi alterado no pedido.' };
     var statusApos = statusAposEdicao(aplicarMudancas(pc, mudancas));
@@ -211,7 +361,10 @@
     JUSTIFICATIVA_MINIMA: JUSTIFICATIVA_MINIMA,
     avaliarEdicao: avaliarEdicao, aplicarMudancas: aplicarMudancas, statusAposEdicao: statusAposEdicao, validarJustificativa: validarJustificativa,
     qtdAReceberApos: qtdAReceberApos, conferirRecebido: conferirRecebido,
-    alteracoes: alteracoes, montarRevisao: montarRevisao, revisoes: revisoes
+    alteracoes: alteracoes, montarRevisao: montarRevisao, revisoes: revisoes,
+    itemCancelado: itemCancelado, saldoItem: saldoItem, avaliarCancelarItem: avaliarCancelarItem,
+    mudancasCancelarItem: mudancasCancelarItem, validarMotivoItem: validarMotivoItem,
+    novoItem: novoItem, vinculoSugerido: vinculoSugerido, conferirItens: conferirItens
   };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.EdicaoPC = api;

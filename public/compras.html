@@ -655,6 +655,12 @@
           <tbody id="pcEditItens"></tbody>
         </table>
       </div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin:-8px 0 14px">
+        <div>
+          <button type="button" class="btn btn-ghost btn-sm" id="pcEditAddItem" title="Acrescentar um material a este pedido">+ Adicionar material</button>
+          <div class="field-hint" style="max-width:340px">Material cancelado continua no pedido como histórico, riscado e com o motivo; só o saldo que falta receber é cancelado.</div>
+        </div>
+      </div>
       <div style="text-align:right;font-size:13px;margin-bottom:14px">
         Soma dos itens: <b id="pcEditTotal">—</b>
         <div class="field-hint">Sem impostos e sem frete — o documento abre os dois em linhas próprias.</div>
@@ -720,7 +726,7 @@
     <div class="modal-body" data-ui="dialog-body">
       <div class="section-note" style="margin-bottom:12px">
         Confira de onde o material sai e para onde vai. Itens, preços e condições não mudam aqui —
-        para corrigir o pedido, peça ao administrador.
+        para corrigir o pedido, use ✏️ Editar (administrador ou setor de Compras).
       </div>
       <div id="pcEnvRotaEditor"></div>
     </div>
@@ -2086,6 +2092,12 @@ function renderPedidos() {
         return 'Serviço: ' + escapeHtml(ServicoCompra.nomeItem(i)) + ' (' + fmtNum(i.qtd) + ' ' + escapeHtml(i.unidade || '') + ')' +
           (i.atestado ? ' <span class="badge badge-green" title="' + escapeAttr('Atestado por ' + (i.atestado.por || '—') + ' em ' + fmtData(i.atestado.em) + (i.atestado.obs ? ' · ' + i.atestado.obs : '')) + '">atestado</span>' : '');
       }
+      // Material cancelado segue listado, riscado (histórico do pedido).
+      if (EdicaoPC.itemCancelado(i)) {
+        var ci = i.cancelamento || {};
+        return '<s style="color:var(--muted)">' + escapeHtml(i.materialCodigo) + (i.materialNome ? ' — ' + escapeHtml(i.materialNome) : '') + '</s>' +
+          ' <span class="badge badge-red" title="' + escapeAttr('Cancelado por ' + (ci.por || '—') + ' em ' + fmtData(ci.em) + ' · ' + (ci.motivo || '')) + '">cancelado</span>';
+      }
       return escapeHtml(i.materialCodigo) + (i.materialNome ? ' — ' + escapeHtml(i.materialNome) : '') + ' (' + fmtNum(i.qtd) + ' ' + escapeHtml(i.unidade || '') + ')';
     }).join(', ');
     var statusBadge = {
@@ -2355,14 +2367,48 @@ function faixaRevisaoDocumentoPC(pc) {
     '<div style="font-size:11px;margin-top:4px;color:#1d1d1f">Revisado em ' + escapeHtml(r.em ? new Date(r.em).toLocaleString('pt-BR') : '—') +
     ' por ' + escapeHtml(r.por || '—') + '. Motivo: ' + escapeHtml(r.justificativa || '—') + '</div></div>';
 }
+/* Material cancelado no documento (18/11): fora da tabela do que o
+   fornecedor deve entregar (sem etiqueta), num quadro "não atender" com o
+   motivo. Se parte chegou antes do cancelamento, a linha fica na tabela só
+   com o que foi entregue, para a soma bater com o que se paga. */
+function pcParaDocumento(pc) {
+  var itens = (pc && pc.itens) || {};
+  if (!Object.keys(itens).some(function(k) { return EdicaoPC.itemCancelado(itens[k]); })) return pc;
+  var copia = JSON.parse(JSON.stringify(pc));
+  copia.itens = {};
+  Object.keys(itens).forEach(function(k) {
+    var it = itens[k];
+    if (!EdicaoPC.itemCancelado(it)) { copia.itens[k] = it; return; }
+    if (Number(it.qtdRecebida) > 0) {
+      copia.itens[k] = Object.assign({}, it, { materialNome: (it.materialNome || '') + ' (entregue; saldo cancelado)' });
+    }
+  });
+  return copia;
+}
+function blocoCanceladosDocumentoPC(pc) {
+  var itens = (pc && pc.itens) || {};
+  var canc = Object.keys(itens).filter(function(k) { return EdicaoPC.itemCancelado(itens[k]); });
+  if (!canc.length) return '';
+  return '<div style="border:2px solid #b91c1c;border-radius:6px;padding:8px 12px;margin-top:14px">' +
+    '<div style="font-weight:800;color:#b91c1c;letter-spacing:.03em">MATERIAIS CANCELADOS — NÃO ATENDER O SALDO</div>' +
+    '<table class="print-table" style="margin-top:6px"><thead><tr><th>Código</th><th>Material</th><th>Pedido antes</th><th>Entregue</th><th>Cancelado em / motivo</th></tr></thead><tbody>' +
+    canc.map(function(k) {
+      var it = itens[k], c = it.cancelamento || {};
+      return '<tr><td><s>' + escapeHtml(it.materialCodigo || '') + '</s></td><td><s>' + escapeHtml(it.materialNome || '') + '</s></td>' +
+        '<td>' + fmtNum(c.qtdCotadaAntes != null ? c.qtdCotadaAntes : c.qtdAntes) + ' ' + escapeHtml(it.unidadeCotada || it.unidade || '') + '</td>' +
+        '<td>' + fmtNum(it.qtdRecebida || 0) + ' ' + escapeHtml(it.unidade || '') + '</td>' +
+        '<td>' + escapeHtml(c.em ? new Date(c.em).toLocaleDateString('pt-BR') : '—') + ' — ' + escapeHtml(c.motivo || '') + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
+}
 function montarDocumentoPedidoCompraComRota(pc, fornecedor) {
-  var html = montarDocumentoPedidoCompra(pc, fornecedor), bloco = blocoRotaDocumentoPC(pc);
+  var html = montarDocumentoPedidoCompra(pcParaDocumento(pc), fornecedor), bloco = blocoRotaDocumentoPC(pc);
   var faixa = faixaCancelamentoDocumentoPC(pc) || faixaRevisaoDocumentoPC(pc);
   // A faixa entra logo depois do <style> inicial, no topo da 1ª página.
   if (faixa) html = html.replace('</style>', '</style>' + faixa);
-  if (!bloco) return html;
   var ancora = '<div class="pcdoc-aviso" style="margin-top:14px">';
-  return html.replace(ancora, bloco + ancora);
+  var extra = (bloco || '') + blocoCanceladosDocumentoPC(pc);
+  if (!extra) return html;
+  return html.replace(ancora, extra + ancora);
 }
 
 function imprimirPedidoCompra(pcKey) {
@@ -2397,7 +2443,8 @@ function abrirModalEtiquetaPC(pcKey) {
   var pc = allPedidosCompra[pcKey];
   if (!pc) return;
   var fornecedorNome = pc.fornecedorNome || '—';
-  var itens = Object.values(pc.itens || {});
+  // Material cancelado não leva etiqueta: o fornecedor não vai mandar.
+  var itens = Object.values(pc.itens || {}).filter(function(it) { return !EdicaoPC.itemCancelado(it); });
   var box = document.getElementById('peItensPC');
   box.innerHTML = itens.length ? itens.map(function(it) {
     var conhecidos = {
@@ -2734,19 +2781,57 @@ function abrirModalEditarPC(key) {
     : 'A rota precisa ser confirmada antes de liberar este pedido à Logística.';
 
   document.getElementById('pcEditItens').innerHTML = Object.entries(pc.itens || {}).map(function(e) {
-    var ik = e[0], it = e[1];
-    var op = unidadesDoItemPC(it);
-    // A unidade é EDITÁVEL. Sem isso, um pedido antigo (criado antes de o
-    // sistema ler a unidade de compra do cadastro) só podia ser "consertado"
-    // distorcendo a quantidade -- foi exatamente o que aconteceu no caso
-    // relatado: trocar 35 kg por "3 rolos" com preço de kg dava R$ 180.
-    var opcoes = op.opcoes.map(function(u) {
-      return '<option value="' + escapeAttr(u) + '"' +
-        (u.toLowerCase() === op.atual.toLowerCase() ? ' selected' : '') + '>' + escapeHtml(u) + '</option>';
-    }).join('');
-    return '<tr>' +
-      '<td style="font-size:12px"><b>' + escapeHtml(it.materialCodigo || '') + '</b>' +
-        (it.materialNome ? '<br><span class="field-hint">' + escapeHtml(it.materialNome) + '</span>' : '') + '</td>' +
+    return linhaEdicaoPCHtml(e[0], e[1], pc, false);
+  }).join('') || '<tr class="pce-vazio"><td colspan="4" class="no-data">Este pedido não tem itens.</td></tr>';
+
+  document.querySelectorAll('#pcEditItens tr').forEach(ligarLinhaEdicaoPC);
+  // Pedido cancelado: corrige o registro, mas não recebe material novo.
+  document.getElementById('pcEditAddItem').style.display = pc.status === 'CANCELADO' ? 'none' : '';
+  recalcularTotaisEdicaoPC();
+  document.getElementById('modalEditarPC').classList.add('open');
+}
+
+/* Uma linha do modal de edição. `novo` = material acrescentado agora (ainda
+   não existe no pedido). Item já cancelado vira linha só de leitura,
+   riscada: o histórico fica visível onde ele aconteceu (18/11). */
+function linhaEdicaoPCHtml(ik, it, pc, novo) {
+  if (EdicaoPC.itemCancelado(it)) {
+    var c = it.cancelamento || {};
+    var valorResidual = it.custoTotalNaDecisao != null ? Number(it.custoTotalNaDecisao) || 0
+      : (Number(it.qtdCotada) || 0) * (Number(it.precoUnit) || 0);
+    return '<tr class="pce-ja-cancelado" data-item="' + escapeAttr(ik) + '" data-valor="' + escapeAttr(String(valorResidual)) + '" style="opacity:.75">' +
+      '<td style="font-size:12px"><s><b>' + escapeHtml(it.materialCodigo || '') + '</b></s>' +
+        (it.materialNome ? '<br><s class="field-hint">' + escapeHtml(it.materialNome) + '</s>' : '') +
+        '<br><span class="badge badge-red">Cancelado</span></td>' +
+      '<td colspan="2" style="font-size:12px">' +
+        'Era ' + fmtNum(c.qtdCotadaAntes != null ? c.qtdCotadaAntes : c.qtdAntes) + ' ' + escapeHtml(it.unidadeCotada || it.unidade || '') +
+        (Number(it.qtdRecebida) > 0 ? ' · recebido ' + fmtNum(it.qtdRecebida) + ' ' + escapeHtml(it.unidade || '') + ' (fica)' : ' · nada recebido') +
+        '<div class="field-hint">' + escapeHtml(c.em ? new Date(c.em).toLocaleString('pt-BR') : '—') + ' · ' + escapeHtml(c.por || '—') +
+        ' — ' + escapeHtml(c.motivo || '') + '</div></td>' +
+      '<td style="text-align:right;font-weight:700">' + (valorResidual ? fmtBRL(valorResidual) : '—') + '</td>' +
+    '</tr>';
+  }
+  var op = unidadesDoItemPC(it);
+  // A unidade é EDITÁVEL. Sem isso, um pedido antigo (criado antes de o
+  // sistema ler a unidade de compra do cadastro) só podia ser "consertado"
+  // distorcendo a quantidade -- foi exatamente o que aconteceu no caso
+  // relatado: trocar 35 kg por "3 rolos" com preço de kg dava R$ 180.
+  var opcoes = op.opcoes.map(function(u) {
+    return '<option value="' + escapeAttr(u) + '"' +
+      (u.toLowerCase() === op.atual.toLowerCase() ? ' selected' : '') + '>' + escapeHtml(u) + '</option>';
+  }).join('');
+  var podeCancelar = !novo && !EdicaoPC.avaliarCancelarItem(pc, ik);
+  var acaoItem = novo
+    ? '<div><span class="badge badge-green">Novo</span> <button type="button" class="btn btn-ghost btn-sm pce-remover" data-item="' + escapeAttr(ik) + '" title="Tirar esta linha nova">× Remover</button></div>'
+    : podeCancelar
+      ? '<div style="margin-top:4px"><button type="button" class="btn btn-danger-ghost btn-sm pce-cancelar" data-item="' + escapeAttr(ik) + '" title="Cancelar o saldo deste material; ele fica no pedido como histórico">✖ Cancelar material</button></div>' +
+        '<input type="text" class="pce-motivo" data-item="' + escapeAttr(ik) + '" maxlength="500" placeholder="Motivo do cancelamento *" style="display:none;width:100%;margin-top:5px">'
+      : '';
+  return '<tr data-item="' + escapeAttr(ik) + '"' + (novo ? ' data-novo="1" data-cod="' + escapeAttr(it.materialCodigo || '') + '"' : '') + '>' +
+      '<td style="font-size:12px"><b class="pce-cod">' + escapeHtml(it.materialCodigo || '') + '</b>' +
+        (it.materialNome ? '<br><span class="field-hint">' + escapeHtml(it.materialNome) + '</span>' : '') +
+        (Number(it.qtdRecebida) > 0 ? '<br><span class="field-hint">Recebido: ' + fmtNum(it.qtdRecebida) + ' ' + escapeHtml(it.unidade || '') + '</span>' : '') +
+        acaoItem + '</td>' +
       '<td>' +
         '<div style="display:flex;gap:6px">' +
           '<input type="number" min="0" step="any" class="pce-qtd" data-item="' + escapeAttr(ik) + '" value="' +
@@ -2763,16 +2848,81 @@ function abrirModalEditarPC(key) {
         escapeAttr(it.precoUnit != null ? it.precoUnit : '') + '" style="width:96px"></td>' +
       '<td class="pce-total" data-item="' + escapeAttr(ik) + '" style="text-align:right;font-weight:700"></td>' +
     '</tr>';
-  }).join('') || '<tr><td colspan="4" class="no-data">Este pedido não tem itens.</td></tr>';
+}
 
-  document.querySelectorAll('.pce-qtd, .pce-preco, .pce-fator').forEach(function(el) {
+function ligarLinhaEdicaoPC(tr) {
+  tr.querySelectorAll('.pce-qtd, .pce-preco, .pce-fator').forEach(function(el) {
     el.addEventListener('input', recalcularTotaisEdicaoPC);
   });
-  document.querySelectorAll('.pce-un').forEach(function(el) {
+  tr.querySelectorAll('.pce-un').forEach(function(el) {
     el.addEventListener('change', recalcularTotaisEdicaoPC);
   });
+  var bc = tr.querySelector('.pce-cancelar');
+  if (bc) bc.addEventListener('click', function() { alternarCancelarItemEdicaoPC(tr); });
+  var br = tr.querySelector('.pce-remover');
+  if (br) br.addEventListener('click', function() { tr.remove(); recalcularTotaisEdicaoPC(); });
+  var mat = tr.querySelector('.pce-mat');
+  if (mat) {
+    attachAutocomplete(mat, materiaisAutocompleteItems, {
+      onSelect: function(item) { escolherMaterialNovoEdicaoPC(tr, item.key); }
+    });
+  }
+}
+
+/* Marca/desmarca o cancelamento do material na linha. Nada é gravado até
+   "Salvar alterações": desfazer aqui é só voltar a linha. */
+function alternarCancelarItemEdicaoPC(tr) {
+  var marcar = tr.getAttribute('data-cancelar') !== '1';
+  tr.setAttribute('data-cancelar', marcar ? '1' : '');
+  tr.style.background = marcar ? 'rgba(185,28,28,.06)' : '';
+  tr.querySelectorAll('.pce-qtd, .pce-preco, .pce-fator, .pce-un').forEach(function(el) { el.disabled = marcar; });
+  var cod = tr.querySelector('.pce-cod');
+  if (cod) cod.style.textDecoration = marcar ? 'line-through' : '';
+  var mot = tr.querySelector('.pce-motivo');
+  if (mot) { mot.style.display = marcar ? '' : 'none'; if (marcar) mot.focus(); }
+  var b = tr.querySelector('.pce-cancelar');
+  if (b) b.textContent = marcar ? '↺ Manter material' : '✖ Cancelar material';
   recalcularTotaisEdicaoPC();
-  document.getElementById('modalEditarPC').classList.add('open');
+}
+
+// "+ Adicionar material": linha com a busca; escolhido o material, vira uma
+// linha completa (quantidade, unidade, conversão, preço) igual às outras.
+function adicionarLinhaNovaEdicaoPC() {
+  var pc = allPedidosCompra[pcEditKey];
+  if (!pc) return;
+  if (pc.status === 'CANCELADO') { showAlert('O pedido está cancelado: não dá para adicionar material.', 'danger'); return; }
+  var tbody = document.getElementById('pcEditItens');
+  var vazio = tbody.querySelector('.pce-vazio');
+  if (vazio) vazio.remove();
+  var ik = db.ref('pedidos_compra').push().key;
+  var tr = document.createElement('tr');
+  tr.setAttribute('data-item', ik);
+  tr.setAttribute('data-novo', '1');
+  tr.innerHTML = '<td colspan="4"><div style="display:flex;gap:6px;align-items:center">' +
+    '<span style="position:relative;flex:1"><input type="text" class="pce-mat" placeholder="Buscar material por código, nome ou fornecedor..." autocomplete="off" style="width:100%"></span>' +
+    '<button type="button" class="btn btn-ghost btn-sm pce-remover" title="Tirar esta linha nova">× Remover</button></div>' +
+    '<div class="field-hint">Escolha o material na lista de sugestões.</div></td>';
+  tbody.appendChild(tr);
+  ligarLinhaEdicaoPC(tr);
+  tr.querySelector('.pce-mat').focus();
+}
+
+function escolherMaterialNovoEdicaoPC(tr, codigo) {
+  var mat = findMaterialByCodigo(codigo);
+  if (!mat) { showAlert('Material não encontrado no cadastro.', 'danger'); return; }
+  var ik = tr.getAttribute('data-item');
+  var pc = allPedidosCompra[pcEditKey] || {};
+  var tmp = document.createElement('tbody');
+  tmp.innerHTML = linhaEdicaoPCHtml(ik, {
+    materialCodigo: mat.mpCodigo, materialNome: mat.mpNome || '', unidade: mat.unidade || '',
+    qtdCotada: null, precoUnit: null, qtdRecebida: 0
+  }, pc, true);
+  var nova = tmp.firstElementChild;
+  tr.replaceWith(nova);
+  ligarLinhaEdicaoPC(nova);
+  recalcularTotaisEdicaoPC();
+  var q = nova.querySelector('.pce-qtd');
+  if (q) q.focus();
 }
 
 /* Unidades possíveis pra um item de PC, e qual está valendo.
@@ -2807,8 +2957,21 @@ function lerLinhaEdicaoPC(tr) {
   if (!qEl) return null;
   var unEl = tr.querySelector('.pce-un'), fEl = tr.querySelector('.pce-fator');
   var fatorCad = unEl ? parseFloat(unEl.getAttribute('data-fatorcad')) : NaN;
+  var cancelar = tr.getAttribute('data-cancelar') === '1';
+  var ikLinha = qEl.getAttribute('data-item');
+  // Cancelando: vale só o que já chegou (quantidade cotada proporcional ao
+  // recebido, shared/edicao-pc.js), com o preço e a unidade de antes.
+  var residual = null;
+  if (cancelar) {
+    var itAntes = (((allPedidosCompra[pcEditKey] || {}).itens) || {})[ikLinha] || {};
+    residual = EdicaoPC.mudancasCancelarItem(itAntes, {}).qtdCotada;
+  }
   return {
-    itemKey: qEl.getAttribute('data-item'),
+    novo: tr.getAttribute('data-novo') === '1',
+    cancelar: cancelar,
+    motivo: cancelar ? ((tr.querySelector('.pce-motivo') || {}).value || '') : '',
+    materialCodigo: tr.getAttribute('data-cod') || '',
+    itemKey: ikLinha,
     unidadeCadastro: unEl ? (unEl.getAttribute('data-cad') || '') : '',
     // O CADASTRO inteiro, não só a unidade: é ele que sabe que 1 rolo = 11,67
     // kg. Passar só a string faria a conversão virar pendência sempre que a
@@ -2819,7 +2982,7 @@ function lerLinhaEdicaoPC(tr) {
       fatorConversao: isNaN(fatorCad) ? null : fatorCad
     },
     resp: {
-      qtdCotada: qEl.value === '' ? null : parseFloat(qEl.value),
+      qtdCotada: cancelar ? residual : (qEl.value === '' ? null : parseFloat(qEl.value)),
       precoUnit: (tr.querySelector('.pce-preco') || {}).value === '' ? null
         : parseFloat((tr.querySelector('.pce-preco') || {}).value),
       unidadeCotada: unEl ? unEl.value : '',
@@ -2831,6 +2994,7 @@ function lerLinhaEdicaoPC(tr) {
 function recalcularTotaisEdicaoPC() {
   var soma = 0;
   document.querySelectorAll('#pcEditItens tr').forEach(function(tr) {
+    if (tr.classList.contains('pce-ja-cancelado')) { soma += parseFloat(tr.getAttribute('data-valor')) || 0; return; }
     var l = lerLinhaEdicaoPC(tr);
     if (!l) return;
     var calc = calcularCustoItemCotacao(l.resp, 0, l.cadastro);
@@ -2889,10 +3053,17 @@ function salvarEdicaoPC() {
   // cotação, aplicada aqui pelo mesmo motivo.
   var freteRatear = (freteTipo === 'FOB' && freteValorTxt !== '') ? parseFloat(freteValorTxt) || 0 : 0;
 
-  var updates = {}, invalido = false, pendencia = null, linhas = [];
+  var updates = {}, invalido = false, pendencia = null, linhas = [], valorJaCancelados = 0, erroItem = null;
   document.querySelectorAll('#pcEditItens tr').forEach(function(tr) {
+    if (tr.classList.contains('pce-ja-cancelado')) { valorJaCancelados += parseFloat(tr.getAttribute('data-valor')) || 0; return; }
+    if (tr.getAttribute('data-novo') === '1' && !tr.querySelector('.pce-qtd')) {
+      erroItem = erroItem || 'Há uma linha de material novo sem material escolhido: escolha na lista ou remova a linha.';
+      return;
+    }
     var l = lerLinhaEdicaoPC(tr);
     if (!l) return;
+    if (l.cancelar) erroItem = erroItem || (EdicaoPC.validarMotivoItem(l.motivo) ? (tr.querySelector('.pce-cod') || {}).textContent + ': ' + EdicaoPC.validarMotivoItem(l.motivo) : null);
+    if (l.novo && !(l.resp.qtdCotada > 0)) erroItem = erroItem || 'Informe a quantidade do material novo ' + l.materialCodigo + '.';
     var q = l.resp.qtdCotada, pr = l.resp.precoUnit;
     if ((q != null && (isNaN(q) || q < 0)) || (pr != null && (isNaN(pr) || pr < 0))) invalido = true;
     var parcial = calcularCustoItemCotacao(l.resp, 0, l.cadastro);
@@ -2906,8 +3077,12 @@ function salvarEdicaoPC() {
     }
     linhas.push({ itemKey: l.itemKey, liquido: parcial.liquido, l: l });
   });
+  if (erroItem) { showAlert(erroItem, 'danger'); return; }
   if (invalido) { showAlert('Quantidade e preço não podem ser negativos.', 'danger'); return; }
   if (pendencia) { showAlert(pendencia, 'danger'); return; }
+  var agoraEd = new Date().toISOString();
+  var proxRevisao = (Number(pc.revisao) || 0) + 1;
+  var vinculoNovos = EdicaoPC.vinculoSugerido(pc);
 
   // Recalcula o custo de cada item com o frete NOVO rateado, e o total do
   // pedido junto. Antes disso, editar só mexia em preço e quantidade: o
@@ -2916,11 +3091,28 @@ function salvarEdicaoPC() {
   var rateio = ratearFreteCotacao(linhas.map(function(x) {
     return { itemKey: x.itemKey, liquido: x.liquido };
   }), freteRatear);
-  var totalRecalc = 0;
+  var totalRecalc = valorJaCancelados;
   linhas.forEach(function(x) {
     var base = 'pedidos_compra/' + pcEditKey + '/itens/' + x.itemKey + '/';
     var calc = calcularCustoItemCotacao(x.l.resp, rateio[x.itemKey] || 0, x.l.cadastro);
     totalRecalc += calc.custoTotal;
+    var qtdEst = calc.qtdCadastro != null ? Math.round(calc.qtdCadastro * 10000) / 10000 : null;
+    if (x.l.novo) {
+      // Material acrescentado nesta revisão: item inteiro, no mesmo formato
+      // do PC direto, com a marca de quem acrescentou e em qual revisão.
+      var mat = findMaterialByCodigo(x.l.materialCodigo) || {};
+      var novo = EdicaoPC.novoItem({
+        materialCodigo: x.l.materialCodigo, materialNome: mat.mpNome || '', unidade: x.l.unidadeCadastro || mat.unidade || '',
+        qtdCotada: x.l.resp.qtdCotada, unidadeCotada: calc.unidadeCotada, fatorConversao: calc.fatorConversao,
+        qtdEmUnidadeEstoque: qtdEst, unidadeDiferente: !!calc.unidadeDiferente, precoUnit: x.l.resp.precoUnit,
+        vinculo: vinculoNovos, autor: currentUserNome(), uid: (window.currentUser && window.currentUser.uid) || null,
+        agora: agoraEd, revisao: proxRevisao
+      });
+      novo.custoUnitarioNaDecisao = calc.custoUnitario != null ? Math.round(calc.custoUnitario * 10000) / 10000 : null;
+      novo.custoTotalNaDecisao = Math.round(calc.custoTotal * 100) / 100;
+      updates['pedidos_compra/' + pcEditKey + '/itens/' + x.itemKey] = novo;
+      return;
+    }
     updates[base + 'qtdCotada'] = x.l.resp.qtdCotada;
     updates[base + 'precoUnit'] = x.l.resp.precoUnit;
     updates[base + 'unidadeCotada'] = calc.unidadeCotada;
@@ -2938,6 +3130,14 @@ function salvarEdicaoPC() {
       qtdCotada: x.l.resp.qtdCotada, unidadeDiferente: !!calc.unidadeDiferente,
       qtdEmUnidadeEstoque: calc.qtdCadastro != null ? Math.round(calc.qtdCadastro * 10000) / 10000 : null
     });
+    if (x.l.cancelar) {
+      // Cancelado fica no pedido como histórico: marca, motivo e saldo a
+      // receber zerado (qtd = recebido), shared/edicao-pc.js.
+      var mc = EdicaoPC.mudancasCancelarItem((pc.itens || {})[x.itemKey] || {}, {
+        motivo: x.l.motivo, autor: currentUserNome(), uid: (window.currentUser && window.currentUser.uid) || null, agora: agoraEd
+      });
+      Object.keys(mc).forEach(function(c) { updates[base + c] = mc[c]; });
+    }
   });
   updates['pedidos_compra/' + pcEditKey + '/valorTotalEstimado'] = Math.round(totalRecalc * 100) / 100;
 
@@ -2962,7 +3162,6 @@ function salvarEdicaoPC() {
   updates['pedidos_compra/' + pcEditKey + '/transporte/acaoLogistica'] = responsavelTransporte === 'KURYOS' ? 'PROGRAMAR_COLETA' : 'AGUARDAR_ENTREGA';
   // Trilha: quem editou e quando. Alterar pedido decidido sem deixar rastro
   // é o tipo de coisa que ninguém consegue explicar três meses depois.
-  var agoraEd = new Date().toISOString();
   updates['pedidos_compra/' + pcEditKey + '/editadoEm'] = agoraEd;
   updates['pedidos_compra/' + pcEditKey + '/editadoPor'] = currentUserNome();
 
@@ -3981,6 +4180,7 @@ function salvarFiscal() {
 document.getElementById('modalEditarPCClose').addEventListener('click', fecharModalEditarPC);
 document.getElementById('pcEditCancelar').addEventListener('click', fecharModalEditarPC);
 document.getElementById('pcEditSalvar').addEventListener('click', salvarEdicaoPC);
+document.getElementById('pcEditAddItem').addEventListener('click', adicionarLinhaNovaEdicaoPC);
 document.getElementById('modalRevisoesPCClose').addEventListener('click', function() { document.getElementById('modalRevisoesPC').classList.remove('open'); });
 document.getElementById('modalRotaEnvioClose').addEventListener('click', fecharModalRotaEnvio);
 document.getElementById('pcEnvCancelar').addEventListener('click', fecharModalRotaEnvio);

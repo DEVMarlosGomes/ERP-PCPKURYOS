@@ -12,6 +12,7 @@ function dados() {
   return {
     'usuarios/u1': {nome: 'Ana Compras', email: 'g@kuryos.com', role: 'admin'},
     config: {locaisKuryos: {FABRICA: {nome: 'Fábrica Kuryos', cnpj: '00.767.554/0001-19', cep: '08290-000', logradouro: 'Rua Lagoa Tai Grande', numero: '1130', bairro: 'Vila Carmosina', cidade: 'São Paulo', uf: 'SP'}}},
+    materiais: {m42: {mpCodigo: 'EP-00042', mpNome: 'Válvula spray', unidade: 'un', ativo: true}},
     fornecedores: {f1: {nomeFantasia: 'LOMAR PACK', cnpj: '33.321.531/0001-35', cep: '07041-030', logradouro: 'Avenida Carlos Ferreira Endres',
       numero: '952', bairro: 'Vila Endres', cidade: 'Guarulhos', uf: 'SP', contatoNome: 'Ana', contatoTelefone: '11 99999-0000'}},
     pedidos_compra: {
@@ -24,6 +25,14 @@ function dados() {
       pc3: {status: 'RECEBIDO_TOTAL', numeroFormatado: 'PC-0033', fornecedorKey: 'f1', fornecedorNome: 'LOMAR PACK',
         dataCriacao: '2026-10-01T10:00:00Z', frete: {tipo: 'CIF'}, localEntrega: 'FABRICA', propriedade: {tipo: 'KURYOS'},
         itens: {m1: {materialCodigo: 'EP-00038', materialNome: 'Válvula', qtd: 100, qtdCotada: 100, unidade: 'un', precoUnit: 1, qtdRecebida: 100, vinculo: {geral: true}}}},
+      pc5: {status: 'RECEBIDO_PARCIAL', numeroFormatado: 'PC-0035', fornecedorKey: 'f1', fornecedorNome: 'LOMAR PACK',
+        dataCriacao: '2026-10-01T10:00:00Z', frete: {tipo: 'CIF'}, localEntrega: 'FABRICA', propriedade: {tipo: 'KURYOS'},
+        itens: {
+          k1: {materialCodigo: 'EP-00040', materialNome: 'Frasco 100 ml', qtd: 100, qtdCotada: 100, unidade: 'un', precoUnit: 2, qtdRecebida: 30, vinculo: {geral: true}},
+          k2: {materialCodigo: 'EP-00041', materialNome: 'Tampa 24', qtd: 50, qtdCotada: 50, unidade: 'un', precoUnit: 1, qtdRecebida: 0, vinculo: {geral: true}},
+          k3: {materialCodigo: 'EP-00043', materialNome: 'Rótulo antigo', qtd: 0, qtdCotada: 0, qtdEmUnidadeEstoque: 0, unidade: 'un', precoUnit: 1, qtdRecebida: 0, vinculo: {geral: true},
+            cancelado: true, cancelamento: {motivo: 'Arte mudou', por: 'Ana', em: '2026-11-01T10:00:00Z', qtdAntes: 10, qtdCotadaAntes: 10, qtdRecebida: 0}}
+        }},
       pc4: {status: 'CANCELADO', numeroFormatado: 'PC-0034', fornecedorKey: 'f1', fornecedorNome: 'LOMAR PACK',
         dataCriacao: '2026-10-01T10:00:00Z', frete: {tipo: 'CIF'}, localEntrega: 'FABRICA', propriedade: {tipo: 'KURYOS'},
         cancelamento: {canceladoPor: 'Ana', canceladoEm: '2026-10-05T10:00:00Z', motivo: 'Fornecedor sem estoque', statusAnterior: 'ENVIADO'},
@@ -187,6 +196,72 @@ function dados() {
     assert.equal(v4.itens.n1.precoUnit, 1.1);
     assert.equal(v4.revisao, 1);
 
+    // ── Cancelar e adicionar material (18/11) ────────────────────────────
+    await page.selectOption('#pcFilterStatus', 'ativos');
+    await page.waitForSelector('.pc-editar[data-key="pc5"]');
+    // Material já cancelado aparece riscado na lista do pedido.
+    assert.match(await page.locator('tr:has(.pc-editar[data-key="pc5"])').innerText(), /cancelado/);
+    await page.evaluate(() => { window.__writes.length = 0; });
+    await page.click('.pc-editar[data-key="pc5"]');
+    await page.waitForSelector('#modalEditarPC.open');
+    assert.equal(await page.locator('#pcEditItens tr.pce-ja-cancelado').count(), 1, 'cancelado antes: linha de histórico');
+    assert.equal(await page.locator('#pcEditItens .pce-cancelar').count(), 2, 'k1 (parcial) e k2 podem ser cancelados');
+    await page.click('.pce-cancelar[data-item="k1"]');
+    assert.equal(await page.locator('.pce-qtd[data-item="k1"]').isDisabled(), true);
+    // Sem motivo do item: não grava.
+    await page.check('#pcEditRotaConfirmada');
+    await page.fill('#pcEditJustificativa', 'Fornecedor descontinuou o frasco; troca pela válvula');
+    await page.click('#pcEditSalvar');
+    await page.waitForTimeout(150);
+    assert.equal(await page.evaluate(() => window.__writes.length), 0, 'sem motivo do material não grava');
+    await page.fill('.pce-motivo[data-item="k1"]', 'Fornecedor descontinuou');
+    // Adicionar: linha nova com a busca de material.
+    await page.click('#pcEditAddItem');
+    await page.waitForSelector('#pcEditItens tr[data-novo="1"] .pce-mat');
+    await page.click('#pcEditSalvar');
+    await page.waitForTimeout(150);
+    assert.equal(await page.evaluate(() => window.__writes.length), 0, 'linha nova sem material não grava');
+    await page.fill('#pcEditItens tr[data-novo="1"] .pce-mat', 'EP-00042');
+    const opcao = page.locator('.kt-ac-item').first();
+    await opcao.waitFor({timeout: 3000});
+    await opcao.click();
+    await page.waitForSelector('#pcEditItens tr[data-novo="1"] .pce-qtd');
+    await page.fill('#pcEditItens tr[data-novo="1"] .pce-qtd', '200');
+    await page.fill('#pcEditItens tr[data-novo="1"] .pce-preco', '0.5');
+    await page.click('#pcEditSalvar');
+    await page.waitForFunction(() => window.__writes.some((w) => w.op === 'transaction' && w.path === 'pedidos_compra/pc5'));
+    const v5 = await page.evaluate(() => window.__writes.find((w) => w.op === 'transaction').v);
+    // Cancelado fica no pedido, com histórico, e o saldo zera no recebido.
+    assert.equal(v5.itens.k1.cancelado, true);
+    assert.equal(v5.itens.k1.qtd, 30, 'saldo a receber = recebido');
+    assert.equal(v5.itens.k1.qtdRecebida, 30);
+    assert.equal(v5.itens.k1.cancelamento.motivo, 'Fornecedor descontinuou');
+    assert.equal(v5.itens.k1.cancelamento.qtdAntes, 100);
+    assert.equal(v5.itens.k1.qtdCotada, 30);
+    assert.equal(v5.itens.k3.cancelado, true, 'cancelado antigo intacto');
+    assert.equal(v5.itens.k2.qtd, 50, 'item intocado igual');
+    const novos = Object.entries(v5.itens).filter(([k]) => !['k1', 'k2', 'k3'].includes(k));
+    assert.equal(novos.length, 1);
+    const [, novo] = novos[0];
+    assert.equal(novo.materialCodigo, 'EP-00042');
+    assert.deepEqual([novo.qtd, novo.qtdCotada, novo.precoUnit, novo.qtdRecebida], [200, 200, 0.5, 0]);
+    assert.deepEqual(novo.vinculo, {geral: true});
+    assert.equal(novo.adicionado.por, 'Ana Compras');
+    assert.equal(novo.adicionado.revisao, 1);
+    // Valor: 30 × 2 (entregue do k1) + 50 × 1 + 0 (k3) + 200 × 0,5.
+    assert.equal(v5.valorTotalEstimado, 210);
+    const rev5 = Object.values(v5.edicoes)[0];
+    assert.deepEqual(rev5.alteracoes.map((a) => a.rotulo).filter((r) => /Material/.test(r)).sort(), ['Material adicionado', 'Material cancelado']);
+    assert.equal(v5.status, 'RECEBIDO_PARCIAL');
+
+    // Documento: cancelado fora da tabela a atender, em quadro próprio, com o motivo; sem etiqueta.
+    const doc5 = await page.evaluate((nv) => montarDocumentoPedidoCompraComRota(nv, allFornecedores.f1), v5);
+    assert.match(doc5, /MATERIAIS CANCELADOS — NÃO ATENDER O SALDO/);
+    assert.match(doc5, /Fornecedor descontinuou/);
+    assert.match(doc5, /Arte mudou/);
+    assert.match(doc5, /entregue; saldo cancelado/);
+    assert.match(doc5, /EP-00042/);
+
     // ── Quem pode: ADM e setor de Compras (18/11) ───────────────────────
     const pode = await page.evaluate(() => {
       const salvo = window.currentUser, r = {};
@@ -201,7 +276,7 @@ function dados() {
     assert.deepEqual(pode, {pcp: true, modCompras: true, qualidade: false, producao: false});
 
     assert.deepEqual(errors, [], 'erros de página: ' + errors.join(' | '));
-    console.log('OK Edição de PC com justificativa: qualquer status (enviado, parcial, total, cancelado), status recalculado, revisão, saldo a receber, trava do recebido, documento.');
+    console.log('OK Edição de PC com justificativa: cancelar/adicionar material (histórico), qualquer status (enviado, parcial, total, cancelado), status recalculado, revisão, saldo a receber, trava do recebido, documento.');
   } finally {
     await browser.close();
   }

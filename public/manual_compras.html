@@ -167,14 +167,27 @@
 
   <div class="section-title"><span class="icon">✏️</span> 5. Corrigir um pedido</div>
   <p class="txt">
-    Um administrador pode editar o PC <b>enquanto ele estiver ABERTO</b>. Depois de
-    <b>Marcar Enviado</b>, não — o fornecedor já tem o documento em mãos, e mudar no sistema sem
-    ele saber cria exatamente a divergência que a página impressa existe para evitar.
+    O administrador e quem tem o módulo <b>Compras</b> podem editar o PC em <b>qualquer status</b>
+    (aberto, enviado, recebido em parte ou por inteiro, e até cancelado, para corrigir o registro).
+    Toda edição pede <b>justificativa</b> e vira uma <b>revisão</b> (botão 🕘 Rev. N: quem, quando,
+    por quê e o "de → para"). Depois de enviado, o documento sai como <b>REVISÃO N</b>: reimprima e
+    reenvie ao fornecedor, senão ele trabalha com a versão antiga.
   </p>
   <p class="txt">
     Na edição dá para corrigir quantidade, preço, <b>unidade</b>, conversão, frete, prazos e local
     de entrega. Ao salvar, o total é recalculado inteiro — tirar o frete faz o total baixar.
-    <b>Reimprima o documento antes de enviar.</b>
+    A quantidade não pode ficar abaixo do que já foi recebido; em pedido recebido, aumentar reabre
+    o saldo (volta a Recebido parcial) e baixar até o recebido fecha.
+  </p>
+  <p class="txt">
+    <b>Cancelar um material:</b> ✖ Cancelar material na linha, com o motivo. O material
+    <b>continua no pedido como histórico</b>, riscado, com motivo, quem e quando; só o saldo que
+    falta receber é cancelado (o que já chegou fica valendo) e a Logística deixa de esperá-lo.
+    Cancelar todos os materiais sem nada recebido é cancelar o pedido: use o botão Cancelar
+    (administrador). <b>Adicionar um material:</b> + Adicionar material, escolha na lista e informe
+    quantidade e preço; ele entra com o mesmo cliente/pedido dos outros itens (ajuste em
+    🔗 Cliente/pedido, se for outro). No documento, o cancelado sai num quadro
+    "não atender o saldo" e não leva etiqueta.
   </p>
   <div class="note-card">
     <strong>Pedido antigo pede confirmação de unidade.</strong> Pedidos criados antes de o sistema

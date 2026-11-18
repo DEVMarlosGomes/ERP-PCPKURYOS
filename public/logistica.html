@@ -464,6 +464,12 @@ function renderReceberList() {
       var qtd = parseFloat(it.qtd) || 0;
       var qtdRec = parseFloat(it.qtdRecebida) || 0;
       var restante = Math.max(0, qtd - qtdRec);
+      // Material cancelado no PC (compras.html, 18/11): fica como histórico, sem saldo.
+      if (it.cancelado === true) {
+        return '<tr style="opacity:.7"><td><s>' + escapeHtml(it.materialCodigo) + ' — ' + escapeHtml(it.materialNome || '') + '</s></td>' +
+          '<td>—</td><td>' + fmtNum(qtdRec) + ' ' + escapeHtml(it.unidade || '') + '</td>' +
+          '<td><span class="badge badge-red" title="' + escapeAttr((it.cancelamento && it.cancelamento.motivo) || '') + '">Cancelado</span></td></tr>';
+      }
       var itemBadge = restante <= 0 ? '<span class="badge badge-green">Completo</span>' : (qtdRec > 0 ? '<span class="badge badge-purple">Parcial</span>' : '<span class="badge badge-gray">Pendente</span>');
       return '<tr><td>' + escapeHtml(it.materialCodigo) + ' — ' + escapeHtml(it.materialNome || '') + '</td>' +
         '<td>' + fmtNum(qtd) + ' ' + escapeHtml(it.unidade || '') + '</td>' +
@@ -956,7 +962,8 @@ function openModalReceber(key) {
   SeletorEndereco.ligar(document.getElementById('modalReceber'), {fonte: fonteEnderecosRecebimento});
   var vinculoPc = renderPropriedadeRecebimento(p);
   var lista = document.getElementById('rcItensBody');
-  var itens = ServicoCompra.itensFisicos(p);
+  // Material cancelado no PC não se recebe: o saldo dele é zero.
+  var itens = ServicoCompra.itensFisicos(p).filter(function(e) { return e[1].cancelado !== true; });
   lista.innerHTML = itens.map(function(entry) {
     var itemKey = entry[0], it = entry[1];
     var qtd = parseFloat(it.qtd) || 0;
