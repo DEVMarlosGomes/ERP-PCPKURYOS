@@ -168,4 +168,25 @@ eq(pi.updates['ctl/indices/2026-09'].lancadoPor, 'Ctl', 'usuário do lançamento
 const b3 = aplicar(b1, pi.updates);
 ok(Object.keys(CtlSrv.prepararIndices(b3, { competencia: '2026-09', meses: 1, informados: {} }, ctlUser, AGORA).updates).some((k) => k.indexOf('ctl/indices_historico/2026-09/') === 0), 'relançar guarda o retrato anterior');
 
+// ── 7. A4: DRE "Orçado" e "Realizado × Orçado" (Informação do WebMais) ────
+const ctlOrc = Object.assign({}, ctl, { orcamento: { 2026: { RECEITA_BRUTA: { COMERCIAL: { '09': 250000 } }, DESP_ADM: { ADMINISTRATIVO: { '09': 50000 }, _: { '09': 1000 } } } } });
+const so = Ger.dreGerencial(ctlOrc, { de: '2026-09', ate: '2026-09', informacao: 'ORCADO' });
+eq(so.informacao, 'ORCADO', 'informação orçado');
+eq(so.linhas.find((l) => l.codigo === '1').total, 250000, 'orçado: receita positiva');
+eq(so.linhas.find((l) => l.codigo === '9').total, -51000, 'orçado: despesa negativa (sinal do WebMais), com o centro "_" como sem centro');
+eq(so.linhas.find((l) => l.codigo === '12').total, 250000 - 51000, 'orçado: cascata até o resultado');
+const cmp = Ger.dreGerencial(ctlOrc, { de: '2026-09', ate: '2026-09', informacao: 'COMPARATIVO', elementos: base.fin.elementos });
+const oxr = Ctl.orcamentoXReal(ctlOrc, '2026');
+const lRec = cmp.linhas.find((l) => l.tipo === 'CONTA' && l.chave === 'RECEITA_BRUTA');
+const xRec = oxr.find((l) => l.conta === 'RECEITA_BRUTA' && l.cc === 'COMERCIAL');
+de([lRec.total, lRec.totalOrcado], [xRec.real, xRec.orcado], 'comparativo: receita realizada e orçada iguais às da aba Orçamento × real');
+eq(lRec.variacao, xRec.variacao, 'variação igual à da aba Orçamento × real');
+const lAdm = cmp.linhas.find((l) => l.tipo === 'CONTA' && l.chave === 'DESP_ADM' && l.codigo.indexOf('9.') === 0);
+const xAdm = oxr.find((l) => l.conta === 'DESP_ADM' && l.cc === 'ADMINISTRATIVO');
+de([-lAdm.total, -lAdm.totalOrcado], [xAdm.real, xAdm.orcado], 'despesa: mesmos valores (sinal invertido, como o WebMais imprime)');
+ok(!cmp.linhas.some((l) => l.tipo === 'ELEMENTO'), 'elemento não tem orçado: o comparativo fica no nível conta × centro');
+const lCpv = cmp.linhas.find((l) => l.tipo === 'CONTA' && l.chave === 'CPV');
+ok(lCpv && lCpv.total < 0 && lCpv.totalOrcado === 0 && lCpv.variacaoPct === null, 'conta sem orçado: orçado 0 e variação % "não medida" (null), nunca infinita');
+eq(cmp.linhas.find((l) => l.codigo === '12').total, Ger.dreGerencial(ctlOrc, { de: '2026-09', ate: '2026-09' }).linhas.find((l) => l.codigo === '12').total, 'o realizado do comparativo é o mesmo da DRE realizada');
+
 console.log(`OK controladoria gerencial: ${n} asserções — bloqueio de período por módulo (Financeiro e ajuste respeitam), DRE grupo › centro › elemento com periodicidade/filtro/zerados, índices gerenciais com "não medido", export Domínio com inconsistências.`);

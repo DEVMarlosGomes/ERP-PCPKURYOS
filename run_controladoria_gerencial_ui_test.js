@@ -126,6 +126,11 @@ async function abrir(browser, dados, largura) {
     const [down] = await Promise.all([page.waitForEvent('download'), page.click('#dgCsv')]);
     const csv = fs.readFileSync(await down.path(), 'utf8').replace(/^\uFEFF/, '');
     ok(/^Discriminação;/.test(csv) && /1600 - ÁGUA/.test(csv), 'CSV da DRE');
+    // A4: Informação Realizado × Orçado
+    await page.selectOption('#dgInfo', 'COMPARATIVO');
+    txt = await page.locator('#conteudo').innerText();
+    ok(/Realizado\s+Orçado\s+Variação\s+Var\. %/.test(txt) && !/NaN|Infinity|undefined/.test(txt), 'DRE: Realizado × Orçado com colunas de orçado e variação');
+    await page.selectOption('#dgInfo', 'REALIZADO');
     // Índices gerenciais
     await page.click('.aba[data-aba="indices"]');
     await page.waitForSelector('#ixLancar');

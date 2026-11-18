@@ -9,7 +9,7 @@
   var Ctl = Controladoria;
   var ctl = null, avisos = [];
   var S = {aba: 'dre', comp: null, nivel: 'cliente', ano: null, conta: '', linhasAj: 2,
-    dg: {de: null, ate: null, per: 'MENSAL', cc: '', zer: false}, ixMeses: 12};
+    dg: {de: null, ate: null, per: 'MENSAL', cc: '', zer: false, info: 'REALIZADO'}, ixMeses: 12};
   var Ger = ControladoriaGerencial, elementosFin = {};
 
   function el(id) { return document.getElementById(id); }
@@ -205,26 +205,30 @@
       '<div><label for="dgAte">Até (mês)</label><input class="inp" type="month" id="dgAte" value="' + e(g.ate) + '"></div>' +
       '<div><label for="dgPer">Periodicidade</label><select class="sel" id="dgPer">' + Object.keys(Ger.PERIODICIDADES).map(function(k) { return '<option value="' + k + '"' + (g.per === k ? ' selected' : '') + '>' + k.charAt(0) + k.slice(1).toLowerCase() + '</option>'; }).join('') + '</select></div>' +
       '<div><label for="dgCc">Centro de custo</label><select class="sel" id="dgCc"><option value="">Todos</option>' + Object.keys(cs).map(function(k) { return '<option value="' + k + '"' + (g.cc === k ? ' selected' : '') + '>' + e(cs[k].nome) + '</option>'; }).join('') + '<option value="_SEM"' + (g.cc === '_SEM' ? ' selected' : '') + '>Sem centro de custo</option></select></div>' +
+      '<div><label for="dgInfo">Informação</label><select class="sel" id="dgInfo">' + Object.keys(Ger.INFORMACOES).map(function(k) { return '<option value="' + k + '"' + (g.info === k ? ' selected' : '') + '>' + e(Ger.INFORMACOES[k]) + '</option>'; }).join('') + '</select></div>' +
       '<div><label><input type="checkbox" id="dgZer"' + (g.zer ? ' checked' : '') + '> Mostrar zerado</label></div></div>' +
       '<div class="dica">Mesmo desenho do relatório de D.R.E do WebMais: grupo › centro de custo › elemento (ou conta, quando o lançamento não tem elemento). Os valores são os mesmos lançamentos da aba DRE; aqui as despesas comerciais entram como <b>despesas variáveis</b> antes da margem, como no WebMais. Gasto por elemento pelo caixa fica no Financeiro › Relatórios › Gastos por centro de custo e elemento.</div></div>';
-    var r = Ger.dreGerencial(ctl, {de: g.de, ate: g.ate, periodicidade: g.per, cc: g.cc || null, mostrarZerado: g.zer, elementos: elementosFin});
+    var r = Ger.dreGerencial(ctl, {de: g.de, ate: g.ate, periodicidade: g.per, cc: g.cc || null, mostrarZerado: g.zer, elementos: elementosFin, informacao: g.info});
     if (!r.ok) return h + '<div class="alerta warn"><div>' + e(r.motivo) + '</div></div>';
-    if (!r.documentos && !g.zer) return h + '<div class="card"><div class="vazio"><b>Nenhum lançamento de resultado no período.</b>Marque "Mostrar zerado" para ver a estrutura completa.</div></div>';
+    if (!r.documentos && !r.orcados && !g.zer) return h + '<div class="card"><div class="vazio"><b>Nada ' + (g.info === 'ORCADO' ? 'orçado' : 'lançado') + ' no período.</b>Marque "Mostrar zerado" para ver a estrutura completa' + (g.info !== 'REALIZADO' ? ' ou cadastre o orçamento na aba Orçamento × real' : '') + '.</div></div>';
+    var cmp = r.informacao === 'COMPARATIVO';
     h += '<div class="card"><div class="barra"><h3 style="margin:0">Relatório de D.R.E — ' + e(mesBR(g.de)) + (g.ate !== g.de ? ' a ' + e(mesBR(g.ate)) : '') + '</h3><button class="btn sm" id="dgCsv">Exportar (CSV)</button></div><div class="tw"><table class="dre"><thead><tr><th>Discriminação</th>' +
-      r.colunas.map(function(c) { return '<th class="n">' + e(c.rotulo) + '</th>'; }).join('') + (r.colunas.length > 1 ? '<th class="n">Total</th>' : '') + '</tr></thead><tbody>' +
+      r.colunas.map(function(c) { return '<th class="n">' + e(c.rotulo) + '</th>'; }).join('') + (r.colunas.length > 1 || cmp ? '<th class="n">' + (cmp ? 'Realizado' : 'Total') + '</th>' : '') +
+      (cmp ? '<th class="n">Orçado</th><th class="n">Variação</th><th class="n">Var. %</th>' : '') + '</tr></thead><tbody>' +
       r.linhas.map(function(l) {
         var pad = l.nivel * 18, peso = l.nivel === 2 ? 'font-weight:400' : 'font-weight:700';
         return '<tr' + (l.tipo === 'TOTAL' ? ' class="tot"' : '') + '><td style="padding-left:' + (8 + pad) + 'px;' + peso + '">' + e(l.rotulo) + '</td>' +
-          r.colunas.map(function(c) { return '<td class="n" style="' + peso + '">' + brl(l.valores[c.chave] || 0) + '</td>'; }).join('') + (r.colunas.length > 1 ? '<td class="n" style="' + peso + '">' + brl(l.total) + '</td>' : '') + '</tr>';
+          r.colunas.map(function(c) { return '<td class="n" style="' + peso + '">' + brl(l.valores[c.chave] || 0) + '</td>'; }).join('') + (r.colunas.length > 1 || cmp ? '<td class="n" style="' + peso + '">' + brl(l.total) + '</td>' : '') +
+          (cmp ? '<td class="n" style="' + peso + '">' + brl(l.totalOrcado) + '</td><td class="n" style="' + peso + '">' + brl(l.variacao) + '</td><td class="n" style="' + peso + '">' + (l.variacaoPct == null ? '<span class="mut">—</span>' : pct(l.variacaoPct)) + '</td>' : '') + '</tr>';
       }).join('') + '</tbody></table></div></div>';
     return h;
   }
   function csvDreGerencial() {
-    var g = S.dg, r = Ger.dreGerencial(ctl, {de: g.de, ate: g.ate, periodicidade: g.per, cc: g.cc || null, mostrarZerado: g.zer, elementos: elementosFin});
+    var g = S.dg, r = Ger.dreGerencial(ctl, {de: g.de, ate: g.ate, periodicidade: g.per, cc: g.cc || null, mostrarZerado: g.zer, elementos: elementosFin, informacao: g.info});
     if (!r.ok) return '';
-    var cel = function(c) { return (c / 100).toFixed(2).replace('.', ','); };
-    return ['Discriminação;' + r.colunas.map(function(c) { return c.rotulo; }).join(';') + ';Total'].concat(r.linhas.map(function(l) {
-      return '"' + l.rotulo.replace(/"/g, '""') + '";' + r.colunas.map(function(c) { return cel(l.valores[c.chave] || 0); }).join(';') + ';' + cel(l.total);
+    var cel = function(c) { return c == null ? '' : (c / 100).toFixed(2).replace('.', ','); }, cmp = r.informacao === 'COMPARATIVO';
+    return ['Discriminação;' + r.colunas.map(function(c) { return c.rotulo; }).join(';') + ';Total' + (cmp ? ';Orçado;Variação' : '')].concat(r.linhas.map(function(l) {
+      return '"' + l.rotulo.replace(/"/g, '""') + '";' + r.colunas.map(function(c) { return cel(l.valores[c.chave] || 0); }).join(';') + ';' + cel(l.total) + (cmp ? ';' + cel(l.totalOrcado) + ';' + cel(l.variacao) : '');
     })).join('\r\n');
   }
 
@@ -417,6 +421,7 @@
     if (t.id === 'dgPer') { S.dg.per = t.value; render(); }
     if (t.id === 'dgCc') { S.dg.cc = t.value; render(); }
     if (t.id === 'dgZer') { S.dg.zer = t.checked; render(); }
+    if (t.id === 'dgInfo') { S.dg.info = t.value; render(); }
     if (t.id === 'ixMeses') { var nm = Math.round(Number(t.value)); if (nm >= 1 && nm <= 24) { S.ixMeses = nm; render(); } }
   });
 

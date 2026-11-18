@@ -102,55 +102,93 @@
     }
     return cols;
   }
-  // o: {de, ate (AAAA-MM), periodicidade, cc (filtro), mostrarZerado, elementos (fin/elementos para o nome)}
+  // o: {de, ate (AAAA-MM), periodicidade, cc (filtro), mostrarZerado, elementos (fin/elementos para o nome),
+  //     informacao: REALIZADO (padrão) | ORCADO | COMPARATIVO} -- a "Informação" da DRE do WebMais (A4).
+  // O orçado mora em ctl/orcamento/{ano}/{conta}/{cc}/{mes} (sinal natural) e entra na folha da CONTA:
+  // elemento não tem orçado.
+  var INFORMACOES = { REALIZADO: 'Realizado', ORCADO: 'Orçado', COMPARATIVO: 'Realizado × Orçado' };
   function dreGerencial(ctl, o) {
-    var x = o || {};
+    var x = o || {}, info = INFORMACOES[x.informacao] ? x.informacao : 'REALIZADO';
     if (!compOk(x.de) || !compOk(x.ate) || x.de > x.ate) return { ok: false, motivo: 'Período inválido.' };
     var cols = colunasDe(x.de, x.ate, x.periodicidade), colDoMes = {};
     cols.forEach(function(c) { c.meses.forEach(function(m) { colDoMes[m] = c.chave; }); });
     var plano = Ctl.planoDeContas(ctl), centros = Ctl.centrosDeCusto(ctl, {}), els = x.elementos || {};
     var arv = {}, docs = 0;
-    GRUPOS_DRE.forEach(function(g) { arv[g.cod] = { v: {}, ccs: {} }; });
+    GRUPOS_DRE.forEach(function(g) { arv[g.cod] = { v: {}, o: {}, ccs: {} }; });
     function soma(obj, col, v) { obj[col] = (obj[col] || 0) + v; }
-    Ctl.docsDe(ctl, function(d, m) { return !!colDoMes[m]; }).forEach(function(d) {
+    function acumular(g, cc, folha, col, v, campo) {
+      var nCc = arv[g].ccs[cc] = arv[g].ccs[cc] || { v: {}, o: {}, folhas: {} };
+      var nF = nCc.folhas[folha] = nCc.folhas[folha] || { v: {}, o: {} };
+      soma(arv[g][campo], col, v); soma(nCc[campo], col, v); soma(nF[campo], col, v);
+    }
+    if (info !== 'ORCADO') Ctl.docsDe(ctl, function(d, m) { return !!colDoMes[m]; }).forEach(function(d) {
       var col = colDoMes[String(d.chave).split('/')[0]], usou = false;
       (d.partidas || []).forEach(function(p) {
         var g = GRUPO_DA_CONTA[p.conta]; if (!g) return;
         var cc = p.cc || '_SEM';
         if (x.cc && cc !== x.cc) return;
         // Sinal do WebMais: receita +, custo/despesa − (crédito − débito serve aos dois).
-        var v = p.creditoCentavos - p.debitoCentavos;
-        var nCc = arv[g].ccs[cc] = arv[g].ccs[cc] || { v: {}, folhas: {} };
-        var folha = p.elemento ? 'E:' + p.elemento : 'C:' + p.conta;
-        var nF = nCc.folhas[folha] = nCc.folhas[folha] || { v: {} };
-        soma(arv[g].v, col, v); soma(nCc.v, col, v); soma(nF.v, col, v); usou = true;
+        // No comparativo a folha é a CONTA (o orçado é conta × centro): o elemento não abre.
+        acumular(g, cc, p.elemento && info !== 'COMPARATIVO' ? 'E:' + p.elemento : 'C:' + p.conta, col, p.creditoCentavos - p.debitoCentavos, 'v');
+        usou = true;
       });
       if (usou) docs++;
     });
+    var orcados = 0;
+    if (info !== 'REALIZADO') {
+      var orc = (ctl && ctl.orcamento) || {}, PL = Ctl.PLANO_PADRAO || {};
+      Object.keys(orc).forEach(function(ano) {
+        Object.keys(orc[ano] || {}).forEach(function(conta) {
+          var g = GRUPO_DA_CONTA[conta]; if (!g) return;
+          var sinal = ((plano[conta] || PL[conta] || {}).tipo === 'RECEITA') ? 1 : -1;
+          Object.keys(orc[ano][conta] || {}).forEach(function(ccO) {
+            var cc = !ccO || ccO === '_' ? '_SEM' : ccO;
+            if (x.cc && cc !== x.cc) return;
+            Object.keys(orc[ano][conta][ccO] || {}).forEach(function(mm) {
+              var col = colDoMes[ano + '-' + mm], v = Math.round(num(orc[ano][conta][ccO][mm]));
+              if (!col || !v) return;
+              acumular(g, cc, 'C:' + conta, col, sinal * v, 'o'); orcados++;
+            });
+          });
+        });
+      });
+    }
     function tot(vs) { return cols.reduce(function(s, c) { return s + (vs[c.chave] || 0); }, 0); }
-    function vazio(vs) { return cols.every(function(c) { return !(vs[c.chave] || 0); }); }
-    // Totais em cascata.
-    GRUPOS_DRE.forEach(function(g) { if (g.total) g.total.forEach(function(k) { cols.forEach(function(c) { soma(arv[g.cod].v, c.chave, arv[k].v[c.chave] || 0); }); }); });
+    function vazio(n) { return cols.every(function(c) { return !(n.v[c.chave] || 0) && !(n.o[c.chave] || 0); }); }
+    // Totais em cascata (realizado e orçado).
+    GRUPOS_DRE.forEach(function(g) { if (g.total) g.total.forEach(function(k) { cols.forEach(function(c) { soma(arv[g.cod].v, c.chave, arv[k].v[c.chave] || 0); soma(arv[g.cod].o, c.chave, arv[k].o[c.chave] || 0); }); }); });
+    function linha(base, n, temOrc) {
+      var vals = info === 'ORCADO' ? n.o : n.v;
+      var l = Object.assign(base, { valores: vals, total: tot(vals) });
+      if (info === 'COMPARATIVO') {
+        l.valoresOrcado = temOrc ? n.o : null;
+        l.totalOrcado = temOrc ? tot(n.o) : null;
+        l.variacao = temOrc ? l.total - l.totalOrcado : null;
+        l.variacaoPct = temOrc && l.totalOrcado ? Math.round((l.total - l.totalOrcado) / Math.abs(l.totalOrcado) * 1000) / 10 : null;
+      }
+      return l;
+    }
     var linhas = [];
     GRUPOS_DRE.forEach(function(g) {
       var n = arv[g.cod];
-      if (!g.total && vazio(n.v) && !x.mostrarZerado) return;
-      linhas.push({ nivel: 0, tipo: g.total ? 'TOTAL' : 'GRUPO', codigo: g.cod, rotulo: g.cod + ' - ' + g.rot, valores: n.v, total: tot(n.v) });
+      if (!g.total && vazio(n) && !x.mostrarZerado) return;
+      linhas.push(linha({ nivel: 0, tipo: g.total ? 'TOTAL' : 'GRUPO', codigo: g.cod, rotulo: g.cod + ' - ' + g.rot }, n, true));
       if (g.total) return;
       Object.keys(n.ccs).sort(function(a, b) { return a === '_SEM' ? 1 : b === '_SEM' ? -1 : a.localeCompare(b); }).forEach(function(cc, i) {
         var nc = n.ccs[cc], cod2 = g.cod + '.' + (i + 1);
-        if (vazio(nc.v) && !x.mostrarZerado) return;
-        linhas.push({ nivel: 1, tipo: 'CENTRO', codigo: cod2, cc: cc, rotulo: cod2 + ' - ' + (cc === '_SEM' ? 'SEM CENTRO DE CUSTO' : String((centros[cc] || {}).nome || cc).toUpperCase()), valores: nc.v, total: tot(nc.v) });
+        if (vazio(nc) && !x.mostrarZerado) return;
+        linhas.push(linha({ nivel: 1, tipo: 'CENTRO', codigo: cod2, cc: cc, rotulo: cod2 + ' - ' + (cc === '_SEM' ? 'SEM CENTRO DE CUSTO' : String((centros[cc] || {}).nome || cc).toUpperCase()) }, nc, true));
         Object.keys(nc.folhas).sort().forEach(function(f, j) {
           var nf = nc.folhas[f];
-          if (vazio(nf.v) && !x.mostrarZerado) return;
+          if (vazio(nf) && !x.mostrarZerado) return;
           var cod3 = cod2 + '.' + ('00' + (j + 1)).slice(-3), k = f.slice(2);
           var nome = f[0] === 'E' ? (ELEMENTOS_RECEITA[k] ? ELEMENTOS_RECEITA[k] : k + ' - ' + String((els[k] || {}).nome || 'Elemento ' + k).toUpperCase()) : ((plano[k] || {}).codigo || '') + ' - ' + String((plano[k] || {}).nome || k).toUpperCase();
-          linhas.push({ nivel: 2, tipo: f[0] === 'E' ? 'ELEMENTO' : 'CONTA', codigo: cod3, chave: k, rotulo: cod3 + ' - ' + nome, valores: nf.v, total: tot(nf.v) });
+          linhas.push(linha({ nivel: 2, tipo: f[0] === 'E' ? 'ELEMENTO' : 'CONTA', codigo: cod3, chave: k, rotulo: cod3 + ' - ' + nome }, nf, f[0] === 'C'));
         });
       });
     });
-    return { ok: true, colunas: cols, linhas: linhas, documentos: docs, filtros: { de: x.de, ate: x.ate, periodicidade: PERIODICIDADES[x.periodicidade] ? x.periodicidade : 'MENSAL', cc: x.cc || null, mostrarZerado: !!x.mostrarZerado } };
+    return { ok: true, colunas: cols, linhas: linhas, documentos: docs, orcados: orcados, informacao: info,
+      filtros: { de: x.de, ate: x.ate, periodicidade: PERIODICIDADES[x.periodicidade] ? x.periodicidade : 'MENSAL', cc: x.cc || null, mostrarZerado: !!x.mostrarZerado, informacao: info } };
   }
 
   /* ── 3. Índices gerenciais (Rel. Comercial) ────────────────────────────
@@ -256,7 +294,7 @@
   }
 
   return {
-    VERSAO: VERSAO, MODULOS_BLOQUEIO: MODULOS_BLOQUEIO, GRUPOS_DRE: GRUPOS_DRE, PERIODICIDADES: PERIODICIDADES, CAMPOS_INFORMADOS: CAMPOS_INFORMADOS,
+    VERSAO: VERSAO, MODULOS_BLOQUEIO: MODULOS_BLOQUEIO, GRUPOS_DRE: GRUPOS_DRE, PERIODICIDADES: PERIODICIDADES, INFORMACOES: INFORMACOES, CAMPOS_INFORMADOS: CAMPOS_INFORMADOS,
     validarBloqueio: validarBloqueio, periodoLiberado: periodoLiberado, colunasDe: colunasDe, dreGerencial: dreGerencial,
     calcularIndices: calcularIndices, validarIndices: validarIndices, paresDoDocumento: paresDoDocumento, exportarDominio: exportarDominio
   };
