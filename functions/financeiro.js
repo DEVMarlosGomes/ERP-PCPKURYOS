@@ -858,7 +858,7 @@
      {chave, rotulo, tipo: texto|data|valor}; valor em centavos. */
   // CNPJ/CPF com máscara: o Excel não o trata como número (perderia os zeros à esquerda).
   function mascaraDoc(v) {
-    var d = soDigitos(v);
+    var d = normCnpj(v);
     if (d.length === 14) return d.slice(0, 2) + '.' + d.slice(2, 5) + '.' + d.slice(5, 8) + '/' + d.slice(8, 12) + '-' + d.slice(12);
     if (d.length === 11) return d.slice(0, 3) + '.' + d.slice(3, 6) + '.' + d.slice(6, 9) + '-' + d.slice(9);
     return String(v == null ? '' : v);
@@ -1191,7 +1191,7 @@
      Estorno do adiantamento só com o saldo integral (nada compensado). */
   function ehAdiantamento(r) { return !!r && (r.tipoRegistro === 'ADIANTAMENTO' || r.tipoRegistro === 'ESTORNO') && (r.tipo === 'PAGAR' || r.tipo === 'RECEBER'); }
   // O mesmo parceiro: pelo CNPJ/CPF quando há; senão pelo nome (maiúsculo, sem espaço nas pontas).
-  function chaveParceiro(p) { var d = soDigitos(p && p.cnpj); return d.length >= 11 ? 'D' + d : 'N' + String((p && p.nome) || '').trim().toUpperCase(); }
+  function chaveParceiro(p) { var d = normCnpj(p && p.cnpj); return d.length >= 11 ? 'D' + d : 'N' + String((p && p.nome) || '').trim().toUpperCase(); }
   function efeitosAdiantamento(a) {
     if (!ehAdiantamento(a) || !a.conta) return {};
     var out = {}; out[a.conta] = (a.tipo === 'PAGAR' ? -1 : 1) * (a.tipoRegistro === 'ESTORNO' ? -1 : 1) * Math.round(num(a.valorCentavos));
@@ -1581,6 +1581,30 @@
      tags de que o financeiro precisa. As DUPLICATAS (cobr/dup) são o vencimento
      oficial. O XML não dá entrada no estoque: isso continua sendo do recebimento. */
   function soDigitos(v) { return String(v == null ? '' : v).replace(/\D/g, ''); }
+  /* CNPJ alfanumérico (IN RFB 2.229/2024, NT 2025.001; emissão a partir de jul/2026): 12 posições
+     [0-9A-Z] + 2 dígitos verificadores numéricos. normCnpj tira só a pontuação e põe em maiúsculas;
+     o que não tem o formato do CNPJ novo cai no soDigitos de antes, por isso nenhum CNPJ/CPF numérico
+     já gravado muda de chave (medido na base em 17/11/2026: 415 CNPJs, 5 CPFs e um "ISENTO" iguais).
+     Cópia destas funções em shared/fiscal.js. */
+  function normCnpj(v) {
+    var s = String(v == null ? '' : v).toUpperCase().replace(/[.\-\/\s]/g, '');
+    return /^[0-9A-Z]{12}\d{2}$/.test(s) && /[A-Z]/.test(s) ? s : soDigitos(v);
+  }
+  function dvMod11(s, pesos) {
+    var t = 0;
+    for (var i = 0; i < s.length; i++) t += (s.charCodeAt(i) - 48) * pesos[i];
+    var r = t % 11;
+    return r < 2 ? 0 : 11 - r;
+  }
+  function cnpjValido(v) {
+    var c = normCnpj(v);
+    if (!/^[0-9A-Z]{12}\d{2}$/.test(c) || /^(\d)\1{13}$/.test(c)) return false;
+    var d1 = dvMod11(c.slice(0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+    var d2 = dvMod11(c.slice(0, 12) + d1, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+    return c.slice(12) === String(d1) + String(d2);
+  }
+  // Chave de acesso de 44 posições: com o CNPJ alfanumérico do emitente, as posições 7 a 18 podem ter letra.
+  function normChaveNfe(v) { var s = String(v == null ? '' : v).toUpperCase().replace(/[^0-9A-Z]/g, ''); return /^\d{6}[0-9A-Z]{12}\d{26}$/.test(s) ? s : ''; }
   function semZeros(v) { var d = soDigitos(v); return d ? d.replace(/^0+(?=\d)/, '') : ''; }
   // "1234.5" (decimal do XML, sempre com ponto) -> centavos, sem passar por ponto flutuante.
   function decCentavos(s) {
@@ -1603,11 +1627,11 @@
 
   function lerXmlNfe(texto) {
     var x = String(texto || '');
-    var idm = x.match(/<(?:[A-Za-z_][\w.-]*:)?infNFe\b[^>]*\bId="NFe(\d{44})"/);
+    var idm = x.match(/<(?:[A-Za-z_][\w.-]*:)?infNFe\b[^>]*\bId="NFe([0-9A-Za-z]{44})"/);
     var inf = tagXml(x, 'infNFe');
     if (!inf) return { ok: false, motivo: 'Não é o XML de uma NF-e (falta o grupo infNFe).' };
-    var chave = idm ? idm[1] : soDigitos(valXml(x, 'chNFe'));
-    if (!/^\d{44}$/.test(chave)) return { ok: false, motivo: 'Chave de acesso (44 dígitos) não encontrada.' };
+    var chave = normChaveNfe(idm ? idm[1] : valXml(x, 'chNFe'));
+    if (!chave) return { ok: false, motivo: 'Chave de acesso (44 posições) não encontrada.' };
     var ide = tagXml(inf, 'ide') || '', emit = tagXml(inf, 'emit') || '', dest = tagXml(inf, 'dest') || '';
     var tot = tagXml(tagXml(inf, 'total') || '', 'ICMSTot') || '';
     var modelo = valXml(ide, 'mod');
@@ -1618,7 +1642,7 @@
     if (!numero) return { ok: false, motivo: 'Número da nota (nNF) ausente.' };
     var valor = decCentavos(valXml(tot, 'vNF'));
     if (!(valor > 0)) return { ok: false, motivo: 'Valor total da nota (vNF) ausente.' };
-    var cnpj = soDigitos(valXml(emit, 'CNPJ') || valXml(emit, 'CPF'));
+    var cnpj = normCnpj(valXml(emit, 'CNPJ') || valXml(emit, 'CPF'));
     if (!cnpj) return { ok: false, motivo: 'CNPJ do emitente ausente.' };
     var dups = tagsXml(tagXml(inf, 'cobr') || '', 'dup').map(function(d) {
       return { numero: valXml(d, 'nDup') || null, vencimento: String(valXml(d, 'dVenc') || '').slice(0, 10), valorCentavos: decCentavos(valXml(d, 'vDup')) };
@@ -1637,7 +1661,7 @@
     return { ok: true, avisos: avisos, nota: {
       chave: chave, modelo: '55', numero: numero, serie: semZeros(valXml(ide, 'serie')) || '0', emissao: emissao, tipoOperacao: valXml(ide, 'tpNF'),
       emitente: { cnpj: cnpj, nome: String(valXml(emit, 'xNome') || '').slice(0, 120), fantasia: String(valXml(emit, 'xFant') || '').slice(0, 120) || null },
-      destinatarioCnpj: soDigitos(valXml(dest, 'CNPJ') || valXml(dest, 'CPF')) || null,
+      destinatarioCnpj: normCnpj(valXml(dest, 'CNPJ') || valXml(dest, 'CPF')) || null,
       valorTotalCentavos: valor, valorProdutosCentavos: decCentavos(valXml(tot, 'vProd')), freteCentavos: decCentavos(valXml(tot, 'vFrete')) || 0,
       descontoCentavos: decCentavos(valXml(tot, 'vDesc')) || 0, duplicatas: dups, itens: itens.slice(0, 200), totalItens: itens.length } };
   }
@@ -1646,8 +1670,8 @@
      da NF (sem zeros à esquerda). Nunca escolhe entre dois candidatos. */
   function casarNotaEntrada(nota, base) {
     var b = base || {}, titulos = (b.fin && b.fin.titulos) || {}, n = nota || {};
-    var cnpj = soDigitos(n.emitente && n.emitente.cnpj);
-    var forns = Object.keys(b.fornecedores || {}).filter(function(k) { return cnpj && soDigitos((b.fornecedores[k] || {}).cnpj) === cnpj; });
+    var cnpj = normCnpj(n.emitente && n.emitente.cnpj);
+    var forns = Object.keys(b.fornecedores || {}).filter(function(k) { return cnpj && normCnpj((b.fornecedores[k] || {}).cnpj) === cnpj; });
     if (!forns.length) return { tipo: 'FORNECEDOR_NAO_CADASTRADO' };
     var pcs = Object.keys(b.pedidos_compra || {}).filter(function(k) { var pc = b.pedidos_compra[k]; return pc && forns.indexOf(pc.fornecedorKey) >= 0; });
     if (!pcs.length) return { tipo: 'SEM_PEDIDO', fornecedorKey: forns[0] };
@@ -1729,7 +1753,7 @@
     saldosBancarios: saldosBancarios, compromissos: compromissos, fluxoDeCaixa: fluxoDeCaixa, aging: aging, prazosMedios: prazosMedios,
     lerOfx: lerOfx, sugerirConciliacao: sugerirConciliacao,
     lerXmlNfe: lerXmlNfe, casarNotaEntrada: casarNotaEntrada, notasPorTitulo: notasPorTitulo, parcelasDaNota: parcelasDaNota,
-    pendenciasNotas: pendenciasNotas, decCentavos: decCentavos,
+    pendenciasNotas: pendenciasNotas, decCentavos: decCentavos, normCnpj: normCnpj, cnpjValido: cnpjValido, normChaveNfe: normChaveNfe,
     TIPOS_CONTA: TIPOS_CONTA, TIPOS_MOVIMENTO: TIPOS_MOVIMENTO, tipoConta: tipoConta, efeitosMovimento: efeitosMovimento,
     validarMovimento: validarMovimento, validarEstornoMovimento: validarEstornoMovimento, caixaNegativo: caixaNegativo, extratoConta: extratoConta,
     GRANULARIDADES: GRANULARIDADES, fluxoCaixa: fluxoCaixa, fluxosRealizados: fluxosRealizados, ATIVIDADES: ATIVIDADES, ATIVIDADE_PADRAO: ATIVIDADE_PADRAO,

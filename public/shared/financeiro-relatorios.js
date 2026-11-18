@@ -46,9 +46,9 @@
   function diffDias(a, b) { return Math.round((new Date(String(a).slice(0, 10) + 'T12:00:00Z') - new Date(String(b).slice(0, 10) + 'T12:00:00Z')) / 864e5); }
   function dentro(d, de, ate) { d = String(d || '').slice(0, 10); return !!d && (!de || d >= de) && (!ate || d <= ate); }
   function vals(o) { return Object.keys(o || {}).map(function(k) { return o[k]; }).filter(Boolean); }
-  function soDigitos(v) { return String(v == null ? '' : v).replace(/\D/g, ''); }
+  // CNPJ alfanumérico: a mesma normalização do motor (F.normCnpj), nunca só dígitos.
   function mascaraDoc(v) {
-    var d = soDigitos(v);
+    var d = F.normCnpj(v);
     if (d.length === 14) return d.slice(0, 2) + '.' + d.slice(2, 5) + '.' + d.slice(5, 8) + '/' + d.slice(8, 12) + '-' + d.slice(12);
     if (d.length === 11) return d.slice(0, 3) + '.' + d.slice(3, 6) + '.' + d.slice(6, 9) + '-' + d.slice(9);
     return String(v == null ? '' : v);
@@ -64,8 +64,8 @@
   function rotNat(n) { return ROT_NAT[n] || n || ''; }
   function nomeParc(t) { return (t && t.parceiro && t.parceiro.nome) || ''; }
   // O mesmo fornecedor/cliente com nomes escritos diferente: o CNPJ manda; sem CNPJ, o nome.
-  function chaveParc(t) { var d = soDigitos(t && t.parceiro && t.parceiro.cnpj); return d.length >= 11 ? 'D' + d : 'N' + nomeParc(t).trim().toUpperCase(); }
-  function filtroParc(t, q) { q = String(q || '').trim().toUpperCase(); return !q || nomeParc(t).toUpperCase().indexOf(q) >= 0 || soDigitos(t.parceiro && t.parceiro.cnpj).indexOf(soDigitos(q) || '§') >= 0; }
+  function chaveParc(t) { var d = F.normCnpj(t && t.parceiro && t.parceiro.cnpj); return d.length >= 11 ? 'D' + d : 'N' + nomeParc(t).trim().toUpperCase(); }
+  function filtroParc(t, q) { q = String(q || '').trim().toUpperCase(); return !q || nomeParc(t).toUpperCase().indexOf(q) >= 0 || F.normCnpj(t.parceiro && t.parceiro.cnpj).indexOf(q.replace(/[.\-\/\s]/g, '') || '§') >= 0; }
   // Título nascido de renegociação: o gasto/receita já está no original (Entrega B). Por emissão ele
   // não conta de novo; por pagamento, a baixa dele conta normalmente.
   function ehReneg(t) { return !!(t && t.origem && t.origem.tipo === 'RENEGOCIACAO'); }
