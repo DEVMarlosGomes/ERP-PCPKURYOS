@@ -16,8 +16,9 @@ próprio (`docs/financeiro-fase0-lacunas.md` §8–9).
 | Exportação Fiscal - Domínio Sistemas | — | fora: fiscal (ver abaixo) |
 | Índices Gerenciais - Rel. Comercial | Controladoria › **Índices gerenciais** (`calcularIndices`/`validarIndices`, callable `ctlLancarIndices`) | **novo**. Retrato por Ano/Mês com data e usuário do lançamento, como no WebMais |
 | Rel. de Gasto por Elemento de Custo | Financeiro › Relatórios › Gastos por centro de custo e elemento (`relGastosCentroCusto`, agrupar ELEMENTO) | já existia (12/11) |
-| SINTEGRA | — | fiscal: `PROMPT_FISCAL.md` F6 |
-| SPED FISCAL (EFD ICMS/IPI) | — | fiscal: `PROMPT_FISCAL.md` F1–F5 |
+| SINTEGRA | Fiscal › **SINTEGRA** (`Fiscal.gerarSintegra`, callable `fisGerarSintegra`) | **novo (18/11)**. Aceite no validador pendente (sem XML real) |
+| SPED FISCAL (EFD ICMS/IPI) | Fiscal › **SPED Fiscal** (`Fiscal.gerarEfd`, callable `fisGerarEfd`), com o relatório de inconsistências | **novo (18/11)**. Aceite no PVA pendente (sem XML real) |
+| Exportação Fiscal - Domínio Sistemas (18/11) | Fiscal › **Exportação Domínio** (ZIP com XMLs, EFD e livro) | **novo (18/11)**; formato a confirmar com o escritório (Q3) |
 | Relatório de inconsistências contábeis | Diálogo da exportação Domínio, mesmas colunas (Seq, Grupo, Identificador, Descrição) | **novo** |
 
 ## Decisões (minhas, marcadas como tal)
@@ -88,3 +89,16 @@ próprio (`docs/financeiro-fase0-lacunas.md` §8–9).
   (13 suítes, incluindo as 1.497 asserções dos relatórios WebMais).
 - **Não rodado aqui:** emulador de regras (`run_gestao_rules_test.js`) — as regras não mudaram — e o ensaio
   contra a base real.
+
+## Atualização de 18/11/2026 (prompt mestre)
+
+- **Bloqueio de período** vale também no servidor de N.F. Entrada (recebimento, cancelamento, devolução),
+  N.F. Saída (registro da NF na carga), Movto Estoque (expedição, conferência de PA, devolução de cliente,
+  titularidade), Movto Prod. (retrabalho, manipulação em lote) e Movto Fiscal (importação, apuração, data de
+  entrada). Apontamento e ajuste manual de estoque ainda gravam pela tela: pendência em `MELHORIAS_FUTURAS.md`.
+- **DRE por elemento** ganhou a "Informação" do WebMais: Realizado, Orçado e Realizado × Orçado (o comparativo
+  fica no nível conta × centro, porque elemento não tem orçado).
+- **Receita da industrialização por encomenda**: com o XML no Fiscal, a NF própria lança a receita pelo valor
+  cobrado, separando "INDUSTRIALIZAÇÃO POR ENCOMENDA 5124/5125" de venda; o retorno simbólico nunca é receita.
+- Testes: `run_controladoria_gerencial_test` (80), `_ui_test` (14), `run_bloqueio_periodo_movimentos_test` (20),
+  `run_fiscal_integracao_test` (33).

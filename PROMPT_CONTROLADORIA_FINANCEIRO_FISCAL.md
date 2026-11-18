@@ -62,6 +62,26 @@ Leia antes, nesta ordem:
 **Ainda não foi feito ensaio com a base real** nem validação no PVA. Quem constrói faz: a sessão que
 escreveu este prompt não tinha acesso ao banco nem ao navegador.
 
+**Execução em 18/11/2026** (branch `fiscal/paridade-webmais`, decisões Q6–Q9 do Marlos: XML em `fis_xml`
+no RTDB, trava nos outros módulos, upload único, elementos só ADM/Controladoria):
+
+| Item | Situação |
+|---|---|
+| A0 | paridade aplicada (3 patches) e suíte verde; deploy da VPS com o Marlos |
+| A1 | código pronto; **esperando o leiaute do escritório (Q1)** |
+| A2 | feito: receita pelo XML (5124/5125 + vendas), folha própria na DRE por elemento; medido: nenhuma NF digitada acima do pedido |
+| A3 | feito no servidor de NF de entrada/saída, estoque e produção; apontamento e ajuste manual pendentes (gravam pela tela) |
+| A4 | feito: Realizado / Orçado / Realizado × Orçado |
+| A5 | medido: nenhum recebimento com ENTRADA parcial (0 de 83); nada mudou |
+| B0 | feito (`normCnpj`); nenhuma chave da base muda |
+| B1 | feito: título pelo valor cobrado do XML; aviso no Faturamento |
+| B2 | feito: `finImportarNfEntrada` passa pelo Fiscal |
+| B3–B8 | feitos (portador e "liquidação de/até" não têm campo no título) |
+| B9 | feito; B10 esperando o Financeiro/Controladoria |
+| C-F0 | medição feita (sem XML na base); **XMLs e SPED de out/2026 do WebMais pendentes (Q5)** |
+| C-F1 a F7 | construídas; **aceite no PVA pendente** |
+| C-F8 | não iniciada |
+
 ---
 
 ## 3. Trilha A — Controladoria

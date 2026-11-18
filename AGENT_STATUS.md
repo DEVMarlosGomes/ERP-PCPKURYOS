@@ -5,6 +5,26 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude (sessão `fiscal-paridade-webmais`) — Prompt mestre Controladoria + Financeiro + Fiscal (18/11/2026)
+
+- **Concluído no branch `fiscal/paridade-webmais`**, integrado em `hostinger-deploy`. Base: os 3 patches da paridade (17/11).
+  Decisões do Marlos (17/11): Q6 XML bruto em `fis_xml` (RTDB, comprimido, só o servidor lê) e publicar as regras com backup;
+  Q7 trava de período nos outros módulos e aviso de retorno simbólico; Q8 upload único de XML no Fiscal; Q9 elementos só ADM/Controladoria.
+- **Fiscal (F1–F7):** `fiscal.html` (módulo `fiscal`), motor `shared/fiscal.js` + cópia, servidor `functions/fiscal_servidor.js`,
+  11 callables `fis*`, regras `fis` (leitura ADM/módulo Fiscal, escrita só servidor), `fis_xml`, `fis_arquivos`.
+- **Controladoria:** A2 receita da encomenda pelo XML; A3 trava no servidor de recebimento, faturamento, expedição, conferência,
+  devolução, titularidade, retrabalho e manipulação; A4 DRE Realizado × Orçado. A5 medido: 0 de 83 recebimentos parciais.
+- **Financeiro:** B0 CNPJ alfanumérico (base medida: nenhuma chave muda); B1 título pelo valor cobrado do XML + aviso no
+  Faturamento; B2 `finImportarNfEntrada` pelo Fiscal; B3–B8; B9 elementos só ADM/Controladoria com histórico.
+- **Provas:** fiscal 216 + servidor 81 + integração 33 + tela 29 (Chrome); controladoria 59 + gerencial 80 + tela 14;
+  bloqueio nos movimentos 20; trilha B 44; CNPJ 31 (com a base real); Financeiro (todas as suítes e telas) e navegação verdes.
+- **Não feito / esperando:** aceite do Fiscal no PVA e diff contra o SPED do WebMais (a base não tem XML real; pedir ao Gustavo os
+  XMLs e o SPED de out/2026, Q5); leiaute do Domínio (Q1/Q3, escritório); tributação do 5124 (Q2, contador); NF3e (Q4);
+  B10 e cheques/comissão; trava no apontamento e no ajuste manual (gravam pela tela, arquivos de outras sessões). Detalhes em
+  `MELHORIAS_FUTURAS.md` (seção de 18/11).
+- **Pendente (Marlos):** deploy da VPS (11 callables novas `fis*` + mudanças em callables de recebimento, faturamento, expedição,
+  conferência, devolução, titularidade, retrabalho, manipulação, Financeiro e Controladoria). Arquivos ativos: nenhum.
+
 ### Claude (sessão na nuvem, 17/11/2026) — Controladoria × WebMais (paridade)
 
 - Pedido do Marlos (17/11): mesmas funções da Controladoria do WebMais (ERPmais5) no KuryosERP, por engenharia

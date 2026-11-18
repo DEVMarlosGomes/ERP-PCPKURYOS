@@ -432,7 +432,22 @@ exportar com inconsistência, abre o relatório com as mesmas colunas. Sem incon
 
 ## 16. Estado da implementação
 
-Nada construído. Prompt escrito em 17/11/2026 e atualizado no mesmo dia com as decisões do Marlos (§13). Prompt mestre que junta as quatro frentes: `PROMPT_CONTROLADORIA_FINANCEIRO_FISCAL.md`. Base:
+**18/11/2026: F1–F7 construídas**, branch `fiscal/paridade-webmais` (ver `AGENT_STATUS.md`):
+- F1 documentos (upload XML/ZIP, NF-e, CT-e, eventos, inutilização, `fis/documentos` + `fis_xml`);
+- F2 regras de entrada com sugestão em lote (inclui 5901→1901 e 5924→1924), itens 0200/0220 e de-para;
+- F3 livros, apuração E110 (E111/E116) e E520, `receitaPorCfop`, fechamento do mês fiscal;
+- F4 SPED Fiscal (tela do WebMais, relatório de inconsistências, TXT ISO-8859-1, retrato com hash,
+  transmissão e substituto);
+- F5 inventário com material de terceiro (IND_PROP 2, valor da NF de remessa);
+- F6 SINTEGRA de 126 posições (50/51/53/54/70/74/75/90);
+- F7 pacote fiscal do Domínio (ZIP com XMLs, EFD e livro).
+
+Testes: `run_fiscal_test` (216), `run_fiscal_servidor_test` (81), `run_fiscal_integracao_test` (33),
+`run_fiscal_ui_test` (29, Chrome). **F0 e o aceite (§12) seguem pendentes**: a base não tem XML real, e a
+validação no PVA e o diff contra o arquivo do WebMais exigem os XMLs e o SPED de um mês fechado. Os critérios
+que são decisão estão em `MELHORIAS_FUTURAS.md` (seção de 18/11). F8 não iniciada.
+
+Prompt escrito em 17/11/2026 e atualizado no mesmo dia com as decisões do Marlos (§13). Prompt mestre que junta as quatro frentes: `PROMPT_CONTROLADORIA_FINANCEIRO_FISCAL.md`. Base:
 - os prints do WebMais (§1);
 - o código do repositório em `hostinger-deploy` `3da5ad9` + `controladoria/paridade-webmais` `9eefc72`;
 - as fontes de §2: Portal SPED (Guia Prático EFD ICMS/IPI 3.2.x, NT 2025.001 leiaute 020 e NT 2026.001

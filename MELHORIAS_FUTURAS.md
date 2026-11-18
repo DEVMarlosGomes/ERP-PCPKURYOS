@@ -1,18 +1,53 @@
 # Melhorias Futuras — Sistema PCP Kuryos
 
+## Fiscal + Controladoria + Financeiro (prompt mestre) — o que ficou para depois (18/11/2026)
+
+Entregue em `fiscal/paridade-webmais` (ver `AGENT_STATUS.md`). O que ficou, por ordem de valor:
+
+- **Aceite do Fiscal não feito: falta XML real e o SPED do WebMais.** A base não tem nenhum XML (medido
+  em 17/11: `fin/notas_entrada` vazio; as 25 NFs de saída de set–nov só digitadas). Os testes usam XMLs no
+  leiaute oficial com dados fictícios (`test-fixtures/fiscal-xml.js`). Próximo passo (F0): importar os XMLs
+  de out/2026 (entradas do fornecedor + saídas exportadas do WebMais), gerar a EFD, **validar no PVA** e
+  comparar registro a registro com o SPED que o WebMais gerou para out/2026 (pedir ao Gustavo, Q5).
+- **Critérios a confirmar com o contador** (estão marcados "Critério:" em `shared/fiscal.js`): entrada sem
+  crédito escriturada como CST x90 com base e ICMS zerados; crédito do Simples pelo `vCredICMSSN`; IPI não
+  recuperável fora do C100/C190 (entra só no valor contábil); C170 de emissão própria só com a opção
+  marcada; 13 indicadores do 1010; leiaute 020 (2026) e 021 (2027) sem campos novos conferidos no Guia;
+  SINTEGRA 74 de posse 1 com CNPJ zerado; código de produto > 14 posições vira código estável de 14 no
+  SINTEGRA; tipo do item próprio sem cadastro assumido pelo CFOP (04 produto acabado; retorno simbólico 01).
+- **Tributação do 5124/5125 (Q2/P11)**: ICMS/IPI sobre o valor agregado ou ISS. Hoje o livro usa o que o XML
+  destacou; regra de saída própria só depois da resposta do contador.
+- **Energia e água (P4/Q4)**: NF3e (modelo 66) não é lida; C500/C590 não sai. Decidir com o contador.
+- **Inventário (Bloco H) depende do Dia D**: o retrato acusa saldo negativo e material sem preço/sem item
+  fiscal (NCM) como impeditivo. Os materiais precisam de item fiscal ligado (Itens fiscais › Material).
+- **Bloco K, CIAP (Bloco G), DF-e (download automático com certificado A1), manifestação**: F8.
+- **`fis/documentos` inteiro na base do Financeiro e da Controladoria** (para B1/A2). Volume medido é
+  pequeno (~12 NFs de saída/mês); quando passar de alguns milhares de documentos, ler só os meses abertos.
+- **Leiaute contábil do Domínio (A1/Q1)** e **pacote fiscal (Q3)**: esperando o escritório.
+- **Trava de período (A3) no apontamento e no ajuste manual de estoque**: esses dois ainda gravam pela tela
+  (`form.html`, `utils.js`), então a trava de Movto Prod./Movto Estoque vale só nos movimentos do servidor
+  (retrabalho, manipulação em lote, expedição, conferência de PA, devolução, titularidade). Ligar exige levar
+  a gravação para callable ou uma regra que leia `ctl/bloqueio_periodo` (arquivos de outras sessões).
+- **Liquidação (B3)**: "portador" e "liquidação de/até" do WebMais não têm campo no título; entram quando a
+  carteira registrar o banco cobrador.
+- **Centro de custo do recebimento (B10)**: decisão do Financeiro com a Controladoria (27 de 44 títulos sem
+  centro em 11/11). Cheques (CB-02, CR-01/02) e comissão (RC-04): esperando o Gustavo (Q11).
+- **"Média faturamento Cpl./R$" dos índices**: medido em 18/11, 6 das 7 cargas com pedido têm NF entre 19% e
+  66% do pedido — é a parte fora da nota (`percentualNF`). Dá para calcular o índice com isso; confirmar.
+
 ## Controladoria × WebMais — o que ficou para depois (17/11/2026)
 
 Mapa completo em `docs/controladoria-webmais-paridade.md`.
 
-- **SINTEGRA, SPED Fiscal (EFD ICMS/IPI) e Exportação Fiscal Domínio:** módulo Fiscal próprio, prompt de construção
+- ~~**SINTEGRA, SPED Fiscal (EFD ICMS/IPI) e Exportação Fiscal Domínio:**~~ **Feito em 18/11** (módulo Fiscal; aceite no PVA pendente, ver acima). módulo Fiscal próprio, prompt de construção
   em `PROMPT_FISCAL.md` (17/11). Fase 0 depende do regime tributário, do emissor da NF-e de saída e do contador.
 - **Empresas 002 CONNEXXA e 003 NEXT21:** o WebMais é multiempresa; aqui é um CNPJ. Decidir se entram.
-- **Trava de período nos outros movimentos:** N.F. Entrada (recebimento), N.F. Saída (faturamento), Estoque (WMS),
+- ~~**Trava de período nos outros movimentos:**~~ **Feito em 18/11** no servidor (falta apontamento e ajuste manual, ver acima). N.F. Entrada (recebimento), N.F. Saída (faturamento), Estoque (WMS),
   Produção (apontamento) e Fiscal. Hoje só Financeiro e ajuste contábil respeitam `ctl/bloqueio_periodo`; a tela diz isso.
 - **Índices:** kg faturado (a NF ainda não traz peso), comissão, ICMS filial MT, frete e Simples são informados.
   "Cpl./R$" sem definição confirmada.
-- **DRE:** opção "Orçado" e "Contabiliza O.P por Emissão/Tipo de custo" do WebMais não replicadas (orçado está em
-  Orçamento × real; custo é o do razão).
+- **DRE:** a opção "Orçado" foi **feita em 18/11** (Realizado × Orçado na DRE por elemento). Continua de fora a
+  "Contabiliza O.P por Emissão/Tipo de custo" do WebMais (o custo é o do razão de Custos).
 - **Leiaute Domínio:** conferir com o escritório antes do primeiro envio.
 
 ## Laudo de PA por e-mail + ativos no PC Direto — o que ficou para depois (17/11/2026)
@@ -114,32 +149,32 @@ F9 reconstruída (liquidação por filtro, elementos de custo, aberturas do caix
 
   Os dados já ficam guardados em `fin/notas_entrada/{chave}/itens`. O assunto é fiscal e pede
   decisão com o contador.
-- **Liquidação (CB-06/07).** Faltam:
+- **Liquidação (CB-06/07).** **Feito em 18/11:** emissão, tipo de cobrança, valor de/até, juros/multa/desconto por linha, data de crédito e representante (falta portador e liquidação de/até). Antes faltavam: Faltam:
   - os filtros de portador, tipo de cobrança, emissão, valor de/até e liquidação de/até;
   - juros, multa e desconto por linha (hoje ficam no botão Pagar do título);
   - data de crédito e representante no lado a receber.
 
   Ponto de partida: `parcelasParaLiquidar` e `montarLiquidacao` (`public/shared/financeiro.js`).
-- **Rateio com mais de um elemento no mesmo título (CP-06).** Hoje é um elemento por título, rateado
+- ~~**Rateio com mais de um elemento no mesmo título (CP-06).**~~ **Feito em 18/11** (linhas elemento × centro × valor). Hoje é um elemento por título, rateado
   entre centros. Para crescer, o registro em `fin/classificacoes/{titulo}` passaria a ter linhas
   elemento × centro.
-- **DFC (CR-03).** Hoje é só mensal e só realizado. Faltam:
+- ~~**DFC (CR-03).**~~ **Feito em 18/11** (conta, exibir descontos e previsto, como memorando). Hoje é só mensal e só realizado. Faltam:
   - o filtro de conta bancária;
   - as opções "exibir descontos" e "pedidos de venda e ordens de compra" (estas existem no fluxo
     projetado, mas não no DFC).
 
   O plano de elementos é proposta: os códigos reais do WebMais se cadastram em Financeiro › Cadastros.
-- **Fluxo dia a dia (CC-02).** O período é fixo (7 dias passados e 30 futuros); falta escolher de/até.
-- **Gastos e lançamento de despesas (CR-08, PR-03).** Faltam:
+- ~~**Fluxo dia a dia (CC-02).**~~ **Feito em 18/11** (de/até na aba Fluxo). O período é fixo (7 dias passados e 30 futuros); falta escolher de/até.
+- ~~**Gastos e lançamento de despesas (CR-08, PR-03).**~~ **Feito em 18/11** (listagem resumida; agrupamento, periodicidade e responsável = quem lançou). Faltam:
   - a listagem resumida;
   - agrupamento, periodicidade e responsável nas despesas.
-- **Lote bancário (CB-05, CC-04).** Falta o arquivo de remessa e a consulta de lotes por período.
+- **Lote bancário (CB-05, CC-04).** Consulta de lotes por período **feita em 18/11** (relatório "Lotes de pagamento"); o arquivo de remessa continua fora. Falta o arquivo de remessa e a consulta de lotes por período.
 - **Folha (CP-03).** A importação de arquivo de folha não existe; a folha entra pela operação do mês.
 - **Exportação contábil (CT-03).** O CSV é genérico, não o layout do Domínio.
-- **Reconciliação da Controladoria.** Um recebimento com ENTRADA *parcial* no razão (parte dos lotes
+- **Reconciliação da Controladoria.** **Medido em 18/11: nenhum caso** (83 recebimentos: 5 com todos os lotes PAGO, 78 com nenhum, 0 parcial). Nada mudou. Um recebimento com ENTRADA *parcial* no razão (parte dos lotes
   com custo PAGO) é tratado como "tem custo" e não explica nada. Antes de 12/11 era igual. Medir na
   base se existe esse caso antes de mexer (`reconciliacao` em `controladoria.js`).
-- **Plano de elementos.** Qualquer usuário do módulo Financeiro renomeia ou inativa elemento, sem
+- ~~**Plano de elementos.**~~ **Feito em 18/11** (decisão Q9: só ADM ou Controladoria, com histórico). Qualquer usuário do módulo Financeiro renomeia ou inativa elemento, sem
   segunda aprovação. Avaliar se o plano deve ser só do ADM ou da Controladoria.
 - **Cheques a receber e a pagar** (custódia, compensação, devolução, filtro "cheques a compensar"
   no DFC): é uma carteira nova inteira. Antes de construir, confirmar se a Kuryos ainda recebe

@@ -265,3 +265,23 @@ Testes:
 | `run_gestao_rules_test` | 63 (emulador) |
 
 Os ensaios no retrato da base de 11/11 não acharam problema depois das correções.
+
+## 10. Prompt mestre, trilha B (18/11/2026)
+
+| Item | O que mudou | Onde |
+|---|---|---|
+| B0 | CNPJ alfanumérico: `normCnpj`, `cnpjValido` (DV ASCII − 48), chave com letra; nenhuma chave da base muda (415 CNPJs, 5 CPFs e "ISENTO" medidos) | `financeiro.js`, `financeiro-relatorios.js`, `faturamento_carga.js` |
+| B1 | Título da NF própria pelo valor cobrado do XML (fatura); NF cancelada no XML não vira título; divergência vira complemento; aviso de retorno simbólico no Faturamento | `derivarNfs`, `faturamento-tela.js` |
+| B2 | Upload único: `finImportarNfEntrada` passa pelo Fiscal, que grava o documento e a nota do Financeiro no mesmo update | `functions/index.js` (`importarXmlUnificado`) |
+| B3 (CB-06/07) | Filtros de emissão, tipo de cobrança e valor; juros/multa/desconto por linha; data de crédito e representante | `parcelasParaLiquidar`, `montarLiquidacao` |
+| B4 (CP-06) | Rateio com vários elementos (linhas elemento × centro × valor) | `validarClassificacao`, `partesDoTitulo` |
+| B5 (CR-03) | DFC com conta bancária, "exibir descontos" e previsto (memorando) | `dfc`, `relDfc` |
+| B6 (CC-02) | Fluxo com período livre de/até | `fluxoCaixa` |
+| B7 (CR-08, PR-03) | Gastos em listagem resumida; despesas com agrupamento, periodicidade e responsável (quem lançou) | `relGastosCentroCusto`, `relLancamentoDespesas` |
+| B8 (CB-05, CC-04) | Relatório "Lotes de pagamento" por período | `relLotes` |
+| B9 | Plano de elementos só ADM ou Controladoria, com histórico | `prepararElemento` |
+
+Passam a coberto: CB-05 (consulta), CB-06, CB-07 (sem portador), CC-02, CC-04 (consulta), CP-06, CR-03, CR-08,
+PR-03 e NF-03/04/05 (agora no Fiscal). Continuam fora: remessa CNAB, cheques, comissão, portador.
+Testes: `run_financeiro_webmais_b_test` (44), `run_financeiro_cnpj_alfanumerico_test` (31 com a base),
+`run_financeiro_f9_servidor_test` (21), regressão do Financeiro verde.
