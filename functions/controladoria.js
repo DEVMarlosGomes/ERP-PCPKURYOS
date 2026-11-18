@@ -302,7 +302,7 @@
   // é a natureza e o centro do próprio título -- o mesmo de antes.
   function partesNaturais(fin, id, v, t, ex) {
     return Fin.partesDoTitulo(fin, id, v).filter(function(x) { return x.valorCentavos; }).map(function(x) {
-      return { conta: CONTA_DA_NATUREZA[x.natureza] || (t.tipo === 'RECEBER' ? 'OUTRAS_RECEITAS' : 'DESP_ADM'), v: x.valorCentavos, extra: Object.assign({ cc: x.centro || null }, ex) };
+      return { conta: CONTA_DA_NATUREZA[x.natureza] || (t.tipo === 'RECEBER' ? 'OUTRAS_RECEITAS' : 'DESP_ADM'), v: x.valorCentavos, extra: Object.assign({ cc: x.centro || null, elemento: x.elemento || null }, ex) };
     });
   }
   // O passivo (ou ativo) que a baixa liquida: o mesmo que a obrigação creditou na origem.

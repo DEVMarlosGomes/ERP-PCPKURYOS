@@ -6,6 +6,7 @@
 // (run_financeiro_servidor_test.js). O index.js só lê, chama e grava.
 "use strict";
 const F = require("./financeiro");
+const Ger = require("./controladoria-gerencial");
 
 const VERSAO = "financeiro-servidor-v1-20261028";
 
@@ -338,7 +339,11 @@ function prepararLiquidacao(base, dados, quem, agora) {
 }
 
 // Mês fechado na Controladoria não recebe movimento financeiro com data nele.
+// Fora da janela liberada em Controladoria › Bloqueio de período (módulo Movto Financ.),
+// recusa com o motivo do bloqueio -- o mesmo efeito do WebMais.
 function fechado(base, dataISO) {
+  const lib = Ger.periodoLiberado((base.ctl || {}).bloqueio_periodo, "FINANCEIRO", String(dataISO || "").slice(0, 10));
+  if (!lib.ok) falhar(lib.motivo);
   const f = ((base.ctl || {}).fechamentos || {})[String(dataISO || "").slice(0, 7)];
   return !!(f && f.status === "FECHADO");
 }

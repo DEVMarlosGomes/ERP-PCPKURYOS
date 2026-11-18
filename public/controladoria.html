@@ -17,6 +17,7 @@
 <script src="shared/propriedade-estoque.js"></script>
 <script src="shared/financeiro.js"></script>
 <script src="shared/controladoria.js"></script>
+<script src="shared/controladoria-gerencial.js"></script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="shared/theme.css">
 <link rel="stylesheet" href="shared/gestao-financeira.css">
@@ -35,11 +36,14 @@
   </div>
   <div class="abas" role="tablist" id="abas">
     <button class="aba" role="tab" data-aba="dre" aria-selected="true">DRE</button>
+    <button class="aba" role="tab" data-aba="dreg" aria-selected="false">DRE por elemento</button>
     <button class="aba" role="tab" data-aba="copa" aria-selected="false">Rentabilidade</button>
     <button class="aba" role="tab" data-aba="centros" aria-selected="false">Centros de custo</button>
     <button class="aba" role="tab" data-aba="orcamento" aria-selected="false">Orçamento × real</button>
     <button class="aba" role="tab" data-aba="razao" aria-selected="false">Razão e balancete</button>
     <button class="aba" role="tab" data-aba="fechamento" aria-selected="false">Fechamento</button>
+    <button class="aba" role="tab" data-aba="indices" aria-selected="false">Índices gerenciais</button>
+    <button class="aba" role="tab" data-aba="bloqueio" aria-selected="false">Bloqueio de período</button>
     <button class="aba" role="tab" data-aba="plano" aria-selected="false">Plano de contas</button>
   </div>
   <div id="conteudo"><div class="vazio"><b>Carregando a Controladoria…</b>Lançamentos, fechamentos e plano de contas.</div></div>

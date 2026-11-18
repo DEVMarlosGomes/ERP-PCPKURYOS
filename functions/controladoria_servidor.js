@@ -4,6 +4,7 @@
 // caminhos planos (run_controladoria_servidor_test.js).
 "use strict";
 const Ctl = require("./controladoria");
+const Ger = require("./controladoria-gerencial");
 
 const VERSAO = "controladoria-servidor-v1-20261028";
 
@@ -23,6 +24,8 @@ function prepararAjuste(base, dados, quem, agora) {
   const v = Ctl.validarAjuste(d, Ctl.planoDeContas(base.ctl));
   if (!v.ok) falhar(v.motivo);
   if (fechado(base, v.doc.competencia)) falhar(`O mês ${v.doc.competencia} está fechado: lance o ajuste no mês aberto, citando o período.`);
+  const lib = Ger.periodoLiberado((base.ctl || {}).bloqueio_periodo, "CONTABIL", v.doc.data);
+  if (!lib.ok) falhar(lib.motivo);
   const caminho = `ctl/lancamentos/${v.doc.competencia}/AJ_${d.chave}`;
   if (((base.ctl || {}).lancamentos || {})[v.doc.competencia] && base.ctl.lancamentos[v.doc.competencia]["AJ_" + d.chave]) return {updates: {}, repetido: true};
   return {updates: {[caminho]: Object.assign({}, v.doc, {criadoEm: agora, criadoPor: quem.nome, criadoPorUid: quem.uid, versaoMotor: VERSAO})}};
@@ -82,4 +85,34 @@ function prepararPainel(base, agora) {
   return {updates};
 }
 
-module.exports = {VERSAO, ehControladoria, prepararDerivacao, prepararPainel, prepararAjuste, prepararEstornoAjuste, prepararFechamento, prepararReabertura};
+/* Bloqueio/Liberação de Período (paridade WebMais): só o ADM, com justificativa.
+   O registro vigente fica em ctl/bloqueio_periodo; cada versão anterior, no histórico. */
+function prepararBloqueio(base, dados, quem, agora) {
+  if (quem.role !== "admin") falhar("Só o ADM altera o bloqueio de período.", "permission-denied");
+  const v = Ger.validarBloqueio(dados);
+  if (!v.ok) falhar(v.motivo, "invalid-argument");
+  const k = "h" + agora.replace(/[^0-9]/g, "").slice(0, 17);
+  const reg = {modulos: v.modulos, justificativa: v.justificativa, alteradoEm: agora, alteradoPor: quem.nome, alteradoPorUid: quem.uid, versaoMotor: Ger.VERSAO};
+  return {updates: {"ctl/bloqueio_periodo/modulos": v.modulos, "ctl/bloqueio_periodo/justificativa": v.justificativa,
+    "ctl/bloqueio_periodo/alteradoEm": agora, "ctl/bloqueio_periodo/alteradoPor": quem.nome, "ctl/bloqueio_periodo/alteradoPorUid": quem.uid,
+    "ctl/bloqueio_periodo/versaoMotor": Ger.VERSAO, [`ctl/bloqueio_periodo_historico/${k}`]: reg}};
+}
+
+/* Índices gerenciais: o servidor recalcula pelo razão (não confia no número da tela)
+   e grava o retrato da competência com os percentuais informados. Relançar o mesmo mês
+   substitui o retrato e guarda o anterior no histórico. */
+function prepararIndices(base, dados, quem, agora) {
+  const d = dados || {};
+  const comp = String(d.competencia || "");
+  const calc = Ger.calcularIndices(base.ctl, comp, {meses: d.meses});
+  if (!calc.ok) falhar(calc.motivo, "invalid-argument");
+  const v = Ger.validarIndices(d.informados, calc);
+  if (!v.ok) falhar(v.motivo, "invalid-argument");
+  const reg = Object.assign({}, v.registro, {lancadoEm: agora, lancadoPor: quem.nome, lancadoPorUid: quem.uid});
+  const updates = {[`ctl/indices/${comp}`]: reg};
+  const ant = ((base.ctl || {}).indices || {})[comp];
+  if (ant) updates[`ctl/indices_historico/${comp}/h${agora.replace(/[^0-9]/g, "").slice(0, 17)}`] = ant;
+  return {updates, registro: reg};
+}
+
+module.exports = {VERSAO, prepararBloqueio, prepararIndices, ehControladoria, prepararDerivacao, prepararPainel, prepararAjuste, prepararEstornoAjuste, prepararFechamento, prepararReabertura};

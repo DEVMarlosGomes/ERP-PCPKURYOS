@@ -8,7 +8,9 @@
   var db = firebase.database();
   var Ctl = Controladoria;
   var ctl = null, avisos = [];
-  var S = {aba: 'dre', comp: null, nivel: 'cliente', ano: null, conta: '', linhasAj: 2};
+  var S = {aba: 'dre', comp: null, nivel: 'cliente', ano: null, conta: '', linhasAj: 2,
+    dg: {de: null, ate: null, per: 'MENSAL', cc: '', zer: false}, ixMeses: 12};
+  var Ger = ControladoriaGerencial, elementosFin = {};
 
   function el(id) { return document.getElementById(id); }
   function e(v) { return escapeHtml(String(v == null ? '' : v)); }
@@ -38,6 +40,7 @@
 
   /* ── Carga ─────────────────────────────────────────────────────────────── */
   function escutar() {
+    db.ref('fin/elementos').once('value').then(function(x) { elementosFin = x.val() || {}; if (ctl) render(); }, function() { elementosFin = {}; });
     dbOnValue(db.ref('ctl'), function(s) { ctl = s.val() || {}; montarCompetencias(); render(); },
       {onError: function(err) { ctl = {}; avisos.push('ctl: ' + erroMsg(err)); montarCompetencias(); render(); }});
   }
@@ -58,7 +61,7 @@
     var h = avisos.length ? '<div class="alerta warn"><div>' + avisos.map(e).join('<br>') + '</div></div>' : '';
     var f = (ctl.fechamentos || {})[S.comp];
     if (f && f.status === 'FECHADO') h += '<div class="alerta info"><div><b>' + mesBR(S.comp) + ' está fechado</b> (' + dataBR(f.fechadoEm) + ', ' + e(f.fechadoPor) + (f.forcado ? ', com pendências: ' + e(f.justificativa) : '') + '). Fato tardio entra no mês aberto, citando este.</div></div>';
-    h += ({dre: abaDre, copa: abaCopa, centros: abaCentros, orcamento: abaOrcamento, razao: abaRazao, fechamento: abaFechamento, plano: abaPlano}[S.aba] || abaDre)();
+    h += ({dre: abaDre, dreg: abaDreGerencial, copa: abaCopa, centros: abaCentros, orcamento: abaOrcamento, razao: abaRazao, fechamento: abaFechamento, indices: abaIndices, bloqueio: abaBloqueio, plano: abaPlano}[S.aba] || abaDre)();
     el('conteudo').innerHTML = h;
   }
 
@@ -183,12 +186,111 @@
     else if (S.comp >= atual) h += '<span class="mut">Só se fecha mês que já terminou.</span>';
     else h += '<button class="btn pri" id="btnFechar"' + (painel && painel.ok ? '' : ' disabled') + '>Fechar ' + mesBR(S.comp) + '</button>' + (ehAdm() && painel && !painel.ok ? '<button class="btn perigo" id="btnForcar">Fechar com pendências (ADM)</button>' : '');
     h += '<button class="btn" id="btnExport">Exportar para o contador (CSV)</button></div></div>';
+    h += cardDominio();
     if (painel && painel.reconciliacao) {
       h += '<div class="card"><h3>Reconciliação razão × Financeiro</h3><div class="sub" style="margin-bottom:8px">Conta de reconciliação (SAP): o saldo de Fornecedores e Clientes no razão tem de bater com os títulos em aberto do Financeiro. A parte explicada vem com o motivo.</div><div class="tw"><table><thead><tr><th>Conta</th><th class="n">Razão</th><th class="n">Financeiro</th><th class="n">Diferença</th><th class="n">Explicado</th><th>Motivo</th></tr></thead><tbody>' +
         painel.reconciliacao.map(function(r) { return '<tr><td>' + e(nomeConta(r.conta)) + '</td><td class="n">' + brl(r.razaoCentavos) + '</td><td class="n">' + brl(r.financeiroCentavos) + '</td><td class="n">' + brl(r.diferencaCentavos) + '</td><td class="n">' + brl(r.explicadoCentavos) + '</td><td>' + e(r.explicacao || (Math.abs(r.naoExplicadoCentavos) > 100 ? 'diferença não explicada' : 'ok')) + '</td></tr>'; }).join('') + '</tbody></table></div></div>';
     }
     if (f.reaberturas) h += '<div class="card"><h3>Reaberturas</h3>' + Object.keys(f.reaberturas).map(function(k) { var r = f.reaberturas[k]; return '<div class="chk"><span>' + dataBR(r.em) + ' · ' + e(r.por) + '</span><span>' + e(r.justificativa) + '</span></div>'; }).join('') + '</div>';
     return h;
+  }
+
+
+  /* ── DRE gerencial (layout do WebMais: grupo › centro › elemento) ───── */
+  function abaDreGerencial() {
+    var g = S.dg; if (!g.de) { g.de = S.comp; g.ate = S.comp; }
+    var cs = centros();
+    var h = '<div class="card"><div class="form">' +
+      '<div><label for="dgDe">De (mês)</label><input class="inp" type="month" id="dgDe" value="' + e(g.de) + '"></div>' +
+      '<div><label for="dgAte">Até (mês)</label><input class="inp" type="month" id="dgAte" value="' + e(g.ate) + '"></div>' +
+      '<div><label for="dgPer">Periodicidade</label><select class="sel" id="dgPer">' + Object.keys(Ger.PERIODICIDADES).map(function(k) { return '<option value="' + k + '"' + (g.per === k ? ' selected' : '') + '>' + k.charAt(0) + k.slice(1).toLowerCase() + '</option>'; }).join('') + '</select></div>' +
+      '<div><label for="dgCc">Centro de custo</label><select class="sel" id="dgCc"><option value="">Todos</option>' + Object.keys(cs).map(function(k) { return '<option value="' + k + '"' + (g.cc === k ? ' selected' : '') + '>' + e(cs[k].nome) + '</option>'; }).join('') + '<option value="_SEM"' + (g.cc === '_SEM' ? ' selected' : '') + '>Sem centro de custo</option></select></div>' +
+      '<div><label><input type="checkbox" id="dgZer"' + (g.zer ? ' checked' : '') + '> Mostrar zerado</label></div></div>' +
+      '<div class="dica">Mesmo desenho do relatório de D.R.E do WebMais: grupo › centro de custo › elemento (ou conta, quando o lançamento não tem elemento). Os valores são os mesmos lançamentos da aba DRE; aqui as despesas comerciais entram como <b>despesas variáveis</b> antes da margem, como no WebMais. Gasto por elemento pelo caixa fica no Financeiro › Relatórios › Gastos por centro de custo e elemento.</div></div>';
+    var r = Ger.dreGerencial(ctl, {de: g.de, ate: g.ate, periodicidade: g.per, cc: g.cc || null, mostrarZerado: g.zer, elementos: elementosFin});
+    if (!r.ok) return h + '<div class="alerta warn"><div>' + e(r.motivo) + '</div></div>';
+    if (!r.documentos && !g.zer) return h + '<div class="card"><div class="vazio"><b>Nenhum lançamento de resultado no período.</b>Marque "Mostrar zerado" para ver a estrutura completa.</div></div>';
+    h += '<div class="card"><div class="barra"><h3 style="margin:0">Relatório de D.R.E — ' + e(mesBR(g.de)) + (g.ate !== g.de ? ' a ' + e(mesBR(g.ate)) : '') + '</h3><button class="btn sm" id="dgCsv">Exportar (CSV)</button></div><div class="tw"><table class="dre"><thead><tr><th>Discriminação</th>' +
+      r.colunas.map(function(c) { return '<th class="n">' + e(c.rotulo) + '</th>'; }).join('') + (r.colunas.length > 1 ? '<th class="n">Total</th>' : '') + '</tr></thead><tbody>' +
+      r.linhas.map(function(l) {
+        var pad = l.nivel * 18, peso = l.nivel === 2 ? 'font-weight:400' : 'font-weight:700';
+        return '<tr' + (l.tipo === 'TOTAL' ? ' class="tot"' : '') + '><td style="padding-left:' + (8 + pad) + 'px;' + peso + '">' + e(l.rotulo) + '</td>' +
+          r.colunas.map(function(c) { return '<td class="n" style="' + peso + '">' + brl(l.valores[c.chave] || 0) + '</td>'; }).join('') + (r.colunas.length > 1 ? '<td class="n" style="' + peso + '">' + brl(l.total) + '</td>' : '') + '</tr>';
+      }).join('') + '</tbody></table></div></div>';
+    return h;
+  }
+  function csvDreGerencial() {
+    var g = S.dg, r = Ger.dreGerencial(ctl, {de: g.de, ate: g.ate, periodicidade: g.per, cc: g.cc || null, mostrarZerado: g.zer, elementos: elementosFin});
+    if (!r.ok) return '';
+    var cel = function(c) { return (c / 100).toFixed(2).replace('.', ','); };
+    return ['Discriminação;' + r.colunas.map(function(c) { return c.rotulo; }).join(';') + ';Total'].concat(r.linhas.map(function(l) {
+      return '"' + l.rotulo.replace(/"/g, '""') + '";' + r.colunas.map(function(c) { return cel(l.valores[c.chave] || 0); }).join(';') + ';' + cel(l.total);
+    })).join('\r\n');
+  }
+
+  /* ── Índices gerenciais (Rel. Comercial do WebMais) ─────────────────── */
+  var ROT_INF = {comissaoPct: '% Comissão', icmsFilialPct: '% ICMS venda filial - MT', fretePct: '% frete', freteFilialPct: '% frete filial - MT', simplesPct: '% imposto Simples Nacional',
+    mediaFaturamentoKg: 'Média faturamento Kg', mediaFaturamentoCpl: 'Média faturamento Cpl./R$'};
+  function abaIndices() {
+    var calc = Ger.calcularIndices(ctl, S.comp, {meses: S.ixMeses}), salvo = (ctl.indices || {})[S.comp], inf = (salvo && salvo.informados) || {};
+    function idx(v) { return v == null ? '<span class="mut">não medido</span>' : Number(v).toLocaleString('pt-BR', {minimumFractionDigits: 6, maximumFractionDigits: 6}); }
+    function linha(r, v) { return '<tr><td>' + r + '</td><td class="n">' + v + '</td></tr>'; }
+    var h = '<div class="card"><div class="barra"><h3 style="margin:0">Índices gerenciais — ' + mesBR(S.comp) + '</h3><label>Média dos últimos <input class="inp num" id="ixMeses" style="width:60px" value="' + S.ixMeses + '"> meses</label></div>' +
+      '<div class="dica">Calculados do razão (' + e(calc.de || '') + ' a ' + e(calc.ate || '') + '; ' + (calc.mesesComReceita || 0) + ' mês(es) com receita). Despesa fixa = administrativo + PLR; produção = folha, MOD e custo fixo de produção; estocagem = o que está no centro Logística. Financeira fixa = tarifas e IOF; variável = juros e multas das baixas. Divisão por zero aparece como "não medido", nunca 0.</div>' +
+      (calc.motivos && calc.motivos.indices ? '<div class="alerta warn"><div>' + e(calc.motivos.indices) + '</div></div>' : '') +
+      '<div class="tw"><table><tbody>' +
+      '<tr><th colspan="2">Média de faturamento</th></tr>' + linha('Média faturamento R$', brl(calc.mediaFaturamentoCentavos)) +
+      '<tr><th colspan="2">Média de despesas</th></tr>' + linha('Média despesa fixa', brl(calc.mediaDespesaFixaCentavos)) + linha('Média despesa produção', brl(calc.mediaDespesaProducaoCentavos)) + linha('Média despesa estocagem', brl(calc.mediaDespesaEstocagemCentavos)) +
+      '<tr><th colspan="2">Índice de despesas</th></tr>' + linha('Índice despesa fixa R$', idx(calc.indiceDespesaFixa)) + linha('Índice despesa fixa Kg', idx(salvo ? salvo.indiceDespesaFixaKg : null)) +
+      linha('Índice despesa produção R$', idx(calc.indiceDespesaProducao)) + linha('Índice despesa produção Kg', idx(salvo ? salvo.indiceDespesaProducaoKg : null)) + linha('Índice despesa estocagem R$', idx(calc.indiceDespesaEstocagem)) +
+      linha('Índice despesa financeira fixa', idx(calc.indiceFinanceiraFixa)) + linha('Índice despesa financeira variável', idx(calc.indiceFinanceiraVariavel)) +
+      '<tr><th colspan="2">Outros</th></tr>' + linha('% perda matéria-prima', idx(calc.perdaMateriaPrimaPct)) +
+      '</tbody></table></div></div>';
+    h += '<div class="card"><h3>Informados pela controladoria</h3><div class="sub" style="margin-bottom:8px">A base ainda não tem estes números (comissão, ICMS da filial, frete, Simples, peso faturado). Ficam gravados no retrato do mês junto com os calculados.</div><div class="form">' +
+      Ger.CAMPOS_INFORMADOS.map(function(k) { return '<div><label for="ix_' + k + '">' + e(ROT_INF[k]) + '</label><input class="inp num" id="ix_' + k + '" value="' + e(inf[k] == null ? '' : String(inf[k]).replace('.', ',')) + '"></div>'; }).join('') + '</div>' +
+      '<div class="barra" style="margin-top:10px"><button class="btn pri" id="ixLancar">Confirmar (lançar ' + mesBR(S.comp) + ')</button>' +
+      (salvo ? '<span class="mut">Data lançamento: ' + dataBR(salvo.lancadoEm) + ' · Usuário lançamento: ' + e(salvo.lancadoPor) + '</span>' : '<span class="mut">Ainda não lançado.</span>') + '</div></div>';
+    var meses = Object.keys(ctl.indices || {}).sort().reverse();
+    if (meses.length) h += '<div class="card"><h3>Retratos lançados</h3><div class="tw"><table><thead><tr><th>Ano/Mês</th><th class="n">Média faturamento</th><th class="n">Índice fixa</th><th class="n">Índice produção</th><th>Lançado</th></tr></thead><tbody>' +
+      meses.map(function(m) { var x = ctl.indices[m]; return '<tr><td>' + mesBR(m) + '</td><td class="n">' + brl(x.mediaFaturamentoCentavos) + '</td><td class="n">' + idx(x.indiceDespesaFixa) + '</td><td class="n">' + idx(x.indiceDespesaProducao) + '</td><td>' + dataBR(x.lancadoEm) + ' · ' + e(x.lancadoPor) + '</td></tr>'; }).join('') + '</tbody></table></div></div>';
+    return h;
+  }
+
+  /* ── Bloqueio/Liberação de Período ──────────────────────────────────── */
+  function abaBloqueio() {
+    var b = ctl.bloqueio_periodo || {}, mods = b.modulos || {}, adm = ehAdm();
+    var h = '<div class="card"><h3>Bloqueio/Liberação de período</h3><div class="sub" style="margin-bottom:8px">Para cada movimento, a janela <b>liberada</b>. Data fora dela é recusada pelo servidor. Movimento sem janela fica liberado. O fechamento do mês (aba Fechamento) continua valendo por cima disto.</div>' +
+      '<div class="tw"><table><thead><tr><th>Movimento</th><th>De</th><th>Até</th><th>Aplicado em</th></tr></thead><tbody>' +
+      Ger.MODULOS_BLOQUEIO.map(function(m) {
+        var j = mods[m.chave] || {}, onde = {FINANCEIRO: '<span class="tg ok">Financeiro</span>', CONTABIL: '<span class="tg ok">ajuste manual da Controladoria</span>'}[m.chave] || '<span class="tg mute">registrado; trava ainda não ligada neste módulo</span>';
+        return '<tr><td><b>' + e(m.nome) + '</b></td><td><input class="inp" type="date" data-bq-de="' + m.chave + '" value="' + e(j.de || '') + '"' + (adm ? '' : ' disabled') + '></td><td><input class="inp" type="date" data-bq-ate="' + m.chave + '" value="' + e(j.ate || '') + '"' + (adm ? '' : ' disabled') + '></td><td>' + onde + '</td></tr>';
+      }).join('') + '</tbody></table></div>' +
+      (adm ? '<div class="form" style="margin-top:10px"><div style="grid-column:span 2"><label for="bqJust">Justificativa (fica no histórico)</label><input class="inp" id="bqJust" placeholder="ex.: fechamento de outubro conferido com o contador"></div></div><button class="btn pri" id="bqSalvar" style="margin-top:8px">Confirmar</button>' : '<div class="mut" style="margin-top:8px">Só o ADM altera.</div>') +
+      (b.alteradoEm ? '<div class="dica">Última alteração: ' + dataBR(b.alteradoEm) + ' por ' + e(b.alteradoPor) + ' — ' + e(b.justificativa) + '</div>' : '') + '</div>';
+    var hist = ctl.bloqueio_periodo_historico || {}, ks = Object.keys(hist).sort().reverse().slice(0, 20);
+    if (ks.length) h += '<div class="card"><h3>Histórico</h3>' + ks.map(function(k) { var x = hist[k]; return '<div class="chk"><span>' + dataBR(x.alteradoEm) + ' · ' + e(x.alteradoPor) + '</span><span>' + Object.keys(x.modulos || {}).map(function(m) { return e((Ger.MODULOS_BLOQUEIO.filter(function(z) { return z.chave === m; })[0] || {}).nome || m) + ' ' + dataBR(x.modulos[m].de) + '–' + dataBR(x.modulos[m].ate); }).join(' · ') + ' — ' + e(x.justificativa) + '</span></div>'; }).join('') + '</div>';
+    return h;
+  }
+
+  /* ── Exportação contábil para o Domínio ─────────────────────────────── */
+  function cardDominio() {
+    var L = ((ctl.parametros || {}).dominio) || {}, ini = S.comp + '-01', fim = S.comp + '-' + String(new Date(Date.UTC(+S.comp.slice(0, 4), +S.comp.slice(5, 7), 0)).getUTCDate());
+    var configurado = /^\d{1,7}$/.test(String(L.codigoEmpresa || ''));
+    var h = '<div class="card"><h3>Exportação contábil — Domínio Sistemas</h3><div class="sub" style="margin-bottom:8px">Período: ' + dataBR(ini) + ' até ' + dataBR(fim) + ' · Layout configurado: <b>' + (configurado ? 'Domínio lançamentos (CSV ;)' : 'Não configurado') + '</b> · Empresa destino: <b>' + e(L.codigoEmpresa || '000') + '</b></div>' +
+      '<div class="barra"><button class="btn pri" id="domExportar">Exportar</button><button class="btn" id="domLayout">Configurar layout</button></div>' +
+      '<div class="dica">Uma linha por par débito/crédito: Data;Conta débito;Conta crédito;Valor;Cód. histórico;Histórico. Confira o leiaute com o escritório antes do primeiro envio. Com qualquer inconsistência o arquivo não sai pela metade: sai o relatório de inconsistências.</div></div>';
+    return h;
+  }
+  function dialogoLayout() {
+    var L = ((ctl.parametros || {}).dominio) || {}, contas = L.contas || {}, p = plano();
+    abrir('Layout Domínio', '<div class="form"><div><label for="domEmp">Código da empresa no Domínio</label><input class="inp" id="domEmp" value="' + e(L.codigoEmpresa || '') + '"></div><div><label for="domHist">Cód. histórico padrão</label><input class="inp" id="domHist" value="' + e(L.historicoPadrao || '') + '"></div></div>' +
+      '<div class="tw" style="margin-top:8px"><table><thead><tr><th>Conta gerencial</th><th>Código reduzido no Domínio</th></tr></thead><tbody>' +
+      Object.keys(p).sort(function(a, b) { return p[a].codigo.localeCompare(p[b].codigo); }).map(function(k) { return '<tr><td>' + e(p[k].codigo + ' ' + p[k].nome) + '</td><td><input class="inp num" data-dom-conta="' + k + '" value="' + e(contas[k] || '') + '"></td></tr>'; }).join('') +
+      '</tbody></table></div><button class="btn pri" id="domSalvar" style="margin-top:10px">Salvar layout</button>');
+  }
+  function relatorioInconsistencias(inc) {
+    abrir('Relatório de inconsistências contábeis', '<div class="tw"><table><thead><tr><th>Seq</th><th>Grupo</th><th>Identificador</th><th>Descrição do erro</th></tr></thead><tbody>' +
+      inc.map(function(i) { return '<tr><td>' + e(i.seq) + '</td><td>' + e(i.grupo) + '</td><td>' + e(i.identificador) + '</td><td>' + e(i.descricao) + '</td></tr>'; }).join('') + '</tbody></table></div>');
   }
 
   /* ── Plano de contas ───────────────────────────────────────────────────── */
@@ -247,6 +349,36 @@
       travar(t, chamar('ctlReabrirMes', {competencia: S.comp, justificativa: r})).then(function() { toast(mesBR(S.comp) + ' reaberto.'); });
       return;
     }
+    if (t.id === 'dgCsv') { baixarArquivo('kuryos_dre_' + S.dg.de + '_' + S.dg.ate + '.csv', csvDreGerencial()); return; }
+    if (t.id === 'ixLancar') {
+      var infs = {}; Ger.CAMPOS_INFORMADOS.forEach(function(k) { infs[k] = el('ix_' + k).value.trim(); });
+      var pre = Ger.validarIndices(infs, Ger.calcularIndices(ctl, S.comp, {meses: S.ixMeses})); if (!pre.ok) { toast(pre.motivo); return; }
+      travar(t, chamar('ctlLancarIndices', {competencia: S.comp, meses: S.ixMeses, informados: infs})).then(function() { toast('Índices de ' + mesBR(S.comp) + ' lançados.'); });
+      return;
+    }
+    if (t.id === 'bqSalvar') {
+      var mods = {};
+      Ger.MODULOS_BLOQUEIO.forEach(function(m) { var a = document.querySelector('[data-bq-de="' + m.chave + '"]').value, z = document.querySelector('[data-bq-ate="' + m.chave + '"]').value; if (a || z) mods[m.chave] = {de: a, ate: z}; });
+      var dadosBq = {modulos: mods, justificativa: el('bqJust').value};
+      var vb = Ger.validarBloqueio(dadosBq); if (!vb.ok) { toast(vb.motivo); return; }
+      travar(t, chamar('ctlSalvarBloqueio', dadosBq)).then(function() { toast('Bloqueio de período atualizado.'); });
+      return;
+    }
+    if (t.id === 'domLayout') { dialogoLayout(); return; }
+    if (t.id === 'domSalvar') {
+      var ud = {'ctl/parametros/dominio/codigoEmpresa': el('domEmp').value.trim() || null, 'ctl/parametros/dominio/historicoPadrao': el('domHist').value.trim() || null};
+      Array.prototype.forEach.call(document.querySelectorAll('[data-dom-conta]'), function(i) { ud['ctl/parametros/dominio/contas/' + i.dataset.domConta] = i.value.trim() || null; });
+      travar(t, db.ref().update(ud)).then(function() { el('dlg').close(); toast('Layout do Domínio salvo.'); });
+      return;
+    }
+    if (t.id === 'domExportar') {
+      var ultimo = String(new Date(Date.UTC(+S.comp.slice(0, 4), +S.comp.slice(5, 7), 0)).getUTCDate());
+      var ex = Ger.exportarDominio(ctl, S.comp + '-01', S.comp + '-' + ultimo, (ctl.parametros || {}).dominio);
+      if (!ex.ok) { relatorioInconsistencias(ex.inconsistencias); return; }
+      var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ex.texto], {type: 'text/plain;charset=windows-1252'})); a.download = 'dominio_lancamentos_' + S.comp + '.txt'; document.body.appendChild(a); a.click(); setTimeout(function() { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+      toast(ex.linhas.length + ' linha(s) exportada(s).');
+      return;
+    }
     if (t.id === 'btnExport') { baixarArquivo('kuryos_lancamentos_' + S.comp + '.csv', Ctl.exportarContador(ctl, S.comp)); return; }
     if (t.id === 'orcSalvar') {
       var ano = S.ano, conta = el('orcConta').value, cc = el('orcCc').value, mes = el('orcMes').value, val = Financeiro.centavos(el('orcValor').value);
@@ -277,6 +409,12 @@
     if (t.id === 'selNivel') { S.nivel = t.value; render(); }
     if (t.id === 'selConta') { S.conta = t.value; render(); }
     if (t.id === 'orcAno' && /^20\d{2}$/.test(t.value)) { S.ano = t.value; render(); }
+    if (t.id === 'dgDe' && t.value) { S.dg.de = t.value; if (S.dg.ate < t.value) S.dg.ate = t.value; render(); }
+    if (t.id === 'dgAte' && t.value) { S.dg.ate = t.value; render(); }
+    if (t.id === 'dgPer') { S.dg.per = t.value; render(); }
+    if (t.id === 'dgCc') { S.dg.cc = t.value; render(); }
+    if (t.id === 'dgZer') { S.dg.zer = t.checked; render(); }
+    if (t.id === 'ixMeses') { var nm = Math.round(Number(t.value)); if (nm >= 1 && nm <= 24) { S.ixMeses = nm; render(); } }
   });
 
   var iniciado = false;

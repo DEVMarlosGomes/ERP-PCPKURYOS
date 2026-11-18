@@ -2839,9 +2839,9 @@ const ControladoriaSrv = require("./controladoria_servidor");
 const CAMINHOS_FIN = ["pedidos_compra", "processos_cotacao", "fornecedores", "clientes", "estoque_lotes", "pedidos_comerciais",
   "agendamentos_expedicao", "custos/operacao", "resultado/fechamentos", "fin/titulos", "fin/abatimentos", "fin/baixas", "fin/condicoes",
   "fin/bloqueios", "fin/contas_bancarias", "fin/parametros", "fin/lotes_pagamento", "fin/conciliacoes", "fin/notas_entrada", "fin/movimentos", "fin/adiantamentos", "fin/renegociacoes",
-  "fin/cancelamentos", "fin/elementos", "fin/classificacoes", "ctl/fechamentos"];
+  "fin/cancelamentos", "fin/elementos", "fin/classificacoes", "ctl/fechamentos", "ctl/bloqueio_periodo"];
 const CAMINHOS_CTL = ["ops", "custos/razao", "custos/razao_ops", "custos/fichas", "custos/taxas", "custos/parametros",
-  "ctl/derivados", "ctl/plano_contas", "ctl/lancamentos"];
+  "ctl/derivados", "ctl/plano_contas", "ctl/lancamentos", "ctl/indices"];
 const _cacheGestao = {valores: {}, escutas: {}};
 function escutarGestao(caminho) {
   if (!_cacheGestao.escutas[caminho]) {
@@ -2866,7 +2866,8 @@ async function baseGestao(comCtl) {
       lotes_pagamento: v["fin/lotes_pagamento"], conciliacoes: v["fin/conciliacoes"], notas_entrada: v["fin/notas_entrada"], movimentos: v["fin/movimentos"],
       adiantamentos: v["fin/adiantamentos"], renegociacoes: v["fin/renegociacoes"], cancelamentos: v["fin/cancelamentos"],
       elementos: v["fin/elementos"], classificacoes: v["fin/classificacoes"]},
-    ctl: {fechamentos: v["ctl/fechamentos"], derivados: v["ctl/derivados"], plano_contas: v["ctl/plano_contas"], lancamentos: v["ctl/lancamentos"]},
+    ctl: {fechamentos: v["ctl/fechamentos"], derivados: v["ctl/derivados"], plano_contas: v["ctl/plano_contas"], lancamentos: v["ctl/lancamentos"],
+      bloqueio_periodo: v["ctl/bloqueio_periodo"], indices: v["ctl/indices"]},
   };
 }
 async function perfilDe(request) {
@@ -3012,6 +3013,18 @@ exports.ctlFecharMes = onCall({timeoutSeconds: 120, memory: "512MiB"}, comoHttps
   const r = ControladoriaSrv.prepararFechamento(await baseGestao(true), request.data, quem, new Date().toISOString());
   await db.ref().update(r.updates);
   return {ok: true};
+}));
+exports.ctlSalvarBloqueio = onCall({timeoutSeconds: 60, memory: "512MiB"}, comoHttps(async (request) => {
+  const quem = await exigirControladoria(request);
+  const r = ControladoriaSrv.prepararBloqueio(await baseGestao(false), request.data, quem, new Date().toISOString());
+  await db.ref().update(r.updates);
+  return {ok: true};
+}));
+exports.ctlLancarIndices = onCall({timeoutSeconds: 60, memory: "512MiB"}, comoHttps(async (request) => {
+  const quem = await exigirControladoria(request);
+  const r = ControladoriaSrv.prepararIndices(await baseGestao(true), request.data, quem, new Date().toISOString());
+  await db.ref().update(r.updates);
+  return {ok: true, registro: r.registro};
 }));
 exports.ctlReabrirMes = onCall({timeoutSeconds: 60, memory: "512MiB"}, comoHttps(async (request) => {
   const quem = await exigirControladoria(request);

@@ -1,5 +1,20 @@
 # Melhorias Futuras — Sistema PCP Kuryos
 
+## Controladoria × WebMais — o que ficou para depois (17/11/2026)
+
+Mapa completo em `docs/controladoria-webmais-paridade.md`.
+
+- **SINTEGRA, SPED Fiscal (EFD ICMS/IPI) e Exportação Fiscal Domínio:** fiscal, fora do escopo da Controladoria.
+  Faltam NF-e de entrada/saída com CFOP por item, contabilista (CPF/CRC) e "gerar livro" por CFOP. Decisão do Gustavo.
+- **Empresas 002 CONNEXXA e 003 NEXT21:** o WebMais é multiempresa; aqui é um CNPJ. Decidir se entram.
+- **Trava de período nos outros movimentos:** N.F. Entrada (recebimento), N.F. Saída (faturamento), Estoque (WMS),
+  Produção (apontamento) e Fiscal. Hoje só Financeiro e ajuste contábil respeitam `ctl/bloqueio_periodo`; a tela diz isso.
+- **Índices:** kg faturado (a NF ainda não traz peso), comissão, ICMS filial MT, frete e Simples são informados.
+  "Cpl./R$" sem definição confirmada.
+- **DRE:** opção "Orçado" e "Contabiliza O.P por Emissão/Tipo de custo" do WebMais não replicadas (orçado está em
+  Orçamento × real; custo é o do razão).
+- **Leiaute Domínio:** conferir com o escritório antes do primeiro envio.
+
 ## Laudo de PA por e-mail + ativos no PC Direto — o que ficou para depois (17/11/2026)
 
 Já entregue: o Relatório de Análise de PA sai com o logo da Kuryos no canto superior esquerdo e
