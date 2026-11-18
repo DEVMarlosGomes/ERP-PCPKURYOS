@@ -262,7 +262,10 @@
     var h = '<div class="card"><h3>Bloqueio/Liberação de período</h3><div class="sub" style="margin-bottom:8px">Para cada movimento, a janela <b>liberada</b>. Data fora dela é recusada pelo servidor. Movimento sem janela fica liberado. O fechamento do mês (aba Fechamento) continua valendo por cima disto.</div>' +
       '<div class="tw"><table><thead><tr><th>Movimento</th><th>De</th><th>Até</th><th>Aplicado em</th></tr></thead><tbody>' +
       Ger.MODULOS_BLOQUEIO.map(function(m) {
-        var j = mods[m.chave] || {}, onde = {FINANCEIRO: '<span class="tg ok">Financeiro</span>', CONTABIL: '<span class="tg ok">ajuste manual da Controladoria</span>'}[m.chave] || '<span class="tg mute">registrado; trava ainda não ligada neste módulo</span>';
+        var j = mods[m.chave] || {}, onde = {FINANCEIRO: '<span class="tg ok">Financeiro</span>', CONTABIL: '<span class="tg ok">ajuste manual da Controladoria</span>',
+          NF_ENTRADA: '<span class="tg ok">recebimento, cancelamento e devolução (Compras/Logística)</span>', NF_SAIDA: '<span class="tg ok">registro da NF na carga (Faturamento)</span>',
+          ESTOQUE: '<span class="tg ok">expedição, conferência de PA, devolução de cliente, titularidade</span> <span class="tg mute">ajuste manual de estoque: ainda não</span>',
+          PRODUCAO: '<span class="tg ok">retrabalho e manipulação em lote</span> <span class="tg mute">apontamento: ainda não</span>', FISCAL: '<span class="tg ok">importação de XML, apuração e data de entrada (Fiscal)</span>'}[m.chave] || '<span class="tg mute">registrado</span>';
         return '<tr><td><b>' + e(m.nome) + '</b></td><td><input class="inp" type="date" data-bq-de="' + m.chave + '" value="' + e(j.de || '') + '"' + (adm ? '' : ' disabled') + '></td><td><input class="inp" type="date" data-bq-ate="' + m.chave + '" value="' + e(j.ate || '') + '"' + (adm ? '' : ' disabled') + '></td><td>' + onde + '</td></tr>';
       }).join('') + '</tbody></table></div>' +
       (adm ? '<div class="form" style="margin-top:10px"><div style="grid-column:span 2"><label for="bqJust">Justificativa (fica no histórico)</label><input class="inp" id="bqJust" placeholder="ex.: fechamento de outubro conferido com o contador"></div></div><button class="btn pri" id="bqSalvar" style="margin-top:8px">Confirmar</button>' : '<div class="mut" style="margin-top:8px">Só o ADM altera.</div>') +

@@ -115,8 +115,9 @@ function prepararFaturamento(base, dados, autor, uid, agora) {
     const nf = dados.nf || {};
     const numero = texto(nf.numero, 30);
     if (!numero) falhar('Informe o número da NF.', 'invalid-argument');
-    const chaveNfe = texto(nf.chaveNfe, 60).replace(/\s+/g, '');
-    if (chaveNfe && !/^\d{44}$/.test(chaveNfe)) falhar('A chave NF-e deve ter 44 dígitos.', 'invalid-argument');
+    // CNPJ alfanumérico (B0): as posições 7 a 18 da chave podem ter letra.
+    const chaveNfe = texto(nf.chaveNfe, 60).replace(/\s+/g, '').toUpperCase();
+    if (chaveNfe && !/^\d{6}[0-9A-Z]{12}\d{26}$/.test(chaveNfe)) falhar('A chave NF-e deve ter 44 posições.', 'invalid-argument');
     const valor = Number(nf.valor || 0);
     if (!Number.isFinite(valor) || valor < 0) falhar('Valor da NF inválido.', 'invalid-argument');
     const emitidaEm = texto(nf.emitidaEm, 10) || hoje;

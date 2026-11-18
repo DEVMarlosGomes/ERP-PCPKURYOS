@@ -37,6 +37,22 @@ const {transacaoRaiz, criarFila} = require("./transacao_raiz");
 // próxima operação lê (escrita local atualiza a escuta na hora).
 const filaFinanceiro = criarFila();
 
+// A3 do prompt mestre (Q7 do Marlos, 17/11/2026): a janela LIBERADA de Controladoria › Bloqueio de
+// período vale no SERVIDOR de cada movimento -- N.F. Entrada (recebimento), N.F. Saída (registro da NF
+// na carga), Movto Estoque (expedição, conferência de PA, devolução, titularidade) e Movto Prod.
+// (retrabalho, manipulação em lote). Sem janela configurada para o movimento, nada muda.
+function hojeSP() { return new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10); }
+function dataDoMovimento(d, campos) {
+  for (const c of campos) { const v = String((d || {})[c] || ""); if (/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10); }
+  return hojeSP();
+}
+async function exigirPeriodoLiberado(modulo, dataISO) {
+  const cfg = (await db.ref("ctl/bloqueio_periodo").get()).val();
+  if (!cfg || !cfg.modulos || !cfg.modulos[modulo]) return;
+  const r = require("./controladoria-gerencial").periodoLiberado(cfg, modulo, dataISO);
+  if (!r.ok) throw new HttpsError("failed-precondition", r.motivo);
+}
+
 initializeApp();
 const db = getDatabase();
 const identidadeAcesso = criarServicoIdentidade({db, auth: getAuth()});
@@ -133,6 +149,7 @@ exports.emitirOpServidor = onCall({timeoutSeconds: 120, memory: "512MiB"}, async
 // por cliente de uma vez, por isso roda numa transaction e grava a operação
 // (idempotente) e o motivo no próprio item.
 exports.alterarTitularidadeEstoque = onCall({timeoutSeconds: 120, memory: "512MiB"}, async (request) => {
+  await exigirPeriodoLiberado("ESTOQUE", hojeSP());
   if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para alterar a titularidade.");
   const uid = request.auth.uid;
   const permitido = user => !!user && (user.role === "admin" || (user.modulos && user.modulos.titularidade === true));
@@ -191,6 +208,7 @@ exports.salvarAgendamentoExpedicaoPA = onCall({timeoutSeconds: 120, memory: "512
 // A transação engloba saldo do palete, pedido e carga: qualquer alteração
 // concorrente (CQ, transferência, descarte ou outra saída) reexecuta a validação.
 exports.confirmarExpedicaoPA = onCall({timeoutSeconds: 120, memory: "512MiB"}, async (request) => {
+  await exigirPeriodoLiberado("ESTOQUE", hojeSP());
   if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para confirmar a saída.");
   const uid = request.auth.uid;
   const user = (await db.ref("usuarios/" + uid).once("value")).val() || {};
@@ -695,6 +713,7 @@ exports.faturamentoCargaPA = onCall({timeoutSeconds: 120, memory: "512MiB", secr
     const status = await enviarEmailFaturamento(agendaKey, solicitacaoId, true);
     return {ok: true, email: status};
   }
+  if ((request.data || {}).acao === "REGISTRAR_NF") await exigirPeriodoLiberado("NF_SAIDA", dataDoMovimento((request.data || {}).nf, ["emitidaEm"]));
   const autor = user.nome || request.auth.token.email || uid;
   const agora = new Date().toISOString();
   let plano, falha;
@@ -1954,6 +1973,7 @@ function maiorSequenciaLoteInterno(valor, ano) {
 // única atualização multipath no servidor. O contador é reservado antes e
 // pode deixar lacunas justificadas em falha, mas um AK nunca é repetido.
 exports.registrarRecebimento = onCall(async (request) => {
+  await exigirPeriodoLiberado("NF_ENTRADA", dataDoMovimento(request.data, ["data", "dataRecebimento"]));
   const identidade = await usuarioCallableLogistica(request);
   const data = request.data || {};
   const pedidoKey = String(data.pedidoKey || "").trim();
@@ -2115,6 +2135,7 @@ exports.registrarRecebimento = onCall(async (request) => {
 });
 
 exports.cancelarRecebimento = onCall(async (request) => {
+  await exigirPeriodoLiberado("NF_ENTRADA", hojeSP());
   const identidade = await usuarioCallableLogistica(request);
   const data = request.data || {};
   const pedidoKey = String(data.pedidoKey || "").trim();
@@ -2202,6 +2223,7 @@ exports.cancelarRecebimento = onCall(async (request) => {
 });
 
 exports.registrarDevolucaoRecebimento = onCall(async (request) => {
+  await exigirPeriodoLiberado("NF_ENTRADA", hojeSP());
   const identidade = await usuarioCallableLogistica(request);
   const data = request.data || {};
   const pedidoKey = String(data.pedidoKey || "").trim();
@@ -2289,6 +2311,7 @@ exports.registrarDevolucaoRecebimento = onCall(async (request) => {
 // uma única atualização multipath. Isso impede duas abas de criarem ou
 // sobrescreverem paletes diferentes para a mesma OP.
 exports.finalizarConferenciaPA = onCall(async (request) => {
+  await exigirPeriodoLiberado("ESTOQUE", hojeSP());
   if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para finalizar a conferência.");
   const uid = request.auth.uid;
   const userSnap = await db.ref("usuarios/" + uid).once("value");
@@ -2407,6 +2430,7 @@ exports.finalizarConferenciaPA = onCall(async (request) => {
 // precisam ir juntos, num update só. A regra é pura e testada em
 // devolucao_cliente.js (cópia byte a byte de public/shared/devolucao-cliente.js).
 exports.receberDevolucaoCliente = onCall(async (request) => {
+  await exigirPeriodoLiberado("ESTOQUE", hojeSP());
   if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para receber a devolução.");
   const uid = request.auth.uid;
   const user = (await db.ref("usuarios/" + uid).once("value")).val() || {};
@@ -2671,6 +2695,7 @@ exports.liberarEtapaPd = onCall({timeoutSeconds: 60, memory: "512MiB"}, async (r
 // registro da manipulação e aprovação de crítico. Regras em functions/manipulacao_lote.js.
 const manipulacaoLote = ManipulacaoLote.criarServico({db});
 exports.manipulacaoLoteServidor = onCall({timeoutSeconds: 120, memory: "512MiB"}, async (request) => {
+  await exigirPeriodoLiberado("PRODUCAO", hojeSP());
   try { return await manipulacaoLote.executar(request); } catch (e) {
     if (e instanceof HttpsError) throw e;
     if (e && e.code && /^[a-z-]+$/.test(e.code)) throw new HttpsError(e.code, e.message, e.details);
@@ -2680,6 +2705,7 @@ exports.manipulacaoLoteServidor = onCall({timeoutSeconds: 120, memory: "512MiB"}
 });
 
 exports.apontarRetrabalho = onCall({timeoutSeconds:120,memory:'512MiB'}, async request => {
+  await exigirPeriodoLiberado("PRODUCAO", hojeSP());
   if(!request.auth) throw new HttpsError('unauthenticated','Faça login.');
   const uid=request.auth.uid;
   const user=(await db.ref('usuarios/'+uid).get()).val() || {};

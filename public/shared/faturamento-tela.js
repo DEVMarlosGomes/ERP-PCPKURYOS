@@ -99,7 +99,9 @@
       '<div><label for="f_serie">Série</label><input id="f_serie" data-campo="serie" maxlength="10" value="' + e(v.serie || '') + '"></div>' +
       '<div><label for="f_valor">Valor da NF (R$)</label><input id="f_valor" data-campo="valor" type="number" min="0" step="0.01" value="' + e(v.valor == null ? '' : v.valor) + '"></div>' +
       '<div><label for="f_emitida">Emitida em</label><input id="f_emitida" data-campo="emitidaEm" type="date" value="' + e(v.emitidaEm || '') + '"></div></div>' +
-      '<label for="f_chave" style="margin-top:8px">Chave NF-e</label><input id="f_chave" data-campo="chaveNfe" maxlength="44" inputmode="numeric" placeholder="44 dígitos, se disponível" value="' + e(v.chaveNfe || '') + '">' +
+      // B1 (industrialização por encomenda): o retorno simbólico 5902/5903 não é receita nem recebível.
+      '<p class="carga-aviso-simbolico" style="font-size:12px;margin:6px 0 0;line-height:1.4"><b>Nota com retorno simbólico</b> (5902/5903, industrialização por encomenda)? Informe só o <b>valor cobrado</b> (5124/5125 + IPI): o material do cliente que volta não é receita nem recebível. Com o XML importado no Fiscal, o título usa a fatura do XML.</p>' +
+      '<label for="f_chave" style="margin-top:8px">Chave NF-e</label><input id="f_chave" data-campo="chaveNfe" maxlength="44" autocapitalize="characters" placeholder="44 posições, se disponível" value="' + e(v.chaveNfe || '') + '">' +
       '<p class="carga-erro" id="f_erro">' + e(formAberto.erro || '') + '</p><div class="carga-acoes"><button class="btn ghost" data-fechar>Cancelar</button><button class="btn" data-enviar="REGISTRAR_NF">Registrar NF</button></div></div>';
   }
 

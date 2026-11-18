@@ -104,7 +104,7 @@ assert.deepEqual(FaturamentoEmail.destinatarios({emailDiretoria: 'dir@k.com.br'}
 
 // ── 4. Registrar NF ───────────────────────────────────────────────────
 assert.throws(() => prepararFaturamento(b, {agendaKey: 'ag1', revisao: 2, acao: 'REGISTRAR_NF', nf: {}}, 'L', 'u1', agora), /número da NF/);
-assert.throws(() => prepararFaturamento(b, {agendaKey: 'ag1', revisao: 2, acao: 'REGISTRAR_NF', nf: {numero: '100', chaveNfe: '123'}}, 'L', 'u1', agora), /44 dígitos/);
+assert.throws(() => prepararFaturamento(b, {agendaKey: 'ag1', revisao: 2, acao: 'REGISTRAR_NF', nf: {numero: '100', chaveNfe: '123'}}, 'L', 'u1', agora), /44 posições/);
 const fat = prepararFaturamento(b, {agendaKey: 'ag1', revisao: 2, acao: 'REGISTRAR_NF', nf: {numero: '1500', serie: '1', valor: 1444.5, emitidaEm: '2026-09-17'}}, 'Financeiro', 'u1', agora);
 assert.equal(fat.agenda.faturamento.status, 'FATURADO');
 b.agendamentos_expedicao.ag1 = fat.agenda;
