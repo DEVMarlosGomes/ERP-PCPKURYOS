@@ -667,7 +667,10 @@
         campo('Prazo', data(d.prazoAcaoImediata), '110px')
       ]) + '</div>' +
       blocoContencao(d.contencao) +
-      (d.observacaoContencao ? '<div class="laudo-obs">' + esc(d.observacaoContencao) + '</div>' : '') +
+      // As perguntas mandam "liste quais no campo de observação": o campo sai
+      // sempre, vazio para preencher à mão se ninguém escreveu (18/11/2026).
+      '<div class="laudo-linha-info"><b>Observação:</b></div>' +
+      '<div class="laudo-obs">' + esc(d.observacaoContencao || '') + '</div>' +
 
       blocoConsultaCliente(d.consultaCliente) +
 

@@ -27,6 +27,7 @@
   <script src="shared/campo-decimal.js"></script><script src="shared/spec-material.js"></script><script src="shared/analise-granel.js"></script>
   <script src="shared/inspecao-embalagem.js"></script>
   <script src="shared/laudo-cq.js"></script>
+  <script src="shared/rnc-formulario.js"></script>
   <script src="shared/contatos-cliente.js"></script><script src="shared/laudo-email.js"></script><script src="shared/laudo-pdf.js"></script>
   <script src="shared/filtro-qualidade.js"></script>
   <script src="shared/laudo-pa-resultados.js"></script>
@@ -189,6 +190,12 @@
     .rnc-det-inner{padding:10px 18px 14px 34px;font-size:12px;line-height:1.6}
     .rnc-campo{margin-bottom:4px}
     .rnc-campo b{color:var(--muted);font-weight:600}
+    .rnc-form-sec{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.02em;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:4px;margin:16px 0 10px}
+    .rnc-form-sec:first-child{margin-top:0}
+    .rnc-pergunta{display:grid;grid-template-columns:1fr 150px;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--border);font-size:13px}
+    .rnc-pergunta select{width:100%}
+    .rnc-pergunta .field-hint{grid-column:1/-1;margin-top:-4px}
+    @media(max-width:560px){.rnc-pergunta{grid-template-columns:1fr}}
     .barra{height:8px;border-radius:4px;background:var(--tint-gray-bg);overflow:hidden;min-width:70px}
     .barra-fill{height:100%;border-radius:4px}
     /* Registros de retrabalho (shared/registro-retrabalho-tela.js, 16/11/2026) */
@@ -1183,6 +1190,61 @@
         </div>
         <div class="field-hint">Cancelar <b>não libera o lote</b>. Se o material está bloqueado, o bloqueio é do
           laudo e da RNC que fica.</div>
+      </div>
+
+      <!-- Formulário FOR-QUA-0001 completo (18/11/2026, shared/rnc-formulario.js) -->
+      <div id="rncCamposFormulario" style="display:none">
+        <div class="field-hint" style="margin-bottom:10px">Todos os campos do FOR-QUA-0001. Pode salvar aos poucos:
+          o que ficar em branco sai em branco no relatório. A disposição do material continua sendo escolhida em <b>Encerrar</b>.</div>
+        <div class="rnc-form-sec">3. Classificação</div>
+        <div class="form-group"><label for="rncFProcedimento">Procedimento</label>
+          <input type="text" id="rncFProcedimento" maxlength="200" placeholder="Ex: POP-QUA-005 Inspeção de recebimento"></div>
+        <div class="rnc-form-sec">4. Evidência objetiva</div>
+        <div class="form-group"><label for="rncFEvidencia">Evidência</label>
+          <textarea id="rncFEvidencia" rows="2" placeholder="O que comprova a não conformidade (medição, ensaio, amostra retida…). As fotos da RNC já são citadas no relatório."></textarea></div>
+        <div class="rnc-form-sec">6. Correção / ação de contenção imediata</div>
+        <div class="form-group"><label for="rncFAcaoImediata">Correção / contenção</label>
+          <textarea id="rncFAcaoImediata" rows="2" placeholder="O que foi feito na hora (segregar, parar linha, bloquear lote…)"></textarea></div>
+        <div class="form-grid" data-ui="form-grid">
+          <div class="form-group"><label for="rncFRespContencao">Responsável</label><input type="text" id="rncFRespContencao" maxlength="120"></div>
+          <div class="form-group"><label for="rncFPrazoContencao">Prazo</label><input type="date" id="rncFPrazoContencao"></div>
+        </div>
+        <div id="rncFPerguntas"></div>
+        <div class="form-group" style="margin-top:10px"><label for="rncFObsContencao">Observação (liste outros lotes impactados / expedidos)</label>
+          <textarea id="rncFObsContencao" rows="2"></textarea></div>
+        <div class="rnc-form-sec">7. Análise de causa</div>
+        <div class="form-grid" data-ui="form-grid">
+          <div class="form-group"><label for="rncFMetodo">Método</label>
+            <select id="rncFMetodo"><option value="">— não informado —</option><option>5 Porquês</option><option>Ishikawa</option><option>FMEA</option><option value="OUTRO">Outro…</option></select></div>
+          <div class="form-group" id="rncFMetodoOutroBox" style="display:none"><label for="rncFMetodoOutro">Qual método</label><input type="text" id="rncFMetodoOutro" maxlength="80"></div>
+        </div>
+        <div class="form-group"><label for="rncFCausa">Causa raiz identificada</label>
+          <textarea id="rncFCausa" rows="2" placeholder="Por que aconteceu — não o que aconteceu"></textarea></div>
+        <div class="rnc-form-sec">8. Plano de ação e ação corretiva</div>
+        <div class="form-group"><label for="rncFPlano">Plano de ação</label>
+          <textarea id="rncFPlano" rows="2" placeholder="O que muda para não repetir"></textarea></div>
+        <div class="form-grid" data-ui="form-grid">
+          <div class="form-group"><label for="rncFRespAcao">Responsável</label><input type="text" id="rncFRespAcao" maxlength="120"></div>
+          <div class="form-group"><label for="rncFPrazoAcao">Prazo</label><input type="date" id="rncFPrazoAcao"></div>
+        </div>
+        <div class="field-hint" id="rncFDisposicaoHint"></div>
+        <div class="rnc-form-sec">9. Avaliação pós-ação (risco residual)</div>
+        <div class="form-grid" data-ui="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+          <div class="form-group"><label for="rncFProb">Probabilidade</label><select id="rncFProb"><option value="">—</option><option>Baixa</option><option>Média</option><option>Alta</option></select></div>
+          <div class="form-group"><label for="rncFImpacto">Impacto</label><select id="rncFImpacto"><option value="">—</option><option>Baixo</option><option>Médio</option><option>Alto</option></select></div>
+          <div class="form-group"><label for="rncFResidual">Risco residual</label><select id="rncFResidual"><option value="">—</option><option>Aceitável</option><option>Não aceitável</option></select></div>
+        </div>
+        <div class="rnc-form-sec">10. Verificação da eficácia (ISO 9001 — 10.2.1 d)</div>
+        <div class="form-group"><label for="rncFEfDesc">Descrição da verificação</label>
+          <textarea id="rncFEfDesc" rows="2" placeholder="Como se confirmou que a ação resolveu (ex.: 3 lotes seguintes inspecionados sem desvio)"></textarea></div>
+        <div class="form-grid" data-ui="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+          <div class="form-group"><label for="rncFEfResultado">Resultado</label><select id="rncFEfResultado"><option value="">— pendente —</option><option value="APROVADO">Aprovado</option><option value="REPROVADO">Reprovado</option></select></div>
+          <div class="form-group"><label for="rncFEfData">Data</label><input type="date" id="rncFEfData"></div>
+          <div class="form-group"><label for="rncFEfResp">Responsável</label><input type="text" id="rncFEfResp" maxlength="120"></div>
+        </div>
+        <div class="rnc-form-sec">11. Encerramento</div>
+        <div class="form-group"><label for="rncFAprovado">Aprovado por</label>
+          <input type="text" id="rncFAprovado" maxlength="120" placeholder="Quem aprova a RNC (sai no cabeçalho e no encerramento)"></div>
       </div>
 
       <!-- Encerramento -->
@@ -4000,6 +4062,10 @@ function renderRncs() {
     if ((RNC_STATUS[r.status] || {}).aberta && !(r.consultaCliente || {}).resposta) {
       acoes += '<button class="btn btn-ghost btn-sm rnc-cancelar" data-rnc="' + escapeAttr(r._key) + '" title="Duplicata ou abertura equivocada: cancela sem exigir causa raiz">✖ Cancelar</button> ';
     }
+    if (r.status !== 'CANCELADA') {
+      var pf = RncFormulario.progresso(r);
+      acoes += '<button class="btn btn-ghost btn-sm rnc-formulario" data-rnc="' + escapeAttr(r._key) + '" title="Preencher todos os campos do FOR-QUA-0001">📝 Formulário ' + pf.feitos + '/' + pf.total + '</button> ';
+    }
     if ((RNC_STATUS[r.status] || {}).aberta) acoes += '<button class="btn btn-primary btn-sm rnc-encerrar" data-rnc="' + escapeAttr(r._key) + '">✓ Encerrar</button>';
     var linha = '<tr>' +
       '<td><button class="btn btn-ghost btn-sm rnc-expandir" data-rnc="' + escapeAttr(r._key) + '">' + (rncExpandida === r._key ? '▾' : '▸') + '</button> <b>' + escapeHtml(r.numero) + '</b>' +
@@ -4042,6 +4108,9 @@ function renderRncs() {
   tbody.querySelectorAll('.rnc-encerrar').forEach(function(b) {
     b.addEventListener('click', function() { abrirModalEncerrarRnc(b.getAttribute('data-rnc')); });
   });
+  tbody.querySelectorAll('.rnc-formulario').forEach(function(b) {
+    b.addEventListener('click', function() { abrirModalFormularioRnc(b.getAttribute('data-rnc')); });
+  });
   tbody.querySelectorAll('.rnc-cliente').forEach(function(b) {
     b.addEventListener('click', function() { abrirModalConsultaCliente(b.getAttribute('data-rnc')); });
   });
@@ -4078,12 +4147,29 @@ function detalheRncHtml(r) {
     campo('Responsável pela ação', r.responsavelAcao) +
     campo('Prazo', r.prazoAcao ? fmtData(r.prazoAcao) : '') +
     campo('Disposição', RNC_DISPOSICAO[r.disposicao] || r.disposicao) +
+    blocoFormularioRncHtml(r) +
     (r.encerradaPor ? campo('Encerrada por', r.encerradaPor + ' em ' + fmtDataHora(r.encerradaEm)) : '') +
     blocoCancelamentoHtml(r) +
     blocoConsultaClienteHtml(r) +
     blocoRegistrosRetrabalhoHtml(r) +
     botoesDocumentosRnc(r) +
     botaoLaudoDaRnc(r);
+}
+// O que veio do formulário FOR-QUA-0001 (18/11/2026), resumido no detalhe.
+function blocoFormularioRncHtml(r) {
+  var f = r.formulario;
+  if (!f) return '';
+  var c = f.contencao || {}, rk = f.risco || {}, ef = f.eficacia || {};
+  var resp = RncFormulario.PERGUNTAS.filter(function(p) { return c[p[0]] === true || c[p[0]] === false; })
+    .map(function(p) { return p[1] + ' ' + (c[p[0]] ? 'Sim' : 'Não'); });
+  return campo('Procedimento', f.procedimento) + campo('Evidência', f.evidencia) +
+    campo('Contenção — responsável / prazo', [f.responsavelContencao, f.prazoContencao ? fmtData(f.prazoContencao) : ''].filter(Boolean).join(' · ')) +
+    (resp.length ? '<div class="rnc-campo"><b>Contenção:</b><ul style="margin:2px 0 0 18px;padding:0">' + resp.map(function(x) { return '<li>' + escapeHtml(x) + '</li>'; }).join('') + '</ul></div>' : '') +
+    campo('Observação da contenção', f.observacaoContencao) + campo('Método de análise', f.metodo) +
+    campo('Risco residual', [rk.probabilidade && 'probabilidade ' + rk.probabilidade, rk.impacto && 'impacto ' + rk.impacto, rk.residual].filter(Boolean).join(' · ')) +
+    campo('Verificação da eficácia', [ef.resultado === 'APROVADO' ? 'Aprovado' : ef.resultado === 'REPROVADO' ? 'Reprovado' : '', ef.data ? fmtData(ef.data) : '', ef.responsavel, ef.descricao].filter(Boolean).join(' · ')) +
+    campo('Aprovado por', f.aprovadoPor) +
+    (f.atualizadoPor ? '<div class="field-hint">Formulário atualizado por ' + escapeHtml(f.atualizadoPor) + ' em ' + fmtDataHora(f.atualizadoEm) + '</div>' : '');
 }
 // Registros de retrabalho que tratam esta RNC (shared/registro-retrabalho-tela.js).
 // Só consulta: nada aqui grava na RNC, no PA ou no estoque.
@@ -4152,6 +4238,8 @@ function dadosRncDoc(r) {
   var bloqueado = lote ? (!loteDisponivel(lote.status) || !!lote.concessao) : undefined;
   var ehMaterial = r.itemTipo !== 'produto';
   var mat = r.itemCodigo ? allMateriais[sanitizeKey(r.itemCodigo)] : null;
+  // Campos do formulário (shared/rnc-formulario.js); sem resposta gravada, vale a do sistema.
+  var form = RncFormulario.paraDocumento(r, {contencao: {loteBloqueado: bloqueado, materiaisBloqueados: ehMaterial ? bloqueado : undefined}});
   return {
     numero: r.numero,
     dataAbertura: r.abertaEm,
@@ -4168,15 +4256,22 @@ function dadosRncDoc(r) {
     descricao: r.descricao || null,
     fotos: FotosQualidade.lista(r.fotos),
     acaoImediata: r.acaoImediata || null,
-    responsavelAcaoImediata: r.emAnalisePor || r.abertaPor || null,
-    contencao: {loteBloqueado: bloqueado, materiaisBloqueados: ehMaterial ? bloqueado : undefined},
+    responsavelAcaoImediata: form.responsavelAcaoImediata || r.emAnalisePor || r.abertaPor || null,
+    prazoAcaoImediata: form.prazoAcaoImediata,
+    contencao: form.contencao,
+    observacaoContencao: form.observacaoContencao,
+    procedimento: form.procedimento,
+    evidencia: form.evidencia,
+    metodo: form.metodo,
+    risco: form.risco,
+    eficacia: form.eficacia,
     consultaCliente: r.consultaCliente || null,
     causaRaiz: r.causaRaiz || null,
     planoAcao: r.acaoCorretiva || null,
     responsavelAcao: r.responsavelAcao || null,
     prazoAcao: r.prazoAcao || null,
     disposicao: RNC_DISPOSICAO[r.disposicao] || r.disposicao || null,
-    encerramento: {data: r.encerradaEm || null, aprovadoPor: r.encerradaPor || null},
+    encerramento: {data: r.encerradaEm || null, aprovadoPor: form.aprovadoPor || r.encerradaPor || null},
     cancelada: r.status === 'CANCELADA',
     canceladaEm: r.canceladaEm || null,
     canceladaPor: r.canceladaPor || null,
@@ -4279,9 +4374,11 @@ function abrirModalEncerrarRnc(numero) {
     '<br>' + escapeHtml(r.descricao || '');
   mostrarBlocoRnc('Encerramento');
   document.getElementById('rncBtnSalvar').textContent = 'Encerrar RNC';
-  ['rncCausaRaiz', 'rncAcaoCorretiva', 'rncResponsavel', 'rncPrazo'].forEach(function(id) {
-    document.getElementById(id).value = '';
-  });
+  // O que já foi preenchido no formulário (FOR-QUA-0001) chega pronto aqui.
+  document.getElementById('rncCausaRaiz').value = r.causaRaiz || '';
+  document.getElementById('rncAcaoCorretiva').value = r.acaoCorretiva || '';
+  document.getElementById('rncResponsavel').value = r.responsavelAcao || '';
+  document.getElementById('rncPrazo').value = r.prazoAcao || '';
   document.getElementById('rncDisposicao').value = '';
   if (fotosRncEncerramento) fotosRncEncerramento.limpar();
   fotosRncEncerramento = FotosQualidade.montar(document.getElementById('rncFotosEncerramento'), {});
@@ -4290,7 +4387,7 @@ function abrirModalEncerrarRnc(numero) {
 /* O modal da RNC tem quatro faces agora (abrir, notificar cliente, registrar
    resposta, encerrar). Uma função decide qual aparece: com quatro blocos,
    ligar/desligar na mão em cada abertura é como sobra um bloco visível. */
-var BLOCOS_RNC = ['Abertura', 'Cliente', 'Resposta', 'Cancelamento', 'Encerramento'];
+var BLOCOS_RNC = ['Abertura', 'Cliente', 'Resposta', 'Cancelamento', 'Formulario', 'Encerramento'];
 function mostrarBlocoRnc(qual) {
   BLOCOS_RNC.forEach(function(b) {
     document.getElementById('rncCampos' + b).style.display = b === qual ? '' : 'none';
@@ -4373,6 +4470,71 @@ function abrirModalCancelarRnc(numero) {
         ' · ' + escapeHtml(o.itemCodigo || '') + '</option>';
     }).join('');
   document.getElementById('modalRncBg').classList.add('open');
+}
+
+/* Preencher o FOR-QUA-0001 completo (18/11/2026). Sugestões do sistema
+   (lote bloqueado lido do estoque) entram marcadas como sugestão; o que a
+   Qualidade responder vence. */
+function sugestoesFormularioRnc(r) {
+  var lote = r.itemCodigo && r.loteKey ? (allEstoqueLotes[sanitizeKey(r.itemCodigo)] || {})[r.loteKey] : null;
+  var bloqueado = lote ? (!loteDisponivel(lote.status) || !!lote.concessao) : undefined;
+  return {contencao: {loteBloqueado: bloqueado, materiaisBloqueados: r.itemTipo !== 'produto' ? bloqueado : undefined},
+    responsavelContencao: r.emAnalisePor || r.abertaPor || ''};
+}
+function abrirModalFormularioRnc(numero) {
+  var r = allRncs[numero];
+  if (!r) return;
+  rncModo = 'FORMULARIO'; rncAlvo = numero;
+  document.getElementById('modalRncTitle').textContent = 'Formulário FOR-QUA-0001 — ' + (r.numero || numero);
+  var ctx = document.getElementById('rncContexto');
+  ctx.style.display = ''; ctx.innerHTML = contextoRncHtml(numero, r);
+  mostrarBlocoRnc('Formulario');
+  document.getElementById('rncBtnSalvar').textContent = 'Salvar formulário';
+  var v = RncFormulario.valoresIniciais(r, sugestoesFormularioRnc(r));
+  var set = function(id, x) { document.getElementById(id).value = x == null ? '' : x; };
+  set('rncFProcedimento', v.procedimento); set('rncFEvidencia', v.evidencia); set('rncFAcaoImediata', v.acaoImediata);
+  set('rncFRespContencao', v.responsavelContencao); set('rncFPrazoContencao', v.prazoContencao);
+  set('rncFObsContencao', v.observacaoContencao); set('rncFMetodo', v.metodo); set('rncFMetodoOutro', v.metodoOutro);
+  set('rncFCausa', v.causaRaiz); set('rncFPlano', v.acaoCorretiva); set('rncFRespAcao', v.responsavelAcao); set('rncFPrazoAcao', v.prazoAcao);
+  set('rncFProb', v.risco.probabilidade); set('rncFImpacto', v.risco.impacto); set('rncFResidual', v.risco.residual);
+  set('rncFEfDesc', v.eficacia.descricao); set('rncFEfResultado', v.eficacia.resultado); set('rncFEfData', v.eficacia.data); set('rncFEfResp', v.eficacia.responsavel);
+  set('rncFAprovado', v.aprovadoPor);
+  document.getElementById('rncFPerguntas').innerHTML = RncFormulario.PERGUNTAS.map(function(p) {
+    var val = v.contencao[p[0]];
+    return '<div class="rnc-pergunta" data-pergunta="' + p[0] + '"><label for="rncFQ_' + p[0] + '">' + escapeHtml(p[1]) + '</label>' +
+      '<select id="rncFQ_' + p[0] + '"><option value="">— sem resposta —</option><option value="SIM"' + (val === true ? ' selected' : '') + '>Sim</option>' +
+      '<option value="NAO"' + (val === false ? ' selected' : '') + '>Não</option></select>' +
+      (v.contencaoSugerida[p[0]] ? '<div class="field-hint">Sugerido pelo sistema (situação do lote no estoque). Confira e salve.</div>' : '') + '</div>';
+  }).join('');
+  var concluida = r.status === 'CONCLUIDA';
+  ['rncFCausa', 'rncFPlano', 'rncFRespAcao', 'rncFPrazoAcao'].forEach(function(id) { document.getElementById(id).disabled = concluida; });
+  document.getElementById('rncFDisposicaoHint').innerHTML = concluida
+    ? 'RNC encerrada: causa, plano e <b>disposição (' + escapeHtml(RNC_DISPOSICAO[r.disposicao] || r.disposicao || '—') + ')</b> ficam como foram encerrados.'
+    : 'A disposição do material é escolhida em <b>Encerrar</b>, porque é ela que age sobre o lote.';
+  atualizarFormularioRnc();
+  document.getElementById('modalRncBg').classList.add('open');
+}
+// "Qual método" só com Outro; "também bloqueados?" só com outros impactados = Sim.
+function atualizarFormularioRnc() {
+  document.getElementById('rncFMetodoOutroBox').style.display = document.getElementById('rncFMetodo').value === 'OUTRO' ? '' : 'none';
+  var imp = document.getElementById('rncFQ_outrosImpactados'), q = document.querySelector('[data-pergunta="outrosBloqueados"]');
+  if (imp && q) {
+    q.style.display = imp.value === 'SIM' ? '' : 'none';
+    if (imp.value !== 'SIM') document.getElementById('rncFQ_outrosBloqueados').value = '';
+  }
+}
+document.getElementById('rncCamposFormulario').addEventListener('change', atualizarFormularioRnc);
+function lerFormularioRnc() {
+  var g = function(id) { return document.getElementById(id).value; };
+  var contencao = {};
+  RncFormulario.PERGUNTAS.forEach(function(p) { contencao[p[0]] = g('rncFQ_' + p[0]); });
+  return {procedimento: g('rncFProcedimento'), evidencia: g('rncFEvidencia'), acaoImediata: g('rncFAcaoImediata'),
+    responsavelContencao: g('rncFRespContencao'), prazoContencao: g('rncFPrazoContencao'), contencao: contencao,
+    observacaoContencao: g('rncFObsContencao'), metodo: g('rncFMetodo'), metodoOutro: g('rncFMetodoOutro'),
+    causaRaiz: g('rncFCausa'), acaoCorretiva: g('rncFPlano'), responsavelAcao: g('rncFRespAcao'), prazoAcao: g('rncFPrazoAcao'),
+    risco: {probabilidade: g('rncFProb'), impacto: g('rncFImpacto'), residual: g('rncFResidual')},
+    eficacia: {descricao: g('rncFEfDesc'), resultado: g('rncFEfResultado'), data: g('rncFEfData'), responsavel: g('rncFEfResp')},
+    aprovadoPor: g('rncFAprovado')};
 }
 
 function fecharModalRnc() { document.getElementById('modalRncBg').classList.remove('open'); }
@@ -4545,6 +4707,13 @@ document.getElementById('rncBtnSalvar').addEventListener('click', function() {
           : 'Resposta registrada: o cliente reprovou. O lote segue bloqueado.';
       });
     }).catch(function(e) { btn.disabled = false; showAlert('Erro: ' + e.message, 'danger'); });
+    return;
+  }
+  if (rncModo === 'FORMULARIO') {
+    var alvoForm = rncAlvo;
+    RncFormulario.salvar(db, alvoForm, lerFormularioRnc(), currentUserNome())
+      .then(function(r) { terminar(r, function() { return 'Formulário da ' + alvoForm + ' salvo. O relatório FOR-QUA-0001 já sai com ele.'; }); })
+      .catch(function(e) { btn.disabled = false; showAlert('Erro: ' + e.message, 'danger'); });
     return;
   }
   if (rncModo === 'CANCELAR') {
