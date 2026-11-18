@@ -5,6 +5,10 @@ o bloco do agente que você está operando e mantenha o histórico curto.
 
 ## Em andamento
 
+### Claude (sessão `pc-edicao`) — Editar Pedido de Compra com justificativa (18/11/2026)
+
+- **Código concluído em `hostinger-deploy`.** Pedido do Marlos: editar PC "caso seja necessário, com justificativa". Antes só ADM editava e só ABERTO. Agora o ADM edita ABERTO, ENVIADO e RECEBIDO_PARCIAL (`shared/edicao-pc.js`, regras puras); justificativa obrigatória (≥ 10) em toda edição; cada uma vira revisão em `pedidos_compra/{k}/edicoes/{id}` (quem, quando, status, "de → para" por campo) e `revisao` N; botão 🕘 Rev. N mostra o histórico; documento sai com a faixa "REVISÃO N — SUBSTITUI A VERSÃO ANTERIOR" e o motivo. Quantidade nova move o saldo a receber (`itens/{k}/qtd`, limite do recebimento no servidor) e não desce abaixo do recebido. Gravação virou transaction no PC (antes update cego). Recebimentos e títulos já lançados não mudam. Nenhuma regra do banco mudou (ADM já grava em `pedidos_compra`). Testes: `run_edicao_pc_test`, `run_pc_edicao_ui_test` (Chrome), regressão cancelamento/PC direto/serviço/rota-envio OK; `run_navegacao_test` falha só pelo link `chamados` (Codex). **Pendente (Marlos):** deploy da VPS. Arquivos ativos: nenhum.
+
 ### Claude (sessão `fiscal-paridade-webmais`) — Prompt mestre Controladoria + Financeiro + Fiscal (18/11/2026)
 
 - **Concluído no branch `fiscal/paridade-webmais`**, integrado em `hostinger-deploy`. Base: os 3 patches da paridade (17/11).

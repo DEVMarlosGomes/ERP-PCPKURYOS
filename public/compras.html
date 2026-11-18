@@ -13,6 +13,7 @@
   <script src="shared/utils.js"></script>
   <script src="shared/rotas-pc.js"></script>
   <script src="shared/cancelamento-pc.js"></script>
+  <script src="shared/edicao-pc.js"></script>
   <script src="shared/ultimo-preco.js"></script>
   <script src="shared/propriedade-estoque.js"></script>
   <script src="shared/servico-compra.js"></script>
@@ -638,7 +639,7 @@
   </div>
 </div>
 
-<!-- MODAL: editar Pedido de Compra (só ADM, só enquanto ABERTO) -->
+<!-- MODAL: editar Pedido de Compra (só ADM; ABERTO/ENVIADO/RECEBIDO_PARCIAL, com justificativa) — shared/edicao-pc.js -->
 <div class="modal-bg" id="modalEditarPC">
   <div class="modal" style="max-width:720px">
     <div class="modal-header purple" data-ui="dialog-head">
@@ -646,11 +647,7 @@
       <button class="modal-close" id="modalEditarPCClose" title="Fechar" aria-label="Fechar">×</button>
     </div>
     <div class="modal-body" data-ui="dialog-body">
-      <div class="section-note" style="margin-bottom:14px">
-        Correção antes de enviar ao fornecedor. Depois de <b>Marcar Enviado</b> o pedido não pode
-        mais ser editado — o fornecedor já teria o documento em mãos, e mudar aqui sem ele saber
-        cria exatamente a divergência que a página impressa evita.
-      </div>
+      <div class="section-note" style="margin-bottom:14px" id="pcEditAviso"></div>
 
       <div class="table-wrap" style="padding:0;margin-bottom:16px;overflow-x:auto" data-ui="table-scroll">
         <table style="min-width:600px">
@@ -698,6 +695,11 @@
       </div>
       <div class="section-label">Rota do pedido</div>
       <div id="pcEditRotaEditor"></div>
+      <div class="form-group" style="margin-top:14px">
+        <label for="pcEditJustificativa">Justificativa da edição *</label>
+        <textarea id="pcEditJustificativa" rows="3" maxlength="1000" placeholder="Ex.: fornecedor reajustou o preço na confirmação; lote mínimo passou para 50 kg"></textarea>
+        <div class="field-hint">Obrigatória (mínimo 10 caracteres). Fica no histórico de revisões do pedido e no documento.</div>
+      </div>
     </div>
     <div class="modal-footer" data-ui="dialog-foot">
       <button class="btn btn-ghost" id="pcEditCancelar">Cancelar</button>
@@ -726,6 +728,17 @@
       <button class="btn btn-ghost" id="pcEnvCancelar">Cancelar</button>
       <button class="btn btn-green" id="pcEnvSalvar">Confirmar rota e marcar como enviado</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: revisões do Pedido de Compra (shared/edicao-pc.js) -->
+<div class="modal-bg" id="modalRevisoesPC">
+  <div class="modal" style="max-width:720px">
+    <div class="modal-header purple" data-ui="dialog-head">
+      <div><h2 id="pcRevTitulo">Revisões</h2></div>
+      <button class="modal-close" id="modalRevisoesPCClose" title="Fechar" aria-label="Fechar">×</button>
+    </div>
+    <div class="modal-body" data-ui="dialog-body" id="pcRevCorpo"></div>
   </div>
 </div>
 
@@ -2105,12 +2118,17 @@ function renderPedidos() {
         '<td><button class="btn btn-ghost btn-sm pc-imprimir" data-key="' + escapeAttr(key) + '" title="Documento com a faixa de cancelamento">🖨 Ver documento</button></td>' +
       '</tr>';
     }
-    var acoes = (p.status === 'ABERTO'
-      ? (podeEditarPC(p)
-          ? '<button class="btn btn-ghost btn-sm pc-editar" data-key="' + escapeAttr(key) + '" title="Corrigir itens e condições antes de enviar ao fornecedor">✏️ Editar</button> '
-          : '') +
-        '<button class="btn btn-ghost btn-sm pc-enviar" data-key="' + escapeAttr(key) + '">Marcar Enviado</button> '
-      : '') +
+    // Edição com justificativa (18/11, shared/edicao-pc.js): ABERTO, ENVIADO
+    // e RECEBIDO_PARCIAL, só ADM; cada edição vira uma revisão do pedido.
+    var acoes = (podeEditarPC(p)
+        ? '<button class="btn btn-ghost btn-sm pc-editar" data-key="' + escapeAttr(key) + '" title="Editar o pedido com justificativa (fica no histórico de revisões)">✏️ Editar</button> '
+        : '') +
+      (p.status === 'ABERTO'
+        ? '<button class="btn btn-ghost btn-sm pc-enviar" data-key="' + escapeAttr(key) + '">Marcar Enviado</button> '
+        : '') +
+      (EdicaoPC.revisoes(p).length
+        ? '<button class="btn btn-ghost btn-sm pc-revisoes" data-key="' + escapeAttr(key) + '" title="Quem editou, quando, por quê e o que mudou">🕘 Rev. ' + escapeHtml(String(p.revisao || EdicaoPC.revisoes(p).length)) + '</button> '
+        : '') +
       '<button class="btn btn-primary btn-sm pc-imprimir" data-key="' + escapeAttr(key) + '" title="Abre o pedido formatado pra imprimir ou salvar em PDF, com o padrão de etiqueta de cada item">🖨 Enviar ao fornecedor</button> ' +
       '<button class="btn btn-ghost btn-sm pc-etiquetas" data-key="' + escapeAttr(key) + '">🏷️ Etiquetas</button>' +
       (['ABERTO', 'ENVIADO', 'RECEBIDO_PARCIAL'].indexOf(p.status) >= 0
@@ -2165,6 +2183,9 @@ function renderPedidos() {
   });
   document.querySelectorAll('.pc-editar').forEach(function(btn) {
     btn.addEventListener('click', function() { abrirModalEditarPC(btn.getAttribute('data-key')); });
+  });
+  document.querySelectorAll('.pc-revisoes').forEach(function(btn) {
+    btn.addEventListener('click', function() { abrirRevisoesPC(btn.getAttribute('data-key')); });
   });
   document.querySelectorAll('.pc-cancelar').forEach(function(btn) {
     btn.addEventListener('click', function() { abrirModalCancelarPC(btn.getAttribute('data-key')); });
@@ -2319,9 +2340,18 @@ function faixaCancelamentoDocumentoPC(pc) {
     '<div style="font-size:11px;margin-top:4px;color:#1d1d1f">Cancelado em ' + escapeHtml(c.canceladoEm ? new Date(c.canceladoEm).toLocaleString('pt-BR') : '—') +
     ' por ' + escapeHtml(c.canceladoPor || '—') + '. Motivo: ' + escapeHtml(c.motivo || '—') + '</div></div>';
 }
+// Pedido editado: o documento reenviado diz que é revisão, de quando e por quê.
+function faixaRevisaoDocumentoPC(pc) {
+  var r = EdicaoPC.revisoes(pc)[0];
+  if (!r) return '';
+  return '<div style="border:2px solid #b26a00;color:#b26a00;border-radius:6px;padding:8px 12px;margin-bottom:12px;text-align:center">' +
+    '<div style="font-size:15px;font-weight:800;letter-spacing:.04em">REVISÃO ' + escapeHtml(String(pc.revisao || r.numero || '')) + ' — SUBSTITUI A VERSÃO ANTERIOR</div>' +
+    '<div style="font-size:11px;margin-top:4px;color:#1d1d1f">Revisado em ' + escapeHtml(r.em ? new Date(r.em).toLocaleString('pt-BR') : '—') +
+    ' por ' + escapeHtml(r.por || '—') + '. Motivo: ' + escapeHtml(r.justificativa || '—') + '</div></div>';
+}
 function montarDocumentoPedidoCompraComRota(pc, fornecedor) {
   var html = montarDocumentoPedidoCompra(pc, fornecedor), bloco = blocoRotaDocumentoPC(pc);
-  var faixa = faixaCancelamentoDocumentoPC(pc);
+  var faixa = faixaCancelamentoDocumentoPC(pc) || faixaRevisaoDocumentoPC(pc);
   // A faixa entra logo depois do <style> inicial, no topo da 1ª página.
   if (faixa) html = html.replace('</style>', '</style>' + faixa);
   if (!bloco) return html;
@@ -2392,8 +2422,7 @@ function abrirModalEtiquetaPC(pcKey) {
      total) é mais grave ainda: já existe material e movimento de estoque
      amarrados naquelas quantidades. */
 function podeEditarPC(pc) {
-  return !!(pc && pc.status === 'ABERTO' &&
-    window.currentUser && window.currentUser.role === 'admin');
+  return EdicaoPC.avaliarEdicao(pc, window.currentUser && window.currentUser.role).pode;
 }
 
 // A lista de pedidos costuma renderizar ANTES de o perfil do usuário chegar
@@ -2655,13 +2684,16 @@ function confirmarRotaDoEditor(prefix, rota) {
 function abrirModalEditarPC(key) {
   var pc = allPedidosCompra[key];
   if (!pc) { showAlert('Pedido não encontrado.', 'danger'); return; }
-  if (!podeEditarPC(pc)) {
-    showAlert(pc.status !== 'ABERTO'
-      ? 'Este pedido já foi ' + (pc.status === 'ENVIADO' ? 'enviado ao fornecedor' : 'recebido') + ' — não pode mais ser editado.'
-      : 'Apenas administradores podem editar um pedido de compra.', 'danger');
-    return;
-  }
+  var avEd = EdicaoPC.avaliarEdicao(pc, window.currentUser && window.currentUser.role);
+  if (!avEd.pode) { showAlert(avEd.motivo, 'danger'); return; }
   pcEditKey = key;
+  document.getElementById('pcEditJustificativa').value = '';
+  document.getElementById('pcEditAviso').innerHTML = pc.status === 'ABERTO'
+    ? 'O pedido ainda não foi enviado ao fornecedor. A edição vira uma revisão do pedido, com a sua justificativa.'
+    : '<b>Este pedido já foi ' + (pc.status === 'ENVIADO' ? 'enviado ao fornecedor' : 'recebido em parte') + '.</b> ' +
+      'Depois de salvar, reimprima e reenvie o documento: ele sai como <b>Revisão ' + ((Number(pc.revisao) || 0) + 1) + '</b>, com a justificativa. ' +
+      'Recebimentos já lançados e os títulos a pagar deles não mudam; preço e quantidade novos valem para o que ainda vai chegar. ' +
+      'A quantidade não pode ficar abaixo do que já foi recebido.';
   document.getElementById('pcEditTitulo').textContent = 'Editar ' + (pc.numeroFormatado || '');
   document.getElementById('pcEditSub').textContent =
     (pc.fornecedorNome || '') + ' · criado em ' + fmtData(pc.dataCriacao);
@@ -2879,6 +2911,12 @@ function salvarEdicaoPC() {
     updates[base + 'custoUnitarioNaDecisao'] = calc.custoUnitario != null
       ? Math.round(calc.custoUnitario * 10000) / 10000 : null;
     updates[base + 'custoTotalNaDecisao'] = Math.round(calc.custoTotal * 100) / 100;
+    // Saldo a receber acompanha a quantidade nova (limite do recebimento no
+    // servidor é itens/{k}/qtd) -- shared/edicao-pc.js.
+    updates[base + 'qtd'] = EdicaoPC.qtdAReceberApos((pc.itens || {})[x.itemKey], {
+      qtdCotada: x.l.resp.qtdCotada, unidadeDiferente: !!calc.unidadeDiferente,
+      qtdEmUnidadeEstoque: calc.qtdCadastro != null ? Math.round(calc.qtdCadastro * 10000) / 10000 : null
+    });
   });
   updates['pedidos_compra/' + pcEditKey + '/valorTotalEstimado'] = Math.round(totalRecalc * 100) / 100;
 
@@ -2903,19 +2941,90 @@ function salvarEdicaoPC() {
   updates['pedidos_compra/' + pcEditKey + '/transporte/acaoLogistica'] = responsavelTransporte === 'KURYOS' ? 'PROGRAMAR_COLETA' : 'AGUARDAR_ENTREGA';
   // Trilha: quem editou e quando. Alterar pedido decidido sem deixar rastro
   // é o tipo de coisa que ninguém consegue explicar três meses depois.
-  updates['pedidos_compra/' + pcEditKey + '/editadoEm'] = new Date().toISOString();
+  var agoraEd = new Date().toISOString();
+  updates['pedidos_compra/' + pcEditKey + '/editadoEm'] = agoraEd;
   updates['pedidos_compra/' + pcEditKey + '/editadoPor'] = currentUserNome();
+
+  // Caminhos relativos ao PC: a gravação é uma transaction no próprio
+  // pedido, para conferir status e recebido no valor do servidor.
+  var prefixo = 'pedidos_compra/' + pcEditKey + '/', rel = {};
+  Object.keys(updates).forEach(function(c) { rel[c.slice(prefixo.length)] = updates[c]; });
+  var semCarimbo = function(r) {
+    return JSON.stringify(r || {}, function(k, v) { return /confirmad/i.test(k) || k === 'statusConfirmacao' ? undefined : v; });
+  };
+  var dadosRev = {
+    papel: window.currentUser && window.currentUser.role, autor: currentUserNome(),
+    uid: (window.currentUser && window.currentUser.uid) || null, agora: agoraEd,
+    justificativa: document.getElementById('pcEditJustificativa').value,
+    rotaAlterada: semCarimbo(pc.rota) !== semCarimbo(rotaEditada)
+  };
+  var previa = EdicaoPC.montarRevisao(pc, rel, dadosRev);
+  if (previa.erro) { showAlert(previa.erro, 'danger'); return; }
+  var itensQtd = {};
+  Object.keys(rel).forEach(function(c) { var m = /^itens\/([^/]+)\/qtd$/.exec(c); if (m) itensQtd[m[1]] = { qtd: rel[c] }; });
+  var erroRec = EdicaoPC.conferirRecebido(pc, itensQtd);
+  if (erroRec) { showAlert(erroRec, 'danger'); return; }
+  var revId = db.ref('pedidos_compra/' + pcEditKey + '/edicoes').push().key;
+  var key = pcEditKey, erroTx = null;
 
   var btn = document.getElementById('pcEditSalvar');
   btn.disabled = true;
-  db.ref().update(updates).then(function() {
+  db.ref('pedidos_compra/' + key).transaction(function(atual) {
+    // Armadilha do SDK: null aqui é cache vazio, não "pedido inexistente".
+    if (!atual) return atual;
+    erroTx = null;
+    var r = EdicaoPC.montarRevisao(atual, rel, dadosRev);
+    var er = r.erro || EdicaoPC.conferirRecebido(atual, itensQtd);
+    if (er) { erroTx = er; return; }
+    Object.keys(rel).forEach(function(c) {
+      var partes = c.split('/'), o = atual;
+      for (var i = 0; i < partes.length - 1; i++) {
+        if (o[partes[i]] == null || typeof o[partes[i]] !== 'object') o[partes[i]] = {};
+        o = o[partes[i]];
+      }
+      if (rel[c] == null) delete o[partes[partes.length - 1]]; else o[partes[partes.length - 1]] = rel[c];
+    });
+    atual.revisao = r.revisao.numero;
+    atual.edicoes = atual.edicoes || {};
+    atual.edicoes[revId] = r.revisao;
+    return atual;
+  }).then(function(res) {
     btn.disabled = false;
+    if (!res.committed || !res.snapshot.exists()) {
+      showAlert(erroTx || 'O pedido mudou enquanto você editava. Abra de novo e confira.', 'danger');
+      return;
+    }
+    var v = res.snapshot.val();
     fecharModalEditarPC();
-    showAlert('Pedido atualizado. Reimprima o documento antes de enviar ao fornecedor.', 'success');
+    showAlert('Pedido atualizado (Revisão ' + v.revisao + '). ' +
+      (v.status === 'ABERTO' ? 'Reimprima o documento antes de enviar ao fornecedor.' : 'Reimprima e reenvie o documento revisado ao fornecedor.'), 'success');
   }).catch(function(err) {
     btn.disabled = false;
     showAlert('Erro ao salvar: ' + err.message, 'danger');
   });
+}
+
+/* Histórico de revisões do PC (só leitura). */
+function abrirRevisoesPC(key) {
+  var pc = allPedidosCompra[key];
+  if (!pc) return;
+  var fmtV = function(v) { return v == null || v === '' ? '—' : (typeof v === 'number' ? fmtNum(v) : String(v)); };
+  var html = EdicaoPC.revisoes(pc).map(function(r) {
+    var linhas = (r.alteracoes || []).map(function(a) {
+      return '<tr><td>' + escapeHtml(a.item ? a.item + ' · ' + a.rotulo : a.rotulo) + '</td><td>' + escapeHtml(fmtV(a.antes)) +
+        '</td><td><b>' + escapeHtml(fmtV(a.depois)) + '</b></td></tr>';
+    }).join('');
+    if (r.rotaAlterada) linhas += '<tr><td>Rota</td><td colspan="2">alterada</td></tr>';
+    return '<div style="border:1px solid var(--border,#ddd);border-radius:8px;padding:10px;margin-bottom:10px">' +
+      '<div style="font-weight:700">Revisão ' + escapeHtml(String(r.numero || '')) + ' · ' + escapeHtml(r.em ? new Date(r.em).toLocaleString('pt-BR') : '—') +
+      ' · ' + escapeHtml(r.por || '—') + ' <span class="field-hint">(status: ' + escapeHtml(r.statusNoMomento || '—') + ')</span></div>' +
+      '<div style="margin:6px 0;font-size:13px"><b>Justificativa:</b> ' + escapeHtml(r.justificativa || '—') + '</div>' +
+      '<table style="width:100%;font-size:12px"><thead><tr><th style="text-align:left">Campo</th><th style="text-align:left">Antes</th><th style="text-align:left">Depois</th></tr></thead><tbody>' +
+      (linhas || '<tr><td colspan="3">—</td></tr>') + '</tbody></table></div>';
+  }).join('') || '<div class="no-data">Sem revisões.</div>';
+  document.getElementById('pcRevTitulo').textContent = 'Revisões de ' + (pc.numeroFormatado || key);
+  document.getElementById('pcRevCorpo').innerHTML = html;
+  document.getElementById('modalRevisoesPC').classList.add('open');
 }
 
 function fecharModalEditarPC() {
@@ -3853,6 +3962,7 @@ function salvarFiscal() {
 document.getElementById('modalEditarPCClose').addEventListener('click', fecharModalEditarPC);
 document.getElementById('pcEditCancelar').addEventListener('click', fecharModalEditarPC);
 document.getElementById('pcEditSalvar').addEventListener('click', salvarEdicaoPC);
+document.getElementById('modalRevisoesPCClose').addEventListener('click', function() { document.getElementById('modalRevisoesPC').classList.remove('open'); });
 document.getElementById('modalRotaEnvioClose').addEventListener('click', fecharModalRotaEnvio);
 document.getElementById('pcEnvCancelar').addEventListener('click', fecharModalRotaEnvio);
 document.getElementById('pcEnvSalvar').addEventListener('click', salvarRotaEnvio);
