@@ -9,7 +9,10 @@ const PERFIS = {
   lider: {role: 'production', papel: {papel: 'LIDER', setores: ['Produção'], nome: 'Fulana Teste'},
     setores: {s01: {nome: 'Produção', ordem: 1, ativo: true, areas: {a01: {nome: 'Linha 1', responsavel: 'Maria Souza'}, a02: {nome: 'Linha 2', responsavel: ''}}}, s02: {nome: 'Recepção', ordem: 2, ativo: true, areas: {}}}},
   auditor: {role: 'qualidade', papel: {papel: 'AUDITOR'}},
-  admin: {role: 'admin', papel: null},
+  admin: {role: 'admin', papel: null, outros: {velhoUid0001: {papel: 'AUDITOR', setores: ['Laboratório'], nome: 'Roberta Antiga'}}},
+  // Check Líder (18/11): Diretoria que também lidera um setor; e só o check, sem papel.
+  diretoriaLider: {role: 'production', papel: {papel: 'DIRETORIA', lider: true, setores: ['Produção'], nome: 'Fulana Teste'}},
+  soCheck: {role: 'production', papel: {lider: true, setores: ['Produção'], nome: 'Fulana Teste'}},
   // Auditora que também é líder (08/10): Fulana e Beltrano lideram o Laboratório em rodízio.
   auditoraLider: {role: 'qualidade', papel: {papel: 'AUDITOR', setores: ['Laboratório'], nome: 'Fulana Teste'},
     outros: {u2: {papel: 'AUDITOR', setores: ['Laboratório'], nome: 'Beltrano'}},
@@ -286,6 +289,10 @@ const clicarResp = (page, n, r) => page.locator('.resp[data-n="' + n + '"] butto
     await page.waitForSelector('[data-aba="config"]');
     await page.click('[data-aba="config"]');
     await page.waitForSelector('[data-salvar-u]');
+    const cfgTxt = await page.locator('#conteudo').innerText();
+    assert.match(cfgTxt, /Sem papel no 5S .não conseguem usar.: Beltrano/, 'avisa quem tem o módulo e não tem papel');
+    assert.match(cfgTxt, /login que não existe mais em Usuários: Roberta Antiga/, 'avisa configuração presa a login antigo');
+    assert.equal(await page.locator('[data-lider-u="u2"]').count(), 1, 'coluna Líder');
     await page.selectOption('[data-papel="u2"]', 'LIDER');
     await page.check('[data-setor-u="u2"][value="Recepção"]');
     await page.click('[data-salvar-u="u2"]');
@@ -324,3 +331,45 @@ const clicarResp = (page, n, r) => page.locator('.resp[data-n="' + n + '"] butto
   }
   console.log('OK Auditoria 5S (tela): líder com NC e foto, relatório e ciência, auditoria da Qualidade com crítico e líder que não confere, ocorrências restritas, configuração e rodízio da auditora-líder.');
 })().catch((e) => { console.error(e); process.exit(1); });
+
+// ── Check Líder (18/11/2026): libera o checklist para qualquer papel ──
+(async () => {
+  const browser = await chromium.launch({headless: true, channel: 'chrome'});
+  try {
+    let {page, errors} = await abrir(browser, 'auditoria_5s.html', 'diretoriaLider');
+    await page.waitForSelector('#abas [data-aba="nova"]');
+    assert.match(await page.locator('#quemSou').innerText(), /Diretoria · Líder: Produção/);
+    await page.click('[data-aba="nova"]');
+    await page.waitForSelector('[data-tipo="LIDER"]');
+    assert.equal(await page.locator('[data-tipo="DIRETORIA"]').count(), 1, 'segue com a inspeção da Diretoria');
+    await page.click('[data-tipo="LIDER"]');
+    await page.waitForSelector('#fSetor');
+    assert.deepEqual((await page.locator('#fSetor option').allInnerTexts()).filter((x) => x !== 'Escolha…'), ['Produção'], 'checklist só no setor que lidera');
+    assert.deepEqual(errors, []);
+    await page.close();
+
+    ({page, errors} = await abrir(browser, 'auditoria_5s.html', 'soCheck'));
+    await page.waitForSelector('#abas [data-aba="nova"]');
+    assert.match(await page.locator('#quemSou').innerText(), /^Líder: Produção/, 'só o check, sem papel, já é líder');
+    await page.click('[data-aba="nova"]');
+    await page.waitForSelector('#fSetor');
+    assert.deepEqual((await page.locator('#fSetor option').allInnerTexts()).filter((x) => x !== 'Escolha…'), ['Produção'], 'abre direto o checklist do setor dele');
+    assert.deepEqual(errors, []);
+    await page.close();
+
+    ({page, errors} = await abrir(browser, 'auditoria_5s.html', 'admin'));
+    await page.click('[data-aba="config"]');
+    await page.waitForSelector('[data-lider-u="u2"]');
+    await page.selectOption('[data-papel="u2"]', 'DIRETORIA');
+    await page.check('[data-lider-u="u2"]');
+    await page.click('[data-salvar-u="u2"]');
+    assert.match(await page.locator('.toast').last().innerText(), /ao menos um setor/, 'check sem setor é recusado');
+    await page.check('[data-setor-u="u2"][value="Produção"]');
+    await page.click('[data-salvar-u="u2"]');
+    await page.waitForFunction(() => (window.__db.auditoria5s_config.usuarios.u2 || {}).lider === true);
+    const u2 = (await page.evaluate(() => window.__db.auditoria5s_config.usuarios.u2));
+    assert.deepEqual([u2.papel, u2.lider, u2.setores], ['DIRETORIA', true, ['Produção']]);
+    assert.deepEqual(errors, []);
+    console.log('OK Auditoria 5S (check Líder): Diretoria + líder, só o check, avisos de sem papel e login antigo, gravação.');
+  } finally { await browser.close(); }
+})().catch((e) => { console.error(e); process.exitCode = 1; });

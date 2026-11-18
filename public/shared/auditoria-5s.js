@@ -164,9 +164,19 @@
      Regra (por setor e por dia): quem preencheu o checklist do líder não faz a
      auditoria externa daquele setor naquele dia, e quem auditou não preenche o
      checklist. Líder que não é auditor continua sem auditar o próprio setor. */
+  /* Check "Líder" (18/11/2026, pedido do Marlos: "um check para líder e liberar os
+     checklists"): quem tem o check preenche o checklist dos setores marcados,
+     seja qual for o papel (líder puro, auditor, diretoria, gestão). Sem o campo
+     gravado vale o de antes: papel LIDER, ou AUDITOR com setores marcados. */
+  function ehLider(cfgUsuario) {
+    var c = cfgUsuario || {};
+    if (c.lider === true) return true;
+    if (c.lider === false) return c.papel === 'LIDER';
+    return c.papel === 'LIDER' || c.papel === 'AUDITOR';
+  }
   function lideraSetor(cfgUsuario, setor) {
     var c = cfgUsuario || {};
-    return (c.papel === 'LIDER' || c.papel === 'AUDITOR') && (c.setores || []).indexOf(setor) >= 0;
+    return ehLider(c) && (c.setores || []).indexOf(setor) >= 0;
   }
   function lideresDoSetor(cfgUsuarios, setor) {
     var u = cfgUsuarios || {};
@@ -375,6 +385,6 @@
     itensDoTipo: itensDoTipo, ehCritico: ehCritico, fotosDe: fotosDe, exigeFoto: exigeFoto, validarItem: validarItem, validar: validar, calcular: calcular,
     acoesObrigatorias: acoesObrigatorias, consequencia: consequencia, linhaControle: linhaControle, escada: escada,
     ocorrenciasNosUltimos90: ocorrenciasNosUltimos90, semana: semana, cobertura: cobertura, statusPor: statusPor,
-    lideraSetor: lideraSetor, lideresDoSetor: lideresDoSetor, autoresDoDia: autoresDoDia, rodizio: rodizio
+    ehLider: ehLider, lideraSetor: lideraSetor, lideresDoSetor: lideresDoSetor, autoresDoDia: autoresDoDia, rodizio: rodizio
   };
 });
