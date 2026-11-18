@@ -22,8 +22,12 @@ o bloco do agente que você está operando e mantenha o histórico curto.
   XMLs e o SPED de out/2026, Q5); leiaute do Domínio (Q1/Q3, escritório); tributação do 5124 (Q2, contador); NF3e (Q4);
   B10 e cheques/comissão; trava no apontamento e no ajuste manual (gravam pela tela, arquivos de outras sessões). Detalhes em
   `MELHORIAS_FUTURAS.md` (seção de 18/11).
-- **Pendente (Marlos):** deploy da VPS (11 callables novas `fis*` + mudanças em callables de recebimento, faturamento, expedição,
-  conferência, devolução, titularidade, retrabalho, manipulação, Financeiro e Controladoria). Arquivos ativos: nenhum.
+- **Publicado em 18/11:** `hostinger-deploy` `809b883` (fast-forward de `3da5ad9`); regras do banco publicadas no `erpkuryos`
+  com backup antes: a diferença era só `fis`, `fis_xml` e `fis_arquivos`, e a releitura bateu com o arquivo. `main` não recebeu
+  (está 157 commits atrás e só leva os redirecionamentos da Vercel legada).
+- **Pendente (Marlos):** deploy da VPS (`scripts/hostinger/deploy.sh`): 11 callables novas `fis*` + mudanças em recebimento,
+  faturamento, expedição, conferência, devolução, titularidade, retrabalho, manipulação, Financeiro e Controladoria. Sem o deploy,
+  a tela do Fiscal abre mas as ações dão "função não encontrada". Arquivos ativos: nenhum.
 
 ### Claude (sessão na nuvem, 17/11/2026) — Controladoria × WebMais (paridade)
 
