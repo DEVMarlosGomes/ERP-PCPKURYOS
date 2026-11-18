@@ -341,7 +341,7 @@ function prepararLiquidacao(base, dados, quem, agora) {
   if (Object.keys(fin.baixas || {}).some((k) => k.indexOf(`BX_LQ_${chave}_`) === 0)) return {updates: {}, id: chave, repetido: true};
   const data = String(d.data || "").slice(0, 10);
   exigirAberto(base, data);
-  const m = F.montarLiquidacao(fin, {itens: d.itens, data, conta: d.conta});
+  const m = F.montarLiquidacao(fin, {itens: d.itens, data, conta: d.conta, dataCredito: d.dataCredito || null, representante: d.representante || null});
   if (!m.ok) falhar(m.motivo);
   const updates = {};
   m.baixas.forEach((b) => { updates[`fin/baixas/BX_LQ_${chave}_${san(b.titulo)}`] = Object.assign({}, b.registro, {liquidacao: chave}, autoria(quem, agora)); });

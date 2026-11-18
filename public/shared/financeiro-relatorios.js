@@ -188,6 +188,29 @@
       { chave: 'valor', rotulo: 'Valor', tipo: 'valor' }];
     return { titulo: titulo, colunas: colunas, linhas: linhas, totais: somaCol(linhas, colunas) };
   }
+  /* Lotes de pagamento por período (CB-05/CC-04 do WebMais, B8). f: {de, ate, status, data CRIACAO|PAGAMENTO}.
+     O arquivo de remessa CNAB continua fora (PROMPT_FINANCEIRO.md §14). */
+  var ROT_LOTE = { AGUARDANDO: 'Aguardando aprovação', APROVADO: 'Aprovado (pago)', RECUSADO: 'Recusado' };
+  function relLotes(fin, f) {
+    var o = f || {}, x = fin || {}, titulo = 'Lotes de pagamento';
+    var err = validarPeriodo(o); if (err) return vazio(titulo, err);
+    var linhas = [];
+    Object.keys(x.lotes_pagamento || {}).forEach(function(k) {
+      var l = x.lotes_pagamento[k]; if (!l) return;
+      var d = o.data === 'PAGAMENTO' ? String(l.dataPagamento || '') : String(l.criadoEm || '').slice(0, 10);
+      if (!dentro(d, o.de, o.ate)) return;
+      if (o.status && l.status !== o.status) return;
+      var ids = Object.keys(l.titulos || {});
+      linhas.push({ criado: String(l.criadoEm || '').slice(0, 10), pagamento: l.dataPagamento || '', conta: nomeConta(x, l.conta), titulos: ids.length,
+        status: ROT_LOTE[l.status] || l.status || '', criadoPor: l.criadoPor || '', decidido: l.decididoPor ? l.decididoPor + ' em ' + String(l.decididoEm || '').slice(0, 10).split('-').reverse().join('/') : '',
+        motivo: l.motivo || '', valor: ids.reduce(function(s, t) { return s + cent(l.titulos[t]); }, 0), lote: k });
+    });
+    linhas.sort(function(a, b) { return a.criado.localeCompare(b.criado) || a.lote.localeCompare(b.lote); });
+    var colunas = [{ chave: 'criado', rotulo: 'Criado em', tipo: 'data' }, { chave: 'pagamento', rotulo: 'Pagamento', tipo: 'data' }, { chave: 'conta', rotulo: 'Conta', tipo: 'texto' },
+      { chave: 'titulos', rotulo: 'Títulos', tipo: 'texto' }, { chave: 'status', rotulo: 'Situação', tipo: 'texto' }, { chave: 'criadoPor', rotulo: 'Criado por', tipo: 'texto' },
+      { chave: 'decidido', rotulo: 'Decidido por', tipo: 'texto' }, { chave: 'motivo', rotulo: 'Motivo da recusa', tipo: 'texto' }, { chave: 'valor', rotulo: 'Valor', tipo: 'valor' }];
+    return { titulo: titulo, colunas: colunas, linhas: linhas, totais: somaCol(linhas, colunas) };
+  }
   /* Fluxo de caixa realizado × previsto. f: {de, ate, granularidade DIA|SEMANA|MES}.
      Previsto = parcelas com vencimento no período (o que estava combinado); realizado =
      principal das baixas no período (estorno abate). Juros, multa e desconto ficam de
@@ -270,9 +293,11 @@
         var a2 = k2(itens[i]), r2 = itens[i], tot2 = 0;
         while (i < itens.length && k1(itens[i]) === a1 && k2(itens[i]) === a2) {
           var it = itens[i++]; tot2 += it.valor;
-          linhas.push(lin(it, { documento: it.documento, parceiro: it.parceiro, data: it.data, valor: it.valor }));
+          if (!o.resumido) linhas.push(lin(it, { documento: it.documento, parceiro: it.parceiro, data: it.data, valor: it.valor }));
         }
-        linhas.push(lin(r2, { documento: 'Subtotal ' + (porEl ? r2.centro : r2.natureza), subtotal: tot2, destaque: true }));
+        // CR-08 (B7): na listagem resumida o subtotal vira a linha (coluna que soma); o total do grupo fica no Subtotal.
+        if (o.resumido) linhas.push(lin(r2, { documento: porEl ? r2.centro : r2.natureza, valor: tot2 }));
+        else linhas.push(lin(r2, { documento: 'Subtotal ' + (porEl ? r2.centro : r2.natureza), subtotal: tot2, destaque: true }));
         tot1 += tot2;
       }
       linhas.push(porEl ? { elemento: r1.elemento, documento: 'Total do elemento ' + r1.elemento, subtotal: tot1, destaque: true }
@@ -318,11 +343,26 @@
         situacao: s.saldoCentavos <= 0 ? (ROT_STATUS[s.status] || 'Quitado') : s.semVencimento ? 'Sem vencimento' : (s.bloqueio ? 'Bloqueado' : 'Em aberto') });
     });
     linhas.sort(function(a, b) { return String(a.emissao).localeCompare(String(b.emissao)) || a.parceiro.localeCompare(b.parceiro); });
+    /* PR-03 (B7): agrupamento (elemento, centro, fornecedor ou responsável = quem lançou) e periodicidade
+       mensal, com subtotal na coluna própria (o total do CSV continua a soma das linhas). */
+    var AGRUP = { ELEMENTO: 'elemento', CENTRO: 'centro', PARCEIRO: 'parceiro', RESPONSAVEL: 'usuario' }, agr = AGRUP[o.agrupar] || null, mensal = o.periodicidade === 'MES';
+    if (agr || mensal) {
+      var kf = function(l) { return (mensal ? String(l.emissao).slice(0, 7) : '') + '|' + (agr ? String(l[agr] || '(sem)') : ''); };
+      linhas.sort(function(a, b) { return kf(a).localeCompare(kf(b)) || String(a.emissao).localeCompare(String(b.emissao)); });
+      var agrupadas = [], ix = 0;
+      while (ix < linhas.length) {
+        var kk = kf(linhas[ix]), sub = 0, partes = kk.split('|');
+        while (ix < linhas.length && kf(linhas[ix]) === kk) { sub += linhas[ix].valor; agrupadas.push(linhas[ix++]); }
+        agrupadas.push({ documento: 'Subtotal ' + [mensal ? partes[0].split('-').reverse().join('/') : '', agr ? partes[1] : ''].filter(Boolean).join(' · '), subtotal: sub, destaque: true });
+      }
+      linhas = agrupadas;
+    }
     var colunas = [{ chave: 'emissao', rotulo: 'Emissão', tipo: 'data' }, { chave: 'documento', rotulo: 'Documento', tipo: 'texto' }, { chave: 'parceiro', rotulo: 'Fornecedor', tipo: 'texto' },
       { chave: 'natureza', rotulo: 'Natureza', tipo: 'texto' }, { chave: 'elemento', rotulo: 'Elemento', tipo: 'texto' }, { chave: 'centro', rotulo: 'Centro de custo', tipo: 'texto' },
       { chave: 'forma', rotulo: 'Forma de pagamento', tipo: 'texto' }, { chave: 'origem', rotulo: 'Origem', tipo: 'texto' },
       { chave: 'usuario', rotulo: 'Lançado por', tipo: 'texto' }, { chave: 'condicao', rotulo: 'Parcelas', tipo: 'texto' }, { chave: 'vencimento', rotulo: 'Próx. vencimento', tipo: 'data' },
-      { chave: 'valor', rotulo: 'Valor', tipo: 'valor' }, { chave: 'pago', rotulo: 'Pago', tipo: 'valor' }, { chave: 'aberto', rotulo: 'Em aberto', tipo: 'valor' }, { chave: 'situacao', rotulo: 'Situação', tipo: 'texto' }];
+      { chave: 'valor', rotulo: 'Valor', tipo: 'valor' }, { chave: 'pago', rotulo: 'Pago', tipo: 'valor' }, { chave: 'aberto', rotulo: 'Em aberto', tipo: 'valor' }, { chave: 'situacao', rotulo: 'Situação', tipo: 'texto' }]
+      .concat(agr || mensal ? [{ chave: 'subtotal', rotulo: 'Subtotal', tipo: 'valor', semTotal: true }] : []);
     return { titulo: titulo, colunas: colunas, linhas: linhas, totais: somaCol(linhas, colunas),
       avisos: renegs ? [renegs + ' título(s) de renegociação fora da lista: a despesa já está no título original (aparece como "Renegociado").'] : [] };
   }
@@ -635,6 +675,7 @@
     relEspelhoDiario: relEspelhoDiario, relSaldosContas: relSaldosContas, relMovimentos: relMovimentos, relRealizadoPrevisto: relRealizadoPrevisto,
     relGastosCentroCusto: relGastosCentroCusto, relLancamentoDespesas: relLancamentoDespesas, relEmAberto: relEmAberto, relRanking: relRanking,
     relEvolucao: relEvolucao, relComposicaoVencimentos: relComposicaoVencimentos, relContaCorrente: relContaCorrente,
-    relConciliacaoParceiros: relConciliacaoParceiros, relAntecipacao: relAntecipacao, relPrazosMedios: relPrazosMedios, relAdiantamentos: relAdiantamentos
+    relConciliacaoParceiros: relConciliacaoParceiros, relAntecipacao: relAntecipacao, relPrazosMedios: relPrazosMedios, relAdiantamentos: relAdiantamentos,
+    relLotes: relLotes, ROT_LOTE: ROT_LOTE
   };
 });

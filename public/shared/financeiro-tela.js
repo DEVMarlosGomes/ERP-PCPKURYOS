@@ -214,11 +214,17 @@
     return (vazio ? '<option value="">' + e(vazio) + '</option>' : '') + ks.map(function(k) { return '<option value="' + e(k) + '"' + (k === atual ? ' selected' : '') + '>' + e(k + ' ' + els[k].nome) + '</option>'; }).join('');
   }
   function lqChave(l) { return l.titulo + '#' + l.n; }
+  function filtroLq(L, hoje) {
+    var cv = function(v) { var c = F.centavos(v); return c == null ? null : c; };
+    return {tipo: L.tipo, de: L.de || null, ate: L.ate || null, q: L.q, elemento: L.elemento || null, hoje: hoje,
+      emissaoDe: L.emDe || null, emissaoAte: L.emAte || null, forma: L.forma || null, valorDe: L.vDe ? cv(L.vDe) : null, valorAte: L.vAte ? cv(L.vAte) : null};
+  }
   function abaLiquidacao() {
     var L = S.lq, hoje = hojeISO();
     if (!L.data) L.data = hoje;
     if (L.de === undefined) { L.de = hoje; L.ate = F.addDias(hoje, 1); }
-    var ls = F.parcelasParaLiquidar(fin, {tipo: L.tipo, de: L.de || null, ate: L.ate || null, q: L.q, elemento: L.elemento || null, hoje: hoje});
+    L.acr = L.acr || {};
+    var ls = F.parcelasParaLiquidar(fin, filtroLq(L, hoje));
     var vis = {}; ls.forEach(function(l) { vis[lqChave(l)] = l; });
     Object.keys(L.sel).forEach(function(k) { if (!vis[k] || vis[k].bloqueado) delete L.sel[k]; });
     var nSel = Object.keys(L.sel).length, tot = Object.keys(L.sel).reduce(function(a, k) { return a + vis[k].abertoCentavos; }, 0);
@@ -228,20 +234,26 @@
       '<button class="btn sm" data-lq-atalho="HOJE">Hoje e amanhã</button><button class="btn sm" data-lq-atalho="SEMANA">Esta semana</button><button class="btn sm" data-lq-atalho="VENCIDOS">Vencidos</button><button class="btn sm" data-lq-atalho="TUDO">Tudo</button>' +
       '<label class="mut">vencimento de <input class="inp" type="date" id="lqDe" value="' + e(L.de || '') + '"></label><label class="mut">até <input class="inp" type="date" id="lqAte" value="' + e(L.ate || '') + '"></label>' +
       '<input class="inp" id="lqQ" placeholder="' + (pagar ? 'Fornecedor' : 'Cliente') + ' ou documento…" value="' + e(L.q) + '">' +
-      '<select class="sel" id="lqElem" aria-label="Elemento">' + opcoesElementos(L.tipo, L.elemento, 'Todos os elementos') + '</select></div>' +
-      '<div class="sub" style="margin-bottom:8px">Uma linha por parcela em aberto. Marque, informe a data de movimentação e a conta, e confirme: sai uma baixa por título. Juros, multa, desconto e baixa parcial ficam no botão ' + (pagar ? 'Pagar' : 'Receber') + ' do título.</div>' +
-      '<div class="tw"><table id="lqTabela"><thead><tr><th><input type="checkbox" id="lqTodos" aria-label="Marcar todas"' + (ls.length && nSel === ls.filter(function(l) { return !l.bloqueado; }).length ? ' checked' : '') + '></th><th>' + (pagar ? 'Fornecedor' : 'Cliente') + '</th><th>Documento</th><th>Parcela</th><th>Emissão</th><th>Vencimento</th><th class="n">Dias</th><th class="n">Valor</th><th class="n">Em aberto</th><th>Elemento</th></tr></thead><tbody>' +
+      '<select class="sel" id="lqElem" aria-label="Elemento">' + opcoesElementos(L.tipo, L.elemento, 'Todos os elementos') + '</select>' +
+      // B3 (CB-06/07): emissão, tipo de cobrança e valor de/até.
+      '<label class="mut">emissão de <input class="inp" type="date" id="lqEmDe" value="' + e(L.emDe || '') + '"></label><label class="mut">até <input class="inp" type="date" id="lqEmAte" value="' + e(L.emAte || '') + '"></label>' +
+      '<select class="sel" id="lqForma" aria-label="Tipo de cobrança"><option value="">Todo tipo de cobrança</option>' + Object.keys(F.FORMAS_PAGAMENTO).map(function(k) { return '<option value="' + k + '"' + (L.forma === k ? ' selected' : '') + '>' + e(F.FORMAS_PAGAMENTO[k]) + '</option>'; }).join('') + '</select>' +
+      '<label class="mut">valor de <input class="inp num" id="lqVDe" inputmode="decimal" value="' + e(L.vDe || '') + '"></label><label class="mut">até <input class="inp num" id="lqVAte" inputmode="decimal" value="' + e(L.vAte || '') + '"></label></div>' +
+      '<div class="sub" style="margin-bottom:8px">Uma linha por parcela em aberto. Marque, informe juros, multa ou desconto na linha (se houver), a data de movimentação e a conta, e confirme: sai uma baixa por título. Baixa parcial fica no botão ' + (pagar ? 'Pagar' : 'Receber') + ' do título.</div>' +
+      '<div class="tw"><table id="lqTabela"><thead><tr><th><input type="checkbox" id="lqTodos" aria-label="Marcar todas"' + (ls.length && nSel === ls.filter(function(l) { return !l.bloqueado; }).length ? ' checked' : '') + '></th><th>' + (pagar ? 'Fornecedor' : 'Cliente') + '</th><th>Documento</th><th>Parcela</th><th>Emissão</th><th>Vencimento</th><th class="n">Dias</th><th class="n">Valor</th><th class="n">Em aberto</th><th>Elemento</th><th>Juros · multa · desconto</th></tr></thead><tbody>' +
       (ls.length ? ls.map(function(l) {
         var k = lqChave(l);
         return '<tr><td>' + (l.bloqueado ? '<span class="tg bad" title="Pagamento bloqueado">bloq.</span>' : '<input type="checkbox" data-lq-sel="' + e(k) + '"' + (L.sel[k] ? ' checked' : '') + ' aria-label="Marcar ' + e(l.documento + ' ' + l.n + '/' + l.de) + '">') + '</td>' +
           '<td>' + e(l.parceiro) + '</td><td><a href="#" data-det="' + e(l.titulo) + '">' + e(l.documento) + '</a></td><td>' + l.n + '/' + l.de + '</td><td>' + dataBR(l.emissao) + '</td>' +
           '<td' + (l.dias > 0 ? ' class="neg"' : '') + '>' + dataBR(l.vencimento) + '</td><td class="n">' + (l.dias > 0 ? l.dias : '') + '</td><td class="n">' + brl(l.valorCentavos) + '</td><td class="n">' + brl(l.abertoCentavos) + '</td>' +
-          '<td>' + e(l.elemento ? l.elemento + ' ' + ((els[l.elemento] || {}).nome || '') : '') + '</td></tr>';
-      }).join('') : '<tr><td colspan="10"><div class="vazio"><b>Nada a ' + (pagar ? 'pagar' : 'receber') + ' neste filtro.</b></div></td></tr>') +
-      '<tr class="tot"><td></td><td colspan="7"><b>' + ls.length + ' parcela(s)</b></td><td class="n"><b>' + brl(totAberto) + '</b></td><td></td></tr></tbody></table></div>' +
+          '<td>' + e(l.elemento ? l.elemento + ' ' + ((els[l.elemento] || {}).nome || '') : '') + '</td>' +
+          '<td style="white-space:nowrap">' + ['j', 'm', 'd'].map(function(c) { var a = L.acr[k] || {}; return '<input class="inp num" style="width:72px" data-lq-acr="' + e(k) + '" data-c="' + c + '" inputmode="decimal" aria-label="' + {j: 'Juros', m: 'Multa', d: 'Desconto'}[c] + '" placeholder="' + {j: 'juros', m: 'multa', d: 'desc.'}[c] + '" value="' + e(a[c] || '') + '">'; }).join(' ') + '</td></tr>';
+      }).join('') : '<tr><td colspan="11"><div class="vazio"><b>Nada a ' + (pagar ? 'pagar' : 'receber') + ' neste filtro.</b></div></td></tr>') +
+      '<tr class="tot"><td></td><td colspan="7"><b>' + ls.length + ' parcela(s)</b></td><td class="n"><b>' + brl(totAberto) + '</b></td><td></td><td></td></tr></tbody></table></div>' +
       '<div class="barra" style="margin-top:10px"><span class="pill" id="lqResumo">' + nSel + ' marcada(s) · ' + brl(tot) + '</span>' +
       '<label class="mut">data de movimentação <input class="inp" type="date" id="lqData" value="' + e(L.data) + '"></label>' +
       '<select class="sel" id="lqConta" aria-label="Conta">' + contasOpcoes(L.conta || S.conta) + '</select>' +
+      (pagar ? '' : '<label class="mut">data de crédito <input class="inp" type="date" id="lqCred" value="' + e(L.cred || '') + '"></label><input class="inp" id="lqRep" placeholder="Representante" value="' + e(L.rep || '') + '">') +
       '<button class="btn pri sm" id="lqOk"' + (nSel ? '' : ' disabled') + '>' + (pagar ? 'Pagar' : 'Receber') + ' marcadas</button></div></div>';
     var mov = F.relBaixas(fin, {de: L.data, ate: L.data, tipo: L.tipo});
     h += '<div class="card" id="lqMovimento"><h3>Movimento de ' + dataBR(L.data) + '</h3><div class="sub" style="margin-bottom:8px">Tudo o que foi ' + (pagar ? 'pago' : 'recebido') + ' nesta data de movimentação (com os estornos).</div>' + tabelaRel(mov).replace('id="relTabela"', 'id="lqMovTabela"') + '</div>';
@@ -269,6 +281,14 @@
       '<div class="form"><div><label for="clEl">Elemento de custo</label><select class="sel" id="clEl">' + opcoesElementos(s.titulo.tipo, atual) + '</select></div>' +
       '<div><label for="clForma">Forma de pagamento</label><select class="sel" id="clForma"><option value="">—</option>' + Object.keys(F.FORMAS_PAGAMENTO).map(function(k) { return '<option value="' + k + '"' + (k === ce.formaPagamento ? ' selected' : '') + '>' + e(F.FORMAS_PAGAMENTO[k]) + '</option>'; }).join('') + '</select></div>' +
       '<div style="grid-column:1/-1"><b>Rateio entre centros de custo</b> <span class="dica">os percentuais somam 100%</span></div>' + linhas + '</div>' +
+      // B4 (CP-06): vários elementos no mesmo título, por valor. Preenchido, vale no lugar do elemento único.
+      '<div class="form" style="margin-top:12px"><div style="grid-column:1/-1"><b>Ou: vários elementos (rateio por valor)</b> <span class="dica">as linhas somam o título no centavo: ' + brl(s.titulo.valorCentavos) + '</span></div>' +
+      [0, 1, 2, 3, 4, 5].map(function(i) {
+        var l = (ce.linhas || [])[i] || {};
+        return '<div><label for="clLEl' + i + '">Elemento ' + (i + 1) + '</label><select class="sel" id="clLEl' + i + '"><option value="">—</option>' + opcoesElementos(s.titulo.tipo, l.elemento || '') + '</select></div>' +
+          '<div><label for="clLCc' + i + '">Centro</label><select class="sel" id="clLCc' + i + '"><option value="">—</option>' + Object.keys(nomes).map(function(k) { return '<option value="' + e(k) + '"' + (k === l.centro ? ' selected' : '') + '>' + e(nomes[k]) + '</option>'; }).join('') + '</select></div>' +
+          '<div><label for="clLV' + i + '">Valor</label><input class="inp" id="clLV' + i + '" inputmode="decimal" value="' + e(l.valorCentavos ? (l.valorCentavos / 100).toFixed(2).replace('.', ',') : '') + '"></div>';
+      }).join('') + '</div>' +
       '<div style="margin-top:12px"><button class="btn pri" id="clOk" data-tit="' + e(id) + '">Salvar classificação</button> <span class="dica">O título não muda: a classificação vale nos relatórios de gastos, no DFC por elemento e, no título manual, na Controladoria.</span></div>';
     abrir('Classificar título', h);
   }
@@ -559,7 +579,7 @@
   var REL_GRUPOS = [
     ['Caixas e bancos', [['saldos', 'Saldo das contas'], ['espelho', 'Espelho de caixa diário'], ['extrato', 'Extrato da conta (por período)'], ['movimentos', 'Lançamentos bancários'],
       ['baixas', 'Baixas do período'], ['fluxo', 'Fluxo de caixa previsto'], ['realizado', 'Fluxo de caixa realizado × previsto'], ['dfc', 'Demonstrativo de fluxo de caixa'],
-      ['gastos', 'Gastos por centro de custo e elemento']]],
+      ['gastos', 'Gastos por centro de custo e elemento'], ['lotes', 'Lotes de pagamento (consulta por período)']]],
     ['A pagar', [['pagar', 'Contas a pagar'], ['despesas', 'Lançamento de despesas'], ['aberto_pagar', 'Fornecedores em aberto'], ['ranking_pagar', 'Principais fornecedores'],
       ['evolucao_pagar', 'Evolução de pagamento'], ['composicao_pagar', 'Composição de vencimentos (a pagar)'], ['conta_pagar', 'Conta corrente do fornecedor'],
       ['conciliacao_pagar', 'Conciliação de fornecedores'], ['pmp', 'Prazo médio de pagamento (PMP)'], ['aging_pagar', 'Aging a pagar'], ['adiantamentos_pagar', 'Adiantamentos a fornecedores']]],
@@ -571,9 +591,9 @@
   // Filtros de cada relatório (a ordem é a da barra).
   var REL_FILTROS = {
     pagar: ['periodo', 'dataBase', 'situacao', 'natureza', 'parceiro'], receber: ['periodo', 'dataBase', 'situacao', 'natureza', 'parceiro'],
-    baixas: ['periodo', 'conta'], aging_pagar: [], aging_receber: [], extrato: ['periodo', 'contaUnica'], fluxo: ['conta', 'granularidade'], dfc: ['periodo', 'aberturaDfc'],
-    saldos: ['periodo'], espelho: ['data', 'conta'], movimentos: ['periodo', 'conta', 'destino', 'tipoMov'], realizado: ['periodo', 'granRP'],
-    gastos: ['periodo', 'base2', 'agruparGasto', 'centro', 'natureza', 'elemento', 'semAdiant'], adiantamentos_pagar: ['parceiro'], adiantamentos_receber: ['parceiro'], despesas: ['periodo', 'situacao', 'natureza', 'elemento', 'forma', 'centro', 'usuario', 'parceiro'],
+    baixas: ['periodo', 'conta'], aging_pagar: [], aging_receber: [], extrato: ['periodo', 'contaUnica'], fluxo: ['conta', 'granularidade'], dfc: ['periodo', 'aberturaDfc', 'conta', 'descDfc', 'prevDfc'],
+    saldos: ['periodo'], espelho: ['data', 'conta'], lotes: ['periodo', 'statusLote', 'dataLote'], movimentos: ['periodo', 'conta', 'destino', 'tipoMov'], realizado: ['periodo', 'granRP'],
+    gastos: ['periodo', 'base2', 'agruparGasto', 'centro', 'natureza', 'elemento', 'semAdiant', 'resumido'], adiantamentos_pagar: ['parceiro'], adiantamentos_receber: ['parceiro'], despesas: ['periodo', 'situacao', 'natureza', 'elemento', 'forma', 'centro', 'usuario', 'parceiro', 'agruparDesp', 'periodDesp'],
     aberto_pagar: ['natureza', 'parceiro'], aberto_receber: ['parceiro'], ranking_pagar: ['periodo', 'base2', 'natureza', 'top'], ranking_receber: ['periodo', 'base2', 'top'],
     evolucao_pagar: ['periodo', 'agrupar', 'natureza'], evolucao_receber: ['periodo'], composicao_pagar: ['meses', 'parceiro'], composicao_receber: ['meses', 'parceiro'],
     conta_pagar: ['periodo', 'parceiro'], conta_receber: ['periodo', 'parceiro'], conciliacao_pagar: ['periodo', 'parceiro'], conciliacao_receber: ['periodo', 'parceiro'],
@@ -597,14 +617,15 @@
       case 'aging_pagar': case 'aging_receber': return F.relAging(fin, {tipo: tp, hoje: hoje});
       case 'extrato': return F.relExtrato(fin, {conta: r.conta, de: r.de, ate: r.ate});
       case 'fluxo': return F.relFluxo(base(), {granularidade: r.granularidade || 'SEMANA', conta: r.conta || null, hoje: hoje});
-      case 'dfc': return F.relDfc(fin, {de: r.de.slice(0, 7), ate: r.ate.slice(0, 7), abertura: r.aberturaDfc || 'ATIVIDADE'});
+      case 'dfc': return F.relDfc(fin, {de: r.de.slice(0, 7), ate: r.ate.slice(0, 7), abertura: r.aberturaDfc || 'ATIVIDADE', conta: r.conta || null, exibirDescontos: !!r.descDfc, base: r.prevDfc && !r.conta ? base() : null});
       case 'saldos': return RX.relSaldosContas(fin, per);
       case 'espelho': return RX.relEspelhoDiario(fin, {data: r.data, conta: r.conta || null});
+      case 'lotes': return RX.relLotes(fin, Object.assign({status: r.statusLote || null, data: r.dataLote || 'CRIACAO'}, per));
       case 'movimentos': return RX.relMovimentos(fin, Object.assign({conta: r.conta || null, destino: r.destino || null, tipo: r.tipoMov || null}, per));
       case 'realizado': return RX.relRealizadoPrevisto(fin, Object.assign({granularidade: r.granRP || 'MES'}, per));
-      case 'gastos': return RX.relGastosCentroCusto(fin, Object.assign({dataBase: r.base2, centroCusto: cc, natureza: nat, centros: centrosCtl, semAdiantamentos: !!r.semAdiant, elemento: r.elemento || null, agrupar: r.agruparGasto || 'CENTRO'}, per));
+      case 'gastos': return RX.relGastosCentroCusto(fin, Object.assign({dataBase: r.base2, centroCusto: cc, natureza: nat, centros: centrosCtl, semAdiantamentos: !!r.semAdiant, elemento: r.elemento || null, agrupar: r.agruparGasto || 'CENTRO', resumido: !!r.resumido}, per));
       case 'adiantamentos_pagar': case 'adiantamentos_receber': return RX.relAdiantamentos(fin, {tipo: tp, parceiro: r.parceiro});
-      case 'despesas': return RX.relLancamentoDespesas(fin, Object.assign({situacao: r.situacao, natureza: nat, elemento: r.elemento || null, formaPagamento: r.forma || null, centroCusto: cc, usuario: r.usuario, parceiro: r.parceiro, centros: centrosCtl}, per));
+      case 'despesas': return RX.relLancamentoDespesas(fin, Object.assign({situacao: r.situacao, natureza: nat, elemento: r.elemento || null, formaPagamento: r.forma || null, centroCusto: cc, usuario: r.usuario, parceiro: r.parceiro, centros: centrosCtl, agrupar: r.agruparDesp || null, periodicidade: r.periodDesp || null}, per));
       case 'aberto_pagar': case 'aberto_receber': return RX.relEmAberto(fin, {tipo: tp, hoje: hoje, natureza: tp === 'PAGAR' ? nat : '', parceiro: r.parceiro});
       case 'ranking_pagar': case 'ranking_receber': return RX.relRanking(fin, Object.assign({tipo: tp, dataBase: r.base2, natureza: tp === 'PAGAR' ? nat : '', top: r.top}, per));
       case 'evolucao_pagar': case 'evolucao_receber': return RX.relEvolucao(fin, Object.assign({tipo: tp, agrupar: tp === 'PAGAR' ? r.agrupar : 'PARCEIRO', natureza: tp === 'PAGAR' ? nat : ''}, per));
@@ -684,6 +705,13 @@
       case 'agruparGasto': return '<select class="sel" id="relAgG" aria-label="Agrupar">' + opcoes([['CENTRO', 'centro › natureza'], ['ELEMENTO', 'elemento › centro']], r.agruparGasto || 'CENTRO') + '</select>';
       case 'forma': return '<select class="sel" id="relForma" aria-label="Forma de pagamento">' + opcoes([['', 'Todas as formas']].concat(Object.keys(F.FORMAS_PAGAMENTO).map(function(k) { return [k, F.FORMAS_PAGAMENTO[k]]; })), r.forma) + '</select>';
       case 'aberturaDfc': return '<select class="sel" id="relAbDfc" aria-label="Abertura">' + opcoes([['ATIVIDADE', 'por atividade'], ['ELEMENTO', 'por grupo › subgrupo › elemento']], r.aberturaDfc || 'ATIVIDADE') + '</select>';
+      case 'statusLote': return '<select class="sel" id="relStLote" aria-label="Situação do lote">' + opcoes([['', 'Todas as situações']].concat(Object.keys(RX.ROT_LOTE).map(function(k) { return [k, RX.ROT_LOTE[k]]; })), r.statusLote || '') + '</select>';
+      case 'dataLote': return '<select class="sel" id="relDtLote" aria-label="Data">' + opcoes([['CRIACAO', 'por criação'], ['PAGAMENTO', 'por data de pagamento']], r.dataLote || 'CRIACAO') + '</select>';
+      case 'resumido': return '<label class="mut"><input type="checkbox" id="relResumido"' + (r.resumido ? ' checked' : '') + '> listagem resumida</label>';
+      case 'agruparDesp': return '<select class="sel" id="relAgDesp" aria-label="Agrupar">' + opcoes([['', 'sem agrupar'], ['ELEMENTO', 'por elemento'], ['CENTRO', 'por centro de custo'], ['PARCEIRO', 'por fornecedor'], ['RESPONSAVEL', 'por responsável (quem lançou)']], r.agruparDesp || '') + '</select>';
+      case 'periodDesp': return '<select class="sel" id="relPerDesp" aria-label="Periodicidade">' + opcoes([['', 'no período'], ['MES', 'mês a mês']], r.periodDesp || '') + '</select>';
+      case 'descDfc': return '<label class="mut"><input type="checkbox" id="relDescDfc"' + (r.descDfc ? ' checked' : '') + '> exibir descontos</label>';
+      case 'prevDfc': return '<label class="mut"><input type="checkbox" id="relPrevDfc"' + (r.prevDfc ? ' checked' : '') + '> pedidos de venda e ordens de compra</label>';
       case 'semAdiant': return '<label class="mut"><input type="checkbox" id="relSemAd"' + (r.semAdiant ? ' checked' : '') + '> não exibir adiantamentos</label>';
       case 'taxa': return '<label class="mut">taxa ao mês (%) <input class="inp" id="relTaxa" inputmode="decimal" style="width:80px" placeholder="2,5" value="' + e(r.taxa || '') + '"></label>';
     }
@@ -800,13 +828,16 @@
   function rotMes(m) { return MESES[Number(String(m).slice(5, 7)) - 1] + '/' + String(m).slice(2, 4); }
   function rotColuna(c, g) { return g === 'MES' ? rotMes(c.inicio) : g === 'DIA' ? dataBR(c.inicio).slice(0, 5) : dataBR(c.inicio).slice(0, 5); }
   function abaFluxo() {
-    var fl = F.fluxoCaixa(base(), hojeISO(), {granularidade: S.flG, conta: S.flConta || null, natureza: S.flNat || null, porGrupo: !!S.flGrupo}), g = fl.granularidade;
+    var fl = F.fluxoCaixa(base(), hojeISO(), {granularidade: S.flG, conta: S.flConta || null, natureza: S.flNat || null, porGrupo: !!S.flGrupo, de: S.flDe || null, ate: S.flAte || null}), g = fl.granularidade;
     var cols = fl.colunas;
     function linha(rot, f, cls) { return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + rot + '</td>' + cols.map(function(c) { return '<td class="n">' + f(c) + '</td>'; }).join('') + '</tr>'; }
     var h = '<div class="card"><h3>Fluxo de caixa</h3><div class="barra">' +
       '<select class="sel" id="flG" aria-label="Período">' + [['DIA', 'Por dia'], ['SEMANA', 'Por semana'], ['MES', 'Por mês']].map(function(o) { return '<option value="' + o[0] + '"' + (g === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
       '<select class="sel" id="flConta" aria-label="Conta"><option value="">Todas as contas</option>' + Object.keys(fin.contas_bancarias || {}).map(function(k) { return '<option value="' + e(k) + '"' + (S.flConta === k ? ' selected' : '') + '>' + e(fin.contas_bancarias[k].nome || k) + '</option>'; }).join('') + '</select>' +
-      '<select class="sel" id="flNat" aria-label="Natureza"><option value="">Todas as naturezas</option>' + F.NATUREZAS.concat(['RESULTADO_FINANCEIRO', 'ADIANTAMENTOS']).map(function(n) { return '<option value="' + n + '"' + (S.flNat === n ? ' selected' : '') + '>' + e(rotNat(n)) + '</option>'; }).join('') + '</select></div>' +
+      '<select class="sel" id="flNat" aria-label="Natureza"><option value="">Todas as naturezas</option>' + F.NATUREZAS.concat(['RESULTADO_FINANCEIRO', 'ADIANTAMENTOS']).map(function(n) { return '<option value="' + n + '"' + (S.flNat === n ? ' selected' : '') + '>' + e(rotNat(n)) + '</option>'; }).join('') + '</select>' +
+      // CC-02 (B6): período livre; vazio = a janela padrão.
+      '<label class="mut">de <input class="inp" type="date" id="flDe" value="' + e(S.flDe || '') + '"></label><label class="mut">até <input class="inp" type="date" id="flAte" value="' + e(S.flAte || '') + '"></label>' +
+      (S.flDe || S.flAte ? '<button class="btn sm" id="flLimpar">Janela padrão</button>' : '') + '</div>' +
       '<label class="mut" style="display:inline-block;margin-bottom:8px"><input type="checkbox" id="flGrupo"' + (S.flGrupo ? ' checked' : '') + '> abrir por tipo de conta (grupo de elemento)</label>' +
       '<div class="sub" style="margin-bottom:10px">Título é <b>fato</b> (recebimento, nota, operação); "previsto" é <b>expectativa</b> (pedido de compra ainda não recebido e carteira comercial ainda não faturada) e aparece separado. Valor sem data fica de fora do saldo projetado — inventar data daria um caixa preciso e falso.</div>' +
       (fl.avisos.length ? '<div class="alerta info"><div>' + fl.avisos.map(e).join('<br>') + '</div></div>' : '') +
@@ -826,13 +857,17 @@
   function cardDfc() {
     if (!S.dfcAte) S.dfcAte = hojeISO().slice(0, 7);
     if (!S.dfcDe) S.dfcDe = F.somarPeriodo(S.dfcAte + '-01', 'MES', -5).slice(0, 7);
-    var d = F.dfc(fin, S.dfcDe, S.dfcAte);
+    var d = F.dfc(fin, S.dfcDe, S.dfcAte, {conta: S.dfcConta || null, exibirDescontos: !!S.dfcDesc, base: S.dfcPrev ? base() : null});
     var h = '<div class="card"><h3>Demonstrativo de fluxo de caixa (método direto)</h3><div class="barra">' +
       '<label class="mut">de <input class="inp" type="month" id="dfcDe" value="' + e(S.dfcDe) + '"></label><label class="mut">até <input class="inp" type="month" id="dfcAte" value="' + e(S.dfcAte) + '"></label>' +
       '<select class="sel" id="dfcAb" aria-label="Abertura"><option value="ATIVIDADE"' + (S.dfcAb !== 'ELEMENTO' ? ' selected' : '') + '>por atividade</option><option value="ELEMENTO"' + (S.dfcAb === 'ELEMENTO' ? ' selected' : '') + '>por grupo › subgrupo › elemento</option></select>' +
-      '<span class="dica">Realizado: o que passou pelas contas. Transferência entre contas não entra (é interna). A atividade de cada natureza se ajusta em Cadastros.</span></div>';
+      // CR-03 (B5): conta bancária, descontos e previsto, como no WebMais.
+      '<select class="sel" id="dfcConta" aria-label="Conta"><option value="">Todas as contas</option>' + Object.keys(fin.contas_bancarias || {}).map(function(k) { return '<option value="' + e(k) + '"' + (S.dfcConta === k ? ' selected' : '') + '>' + e(fin.contas_bancarias[k].nome || k) + '</option>'; }).join('') + '</select>' +
+      '<label class="mut"><input type="checkbox" id="dfcDesc"' + (S.dfcDesc ? ' checked' : '') + '> exibir descontos</label>' +
+      '<label class="mut"><input type="checkbox" id="dfcPrev"' + (S.dfcPrev ? ' checked' : '') + (S.dfcConta ? ' disabled' : '') + '> pedidos de venda e ordens de compra</label>' +
+      '<span class="dica">Realizado: o que passou pelas contas. Transferência entre contas não entra (é interna), salvo quando se escolhe uma conta. Descontos e previsto são memorando: não mexem no saldo. A atividade de cada natureza se ajusta em Cadastros.</span></div>';
     if (!d.ok) return h + '<div class="alerta warn"><div>' + e(d.motivo) + '</div></div></div>';
-    if (S.dfcAb === 'ELEMENTO') return h + tabelaRel(F.relDfc(fin, {de: S.dfcDe, ate: S.dfcAte, abertura: 'ELEMENTO'})).replace('id="relTabela"', 'id="dfcElTabela"') + '</div>';
+    if (S.dfcAb === 'ELEMENTO') return h + (S.dfcConta || S.dfcDesc || S.dfcPrev ? '<div class="dica">Conta, descontos e previsto valem na abertura por atividade.</div>' : '') + tabelaRel(F.relDfc(fin, {de: S.dfcDe, ate: S.dfcAte, abertura: 'ELEMENTO'})).replace('id="relTabela"', 'id="dfcElTabela"') + '</div>';
     var ms = d.meses;
     function lin(rot, f, cls) { return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + rot + '</td>' + ms.map(function(m, i) { return '<td class="n">' + f(m, i) + '</td>'; }).join('') + '</tr>'; }
     h += '<div class="tw"><table class="dre"><thead><tr><th></th>' + ms.map(function(m) { return '<th class="n">' + rotMes(m) + '</th>'; }).join('') + '</tr></thead><tbody>' +
@@ -847,6 +882,7 @@
     h += lin('<b>Variação do caixa</b>', function(m, i) { return '<b>' + brl(d.colunas[i].variacaoCentavos) + '</b>'; }, 'tot') +
       lin('<b>Saldo final</b>', function(m, i) { return '<b>' + brl(d.colunas[i].saldoFinalCentavos) + '</b>'; }, 'tot') +
       lin('Conferência com os bancos', function(m, i) { var c = d.colunas[i]; return c.confere ? '<span class="tg ok">confere</span>' : '<span class="tg bad">dif. ' + brl(c.diferencaCentavos) + '</span>'; }) +
+      (d.memorandos || []).map(function(mm) { return lin('<i>Memorando — ' + e(mm.rotulo) + '</i>', function(m) { return mm.meses[m] ? '<i>' + brl(mm.meses[m]) + '</i>' : '<span class="mut">—</span>'; }); }).join('') +
       '</tbody></table></div></div>';
     return h;
   }
@@ -969,8 +1005,10 @@
     }
     if (t.id === 'lqOk') {
       var vis2 = {}; F.parcelasParaLiquidar(fin, {tipo: S.lq.tipo, hoje: hojeISO()}).forEach(function(l) { vis2[lqChave(l)] = l; });
-      var itens = Object.keys(S.lq.sel).filter(function(k) { return vis2[k]; }).map(function(k) { return {titulo: vis2[k].titulo, valorCentavos: vis2[k].abertoCentavos}; });
+      var acr = S.lq.acr || {}, cv = function(v) { return F.centavos(v) || 0; };
+      var itens = Object.keys(S.lq.sel).filter(function(k) { return vis2[k]; }).map(function(k) { var a = acr[k] || {}; return {titulo: vis2[k].titulo, valorCentavos: vis2[k].abertoCentavos, jurosCentavos: cv(a.j), multaCentavos: cv(a.m), descontoCentavos: cv(a.d)}; });
       var dl = {chave: chave(), itens: itens, data: el('lqData').value, conta: el('lqConta').value};
+      if (el('lqCred')) { dl.dataCredito = el('lqCred').value || null; dl.representante = el('lqRep').value.trim() || null; S.lq.cred = dl.dataCredito; S.lq.rep = dl.representante; }
       var ml = F.montarLiquidacao(fin, dl); if (!ml.ok) { toast(ml.motivo); return; }
       S.lq.data = dl.data; S.lq.conta = dl.conta;
       travar(t, chamar('finLiquidar', dl)).then(function() { S.lq.sel = {}; render(); toast(ml.baixas.length + ' baixa(s) · ' + (ml.totalCentavos / 100).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'}) + '.'); });
@@ -980,6 +1018,8 @@
     if (t.id === 'clOk') {
       var rat = []; [0, 1, 2, 3, 4].forEach(function(i) { var c = el('clCC' + i).value, pc = Number(String(el('clPc' + i).value || '').replace(',', '.')); if (c && pc) rat.push({centro: c, percentual: pc}); });
       var dc = {titulo: d.tit, elemento: el('clEl').value, formaPagamento: el('clForma').value || null, rateio: rat.length ? rat : null};
+      var lns = []; [0, 1, 2, 3, 4, 5].forEach(function(i) { var ee = el('clLEl' + i).value, vv = F.centavos(el('clLV' + i).value); if (ee && vv) lns.push({elemento: ee, centro: el('clLCc' + i).value || null, valorCentavos: vv}); });
+      if (lns.length) dc = {titulo: d.tit, formaPagamento: dc.formaPagamento, linhas: lns};
       var vc = F.validarClassificacao(porIdCarteira()[d.tit], dc, fin); if (!vc.ok) { toast(vc.motivo); return; }
       travar(t, chamar('finClassificar', dc)).then(function() { fechar(); toast('Classificado.'); });
       return;
@@ -1058,6 +1098,7 @@
       return;
     }
     if (d.manualNf) { var nt = (fin.notas_entrada || {})[d.manualNf]; if (nt) formManual('PAGAR', nt); return; }
+    if (t.id === 'flLimpar') { S.flDe = ''; S.flAte = ''; render(); return; }
     if (d.vincularNf) { travar(t, chamar('finImportarNfEntrada', {xmls: []})).then(function(r) { toast(r.vinculadas ? r.vinculadas + ' nota(s) vinculada(s).' : 'Nada novo para vincular.'); }); return; }
     if (t.id === 'nfLimpar') { S.previaNotas = []; render(); return; }
     if (t.id === 'nfImportar') {
@@ -1158,7 +1199,7 @@
     if (d.lqSel) { if (t.checked) S.lq.sel[d.lqSel] = true; else delete S.lq.sel[d.lqSel]; render(); }
     if (t.id === 'lqTodos') {
       S.lq.sel = {};
-      if (t.checked) F.parcelasParaLiquidar(fin, {tipo: S.lq.tipo, de: S.lq.de || null, ate: S.lq.ate || null, q: S.lq.q, elemento: S.lq.elemento || null, hoje: hojeISO()})
+      if (t.checked) F.parcelasParaLiquidar(fin, filtroLq(S.lq, hojeISO()))
         .forEach(function(l) { if (!l.bloqueado) S.lq.sel[lqChave(l)] = true; });
       render();
     }
@@ -1167,17 +1208,28 @@
     if (t.id === 'lqAte') { S.lq.ate = t.value; S.lq.sel = {}; render(); }
     if (t.id === 'lqQ') { S.lq.q = t.value; S.lq.sel = {}; render(); }
     if (t.id === 'lqElem') { S.lq.elemento = t.value; S.lq.sel = {}; render(); }
+    if (t.id === 'lqEmDe') { S.lq.emDe = t.value; S.lq.sel = {}; render(); }
+    if (t.id === 'lqEmAte') { S.lq.emAte = t.value; S.lq.sel = {}; render(); }
+    if (t.id === 'lqForma') { S.lq.forma = t.value; S.lq.sel = {}; render(); }
+    if (t.id === 'lqVDe') { S.lq.vDe = t.value; S.lq.sel = {}; render(); }
+    if (t.id === 'lqVAte') { S.lq.vAte = t.value; S.lq.sel = {}; render(); }
+    if (t.dataset && t.dataset.lqAcr) { var ka = t.dataset.lqAcr; S.lq.acr = S.lq.acr || {}; S.lq.acr[ka] = S.lq.acr[ka] || {}; S.lq.acr[ka][t.dataset.c] = t.value; }
     if (t.id === 'lqData' && t.value) { S.lq.data = t.value; render(); }
     if (t.id === 'lqConta') { S.lq.conta = t.value; }
     if (t.id === 'flGrupo') { S.flGrupo = t.checked; render(); }
     if (t.id === 'dfcAb') { S.dfcAb = t.value; render(); }
     if (t.id === 'relSemAd') { S.rel.semAdiant = t.checked; render(); }
+    if (t.id === 'relDescDfc') { S.rel.descDfc = t.checked; render(); }
+    if (t.id === 'relResumido') { S.rel.resumido = t.checked; render(); }
+    if (t.id === 'relPrevDfc') { S.rel.prevDfc = t.checked; render(); }
     if (t.id === 'cnMotivo') previaCancel();
     if (t.id === 'adParc') { try { var cj = JSON.parse(t.dataset.cnpjs || '{}'); if (cj[t.value] && !el('adCnpj').value) el('adCnpj').value = cj[t.value]; } catch (x) { /* ok */ } }
     if (t.id === 'ltConta') { S.conta = t.value; render(); }
     if (t.id === 'exConta') { S.extratoConta = t.value; render(); }
     if (t.id === 'extConta') { S.extConta = t.value; render(); }
     if (t.id === 'flG') { S.flG = t.value; render(); }
+    if (t.id === 'flDe') { S.flDe = t.value; if (S.flAte && S.flAte < S.flDe) S.flAte = S.flDe; render(); }
+    if (t.id === 'flAte') { S.flAte = t.value; render(); }
     if (t.id === 'relTipo') { S.rel.tipo = t.value; render(); }
     if (t.id === 'relDe' && t.value) { S.rel.de = t.value; render(); }
     if (t.id === 'relAte' && t.value) { S.rel.ate = t.value; render(); }
@@ -1187,12 +1239,15 @@
     if (t.id === 'relParc') { S.rel.parceiro = t.value; render(); }
     if (t.id === 'relConta') { S.rel.conta = t.value; render(); }
     if (t.id === 'relG') { S.rel.granularidade = t.value; render(); }
-    var relCampo = {relData: S.rel.tipo === 'antecipacao' ? 'dataAnt' : 'data', relDestino: 'destino', relTipoMov: 'tipoMov', relGRP: 'granRP', relBase2: 'base2', relCC: 'centroCusto', relUsuario: 'usuario',
+    var relCampo = {relData: S.rel.tipo === 'antecipacao' ? 'dataAnt' : 'data', relDestino: 'destino', relTipoMov: 'tipoMov', relStLote: 'statusLote', relDtLote: 'dataLote', relAgDesp: 'agruparDesp', relPerDesp: 'periodDesp', relGRP: 'granRP', relBase2: 'base2', relCC: 'centroCusto', relUsuario: 'usuario',
       relAgrupar: 'agrupar', relTop: 'top', relMeses: 'meses', relTaxa: 'taxa', relElem: 'elemento', relAgG: 'agruparGasto', relForma: 'forma', relAbDfc: 'aberturaDfc'}[t.id];
     if (relCampo && (!/^data/.test(relCampo) || t.value)) { S.rel[relCampo] = t.value; render(); }
     if (t.id === 'flConta') { S.flConta = t.value; render(); }
     if (t.id === 'flNat') { S.flNat = t.value; render(); }
     if (t.id === 'dfcDe' && t.value) { S.dfcDe = t.value; render(); }
+    if (t.id === 'dfcConta') { S.dfcConta = t.value; if (t.value) S.dfcPrev = false; render(); }
+    if (t.id === 'dfcDesc') { S.dfcDesc = t.checked; render(); }
+    if (t.id === 'dfcPrev') { S.dfcPrev = t.checked; render(); }
     if (t.id === 'dfcAte' && t.value) { S.dfcAte = t.value; render(); }
     if (d.dfcNat) { db.ref('fin/parametros/dfcAtividades/' + d.dfcNat).set(t.value).then(function() { toast('Atividade salva.'); }, function(err) { toast(erroMsg(err)); }); }
     if (t.id === 'extDe') { S.extDe = t.value; render(); }

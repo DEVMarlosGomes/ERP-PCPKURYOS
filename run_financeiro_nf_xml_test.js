@@ -136,7 +136,9 @@ eq(FS.situacaoDe(Object.assign(base(), {fin}), 'REC_pc1_r1').fonteParcelas, 'NF_
 // ── 6. Cópias e ligação ────────────────────────────────────────────────────
 eq(fs.readFileSync('public/shared/financeiro.js', 'utf8'), fs.readFileSync('functions/financeiro.js', 'utf8'), 'motor idêntico na tela e no servidor');
 const idx = fs.readFileSync('functions/index.js', 'utf8');
-ok(/exports\.finImportarNfEntrada = onCall[\s\S]{0,200}filaFinanceiro\(async/.test(idx), 'callable na fila do financeiro');
+ok(/exports\.finImportarNfEntrada = onCall[\s\S]{0,600}filaFinanceiro\(async/.test(idx), 'callable na fila do financeiro (só vincular)');
+// Q8 (18/11/2026): com XML, o upload passa pelo Fiscal, também dentro da fila do Financeiro.
+ok(/async function importarXmlUnificado[\s\S]{0,200}filaFinanceiro\(async/.test(idx), 'upload único do Fiscal na fila do financeiro');
 ok(/"fin\/notas_entrada"/.test(idx) && /notas_entrada: v\["fin\/notas_entrada"\]/.test(idx), 'servidor escuta fin/notas_entrada');
 ok(/data-aba="notas"/.test(fs.readFileSync('public/financeiro.html', 'utf8')), 'aba na tela');
 console.log('financeiro F5 (NF de entrada por XML): ' + n + ' asserções OK');

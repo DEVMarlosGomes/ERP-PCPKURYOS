@@ -734,7 +734,15 @@
   function fluxoCaixa(base, hoje, op) {
     var b = base || {}, o = op || {}, g = GRANULARIDADES[o.granularidade] ? o.granularidade : 'SEMANA', cfg = GRANULARIDADES[g];
     var ini = inicioPeriodo(hoje, g), cols = [];
-    for (var i = -cfg.passados; i < cfg.futuros; i++) {
+    // CC-02 do WebMais (B6): período livre de/até; sem ele, a janela padrão de cada granularidade.
+    var livre = dataOk(o.de) && dataOk(o.ate) && o.de <= o.ate;
+    if (livre) {
+      for (var c1 = inicioPeriodo(o.de, g), k = 0; c1 <= o.ate && k < 400; k++) {
+        var prox = somarPeriodo(c1, g, 1);
+        cols.push({ inicio: c1, fim: addDias(prox, -1), passada: c1 < ini, entradas: 0, saidas: 0, entradasPrevistas: 0, saidasPrevistas: 0 });
+        c1 = prox;
+      }
+    } else for (var i = -cfg.passados; i < cfg.futuros; i++) {
       var c0 = somarPeriodo(ini, g, i);
       cols.push({ inicio: c0, fim: addDias(somarPeriodo(ini, g, i + 1), -1), passada: i < 0, entradas: 0, saidas: 0, entradasPrevistas: 0, saidasPrevistas: 0 });
     }
@@ -816,13 +824,17 @@
     FRETE: 'OPERACIONAL', FOLHA: 'OPERACIONAL', CUSTO_FIXO_PRODUCAO: 'OPERACIONAL', CUSTO_FIXO_ADM: 'OPERACIONAL', DESPESA_COMERCIAL: 'OPERACIONAL',
     PLR: 'OPERACIONAL', IMPOSTOS: 'OPERACIONAL', OUTROS: 'OPERACIONAL', RESULTADO_FINANCEIRO: 'OPERACIONAL', ADIANTAMENTOS: 'OPERACIONAL'
   };
-  var ROTULO_NATUREZA_DFC = { RESULTADO_FINANCEIRO: 'Resultado financeiro (juros, multas, descontos, tarifas, IOF, rendimentos)', ADIANTAMENTOS: 'Adiantamentos a fornecedores e de clientes' };
+  var ROTULO_NATUREZA_DFC = { RESULTADO_FINANCEIRO: 'Resultado financeiro (juros, multas, descontos, tarifas, IOF, rendimentos)', ADIANTAMENTOS: 'Adiantamentos a fornecedores e de clientes', TRANSFERENCIA: 'Transferência entre contas' };
   function atividadeDe(natureza, parametros) {
     var m = ((parametros || {}).dfcAtividades) || {};
     var a = m[natureza] || ATIVIDADE_PADRAO[natureza];
     return ATIVIDADES[a] ? a : 'NAO_CLASSIFICADO';
   }
-  function dfc(fin, deMes, ateMes) {
+  /* op (CR-03 do WebMais, B5): {conta: só esta conta bancária (a transferência dela vira linha própria),
+     exibirDescontos: memorando dos descontos obtidos/concedidos nas baixas, base: com ela, memorando do
+     previsto (pedidos de compra e carteira comercial) por mês de vencimento}. Memorando não entra no saldo. */
+  function dfc(fin, deMes, ateMes, op) {
+    var o = op || {}, soConta = o.conta || null;
     var f = fin || {}, meses = [], m = String(deMes).slice(0, 7) + '-01', fimMes = String(ateMes).slice(0, 7) + '-01';
     if (!dataOk(m) || !dataOk(fimMes) || m > fimMes) return { ok: false, motivo: 'Período inválido.' };
     while (m <= fimMes && meses.length < 36) { meses.push(m.slice(0, 7)); m = somarPeriodo(m, 'MES', 1); }
@@ -833,17 +845,19 @@
       return linhas[k];
     }
     fluxosRealizados(f).forEach(function(x) {
-      if (x.natureza === 'TRANSFERENCIA') return; // movimento interno
+      if (soConta && x.conta !== soConta) return;
+      if (x.natureza === 'TRANSFERENCIA' && !soConta) return; // movimento interno (com uma conta só, entra e sai dela)
       var mes = String(x.data).slice(0, 7); if (meses.indexOf(mes) < 0) return;
       var conta = (f.contas_bancarias || {})[x.conta];
       if (!conta || (conta.dataSaldoInicial && x.data < conta.dataSaldoInicial)) return; // o saldosBancarios também ignora
-      linha(atividadeDe(x.natureza, par), x.natureza).meses[mes] += x.valorCentavos;
+      linha(x.natureza === 'TRANSFERENCIA' ? 'FINANCIAMENTO' : atividadeDe(x.natureza, par), x.natureza).meses[mes] += x.valorCentavos;
     });
     var colunas = meses.map(function(mes) {
       var ini = mes + '-01', fim = addDias(somarPeriodo(ini, 'MES', 1), -1);
       var antes = saldosBancarios(f, addDias(ini, -1)), depoisB = saldosBancarios(f, fim);
       var si = 0, sf = 0, abertura = 0;
       Object.keys(depoisB).forEach(function(k) {
+        if (soConta && k !== soConta) return;
         var cb = (f.contas_bancarias || {})[k] || {}, ab = cb.dataSaldoInicial;
         // Conta aberta dentro do mês: o saldo de abertura não é fluxo, é abertura.
         if (ab && ab >= ini && ab <= fim) abertura += Math.round(num(cb.saldoInicialCentavos));
@@ -866,7 +880,27 @@
       c.diferencaCentavos = c.saldoFinalBancosCentavos - c.saldoFinalCentavos;
       c.confere = c.diferencaCentavos === 0;
     });
-    return { ok: true, meses: meses, colunas: colunas, grupos: grupos, naoClassificado: grupos.some(function(gr) { return gr.atividade === 'NAO_CLASSIFICADO'; }) };
+    var memorandos = [];
+    if (o.exibirDescontos) {
+      var dob = {}, dco = {};
+      meses.forEach(function(x) { dob[x] = 0; dco[x] = 0; });
+      vals(f.baixas).forEach(function(x) {
+        var mes = String(x.data || '').slice(0, 7); if (dob[mes] == null || (soConta && x.conta !== soConta)) return;
+        var dsc = Math.round(num(x.descontoCentavos)) * (x.tipo === 'ESTORNO' ? -1 : 1); if (!dsc) return;
+        if (x.tituloTipo === 'RECEBER') dco[mes] += dsc; else dob[mes] += dsc;
+      });
+      memorandos.push({ chave: 'DESC_OBTIDOS', rotulo: 'Descontos obtidos (a pagar)', meses: dob }, { chave: 'DESC_CONCEDIDOS', rotulo: 'Descontos concedidos (a receber)', meses: dco });
+    }
+    if (o.base && !soConta) {
+      var pv = {}, pc = {};
+      meses.forEach(function(x) { pv[x] = 0; pc[x] = 0; });
+      compromissos(o.base).forEach(function(c) {
+        if (c.semData) return;
+        c.parcelas.forEach(function(p) { var mes = String(p.vencimento).slice(0, 7); if (pv[mes] == null) return; if (c.tipo === 'RECEBER') pv[mes] += p.valorCentavos; else pc[mes] -= p.valorCentavos; });
+      });
+      memorandos.push({ chave: 'PREV_VENDAS', rotulo: 'Previsto: pedidos de venda ainda não faturados', meses: pv }, { chave: 'PREV_COMPRAS', rotulo: 'Previsto: ordens de compra ainda não recebidas', meses: pc });
+    }
+    return { ok: true, meses: meses, colunas: colunas, grupos: grupos, memorandos: memorandos, conta: soConta, naoClassificado: grupos.some(function(gr) { return gr.atividade === 'NAO_CLASSIFICADO'; }) };
   }
 
   /* ── Relatórios (F8, 10/11/2026 — docs/financeiro-fase0-lacunas.md) ─────
@@ -963,7 +997,7 @@
   function relDfc(fin, f) {
     var o = f || {};
     if (o.abertura === 'ELEMENTO') return relDfcElementos(fin, o);
-    var d = dfc(fin, o.de, o.ate);
+    var d = dfc(fin, o.de, o.ate, { conta: o.conta || null, exibirDescontos: !!o.exibirDescontos, base: o.base || null });
     if (!d.ok) return { titulo: 'Demonstrativo de fluxo de caixa', colunas: [], linhas: [], totais: {}, erro: d.motivo };
     var colunas = [{ chave: 'linha', rotulo: '', tipo: 'texto' }].concat(d.meses.map(function(m) { return { chave: m, rotulo: m.slice(5, 7) + '/' + m.slice(0, 4), tipo: 'valor', semTotal: true }; }));
     function porMes(f2) { var l = {}; d.meses.forEach(function(m, i) { l[m] = f2(m, i); }); return l; }
@@ -975,7 +1009,8 @@
     linhas.push(Object.assign({ linha: 'Variação do caixa', destaque: true }, porMes(function(m, i) { return d.colunas[i].variacaoCentavos; })));
     linhas.push(Object.assign({ linha: 'Saldo final', destaque: true }, porMes(function(m, i) { return d.colunas[i].saldoFinalCentavos; })));
     linhas.push(Object.assign({ linha: 'Diferença contra os bancos', destaque: true }, porMes(function(m, i) { return d.colunas[i].diferencaCentavos; })));
-    return { titulo: 'Demonstrativo de fluxo de caixa (método direto)', colunas: colunas, linhas: linhas, totais: {} };
+    (d.memorandos || []).forEach(function(mm) { linhas.push(Object.assign({ linha: 'Memorando — ' + mm.rotulo }, porMes(function(m) { return mm.meses[m]; }))); });
+    return { titulo: 'Demonstrativo de fluxo de caixa (método direto)' + (d.conta ? ' — conta ' + (((fin || {}).contas_bancarias || {})[d.conta] || {}).nome : ''), colunas: colunas, linhas: linhas, totais: {} };
   }
   // F9 (CR-03): DFC aberto por grupo › subgrupo › elemento.
   function relDfcElementos(fin, o) {
@@ -1449,9 +1484,40 @@
     return { ok: true, registro: { codigo: cod, nome: nome.slice(0, 80), grupo: x.grupo, subgrupo: String(x.subgrupo || GRUPOS_ELEMENTO[x.grupo]).trim().slice(0, 60), natureza: x.natureza, ativo: x.ativo !== false } };
   }
   /* sit: situação do título; d: {elemento, formaPagamento?, rateio?: [{centro, percentual}]} */
+  // Um elemento serve ao título? (existe, ativo, classifica título e do lado certo: receita × despesa)
+  function elementoServe(els, cod, tipoTitulo) {
+    var el = els[cod];
+    if (!el) return 'Elemento ' + cod + ' não encontrado no plano.';
+    if (!el.ativo) return 'Elemento ' + cod + ' inativo.';
+    if (NATUREZAS.indexOf(el.natureza) < 0) return 'O elemento ' + cod + ' não classifica título (é de movimento financeiro ou adiantamento).';
+    var receita = el.natureza === 'RECEITA_VENDA' || el.natureza === 'OUTRAS_RECEITAS';
+    if (receita !== (tipoTitulo === 'RECEBER')) return tipoTitulo === 'RECEBER' ? 'Título a receber pede elemento de receita.' : 'Elemento de receita não classifica título a pagar.';
+    return null;
+  }
   function validarClassificacao(sit, d, fin) {
     var x = d || {}, els = elementos(fin);
     if (!sit) return { ok: false, motivo: 'Título não encontrado.' };
+    /* Rateio com mais de um elemento (CP-06 do WebMais, B4): linhas elemento × centro × valor que
+       somam o título em centavos. Quem tem um elemento só continua no formato de antes (hash igual). */
+    if (Array.isArray(x.linhas) && x.linhas.length) {
+      var formaL = String(x.formaPagamento || '').trim().toUpperCase();
+      if (formaL && !FORMAS_PAGAMENTO[formaL]) return { ok: false, motivo: 'Forma de pagamento inválida.' };
+      if (x.linhas.length > 30) return { ok: false, motivo: 'No máximo 30 linhas no rateio.' };
+      var lv = [], vistosL = {}, somaL = 0;
+      for (var j = 0; j < x.linhas.length; j++) {
+        var ln = x.linhas[j] || {}, codL = String(ln.elemento || '').trim().toUpperCase(), ccL = String(ln.centro || '').trim(), vL = Math.round(num(ln.valorCentavos));
+        var errL = elementoServe(els, codL, sit.titulo.tipo); if (errL) return { ok: false, motivo: errL };
+        if (ccL && !/^[A-Z0-9_]{1,40}$/.test(ccL)) return { ok: false, motivo: 'Centro de custo inválido: ' + ccL.slice(0, 40) + '.' };
+        if (!(vL > 0) || vL !== num(ln.valorCentavos)) return { ok: false, motivo: 'Valor de cada linha em centavos inteiros, maior que zero.' };
+        var kL = codL + '|' + ccL;
+        if (vistosL[kL]) return { ok: false, motivo: 'Elemento ' + codL + ' no centro ' + (ccL || '(sem centro)') + ' aparece duas vezes.' };
+        vistosL[kL] = true; somaL += vL; lv.push({ elemento: codL, centro: ccL || null, valorCentavos: vL });
+      }
+      var alvo = Math.round(num(sit.titulo.valorCentavos));
+      if (somaL !== alvo) return { ok: false, motivo: 'As linhas somam R$ ' + (somaL / 100).toFixed(2).replace('.', ',') + ' e o título é R$ ' + (alvo / 100).toFixed(2).replace('.', ',') + ': precisa bater no centavo.' };
+      if (lv.length === 1) return validarClassificacao(sit, { elemento: lv[0].elemento, formaPagamento: formaL, rateio: lv[0].centro ? [{ centro: lv[0].centro, percentual: 100 }] : null }, fin);
+      return { ok: true, registro: { elemento: lv[0].elemento, formaPagamento: formaL || null, rateio: null, linhas: lv, versao: VERSAO } };
+    }
     var cod = String(x.elemento || '').trim().toUpperCase(), el = els[cod];
     if (!el) return { ok: false, motivo: 'Elemento não encontrado no plano.' };
     if (!el.ativo) return { ok: false, motivo: 'Elemento inativo.' };
@@ -1475,7 +1541,7 @@
   // Elemento, forma e rateio que valem para o título: classificação > o que o título trouxe > natureza.
   function classificacaoEfetiva(fin, id) {
     var f = fin || {}, t = (f.titulos || {})[id] || {}, c = (f.classificacoes || {})[id];
-    if (c && c.elemento) return { elemento: c.elemento, formaPagamento: c.formaPagamento || t.formaPagamento || null, rateio: c.rateio || null, fonte: 'CLASSIFICACAO' };
+    if (c && c.elemento) return { elemento: c.elemento, formaPagamento: c.formaPagamento || t.formaPagamento || null, rateio: c.rateio || null, linhas: c.linhas && c.linhas.length > 1 ? c.linhas : null, fonte: 'CLASSIFICACAO' };
     if (t.elemento) return { elemento: t.elemento, formaPagamento: t.formaPagamento || null, rateio: null, fonte: 'TITULO' };
     return { elemento: null, formaPagamento: t.formaPagamento || null, rateio: null, fonte: 'NATUREZA' };
   }
@@ -1486,6 +1552,11 @@
   /* Partes de um valor do título por elemento × centro: [{elemento, natureza, centro, valorCentavos}]. */
   function partesDoTitulo(fin, id, valor) {
     var f = fin || {}, t = (f.titulos || {})[id] || {}, ce = classificacaoEfetiva(f, id), els = elementos(f), v = Math.round(num(valor));
+    if (ce.linhas) {
+      // B4: o valor (do título, de uma baixa…) reparte na proporção das linhas; a última absorve o centavo.
+      var vl = repartir(v, ce.linhas.map(function(l) { return num(l.valorCentavos); }));
+      return ce.linhas.map(function(l, i) { return { elemento: l.elemento, natureza: (els[l.elemento] || {}).natureza || t.natureza || 'OUTROS', centro: l.centro || null, valorCentavos: vl[i] }; });
+    }
     if (ce.elemento) {
       var e = els[ce.elemento] || {}, nat = e.natureza || t.natureza || 'OUTROS', rat = ce.rateio && ce.rateio.length ? ce.rateio : [{ centro: t.centroCusto || null, percentual: 100 }];
       var vs = repartir(v, rat.map(function(r) { return num(r.percentual); }));
@@ -1561,32 +1632,50 @@
       if (q && [t.documento, t.parceiro && t.parceiro.nome, t.parceiro && t.parceiro.cnpj, s.id].join(' ').toUpperCase().indexOf(q) < 0) return;
       var partes = partesDoTitulo(fin, s.id, s.saldoCentavos), cods = partes.map(function(x) { return x.elemento; });
       if (o.elemento && cods.indexOf(o.elemento) < 0) return;
+      // CB-06/07 do WebMais (B3): emissão de/até, tipo de cobrança (forma) e valor de/até da parcela.
+      if ((o.emissaoDe && !(t.emissao >= o.emissaoDe)) || (o.emissaoAte && !(t.emissao <= o.emissaoAte))) return;
+      var forma = classificacaoEfetiva(fin, s.id).formaPagamento || null;
+      if (o.forma && forma !== o.forma) return;
       s.abertas.forEach(function(p) {
         if ((o.de && p.vencimento < o.de) || (o.ate && p.vencimento > o.ate)) return;
+        if ((o.valorDe != null && p.abertoCentavos < o.valorDe) || (o.valorAte != null && p.abertoCentavos > o.valorAte)) return;
         out.push({ titulo: s.id, n: p.n, de: p.de, parceiro: (t.parceiro && t.parceiro.nome) || '', documento: t.documento || s.id, emissao: t.emissao || null, vencimento: p.vencimento,
           dias: o.hoje ? Math.max(0, diffDias(o.hoje, p.vencimento)) : 0, valorCentavos: p.valorCentavos, abertoCentavos: p.abertoCentavos,
-          elemento: cods[0] || null, bloqueado: !!(s.bloqueio && tipo === 'PAGAR') });
+          elemento: cods[0] || null, forma: forma, bloqueado: !!(s.bloqueio && tipo === 'PAGAR') });
       });
     });
     out.sort(function(a, b) { return String(a.vencimento).localeCompare(String(b.vencimento)) || a.parceiro.localeCompare(b.parceiro) || a.n - b.n; });
     return out;
   }
-  /* d: {itens: [{titulo, valorCentavos}], data, conta} -> uma baixa por título (parcelas somadas). */
+  /* d: {itens: [{titulo, valorCentavos, jurosCentavos?, multaCentavos?, descontoCentavos?}], data, conta,
+         dataCredito?, representante?} -> uma baixa por título (parcelas, juros, multa e desconto somados).
+     B3: juros, multa e desconto POR LINHA; data de crédito e representante no lado a receber. */
   function montarLiquidacao(fin, d) {
     var f = fin || {}, x = d || {}, itens = Array.isArray(x.itens) ? x.itens : [];
     if (!itens.length) return { ok: false, motivo: 'Marque ao menos uma parcela.' };
     if (itens.length > 500) return { ok: false, motivo: 'No máximo 500 parcelas por vez.' };
-    var soma = {}, ordem = [];
-    itens.forEach(function(i) { var k = String((i || {}).titulo || ''); if (!(k in soma)) { soma[k] = 0; ordem.push(k); } soma[k] += Math.round(num(i.valorCentavos)); });
+    var soma = {}, acr = {}, ordem = [];
+    for (var ii = 0; ii < itens.length; ii++) {
+      var it = itens[ii] || {}, k = String(it.titulo || '');
+      if (!(k in soma)) { soma[k] = 0; acr[k] = { j: 0, m: 0, d: 0 }; ordem.push(k); }
+      var jj = Math.round(num(it.jurosCentavos)), mm = Math.round(num(it.multaCentavos)), dd = Math.round(num(it.descontoCentavos));
+      if (jj < 0 || mm < 0 || dd < 0) return { ok: false, motivo: 'Juros, multa e desconto não podem ser negativos.' };
+      soma[k] += Math.round(num(it.valorCentavos)); acr[k].j += jj; acr[k].m += mm; acr[k].d += dd;
+    }
+    var dataCredito = x.dataCredito ? String(x.dataCredito).slice(0, 10) : null;
+    if (dataCredito && (!dataOk(dataCredito) || dataCredito < String(x.data || '').slice(0, 10))) return { ok: false, motivo: 'Data de crédito inválida (não pode ser antes da movimentação).' };
     var porId = {}; carteira(f).forEach(function(s) { porId[s.id] = s; });
     var bloq = f.bloqueios || {}, tipo = null, baixas = [], total = 0;
     for (var i = 0; i < ordem.length; i++) {
       var id = ordem[i], sit = porId[id];
       if (sit) sit.bloqueio = bloq[id] && bloq[id].ativo !== false ? bloq[id] : null;
       if (sit && tipo && sit.titulo.tipo !== tipo) return { ok: false, motivo: 'Liquide a pagar e a receber separadamente.' };
-      var v = validarBaixa(sit, { valorCentavos: soma[id], data: x.data, conta: x.conta }, f.contas_bancarias);
+      var v = validarBaixa(sit, { valorCentavos: soma[id], jurosCentavos: acr[id].j, multaCentavos: acr[id].m, descontoCentavos: acr[id].d, data: x.data, conta: x.conta }, f.contas_bancarias);
       if (!v.ok) return { ok: false, motivo: ((sit && sit.titulo.documento) || id) + ': ' + v.motivo };
-      tipo = sit.titulo.tipo; baixas.push({ titulo: id, registro: v.registro }); total += v.registro.liquidoCentavos;
+      tipo = sit.titulo.tipo;
+      if (tipo === 'RECEBER' && dataCredito) v.registro.dataCredito = dataCredito;
+      if (tipo === 'RECEBER' && x.representante) v.registro.representante = String(x.representante).trim().slice(0, 80) || null;
+      baixas.push({ titulo: id, registro: v.registro }); total += v.registro.liquidoCentavos;
     }
     var neg = caixaNegativo(f, { conta: x.conta, tituloTipo: tipo, liquidoCentavos: total });
     if (neg) return { ok: false, motivo: neg };
