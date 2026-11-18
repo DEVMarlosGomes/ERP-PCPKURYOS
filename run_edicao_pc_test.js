@@ -12,10 +12,16 @@ const pc = (extra) => Object.assign({
 }, extra || {});
 
 // Quem e quando.
-assert.equal(E.avaliarEdicao(pc(), 'pcp').pode, false, 'só ADM');
+assert.equal(E.avaliarEdicao(pc(), 'pcp').pode, false, 'papel em texto: só admin');
+// Setor de Compras (18/11: "além do adm quem é do setor também pode").
+assert.equal(E.avaliarEdicao(pc(), {admin: false, compras: true}).pode, true, 'setor de Compras edita');
+assert.equal(E.avaliarEdicao(pc(), {admin: true, compras: false}).pode, true, 'ADM edita');
+assert.equal(E.avaliarEdicao(pc(), {admin: false, compras: false}).pode, false, 'fora do setor não edita');
+assert.ok(!E.montarRevisao(pc(), {prazoEntregaDiasUteis: 20}, {acesso: {compras: true}, justificativa: 'Fornecedor pediu mais prazo'}).erro);
+assert.ok(E.montarRevisao(pc(), {prazoEntregaDiasUteis: 20}, {acesso: {}, justificativa: 'Fornecedor pediu mais prazo'}).erro);
 // Qualquer status (18/11: "edições devem ser para qualquer pedido").
 ['ABERTO', 'ENVIADO', 'RECEBIDO_PARCIAL', 'RECEBIDO_TOTAL', 'CANCELADO'].forEach((s) => assert.equal(E.avaliarEdicao(pc({status: s}), 'admin').pode, true, s));
-assert.equal(E.avaliarEdicao(pc({status: 'RECEBIDO_TOTAL'}), 'pcp').pode, false, 'segue só ADM');
+assert.equal(E.avaliarEdicao(pc({status: 'CANCELADO'}), {compras: true}).pode, true, 'setor também em qualquer status');
 
 // Status depois da edição: recebido total com quantidade maior reabre; parcial baixado ao recebido fecha; cancelado fica.
 const total = pc({status: 'RECEBIDO_TOTAL'}); total.itens.a.qtdRecebida = 100; total.itens.b.qtdRecebida = 3;

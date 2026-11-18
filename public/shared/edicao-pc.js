@@ -10,8 +10,11 @@
    recebimentos e SC.
 
    Decisões:
-   - Só ADMIN, como cancelar (shared/cancelamento-pc.js): mexer em pedido
-     decidido desfaz parte de um acordo comercial.
+   - ADMIN e quem é do setor de Compras (módulo `compras`, pedido do
+     usuário em 18/11: "além do adm quem é do setor também pode"). A regra
+     do banco de `pedidos_compra` já deixa esse grupo gravar (papel pcp ou
+     modulos.compras); a tela confere as duas coisas. Cancelar segue só ADM
+     (shared/cancelamento-pc.js).
    - Edita QUALQUER pedido, em qualquer status (pedido do usuário, 18/11:
      "edições devem ser para qualquer pedido"). Antes RECEBIDO_TOTAL e
      CANCELADO ficavam de fora. Em pedido recebido, a quantidade nova
@@ -40,9 +43,16 @@
   function numero(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
   function texto(v) { return v == null ? '' : String(v).trim(); }
 
-  function avaliarEdicao(pc, papel) {
+  /* `acesso` = {admin, compras} montado pela tela, ou o papel em texto
+     (compatível: 'admin' pode). */
+  function podeEditarAcesso(acesso) {
+    if (typeof acesso === 'string') return acesso === 'admin';
+    return !!(acesso && (acesso.admin || acesso.compras));
+  }
+
+  function avaliarEdicao(pc, acesso) {
     if (!pc) return { pode: false, motivo: 'Pedido não encontrado.' };
-    if (papel !== 'admin') return { pode: false, motivo: 'Apenas administradores podem editar um pedido de compra.' };
+    if (!podeEditarAcesso(acesso)) return { pode: false, motivo: 'Apenas administradores e o setor de Compras podem editar um pedido de compra.' };
     return { pode: true, motivo: null };
   }
 
@@ -165,7 +175,7 @@
   /* Monta a revisão a gravar em edicoes/{id}. {erro} se não pode. */
   function montarRevisao(pc, mudancas, dados) {
     dados = dados || {};
-    var av = avaliarEdicao(pc, dados.papel);
+    var av = avaliarEdicao(pc, dados.acesso != null ? dados.acesso : dados.papel);
     if (!av.pode) return { erro: av.motivo };
     var ej = validarJustificativa(dados.justificativa);
     if (ej) return { erro: ej };

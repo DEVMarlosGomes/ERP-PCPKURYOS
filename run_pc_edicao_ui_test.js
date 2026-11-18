@@ -187,6 +187,19 @@ function dados() {
     assert.equal(v4.itens.n1.precoUnit, 1.1);
     assert.equal(v4.revisao, 1);
 
+    // ── Quem pode: ADM e setor de Compras (18/11) ───────────────────────
+    const pode = await page.evaluate(() => {
+      const salvo = window.currentUser, r = {};
+      const teste = (nome, u) => { window.currentUser = Object.assign({uid: 'x', nome: nome}, u); r[nome] = podeEditarPC(allPedidosCompra.pc1); };
+      teste('pcp', {role: 'pcp'});
+      teste('modCompras', {role: 'production', modulos: {compras: true}});
+      teste('qualidade', {role: 'qualidade'});
+      teste('producao', {role: 'production'});
+      window.currentUser = salvo;
+      return r;
+    });
+    assert.deepEqual(pode, {pcp: true, modCompras: true, qualidade: false, producao: false});
+
     assert.deepEqual(errors, [], 'erros de página: ' + errors.join(' | '));
     console.log('OK Edição de PC com justificativa: qualquer status (enviado, parcial, total, cancelado), status recalculado, revisão, saldo a receber, trava do recebido, documento.');
   } finally {

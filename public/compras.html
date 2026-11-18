@@ -639,7 +639,7 @@
   </div>
 </div>
 
-<!-- MODAL: editar Pedido de Compra (só ADM; qualquer status, com justificativa) — shared/edicao-pc.js -->
+<!-- MODAL: editar Pedido de Compra (ADM e setor de Compras; qualquer status, com justificativa) — shared/edicao-pc.js -->
 <div class="modal-bg" id="modalEditarPC">
   <div class="modal" style="max-width:720px">
     <div class="modal-header purple" data-ui="dialog-head">
@@ -2125,7 +2125,7 @@ function renderPedidos() {
       '</tr>';
     }
     // Edição com justificativa (18/11, shared/edicao-pc.js): qualquer status,
-    // só ADM; cada edição vira uma revisão do pedido.
+    // ADM e setor de Compras; cada edição vira uma revisão do pedido.
     var acoes = (podeEditarPC(p)
         ? '<button class="btn btn-ghost btn-sm pc-editar" data-key="' + escapeAttr(key) + '" title="Editar o pedido com justificativa (fica no histórico de revisões)">✏️ Editar</button> '
         : '') +
@@ -2416,13 +2416,25 @@ function abrirModalEtiquetaPC(pcKey) {
   document.getElementById('modalEtiquetaPC').classList.add('open');
 }
 /* ── Edição de Pedido de Compra ──
-   Só ADMIN (não 'pcp'): mexer em preço e quantidade de um pedido já decidido
-   é alterar um acordo comercial. Desde 18/11 vale para QUALQUER status
-   ("edições devem ser para qualquer pedido"), sempre com justificativa e
-   revisão; a quantidade não desce abaixo do recebido e, em pedido recebido,
-   o status é recalculado (shared/edicao-pc.js). */
+   ADM e o setor de Compras (18/11: "além do adm quem é do setor também
+   pode"), em QUALQUER status ("edições devem ser para qualquer pedido"),
+   sempre com justificativa e revisão; a quantidade não desce abaixo do
+   recebido e, em pedido recebido, o status é recalculado
+   (shared/edicao-pc.js). Setor = módulo Compras E a regra de escrita de
+   pedidos_compra (database.rules.json: papel admin/pcp/logistica ou
+   modulos.compras/logistica) -- sem a segunda, o botão apareceria e o
+   banco devolveria PERMISSION_DENIED. */
+function acessoEdicaoPC() {
+  var u = window.currentUser;
+  if (!u) return { admin: false, compras: false };
+  var admin = u.role === 'admin';
+  var regraGrava = ['admin', 'pcp', 'logistica'].indexOf(u.role) >= 0 ||
+    !!(u.modulos && (u.modulos.compras === true || u.modulos.logistica === true));
+  var modCompras = typeof window.usuarioTemModulo === 'function' && window.usuarioTemModulo(u, 'compras');
+  return { admin: admin, compras: !!(modCompras && regraGrava) };
+}
 function podeEditarPC(pc) {
-  return EdicaoPC.avaliarEdicao(pc, window.currentUser && window.currentUser.role).pode;
+  return EdicaoPC.avaliarEdicao(pc, acessoEdicaoPC()).pode;
 }
 
 // A lista de pedidos costuma renderizar ANTES de o perfil do usuário chegar
@@ -2684,7 +2696,7 @@ function confirmarRotaDoEditor(prefix, rota) {
 function abrirModalEditarPC(key) {
   var pc = allPedidosCompra[key];
   if (!pc) { showAlert('Pedido não encontrado.', 'danger'); return; }
-  var avEd = EdicaoPC.avaliarEdicao(pc, window.currentUser && window.currentUser.role);
+  var avEd = EdicaoPC.avaliarEdicao(pc, acessoEdicaoPC());
   if (!avEd.pode) { showAlert(avEd.motivo, 'danger'); return; }
   pcEditKey = key;
   document.getElementById('pcEditJustificativa').value = '';
@@ -2962,7 +2974,7 @@ function salvarEdicaoPC() {
     return JSON.stringify(r || {}, function(k, v) { return /confirmad/i.test(k) || k === 'statusConfirmacao' ? undefined : v; });
   };
   var dadosRev = {
-    papel: window.currentUser && window.currentUser.role, autor: currentUserNome(),
+    acesso: acessoEdicaoPC(), autor: currentUserNome(),
     uid: (window.currentUser && window.currentUser.uid) || null, agora: agoraEd,
     justificativa: document.getElementById('pcEditJustificativa').value,
     rotaAlterada: semCarimbo(pc.rota) !== semCarimbo(rotaEditada)

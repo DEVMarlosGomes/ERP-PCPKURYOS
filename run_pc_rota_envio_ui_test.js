@@ -81,7 +81,8 @@ const VIACEP = {
     // ── Botão Marcar Enviado com rota pendente: abre o modal (antes dava erro) ──
     await page.click('.tab[data-tab="pedidos"]');
     await page.waitForSelector('.pc-enviar');
-    assert.equal(await page.evaluate(() => podeEditarPC(allPedidosCompra.pc1)), false, 'continua sem poder editar o pedido');
+    // 18/11: quem é do setor de Compras também edita (shared/edicao-pc.js).
+    assert.equal(await page.evaluate(() => podeEditarPC(allPedidosCompra.pc1)), true, 'setor de Compras edita o pedido');
     await page.click('.pc-enviar');
     await page.waitForSelector('#modalRotaEnvio.open');
     assert.match(await page.locator('#pcEnvTitulo').innerText(), /PC-0031/);
@@ -106,7 +107,7 @@ const VIACEP = {
     assert.equal(await page.evaluate(() => document.getElementById('modalRotaEnvio').classList.contains('open')), false);
 
     assert.deepEqual(errors, [], 'erros de página: ' + errors.join(' | '));
-    console.log('OK Confirmar rota e enviar: quem compra (não admin) confirma a rota e marca enviado, sem editar o pedido.');
+    console.log('OK Confirmar rota e enviar: quem compra (não admin) confirma a rota e marca enviado; e também pode editar.');
   } finally {
     await browser.close();
   }
