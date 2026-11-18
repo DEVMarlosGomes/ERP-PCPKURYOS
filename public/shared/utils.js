@@ -612,6 +612,11 @@ function computeOpStatus(op) {
   // ou quando a produção bate a meta sozinha, ver abaixo), o valor é
   // pegajoso -- essa função nunca reverte pra trás.
   if (op.status === 'Concluído' || op.status === 'Aguardando Confirmação') return op.status;
+  // OP devolvida à produção (18/11/2026, 26321/05): já passou dos 95% e o
+  // fechamento foi engano. Com o cálculo automático, QUALQUER apontamento novo
+  // a devolvia ao PCP. `fechamentoSoManual` (gravado na devolução) faz ela só
+  // sair da produção quando o operador clicar em Finalizar OP.
+  if (op.fechamentoSoManual) return getProduzido(op, 'linha') > 0 ? 'Em Produção' : (op.status || 'Não Iniciado');
   if (!planned) return op.status || 'Não Iniciado';
   var tipos = ['linha'].filter(function(t) { return getProduzido(op, t) > 0; });
   if (!tipos.length) return op.status || 'Não Iniciado';

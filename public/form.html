@@ -4121,9 +4121,21 @@ function preencheFechamentoForm(linha, lote, produto, pedidoId, apontadoHoje) {
     if (sel.options[i].value === produto) { sel.selectedIndex = i; break; }
   }
   document.getElementById('opQtdTotal').value = '';
-  
+  // OP devolvida à produção (fechamentoSoManual, 18/11/2026): o operador
+  // digita só as unidades NOVAS; o sistema soma ao total já registrado.
+  var opReab = findOpByLote(lote);
+  var reaberta = !!(opReab && opReab.fechamentoSoManual);
+  var jaProduzido = reaberta ? getProduzido(opReab, 'linha') : 0;
+  document.getElementById('opForm').dataset.opReaberta = reaberta ? '1' : '';
+  document.getElementById('opForm').dataset.opJaProduzido = jaProduzido;
+  var rotuloQtd = document.querySelector('label[for="opQtdTotal"]') || document.getElementById('opQtdTotal').parentNode.querySelector('label');
+  if (rotuloQtd) rotuloQtd.textContent = reaberta ? 'Unidades NOVAS desde a retomada (somam às já produzidas)' : 'Qtd. Total da OP (soma de todas as horas)';
+  if (reaberta) apontadoHoje = 0;
+
   var metaText = qtdEsperada ? ' · Meta PCP: ' + fmtNum(qtdEsperada) + ' un.' : '';
-  document.getElementById('opCalcHint').textContent = 'Já apontado: ' + fmtNum(apontadoHoje) + ' un.' + metaText;
+  document.getElementById('opCalcHint').textContent = reaberta
+    ? 'OP retomada: já produzido ' + fmtNum(jaProduzido) + ' un. O que você digitar aqui SOMA a esse total.' + metaText
+    : 'Já apontado: ' + fmtNum(apontadoHoje) + ' un.' + metaText;
   document.getElementById('opForm').dataset.opLinha = linha;
   document.getElementById('opForm').dataset.opLote = lote;
   document.getElementById('opForm').dataset.opApontado = apontadoHoje;
@@ -4151,6 +4163,13 @@ function preencheFechamentoForm(linha, lote, produto, pedidoId, apontadoHoje) {
 document.getElementById('opQtdTotal').addEventListener('input', function() {
   var total = parseInt(this.value) || 0;
   var apontado = parseInt(document.getElementById('opForm').dataset.opApontado||0) || 0;
+  // OP retomada: o campo é só o acréscimo -- a conta de desvio usa o total somado.
+  if (document.getElementById('opForm').dataset.opReaberta === '1') {
+    var ja = parseInt(document.getElementById('opForm').dataset.opJaProduzido || 0) || 0;
+    document.getElementById('opCalcHint').textContent = 'OP retomada: ' + fmtNum(ja) + ' + ' + fmtNum(total) + ' = ' + fmtNum(ja + total) + ' un. no total.';
+    total = total ? ja + total : 0;
+    apontado = ja;
+  }
   var qtdEsperada = parseInt(document.getElementById('opForm').dataset.opQtdEsperada||0) || 0;
   var diff = total - apontado;
   var hint = document.getElementById('opCalcHint');
@@ -4413,6 +4432,12 @@ document.getElementById('opForm').addEventListener('submit', function(e) {
   var produto   = document.getElementById('opProduto').value;
   var qtdTotal  = parseInt(document.getElementById('opQtdTotal').value) || 0;
   var apontado  = parseInt(this.dataset.opApontado||0) || 0;
+  // OP retomada (fechamentoSoManual): o digitado é só o acréscimo; o total
+  // que vai para o registro e para a OP é o já produzido + o novo.
+  if (this.dataset.opReaberta === '1' && qtdTotal) {
+    apontado = parseInt(this.dataset.opJaProduzido || 0) || 0;
+    qtdTotal = apontado + qtdTotal;
+  }
   var pedidoId  = this.dataset.opPid || '';
   var colPerdas = collectPerdasEtapa('opPerdasEtapa', 'perdasList', 'opSemPerda');
   if (!colPerdas.ok) { btn.disabled = false; btn.textContent = '🏁 Finalizar OP'; alert(colPerdas.erros.join('\n')); return; }

@@ -88,7 +88,7 @@ function prepararDevolucao(op, dados, ctx) {
   const planejada = num(op.qtdPlanejada);
   const avisos = [];
   if (planejada > 0 && envasado / planejada >= 0.95) {
-    avisos.push('O envase já soma ' + envasado + ' de ' + planejada + ' un (95% ou mais): o próximo apontamento de envase devolve a OP ao PCP. Se a quantidade foi lançada por engano, corrija o apontamento no Histórico.');
+    avisos.push('O envase já soma ' + envasado + ' de ' + planejada + ' un (95% ou mais). A OP só volta ao PCP quando o operador clicar em Finalizar OP; os próximos apontamentos somam a esse total.');
   }
   if (concluida) {
     avisos.push('A OP estava concluída: a sobra de empenho liberada na conclusão não volta, e paletes já declarados na Conferência de PA continuam lá.');
@@ -118,6 +118,9 @@ function prepararDevolucao(op, dados, ctx) {
     statusManualOverride: null,
     confirmadoPor: null,
     confirmadoEm: null,
+    // Devolvida = só sai da produção pelo Finalizar OP (computeOpStatus, shared/utils.js);
+    // sem isso, com o envase já em 95%, o próximo apontamento a devolvia ao PCP (26321/05).
+    fechamentoSoManual: true,
     ['historicoAlteracoes/' + requestId]: resumo
   };
   return {patch, aviso, resumo};
