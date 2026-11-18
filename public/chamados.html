@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chamados</title>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-functions-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage-compat.js"></script>
+  <script src="shared/utils.js"></script>
+  <script src="auth_check.js"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="shared/theme.css">
+  <style>
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-ui)}
+    ::selection{background:color-mix(in srgb,var(--accent) 24%,transparent);color:var(--ink)}
+    :focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 45%,transparent);outline-offset:2px}
+    .ch-page{max-width:1320px;margin:0 auto;padding:28px 28px 56px}
+    .ch-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;border-bottom:1px solid var(--line);padding:4px 0 24px}
+    .ch-head h1{font-size:clamp(28px,4vw,42px);letter-spacing:-.03em;line-height:1.04;margin:0;font-weight:750}
+    .ch-head p{max-width:68ch;margin:9px 0 0;color:var(--ink-soft);font-size:14px;line-height:1.55}
+    .ch-actions{display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+    .ch-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid transparent;border-radius:10px;min-height:42px;padding:9px 16px;background:var(--accent);color:#fff;font:600 14px/1 var(--font-ui);cursor:pointer;transition:transform .16s ease-out,box-shadow .16s ease-out,background .16s ease-out}
+    .ch-btn:hover{transform:translateY(-1px);box-shadow:0 8px 18px -12px rgba(10,28,105,.8)}
+    .ch-btn:active{transform:translateY(0)}
+    .ch-btn.secondary{background:var(--panel);border-color:var(--line);color:var(--ink)}
+    .ch-btn.danger{background:var(--critical)}
+    .ch-btn.small{min-height:34px;padding:7px 11px;font-size:12.5px}
+    .ch-btn:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
+    .ch-btn svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .ch-banner{margin:16px 0 0;padding:12px 14px;border-radius:12px;background:color-mix(in srgb,var(--accent) 9%,var(--panel));color:var(--accent-deep);font-size:13.5px;line-height:1.45}
+    .ch-banner[hidden]{display:none}.ch-banner.ok{background:color-mix(in srgb,var(--good) 13%,var(--panel));color:color-mix(in srgb,var(--good) 75%,var(--ink))}.ch-banner.error{background:color-mix(in srgb,var(--critical) 12%,var(--panel));color:color-mix(in srgb,var(--critical) 78%,var(--ink))}
+    .ch-tabs{display:flex;align-items:center;gap:4px;margin:22px 0 14px;border-bottom:1px solid var(--line);overflow:auto}
+    .ch-tab{position:relative;border:0;background:transparent;color:var(--ink-soft);padding:12px 15px 13px;font:650 14px/1 var(--font-ui);white-space:nowrap;cursor:pointer}
+    .ch-tab[aria-selected="true"]{color:var(--ink)}.ch-tab[aria-selected="true"]::after{content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:3px;border-radius:3px 3px 0 0;background:var(--accent)}
+    .ch-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:15px}
+    .ch-search{position:relative;flex:1;min-width:240px}.ch-search input,.ch-select,.ch-field input,.ch-field select,.ch-field textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);font:14px/1.35 var(--font-ui);padding:10px 12px}
+    .ch-search input{padding-left:38px}.ch-search svg{position:absolute;left:13px;top:12px;width:17px;height:17px;stroke:var(--ink-mute);fill:none;stroke-width:2}
+    .ch-select{width:auto;min-width:160px}.ch-field textarea{min-height:128px;resize:vertical;line-height:1.5}
+    .ch-search input:focus,.ch-select:focus,.ch-field :is(input,select,textarea):focus{border-color:var(--accent);outline:3px solid color-mix(in srgb,var(--accent) 16%,transparent)}
+    .ch-list{display:grid;gap:8px}.ch-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 18px;align-items:center;width:100%;text-align:left;border:1px solid var(--line);border-radius:13px;padding:14px 16px;background:var(--panel);color:inherit;font:inherit;cursor:pointer;transition:border-color .16s ease-out,transform .16s ease-out,box-shadow .16s ease-out}
+    .ch-row:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line));transform:translateY(-1px);box-shadow:0 10px 22px -18px rgba(10,28,105,.7)}
+    .ch-row-title{display:flex;align-items:center;gap:9px;min-width:0}.ch-code{font-variant-numeric:tabular-nums;font-size:12px;font-weight:750;color:var(--accent);white-space:nowrap}.ch-title{font-size:14.5px;font-weight:680;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ch-meta{color:var(--ink-soft);font-size:12.5px;margin-top:5px;line-height:1.35}.ch-tags{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+    .ch-tag{display:inline-flex;align-items:center;min-height:25px;padding:3px 9px;border-radius:999px;background:color-mix(in srgb,var(--ink) 7%,transparent);color:var(--ink-soft);font-size:11.5px;font-weight:700;white-space:nowrap}.ch-tag.priority{color:var(--accent);background:color-mix(in srgb,var(--accent) 11%,transparent)}.ch-tag.wait{background:color-mix(in srgb,var(--warn) 20%,transparent);color:color-mix(in srgb,#7a4b00 84%,var(--ink))}.ch-tag.done{background:color-mix(in srgb,var(--good) 14%,transparent);color:color-mix(in srgb,var(--good) 76%,var(--ink))}.ch-tag.critical{background:color-mix(in srgb,var(--critical) 13%,transparent);color:color-mix(in srgb,var(--critical) 82%,var(--ink))}
+    .ch-empty{padding:44px 20px;text-align:center;border:1px dashed var(--line);border-radius:14px;color:var(--ink-soft);background:color-mix(in srgb,var(--panel) 80%,transparent)}.ch-empty strong{display:block;color:var(--ink);font-size:16px;margin-bottom:5px}
+    .ch-board{display:grid;grid-template-columns:repeat(5,minmax(230px,1fr));gap:12px;overflow-x:auto;padding:2px 2px 12px;scrollbar-color:var(--line) transparent}.ch-column{min-height:440px;border-top:3px solid var(--line);background:color-mix(in srgb,var(--panel) 72%,transparent);border-radius:4px 4px 14px 14px;padding:12px}.ch-column[data-status="EM_ANDAMENTO"]{border-top-color:var(--accent)}.ch-column[data-status="VALIDAR"]{border-top-color:var(--warn)}.ch-column[data-status="CONCLUIDO"]{border-top-color:var(--good)}.ch-column.dragover{background:color-mix(in srgb,var(--accent) 9%,var(--panel))}
+    .ch-col-head{display:flex;justify-content:space-between;align-items:center;margin:0 2px 11px;font-size:12px;font-weight:760;text-transform:uppercase;letter-spacing:.04em}.ch-col-head span{font-variant-numeric:tabular-nums;color:var(--ink-mute)}.ch-cards{display:grid;gap:8px}.ch-card{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--panel);cursor:grab;box-shadow:0 5px 14px -13px rgba(0,0,0,.7)}.ch-card:active{cursor:grabbing}.ch-card h3{font-size:13px;line-height:1.35;margin:6px 0 8px}.ch-card .ch-tags{justify-content:flex-start}.ch-card small{display:block;color:var(--ink-soft);margin-top:8px;font-size:11.5px}
+    .ch-layer{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:18px;background:rgba(12,18,32,.58)}.ch-layer[hidden]{display:none}.ch-dialog{width:min(760px,100%);max-height:92vh;overflow:auto;background:var(--panel);border-radius:16px;box-shadow:0 26px 72px -20px rgba(0,0,0,.55);padding:24px}.ch-dialog.wide{width:min(920px,100%)}.ch-dialog-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:18px}.ch-dialog h2{font-size:23px;letter-spacing:-.02em;margin:0}.ch-dialog-head p{color:var(--ink-soft);font-size:13px;margin:5px 0 0;line-height:1.45}.ch-close{width:38px;height:38px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);font-size:24px;line-height:1;cursor:pointer;flex:none}
+    .ch-grid2{display:grid;grid-template-columns:1fr 1fr;gap:13px}.ch-field{display:block;margin-top:13px}.ch-field>span{display:block;font-size:12.5px;font-weight:700;margin-bottom:6px}.ch-field .help{font-weight:400;color:var(--ink-soft);margin-top:6px;line-height:1.4}.ch-counter{float:right;color:var(--ink-mute);font-weight:500;font-variant-numeric:tabular-nums}
+    .ch-drop{margin-top:8px;border:1.5px dashed color-mix(in srgb,var(--accent) 42%,var(--line));border-radius:13px;padding:22px 18px;text-align:center;background:color-mix(in srgb,var(--accent) 4%,var(--panel));cursor:pointer;transition:background .16s ease-out,border-color .16s ease-out}.ch-drop.dragover{background:color-mix(in srgb,var(--accent) 10%,var(--panel));border-color:var(--accent)}.ch-drop strong{display:block;font-size:14px}.ch-drop span{display:block;color:var(--ink-soft);font-size:12.5px;margin-top:5px;line-height:1.45}.ch-previews{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:10px}.ch-preview{position:relative;min-width:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--bg)}.ch-preview img{display:block;width:100%;height:112px;object-fit:cover}.ch-preview-info{padding:8px 9px}.ch-preview-info b{display:block;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ch-preview-info small{font-size:11px;color:var(--ink-soft)}.ch-remove{position:absolute;right:6px;top:6px;width:28px;height:28px;border:0;border-radius:9px;background:rgba(15,23,42,.82);color:#fff;cursor:pointer;font-size:18px}.ch-progress{height:5px;border-radius:5px;background:color-mix(in srgb,var(--ink) 10%,transparent);overflow:hidden;margin-top:8px}.ch-progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s ease-out}
+    .ch-dialog-actions{display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}.ch-form-error{color:var(--critical);font-size:13px;line-height:1.45;margin-top:12px}.ch-form-error[hidden]{display:none}
+    .ch-detail-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:15px 0}.ch-detail-meta div{padding:10px 11px;border-radius:10px;background:color-mix(in srgb,var(--ink) 5%,transparent);font-size:13px}.ch-detail-meta small{display:block;color:var(--ink-soft);font-size:11px;margin-bottom:4px}.ch-description{white-space:pre-wrap;line-height:1.55;font-size:14px;padding:14px;border-radius:11px;background:var(--bg)}.ch-attachments{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:10px}.ch-attachment{display:block;border:1px solid var(--line);border-radius:11px;overflow:hidden;color:inherit;text-decoration:none;background:var(--bg)}.ch-attachment img{display:block;width:100%;height:130px;object-fit:cover}.ch-attachment span{display:block;padding:8px 9px;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ch-history{list-style:none;padding:0;margin:10px 0 0;display:grid;gap:0}.ch-history li{position:relative;padding:8px 0 12px 23px;border-left:1px solid var(--line);margin-left:5px;font-size:13px;line-height:1.45}.ch-history li::before{content:"";position:absolute;left:-5px;top:12px;width:9px;height:9px;border-radius:50%;background:var(--accent)}.ch-history b{font-weight:700}.ch-history time{color:var(--ink-soft);font-size:11.5px;margin-left:5px}.ch-history p{white-space:pre-wrap;margin:4px 0 0;color:var(--ink-soft)}.ch-detail-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}.ch-inline{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-top:14px}.ch-inline .ch-field{margin:0;flex:1;min-width:150px}
+    @media(max-width:980px){.ch-page{padding:20px 16px 42px}.ch-board{grid-template-columns:repeat(5,250px)}.ch-detail-meta{grid-template-columns:1fr 1fr}}
+    @media(max-width:640px){.ch-head{align-items:flex-start;flex-direction:column}.ch-actions{width:100%;justify-content:stretch}.ch-actions .ch-btn{flex:1}.ch-row{grid-template-columns:1fr}.ch-tags{justify-content:flex-start}.ch-grid2{grid-template-columns:1fr}.ch-previews,.ch-attachments{grid-template-columns:1fr 1fr}.ch-dialog{padding:18px}.ch-detail-meta{grid-template-columns:1fr 1fr}.ch-dialog-actions .ch-btn{flex:1}.ch-search{min-width:100%}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.ch-btn,.ch-row,.ch-drop,.ch-progress i{transition:none}.ch-btn:hover,.ch-row:hover{transform:none}}
+  </style>
+</head>
+<body class="kuryos-theme has-sidebar">
+  <main class="ch-page">
+    <header class="ch-head">
+      <div>
+        <h1>Chamados</h1>
+        <p>Relate erros, dúvidas e melhorias sem sair do ERP. O chamado guarda a tela em que você estava, aceita prints e mantém cada resposta no histórico.</p>
+      </div>
+      <div class="ch-actions">
+        <button class="ch-btn secondary" type="button" id="btnAtualizar" data-testid="atualizar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v6h-6"/></svg>Atualizar
+        </button>
+        <button class="ch-btn" type="button" id="btnNovo" data-testid="novo-chamado">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Abrir chamado
+        </button>
+      </div>
+    </header>
+    <div id="mensagem" class="ch-banner" role="status" aria-live="polite" hidden></div>
+    <nav class="ch-tabs" role="tablist" aria-label="Visualização dos chamados">
+      <button class="ch-tab" type="button" role="tab" data-visao="MEUS" aria-selected="true">Meus chamados</button>
+      <button class="ch-tab" type="button" role="tab" data-visao="QUADRO" aria-selected="false" id="tabQuadro" hidden>Quadro administrativo</button>
+    </nav>
+    <div class="ch-tools">
+      <label class="ch-search"><span class="sr-only" hidden>Buscar chamado</span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="busca" type="search" placeholder="Buscar por código ou assunto" autocomplete="off"></label>
+      <select id="filtroStatus" class="ch-select" aria-label="Filtrar por status"><option value="">Todos os status</option></select>
+    </div>
+    <section id="lista" class="ch-list" aria-live="polite"><div class="ch-empty"><strong>Carregando chamados</strong>Aguarde um instante.</div></section>
+    <section id="quadro" class="ch-board" hidden aria-label="Quadro de chamados"></section>
+  </main>
+
+  <div class="ch-layer" id="novoLayer" hidden>
+    <section class="ch-dialog" role="dialog" aria-modal="true" aria-labelledby="novoTituloDialog">
+      <div class="ch-dialog-head"><div><h2 id="novoTituloDialog">Abrir chamado</h2><p>Explique o problema com clareza. Você pode escolher, arrastar ou colar até 3 prints.</p></div><button class="ch-close" type="button" id="btnFecharNovo" aria-label="Fechar">×</button></div>
+      <form id="formNovo" novalidate>
+        <div class="ch-grid2">
+          <label class="ch-field"><span>Tipo</span><select id="novoTipo" required><option value="">Selecione</option><option value="ERRO">Erro</option><option value="MELHORIA">Melhoria</option><option value="DUVIDA">Dúvida</option></select></label>
+          <label class="ch-field"><span>Impacto</span><select id="novoImpacto" required><option value="">Selecione</option><option value="BAIXO">Baixo — consigo continuar</option><option value="MEDIO">Médio — atrapalha o trabalho</option><option value="ALTO">Alto — bloqueia uma atividade</option><option value="CRITICO">Crítico — operação parada</option></select></label>
+        </div>
+        <label class="ch-field"><span>Resumo <span class="ch-counter" id="tituloContador">0/140</span></span><input id="novoTitulo" maxlength="140" required placeholder="Ex.: não consigo confirmar a amostra de MP"></label>
+        <label class="ch-field"><span>O que aconteceu? <span class="ch-counter" id="descricaoContador">0/5000</span></span><textarea id="novoDescricao" maxlength="5000" required placeholder="Conte o que você fez, o que apareceu e o que deveria acontecer."></textarea></label>
+        <div class="ch-field"><span>Prints <span class="ch-counter" id="anexoContador">0/3</span></span>
+          <div class="ch-drop" id="dropzone" tabindex="0" role="button" aria-controls="arquivoInput" data-testid="dropzone"><strong>Escolher ou arrastar prints</strong><span>PNG, JPG ou WebP, até 10 MB cada. Com o formulário aberto, você também pode colar com Ctrl+V.</span></div>
+          <input id="arquivoInput" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+          <div class="ch-previews" id="previews"></div>
+          <div class="ch-progress" id="uploadProgress" hidden aria-label="Progresso do envio"><i></i></div>
+        </div>
+        <div class="ch-form-error" id="novoErro" role="alert" hidden></div>
+        <div class="ch-dialog-actions"><button class="ch-btn secondary" type="button" id="btnCancelarNovo">Cancelar</button><button class="ch-btn" type="submit" id="btnEnviar" data-testid="enviar-chamado">Enviar chamado</button></div>
+      </form>
+    </section>
+  </div>
+  <div class="ch-layer" id="detalheLayer" hidden><section class="ch-dialog wide" role="dialog" aria-modal="true" aria-label="Detalhes do chamado" id="detalheDialog"></section></div>
+
+  <script>
+  var firebaseConfig={apiKey:'AIzaSyBvASzcbKyv3uW7NBzDFDyLsKls3An3UUs',authDomain:'erpkuryos.firebaseapp.com',databaseURL:kuryosDatabaseURL('https://erpkuryos-default-rtdb.firebaseio.com'),projectId:'erpkuryos',storageBucket:'erpkuryos.firebasestorage.app',messagingSenderId:'272752392739',appId:'1:272752392739:web:047a6c4aa60145d77f4f96'};
+  firebase.initializeApp(firebaseConfig);kuryosConnectEmulatorsIfLocal();
+  if(kuryosIsLocalDev&&kuryosIsLocalDev()){try{firebase.storage().useEmulator('localhost',9199)}catch(e){}}
+  </script>
+  <script src="shared/chamados.js"></script>
+  <script src="shared/chamados-tela.js"></script>
+</body>
+</html>

@@ -5,6 +5,7 @@ const {defineSecret} = require("firebase-functions/params");
 const {initializeApp} = require("firebase-admin/app");
 const {getDatabase, ServerValue} = require("firebase-admin/database");
 const {getAuth} = require("firebase-admin/auth");
+const {getStorage} = require("firebase-admin/storage");
 // Banco dos gatilhos: functions/.env.<projeto> (ex.: .env.erpkuryos) define RTDB_INSTANCE.
 // O fallback também aponta para o banco atual: uma configuração ausente nunca
 // pode religar silenciosamente os gatilhos ao projeto legado prod-kuryos.
@@ -21,6 +22,7 @@ const PedidoDiretoria = require("./pedido_diretoria");
 const {prepararFaturamento} = require("./faturamento_carga");
 const FaturamentoEmail = require("./faturamento_email");
 const Cobrancas = require("./cobrancas");
+const Chamados = require("./chamados");
 const Comunicados = require("./comunicados");
 const AmostrasMp = require("./amostras_mp");
 const EmailEnvio = require("./email_envio");
@@ -805,6 +807,33 @@ exports.cobrancaInterna = onCall({timeoutSeconds: 60, secrets: [MS_GRAPH_TENANT_
   } catch (e) {
     if (e && e.code && !(e instanceof HttpsError)) throw new HttpsError(e.code, e.message);
     throw e;
+  }
+});
+
+// ── Chamados do sistema (functions/chamados.js, 13/11/2026) ──────────────
+// O navegador envia somente os prints ao Storage. Toda leitura, criação,
+// triagem e mudança de coluna passa por esta callable e relê o perfil ativo.
+const servicoChamados = Chamados.criarServico({
+  db,
+  obterAnexo: async (caminho) => {
+    const [metadata] = await getStorage().bucket().file(caminho).getMetadata();
+    return {
+      size: Number(metadata.size || 0),
+      contentType: metadata.contentType || "",
+      originalName: metadata.metadata && metadata.metadata.originalName || "",
+    };
+  },
+  enviarEmail: (para, assunto, corpo) => enviarEmailSistema(para, assunto, corpo, {html: true}),
+});
+exports.chamadoSistema = onCall({timeoutSeconds: 60, memory: "256MiB", secrets: [MS_GRAPH_TENANT_ID, MS_GRAPH_CLIENT_ID, MS_GRAPH_CLIENT_SECRET, MS_GRAPH_SENDER_EMAIL]}, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para usar os chamados.");
+  try {
+    return await servicoChamados.executar(request.auth.uid, request.data || {});
+  } catch (e) {
+    if (e instanceof HttpsError) throw e;
+    const code = ["permission-denied", "invalid-argument", "not-found", "failed-precondition", "aborted", "resource-exhausted"].includes(e && e.code)
+      ? e.code : "internal";
+    throw new HttpsError(code, code === "internal" ? "Não foi possível concluir o chamado." : e.message, e && e.details);
   }
 });
 

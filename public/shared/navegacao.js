@@ -209,6 +209,8 @@
     {p: 'rh_ferias.html', r: 'Férias', i: 'calendar', b: 'RH'},
 
     // ── Ajuda: manuais abrem para qualquer autenticado; o módulo só escolhe QUAL oferecer
+    {p: 'chamados.html', r: 'Chamados', i: 'clipboard', b: 'Ajuda', o: -2,
+      q: function(c) { return c.role !== 'tv'; }},
     {p: 'manuais.html', r: 'Manuais de Operação', i: 'book', b: 'Ajuda'},
     {p: 'manual_apontamento.html', r: 'Apontamento', i: 'book', b: 'Ajuda',
       q: function(c) { return temAlgum(c, ['apontamento', 'rotulagem', 'manipulacao']); }},

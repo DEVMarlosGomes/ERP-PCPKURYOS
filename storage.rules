@@ -58,5 +58,19 @@ service firebase.storage {
           || request.resource.contentType == 'application/msword');
       allow update, delete: if false;
     }
+
+    // Prints dos chamados: a pasta carrega o UID autenticado e um ID aleatório
+    // reservado pela callable. O navegador só cria arquivos em sua própria
+    // pasta; o servidor confere existência, tipo, tamanho e limite de 3 antes
+    // de registrar o chamado. Evidência enviada nunca é sobrescrita ou apagada.
+    match /chamados/{uid}/{chamado}/{arquivo} {
+      allow read: if acesso('chamados');
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size > 0
+        && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/(png|jpeg|webp)');
+      allow update, delete: if false;
+    }
   }
 }
