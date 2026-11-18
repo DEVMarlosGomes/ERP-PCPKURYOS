@@ -4,8 +4,8 @@
 
 Mapa completo em `docs/controladoria-webmais-paridade.md`.
 
-- **SINTEGRA, SPED Fiscal (EFD ICMS/IPI) e Exportação Fiscal Domínio:** fiscal, fora do escopo da Controladoria.
-  Faltam NF-e de entrada/saída com CFOP por item, contabilista (CPF/CRC) e "gerar livro" por CFOP. Decisão do Gustavo.
+- **SINTEGRA, SPED Fiscal (EFD ICMS/IPI) e Exportação Fiscal Domínio:** módulo Fiscal próprio, prompt de construção
+  em `PROMPT_FISCAL.md` (17/11). Fase 0 depende do regime tributário, do emissor da NF-e de saída e do contador.
 - **Empresas 002 CONNEXXA e 003 NEXT21:** o WebMais é multiempresa; aqui é um CNPJ. Decidir se entram.
 - **Trava de período nos outros movimentos:** N.F. Entrada (recebimento), N.F. Saída (faturamento), Estoque (WMS),
   Produção (apontamento) e Fiscal. Hoje só Financeiro e ajuste contábil respeitam `ctl/bloqueio_periodo`; a tela diz isso.

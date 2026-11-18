@@ -16,8 +16,8 @@ próprio (`docs/financeiro-fase0-lacunas.md` §8–9).
 | Exportação Fiscal - Domínio Sistemas | — | fora: fiscal (ver abaixo) |
 | Índices Gerenciais - Rel. Comercial | Controladoria › **Índices gerenciais** (`calcularIndices`/`validarIndices`, callable `ctlLancarIndices`) | **novo**. Retrato por Ano/Mês com data e usuário do lançamento, como no WebMais |
 | Rel. de Gasto por Elemento de Custo | Financeiro › Relatórios › Gastos por centro de custo e elemento (`relGastosCentroCusto`, agrupar ELEMENTO) | já existia (12/11) |
-| SINTEGRA | — | fora: fiscal |
-| SPED FISCAL (EFD ICMS/IPI) | — | fora: fiscal |
+| SINTEGRA | — | fiscal: `PROMPT_FISCAL.md` F6 |
+| SPED FISCAL (EFD ICMS/IPI) | — | fiscal: `PROMPT_FISCAL.md` F1–F5 |
 | Relatório de inconsistências contábeis | Diálogo da exportação Domínio, mesmas colunas (Seq, Grupo, Identificador, Descrição) | **novo** |
 
 ## Decisões (minhas, marcadas como tal)
