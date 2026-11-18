@@ -13,8 +13,25 @@ const pc = (extra) => Object.assign({
 
 // Quem e quando.
 assert.equal(E.avaliarEdicao(pc(), 'pcp').pode, false, 'só ADM');
-['ABERTO', 'ENVIADO', 'RECEBIDO_PARCIAL'].forEach((s) => assert.equal(E.avaliarEdicao(pc({status: s}), 'admin').pode, true, s));
-['RECEBIDO_TOTAL', 'CANCELADO'].forEach((s) => assert.equal(E.avaliarEdicao(pc({status: s}), 'admin').pode, false, s));
+// Qualquer status (18/11: "edições devem ser para qualquer pedido").
+['ABERTO', 'ENVIADO', 'RECEBIDO_PARCIAL', 'RECEBIDO_TOTAL', 'CANCELADO'].forEach((s) => assert.equal(E.avaliarEdicao(pc({status: s}), 'admin').pode, true, s));
+assert.equal(E.avaliarEdicao(pc({status: 'RECEBIDO_TOTAL'}), 'pcp').pode, false, 'segue só ADM');
+
+// Status depois da edição: recebido total com quantidade maior reabre; parcial baixado ao recebido fecha; cancelado fica.
+const total = pc({status: 'RECEBIDO_TOTAL'}); total.itens.a.qtdRecebida = 100; total.itens.b.qtdRecebida = 3;
+const reaberto = E.montarRevisao(total, {'itens/a/qtd': 150, 'itens/a/qtdCotada': 150}, {papel: 'admin', justificativa: 'Fornecedor vai mandar mais 50 kg'});
+assert.equal(reaberto.revisao.statusApos, 'RECEBIDO_PARCIAL');
+assert.deepEqual(reaberto.revisao.alteracoes.find((a) => a.campo === 'status'), {campo: 'status', rotulo: 'Status', item: null, antes: 'RECEBIDO_TOTAL', depois: 'RECEBIDO_PARCIAL'});
+const soPreco = E.montarRevisao(total, {'itens/a/precoUnit': 11}, {papel: 'admin', justificativa: 'Preço corrigido pela NF'});
+assert.equal(soPreco.revisao.statusApos, 'RECEBIDO_TOTAL');
+assert.ok(!soPreco.revisao.alteracoes.some((a) => a.campo === 'status'));
+const par = pc({status: 'RECEBIDO_PARCIAL'}); par.itens.a.qtdRecebida = 60; par.itens.b.qtdRecebida = 3;
+assert.equal(E.montarRevisao(par, {'itens/a/qtd': 60, 'itens/a/qtdCotada': 60}, {papel: 'admin', justificativa: 'Restante não vem mais'}).revisao.statusApos, 'RECEBIDO_TOTAL');
+assert.equal(E.montarRevisao(pc({status: 'CANCELADO'}), {'itens/a/precoUnit': 9}, {papel: 'admin', justificativa: 'Corrige o preço do registro'}).revisao.statusApos, 'CANCELADO');
+assert.equal(E.montarRevisao(pc(), {'itens/a/qtd': 200, 'itens/a/qtdCotada': 200}, {papel: 'admin', justificativa: 'Aumento combinado'}).revisao.statusApos, 'ENVIADO');
+// aplicarMudancas não muda o original e apaga com null.
+const orig = pc(); const dep = E.aplicarMudancas(orig, {'frete/valor': 30, prazoEntregaDiasUteis: null});
+assert.equal(dep.frete.valor, 30); assert.equal('prazoEntregaDiasUteis' in dep, false); assert.equal(orig.prazoEntregaDiasUteis, 10);
 
 // Justificativa obrigatória.
 assert.ok(E.validarJustificativa('curta'));

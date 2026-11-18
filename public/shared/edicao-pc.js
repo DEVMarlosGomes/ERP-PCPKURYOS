@@ -12,8 +12,13 @@
    Decisões:
    - Só ADMIN, como cancelar (shared/cancelamento-pc.js): mexer em pedido
      decidido desfaz parte de um acordo comercial.
-   - Edita ABERTO, ENVIADO e RECEBIDO_PARCIAL. RECEBIDO_TOTAL e CANCELADO são
-     fato consumado: nada a editar.
+   - Edita QUALQUER pedido, em qualquer status (pedido do usuário, 18/11:
+     "edições devem ser para qualquer pedido"). Antes RECEBIDO_TOTAL e
+     CANCELADO ficavam de fora. Em pedido recebido, a quantidade nova
+     recalcula o status como o recebimento faria (functions/recebimento.js
+     statusPedidoApos): aumentar reabre o saldo (RECEBIDO_PARCIAL), baixar até
+     o recebido fecha (RECEBIDO_TOTAL). CANCELADO segue CANCELADO: a edição
+     corrige o registro, não reabre o pedido na fila da Logística.
    - Justificativa obrigatória (mínimo 10 caracteres) em TODA edição, e cada
      edição vira uma revisão em `edicoes/{id}` com quem, quando, status no
      momento e o "de → para" de cada campo. Nada é apagado.
@@ -28,7 +33,7 @@
 (function(root) {
   'use strict';
 
-  var EDITAVEIS = ['ABERTO', 'ENVIADO', 'RECEBIDO_PARCIAL'];
+  var RECEBIDOS = ['RECEBIDO_PARCIAL', 'RECEBIDO_TOTAL'];
   var JUSTIFICATIVA_MINIMA = 10;
   var LIMIAR = 0.0001;
 
@@ -38,10 +43,37 @@
   function avaliarEdicao(pc, papel) {
     if (!pc) return { pode: false, motivo: 'Pedido não encontrado.' };
     if (papel !== 'admin') return { pode: false, motivo: 'Apenas administradores podem editar um pedido de compra.' };
-    if (pc.status === 'CANCELADO') return { pode: false, motivo: 'Pedido cancelado não pode ser editado.' };
-    if (pc.status === 'RECEBIDO_TOTAL') return { pode: false, motivo: 'Este pedido já foi recebido por inteiro — não há o que editar.' };
-    if (EDITAVEIS.indexOf(pc.status) < 0) return { pode: false, motivo: 'Pedido com status ' + (pc.status || '—') + ' não pode ser editado.' };
     return { pode: true, motivo: null };
+  }
+
+  /* Aplica o mapa {caminhoRelativo: valor} a uma cópia do PC (null apaga).
+     A mesma função serve à transaction da tela e à prévia da revisão. */
+  function aplicarMudancas(pc, mudancas) {
+    var out = JSON.parse(JSON.stringify(pc || {}));
+    Object.keys(mudancas || {}).forEach(function(c) {
+      var partes = c.split('/'), o = out;
+      for (var i = 0; i < partes.length - 1; i++) {
+        if (o[partes[i]] == null || typeof o[partes[i]] !== 'object') o[partes[i]] = {};
+        o = o[partes[i]];
+      }
+      if (mudancas[c] == null) delete o[partes[partes.length - 1]]; else o[partes[partes.length - 1]] = mudancas[c];
+    });
+    return out;
+  }
+
+  /* Status depois da edição. Só pedido já recebido (parcial ou total) muda,
+     pela mesma conta do recebimento no servidor: tudo recebido = TOTAL, algo
+     recebido = PARCIAL. ABERTO, ENVIADO e CANCELADO ficam como estão. */
+  function statusAposEdicao(pcDepois) {
+    var st = pcDepois && pcDepois.status;
+    if (RECEBIDOS.indexOf(st) < 0) return st || null;
+    var itens = pcDepois.itens || {}, algum = false, completo = true;
+    Object.keys(itens).forEach(function(k) {
+      var rec = numero(itens[k].qtdRecebida), qtd = numero(itens[k].qtd);
+      if (rec > LIMIAR) algum = true;
+      if (rec < qtd - LIMIAR) completo = false;
+    });
+    return completo ? 'RECEBIDO_TOTAL' : (algum ? 'RECEBIDO_PARCIAL' : st);
   }
 
   function validarJustificativa(j) {
@@ -139,6 +171,10 @@
     if (ej) return { erro: ej };
     var lista = alteracoes(pc, mudancas);
     if (!lista.length && !dados.rotaAlterada) return { erro: 'Nada foi alterado no pedido.' };
+    var statusApos = statusAposEdicao(aplicarMudancas(pc, mudancas));
+    if (statusApos !== (pc.status || null)) {
+      lista.push({ campo: 'status', rotulo: 'Status', item: null, antes: pc.status || null, depois: statusApos });
+    }
     var revisaoAnterior = numero(pc.revisao);
     return {
       revisao: {
@@ -147,6 +183,7 @@
         por: dados.autor || null, porUid: dados.uid || null,
         em: dados.agora || new Date().toISOString(),
         statusNoMomento: pc.status || null,
+        statusApos: statusApos,
         rotaAlterada: !!dados.rotaAlterada,
         alteracoes: lista
       }
@@ -161,8 +198,8 @@
   }
 
   var api = {
-    EDITAVEIS: EDITAVEIS, JUSTIFICATIVA_MINIMA: JUSTIFICATIVA_MINIMA,
-    avaliarEdicao: avaliarEdicao, validarJustificativa: validarJustificativa,
+    JUSTIFICATIVA_MINIMA: JUSTIFICATIVA_MINIMA,
+    avaliarEdicao: avaliarEdicao, aplicarMudancas: aplicarMudancas, statusAposEdicao: statusAposEdicao, validarJustificativa: validarJustificativa,
     qtdAReceberApos: qtdAReceberApos, conferirRecebido: conferirRecebido,
     alteracoes: alteracoes, montarRevisao: montarRevisao, revisoes: revisoes
   };

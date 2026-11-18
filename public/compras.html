@@ -639,7 +639,7 @@
   </div>
 </div>
 
-<!-- MODAL: editar Pedido de Compra (só ADM; ABERTO/ENVIADO/RECEBIDO_PARCIAL, com justificativa) — shared/edicao-pc.js -->
+<!-- MODAL: editar Pedido de Compra (só ADM; qualquer status, com justificativa) — shared/edicao-pc.js -->
 <div class="modal-bg" id="modalEditarPC">
   <div class="modal" style="max-width:720px">
     <div class="modal-header purple" data-ui="dialog-head">
@@ -2115,11 +2115,17 @@ function renderPedidos() {
         '<td style="font-size:12px">' + fmtData(p.dataCriacao) + '</td>' +
         '<td style="font-size:12.5px">' + (itensResumo || '—') + '</td>' +
         '<td>' + statusBadge + '</td>' +
-        '<td><button class="btn btn-ghost btn-sm pc-imprimir" data-key="' + escapeAttr(key) + '" title="Documento com a faixa de cancelamento">🖨 Ver documento</button></td>' +
+        '<td>' + (podeEditarPC(p)
+          ? '<button class="btn btn-ghost btn-sm pc-editar" data-key="' + escapeAttr(key) + '" title="Corrigir o registro com justificativa (o pedido segue cancelado)">✏️ Editar</button> '
+          : '') +
+        (EdicaoPC.revisoes(p).length
+          ? '<button class="btn btn-ghost btn-sm pc-revisoes" data-key="' + escapeAttr(key) + '" title="Quem editou, quando, por quê e o que mudou">🕘 Rev. ' + escapeHtml(String(p.revisao || EdicaoPC.revisoes(p).length)) + '</button> '
+          : '') +
+        '<button class="btn btn-ghost btn-sm pc-imprimir" data-key="' + escapeAttr(key) + '" title="Documento com a faixa de cancelamento">🖨 Ver documento</button></td>' +
       '</tr>';
     }
-    // Edição com justificativa (18/11, shared/edicao-pc.js): ABERTO, ENVIADO
-    // e RECEBIDO_PARCIAL, só ADM; cada edição vira uma revisão do pedido.
+    // Edição com justificativa (18/11, shared/edicao-pc.js): qualquer status,
+    // só ADM; cada edição vira uma revisão do pedido.
     var acoes = (podeEditarPC(p)
         ? '<button class="btn btn-ghost btn-sm pc-editar" data-key="' + escapeAttr(key) + '" title="Editar o pedido com justificativa (fica no histórico de revisões)">✏️ Editar</button> '
         : '') +
@@ -2410,17 +2416,11 @@ function abrirModalEtiquetaPC(pcKey) {
   document.getElementById('modalEtiquetaPC').classList.add('open');
 }
 /* ── Edição de Pedido de Compra ──
-   Pedido do usuário: "possibilidade de admin editar um pedido de compra,
-   apenas se não tiver sido enviado ainda".
-
-   Duas condições, as duas necessárias:
-   - papel ADMIN (não 'pcp'): mexer em preço e quantidade de um pedido já
-     decidido é alterar um acordo comercial, não corrigir um cadastro;
-   - status ABERTO. Depois de ENVIADO o fornecedor já tem o documento na
-     mão, e mudar o pedido no sistema sem ele saber cria justamente a
-     divergência que a página impressa veio resolver. Recebido (parcial ou
-     total) é mais grave ainda: já existe material e movimento de estoque
-     amarrados naquelas quantidades. */
+   Só ADMIN (não 'pcp'): mexer em preço e quantidade de um pedido já decidido
+   é alterar um acordo comercial. Desde 18/11 vale para QUALQUER status
+   ("edições devem ser para qualquer pedido"), sempre com justificativa e
+   revisão; a quantidade não desce abaixo do recebido e, em pedido recebido,
+   o status é recalculado (shared/edicao-pc.js). */
 function podeEditarPC(pc) {
   return EdicaoPC.avaliarEdicao(pc, window.currentUser && window.currentUser.role).pode;
 }
@@ -2688,12 +2688,21 @@ function abrirModalEditarPC(key) {
   if (!avEd.pode) { showAlert(avEd.motivo, 'danger'); return; }
   pcEditKey = key;
   document.getElementById('pcEditJustificativa').value = '';
+  var proxRev = (Number(pc.revisao) || 0) + 1;
+  var situacaoPC = {
+    ENVIADO: 'enviado ao fornecedor', RECEBIDO_PARCIAL: 'recebido em parte',
+    RECEBIDO_TOTAL: 'recebido por inteiro', CANCELADO: 'cancelado'
+  }[pc.status];
   document.getElementById('pcEditAviso').innerHTML = pc.status === 'ABERTO'
     ? 'O pedido ainda não foi enviado ao fornecedor. A edição vira uma revisão do pedido, com a sua justificativa.'
-    : '<b>Este pedido já foi ' + (pc.status === 'ENVIADO' ? 'enviado ao fornecedor' : 'recebido em parte') + '.</b> ' +
-      'Depois de salvar, reimprima e reenvie o documento: ele sai como <b>Revisão ' + ((Number(pc.revisao) || 0) + 1) + '</b>, com a justificativa. ' +
+    : pc.status === 'CANCELADO'
+    ? '<b>Este pedido está cancelado.</b> A edição corrige o registro e vira a <b>Revisão ' + proxRev + '</b>, com a justificativa; ' +
+      'o pedido continua cancelado e não volta para a fila de recebimento.'
+    : '<b>Este pedido já foi ' + (situacaoPC || ('marcado como ' + escapeHtml(String(pc.status || '—')))) + '.</b> ' +
+      'Depois de salvar, reimprima e reenvie o documento: ele sai como <b>Revisão ' + proxRev + '</b>, com a justificativa. ' +
       'Recebimentos já lançados e os títulos a pagar deles não mudam; preço e quantidade novos valem para o que ainda vai chegar. ' +
-      'A quantidade não pode ficar abaixo do que já foi recebido.';
+      'A quantidade não pode ficar abaixo do que já foi recebido' +
+      (pc.status === 'RECEBIDO_TOTAL' ? '; aumentar a quantidade reabre o saldo e o pedido volta a <b>Recebido parcial</b>.' : '.');
   document.getElementById('pcEditTitulo').textContent = 'Editar ' + (pc.numeroFormatado || '');
   document.getElementById('pcEditSub').textContent =
     (pc.fornecedorNome || '') + ' · criado em ' + fmtData(pc.dataCriacao);
@@ -2976,14 +2985,9 @@ function salvarEdicaoPC() {
     var r = EdicaoPC.montarRevisao(atual, rel, dadosRev);
     var er = r.erro || EdicaoPC.conferirRecebido(atual, itensQtd);
     if (er) { erroTx = er; return; }
-    Object.keys(rel).forEach(function(c) {
-      var partes = c.split('/'), o = atual;
-      for (var i = 0; i < partes.length - 1; i++) {
-        if (o[partes[i]] == null || typeof o[partes[i]] !== 'object') o[partes[i]] = {};
-        o = o[partes[i]];
-      }
-      if (rel[c] == null) delete o[partes[partes.length - 1]]; else o[partes[partes.length - 1]] = rel[c];
-    });
+    atual = EdicaoPC.aplicarMudancas(atual, rel);
+    // Pedido recebido: quantidade nova pode reabrir ou fechar o saldo.
+    if (r.revisao.statusApos) atual.status = r.revisao.statusApos;
     atual.revisao = r.revisao.numero;
     atual.edicoes = atual.edicoes || {};
     atual.edicoes[revId] = r.revisao;
@@ -2997,7 +3001,10 @@ function salvarEdicaoPC() {
     var v = res.snapshot.val();
     fecharModalEditarPC();
     showAlert('Pedido atualizado (Revisão ' + v.revisao + '). ' +
-      (v.status === 'ABERTO' ? 'Reimprima o documento antes de enviar ao fornecedor.' : 'Reimprima e reenvie o documento revisado ao fornecedor.'), 'success');
+      (v.status === 'ABERTO' ? 'Reimprima o documento antes de enviar ao fornecedor.'
+        : v.status === 'CANCELADO' ? 'O pedido segue cancelado.'
+        : 'Reimprima e reenvie o documento revisado ao fornecedor.') +
+      (pc.status !== v.status ? ' Status: ' + String(v.status).replace(/_/g, ' ').toLowerCase() + '.' : ''), 'success');
   }).catch(function(err) {
     btn.disabled = false;
     showAlert('Erro ao salvar: ' + err.message, 'danger');

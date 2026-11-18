@@ -1,6 +1,7 @@
 'use strict';
 /* Edição de PC com justificativa (18/11/2026, shared/edicao-pc.js), na tela
-   real: ADM edita PC já ENVIADO e RECEBIDO_PARCIAL; sem justificativa não
+   real: ADM edita PC em qualquer status (ENVIADO, RECEBIDO_PARCIAL,
+   RECEBIDO_TOTAL, CANCELADO); sem justificativa não
    grava; a gravação é transaction no PC com revisão e saldo a receber; abaixo
    do recebido é recusado; documento sai com a faixa de revisão. */
 const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
@@ -19,7 +20,14 @@ function dados() {
         itens: {i1: {materialCodigo: 'EP-00036', materialNome: 'Frasco', qtd: 100, qtdCotada: 100, unidade: 'un', precoUnit: 1, qtdRecebida: 0, vinculo: {geral: true}}}},
       pc2: {status: 'RECEBIDO_PARCIAL', numeroFormatado: 'PC-0032', fornecedorKey: 'f1', fornecedorNome: 'LOMAR PACK',
         dataCriacao: '2026-10-01T10:00:00Z', frete: {tipo: 'CIF'}, localEntrega: 'FABRICA', propriedade: {tipo: 'KURYOS'},
-        itens: {j1: {materialCodigo: 'EP-00037', materialNome: 'Tampa', qtd: 100, qtdCotada: 100, unidade: 'un', precoUnit: 1, qtdRecebida: 60, vinculo: {geral: true}}}}
+        itens: {j1: {materialCodigo: 'EP-00037', materialNome: 'Tampa', qtd: 100, qtdCotada: 100, unidade: 'un', precoUnit: 1, qtdRecebida: 60, vinculo: {geral: true}}}},
+      pc3: {status: 'RECEBIDO_TOTAL', numeroFormatado: 'PC-0033', fornecedorKey: 'f1', fornecedorNome: 'LOMAR PACK',
+        dataCriacao: '2026-10-01T10:00:00Z', frete: {tipo: 'CIF'}, localEntrega: 'FABRICA', propriedade: {tipo: 'KURYOS'},
+        itens: {m1: {materialCodigo: 'EP-00038', materialNome: 'Válvula', qtd: 100, qtdCotada: 100, unidade: 'un', precoUnit: 1, qtdRecebida: 100, vinculo: {geral: true}}}},
+      pc4: {status: 'CANCELADO', numeroFormatado: 'PC-0034', fornecedorKey: 'f1', fornecedorNome: 'LOMAR PACK',
+        dataCriacao: '2026-10-01T10:00:00Z', frete: {tipo: 'CIF'}, localEntrega: 'FABRICA', propriedade: {tipo: 'KURYOS'},
+        cancelamento: {canceladoPor: 'Ana', canceladoEm: '2026-10-05T10:00:00Z', motivo: 'Fornecedor sem estoque', statusAnterior: 'ENVIADO'},
+        itens: {n1: {materialCodigo: 'EP-00039', materialNome: 'Rótulo', qtd: 100, qtdCotada: 100, unidade: 'un', precoUnit: 1, qtdRecebida: 0, vinculo: {geral: true}}}}
     }
   };
 }
@@ -91,6 +99,7 @@ function dados() {
     await page.click('.tab[data-tab="pedidos"]');
     await page.waitForSelector('.pc-editar[data-key="pc1"]');
     assert.ok(await page.locator('.pc-editar[data-key="pc2"]').count(), 'recebido em parte também edita');
+    assert.ok(await page.locator('.pc-editar[data-key="pc3"]').count(), 'recebido total também edita');
 
     // ── PC ENVIADO: preço novo + quantidade nova ─────────────────────────
     await page.click('.pc-editar[data-key="pc1"]');
@@ -144,9 +153,42 @@ function dados() {
     const v2 = await page.evaluate(() => window.__writes.find((w) => w.op === 'transaction').v);
     assert.equal(v2.itens.j1.qtd, 60);
     assert.equal(v2.itens.j1.qtdRecebida, 60, 'recebido intacto');
+    assert.equal(v2.status, 'RECEBIDO_TOTAL', 'baixou ao recebido: fecha');
+
+    // ── PC recebido por inteiro: aumentar reabre o saldo ─────────────────
+    await page.evaluate(() => { window.__writes.length = 0; });
+    await page.click('.pc-editar[data-key="pc3"]');
+    await page.waitForSelector('#modalEditarPC.open');
+    assert.match(await page.locator('#pcEditAviso').innerText(), /recebido por inteiro/);
+    await page.fill('.pce-qtd[data-item="m1"]', '130');
+    await page.check('#pcEditRotaConfirmada');
+    await page.fill('#pcEditJustificativa', 'Fornecedor vai complementar 30 un');
+    await page.click('#pcEditSalvar');
+    await page.waitForFunction(() => window.__writes.some((w) => w.op === 'transaction' && w.path === 'pedidos_compra/pc3'));
+    const v3 = await page.evaluate(() => window.__writes.find((w) => w.op === 'transaction').v);
+    assert.equal(v3.itens.m1.qtd, 130);
+    assert.equal(v3.status, 'RECEBIDO_PARCIAL', 'saldo reaberto');
+    assert.ok(Object.values(v3.edicoes)[0].alteracoes.some((a) => a.campo === 'status' && a.depois === 'RECEBIDO_PARCIAL'));
+
+    // ── PC cancelado: corrige o registro, segue cancelado ────────────────
+    await page.evaluate(() => { window.__writes.length = 0; });
+    await page.selectOption('#pcFilterStatus', 'cancelados');
+    await page.waitForSelector('.pc-editar[data-key="pc4"]');
+    await page.click('.pc-editar[data-key="pc4"]');
+    await page.waitForSelector('#modalEditarPC.open');
+    assert.match(await page.locator('#pcEditAviso').innerText(), /cancelado/);
+    await page.fill('.pce-preco[data-item="n1"]', '1.10');
+    await page.check('#pcEditRotaConfirmada');
+    await page.fill('#pcEditJustificativa', 'Corrige o preço do registro cancelado');
+    await page.click('#pcEditSalvar');
+    await page.waitForFunction(() => window.__writes.some((w) => w.op === 'transaction' && w.path === 'pedidos_compra/pc4'));
+    const v4 = await page.evaluate(() => window.__writes.find((w) => w.op === 'transaction').v);
+    assert.equal(v4.status, 'CANCELADO');
+    assert.equal(v4.itens.n1.precoUnit, 1.1);
+    assert.equal(v4.revisao, 1);
 
     assert.deepEqual(errors, [], 'erros de página: ' + errors.join(' | '));
-    console.log('OK Edição de PC com justificativa: ENVIADO e parcial, revisão, saldo a receber, trava do recebido, documento.');
+    console.log('OK Edição de PC com justificativa: qualquer status (enviado, parcial, total, cancelado), status recalculado, revisão, saldo a receber, trava do recebido, documento.');
   } finally {
     await browser.close();
   }
