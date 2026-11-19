@@ -1,7 +1,7 @@
 {
  "fonte": "MELHORIAS_FUTURAS.md (seções e tópicos)",
- "geradoEm": "2026-11-19T23:23:39.621Z",
- "commit": "9b5fc18",
+ "geradoEm": "2026-11-19T23:44:24.378Z",
+ "commit": "e19580f",
  "atualizadoEm": null,
  "secoes": [
   {
@@ -38,8 +38,8 @@
      "extras": {
       "Detalhe": "hoje o link do menu leva à lista (a tela de origem vai pelo `document.referrer`); um atalho \"Abrir chamado desta tela\" que já abre o formulário (`chamados.html?nova=1`) evita um clique."
      },
-     "feito": false,
-     "hash": null
+     "feito": true,
+     "hash": "e19580f"
     },
     {
      "id": "ecd945e7a0",
@@ -49,8 +49,8 @@
      "extras": {
       "Detalhe": "a cada abertura da lista. Quando passar de algumas centenas de chamados, listar pela caixa (`chamados_caixa/{uid}`) e pela fila (`chamados_fila_adm`), que já têm o resumo."
      },
-     "feito": false,
-     "hash": null
+     "feito": true,
+     "hash": "e19580f"
     },
     {
      "id": "1cf858b4b4",
@@ -60,8 +60,8 @@
      "extras": {
       "Detalhe": "na triagem; virar seleção de usuário quando houver mais de uma pessoa tratando."
      },
-     "feito": false,
-     "hash": null
+     "feito": true,
+     "hash": "e19580f"
     },
     {
      "id": "9e0713f882",
@@ -3805,7 +3805,7 @@
   "A": {
    "titulo": "Código: o que está adiado (MELHORIAS_FUTURAS.md)",
    "total": 332,
-   "feitos": 33
+   "feitos": 36
   },
   "B": {
    "titulo": "Depende da Kuryos",

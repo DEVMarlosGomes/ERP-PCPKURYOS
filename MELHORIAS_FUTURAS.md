@@ -12,12 +12,12 @@ técnico entra no quadro só na Fase 2. Mudar qualquer uma é ajuste pequeno em 
   e grava o commit ao concluir. feito em `f542dc8`.~~
 - ~~**Fase 3 — medir:** tempo até a primeira resposta e até a conclusão por setor e tipo; anexar sozinho o erro de
   JavaScript da tela; quadro em modo leitura para gestores. feito em `9b5fc18`.~~
-- **Abrir o formulário direto da tela atual:** hoje o link do menu leva à lista (a tela de origem vai pelo
+- ~~**Abrir o formulário direto da tela atual:** hoje o link do menu leva à lista (a tela de origem vai pelo
   `document.referrer`); um atalho "Abrir chamado desta tela" que já abre o formulário (`chamados.html?nova=1`) evita
-  um clique.
-- **`LISTAR` lê `chamados` inteiro** a cada abertura da lista. Quando passar de algumas centenas de chamados, listar
-  pela caixa (`chamados_caixa/{uid}`) e pela fila (`chamados_fila_adm`), que já têm o resumo.
-- **Responsável é texto livre** na triagem; virar seleção de usuário quando houver mais de uma pessoa tratando.
+  um clique. feito em `e19580f`.~~
+- ~~**`LISTAR` lê `chamados` inteiro** a cada abertura da lista. Quando passar de algumas centenas de chamados, listar
+  pela caixa (`chamados_caixa/{uid}`) e pela fila (`chamados_fila_adm`), que já têm o resumo. feito em `e19580f`.~~
+- ~~**Responsável é texto livre** na triagem; virar seleção de usuário quando houver mais de uma pessoa tratando. feito em `e19580f`.~~
 
 ## Fiscal + Controladoria + Financeiro (prompt mestre) — o que ficou para depois (18/11/2026)
 
