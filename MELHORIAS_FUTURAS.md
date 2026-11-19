@@ -10,8 +10,8 @@ técnico entra no quadro só na Fase 2. Mudar qualquer uma é ajuste pequeno em 
 - ~~**Fase 2 — um Roadmap só:** trazer os itens de `MELHORIAS_FUTURAS.md` (`public/backlog.json`) para o quadro como
   cartões, com a ordem no banco; ligar o chamado ao item que o resolve; script que entrega o topo da fila aos agentes
   e grava o commit ao concluir. feito em `f542dc8`.~~
-- **Fase 3 — medir:** tempo até a primeira resposta e até a conclusão por setor e tipo; anexar sozinho o erro de
-  JavaScript da tela; quadro em modo leitura para gestores.
+- ~~**Fase 3 — medir:** tempo até a primeira resposta e até a conclusão por setor e tipo; anexar sozinho o erro de
+  JavaScript da tela; quadro em modo leitura para gestores. feito em `9b5fc18`.~~
 - **Abrir o formulário direto da tela atual:** hoje o link do menu leva à lista (a tela de origem vai pelo
   `document.referrer`); um atalho "Abrir chamado desta tela" que já abre o formulário (`chamados.html?nova=1`) evita
   um clique.

@@ -1,7 +1,7 @@
 {
  "fonte": "MELHORIAS_FUTURAS.md (seções e tópicos)",
- "geradoEm": "2026-11-19T21:47:25.511Z",
- "commit": "f542dc8",
+ "geradoEm": "2026-11-19T23:23:39.621Z",
+ "commit": "9b5fc18",
  "atualizadoEm": null,
  "secoes": [
   {
@@ -27,8 +27,8 @@
      "extras": {
       "Detalhe": "tempo até a primeira resposta e até a conclusão por setor e tipo; anexar sozinho o erro de JavaScript da tela; quadro em modo leitura para gestores."
      },
-     "feito": false,
-     "hash": null
+     "feito": true,
+     "hash": "9b5fc18"
     },
     {
      "id": "a7bb746a98",
@@ -3805,7 +3805,7 @@
   "A": {
    "titulo": "Código: o que está adiado (MELHORIAS_FUTURAS.md)",
    "total": 332,
-   "feitos": 32
+   "feitos": 33
   },
   "B": {
    "titulo": "Depende da Kuryos",
