@@ -21,6 +21,7 @@
   <script src="shared/importacao-json-pendencias-ui.js"></script>
   <script src="shared/itens-cadastro.js"></script>
   <script src="shared/diff-versao.js"></script>
+  <script src="shared/aprovacao-herdada.js"></script>
   <script src="shared/historico-itens.js"></script>
   <script src="shared/historico-cadastro.js"></script>
   <script src="shared/nome-material-versao.js"></script>
@@ -5654,6 +5655,27 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(function() { showAlert(cfg.nome + (etapa === 2 ? ' aprovada -- concluída!' : ' aprovada (' + cfg.rotulo1 + ').'), 'success'); })
       .catch(function(err) { showAlert('Erro: ' + err.message, 'danger'); });
   }
+  /* Manter a aprovação da versão anterior (19/11/2026, shared/aprovacao-herdada.js):
+     BOM/Especificação em rascunho idêntico ao da última versão aprovada. Reconfere
+     na hora do clique (a tela é reativa) e grava etapa 1 + 2 + status num update só,
+     com a linha no histórico. */
+  function manterAprovacaoAnterior(tipo) {
+    var cfg = APROVACAO_CONFIG[tipo];
+    var key = chaveVersao(produtoSelecionadoKey, versaoAtual);
+    var col = tipo === 'bom' ? allBom : allEspecificacoes;
+    var base = !mudancasPendentes(tipo, key).length && !bloqueioAprovacaoComponente(tipo, key) &&
+      AprovacaoHerdada.versaoAprovadaIgual(tipo, produtoSelecionadoKey, versaoAtual, col);
+    if (!base) { showAlert(cfg.nome + ' não está mais idêntico a uma versão aprovada — use a aprovação normal.', 'danger'); rerenderVersao(); return; }
+    if (!confirm(cfg.nome + ' da ' + versaoAtual + ' é idêntico ao da ' + base.versao + ' aprovada.\n\nManter aquela aprovação? Fica registrado com o seu nome.')) return;
+    var rel = AprovacaoHerdada.mudancas(cfg, base, { nome: currentUserNome(), uid: currentUserUid() });
+    var u = {};
+    Object.keys(rel).forEach(function(c) { u[tipo + '/' + key + '/' + c] = rel[c]; });
+    u[tipo + '/' + key + '/historicoAlteracoes/' + db.ref().push().key] = entradaHistorico('APROVACAO_MANTIDA',
+      'Aprovação mantida da ' + base.versao + ': ' + cfg.nome + ' sem alteração');
+    db.ref().update(u)
+      .then(function() { showAlert(cfg.nome + ' aprovada (mantida da ' + base.versao + ', sem alteração).', 'success'); })
+      .catch(function(err) { showAlert('Erro: ' + err.message, 'danger'); });
+  }
   // Badge "Revisado" só existe pra Fórmula (era assim antes de dividir em
   // 3 -- BOM e Especificação nunca tiveram esse conceito, e o usuário não
   // pediu pra criar um novo pros outros dois).
@@ -5871,9 +5893,19 @@ document.addEventListener('DOMContentLoaded', function() {
         var motivo2 = pendC.length ? bloqueioAprovacaoComponente(tipo, key) : '';
         html += ' <button type="button" class="btn btn-green btn-sm ac-btn" data-tipo="' + tipo + '" data-etapa="2"' + (motivo2 ? ' disabled title="' + escapeAttr(motivo2) + '"' : '') + '>Aprovar (' + cfg.rotulo2 + ') — conclui</button>';
       }
+      // Igual ao da versão anterior aprovada (19/11, shared/aprovacao-herdada.js): 1 clique mantém a aprovação.
+      var herda = !pendC.length && !bloqueioAprovacaoComponente(tipo, key) &&
+        AprovacaoHerdada.versaoAprovadaIgual(tipo, produtoSelecionadoKey, versaoAtual, tipo === 'bom' ? allBom : allEspecificacoes);
+      if (herda) {
+        html += ' <button type="button" class="btn btn-green btn-sm ac-herdar" data-tipo="' + tipo + '" data-de="' + escapeAttr(herda.versao) + '" title="' +
+          escapeAttr(cfg.nome + ' idêntico ao da ' + herda.versao + ' aprovada: mantém aquela aprovação, com o seu nome no histórico') + '">✓ Manter aprovação da ' + escapeHtml(herda.versao) + ' (sem alteração)</button>';
+      }
       html += historicoHtml(reg);
     } else if (status === 'APROVADA') {
-      html += ' <span class="field-hint">' + cfg.rotulo1 + ': ' + escapeHtml((reg[cfg.campo1] || {}).nome || '') + ' · ' + cfg.rotulo2 + ': ' + escapeHtml((reg[cfg.campo2] || {}).nome || '') + ' em ' + fmtData(reg.dataAprovacao) + '</span>';
+      html += reg.aprovacaoHerdada
+        ? ' <span class="field-hint" title="' + escapeAttr('Conteúdo idêntico ao da ' + reg.aprovacaoHerdada.daVersao + ' aprovada; aprovação mantida sem nova revisão.') + '">Aprovação mantida da ' + escapeHtml(reg.aprovacaoHerdada.daVersao || '') +
+          ' (sem alteração) por ' + escapeHtml(reg.aprovacaoHerdada.por || '') + ' em ' + fmtData(reg.aprovacaoHerdada.em) + '</span>'
+        : ' <span class="field-hint">' + cfg.rotulo1 + ': ' + escapeHtml((reg[cfg.campo1] || {}).nome || '') + ' · ' + cfg.rotulo2 + ': ' + escapeHtml((reg[cfg.campo2] || {}).nome || '') + ' em ' + fmtData(reg.dataAprovacao) + '</span>';
       if (emAlteracao(tipo, key)) {
         html += ' <span class="badge badge-orange" title="' + escapeAttr('Justificativa: ' + alteracoesAbertas[tipo + '|' + key].justificativa) + '">✎ Alterando (fica no histórico)</span>' +
           ' <button type="button" class="btn btn-ghost btn-sm alt-fim" data-tipo="' + tipo + '">Concluir alteração</button>';
@@ -5890,6 +5922,9 @@ document.addEventListener('DOMContentLoaded', function() {
     el.querySelectorAll('.alt-fim').forEach(function(btn) { btn.addEventListener('click', function() { concluirAlteracaoAprovada(btn.getAttribute('data-tipo'), key); }); });
     el.querySelectorAll('.ac-btn').forEach(function(btn) {
       btn.addEventListener('click', function() { aprovarComponente(btn.getAttribute('data-tipo'), parseInt(btn.getAttribute('data-etapa'), 10)); });
+    });
+    el.querySelectorAll('.ac-herdar').forEach(function(btn) {
+      btn.addEventListener('click', function() { manterAprovacaoAnterior(btn.getAttribute('data-tipo')); });
     });
     if (tipo === 'formulas') {
       el.querySelectorAll('.fv-toggle-revisado').forEach(function(badge) {
