@@ -59,6 +59,8 @@ async function rejeita(p, code) { await assert.rejects(p, (e) => e && e.code ===
   assert.equal(C.ordemParaSoltar(fila.filter((x) => x.id !== 'x'), null), 3000, 'soltar no vazio vai para o fim');
   assert.equal(C.ordemParaSoltar([], null), 1000, 'coluna vazia');
   assert.equal(C.ROTULO_PRIORIDADE.P0, 'Urgente');
+  const roadmapMotor = C.itensRoadmap({geradoEm:'2026-11-19T10:00:00Z',secoes:[{letra:'A',titulo:'Código',itens:[{id:'abcdef1234',texto:'Integrar a fila',grupo:'Help Desk',feito:false,subitens:[],extras:{}}]}]}, {abcdef1234:{status:'EM_ANDAMENTO',ordem:42,chamados:{c1:{codigo:'CH-1'}}}});
+  assert.equal(roadmapMotor[0].status,'EM_ANDAMENTO'); assert.equal(roadmapMotor[0].ordem,42); assert.equal(roadmapMotor[0].fonte,'ROADMAP');
   ok('motor da tela valida arquivos/formulário, cria caminho seguro e ordena o quadro');
 
   assert.equal(S.prioridadeDoImpacto('CRITICO'), 'P0');
@@ -113,6 +115,18 @@ async function rejeita(p, code) { await assert.rejects(p, (e) => e && e.code ===
   assert.equal(quadro.itens.length,1); assert.equal(quadro.admin,true);
   ok('autor só vê os seus, terceiro não abre, inativo é recusado e ADM vê o quadro');
 
+  await rejeita(servico.executar('u1',{acao:'ROADMAP_SINCRONIZAR',itens:[{id:'abcdef1234',feito:false}]}),'permission-denied');
+  const sinc = await servico.executar('adm',{acao:'ROADMAP_SINCRONIZAR',itens:[{id:'abcdef1234',feito:false},{id:'1234567890',feito:true}]});
+  assert.equal(sinc.roadmapEstado.abcdef1234.status,'NA_FILA');
+  assert.equal(sinc.roadmapEstado['1234567890'].status,'CONCLUIDO');
+  await servico.executar('adm',{acao:'ROADMAP_MOVER',id:'abcdef1234',status:'EM_ANDAMENTO',ordem:250});
+  assert.equal(ler(db.data,'chamados_roadmap/abcdef1234/ordem'),250);
+  await servico.executar('adm',{acao:'ROADMAP_VINCULAR',id:reserva.id,roadmapId:'abcdef1234'});
+  assert.equal(ler(db.data,`chamados/${reserva.id}/roadmapId`),'abcdef1234');
+  assert.equal(ler(db.data,`chamados_roadmap/abcdef1234/chamados/${reserva.id}/codigo`),'CH-00001');
+  assert.ok(Object.values(ler(db.data,`chamados/${reserva.id}/historico`)).some((e)=>e.tipo==='ROADMAP'));
+  ok('Fase 2: ADM sincroniza e ordena o Roadmap e liga o chamado com trilha nos dois lados');
+
   await servico.executar('adm',{acao:'TRIAR',id:reserva.id,prioridade:'P0',responsavel:'Equipe ERP'});
   assert.equal(emails.length,1,'triagem não envia e-mail sem mudança de etapa');
   await servico.executar('adm',{acao:'MOVER',id:reserva.id,status:'NA_FILA',ordem:1000});
@@ -124,6 +138,7 @@ async function rejeita(p, code) { await assert.rejects(p, (e) => e && e.code ===
   await rejeita(servico.executar('adm',{acao:'MOVER',id:reserva.id,status:'NA_FILA',ordem:'abc'}),'invalid-argument');
   await rejeita(servico.executar('u1',{acao:'MOVER',id:reserva.id,status:'CONCLUIDO'}),'permission-denied');
   await servico.executar('adm',{acao:'MOVER',id:reserva.id,status:'EM_ANDAMENTO'});
+  assert.equal(ler(db.data,`chamados_roadmap/abcdef1234/chamados/${reserva.id}/status`),'EM_ANDAMENTO','status do chamado reflete no vínculo do Roadmap');
   await rejeita(servico.executar('adm',{acao:'DUPLICADO',id:reserva.id,duplicadoDe:'CH-99999'}),'failed-precondition');
   await rejeita(servico.executar('adm',{acao:'DUPLICADO',id:reserva.id,duplicadoDe:'CH-00001'}),'failed-precondition');
   await servico.executar('adm',{acao:'COMENTAR',id:reserva.id,texto:'Correção aplicada; falta validar.'});

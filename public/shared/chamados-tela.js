@@ -3,7 +3,7 @@
    toda permissão e transição de status é validada novamente pela callable. */
 (function() {
   var C = window.Chamados;
-  var eu = null, admin = false, itens = [], visao = 'MEUS', arquivos = [], requestId = '', enviando = false, detalheId = '';
+  var eu = null, admin = false, itens = [], roadmapItens = [], roadmapEstado = {}, visao = 'MEUS', arquivos = [], requestId = '', enviando = false, detalheId = '';
   var $ = function(id) { return document.getElementById(id); };
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
   function chamar(dados) { return firebase.functions().httpsCallable('chamadoSistema')(dados).then(function(r) { return r.data || {}; }); }
@@ -20,6 +20,12 @@
     return '';
   }
   function tags(item) {
+    if (item.fonte === 'ROADMAP') {
+      var ligados = Object.keys(item.chamados || {}).length;
+      return '<span class="ch-tag priority">Roadmap ' + esc(item.secao || '') + '</span>' +
+        '<span class="ch-tag ' + (item.status === 'CONCLUIDO' ? 'done' : '') + '">' + esc(C.ROTULO_STATUS[item.status] || item.status) + '</span>' +
+        (ligados ? '<span class="ch-tag">' + ligados + (ligados === 1 ? ' chamado' : ' chamados') + '</span>' : '');
+    }
     var espera = textoEspera(item), finalizado = statusFinal(item.status);
     return '<span class="ch-tag priority ' + (item.prioridade === 'P0' ? 'critical' : '') + '">' + esc(C.ROTULO_PRIORIDADE[item.prioridade] || item.prioridade || 'Baixa') + '</span>' +
       (espera ? '<span class="ch-tag wait">' + esc(espera) + '</span>' : '') +
@@ -27,10 +33,13 @@
       (item.anexosQuantidade ? '<span class="ch-tag">' + item.anexosQuantidade + (item.anexosQuantidade === 1 ? ' print' : ' prints') + '</span>' : '');
   }
   function filtrados() {
-    var q = $('busca').value.trim().toLowerCase(), st = $('filtroStatus').value;
-    return itens.filter(function(x) {
+    var q = $('busca').value.trim().toLowerCase(), st = $('filtroStatus').value, origem = visao === 'QUADRO' ? $('filtroOrigem').value : '';
+    var base = visao === 'QUADRO' ? itens.concat(roadmapItens) : itens;
+    return base.filter(function(x) {
+      var fonte = x.fonte || 'CHAMADO';
+      if (origem && origem !== fonte) return false;
       if (st && x.status !== st) return false;
-      return !q || [x.codigo,x.titulo,x.tipo,x.autor&&x.autor.nome,x.responsavel].join(' ').toLowerCase().indexOf(q) >= 0;
+      return !q || [x.codigo,x.titulo,x.tipo,x.autor&&x.autor.nome,x.responsavel,x.grupo,x.descricao].join(' ').toLowerCase().indexOf(q) >= 0;
     });
   }
   function renderLista() {
@@ -52,40 +61,64 @@
     var colunas = C.porStatus(filtrados());
     $('quadro').innerHTML = C.STATUS.map(function(status) {
       var cards = colunas[status].map(function(item) {
-        return '<article class="ch-card" draggable="true" tabindex="0" data-id="'+esc(item.id)+'"><span class="ch-code">'+esc(item.codigo)+'</span><h3>'+esc(item.titulo)+'</h3><div class="ch-tags">'+tags(item)+'</div><small>'+esc(item.autor&&item.autor.nome||'')+' · '+esc(C.dataHora(item.atualizadaEm))+'</small></article>';
+        if (item.fonte === 'ROADMAP') {
+          return '<article class="ch-card roadmap" draggable="true" tabindex="0" data-id="'+esc(item.id)+'" data-source="ROADMAP"><div class="ch-source"><span class="ch-code">'+esc(item.codigo)+'</span><span class="ch-roadmap-badge">Roadmap</span></div><h3>'+esc(item.titulo)+'</h3><div class="ch-tags">'+tags(item)+'</div><div class="ch-roadmap-group">'+esc(item.grupo||'')+'</div></article>';
+        }
+        return '<article class="ch-card" draggable="true" tabindex="0" data-id="'+esc(item.id)+'" data-source="CHAMADO"><span class="ch-code">'+esc(item.codigo)+'</span><h3>'+esc(item.titulo)+'</h3><div class="ch-tags">'+tags(item)+'</div><small>'+esc(item.autor&&item.autor.nome||'')+' · '+esc(C.dataHora(item.atualizadaEm))+'</small></article>';
       }).join('');
       return '<section class="ch-column" data-status="'+status+'"><div class="ch-col-head">'+esc(C.ROTULO_STATUS[status])+'<span>'+colunas[status].length+'</span></div><div class="ch-cards">'+cards+'</div></section>';
     }).join('');
     $('quadro').querySelectorAll('.ch-card').forEach(function(card) {
-      card.onclick = function() { abrirDetalhe(card.dataset.id); };
-      card.onkeydown = function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirDetalhe(card.dataset.id); } };
-      card.ondragstart = function(e) { e.dataTransfer.setData('text/chamado', card.dataset.id); e.dataTransfer.effectAllowed = 'move'; };
+      card.onclick = function() { abrirCartao(card.dataset.id); };
+      card.onkeydown = function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirCartao(card.dataset.id); } };
+      card.ondragstart = function(e) { e.dataTransfer.setData('text/cartao', card.dataset.id); e.dataTransfer.setData('text/plain', card.dataset.id); e.dataTransfer.effectAllowed = 'move'; };
     });
     $('quadro').querySelectorAll('.ch-column').forEach(function(col) {
       col.ondragover = function(e) { e.preventDefault(); col.classList.add('dragover'); e.dataTransfer.dropEffect='move'; };
       col.ondragleave = function() { col.classList.remove('dragover'); };
       col.ondrop = function(e) {
         e.preventDefault(); col.classList.remove('dragover');
-        var id = e.dataTransfer.getData('text/chamado');
+        var id = e.dataTransfer.getData('text/cartao') || e.dataTransfer.getData('text/plain');
         if (!id) return;
         // Solto sobre um cartão: entra antes dele; no espaço vazio: vai para o fim. A posição é a ordem da fila.
         var alvo = e.target && e.target.closest ? e.target.closest('.ch-card') : null;
         var lista = C.porStatus(filtrados())[col.dataset.status].filter(function(x) { return x.id !== id; });
-        mover(id, col.dataset.status, C.ordemParaSoltar(lista, alvo && alvo.dataset.id !== id ? alvo.dataset.id : null));
+        moverCartao(id, col.dataset.status, C.ordemParaSoltar(lista, alvo && alvo.dataset.id !== id ? alvo.dataset.id : null));
       };
+    });
+  }
+  function carregarRoadmap() {
+    return fetch('backlog.json?v=' + Date.now(), {cache:'no-store'}).then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function(backlog) {
+      var base = [];
+      (backlog.secoes || []).forEach(function(secao) { (secao.itens || []).forEach(function(item) { base.push({id:item.id, feito:item.feito === true}); }); });
+      var precisaSincronizar = base.some(function(item) { return !roadmapEstado[item.id] || (item.feito && roadmapEstado[item.id].fonteConcluida !== true); });
+      var sincronizar = precisaSincronizar ? chamar({acao:'ROADMAP_SINCRONIZAR',itens:base}).then(function(r) { roadmapEstado = r.roadmapEstado || {}; }) : Promise.resolve();
+      return sincronizar.then(function() { roadmapItens = C.itensRoadmap(backlog, roadmapEstado); });
+    }).catch(function(err) {
+      roadmapItens = [];
+      mensagem('Os chamados foram carregados, mas o Roadmap não respondeu ('+msgErro(err)+').','error');
     });
   }
   function carregar() {
     mensagem('Carregando chamados…');
     return chamar({acao:'LISTAR',visao:visao}).then(function(r) {
-      itens = r.itens || []; admin = !!r.admin; $('tabQuadro').hidden = !admin; mensagem(''); renderLista();
+      itens = r.itens || []; admin = !!r.admin; roadmapEstado = r.roadmapEstado || {}; $('tabQuadro').hidden = !admin;
+      $('filtroOrigem').hidden = !(admin && visao === 'QUADRO');
+      return admin ? carregarRoadmap() : Promise.resolve();
+    }).then(function() {
+      if (!$('mensagem').classList.contains('error')) mensagem('');
+      renderLista();
     }).catch(function(err) {
-      itens=[]; renderLista(); mensagem(msgErro(err),'error');
+      itens=[]; roadmapItens=[]; renderLista(); mensagem(msgErro(err),'error');
     });
   }
   function trocarVisao(nova) {
     if (nova === 'QUADRO' && !admin) return;
     visao = nova;
+    $('filtroOrigem').hidden = visao !== 'QUADRO';
     document.querySelectorAll('.ch-tab').forEach(function(b){b.setAttribute('aria-selected',String(b.dataset.visao===visao));});
     carregar();
   }
@@ -155,17 +188,17 @@
     }).finally(function(){enviando=false;$('btnEnviar').disabled=false;$('btnEnviar').textContent='Enviar chamado';});
   }
 
-  function mover(id,status,ordem) {
-    var atual=itens.find(function(x){return x.id===id;});if(!atual)return;
+  function moverCartao(id,status,ordem) {
+    var atual=itens.concat(roadmapItens).find(function(x){return x.id===id;});if(!atual)return;
     if(atual.status===status&&ordem==null)return;
     mensagem('Movendo '+atual.codigo+'…');
-    var dados={acao:'MOVER',id:id,status:status};if(ordem!=null)dados.ordem=ordem;
+    var dados=atual.fonte==='ROADMAP'?{acao:'ROADMAP_MOVER',id:atual.roadmapId,status:status}:{acao:'MOVER',id:id,status:status};if(ordem!=null)dados.ordem=ordem;
     chamar(dados).then(function(){mensagem(atual.codigo+(atual.status===status?' reposicionado em ':' movido para ')+C.ROTULO_STATUS[status]+'.','ok');return carregar();}).catch(function(err){mensagem(msgErro(err),'error');});
   }
-  var EVENTO={CRIADO:'abriu o chamado',COMENTARIO:'comentou',STATUS:'moveu o chamado',ORDEM:'reposicionou o chamado',TRIAGEM:'atualizou a triagem',CONFIRMADO:'confirmou a solução',REABERTO:'reabriu o chamado',RECUSADO:'recusou o chamado',DUPLICADO:'marcou como duplicado'};
+  var EVENTO={CRIADO:'abriu o chamado',COMENTARIO:'comentou',STATUS:'moveu o chamado',ORDEM:'reposicionou o chamado',TRIAGEM:'atualizou a triagem',CONFIRMADO:'confirmou a solução',REABERTO:'reabriu o chamado',RECUSADO:'recusou o chamado',DUPLICADO:'marcou como duplicado',ROADMAP:'alterou o vínculo com o Roadmap'};
   function historicoHtml(no) {
     return Object.keys(no||{}).map(function(id){return no[id];}).sort(function(a,b){return String(a.em).localeCompare(String(b.em));}).map(function(ev){
-      var detalhe=ev.tipo==='STATUS'?' de '+(C.ROTULO_STATUS[ev.de]||ev.de)+' para '+(C.ROTULO_STATUS[ev.para]||ev.para):ev.tipo==='ORDEM'?' em '+esc(C.ROTULO_STATUS[ev.status]||ev.status):ev.tipo==='TRIAGEM'?' para '+esc(C.ROTULO_PRIORIDADE[ev.prioridade]||ev.prioridade)+(ev.responsavel?' · '+esc(ev.responsavel):''):ev.tipo==='DUPLICADO'?' de '+esc(ev.duplicadoDe):'';
+      var detalhe=ev.tipo==='STATUS'?' de '+(C.ROTULO_STATUS[ev.de]||ev.de)+' para '+(C.ROTULO_STATUS[ev.para]||ev.para):ev.tipo==='ORDEM'?' em '+esc(C.ROTULO_STATUS[ev.status]||ev.status):ev.tipo==='TRIAGEM'?' para '+esc(C.ROTULO_PRIORIDADE[ev.prioridade]||ev.prioridade)+(ev.responsavel?' · '+esc(ev.responsavel):''):ev.tipo==='DUPLICADO'?' de '+esc(ev.duplicadoDe):ev.tipo==='ROADMAP'?' para '+esc(ev.para?'RM-'+String(ev.para).slice(0,6).toUpperCase():'sem vínculo'):'';
       return '<li><b>'+esc(ev.nome||'Usuário')+'</b> '+esc(EVENTO[ev.tipo]||ev.tipo)+detalhe+'<time>'+esc(C.dataHora(ev.em))+'</time>'+(ev.texto?'<p>'+esc(ev.texto)+'</p>':'')+'</li>';
     }).join('');
   }
@@ -181,6 +214,27 @@
       firebase.storage().ref(a.caminho).getDownloadURL().then(function(url){link.href=url;link.target='_blank';link.rel='noopener';link.firstElementChild.outerHTML='<img src="'+esc(url)+'" alt="'+esc(a.nomeOriginal)+'">';}).catch(function(){link.firstElementChild.textContent='Print indisponível';});
     });
   }
+  function roadmapPorId(id) { return roadmapItens.find(function(x){return x.roadmapId===id;}); }
+  function abrirCartao(id) {
+    var item=itens.concat(roadmapItens).find(function(x){return x.id===id;});
+    if(!item)return;
+    if(item.fonte==='ROADMAP')abrirDetalheRoadmap(item);else abrirDetalhe(item.id);
+  }
+  function abrirDetalheRoadmap(item) {
+    detalheId=item.id;$('detalheLayer').hidden=false;document.body.style.overflow='hidden';
+    var chamados=Object.keys(item.chamados||{}).map(function(id){var c=item.chamados[id]||{};return '<button type="button" class="ch-btn secondary small" data-chamado="'+esc(id)+'"><span class="ch-code">'+esc(c.codigo||id)+'</span> '+esc(c.titulo||'Abrir chamado')+'</button>';}).join('');
+    var subs=(item.subitens||[]).length?'<ul>'+item.subitens.map(function(s){return '<li>'+esc(s)+'</li>';}).join('')+'</ul>':'';
+    var mover=C.STATUS.filter(function(s){return s!==item.status&&!item.feito;}).map(function(s){return '<button class="ch-btn secondary small" data-rm-mover="'+s+'">'+esc(C.ROTULO_STATUS[s])+'</button>';}).join('');
+    $('detalheDialog').innerHTML='<div class="ch-dialog-head"><div><span class="ch-code">'+esc(item.codigo)+'</span><h2>'+esc(item.titulo)+'</h2><p>'+esc(item.grupo||'Roadmap do sistema')+'</p></div><button class="ch-close" id="dtFechar" aria-label="Fechar">×</button></div><div class="ch-tags">'+tags(item)+'</div>'+(item.descricao?'<div class="ch-description">'+esc(item.descricao)+'</div>':'')+subs+(item.hash?'<div class="ch-detail-meta"><div><small>Commit de conclusão</small>'+esc(item.hash)+'</div></div>':'')+'<h3>Chamados vinculados</h3>'+(chamados?'<div class="ch-linked">'+chamados+'</div>':'<p class="ch-meta">Nenhum chamado vinculado. O vínculo é feito no detalhe do chamado.</p>')+(mover?'<div class="ch-detail-actions">'+mover+'</div>':'')+'<div class="ch-dialog-actions"><button class="ch-btn secondary" id="dtFechar2">Fechar</button></div><div class="ch-form-error" id="dtErro" hidden></div>';
+    $('dtFechar').onclick=fecharDetalhe;$('dtFechar2').onclick=fecharDetalhe;
+    $('detalheDialog').querySelectorAll('[data-chamado]').forEach(function(b){b.onclick=function(){abrirDetalhe(b.dataset.chamado);};});
+    $('detalheDialog').querySelectorAll('[data-rm-mover]').forEach(function(b){b.onclick=function(){fecharDetalhe();moverCartao(item.id,b.dataset.rmMover,item.ordem);};});
+    setTimeout(function(){$('dtFechar').focus();},0);
+  }
+  function opcoesRoadmap(selecionado) {
+    var abertos=roadmapItens.filter(function(x){return !x.feito;}).sort(function(a,b){return a.titulo.localeCompare(b.titulo,'pt-BR');});
+    return '<option value="">Sem vínculo</option>'+abertos.map(function(x){return '<option value="'+esc(x.roadmapId)+'" '+(x.roadmapId===selecionado?'selected':'')+'>'+esc(x.codigo+' · '+x.titulo)+'</option>';}).join('');
+  }
   function abrirDetalhe(id) {
     detalheId=id;$('detalheLayer').hidden=false;document.body.style.overflow='hidden';$('detalheDialog').innerHTML='<div class="ch-empty"><strong>Carregando chamado</strong>Aguarde um instante.</div>';
     chamar({acao:'DETALHE',id:id}).then(function(r){renderDetalhe(r.chamado,!!r.admin);}).catch(function(err){$('detalheDialog').innerHTML='<div class="ch-form-error">'+esc(msgErro(err))+'</div><div class="ch-dialog-actions"><button class="ch-btn secondary" id="dtFechar">Fechar</button></div>';$('dtFechar').onclick=fecharDetalhe;});
@@ -188,13 +242,15 @@
   function renderDetalhe(c, podeAdmin) {
     var autor=c.autor&&c.autor.uid===eu.uid;
     var adminAcoes=podeAdmin&&!statusFinal(c.status)?'<div class="ch-inline"><label class="ch-field"><span>Prioridade</span><select id="dtPrioridade">'+['P0','P1','P2','P3'].map(function(p){return '<option value="'+p+'" '+(c.prioridade===p?'selected':'')+'>'+esc(C.ROTULO_PRIORIDADE[p])+'</option>';}).join('')+'</select></label><label class="ch-field"><span>Responsável</span><input id="dtResponsavel" maxlength="120" value="'+esc(c.responsavel||'')+'" placeholder="Nome ou equipe"></label><button class="ch-btn small" id="dtTriar">Salvar triagem</button></div><div class="ch-detail-actions">'+C.STATUS.filter(function(s){return s!==c.status;}).map(function(s){return '<button class="ch-btn secondary small" data-mover="'+s+'">'+esc(C.ROTULO_STATUS[s])+'</button>';}).join('')+'<button class="ch-btn secondary small" id="dtDuplicado">Duplicado</button><button class="ch-btn danger small" id="dtRecusar">Recusar</button></div>':'';
+    var roadmapAcoes=podeAdmin?'<div class="ch-inline"><label class="ch-field"><span>Item do Roadmap que este chamado resolve</span><select id="dtRoadmap">'+opcoesRoadmap(c.roadmapId||'')+'</select></label><button class="ch-btn secondary small" id="dtRoadmapSalvar">Salvar vínculo</button></div>':'';
     var autorAcoes=autor&&c.status==='VALIDAR'?'<div class="ch-detail-actions"><button class="ch-btn" id="dtConfirmar">Confirmar solução</button><button class="ch-btn secondary" id="dtReabrir">Ainda não resolveu</button></div>':'';
     var podeComentar=!statusFinal(c.status);
-    $('detalheDialog').innerHTML='<div class="ch-dialog-head"><div><span class="ch-code">'+esc(c.codigo)+'</span><h2>'+esc(c.titulo)+'</h2><p>Aberto por '+esc(c.autor&&c.autor.nome||'')+' em '+esc(C.dataHora(c.criadaEm))+'</p></div><button class="ch-close" id="dtFechar" aria-label="Fechar">×</button></div><div class="ch-tags">'+tags(c)+'</div><div class="ch-detail-meta"><div><small>Tipo</small>'+esc(C.ROTULO_TIPO[c.tipo]||c.tipo)+'</div><div><small>Impacto</small>'+esc(C.ROTULO_IMPACTO[c.impacto]||c.impacto)+'</div><div><small>Responsável</small>'+esc(c.responsavel||'Não definido')+'</div><div><small>Tela de origem</small>'+esc(c.contexto&&c.contexto.pagina||'—')+'</div><div><small>Versão</small>'+esc(c.contexto&&c.contexto.versao?String(c.contexto.versao).slice(0,7):'—')+'</div><div><small>Aparelho</small>'+esc(c.contexto&&c.contexto.viewport||'—')+'</div>'+(c.duplicadoDe?'<div><small>Duplicado de</small>'+esc(c.duplicadoDe)+'</div>':'')+'</div><div class="ch-description">'+esc(c.descricao)+'</div>'+anexosHtml(c.anexos)+adminAcoes+autorAcoes+'<h3>Histórico</h3><ol class="ch-history">'+historicoHtml(c.historico)+'</ol>'+(podeComentar?'<label class="ch-field"><span>Adicionar comentário</span><textarea id="dtComentario" maxlength="2000" placeholder="Registre uma resposta ou informação nova."></textarea></label><div class="ch-dialog-actions"><button class="ch-btn secondary" id="dtFechar2">Fechar</button><button class="ch-btn" id="dtComentar">Enviar comentário</button></div>':'<div class="ch-dialog-actions"><button class="ch-btn secondary" id="dtFechar2">Fechar</button></div>')+'<div class="ch-form-error" id="dtErro" hidden></div>';
+    $('detalheDialog').innerHTML='<div class="ch-dialog-head"><div><span class="ch-code">'+esc(c.codigo)+'</span><h2>'+esc(c.titulo)+'</h2><p>Aberto por '+esc(c.autor&&c.autor.nome||'')+' em '+esc(C.dataHora(c.criadaEm))+'</p></div><button class="ch-close" id="dtFechar" aria-label="Fechar">×</button></div><div class="ch-tags">'+tags(c)+'</div><div class="ch-detail-meta"><div><small>Tipo</small>'+esc(C.ROTULO_TIPO[c.tipo]||c.tipo)+'</div><div><small>Impacto</small>'+esc(C.ROTULO_IMPACTO[c.impacto]||c.impacto)+'</div><div><small>Responsável</small>'+esc(c.responsavel||'Não definido')+'</div><div><small>Tela de origem</small>'+esc(c.contexto&&c.contexto.pagina||'—')+'</div><div><small>Versão</small>'+esc(c.contexto&&c.contexto.versao?String(c.contexto.versao).slice(0,7):'—')+'</div><div><small>Aparelho</small>'+esc(c.contexto&&c.contexto.viewport||'—')+'</div>'+(c.roadmapId?'<div><small>Roadmap</small>RM-'+esc(String(c.roadmapId).slice(0,6).toUpperCase())+'</div>':'')+(c.duplicadoDe?'<div><small>Duplicado de</small>'+esc(c.duplicadoDe)+'</div>':'')+'</div><div class="ch-description">'+esc(c.descricao)+'</div>'+anexosHtml(c.anexos)+adminAcoes+roadmapAcoes+autorAcoes+'<h3>Histórico</h3><ol class="ch-history">'+historicoHtml(c.historico)+'</ol>'+(podeComentar?'<label class="ch-field"><span>Adicionar comentário</span><textarea id="dtComentario" maxlength="2000" placeholder="Registre uma resposta ou informação nova."></textarea></label><div class="ch-dialog-actions"><button class="ch-btn secondary" id="dtFechar2">Fechar</button><button class="ch-btn" id="dtComentar">Enviar comentário</button></div>':'<div class="ch-dialog-actions"><button class="ch-btn secondary" id="dtFechar2">Fechar</button></div>')+'<div class="ch-form-error" id="dtErro" hidden></div>';
     $('dtFechar').onclick=fecharDetalhe;$('dtFechar2').onclick=fecharDetalhe;
     carregarImagens(c);
     if($('dtComentar'))$('dtComentar').onclick=function(){acaoDetalhe({acao:'COMENTAR',texto:$('dtComentario').value},'Comentário enviado.');};
     if($('dtTriar'))$('dtTriar').onclick=function(){acaoDetalhe({acao:'TRIAR',prioridade:$('dtPrioridade').value,responsavel:$('dtResponsavel').value},'Triagem salva.');};
+    if($('dtRoadmapSalvar'))$('dtRoadmapSalvar').onclick=function(){acaoDetalhe({acao:'ROADMAP_VINCULAR',roadmapId:$('dtRoadmap').value},$('dtRoadmap').value?'Vínculo com o Roadmap salvo.':'Vínculo com o Roadmap removido.');};
     $('detalheDialog').querySelectorAll('[data-mover]').forEach(function(b){b.onclick=function(){acaoDetalhe({acao:'MOVER',status:b.dataset.mover},'Chamado movido.');};});
     if($('dtConfirmar'))$('dtConfirmar').onclick=function(){acaoDetalhe({acao:'CONFIRMAR'},'Solução confirmada.');};
     if($('dtReabrir'))$('dtReabrir').onclick=function(){var m=prompt('O que ainda precisa ser corrigido?','');if(m!==null)acaoDetalhe({acao:'REABRIR',texto:m},'Chamado reaberto.');};
@@ -216,7 +272,7 @@
   ['dragleave','drop'].forEach(function(n){$('dropzone').addEventListener(n,function(e){e.preventDefault();$('dropzone').classList.remove('dragover');if(n==='drop')adicionar(e.dataTransfer.files);});});
   document.addEventListener('paste',function(e){if($('novoLayer').hidden)return;var files=[];Array.prototype.forEach.call(e.clipboardData&&e.clipboardData.items||[],function(i){if(i.kind==='file'&&i.type.indexOf('image/')===0){var f=i.getAsFile();if(f)files.push(f);}});if(files.length){e.preventDefault();adicionar(files);}});
   $('novoTitulo').oninput=function(){$('tituloContador').textContent=this.value.length+'/140';};$('novoDescricao').oninput=function(){$('descricaoContador').textContent=this.value.length+'/5000';};
-  $('busca').oninput=renderLista;$('filtroStatus').onchange=renderLista;
+  $('busca').oninput=renderLista;$('filtroStatus').onchange=renderLista;$('filtroOrigem').onchange=renderLista;
   document.querySelectorAll('.ch-tab').forEach(function(b){b.onclick=function(){trocarVisao(b.dataset.visao);};});
   $('novoLayer').onclick=function(e){if(e.target===$('novoLayer'))fecharNovo();};$('detalheLayer').onclick=function(e){if(e.target===$('detalheLayer'))fecharDetalhe();};
   document.addEventListener('keydown',function(e){if(e.key!=='Escape')return;if(!$('detalheLayer').hidden)fecharDetalhe();else if(!$('novoLayer').hidden)fecharNovo();});

@@ -35,6 +35,9 @@ function requestIdValido(v) {
 function idValido(v) {
   return /^[A-Za-z0-9_-]{1,80}$/.test(String(v || ''));
 }
+function roadmapIdValido(v) {
+  return /^[a-f0-9]{10}$/i.test(String(v || ''));
+}
 function prioridadeDoImpacto(impacto) {
   return impacto === 'CRITICO' ? 'P0' : impacto === 'ALTO' ? 'P1' : impacto === 'MEDIO' ? 'P2' : 'P3';
 }
@@ -109,6 +112,7 @@ function resumo(id, c) {
     atualizadaEm: c.atualizadaEm,
     anexosQuantidade: Object.keys(c.anexos || {}).length,
     ordem: typeof c.ordem === 'number' ? c.ordem : null,
+    roadmapId: c.roadmapId || null,
     aguardaVoce: aguardaVoce(c),
   };
 }
@@ -225,10 +229,13 @@ function criarServico(deps) {
   async function listar(uid, dados, ctx) {
     const quadro = String(dados.visao || '').toUpperCase() === 'QUADRO';
     if (quadro && !eAdmin(ctx.perfil)) throw erro('permission-denied', 'Somente administradores acessam o quadro.');
-    const todos = (await db.ref('chamados').once('value')).val() || {};
+    const leituras = [db.ref('chamados').once('value')];
+    if (eAdmin(ctx.perfil)) leituras.push(db.ref('chamados_roadmap').once('value'));
+    const snaps = await Promise.all(leituras);
+    const todos = snaps[0].val() || {};
     const itens = Object.keys(todos).filter((id) => todos[id] && (quadro || todos[id].autor && todos[id].autor.uid === uid))
       .map((id) => resumo(id, todos[id])).sort((a, b) => String(b.atualizadaEm).localeCompare(String(a.atualizadaEm)));
-    return {ok: true, admin: eAdmin(ctx.perfil), itens};
+    return {ok: true, admin: eAdmin(ctx.perfil), itens, roadmapEstado: snaps[1] ? snaps[1].val() || {} : {}};
   }
   async function detalhe(uid, dados, ctx) {
     if (!idValido(dados.id)) throw erro('invalid-argument', 'Chamado inválido.');
@@ -236,6 +243,106 @@ function criarServico(deps) {
     if (!c) throw erro('not-found', 'Chamado não encontrado.');
     if (!eAdmin(ctx.perfil) && (!c.autor || c.autor.uid !== uid)) throw erro('permission-denied', 'Você não pode abrir este chamado.');
     return {ok: true, admin: eAdmin(ctx.perfil), chamado: Object.assign({id: dados.id}, c)};
+  }
+  async function sincronizarRoadmap(dados, ctx) {
+    if (!eAdmin(ctx.perfil)) throw erro('permission-denied', 'Somente administradores sincronizam o Roadmap.');
+    const entrada = Array.isArray(dados.itens) ? dados.itens : [];
+    if (!entrada.length || entrada.length > 500) throw erro('invalid-argument', 'Lista do Roadmap inválida.');
+    const ids = new Set();
+    const itensRoadmap = entrada.map((item, indice) => {
+      const id = texto(item && item.id, 20).toLowerCase();
+      if (!roadmapIdValido(id) || ids.has(id)) throw erro('invalid-argument', 'O Roadmap contém um item inválido ou repetido.');
+      ids.add(id);
+      return {id, feito: item && item.feito === true, indice};
+    });
+    const quando = agora();
+    const ref = db.ref('chamados_roadmap');
+    const tx = await ref.transaction((atual) => {
+      const novo = Object.assign({}, atual || {});
+      itensRoadmap.forEach((item) => {
+        const existente = Object.assign({}, novo[item.id] || {});
+        if (!novo[item.id]) {
+          existente.criadaEm = quando;
+          existente.ordem = Date.parse(quando) + item.indice;
+          existente.status = item.feito ? 'CONCLUIDO' : 'NA_FILA';
+        }
+        existente.fonteConcluida = item.feito;
+        if (item.feito) existente.status = 'CONCLUIDO';
+        existente.atualizadaEm = existente.atualizadaEm || quando;
+        novo[item.id] = existente;
+      });
+      return novo;
+    });
+    if (!tx.committed) throw erro('aborted', 'O Roadmap mudou. Recarregue e tente novamente.');
+    return {ok: true, roadmapEstado: tx.snapshot.val() || {}};
+  }
+  async function moverRoadmap(dados, ctx) {
+    if (!eAdmin(ctx.perfil)) throw erro('permission-denied', 'Somente administradores movem o Roadmap.');
+    const id = texto(dados.id, 20).toLowerCase();
+    const status = texto(dados.status, 30).toUpperCase();
+    const ordem = dados.ordem == null || dados.ordem === '' ? null : Number(dados.ordem);
+    if (!roadmapIdValido(id)) throw erro('invalid-argument', 'Item do Roadmap inválido.');
+    if (!STATUS.includes(status)) throw erro('invalid-argument', 'Coluna inválida.');
+    if (ordem != null && (!Number.isFinite(ordem) || Math.abs(ordem) > Number.MAX_SAFE_INTEGER)) throw erro('invalid-argument', 'Posição inválida.');
+    const ref = db.ref(`chamados_roadmap/${id}`);
+    const eventoId = ref.child('historico').push().key;
+    const quando = agora();
+    let falha = null;
+    const tx = await ref.transaction((atual) => {
+      falha = null;
+      try {
+        if (!atual) throw erro('failed-precondition', 'Sincronize o Roadmap antes de mover este item.');
+        if (atual.fonteConcluida && status !== 'CONCLUIDO') throw erro('failed-precondition', 'Este item já está concluído na fonte do Roadmap.');
+        if (status === atual.status && ordem == null) throw erro('invalid-argument', 'O item já está nesta coluna.');
+        const novo = Object.assign({}, atual, {status, atualizadaEm: quando, alteradoPor: ctx.pessoa});
+        if (ordem != null) novo.ordem = ordem;
+        novo.historico = Object.assign({}, atual.historico || {}, {[eventoId]: evento(status === atual.status ? 'ORDEM' : 'STATUS', ctx.pessoa, quando, '', status === atual.status ? {status, ordem: novo.ordem} : {de: atual.status, para: status})});
+        return novo;
+      } catch (e) { falha = e; return; }
+    });
+    if (falha) throw falha;
+    if (!tx.committed) throw erro('aborted', 'O item mudou. Recarregue e tente novamente.');
+    return {ok: true, id, status, roadmap: tx.snapshot.val()};
+  }
+  async function vincularRoadmap(dados, ctx) {
+    if (!eAdmin(ctx.perfil)) throw erro('permission-denied', 'Somente administradores vinculam chamados ao Roadmap.');
+    if (!idValido(dados.id)) throw erro('invalid-argument', 'Chamado inválido.');
+    const roadmapId = texto(dados.roadmapId, 20).toLowerCase();
+    if (roadmapId && !roadmapIdValido(roadmapId)) throw erro('invalid-argument', 'Item do Roadmap inválido.');
+    const chamadoRef = db.ref(`chamados/${dados.id}`);
+    if (roadmapId && !(await db.ref(`chamados_roadmap/${roadmapId}`).once('value')).exists()) throw erro('failed-precondition', 'Sincronize o Roadmap antes de fazer o vínculo.');
+    const quando = agora();
+    const eventoId = chamadoRef.child('historico').push().key;
+    let anterior = '', atualizado = null, falha = null, mudou = false;
+    const tx = await chamadoRef.transaction((chamado) => {
+      atualizado = null; falha = null; mudou = false;
+      try {
+        if (!chamado) throw erro('not-found', 'Chamado não encontrado.');
+        anterior = chamado.roadmapId || '';
+        if (anterior === roadmapId) { atualizado = chamado; return chamado; }
+        mudou = true;
+        atualizado = Object.assign({}, chamado, {
+          roadmapId: roadmapId || null,
+          atualizadaEm: quando,
+          versao: (Number(chamado.versao) || 0) + 1,
+          historico: Object.assign({}, chamado.historico || {}, {[eventoId]: evento('ROADMAP', ctx.pessoa, quando, '', {de: anterior || null, para: roadmapId || null})}),
+        });
+        return atualizado;
+      } catch (e) { falha = e; return; }
+    });
+    if (falha) throw falha;
+    if (!tx.committed || !atualizado) throw erro('aborted', 'O chamado mudou. Recarregue e tente novamente.');
+    const updates = {
+      [`chamados_caixa/${atualizado.autor.uid}/${dados.id}`]: resumo(dados.id, atualizado),
+      [`chamados_fila_adm/${dados.id}`]: resumoFila(dados.id, atualizado),
+    };
+    if (anterior) updates[`chamados_roadmap/${anterior}/chamados/${dados.id}`] = null;
+    if (roadmapId) {
+      updates[`chamados_roadmap/${roadmapId}/chamados/${dados.id}`] = {codigo: atualizado.codigo, titulo: atualizado.titulo, status: atualizado.status};
+      updates[`chamados_roadmap/${roadmapId}/atualizadaEm`] = quando;
+    }
+    await db.ref().update(updates);
+    return {ok: true, id: dados.id, roadmapId: roadmapId || null, repetida: !mudou};
   }
   async function alterar(uid, dados, ctx) {
     if (!idValido(dados.id)) throw erro('invalid-argument', 'Chamado inválido.');
@@ -334,7 +441,9 @@ function criarServico(deps) {
     if (falha) throw falha;
     if (!tx.snapshot.exists()) throw erro('not-found', 'Chamado não encontrado.');
     if (!tx.committed || !salvo) throw erro('aborted', 'O chamado mudou. Recarregue e tente novamente.');
-    await db.ref().update({[`chamados_caixa/${salvo.autor.uid}/${dados.id}`]: resumo(dados.id, salvo), [`chamados_fila_adm/${dados.id}`]: resumoFila(dados.id, salvo)});
+    const indices = {[`chamados_caixa/${salvo.autor.uid}/${dados.id}`]: resumo(dados.id, salvo), [`chamados_fila_adm/${dados.id}`]: resumoFila(dados.id, salvo)};
+    if (salvo.roadmapId) indices[`chamados_roadmap/${salvo.roadmapId}/chamados/${dados.id}/status`] = salvo.status;
+    await db.ref().update(indices);
     salvo.id = dados.id;
     const autorAgiu = ctx.pessoa.uid === salvo.autor.uid;
     const deveAvisar = tipoEventoSalvo !== 'ORDEM' && tipoEventoSalvo !== 'TRIAGEM';
@@ -351,6 +460,9 @@ function criarServico(deps) {
     if (acao === 'CRIAR') return criar(uid, dados, ctx);
     if (acao === 'LISTAR') return listar(uid, dados, ctx);
     if (acao === 'DETALHE') return detalhe(uid, dados, ctx);
+    if (acao === 'ROADMAP_SINCRONIZAR') return sincronizarRoadmap(dados, ctx);
+    if (acao === 'ROADMAP_MOVER') return moverRoadmap(dados, ctx);
+    if (acao === 'ROADMAP_VINCULAR') return vincularRoadmap(dados, ctx);
     return alterar(uid, dados || {}, ctx);
   }
   return {executar};
@@ -358,5 +470,5 @@ function criarServico(deps) {
 
 module.exports = {
   STATUS, STATUS_FINAIS, PRIORIDADES, TIPOS, IMPACTOS, MIME_IMAGEM, LIMITE_ANEXO, LIMITE_ANEXOS,
-  ativo, eAdmin, prioridadeDoImpacto, validarCriacao, caminhoPermitido, validarAnexos, resumo, resumoFila, aguardaVoce, aguardaAdm, montarEmail, criarServico,
+  ativo, eAdmin, roadmapIdValido, prioridadeDoImpacto, validarCriacao, caminhoPermitido, validarAnexos, resumo, resumoFila, aguardaVoce, aguardaAdm, montarEmail, criarServico,
 };

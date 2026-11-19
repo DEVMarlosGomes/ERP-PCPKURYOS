@@ -92,7 +92,7 @@ async function abrir(browser, uid, url, largura) {
     if (u.hostname !== 'ch.test') return route.fulfill({body: '', contentType: 'text/javascript'});
     const f = path.join(__dirname, 'public', u.pathname.slice(1));
     if (!fs.existsSync(f)) return route.fulfill({status: 404, body: ''});
-    return route.fulfill({body: fs.readFileSync(f), contentType: f.endsWith('.html') ? 'text/html' : f.endsWith('.css') ? 'text/css' : f.endsWith('.svg') ? 'image/svg+xml' : 'text/javascript'});
+    return route.fulfill({body: fs.readFileSync(f), contentType: f.endsWith('.html') ? 'text/html' : f.endsWith('.css') ? 'text/css' : f.endsWith('.svg') ? 'image/svg+xml' : f.endsWith('.json') ? 'application/json' : 'text/javascript'});
   });
   await page.goto('https://ch.test/' + url);
   await page.waitForFunction(() => window.currentUser && document.getElementById('mensagem').hidden &&
@@ -142,15 +142,18 @@ const contador = (page) => page.evaluate(() => { const e = document.getElementBy
     // ── 2. ADM tria no quadro ─────────────────────────────────────────────
     ({page, erros} = await abrir(browser, 'adm', 'chamados.html?visao=QUADRO'));
     todosErros.push(erros);
-    await page.waitForSelector('.ch-column[data-status="NOVO"] .ch-card');
+    await page.waitForSelector('.ch-column[data-status="NOVO"] .ch-card[data-source="CHAMADO"]');
     ok(await contador(page) === '1', 'contador do ADM: 1 chamado aguardando');
     ok(await page.locator('.ch-tab[data-visao="QUADRO"]').getAttribute('aria-selected') === 'true', 'aberto pelo Roadmap, a aba Quadro fica marcada');
     ok(!(await page.locator('#lista').isVisible()), 'no quadro, a lista (e o "Carregando") fica escondida');
-    await page.dragAndDrop('.ch-column[data-status="NOVO"] .ch-card', '.ch-column[data-status="NA_FILA"]');
-    await page.waitForSelector('.ch-column[data-status="NA_FILA"] .ch-card');
+    ok(await page.locator('.ch-card[data-source="ROADMAP"]').count() > 0 && await page.locator('#filtroOrigem').isVisible(), 'itens do Roadmap entram no mesmo quadro, com filtro de origem');
+    const colunaLonga = await page.locator('.ch-column[data-status="NA_FILA"] .ch-cards').evaluate((el) => ({client:el.clientHeight, scroll:el.scrollHeight}));
+    ok(colunaLonga.client <= 720 && colunaLonga.scroll > colunaLonga.client, 'fila longa rola dentro da coluna, sem alongar a página');
+    await page.dragAndDrop('.ch-column[data-status="NOVO"] .ch-card[data-source="CHAMADO"]', '.ch-column[data-status="NA_FILA"] .ch-col-head');
+    await page.waitForSelector('.ch-column[data-status="NA_FILA"] .ch-card[data-source="CHAMADO"]');
     ok(dbSrv.data.chamados[id].status === 'NA_FILA' && typeof dbSrv.data.chamados[id].ordem === 'number', 'arrastado para "Na fila", com a posição gravada');
     await shot(page, '2-quadro');
-    await page.click('.ch-column[data-status="NA_FILA"] .ch-card');
+    await page.click('.ch-column[data-status="NA_FILA"] .ch-card[data-source="CHAMADO"]');
     await page.waitForSelector('#dtTriar');
     const det = await page.locator('#detalheDialog').innerText();
     ok(/Versão\s*65038e6/.test(det) && /Prints anexados/.test(det), 'detalhe mostra versão e prints');
@@ -159,6 +162,12 @@ const contador = (page) => page.evaluate(() => { const e = document.getElementBy
     await page.click('#dtTriar');
     await page.waitForFunction(() => /Urgente/.test(document.getElementById('detalheDialog').innerText));
     ok(dbSrv.data.chamados[id].prioridade === 'P0', 'triagem: Urgente');
+    const roadmapId = await page.locator('#dtRoadmap option:not([value=""])').first().getAttribute('value');
+    await page.selectOption('#dtRoadmap', roadmapId);
+    await page.click('#dtRoadmapSalvar');
+    await page.waitForFunction((cid) => !!window.__db, id);
+    await page.waitForFunction(() => /Roadmap\s*RM-/.test(document.getElementById('detalheDialog').innerText));
+    ok(dbSrv.data.chamados[id].roadmapId === roadmapId && dbSrv.data.chamados_roadmap[roadmapId].chamados[id].codigo === 'CH-00001', 'chamado vinculado ao item que resolve, nos dois lados');
     await page.click('[data-mover="VALIDAR"]');
     await page.waitForFunction((cid) => true, id);
     await page.waitForFunction(() => /Validar/.test(document.getElementById('detalheDialog').innerText) && !/Movendo/.test(document.getElementById('mensagem').innerText));

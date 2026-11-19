@@ -23,6 +23,7 @@ const passo = async (p, msg) => { await p; n++; console.log('  ok  ' + msg); };
     usuarios: {adm: {role: 'admin'}, adm2: {role: 'pcp', funcoes: {admin: true}}, u1: {role: 'pd'}, u2: {role: 'pcp'}, off: {role: 'pcp', desativado: true}},
     chamados: {c1: {codigo: 'CH-00001', titulo: 'Teste', autor: {uid: 'u1'}, status: 'NOVO'}},
     chamados_pedidos: {u1: {r1: {id: 'c1'}}},
+    chamados_roadmap: {abcdef1234: {status: 'NA_FILA', ordem: 1000}},
     chamados_caixa: {u1: {c1: {codigo: 'CH-00001', aguardaVoce: false}}, off: {c9: {codigo: 'CH-00009'}}},
     chamados_fila_adm: {c1: {codigo: 'CH-00001', aguardaAdm: true}}
   });
@@ -30,6 +31,7 @@ const passo = async (p, msg) => { await p; n++; console.log('  ok  ' + msg); };
   await passo(negado(como('u1').ref('chamados/c1').get()), 'autor não lê o chamado direto (só pela callable)');
   await passo(negado(como('adm').ref('chamados').get()), 'nem o ADM lê o nó de chamados');
   await passo(negado(como('u1').ref('chamados_pedidos/u1').get()), 'pedidos de envio: só o servidor');
+  await passo(negado(como('adm').ref('chamados_roadmap').get()), 'estado do Roadmap: até o ADM lê somente pela callable');
   assert.equal((await como('u1').ref('chamados_caixa/u1/c1/codigo').get()).val(), 'CH-00001'); n++; console.log('  ok  dono lê a própria caixa');
   await passo(negado(como('u2').ref('chamados_caixa/u1').get()), 'outro usuário não lê a caixa alheia');
   await passo(negado(como('off').ref('chamados_caixa/off').get()), 'perfil desativado não lê nem a própria caixa');
@@ -43,6 +45,7 @@ const passo = async (p, msg) => { await p; n++; console.log('  ok  ' + msg); };
   await passo(negado(como('u1').ref('chamados_caixa/u1/c1/aguardaVoce').set(true)), 'dono não mexe na própria caixa');
   await passo(negado(como('adm').ref('chamados_fila_adm/c1').remove()), 'ADM não apaga a fila');
   await passo(negado(como('u1').ref('chamados_pedidos/u1/r2').set({id: 'x'})), 'pedido de envio não se cria pelo navegador');
+  await passo(negado(como('adm').ref('chamados_roadmap/abcdef1234/ordem').set(1)), 'ordem do Roadmap não se altera pelo navegador');
   console.log(`OK regras dos Chamados: ${n} verificações — tudo pela callable; a caixa só o dono lê; a fila só o ADM lê.`);
   await Promise.all(Object.values(apps).concat([raiz]).map((a) => a.delete()));
   process.exit(0);

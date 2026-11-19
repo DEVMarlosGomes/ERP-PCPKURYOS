@@ -82,6 +82,34 @@
     var depois = lista[i], antes = i > 0 ? lista[i - 1] : depois - 2000;
     return (antes + depois) / 2;
   }
+  function itensRoadmap(backlog, estado) {
+    var saida = [], indice = 0, overlay = estado || {};
+    (backlog && backlog.secoes || []).forEach(function(secao) {
+      (secao.itens || []).forEach(function(item) {
+        var st = overlay[item.id] || {};
+        saida.push({
+          id: 'rm_' + item.id,
+          roadmapId: item.id,
+          fonte: 'ROADMAP',
+          codigo: 'RM-' + String(item.id).slice(0, 6).toUpperCase(),
+          titulo: item.texto,
+          descricao: item.extras && (item.extras.Detalhe || item.extras.detalhe) || '',
+          subitens: item.subitens || [],
+          grupo: item.grupo || secao.titulo,
+          secao: secao.letra,
+          status: item.feito ? 'CONCLUIDO' : (STATUS.indexOf(st.status) >= 0 ? st.status : 'NA_FILA'),
+          prioridade: 'P2',
+          ordem: typeof st.ordem === 'number' ? st.ordem : ((indice + 1) * 1000),
+          atualizadaEm: st.atualizadaEm || backlog.geradoEm || '',
+          chamados: st.chamados || {},
+          hash: item.hash || null,
+          feito: !!item.feito
+        });
+        indice++;
+      });
+    });
+    return saida;
+  }
   function requestId() {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID().replace(/-/g, '_');
     return 'ch_' + Date.now() + '_' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
@@ -92,7 +120,7 @@
   }
 
   return {
-    STATUS: STATUS, ROTULO_STATUS: ROTULO_STATUS, ROTULO_TIPO: ROTULO_TIPO, ROTULO_IMPACTO: ROTULO_IMPACTO, ROTULO_PRIORIDADE: ROTULO_PRIORIDADE, ordemParaSoltar: ordemParaSoltar,
+    STATUS: STATUS, ROTULO_STATUS: ROTULO_STATUS, ROTULO_TIPO: ROTULO_TIPO, ROTULO_IMPACTO: ROTULO_IMPACTO, ROTULO_PRIORIDADE: ROTULO_PRIORIDADE, ordemParaSoltar: ordemParaSoltar, itensRoadmap: itensRoadmap,
     TIPOS_ACEITOS: TIPOS_ACEITOS, LIMITE_BYTES: LIMITE_BYTES, MAX_ANEXOS: MAX_ANEXOS,
     nomeSeguro: nomeSeguro, caminhoAnexo: caminhoAnexo, validarArquivo: validarArquivo,
     validarArquivos: validarArquivos, validarFormulario: validarFormulario, porStatus: porStatus,
