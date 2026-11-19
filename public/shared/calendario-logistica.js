@@ -8,6 +8,10 @@
      SAIDA    agendamentos_expedicao/{k} (cargas de PA da Expedição), com o
               faturamento e o saldo aguardando embarque
 
+     AMOSTRA  amostras_mp/{k} (19/11/2026): amostra de MP pedida pelo P&D, na
+              previsão de chegada; entra na agenda sozinha, sem Pedido de
+              Compra (decisão do Marlos). Baixa pela callable amostraMp.
+
    Situações: AGENDADO, ATRASADO (data passou e não foi concluído), PREVISTO
    (só previsão de Compras), PARCIAL (recebido/expedido em parte), CONCLUIDO.
    Motor puro: a tela passa os nós lidos e desenha. */
@@ -47,7 +51,38 @@
     return {itens: itens.length, pedido: pedido, recebido: recebido, pct: pedido ? Math.round(recebido / pedido * 100) : 0};
   }
 
-  /* opts: {hoje, incluirPrevistos=true, incluirConcluidos=false, nomeOrigem(p)} */
+  /* Amostras de MP na agenda (19/11/2026). SOLICITADA: na previsão de chegada
+     (ATRASADO se passou). Recebida/homologada/reprovada: CONCLUIDO na data da
+     baixa. Cancelada: fora. */
+  var UNIDADE_AMOSTRA = {g: 'g', kg: 'kg'};
+  function eventosAmostras(amostras, hoje, incluirConcluidos) {
+    var out = [];
+    Object.keys(amostras || {}).forEach(function(k) {
+      var a = amostras[k] || {};
+      if (a.status === 'CANCELADA') return;
+      var concluido = a.status === 'RECEBIDA' || a.status === 'HOMOLOGADA' || a.status === 'REPROVADA';
+      if (!concluido && a.status !== 'SOLICITADA') return;
+      if (concluido && !incluirConcluidos) return;
+      var data = concluido ? data10(a.recebimento && a.recebimento.data) || data10(a.previsaoChegada) : data10(a.previsaoChegada);
+      if (!data) return;
+      var material = a.tipo === 'NOVA' ? ((a.materialNovo && a.materialNovo.nome) || 'Matéria-prima nova') + ' (nova)'
+        : [a.material && a.material.codigo, a.material && a.material.nome].filter(Boolean).join(' — ');
+      var q = a.quantidade || {};
+      var qtd = q.valor != null ? String(q.valor).replace('.', ',') + ' ' + (UNIDADE_AMOSTRA[q.unidade] || q.unidade || '') : '';
+      out.push({
+        id: 'am:' + k, tipo: 'ENTRADA', amostra: true, ref: k, data: data, faixa: 'dia_todo', janela: '',
+        situacao: concluido ? 'CONCLUIDO' : data < hoje ? 'ATRASADO' : 'AGENDADO',
+        titulo: (a.fornecedor && a.fornecedor.nome) || 'Fornecedor não informado', numero: a.codigo || k,
+        subtitulo: 'Amostra · ' + material + (qtd ? ' · ' + qtd : ''),
+        detalhes: {amostra: true, status: a.status, material: material, quantidade: qtd, motivo: a.motivo || '',
+          solicitante: (a.solicitante && a.solicitante.nome) || '', observacoes: a.observacoes || '',
+          recebimento: a.recebimento || null, transportadora: '', placa: '', motorista: ''}
+      });
+    });
+    return out;
+  }
+
+  /* opts: {hoje, incluirPrevistos=true, incluirConcluidos=false, nomeOrigem(p), amostras} */
   function eventos(pedidosCompra, agendasExpedicao, opts) {
     opts = opts || {};
     var hoje = data10(opts.hoje) || iso(Date.now());
@@ -108,6 +143,8 @@
           contatoCliente: a.contatoCliente || null, totalUnidades: total}
       });
     });
+
+    lista = lista.concat(eventosAmostras(opts.amostras, hoje, incluirConcluidos));
 
     var ordemFaixa = {manha: 0, tarde: 1, dia_todo: 2};
     return lista.sort(function(x, y) {
