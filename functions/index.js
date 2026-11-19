@@ -824,6 +824,7 @@ const servicoChamados = Chamados.criarServico({
     };
   },
   enviarEmail: (para, assunto, corpo) => enviarEmailSistema(para, assunto, corpo, {html: true}),
+  versao: process.env.APP_VERSION || null,
 });
 exports.chamadoSistema = onCall({timeoutSeconds: 60, memory: "256MiB", secrets: [MS_GRAPH_TENANT_ID, MS_GRAPH_CLIENT_ID, MS_GRAPH_CLIENT_SECRET, MS_GRAPH_SENDER_EMAIL]}, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Faça login para usar os chamados.");

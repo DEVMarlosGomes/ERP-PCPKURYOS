@@ -50,7 +50,15 @@ async function rejeita(p, code) { await assert.rejects(p, (e) => e && e.code ===
   assert.equal(C.validarFormulario({tipo:'ERRO',impacto:'ALTO',titulo:'Não salva',descricao:'Ao confirmar, a tela volta vazia.'}, []).ok, true);
   assert.equal(C.validarFormulario({tipo:'',impacto:'',titulo:'x',descricao:'x'}, []).ok, false);
   const colunas = C.porStatus([{id:'b',status:'NOVO',prioridade:'P2'},{id:'a',status:'NOVO',prioridade:'P0'},{id:'c',status:'VALIDAR',prioridade:'P3'}]);
-  assert.deepEqual(colunas.NOVO.map((x) => x.id), ['a','b']);
+  assert.deepEqual(colunas.NOVO.map((x) => x.id), ['a','b'], 'P0 (urgente) antes de P2 — o motor antigo tratava P0 como 9');
+  // Ordem dada no quadro vem antes da prioridade; o resto segue a prioridade.
+  const fila = C.porStatus([{id:'x',status:'NA_FILA',prioridade:'P0'},{id:'y',status:'NA_FILA',prioridade:'P3',ordem:2000},{id:'z',status:'NA_FILA',prioridade:'P2',ordem:1000}]).NA_FILA;
+  assert.deepEqual(fila.map((x) => x.id), ['z','y','x'], 'posicionados primeiro, na ordem do quadro');
+  assert.equal(C.ordemParaSoltar(fila.filter((x) => x.id !== 'x'), 'y'), 1500, 'soltar sobre y entra entre z e y');
+  assert.equal(C.ordemParaSoltar(fila.filter((x) => x.id !== 'x'), 'z'), 0, 'soltar sobre o primeiro vai para o topo');
+  assert.equal(C.ordemParaSoltar(fila.filter((x) => x.id !== 'x'), null), 3000, 'soltar no vazio vai para o fim');
+  assert.equal(C.ordemParaSoltar([], null), 1000, 'coluna vazia');
+  assert.equal(C.ROTULO_PRIORIDADE.P0, 'Urgente');
   ok('motor da tela valida arquivos/formulário, cria caminho seguro e ordena o quadro');
 
   assert.equal(S.prioridadeDoImpacto('CRITICO'), 'P0');
@@ -73,6 +81,7 @@ async function rejeita(p, code) { await assert.rejects(p, (e) => e && e.code ===
     agora: () => new Date(Date.UTC(2026,10,13,12,minuto++)).toISOString(),
     obterAnexo: async (path) => ({size:path.endsWith('b.webp')?2048:1024,contentType:path.endsWith('b.webp')?'image/webp':'image/png',originalName:path.endsWith('b.webp')?'segundo.webp':'primeiro.png'}),
     enviarEmail: async (para, assunto) => { emails.push({para,assunto}); return true; },
+    versao: '65038e6abc',
   });
   const requestId = 'req_123456789012345';
   const reserva = await servico.executar('u1',{acao:'RESERVAR',requestId});
@@ -84,7 +93,11 @@ async function rejeita(p, code) { await assert.rejects(p, (e) => e && e.code ===
   assert.equal(ler(db.data,`chamados/${reserva.id}/status`),'NOVO');
   assert.equal(Object.keys(ler(db.data,`chamados/${reserva.id}/anexos`)).length,2);
   assert.equal(ler(db.data,`chamados/${reserva.id}/contexto/pagina`),'cadastros.html');
+  assert.equal(typeof ler(db.data,`chamados/${reserva.id}/ordem`),'number','chamado novo já nasce posicionado no quadro');
   assert.equal(emails.length,1);
+  assert.equal(ler(db.data,`chamados/${reserva.id}/contexto/versao`),'65038e6abc','versão publicada gravada no chamado');
+  assert.equal(ler(db.data,`chamados_fila_adm/${reserva.id}/aguardaAdm`),true,'novo chamado conta no menu do ADM');
+  assert.equal(ler(db.data,`chamados_caixa/u1/${reserva.id}/aguardaVoce`),false,'e não conta no menu do autor');
   const repetido = await servico.executar('u1',{acao:'CRIAR',requestId});
   assert.equal(repetido.repetida,true);
   assert.equal(ler(db.data,'config/contadores/chamados'),1,'retry não consome outro número');
@@ -101,16 +114,39 @@ async function rejeita(p, code) { await assert.rejects(p, (e) => e && e.code ===
   ok('autor só vê os seus, terceiro não abre, inativo é recusado e ADM vê o quadro');
 
   await servico.executar('adm',{acao:'TRIAR',id:reserva.id,prioridade:'P0',responsavel:'Equipe ERP'});
+  assert.equal(emails.length,1,'triagem não envia e-mail sem mudança de etapa');
+  await servico.executar('adm',{acao:'MOVER',id:reserva.id,status:'NA_FILA',ordem:1000});
+  assert.equal(ler(db.data,`chamados/${reserva.id}/ordem`),1000,'posição na fila gravada');
+  await servico.executar('adm',{acao:'MOVER',id:reserva.id,status:'NA_FILA',ordem:500});
+  assert.equal(ler(db.data,`chamados_caixa/u1/${reserva.id}/ordem`),500,'reordenar na mesma coluna');
+  assert.equal(emails.length,2,'reordenar na mesma coluna não envia e-mail');
+  await rejeita(servico.executar('adm',{acao:'MOVER',id:reserva.id,status:'NA_FILA'}),'invalid-argument');
+  await rejeita(servico.executar('adm',{acao:'MOVER',id:reserva.id,status:'NA_FILA',ordem:'abc'}),'invalid-argument');
+  await rejeita(servico.executar('u1',{acao:'MOVER',id:reserva.id,status:'CONCLUIDO'}),'permission-denied');
   await servico.executar('adm',{acao:'MOVER',id:reserva.id,status:'EM_ANDAMENTO'});
+  await rejeita(servico.executar('adm',{acao:'DUPLICADO',id:reserva.id,duplicadoDe:'CH-99999'}),'failed-precondition');
+  await rejeita(servico.executar('adm',{acao:'DUPLICADO',id:reserva.id,duplicadoDe:'CH-00001'}),'failed-precondition');
   await servico.executar('adm',{acao:'COMENTAR',id:reserva.id,texto:'Correção aplicada; falta validar.'});
   await servico.executar('adm',{acao:'MOVER',id:reserva.id,status:'VALIDAR'});
   assert.equal(ler(db.data,`chamados/${reserva.id}/aguardandoRespostaDe`),'AUTOR');
+  assert.equal(ler(db.data,`chamados_caixa/u1/${reserva.id}/aguardaVoce`),true,'em Validar, conta no menu do autor');
+  assert.equal(ler(db.data,`chamados_fila_adm/${reserva.id}/aguardaAdm`),false,'e sai do menu do ADM');
   await rejeita(servico.executar('u2',{acao:'CONFIRMAR',id:reserva.id}),'permission-denied');
   await servico.executar('u1',{acao:'CONFIRMAR',id:reserva.id,texto:'Agora funcionou.'});
   assert.equal(ler(db.data,`chamados/${reserva.id}/status`),'CONCLUIDO');
   assert.equal(ler(db.data,`chamados_caixa/u1/${reserva.id}/status`),'CONCLUIDO');
   assert.ok(Object.keys(ler(db.data,`chamados/${reserva.id}/historico`)).length >= 6);
+  assert.equal(ler(db.data,`chamados_caixa/u1/${reserva.id}/aguardaVoce`),false,'concluído não conta mais');
+  await rejeita(servico.executar('adm',{acao:'TRIAR',id:reserva.id,prioridade:'P1'}),'failed-precondition');
   ok('ADM tria, move e comenta; somente o autor valida e toda mudança fica no histórico');
+
+  // Ligação: a callable passa a versão publicada e o menu tem Chamados com contador.
+  const fs = require('fs'), idx = fs.readFileSync('functions/index.js','utf8'), ac = fs.readFileSync('public/auth_check.js','utf8');
+  assert.match(idx, /versao: process\.env\.APP_VERSION \|\| null/);
+  assert.match(idx, /exports\.chamadoSistema = onCall/);
+  assert.match(ac, /ktLink\('chamados\.html'.*kt-cham-n/);
+  assert.match(ac, /ref\('chamados_caixa\/' \+ user\.uid\)/);
+  ok('ligação: versão publicada na callable e Chamados com contador no menu');
 
   console.log('OK run_chamados_test.js: '+n+' grupos.');
 })().catch((e) => { console.error(e); process.exitCode = 1; });

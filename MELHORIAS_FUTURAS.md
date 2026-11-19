@@ -1,5 +1,24 @@
 # Melhorias Futuras — Sistema PCP Kuryos
 
+## Chamados / helpdesk — o que ficou para depois (18/11/2026)
+
+Fase 1 entregue (`chamados.html`, callable `chamadoSistema`). As quatro decisões da proposta de 13/11 seguiram a
+sugestão dela até o Marlos dizer outra coisa: (1) todos abrem chamado, menos a TV; (2) o quadro é só do ADM, cada
+pessoa vê os seus; (3) e-mail ao ADM no chamado novo e ao autor quando muda de etapa ou recebe pergunta; (4) o backlog
+técnico entra no quadro só na Fase 2. Mudar qualquer uma é ajuste pequeno em `functions/chamados.js`.
+
+- **Fase 2 — um Roadmap só:** trazer os itens de `MELHORIAS_FUTURAS.md` (`public/backlog.json`) para o quadro como
+  cartões, com a ordem no banco; ligar o chamado ao item que o resolve; script que entrega o topo da fila aos agentes
+  e grava o commit ao concluir.
+- **Fase 3 — medir:** tempo até a primeira resposta e até a conclusão por setor e tipo; anexar sozinho o erro de
+  JavaScript da tela; quadro em modo leitura para gestores.
+- **Abrir o formulário direto da tela atual:** hoje o link do menu leva à lista (a tela de origem vai pelo
+  `document.referrer`); um atalho "Abrir chamado desta tela" que já abre o formulário (`chamados.html?nova=1`) evita
+  um clique.
+- **`LISTAR` lê `chamados` inteiro** a cada abertura da lista. Quando passar de algumas centenas de chamados, listar
+  pela caixa (`chamados_caixa/{uid}`) e pela fila (`chamados_fila_adm`), que já têm o resumo.
+- **Responsável é texto livre** na triagem; virar seleção de usuário quando houver mais de uma pessoa tratando.
+
 ## Fiscal + Controladoria + Financeiro (prompt mestre) — o que ficou para depois (18/11/2026)
 
 Entregue em `fiscal/paridade-webmais` (ver `AGENT_STATUS.md`). O que ficou, por ordem de valor:

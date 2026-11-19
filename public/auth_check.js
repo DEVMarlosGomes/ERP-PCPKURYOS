@@ -998,7 +998,9 @@ function renderUnifiedNavbar(user) {
     // Cobranças (11/11/2026): para todos que têm Início; o contador mostra o que
     // espera pela pessoa (cobrancas_caixa/{uid}, ligado depois de inserir o menu).
     (temInicio(user) ? '<div class="kt-nav-top">' + ktLink('inicio.html', 'dashboard', 'Início', activePage) +
-      ktLink('cobrancas.html', 'bell', 'Cobranças', activePage).replace('</span></a>', '</span><span class="kt-cobr-n" id="kt-cobr-n" hidden></span></a>') + '</div>' : '') +
+      ktLink('cobrancas.html', 'bell', 'Cobranças', activePage).replace('</span></a>', '</span><span class="kt-cobr-n" id="kt-cobr-n" hidden></span></a>') +
+      // Chamados (18/11/2026, helpdesk): abrir chamado de qualquer tela; o contador mostra o que espera pela pessoa.
+      ktLink('chamados.html', 'clipboard', 'Chamados', activePage).replace('</span></a>', '</span><span class="kt-cobr-n" id="kt-cham-n" hidden></span></a>') + '</div>' : '') +
     gruposHtml +
     '</nav>' +
     '<div class="kt-sidebar-foot">' +
@@ -1042,7 +1044,7 @@ function renderUnifiedNavbar(user) {
   sidebar.addEventListener('click', function(e) { if (e.target.closest('.kt-nav-link')) closeDrawer(); });
 
   montarSanfona(sidebar, user);
-  if (temInicio(user)) ligarContadorCobrancas(sidebar, user);
+  if (temInicio(user)) { ligarContadorCobrancas(sidebar, user); ligarContadorChamados(sidebar, user); }
 
   // Insere sidebar, hamburger e fundo escurecido no início do body
   body.insertBefore(backdrop, body.firstChild);
@@ -1086,6 +1088,28 @@ function ligarContadorCobrancas(sidebar, user) {
       el.setAttribute('aria-label', n + (n === 1 ? ' cobrança espera por você' : ' cobranças esperam por você'));
       window.kuryosCobrancasPendentes = n;
     }, function() { el.hidden = true; });
+  } catch (e) { el.hidden = true; }
+}
+
+/* Contador de chamados no menu (18/11/2026): os chamados do usuário que esperam a resposta dele
+   (chamados_caixa/{uid}, aguardaVoce) e, para o ADM, os que esperam a triagem/resposta do ADM
+   (chamados_fila_adm, aguardaAdm). Falha de leitura só esconde o número. */
+function ligarContadorChamados(sidebar, user) {
+  var el = sidebar.querySelector('#kt-cham-n');
+  if (!el || typeof firebase === 'undefined' || !firebase.database || !user || !user.uid) return;
+  var meus = 0, adm = 0;
+  function mostrar() {
+    var n = meus + adm;
+    el.textContent = n > 99 ? '99+' : String(n);
+    el.hidden = !n;
+    el.setAttribute('aria-label', n + (n === 1 ? ' chamado espera por você' : ' chamados esperam por você'));
+    window.kuryosChamadosPendentes = n;
+  }
+  function contar(campo, cb) { return function(s) { var c = (s && s.val && s.val()) || {}, n = 0; Object.keys(c).forEach(function(k) { if (c[k] && c[k][campo] === true) n++; }); cb(n); mostrar(); }; }
+  try {
+    firebase.database().ref('chamados_caixa/' + user.uid).on('value', contar('aguardaVoce', function(n) { meus = n; }), function() { meus = 0; mostrar(); });
+    if (user.role === 'admin' || (user.funcoes && user.funcoes.admin === true))
+      firebase.database().ref('chamados_fila_adm').on('value', contar('aguardaAdm', function(n) { adm = n; }), function() { adm = 0; mostrar(); });
   } catch (e) { el.hidden = true; }
 }
 

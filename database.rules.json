@@ -134,6 +134,16 @@
         ".read": "(auth != null && root.child('usuarios').child(auth.uid).child('role').exists() && root.child('usuarios').child(auth.uid).child('role').val() != 'pending' && root.child('usuarios').child(auth.uid).child('desativado').val() != true && (!root.child('security_sessions').child(auth.uid).child('revokedAfter').exists() || auth.token.auth_time > root.child('security_sessions').child(auth.uid).child('revokedAfter').val())) && (data.child('de').child('uid').val() == auth.uid || data.child('para').child(auth.uid).exists() || root.child('usuarios').child(auth.uid).child('role').val() == 'admin')"
       }
     },
+    // Chamados / helpdesk (18/11/2026): tudo pela callable chamadoSistema. O navegador só lê a
+    // própria caixa (lista e contador do menu) e, se for ADM, a fila do quadro. Chamado, histórico,
+    // anexos e pedidos de envio ficam só com o servidor.
+    "chamados": { ".read": false, ".write": false },
+    "chamados_pedidos": { ".read": false, ".write": false },
+    "chamados_caixa": {
+      ".write": false,
+      "$uid": { ".read": "(auth != null && root.child('usuarios').child(auth.uid).child('role').exists() && root.child('usuarios').child(auth.uid).child('role').val() != 'pending' && root.child('usuarios').child(auth.uid).child('desativado').val() != true && (!root.child('security_sessions').child(auth.uid).child('revokedAfter').exists() || auth.token.auth_time > root.child('security_sessions').child(auth.uid).child('revokedAfter').val())) && auth.uid == $uid" }
+    },
+    "chamados_fila_adm": { ".read": "(auth != null && root.child('usuarios').child(auth.uid).child('role').exists() && root.child('usuarios').child(auth.uid).child('role').val() != 'pending' && root.child('usuarios').child(auth.uid).child('desativado').val() != true && (!root.child('security_sessions').child(auth.uid).child('revokedAfter').exists() || auth.token.auth_time > root.child('security_sessions').child(auth.uid).child('revokedAfter').val())) && (root.child('usuarios').child(auth.uid).child('role').val() == 'admin' || root.child('usuarios').child(auth.uid).child('funcoes').child('admin').val() == true)", ".write": false },
     // Caixa de cada pessoa (índice do menu e da lista). Só o dono lê; o servidor
     // grava. O dono só marca como lida (naoLida = false) o que já está na caixa.
     "cobrancas_caixa": {

@@ -56,11 +56,12 @@ Object.keys(PERFIS).forEach((nome) => {
   const todos = linksDoMenu(fonte, PERFIS[nome], fonteNav);
   // Início (MENU-03) fica fora dos blocos, no topo: o único link que o menu antigo não tinha.
   // Cobranças (11/11/2026) fica no topo junto do Início, para os mesmos perfis.
-  const TOPO = ['inicio', 'cobrancas'];
+  // Chamados (18/11/2026, helpdesk) fica no topo junto de Cobranças, para os mesmos perfis.
+  const TOPO = ['inicio', 'cobrancas', 'chamados'];
   const inicio = todos.filter((l) => TOPO.includes(l.href));
   const novo = todos.filter((l) => !TOPO.includes(l.href));
   const esperaInicio = !['tv', 'pending'].includes(user.role);
-  assert.deepEqual(inicio.map((l) => [l.grupo, l.rotulo]).sort(), esperaInicio ? [[null, 'Cobranças'], [null, 'Início']] : [], nome + ': Início e Cobranças no topo');
+  assert.deepEqual(inicio.map((l) => [l.grupo, l.rotulo]).sort(), esperaInicio ? [[null, 'Chamados'], [null, 'Cobranças'], [null, 'Início']] : [], nome + ': Início, Cobranças e Chamados no topo');
   assert.equal(acesso.homeDoUsuario(user), esperaInicio ? 'inicio.html' : (user.role === 'tv' ? 'placar.html' : 'login.html?status=pending'), nome + ': home');
   const hrefsNovos = novo.map((l) => l.href);
 
@@ -95,7 +96,7 @@ Object.keys(PERFIS).forEach((nome) => {
 assert.equal(comparados, Object.keys(PERFIS).length);
 
 // ── Blocos do D-01 e agrupamentos esperados
-const menu = (nome, pagina) => linksDoMenu(fonte, PERFIS[nome], fonteNav, pagina).filter((l) => l.href !== 'inicio' && l.href !== 'cobrancas');
+const menu = (nome, pagina) => linksDoMenu(fonte, PERFIS[nome], fonteNav, pagina).filter((l) => l.href !== 'inicio' && l.href !== 'cobrancas' && l.href !== 'chamados');
 const doBloco = (links, bloco) => links.filter((l) => l.grupo === bloco);
 const rotulos = (links, bloco) => doBloco(links, bloco).map((l) => l.rotulo);
 

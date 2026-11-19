@@ -90,6 +90,9 @@ async function validarAnexos(uid, chamadoId, anexos, obterAnexo) {
   }
   return saida;
 }
+function aguardaVoce(c) { return c.aguardandoRespostaDe === 'AUTOR' && !STATUS_FINAIS.includes(c.status); }
+function aguardaAdm(c) { return c.aguardandoRespostaDe === 'ADMIN' && !STATUS_FINAIS.includes(c.status); }
+// Caixa do autor: lista e contador do menu ("aguarda você"), lida só pelo próprio (regra do banco).
 function resumo(id, c) {
   return {
     id,
@@ -105,7 +108,13 @@ function resumo(id, c) {
     criadaEm: c.criadaEm,
     atualizadaEm: c.atualizadaEm,
     anexosQuantidade: Object.keys(c.anexos || {}).length,
+    ordem: typeof c.ordem === 'number' ? c.ordem : null,
+    aguardaVoce: aguardaVoce(c),
   };
+}
+// Fila do ADM: o contador do menu do administrador ("aguarda ADM"), lida só por ADM.
+function resumoFila(id, c) {
+  return {codigo: c.codigo, titulo: c.titulo, status: c.status, prioridade: c.prioridade, aguardaAdm: aguardaAdm(c), atualizadaEm: c.atualizadaEm};
 }
 function evento(tipo, pessoa, quando, textoEvento, extras) {
   return Object.assign({tipo, uid: pessoa.uid, nome: pessoa.nome, em: quando}, textoEvento ? {texto: textoEvento} : {}, extras || {});
@@ -131,6 +140,8 @@ function criarServico(deps) {
   const obterAnexo = deps.obterAnexo || (async () => { throw new Error('Storage indisponível'); });
   const enviarEmail = deps.enviarEmail || (async () => false);
   const agora = deps.agora || (() => new Date().toISOString());
+  // Versão publicada na hora do chamado (o deploy da VPS define APP_VERSION com o commit).
+  const versao = deps.versao || null;
 
   async function contexto(uid) {
     const [perfilSnap, usuariosSnap] = await Promise.all([
@@ -141,10 +152,11 @@ function criarServico(deps) {
     if (!ativo(perfil)) throw erro('permission-denied', 'Seu acesso não está ativo.');
     return {perfil, usuarios: usuariosSnap.val() || {}, pessoa: {uid, nome: nome(perfil, uid)}};
   }
-  async function avisar(c, acao, ator, usuarios, incluirAutor) {
-    const emails = destinatariosAdmin(usuarios);
+  async function avisar(c, acao, ator, usuarios, destinos) {
+    const opcoes = destinos || {};
+    const emails = opcoes.admins ? destinatariosAdmin(usuarios) : [];
     const autorEmail = usuarios[c.autor.uid] && usuarios[c.autor.uid].email;
-    if (incluirAutor && /@/.test(autorEmail || '')) emails.push(autorEmail.trim().toLowerCase());
+    if (opcoes.autor && /@/.test(autorEmail || '')) emails.push(autorEmail.trim().toLowerCase());
     const unicos = emails.filter((v, i, a) => a.indexOf(v) === i);
     if (!unicos.length) return {status: 'SEM_DESTINATARIOS'};
     const mail = montarEmail(c, acao, ator);
@@ -171,6 +183,7 @@ function criarServico(deps) {
     if (!pedido || !idValido(pedido.id)) throw erro('failed-precondition', 'Reserve o chamado antes de enviar os prints.');
     if (pedido.finalizado) return {ok: true, id: pedido.id, codigo: pedido.codigo, repetida: true};
     const campos = validarCriacao(dados);
+    campos.contexto.versao = versao;
     const anexos = await validarAnexos(uid, pedido.id, dados.anexos, obterAnexo);
     const contadorRef = db.ref('config/contadores/chamados');
     const txContador = await contadorRef.transaction((v) => Math.max(0, Number(v) || 0) + 1);
@@ -189,6 +202,9 @@ function criarServico(deps) {
       autor: ctx.pessoa,
       criadaEm: quando,
       atualizadaEm: quando,
+      // Todo cartão nasce posicionado. Assim, arrastar antes/depois de outro
+      // cartão mantém a ordem exata mesmo antes da primeira triagem.
+      ordem: Date.parse(quando) || 1,
       aguardandoRespostaDe: 'ADMIN',
       anexos: anexosMap,
       historico: {[eventoId]: evento('CRIADO', ctx.pessoa, quando, '', {status: 'NOVO'})},
@@ -197,11 +213,12 @@ function criarServico(deps) {
     const updates = {};
     updates[`chamados/${pedido.id}`] = chamado;
     updates[`chamados_caixa/${uid}/${pedido.id}`] = resumo(pedido.id, chamado);
+    updates[`chamados_fila_adm/${pedido.id}`] = resumoFila(pedido.id, chamado);
     updates[`chamados_pedidos/${uid}/${dados.requestId}/finalizado`] = true;
     updates[`chamados_pedidos/${uid}/${dados.requestId}/codigo`] = codigo;
     updates[`chamados_pedidos/${uid}/${dados.requestId}/finalizadoEm`] = quando;
     await db.ref().update(updates);
-    const email = await avisar(chamado, 'Novo chamado', ctx.pessoa.nome, ctx.usuarios, false);
+    const email = await avisar(chamado, 'Novo chamado', ctx.pessoa.nome, ctx.usuarios, {admins: true});
     await db.ref(`chamados/${pedido.id}/emailUltimo`).set(Object.assign({em: agora()}, email));
     return {ok: true, id: pedido.id, codigo, status: 'NOVO', email};
   }
@@ -228,13 +245,26 @@ function criarServico(deps) {
     const quando = agora();
     let salvo = null;
     let falha = null;
+    let tipoEventoSalvo = null;
+    let mudouStatus = false;
+    let duplicadoOriginal = null;
+    if (acao === 'DUPLICADO') {
+      if (!eAdmin(ctx.perfil)) throw erro('permission-denied', 'Somente administradores marcam duplicidade.');
+      const codigo = texto(dados.duplicadoDe, 40).toUpperCase();
+      if (!/^CH-\d{3,}$/.test(codigo)) throw erro('invalid-argument', 'Informe o código do chamado original.');
+      const todos = (await db.ref('chamados').once('value')).val() || {};
+      const originalId = Object.keys(todos).find((id) => id !== dados.id && todos[id] && todos[id].codigo === codigo);
+      if (!originalId) throw erro('failed-precondition', 'O chamado original não existe ou é este mesmo chamado.');
+      duplicadoOriginal = {id: originalId, codigo};
+    }
     const tx = await ref.transaction((atual) => {
-      salvo = null; falha = null;
+      salvo = null; falha = null; tipoEventoSalvo = null; mudouStatus = false;
       if (!atual) return atual;
       try {
         const autor = atual.autor && atual.autor.uid === uid;
         const admin = eAdmin(ctx.perfil);
         if (!admin && !autor) throw erro('permission-denied', 'Você não participa deste chamado.');
+        if (STATUS_FINAIS.includes(atual.status)) throw erro('failed-precondition', 'Este chamado já está encerrado.');
         const novo = Object.assign({}, atual);
         novo.historico = Object.assign({}, atual.historico || {});
         let ev;
@@ -248,9 +278,17 @@ function criarServico(deps) {
           if (!admin) throw erro('permission-denied', 'Somente administradores movem o chamado.');
           const status = texto(dados.status, 30).toUpperCase();
           if (!STATUS.includes(status)) throw erro('invalid-argument', 'Coluna inválida.');
+          // A posição na coluna é a ordem de trabalho: o quadro manda um número entre os vizinhos.
+          const ordem = dados.ordem == null || dados.ordem === '' ? null : Number(dados.ordem);
+          if (ordem != null && (!Number.isFinite(ordem) || Math.abs(ordem) > Number.MAX_SAFE_INTEGER)) throw erro('invalid-argument', 'Posição inválida.');
+          if (status === atual.status && ordem == null) throw erro('invalid-argument', 'O chamado já está nesta coluna.');
+          if (ordem != null) novo.ordem = ordem;
           novo.status = status;
           novo.aguardandoRespostaDe = status === 'VALIDAR' ? 'AUTOR' : status === 'CONCLUIDO' ? null : 'ADMIN';
-          ev = evento('STATUS', ctx.pessoa, quando, texto(dados.texto, 500), {de: atual.status, para: status});
+          mudouStatus = status !== atual.status;
+          ev = mudouStatus
+            ? evento('STATUS', ctx.pessoa, quando, texto(dados.texto, 500), {de: atual.status, para: status})
+            : evento('ORDEM', ctx.pessoa, quando, '', {status, ordem: novo.ordem});
         } else if (acao === 'TRIAR') {
           if (!admin) throw erro('permission-denied', 'Somente administradores fazem a triagem.');
           const prioridade = texto(dados.prioridade, 10).toUpperCase();
@@ -261,31 +299,34 @@ function criarServico(deps) {
         } else if (acao === 'CONFIRMAR') {
           if (!autor || atual.status !== 'VALIDAR') throw erro('failed-precondition', 'O chamado não está aguardando sua validação.');
           novo.status = 'CONCLUIDO'; novo.aguardandoRespostaDe = null;
+          mudouStatus = true;
           ev = evento('CONFIRMADO', ctx.pessoa, quando, texto(dados.texto, 500));
         } else if (acao === 'REABRIR') {
           if (!autor || atual.status !== 'VALIDAR') throw erro('failed-precondition', 'O chamado não está aguardando sua validação.');
           const motivo = texto(dados.texto, 1000);
           if (motivo.length < 5) throw erro('invalid-argument', 'Explique o que ainda precisa ser corrigido.');
           novo.status = 'EM_ANDAMENTO'; novo.aguardandoRespostaDe = 'ADMIN';
+          mudouStatus = true;
           ev = evento('REABERTO', ctx.pessoa, quando, motivo);
         } else if (acao === 'RECUSAR') {
           if (!admin) throw erro('permission-denied', 'Somente administradores recusam chamados.');
           const motivo = texto(dados.texto, 1000);
           if (motivo.length < 5) throw erro('invalid-argument', 'Informe o motivo da recusa.');
           novo.status = 'RECUSADO'; novo.aguardandoRespostaDe = null;
+          mudouStatus = true;
           ev = evento('RECUSADO', ctx.pessoa, quando, motivo);
         } else if (acao === 'DUPLICADO') {
           if (!admin) throw erro('permission-denied', 'Somente administradores marcam duplicidade.');
-          const duplicadoDe = texto(dados.duplicadoDe, 40).toUpperCase();
-          if (!/^CH-\d{3,}$/.test(duplicadoDe)) throw erro('invalid-argument', 'Informe o código do chamado original.');
-          novo.status = 'DUPLICADO'; novo.duplicadoDe = duplicadoDe; novo.aguardandoRespostaDe = null;
-          ev = evento('DUPLICADO', ctx.pessoa, quando, texto(dados.texto, 500), {duplicadoDe});
+          novo.status = 'DUPLICADO'; novo.duplicadoDe = duplicadoOriginal.codigo; novo.duplicadoId = duplicadoOriginal.id; novo.aguardandoRespostaDe = null;
+          mudouStatus = true;
+          ev = evento('DUPLICADO', ctx.pessoa, quando, texto(dados.texto, 500), {duplicadoDe: duplicadoOriginal.codigo, duplicadoId: duplicadoOriginal.id});
         } else {
           throw erro('invalid-argument', 'Ação desconhecida.');
         }
         novo.atualizadaEm = quando;
         novo.versao = (Number(atual.versao) || 0) + 1;
         novo.historico[eventoId] = ev;
+        tipoEventoSalvo = ev.tipo;
         salvo = novo;
         return novo;
       } catch (e) { falha = e; return; }
@@ -293,10 +334,14 @@ function criarServico(deps) {
     if (falha) throw falha;
     if (!tx.snapshot.exists()) throw erro('not-found', 'Chamado não encontrado.');
     if (!tx.committed || !salvo) throw erro('aborted', 'O chamado mudou. Recarregue e tente novamente.');
-    await db.ref(`chamados_caixa/${salvo.autor.uid}/${dados.id}`).set(resumo(dados.id, salvo));
+    await db.ref().update({[`chamados_caixa/${salvo.autor.uid}/${dados.id}`]: resumo(dados.id, salvo), [`chamados_fila_adm/${dados.id}`]: resumoFila(dados.id, salvo)});
     salvo.id = dados.id;
-    const email = await avisar(salvo, acao === 'COMENTAR' ? 'Novo comentário' : 'Chamado atualizado', ctx.pessoa.nome, ctx.usuarios, ctx.pessoa.uid !== salvo.autor.uid);
-    await ref.child('emailUltimo').set(Object.assign({em: agora()}, email));
+    const autorAgiu = ctx.pessoa.uid === salvo.autor.uid;
+    const deveAvisar = tipoEventoSalvo !== 'ORDEM' && tipoEventoSalvo !== 'TRIAGEM';
+    const email = deveAvisar
+      ? await avisar(salvo, acao === 'COMENTAR' ? 'Novo comentário' : 'Chamado atualizado', ctx.pessoa.nome, ctx.usuarios, autorAgiu ? {admins: true} : {autor: mudouStatus || acao === 'COMENTAR'})
+      : {status: 'NAO_APLICAVEL'};
+    if (deveAvisar) await ref.child('emailUltimo').set(Object.assign({em: agora()}, email));
     return {ok: true, id: dados.id, status: salvo.status, email};
   }
   async function executar(uid, dados) {
@@ -313,5 +358,5 @@ function criarServico(deps) {
 
 module.exports = {
   STATUS, STATUS_FINAIS, PRIORIDADES, TIPOS, IMPACTOS, MIME_IMAGEM, LIMITE_ANEXO, LIMITE_ANEXOS,
-  ativo, eAdmin, prioridadeDoImpacto, validarCriacao, caminhoPermitido, validarAnexos, resumo, montarEmail, criarServico,
+  ativo, eAdmin, prioridadeDoImpacto, validarCriacao, caminhoPermitido, validarAnexos, resumo, resumoFila, aguardaVoce, aguardaAdm, montarEmail, criarServico,
 };

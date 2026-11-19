@@ -47,6 +47,7 @@
     .ch-row:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line));transform:translateY(-1px);box-shadow:0 10px 22px -18px rgba(10,28,105,.7)}
     .ch-row-title{display:flex;align-items:center;gap:9px;min-width:0}.ch-code{font-variant-numeric:tabular-nums;font-size:12px;font-weight:750;color:var(--accent);white-space:nowrap}.ch-title{font-size:14.5px;font-weight:680;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ch-meta{color:var(--ink-soft);font-size:12.5px;margin-top:5px;line-height:1.35}.ch-tags{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
     .ch-tag{display:inline-flex;align-items:center;min-height:25px;padding:3px 9px;border-radius:999px;background:color-mix(in srgb,var(--ink) 7%,transparent);color:var(--ink-soft);font-size:11.5px;font-weight:700;white-space:nowrap}.ch-tag.priority{color:var(--accent);background:color-mix(in srgb,var(--accent) 11%,transparent)}.ch-tag.wait{background:color-mix(in srgb,var(--warn) 20%,transparent);color:color-mix(in srgb,#7a4b00 84%,var(--ink))}.ch-tag.done{background:color-mix(in srgb,var(--good) 14%,transparent);color:color-mix(in srgb,var(--good) 76%,var(--ink))}.ch-tag.critical{background:color-mix(in srgb,var(--critical) 13%,transparent);color:color-mix(in srgb,var(--critical) 82%,var(--ink))}
+    .ch-list[hidden],.ch-board[hidden]{display:none}
     .ch-empty{padding:44px 20px;text-align:center;border:1px dashed var(--line);border-radius:14px;color:var(--ink-soft);background:color-mix(in srgb,var(--panel) 80%,transparent)}.ch-empty strong{display:block;color:var(--ink);font-size:16px;margin-bottom:5px}
     .ch-board{display:grid;grid-template-columns:repeat(5,minmax(230px,1fr));gap:12px;overflow-x:auto;padding:2px 2px 12px;scrollbar-color:var(--line) transparent}.ch-column{min-height:440px;border-top:3px solid var(--line);background:color-mix(in srgb,var(--panel) 72%,transparent);border-radius:4px 4px 14px 14px;padding:12px}.ch-column[data-status="EM_ANDAMENTO"]{border-top-color:var(--accent)}.ch-column[data-status="VALIDAR"]{border-top-color:var(--warn)}.ch-column[data-status="CONCLUIDO"]{border-top-color:var(--good)}.ch-column.dragover{background:color-mix(in srgb,var(--accent) 9%,var(--panel))}
     .ch-col-head{display:flex;justify-content:space-between;align-items:center;margin:0 2px 11px;font-size:12px;font-weight:760;text-transform:uppercase;letter-spacing:.04em}.ch-col-head span{font-variant-numeric:tabular-nums;color:var(--ink-mute)}.ch-cards{display:grid;gap:8px}.ch-card{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--panel);cursor:grab;box-shadow:0 5px 14px -13px rgba(0,0,0,.7)}.ch-card:active{cursor:grabbing}.ch-card h3{font-size:13px;line-height:1.35;margin:6px 0 8px}.ch-card .ch-tags{justify-content:flex-start}.ch-card small{display:block;color:var(--ink-soft);margin-top:8px;font-size:11.5px}
@@ -62,7 +63,7 @@
 </head>
 <body class="kuryos-theme has-sidebar">
   <main class="ch-page">
-    <header class="ch-head">
+    <header class="ch-head" data-ui="page-header">
       <div>
         <h1>Chamados</h1>
         <p>Relate erros, dúvidas e melhorias sem sair do ERP. O chamado guarda a tela em que você estava, aceita prints e mantém cada resposta no histórico.</p>

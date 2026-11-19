@@ -21,7 +21,7 @@
   }
   function tags(item) {
     var espera = textoEspera(item), finalizado = statusFinal(item.status);
-    return '<span class="ch-tag priority ' + (item.prioridade === 'P0' ? 'critical' : '') + '">' + esc(item.prioridade || 'P3') + '</span>' +
+    return '<span class="ch-tag priority ' + (item.prioridade === 'P0' ? 'critical' : '') + '">' + esc(C.ROTULO_PRIORIDADE[item.prioridade] || item.prioridade || 'Baixa') + '</span>' +
       (espera ? '<span class="ch-tag wait">' + esc(espera) + '</span>' : '') +
       '<span class="ch-tag ' + (finalizado ? 'done' : '') + '">' + esc(C.ROTULO_STATUS[item.status] || item.status) + '</span>' +
       (item.anexosQuantidade ? '<span class="ch-tag">' + item.anexosQuantidade + (item.anexosQuantidade === 1 ? ' print' : ' prints') + '</span>' : '');
@@ -68,7 +68,10 @@
         e.preventDefault(); col.classList.remove('dragover');
         var id = e.dataTransfer.getData('text/chamado');
         if (!id) return;
-        mover(id, col.dataset.status);
+        // Solto sobre um cartão: entra antes dele; no espaço vazio: vai para o fim. A posição é a ordem da fila.
+        var alvo = e.target && e.target.closest ? e.target.closest('.ch-card') : null;
+        var lista = C.porStatus(filtrados())[col.dataset.status].filter(function(x) { return x.id !== id; });
+        mover(id, col.dataset.status, C.ordemParaSoltar(lista, alvo && alvo.dataset.id !== id ? alvo.dataset.id : null));
       };
     });
   }
@@ -152,15 +155,17 @@
     }).finally(function(){enviando=false;$('btnEnviar').disabled=false;$('btnEnviar').textContent='Enviar chamado';});
   }
 
-  function mover(id,status) {
-    var atual=itens.find(function(x){return x.id===id;});if(!atual||atual.status===status)return;
+  function mover(id,status,ordem) {
+    var atual=itens.find(function(x){return x.id===id;});if(!atual)return;
+    if(atual.status===status&&ordem==null)return;
     mensagem('Movendo '+atual.codigo+'…');
-    chamar({acao:'MOVER',id:id,status:status}).then(function(){mensagem(atual.codigo+' movido para '+C.ROTULO_STATUS[status]+'.','ok');return carregar();}).catch(function(err){mensagem(msgErro(err),'error');});
+    var dados={acao:'MOVER',id:id,status:status};if(ordem!=null)dados.ordem=ordem;
+    chamar(dados).then(function(){mensagem(atual.codigo+(atual.status===status?' reposicionado em ':' movido para ')+C.ROTULO_STATUS[status]+'.','ok');return carregar();}).catch(function(err){mensagem(msgErro(err),'error');});
   }
-  var EVENTO={CRIADO:'abriu o chamado',COMENTARIO:'comentou',STATUS:'moveu o chamado',TRIAGEM:'atualizou a triagem',CONFIRMADO:'confirmou a solução',REABERTO:'reabriu o chamado',RECUSADO:'recusou o chamado',DUPLICADO:'marcou como duplicado'};
+  var EVENTO={CRIADO:'abriu o chamado',COMENTARIO:'comentou',STATUS:'moveu o chamado',ORDEM:'reposicionou o chamado',TRIAGEM:'atualizou a triagem',CONFIRMADO:'confirmou a solução',REABERTO:'reabriu o chamado',RECUSADO:'recusou o chamado',DUPLICADO:'marcou como duplicado'};
   function historicoHtml(no) {
     return Object.keys(no||{}).map(function(id){return no[id];}).sort(function(a,b){return String(a.em).localeCompare(String(b.em));}).map(function(ev){
-      var detalhe=ev.tipo==='STATUS'?' de '+(C.ROTULO_STATUS[ev.de]||ev.de)+' para '+(C.ROTULO_STATUS[ev.para]||ev.para):ev.tipo==='TRIAGEM'?' para '+esc(ev.prioridade)+(ev.responsavel?' · '+esc(ev.responsavel):''):ev.tipo==='DUPLICADO'?' de '+esc(ev.duplicadoDe):'';
+      var detalhe=ev.tipo==='STATUS'?' de '+(C.ROTULO_STATUS[ev.de]||ev.de)+' para '+(C.ROTULO_STATUS[ev.para]||ev.para):ev.tipo==='ORDEM'?' em '+esc(C.ROTULO_STATUS[ev.status]||ev.status):ev.tipo==='TRIAGEM'?' para '+esc(C.ROTULO_PRIORIDADE[ev.prioridade]||ev.prioridade)+(ev.responsavel?' · '+esc(ev.responsavel):''):ev.tipo==='DUPLICADO'?' de '+esc(ev.duplicadoDe):'';
       return '<li><b>'+esc(ev.nome||'Usuário')+'</b> '+esc(EVENTO[ev.tipo]||ev.tipo)+detalhe+'<time>'+esc(C.dataHora(ev.em))+'</time>'+(ev.texto?'<p>'+esc(ev.texto)+'</p>':'')+'</li>';
     }).join('');
   }
@@ -182,10 +187,10 @@
   }
   function renderDetalhe(c, podeAdmin) {
     var autor=c.autor&&c.autor.uid===eu.uid;
-    var adminAcoes=podeAdmin&&!statusFinal(c.status)?'<div class="ch-inline"><label class="ch-field"><span>Prioridade</span><select id="dtPrioridade">'+['P0','P1','P2','P3'].map(function(p){return '<option '+(c.prioridade===p?'selected':'')+'>'+p+'</option>';}).join('')+'</select></label><label class="ch-field"><span>Responsável</span><input id="dtResponsavel" maxlength="120" value="'+esc(c.responsavel||'')+'" placeholder="Nome ou equipe"></label><button class="ch-btn small" id="dtTriar">Salvar triagem</button></div><div class="ch-detail-actions">'+C.STATUS.filter(function(s){return s!==c.status;}).map(function(s){return '<button class="ch-btn secondary small" data-mover="'+s+'">'+esc(C.ROTULO_STATUS[s])+'</button>';}).join('')+'<button class="ch-btn secondary small" id="dtDuplicado">Duplicado</button><button class="ch-btn danger small" id="dtRecusar">Recusar</button></div>':'';
+    var adminAcoes=podeAdmin&&!statusFinal(c.status)?'<div class="ch-inline"><label class="ch-field"><span>Prioridade</span><select id="dtPrioridade">'+['P0','P1','P2','P3'].map(function(p){return '<option value="'+p+'" '+(c.prioridade===p?'selected':'')+'>'+esc(C.ROTULO_PRIORIDADE[p])+'</option>';}).join('')+'</select></label><label class="ch-field"><span>Responsável</span><input id="dtResponsavel" maxlength="120" value="'+esc(c.responsavel||'')+'" placeholder="Nome ou equipe"></label><button class="ch-btn small" id="dtTriar">Salvar triagem</button></div><div class="ch-detail-actions">'+C.STATUS.filter(function(s){return s!==c.status;}).map(function(s){return '<button class="ch-btn secondary small" data-mover="'+s+'">'+esc(C.ROTULO_STATUS[s])+'</button>';}).join('')+'<button class="ch-btn secondary small" id="dtDuplicado">Duplicado</button><button class="ch-btn danger small" id="dtRecusar">Recusar</button></div>':'';
     var autorAcoes=autor&&c.status==='VALIDAR'?'<div class="ch-detail-actions"><button class="ch-btn" id="dtConfirmar">Confirmar solução</button><button class="ch-btn secondary" id="dtReabrir">Ainda não resolveu</button></div>':'';
     var podeComentar=!statusFinal(c.status);
-    $('detalheDialog').innerHTML='<div class="ch-dialog-head"><div><span class="ch-code">'+esc(c.codigo)+'</span><h2>'+esc(c.titulo)+'</h2><p>Aberto por '+esc(c.autor&&c.autor.nome||'')+' em '+esc(C.dataHora(c.criadaEm))+'</p></div><button class="ch-close" id="dtFechar" aria-label="Fechar">×</button></div><div class="ch-tags">'+tags(c)+'</div><div class="ch-detail-meta"><div><small>Tipo</small>'+esc(C.ROTULO_TIPO[c.tipo]||c.tipo)+'</div><div><small>Impacto</small>'+esc(C.ROTULO_IMPACTO[c.impacto]||c.impacto)+'</div><div><small>Responsável</small>'+esc(c.responsavel||'Não definido')+'</div><div><small>Tela de origem</small>'+esc(c.contexto&&c.contexto.pagina||'—')+'</div></div><div class="ch-description">'+esc(c.descricao)+'</div>'+anexosHtml(c.anexos)+adminAcoes+autorAcoes+'<h3>Histórico</h3><ol class="ch-history">'+historicoHtml(c.historico)+'</ol>'+(podeComentar?'<label class="ch-field"><span>Adicionar comentário</span><textarea id="dtComentario" maxlength="2000" placeholder="Registre uma resposta ou informação nova."></textarea></label><div class="ch-dialog-actions"><button class="ch-btn secondary" id="dtFechar2">Fechar</button><button class="ch-btn" id="dtComentar">Enviar comentário</button></div>':'<div class="ch-dialog-actions"><button class="ch-btn secondary" id="dtFechar2">Fechar</button></div>')+'<div class="ch-form-error" id="dtErro" hidden></div>';
+    $('detalheDialog').innerHTML='<div class="ch-dialog-head"><div><span class="ch-code">'+esc(c.codigo)+'</span><h2>'+esc(c.titulo)+'</h2><p>Aberto por '+esc(c.autor&&c.autor.nome||'')+' em '+esc(C.dataHora(c.criadaEm))+'</p></div><button class="ch-close" id="dtFechar" aria-label="Fechar">×</button></div><div class="ch-tags">'+tags(c)+'</div><div class="ch-detail-meta"><div><small>Tipo</small>'+esc(C.ROTULO_TIPO[c.tipo]||c.tipo)+'</div><div><small>Impacto</small>'+esc(C.ROTULO_IMPACTO[c.impacto]||c.impacto)+'</div><div><small>Responsável</small>'+esc(c.responsavel||'Não definido')+'</div><div><small>Tela de origem</small>'+esc(c.contexto&&c.contexto.pagina||'—')+'</div><div><small>Versão</small>'+esc(c.contexto&&c.contexto.versao?String(c.contexto.versao).slice(0,7):'—')+'</div><div><small>Aparelho</small>'+esc(c.contexto&&c.contexto.viewport||'—')+'</div>'+(c.duplicadoDe?'<div><small>Duplicado de</small>'+esc(c.duplicadoDe)+'</div>':'')+'</div><div class="ch-description">'+esc(c.descricao)+'</div>'+anexosHtml(c.anexos)+adminAcoes+autorAcoes+'<h3>Histórico</h3><ol class="ch-history">'+historicoHtml(c.historico)+'</ol>'+(podeComentar?'<label class="ch-field"><span>Adicionar comentário</span><textarea id="dtComentario" maxlength="2000" placeholder="Registre uma resposta ou informação nova."></textarea></label><div class="ch-dialog-actions"><button class="ch-btn secondary" id="dtFechar2">Fechar</button><button class="ch-btn" id="dtComentar">Enviar comentário</button></div>':'<div class="ch-dialog-actions"><button class="ch-btn secondary" id="dtFechar2">Fechar</button></div>')+'<div class="ch-form-error" id="dtErro" hidden></div>';
     $('dtFechar').onclick=fecharDetalhe;$('dtFechar2').onclick=fecharDetalhe;
     carregarImagens(c);
     if($('dtComentar'))$('dtComentar').onclick=function(){acaoDetalhe({acao:'COMENTAR',texto:$('dtComentario').value},'Comentário enviado.');};
@@ -221,6 +226,7 @@
     if(!window.currentUser){setTimeout(esperarLogin,120);return;}
     eu=window.currentUser;
     var q=new URLSearchParams(location.search);visao=q.get('visao')==='QUADRO'?'QUADRO':'MEUS';
+    document.querySelectorAll('.ch-tab').forEach(function(b){b.setAttribute('aria-selected',String(b.dataset.visao===visao));});
     carregar().then(function(){if(visao==='QUADRO'&&!admin)trocarVisao('MEUS');if(q.get('nova')==='1')abrirNovo();if(q.get('id'))abrirDetalhe(q.get('id'));});
   })();
 })();

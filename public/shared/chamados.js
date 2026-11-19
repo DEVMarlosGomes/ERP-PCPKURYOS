@@ -11,6 +11,8 @@
   var ROTULO_STATUS = {NOVO: 'Novo', NA_FILA: 'Na fila', EM_ANDAMENTO: 'Em andamento', VALIDAR: 'Validar', CONCLUIDO: 'Concluído', RECUSADO: 'Recusado', DUPLICADO: 'Duplicado'};
   var ROTULO_TIPO = {ERRO: 'Erro', MELHORIA: 'Melhoria', DUVIDA: 'Dúvida'};
   var ROTULO_IMPACTO = {BAIXO: 'Baixo', MEDIO: 'Médio', ALTO: 'Alto', CRITICO: 'Crítico'};
+  // Níveis da proposta de 13/11: Urgente fura a fila; Alta nesta semana; Normal pela ordem; Baixa quando houver folga.
+  var ROTULO_PRIORIDADE = {P0: 'Urgente', P1: 'Alta', P2: 'Normal', P3: 'Baixa'};
   var TIPOS_ACEITOS = ['image/png', 'image/jpeg', 'image/webp'];
   var LIMITE_BYTES = 10 * 1024 * 1024;
   var MAX_ANEXOS = 3;
@@ -57,14 +59,28 @@
     (itens || []).forEach(function(item) {
       if (colunas[item.status]) colunas[item.status].push(item);
     });
+    // Ordem da coluna: quem já foi posicionado no quadro (ordem) vem primeiro, na ordem dada;
+    // o resto por prioridade (P0 primeiro) e o mais recente antes.
+    function nivel(p) { var n = parseInt(String(p || '').slice(1), 10); return isNaN(n) ? 9 : n; }
     STATUS.forEach(function(s) {
       colunas[s].sort(function(a, b) {
-        var pa = Number(String(a.prioridade || 'P9').slice(1)) || 9;
-        var pb = Number(String(b.prioridade || 'P9').slice(1)) || 9;
-        return pa - pb || String(b.atualizadaEm || '').localeCompare(String(a.atualizadaEm || ''));
+        var oa = typeof a.ordem === 'number', ob = typeof b.ordem === 'number';
+        if (oa && ob && a.ordem !== b.ordem) return a.ordem - b.ordem;
+        if (oa !== ob) return oa ? -1 : 1;
+        return nivel(a.prioridade) - nivel(b.prioridade) || String(b.atualizadaEm || '').localeCompare(String(a.atualizadaEm || ''));
       });
     });
     return colunas;
+  }
+  /* Posição de um cartão solto sobre outro (entra ANTES dele) ou no fim da coluna (alvo null).
+     colunaOrdenada = a coluna como o quadro mostra (porStatus), já sem o cartão que se move. */
+  function ordemParaSoltar(colunaOrdenada, alvoId) {
+    var lista = (colunaOrdenada || []).map(function(x, i) { return typeof x.ordem === 'number' ? x.ordem : (i + 1) * 1000; });
+    var ids = (colunaOrdenada || []).map(function(x) { return x.id; });
+    var i = alvoId ? ids.indexOf(alvoId) : -1;
+    if (i < 0) return lista.length ? lista[lista.length - 1] + 1000 : 1000;
+    var depois = lista[i], antes = i > 0 ? lista[i - 1] : depois - 2000;
+    return (antes + depois) / 2;
   }
   function requestId() {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID().replace(/-/g, '_');
@@ -76,7 +92,7 @@
   }
 
   return {
-    STATUS: STATUS, ROTULO_STATUS: ROTULO_STATUS, ROTULO_TIPO: ROTULO_TIPO, ROTULO_IMPACTO: ROTULO_IMPACTO,
+    STATUS: STATUS, ROTULO_STATUS: ROTULO_STATUS, ROTULO_TIPO: ROTULO_TIPO, ROTULO_IMPACTO: ROTULO_IMPACTO, ROTULO_PRIORIDADE: ROTULO_PRIORIDADE, ordemParaSoltar: ordemParaSoltar,
     TIPOS_ACEITOS: TIPOS_ACEITOS, LIMITE_BYTES: LIMITE_BYTES, MAX_ANEXOS: MAX_ANEXOS,
     nomeSeguro: nomeSeguro, caminhoAnexo: caminhoAnexo, validarArquivo: validarArquivo,
     validarArquivos: validarArquivos, validarFormulario: validarFormulario, porStatus: porStatus,
