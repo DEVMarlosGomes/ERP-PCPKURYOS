@@ -125,6 +125,7 @@ function resumo(id, c) {
     status: c.status,
     autor: c.autor,
     responsavel: c.responsavel || null,
+    responsavelUid: c.responsavelUid || null,
     aguardandoRespostaDe: c.aguardandoRespostaDe || null,
     criadaEm: c.criadaEm,
     atualizadaEm: c.atualizadaEm,
@@ -138,7 +139,7 @@ function resumo(id, c) {
 }
 // Fila do ADM: o contador do menu do administrador ("aguarda ADM"), lida só por ADM.
 function resumoFila(id, c) {
-  return {codigo: c.codigo, titulo: c.titulo, status: c.status, prioridade: c.prioridade, aguardaAdm: aguardaAdm(c), atualizadaEm: c.atualizadaEm};
+  return Object.assign(resumo(id, c), {aguardaAdm: aguardaAdm(c)});
 }
 function evento(tipo, pessoa, quando, textoEvento, extras) {
   return Object.assign({tipo, uid: pessoa.uid, nome: pessoa.nome, em: quando}, textoEvento ? {texto: textoEvento} : {}, extras || {});
@@ -149,6 +150,13 @@ function escaparHtml(v) {
 function destinatariosAdmin(usuarios) {
   return Object.keys(usuarios || {}).filter((uid) => ativo(usuarios[uid]) && eAdmin(usuarios[uid]) && /@/.test(usuarios[uid].email || ''))
     .map((uid) => usuarios[uid].email.trim().toLowerCase()).filter((v, i, a) => a.indexOf(v) === i);
+}
+function responsaveisAdmin(usuarios) {
+  return Object.keys(usuarios || {}).filter((uid) => ativo(usuarios[uid]) && eAdmin(usuarios[uid])).map((uid) => ({
+    uid,
+    nome: nome(usuarios[uid], uid),
+    setor: setorDoPerfil(usuarios[uid]),
+  })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR') || a.uid.localeCompare(b.uid));
 }
 function montarEmail(c, acao, autorNome) {
   const assunto = `[${c.codigo}] ${acao}: ${c.titulo}`;
@@ -307,13 +315,41 @@ function criarServico(deps) {
     const gestao = visao === 'GESTAO';
     if (quadro && !eAdmin(ctx.perfil)) throw erro('permission-denied', 'Somente administradores acessam o quadro.');
     if (gestao && !eGestor(ctx.perfil)) throw erro('permission-denied', 'Somente gestores acessam esta visão.');
-    const leituras = [db.ref('chamados').once('value')];
+    const caminhoIndice = quadro || gestao ? 'chamados_fila_adm' : `chamados_caixa/${uid}`;
+    const leituras = [db.ref(caminhoIndice).once('value')];
     if (eAdmin(ctx.perfil) && quadro) leituras.push(db.ref('chamados_roadmap').once('value'));
     const snaps = await Promise.all(leituras);
-    const todos = snaps[0].val() || {};
-    const itens = Object.keys(todos).filter((id) => todos[id] && (quadro || gestao || todos[id].autor && todos[id].autor.uid === uid))
-      .map((id) => resumo(id, todos[id])).sort((a, b) => String(b.atualizadaEm).localeCompare(String(a.atualizadaEm)));
-    return {ok: true, admin: eAdmin(ctx.perfil), gestor: eGestor(ctx.perfil), itens, metricas: gestao ? calcularMetricas(todos, ctx.usuarios) : null, roadmapEstado: snaps[1] ? snaps[1].val() || {} : {}};
+    let todos = snaps[0].val() || {};
+    // Registros antigos da fila tinham só os campos do contador. Hidratamos
+    // cada item legado uma única vez, sem voltar a ler o nó inteiro de chamados.
+    if (quadro || gestao) {
+      const legados = Object.keys(todos).filter((id) => todos[id] && (!todos[id].id || !todos[id].tipo || !todos[id].autor));
+      if (legados.length) {
+        const completos = await Promise.all(legados.map((id) => db.ref(`chamados/${id}`).once('value')));
+        const updates = {};
+        legados.forEach((id, i) => {
+          const completo = completos[i].val();
+          if (!completo) return;
+          const item = resumoFila(id, completo);
+          item.metricas = Object.assign({}, completo.metricas || {}, marcosDoChamado(completo, ctx.usuarios));
+          todos[id] = item;
+          updates[`chamados_fila_adm/${id}`] = item;
+          if (completo.autor && completo.autor.uid) updates[`chamados_caixa/${completo.autor.uid}/${id}`] = resumo(id, completo);
+        });
+        if (Object.keys(updates).length) await db.ref().update(updates);
+      }
+    }
+    const itens = Object.keys(todos).filter((id) => todos[id]).map((id) => Object.assign({id}, todos[id]))
+      .sort((a, b) => String(b.atualizadaEm || '').localeCompare(String(a.atualizadaEm || '')));
+    return {
+      ok: true,
+      admin: eAdmin(ctx.perfil),
+      gestor: eGestor(ctx.perfil),
+      itens,
+      metricas: gestao ? calcularMetricas(todos, ctx.usuarios) : null,
+      roadmapEstado: snaps[1] ? snaps[1].val() || {} : {},
+      responsaveis: eAdmin(ctx.perfil) ? responsaveisAdmin(ctx.usuarios) : [],
+    };
   }
   async function detalhe(uid, dados, ctx) {
     if (!idValido(dados.id)) throw erro('invalid-argument', 'Chamado inválido.');
@@ -478,9 +514,15 @@ function criarServico(deps) {
           if (!admin) throw erro('permission-denied', 'Somente administradores fazem a triagem.');
           const prioridade = texto(dados.prioridade, 10).toUpperCase();
           if (!PRIORIDADES.includes(prioridade)) throw erro('invalid-argument', 'Prioridade inválida.');
+          const responsavelUid = texto(dados.responsavelUid, 128);
+          const perfilResponsavel = responsavelUid ? ctx.usuarios[responsavelUid] : null;
+          if (responsavelUid && (!ativo(perfilResponsavel) || !eAdmin(perfilResponsavel))) {
+            throw erro('invalid-argument', 'Escolha um administrador ativo como responsável.');
+          }
           novo.prioridade = prioridade;
-          novo.responsavel = texto(dados.responsavel, 120) || null;
-          ev = evento('TRIAGEM', ctx.pessoa, quando, texto(dados.texto, 500), {prioridade, responsavel: novo.responsavel});
+          novo.responsavelUid = responsavelUid || null;
+          novo.responsavel = perfilResponsavel ? nome(perfilResponsavel, responsavelUid) : null;
+          ev = evento('TRIAGEM', ctx.pessoa, quando, texto(dados.texto, 500), {prioridade, responsavel: novo.responsavel, responsavelUid: novo.responsavelUid});
         } else if (acao === 'CONFIRMAR') {
           if (!autor || atual.status !== 'VALIDAR') throw erro('failed-precondition', 'O chamado não está aguardando sua validação.');
           novo.status = 'CONCLUIDO'; novo.aguardandoRespostaDe = null;
@@ -558,5 +600,5 @@ function criarServico(deps) {
 
 module.exports = {
   STATUS, STATUS_FINAIS, PRIORIDADES, TIPOS, IMPACTOS, MIME_IMAGEM, LIMITE_ANEXO, LIMITE_ANEXOS,
-  ativo, eAdmin, eGestor, setorDoPerfil, roadmapIdValido, prioridadeDoImpacto, validarCriacao, caminhoPermitido, validarAnexos, resumo, resumoFila, aguardaVoce, aguardaAdm, montarEmail, marcosDoChamado, calcularMetricas, criarServico,
+  ativo, eAdmin, eGestor, setorDoPerfil, roadmapIdValido, prioridadeDoImpacto, validarCriacao, caminhoPermitido, validarAnexos, resumo, resumoFila, aguardaVoce, aguardaAdm, montarEmail, marcosDoChamado, calcularMetricas, responsaveisAdmin, criarServico,
 };

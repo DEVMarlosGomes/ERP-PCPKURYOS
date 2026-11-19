@@ -665,6 +665,11 @@ window.currentUser = null;
     .kt-nav-link svg { width: 18px; height: 18px; flex: none; }
     .kt-nav-link.active { background: var(--accent, #2456d6); color: #fff; font-weight: 600; }
     .kt-nav-link:not(.active):hover { background: color-mix(in srgb, var(--ink, #1d1d1f) 6%, transparent); }
+    .kt-chamados-row { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 4px; align-items: center; }
+    .kt-chamados-row .kt-nav-link { min-width: 0; }
+    .kt-chamado-novo { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 9px; color: var(--ink-soft, #6e6e73); text-decoration: none; }
+    .kt-chamado-novo svg { width: 17px; height: 17px; }
+    .kt-chamado-novo:hover, .kt-chamado-novo:focus-visible { background: color-mix(in srgb, var(--accent, #2456d6) 12%, transparent); color: var(--accent, #2456d6); outline: none; }
     .kt-sidebar-foot { margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--line, #d2d2d7); }
     .kt-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--s2, #c9910a); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex: none; }
     .kt-sidebar-foot .who { flex: 1; min-width: 0; }
@@ -1020,6 +1025,8 @@ function renderUnifiedNavbar(user) {
   // vez de um encadeamento de papéis que precisava ser lembrado a cada
   // papel novo (foi assim que 'pcp' e 'qualidade' foram esquecidos antes).
   var brandHome = homeDoUsuario(user);
+  var chamadosLink = ktLink('chamados.html', 'clipboard', 'Chamados', activePage).replace('</span></a>', '</span><span class="kt-cobr-n" id="kt-cham-n" hidden></span></a>');
+  var chamadoNovo = '<a class="kt-chamado-novo" href="chamados.html?nova=1" aria-label="Abrir chamado desta tela" title="Abrir chamado desta tela"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></a>';
   sidebar.innerHTML =
     '<button type="button" class="kt-brand" aria-label="Kuryos — página inicial" onclick="window.location.href=\'' + brandHome + '\'"><span class="kuryos-brand-mark" aria-hidden="true">K</span><img class="kt-brand-logo" src="kuryos-logo.svg" alt="Kuryos"><span class="kt-brand-sub">Sistema de Produção</span></button>' +
     '<nav class="kuryos-sidebar-nav" aria-label="Navegação principal">' +
@@ -1029,7 +1036,7 @@ function renderUnifiedNavbar(user) {
     (temInicio(user) ? '<div class="kt-nav-top">' + ktLink('inicio.html', 'dashboard', 'Início', activePage) +
       ktLink('cobrancas.html', 'bell', 'Cobranças', activePage).replace('</span></a>', '</span><span class="kt-cobr-n" id="kt-cobr-n" hidden></span></a>') +
       // Chamados (18/11/2026, helpdesk): abrir chamado de qualquer tela; o contador mostra o que espera pela pessoa.
-      ktLink('chamados.html', 'clipboard', 'Chamados', activePage).replace('</span></a>', '</span><span class="kt-cobr-n" id="kt-cham-n" hidden></span></a>') + '</div>' : '') +
+      '<div class="kt-chamados-row">' + chamadosLink + chamadoNovo + '</div></div>' : '') +
     gruposHtml +
     '</nav>' +
     '<div class="kt-sidebar-foot">' +
@@ -1070,7 +1077,7 @@ function renderUnifiedNavbar(user) {
   backdrop.addEventListener('click', closeDrawer);
   document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeDrawer(); });
   // Fecha a gaveta ao navegar (toque num link) pra não reabrir já aberta na próxima página
-  sidebar.addEventListener('click', function(e) { if (e.target.closest('.kt-nav-link')) closeDrawer(); });
+  sidebar.addEventListener('click', function(e) { if (e.target.closest('.kt-nav-link, .kt-chamado-novo')) closeDrawer(); });
 
   montarSanfona(sidebar, user);
   if (temInicio(user)) { ligarContadorCobrancas(sidebar, user); ligarContadorChamados(sidebar, user); }

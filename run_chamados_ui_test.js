@@ -28,7 +28,7 @@ class Ref {
   update(u) { Object.keys(u).forEach((p) => gravar(this.db.data, this.path ? this.path + '/' + p : p, u[p])); return Promise.resolve(); }
   transaction(fn) { const atual = clone(ler(this.db.data, this.path)); const novo = fn(atual === undefined ? null : atual); if (novo === undefined) return Promise.resolve({committed: false, snapshot: new Snap(atual)}); gravar(this.db.data, this.path, novo); return Promise.resolve({committed: true, snapshot: new Snap(novo)}); }
 }
-const USUARIOS = {u1: {nome: 'Yasmin', email: 'yasmin@kuryos.com.br', role: 'pd'}, adm: {nome: 'Gustavo', email: 'adm@kuryos.com.br', role: 'admin'}, gest: {nome: 'Líder', email: 'lider@kuryos.com.br', role: 'gestor'}};
+const USUARIOS = {u1: {nome: 'Yasmin', email: 'yasmin@kuryos.com.br', role: 'pd'}, adm: {nome: 'Gustavo', email: 'adm@kuryos.com.br', role: 'admin'}, adm2: {nome: 'Beatriz Suporte', email: 'beatriz@kuryos.com.br', role: 'admin'}, gest: {nome: 'Líder', email: 'lider@kuryos.com.br', role: 'gestor'}};
 const dbSrv = {data: {usuarios: clone(USUARIOS)}, seq: 0, ref(p) { return new Ref(this, p); }};
 const uploads = {};
 const emails = [];
@@ -114,8 +114,10 @@ const contador = (page) => page.evaluate(() => { const e = document.getElementBy
     let {page, erros} = await abrir(browser, 'u1', 'chamados.html');
     todosErros.push(erros);
     ok(await page.locator('#unified-navbar a[href*="chamados"]').count() >= 1, 'menu tem "Chamados" no topo, ao lado de Cobranças');
+    ok(await page.locator('.kt-chamado-novo').isVisible() && (await page.locator('.kt-chamado-novo').getAttribute('href')).includes('chamados.html?nova=1'), 'atalho global abre um chamado a partir da tela atual');
     ok(/Nenhum chamado encontrado/.test(await page.locator('#lista').innerText()), 'lista vazia para quem nunca abriu');
-    await page.click('#btnNovo');
+    await Promise.all([page.waitForURL(/chamados\.html\?nova=1$/), page.click('.kt-chamado-novo')]);
+    await page.waitForSelector('#novoLayer:not([hidden])');
     ok(/Erro técnico detectado automaticamente/.test(await page.locator('#erroAutomatico').innerText()), 'último erro JavaScript será anexado sem digitação');
     await page.selectOption('#novoTipo', 'ERRO');
     await page.selectOption('#novoImpacto', 'ALTO');
@@ -161,10 +163,12 @@ const contador = (page) => page.evaluate(() => { const e = document.getElementBy
     const det = await page.locator('#detalheDialog').innerText();
     ok(/Versão\s*65038e6/.test(det) && /Prints anexados/.test(det), 'detalhe mostra versão e prints');
     await page.selectOption('#dtPrioridade', 'P0');
-    await page.fill('#dtResponsavel', 'Equipe ERP');
+    ok(await page.locator('#dtResponsavelUid option').allTextContents().then((xs) => xs.some((x) => /Beatriz Suporte/.test(x))), 'responsável é escolhido entre administradores ativos');
+    await page.selectOption('#dtResponsavelUid', 'adm2');
+    await shot(page, '2-detalhe-triagem');
     await page.click('#dtTriar');
     await page.waitForFunction(() => /Urgente/.test(document.getElementById('detalheDialog').innerText));
-    ok(dbSrv.data.chamados[id].prioridade === 'P0', 'triagem: Urgente');
+    ok(dbSrv.data.chamados[id].prioridade === 'P0' && dbSrv.data.chamados[id].responsavelUid === 'adm2' && dbSrv.data.chamados[id].responsavel === 'Beatriz Suporte', 'triagem: Urgente, com responsável válido');
     const roadmapId = await page.locator('#dtRoadmap option:not([value=""])').first().getAttribute('value');
     await page.selectOption('#dtRoadmap', roadmapId);
     await page.click('#dtRoadmapSalvar');

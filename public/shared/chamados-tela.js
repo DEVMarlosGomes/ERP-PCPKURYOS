@@ -3,7 +3,7 @@
    toda permissão e transição de status é validada novamente pela callable. */
 (function() {
   var C = window.Chamados;
-  var eu = null, admin = false, gestor = false, itens = [], roadmapItens = [], roadmapEstado = {}, metricas = null, visao = 'MEUS', arquivos = [], requestId = '', enviando = false, detalheId = '';
+  var eu = null, admin = false, gestor = false, itens = [], responsaveis = [], roadmapItens = [], roadmapEstado = {}, metricas = null, visao = 'MEUS', arquivos = [], requestId = '', enviando = false, detalheId = '';
   var $ = function(id) { return document.getElementById(id); };
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
   function chamar(dados) { return firebase.functions().httpsCallable('chamadoSistema')(dados).then(function(r) { return r.data || {}; }); }
@@ -114,7 +114,7 @@
   function carregar() {
     mensagem('Carregando chamados…');
     return chamar({acao:'LISTAR',visao:visao}).then(function(r) {
-      itens = r.itens || []; admin = !!r.admin; gestor = !!r.gestor; metricas = r.metricas || null; roadmapEstado = r.roadmapEstado || {}; $('tabQuadro').hidden = !admin; $('tabGestao').hidden = !gestor;
+      itens = r.itens || []; responsaveis = r.responsaveis || []; admin = !!r.admin; gestor = !!r.gestor; metricas = r.metricas || null; roadmapEstado = r.roadmapEstado || {}; $('tabQuadro').hidden = !admin; $('tabGestao').hidden = !gestor;
       $('filtroOrigem').hidden = !(admin && visao === 'QUADRO');
       return admin && visao === 'QUADRO' ? carregarRoadmap() : Promise.resolve().then(function(){roadmapItens=[];});
     }).then(function() {
@@ -259,13 +259,19 @@
     var abertos=roadmapItens.filter(function(x){return !x.feito;}).sort(function(a,b){return a.titulo.localeCompare(b.titulo,'pt-BR');});
     return '<option value="">Sem vínculo</option>'+abertos.map(function(x){return '<option value="'+esc(x.roadmapId)+'" '+(x.roadmapId===selecionado?'selected':'')+'>'+esc(x.codigo+' · '+x.titulo)+'</option>';}).join('');
   }
+  function opcoesResponsaveis(selecionado) {
+    return '<option value="">Não definido</option>'+responsaveis.map(function(pessoa){
+      return '<option value="'+esc(pessoa.uid)+'" '+(pessoa.uid===selecionado?'selected':'')+'>'+esc(pessoa.nome+(pessoa.setor&&pessoa.setor!=='NAO_INFORMADO'?' · '+pessoa.setor:''))+'</option>';
+    }).join('');
+  }
   function abrirDetalhe(id) {
     detalheId=id;$('detalheLayer').hidden=false;document.body.style.overflow='hidden';$('detalheDialog').innerHTML='<div class="ch-empty"><strong>Carregando chamado</strong>Aguarde um instante.</div>';
     chamar({acao:'DETALHE',id:id}).then(function(r){renderDetalhe(r.chamado,!!r.admin,visao==='GESTAO');}).catch(function(err){$('detalheDialog').innerHTML='<div class="ch-form-error">'+esc(msgErro(err))+'</div><div class="ch-dialog-actions"><button class="ch-btn secondary" id="dtFechar">Fechar</button></div>';$('dtFechar').onclick=fecharDetalhe;});
   }
   function renderDetalhe(c, podeAdmin, somenteLeitura) {
     var autor=c.autor&&c.autor.uid===eu.uid;
-    var adminAcoes=podeAdmin&&!somenteLeitura&&!statusFinal(c.status)?'<div class="ch-inline"><label class="ch-field"><span>Prioridade</span><select id="dtPrioridade">'+['P0','P1','P2','P3'].map(function(p){return '<option value="'+p+'" '+(c.prioridade===p?'selected':'')+'>'+esc(C.ROTULO_PRIORIDADE[p])+'</option>';}).join('')+'</select></label><label class="ch-field"><span>Responsável</span><input id="dtResponsavel" maxlength="120" value="'+esc(c.responsavel||'')+'" placeholder="Nome ou equipe"></label><button class="ch-btn small" id="dtTriar">Salvar triagem</button></div><div class="ch-detail-actions">'+C.STATUS.filter(function(s){return s!==c.status;}).map(function(s){return '<button class="ch-btn secondary small" data-mover="'+s+'">'+esc(C.ROTULO_STATUS[s])+'</button>';}).join('')+'<button class="ch-btn secondary small" id="dtDuplicado">Duplicado</button><button class="ch-btn danger small" id="dtRecusar">Recusar</button></div>':'';
+    var responsavelLegado=c.responsavel&&!c.responsavelUid?'<span class="help">Responsável atual: '+esc(c.responsavel)+'. Selecione um administrador para atualizar.</span>':'';
+    var adminAcoes=podeAdmin&&!somenteLeitura&&!statusFinal(c.status)?'<div class="ch-inline"><label class="ch-field"><span>Prioridade</span><select id="dtPrioridade">'+['P0','P1','P2','P3'].map(function(p){return '<option value="'+p+'" '+(c.prioridade===p?'selected':'')+'>'+esc(C.ROTULO_PRIORIDADE[p])+'</option>';}).join('')+'</select></label><label class="ch-field"><span>Responsável</span><select id="dtResponsavelUid">'+opcoesResponsaveis(c.responsavelUid||'')+'</select>'+responsavelLegado+'</label><button class="ch-btn small" id="dtTriar">Salvar triagem</button></div><div class="ch-detail-actions">'+C.STATUS.filter(function(s){return s!==c.status;}).map(function(s){return '<button class="ch-btn secondary small" data-mover="'+s+'">'+esc(C.ROTULO_STATUS[s])+'</button>';}).join('')+'<button class="ch-btn secondary small" id="dtDuplicado">Duplicado</button><button class="ch-btn danger small" id="dtRecusar">Recusar</button></div>':'';
     var roadmapAcoes=podeAdmin&&!somenteLeitura?'<div class="ch-inline"><label class="ch-field"><span>Item do Roadmap que este chamado resolve</span><select id="dtRoadmap">'+opcoesRoadmap(c.roadmapId||'')+'</select></label><button class="ch-btn secondary small" id="dtRoadmapSalvar">Salvar vínculo</button></div>':'';
     var autorAcoes=autor&&!somenteLeitura&&c.status==='VALIDAR'?'<div class="ch-detail-actions"><button class="ch-btn" id="dtConfirmar">Confirmar solução</button><button class="ch-btn secondary" id="dtReabrir">Ainda não resolveu</button></div>':'';
     var podeComentar=!somenteLeitura&&!statusFinal(c.status);
@@ -275,7 +281,7 @@
     $('dtFechar').onclick=fecharDetalhe;$('dtFechar2').onclick=fecharDetalhe;
     carregarImagens(c);
     if($('dtComentar'))$('dtComentar').onclick=function(){acaoDetalhe({acao:'COMENTAR',texto:$('dtComentario').value},'Comentário enviado.');};
-    if($('dtTriar'))$('dtTriar').onclick=function(){acaoDetalhe({acao:'TRIAR',prioridade:$('dtPrioridade').value,responsavel:$('dtResponsavel').value},'Triagem salva.');};
+    if($('dtTriar'))$('dtTriar').onclick=function(){acaoDetalhe({acao:'TRIAR',prioridade:$('dtPrioridade').value,responsavelUid:$('dtResponsavelUid').value},'Triagem salva.');};
     if($('dtRoadmapSalvar'))$('dtRoadmapSalvar').onclick=function(){acaoDetalhe({acao:'ROADMAP_VINCULAR',roadmapId:$('dtRoadmap').value},$('dtRoadmap').value?'Vínculo com o Roadmap salvo.':'Vínculo com o Roadmap removido.');};
     $('detalheDialog').querySelectorAll('[data-mover]').forEach(function(b){b.onclick=function(){acaoDetalhe({acao:'MOVER',status:b.dataset.mover},'Chamado movido.');};});
     if($('dtConfirmar'))$('dtConfirmar').onclick=function(){acaoDetalhe({acao:'CONFIRMAR'},'Solução confirmada.');};

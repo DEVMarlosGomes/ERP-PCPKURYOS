@@ -21,7 +21,7 @@ class Ref {
   child(path) { return new Ref(this.db, [this.path, path].filter(Boolean).join('/')); }
   push() { return new Ref(this.db, [this.path, 'k' + (++this.db.seq)].filter(Boolean).join('/')); }
   get key() { return partes(this.path).slice(-1)[0] || null; }
-  once() { return Promise.resolve(new Snap(ler(this.db.data, this.path))); }
+  once() { this.db.leituras.push(this.path); return Promise.resolve(new Snap(ler(this.db.data, this.path))); }
   get() { return this.once(); }
   set(value) { gravar(this.db.data, this.path, value); return Promise.resolve(); }
   update(updates) {
@@ -36,7 +36,7 @@ class Ref {
     return Promise.resolve({committed: true, snapshot: new Snap(novo)});
   }
 }
-class FakeDb { constructor(data) { this.data = clone(data); this.seq = 0; } ref(path) { return new Ref(this, path); } }
+class FakeDb { constructor(data) { this.data = clone(data); this.seq = 0; this.leituras = []; } ref(path) { return new Ref(this, path); } }
 
 let n = 0;
 function ok(label) { n++; console.log('  ok  ' + label); }
@@ -75,6 +75,8 @@ async function rejeita(p, code) { await assert.rejects(p, (e) => e && e.code ===
     u1:{nome:'Yasmin',email:'yasmin@kuryos.com.br',role:'pd'},
     u2:{nome:'Outro',email:'outro@kuryos.com.br',role:'pcp'},
     adm:{nome:'Administrador',email:'adm@kuryos.com.br',role:'admin'},
+    adm2:{nome:'Beatriz Suporte',email:'beatriz@kuryos.com.br',role:'admin'},
+    admOff:{nome:'Admin Inativo',email:'inativo@kuryos.com.br',role:'admin',desativado:true},
     gest:{nome:'Líder',email:'lider@kuryos.com.br',role:'gestor'},
     off:{nome:'Desativado',email:'off@kuryos.com.br',role:'pcp',desativado:true},
   }});
@@ -109,6 +111,10 @@ async function rejeita(p, code) { await assert.rejects(p, (e) => e && e.code ===
   assert.equal(ler(db.data,'config/contadores/chamados'),1,'retry não consome outro número');
   ok('usuário ativo reserva, envia prints validados e cria chamado idempotente numerado');
 
+  // Simula a fila produzida antes de ela carregar o resumo completo. A primeira
+  // listagem do quadro deve hidratá-la lendo apenas este chamado específico.
+  db.data.chamados_fila_adm[reserva.id] = {codigo:'CH-00001',titulo:'Não consigo confirmar a amostra',status:'NOVO',prioridade:'P1',aguardaAdm:true,atualizadaEm:ler(db.data,`chamados/${reserva.id}/atualizadaEm`)};
+  db.leituras = [];
   const meus = await servico.executar('u1',{acao:'LISTAR',visao:'MEUS'});
   assert.equal(meus.itens.length,1); assert.equal(meus.admin,false);
   assert.equal((await servico.executar('u2',{acao:'LISTAR',visao:'MEUS'})).itens.length,0);
@@ -118,10 +124,14 @@ async function rejeita(p, code) { await assert.rejects(p, (e) => e && e.code ===
   await rejeita(servico.executar('off',{acao:'LISTAR',visao:'MEUS'}),'permission-denied');
   const quadro = await servico.executar('adm',{acao:'LISTAR',visao:'QUADRO'});
   assert.equal(quadro.itens.length,1); assert.equal(quadro.admin,true);
+  assert.equal(ler(db.data,`chamados_fila_adm/${reserva.id}/tipo`),'ERRO','fila legada hidratada com resumo completo');
+  assert.deepEqual(quadro.responsaveis.map((p) => p.uid),['adm','adm2'],'somente administradores ativos podem ser responsáveis');
   const gestaoAberta = await servico.executar('gest',{acao:'LISTAR',visao:'GESTAO'});
   assert.equal(gestaoAberta.itens.length,1); assert.equal(gestaoAberta.gestor,true); assert.equal(gestaoAberta.admin,false);
   assert.equal((await servico.executar('gest',{acao:'DETALHE',id:reserva.id})).gestor,true);
   await rejeita(servico.executar('gest',{acao:'TRIAR',id:reserva.id,prioridade:'P1'}),'permission-denied');
+  assert.ok(db.leituras.includes('chamados_caixa/u1') && db.leituras.includes('chamados_fila_adm'),'LISTAR usa os índices por caixa e fila');
+  assert.ok(!db.leituras.includes('chamados'),'LISTAR não lê o nó inteiro de chamados');
   ok('autor só vê os seus, terceiro não abre, inativo é recusado e ADM vê o quadro');
 
   await rejeita(servico.executar('u1',{acao:'ROADMAP_SINCRONIZAR',itens:[{id:'abcdef1234',feito:false}]}),'permission-denied');
@@ -136,7 +146,11 @@ async function rejeita(p, code) { await assert.rejects(p, (e) => e && e.code ===
   assert.ok(Object.values(ler(db.data,`chamados/${reserva.id}/historico`)).some((e)=>e.tipo==='ROADMAP'));
   ok('Fase 2: ADM sincroniza e ordena o Roadmap e liga o chamado com trilha nos dois lados');
 
-  await servico.executar('adm',{acao:'TRIAR',id:reserva.id,prioridade:'P0',responsavel:'Equipe ERP'});
+  await rejeita(servico.executar('adm',{acao:'TRIAR',id:reserva.id,prioridade:'P0',responsavelUid:'u2'}),'invalid-argument');
+  await rejeita(servico.executar('adm',{acao:'TRIAR',id:reserva.id,prioridade:'P0',responsavelUid:'admOff'}),'invalid-argument');
+  await servico.executar('adm',{acao:'TRIAR',id:reserva.id,prioridade:'P0',responsavelUid:'adm2'});
+  assert.equal(ler(db.data,`chamados/${reserva.id}/responsavelUid`),'adm2');
+  assert.equal(ler(db.data,`chamados/${reserva.id}/responsavel`),'Beatriz Suporte');
   assert.equal(emails.length,1,'triagem não envia e-mail sem mudança de etapa');
   assert.equal(ler(db.data,`chamados/${reserva.id}/metricas/primeiraRespostaEm`),undefined,'triagem interna ainda não conta como resposta');
   await servico.executar('adm',{acao:'MOVER',id:reserva.id,status:'NA_FILA',ordem:1000});
@@ -180,6 +194,7 @@ async function rejeita(p, code) { await assert.rejects(p, (e) => e && e.code ===
   assert.match(idx, /versao: process\.env\.APP_VERSION \|\| null/);
   assert.match(idx, /exports\.chamadoSistema = onCall/);
   assert.match(ac, /ktLink\('chamados\.html'.*kt-cham-n/);
+  assert.match(ac, /chamados\.html\?nova=1/);
   assert.match(ac, /ref\('chamados_caixa\/' \+ user\.uid\)/);
   assert.match(ac, /kuryos-ultimo-erro-js/);
   ok('ligação: versão publicada na callable e Chamados com contador no menu');
