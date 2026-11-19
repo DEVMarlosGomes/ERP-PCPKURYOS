@@ -1,13 +1,655 @@
 {
  "fonte": "MELHORIAS_FUTURAS.md (seções e tópicos)",
- "geradoEm": "2026-11-12T07:53:02.829Z",
- "commit": "83b259c",
+ "geradoEm": "2026-11-19T21:47:25.511Z",
+ "commit": "f542dc8",
  "atualizadoEm": null,
  "secoes": [
   {
    "letra": "A",
    "titulo": "Código: o que está adiado (MELHORIAS_FUTURAS.md)",
    "itens": [
+    {
+     "id": "3f207716cf",
+     "grupo": "Chamados / helpdesk — o que ficou para depois",
+     "texto": "Fase 2 — um Roadmap só",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "trazer os itens de `MELHORIAS_FUTURAS.md` (`public/backlog.json`) para o quadro como cartões, com a ordem no banco; ligar o chamado ao item que o resolve; script que entrega o topo da fila aos agentes e grava o commit ao concluir."
+     },
+     "feito": true,
+     "hash": "f542dc8"
+    },
+    {
+     "id": "a48f1dcf15",
+     "grupo": "Chamados / helpdesk — o que ficou para depois",
+     "texto": "Fase 3 — medir",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "tempo até a primeira resposta e até a conclusão por setor e tipo; anexar sozinho o erro de JavaScript da tela; quadro em modo leitura para gestores."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "a7bb746a98",
+     "grupo": "Chamados / helpdesk — o que ficou para depois",
+     "texto": "Abrir o formulário direto da tela atual",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "hoje o link do menu leva à lista (a tela de origem vai pelo `document.referrer`); um atalho \"Abrir chamado desta tela\" que já abre o formulário (`chamados.html?nova=1`) evita um clique."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "ecd945e7a0",
+     "grupo": "Chamados / helpdesk — o que ficou para depois",
+     "texto": "`LISTAR` lê `chamados` inteiro",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "a cada abertura da lista. Quando passar de algumas centenas de chamados, listar pela caixa (`chamados_caixa/{uid}`) e pela fila (`chamados_fila_adm`), que já têm o resumo."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "1cf858b4b4",
+     "grupo": "Chamados / helpdesk — o que ficou para depois",
+     "texto": "Responsável é texto livre",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "na triagem; virar seleção de usuário quando houver mais de uma pessoa tratando."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "9e0713f882",
+     "grupo": "Fiscal + Controladoria + Financeiro (prompt mestre) — o que ficou para depois",
+     "texto": "Aceite do Fiscal não feito: falta XML real e o SPED do WebMais",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "A base não tem nenhum XML (medido em 17/11: `fin/notas_entrada` vazio; as 25 NFs de saída de set–nov só digitadas). Os testes usam XMLs no leiaute oficial com dados fictícios (`test-fixtures/fiscal-xml.js`). Próximo passo (F0): importar os XMLs de out/2026 (entradas do fornecedor + saídas exportadas do WebMais), ger…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "13f285b197",
+     "grupo": "Fiscal + Controladoria + Financeiro (prompt mestre) — o que ficou para depois",
+     "texto": "Critérios a confirmar com o contador",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(estão marcados \"Critério:\" em `shared/fiscal.js`): entrada sem crédito escriturada como CST x90 com base e ICMS zerados; crédito do Simples pelo `vCredICMSSN`; IPI não recuperável fora do C100/C190 (entra só no valor contábil); C170 de emissão própria só com a opção marcada; 13 indicadores do 1010; leiaute 020 (202…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "05ed7c6693",
+     "grupo": "Fiscal + Controladoria + Financeiro (prompt mestre) — o que ficou para depois",
+     "texto": "Tributação do 5124/5125 (Q2/P11)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ": ICMS/IPI sobre o valor agregado ou ISS. Hoje o livro usa o que o XML destacou; regra de saída própria só depois da resposta do contador."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "da370e1e57",
+     "grupo": "Fiscal + Controladoria + Financeiro (prompt mestre) — o que ficou para depois",
+     "texto": "Energia e água (P4/Q4)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ": NF3e (modelo 66) não é lida; C500/C590 não sai. Decidir com o contador."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "b795a5da76",
+     "grupo": "Fiscal + Controladoria + Financeiro (prompt mestre) — o que ficou para depois",
+     "texto": "Bloco K, CIAP (Bloco G), DF-e (download automático com certificado A1), manifestação",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ": F8."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "496ed62b8e",
+     "grupo": "Fiscal + Controladoria + Financeiro (prompt mestre) — o que ficou para depois",
+     "texto": "`fis/documentos` inteiro na base do Financeiro e da Controladoria",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(para B1/A2). Volume medido é pequeno (~12 NFs de saída/mês); quando passar de alguns milhares de documentos, ler só os meses abertos."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "b655641320",
+     "grupo": "Fiscal + Controladoria + Financeiro (prompt mestre) — o que ficou para depois",
+     "texto": "Leiaute contábil do Domínio (A1/Q1)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "e **pacote fiscal (Q3)**: esperando o escritório."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "f7928e8a7f",
+     "grupo": "Fiscal + Controladoria + Financeiro (prompt mestre) — o que ficou para depois",
+     "texto": "Trava de período (A3) no apontamento e no ajuste manual de estoque",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ": esses dois ainda gravam pela tela (`form.html`, `utils.js`), então a trava de Movto Prod./Movto Estoque vale só nos movimentos do servidor (retrabalho, manipulação em lote, expedição, conferência de PA, devolução, titularidade). Ligar exige levar a gravação para callable ou uma regra que leia `ctl/bloqueio_periodo…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "de858342b9",
+     "grupo": "Fiscal + Controladoria + Financeiro (prompt mestre) — o que ficou para depois",
+     "texto": "Liquidação (B3)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ": \"portador\" e \"liquidação de/até\" do WebMais não têm campo no título; entram quando a carteira registrar o banco cobrador."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "cb8531d6b0",
+     "grupo": "Fiscal + Controladoria + Financeiro (prompt mestre) — o que ficou para depois",
+     "texto": "Centro de custo do recebimento (B10)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ": decisão do Financeiro com a Controladoria (27 de 44 títulos sem centro em 11/11). Cheques (CB-02, CR-01/02) e comissão (RC-04): esperando o Gustavo (Q11)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "ee099b37db",
+     "grupo": "Fiscal + Controladoria + Financeiro (prompt mestre) — o que ficou para depois",
+     "texto": "\"Média faturamento Cpl./R$\" dos índices",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ": medido em 18/11, 6 das 7 cargas com pedido têm NF entre 19% e 66% do pedido — é a parte fora da nota (`percentualNF`). Dá para calcular o índice com isso; confirmar."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "16a2e7eca4",
+     "grupo": "Controladoria × WebMais — o que ficou para depois",
+     "texto": "SINTEGRA, SPED Fiscal (EFD ICMS/IPI) e Exportação Fiscal Domínio",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "**Feito em 18/11** (módulo Fiscal; aceite no PVA pendente, ver acima). módulo Fiscal próprio, prompt de construção em `PROMPT_FISCAL.md` (17/11). Fase 0 depende do regime tributário, do emissor da NF-e de saída e do contador."
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "2cedfbc585",
+     "grupo": "Controladoria × WebMais — o que ficou para depois",
+     "texto": "Trava de período nos outros movimentos",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "**Feito em 18/11** no servidor (falta apontamento e ajuste manual, ver acima). N.F. Entrada (recebimento), N.F. Saída (faturamento), Estoque (WMS), Produção (apontamento) e Fiscal. Hoje só Financeiro e ajuste contábil respeitam `ctl/bloqueio_periodo`; a tela diz isso."
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "15744cd017",
+     "grupo": "Controladoria × WebMais — o que ficou para depois",
+     "texto": "Índices",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "kg faturado (a NF ainda não traz peso), comissão, ICMS filial MT, frete e Simples são informados. \"Cpl./R$\" sem definição confirmada."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "153f7f9a71",
+     "grupo": "Controladoria × WebMais — o que ficou para depois",
+     "texto": "DRE",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "a opção \"Orçado\" foi **feita em 18/11** (Realizado × Orçado na DRE por elemento). Continua de fora a \"Contabiliza O.P por Emissão/Tipo de custo\" do WebMais (o custo é o do razão de Custos)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "9f90498b58",
+     "grupo": "Controladoria × WebMais — o que ficou para depois",
+     "texto": "Leiaute Domínio",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "conferir com o escritório antes do primeiro envio."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "45fef13772",
+     "grupo": "Laudo de PA por e-mail + ativos no PC Direto — o que ficou para depois",
+     "texto": "Área \"Qualidade\" nos contatos do cliente",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Hoje o laudo já vem marcado para Técnico, Comercial e Compras (`LaudoEmail.contatosDoCliente`). Uma área QUALIDADE em `shared/contatos-cliente.js` deixaria o cliente dizer quem recebe o laudo. Essa área também aparece no CRM (`crm-frontend`), por isso não entrou junto."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "065ba0fc76",
+     "grupo": "Laudo de PA por e-mail + ativos no PC Direto — o que ficou para depois",
+     "texto": "PDF em texto (vetorial)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O PDF do e-mail é imagem (html2canvas + jsPDF): fiel ao impresso, mas o texto não é selecionável. Se algum cliente pedir PDF pesquisável, gerar no servidor (pdfkit, como o `faturamento_email.js`) a partir dos mesmos dados de `dadosLaudoPa`."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "c1219b3975",
+     "grupo": "Laudo de PA por e-mail + ativos no PC Direto — o que ficou para depois",
+     "texto": "Laudos de MP (F0070) e embalagem (F009) por e-mail",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Só o de PA vai ao cliente. O de recebimento poderia ir ao fornecedor em caso de reprovação. A mesma callable serve, mas é preciso trocar o destinatário pelo contato do fornecedor."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "98d7a467df",
+     "grupo": "Laudo de PA por e-mail + ativos no PC Direto — o que ficou para depois",
+     "texto": "Envio automático ao liberar o lote",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Hoje é um clique deliberado (Encaminhar). Daria para oferecer o envio já na decisão \"Liberar lote para expedição\"."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "0ad936a8cb",
+     "grupo": "Laudo de PA por e-mail + ativos no PC Direto — o que ficou para depois",
+     "texto": "Serviço no PC Direto do ativo",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O PC Direto aceita só material (peças MN/MU). Serviço de equipamento segue pela SC do ativo (Manutenção › Ativos › Peças e compras), que tem o atesto. Para levar serviço ao PC Direto, ele precisaria do `tipoItem: SERVICO` e de ficar fora de \"A Receber\" na Logística, como em `shared/servico-compra.js`."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "081346d613",
+     "grupo": "Laudo de PA por e-mail + ativos no PC Direto — o que ficou para depois",
+     "texto": "Teste instável `run_ativos_integracao_ui_test.js`",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Falha às vezes no passo 2 (Peças): a lista suspensa do material (\"bico\" → BICO DE IMPRESSÃO) abre e fecha antes do clique (timeout). Medido em 17/11: 1 falha em 2 execuções no HEAD limpo `773fecb`, sem as mudanças do dia. Provável redesenho do modal por um ouvinte do banco falso enquanto a lista está aberta; investi…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "26cd623f6f",
+     "grupo": "Manutenção › Ativos × Cadastros/Compras — o que ficou para depois",
+     "texto": "fornecedor fabricante e assistência técnica do ativo, escolhidos do cadastro;",
+     "subitens": [],
+     "extras": {},
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "c8430a1bd4",
+     "grupo": "Manutenção › Ativos × Cadastros/Compras — o que ficou para depois",
+     "texto": "peças MN/MU ligadas ao ativo;",
+     "subitens": [],
+     "extras": {},
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "fbd22d7a03",
+     "grupo": "Manutenção › Ativos × Cadastros/Compras — o que ficou para depois",
+     "texto": "SC aberta pelo ativo, com linha de serviço;",
+     "subitens": [],
+     "extras": {},
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "e07a45d2b6",
+     "grupo": "Manutenção › Ativos × Cadastros/Compras — o que ficou para depois",
+     "texto": "serviço atestado por Compras, sem passar pela doca;",
+     "subitens": [],
+     "extras": {},
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "2b5053a4c6",
+     "grupo": "Manutenção › Ativos × Cadastros/Compras — o que ficou para depois",
+     "texto": "andamento SC → cotação → PC visto no próprio equipamento",
+     "subitens": [],
+     "extras": {},
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "ae7c9b5051",
+     "grupo": "Manutenção › Ativos × Cadastros/Compras — o que ficou para depois",
+     "texto": "Ordem de Serviço (corretiva/preventiva, MTBF/MTTR)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Técnico, horas, peças usadas e parada da linha, ligadas ao ativo e à SC. Fora do escopo escolhido em 16/11. Ponto de partida: `ativos_historico` (já registra parada/volta) e `comprasDoAtivo`."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "d5e2732df1",
+     "grupo": "Manutenção › Ativos × Cadastros/Compras — o que ficou para depois",
+     "texto": "Lançamento financeiro do serviço",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O serviço atestado não gera título sozinho: o título vem do recebimento físico (servidor), e serviço não passa por ele. Hoje a despesa entra pelo Financeiro (NF de entrada ou título manual). Para automatizar, o atesto (`ServicoCompra.atestar`) passaria por uma callable que crie o título como o recebimento faz."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "823016299e",
+     "grupo": "Manutenção › Ativos × Cadastros/Compras — o que ficou para depois",
+     "texto": "Baixa de peça no estoque pela manutenção",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Peça MN entra no estoque pelo recebimento, mas não há saída \"consumida no ativo X\". Faz par com a Ordem de Serviço."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "b7a00beea8",
+     "grupo": "Manutenção › Ativos × Cadastros/Compras — o que ficou para depois",
+     "texto": "Cadastrar os fabricantes que faltam",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Medido em 16/11: dos 26 fabricantes distintos nos 70 ativos, só 6 têm sugestão no cadastro de fornecedores. O resto (CYCLOP, PLASMAQ, KARR, PRESTOMAQ, JBR, FANEM, ZEBRA, HP, IBBL...) precisa de cadastro em Fornecedores. É operação, não código."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "9db07a275b",
+     "grupo": "Manutenção › Ativos × Cadastros/Compras — o que ficou para depois",
+     "texto": "Regras do banco",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "a exceção \"Manutenção cria SC do ativo\" está em `database.rules.json` e precisa ser **publicada** (`firebase deploy --only database --project erpkuryos`) antes de a Manutenção conseguir enviar. Sem isso, a tela mostra \"seu usuário precisa do módulo Manutenção ou Compras\"."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "7c13dafd9e",
+     "grupo": "Consistência produção × estoque × expedição — o que ficou para depois",
+     "texto": "Retrabalho com troca de SKU (reclassificação)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "É o caso Rose Absolut × Sunrise: o líquido de uma OP foi envasado com o frasco de outro SKU e reenvasado depois. Hoje não há como **transferir unidades de uma OP/SKU para outra**. O caminho é corrigir o apontamento da OP errada no Histórico e apontar a certa, o que funciona, mas não deixa o elo registrado. Também nã…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "efa7966925",
+     "grupo": "Consistência produção × estoque × expedição — o que ficou para depois",
+     "texto": "Contagem cega na Conferência de PA",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "A conferência da 26302/01 (13/11) aceitou uma contagem só, idêntica ao apontamento de 3.470, e liberou o palete. Se a tela não mostrasse o apontado antes da contagem, ou se OP com RNC-SP aberta exigisse as três contagens, a contagem copiada seria pega. Ponto de partida: `analisarTripla` / `prepararFinalizacao` em `f…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "d6c5b0453b",
+     "grupo": "Consistência produção × estoque × expedição — o que ficou para depois",
+     "texto": "Fechar a RNC \"resolvida pela conta\"",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Hoje a RNC de consistência fecha pelo fluxo normal da Qualidade (causa, ação). A conta do pedido volta a fechar sozinha quando o apontamento é corrigido; não há vínculo automático entre uma coisa e a outra."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "b16c52bf74",
+     "grupo": "Consistência produção × estoque × expedição — o que ficou para depois",
+     "texto": "166 itens de pedido \"com diferença\"",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "na base de 13/11, quase todos de OPs anteriores à Conferência de PA (10/09) e à planilha. É história, não regra nova: pede uma regularização própria, nos moldes da `AUDITORIA_REGULARIZACAO_46_20261102.md`."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "defac81654",
+     "grupo": "Consistência produção × estoque × expedição — o que ficou para depois",
+     "texto": "Servidor antigo no Render",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(`pcp-kuryos-functions.onrender.com`): a Vercel legada chamava as callables por ele. Com a Vercel redirecionada, ninguém mais chega lá pelo site, mas ele continua no ar com credencial de produção. Desligar no painel do Render (sem acesso por aqui)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "b68bc86d79",
+     "grupo": "Financeiro × WebMais — o que ficou para depois",
+     "texto": "Fiscal da NF de entrada (NF-03, NF-04, NF-05)",
+     "subitens": [
+      "casar os itens do XML com Materiais;",
+      "usar o CFOP por item (hoje só é guardado);",
+      "ler os impostos e créditos de PIS/COFINS. Os dados já ficam guardados em `fin/notas_entrada/{chave}/itens`. O assunto é fiscal e pede decisão com o contador."
+     ],
+     "extras": {
+      "Detalhe": "Faltam três coisas:"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "b0ca7bf532",
+     "grupo": "Financeiro × WebMais — o que ficou para depois",
+     "texto": "Liquidação (CB-06/07)",
+     "subitens": [
+      "os filtros de portador, tipo de cobrança, emissão, valor de/até e liquidação de/até;",
+      "juros, multa e desconto por linha (hoje ficam no botão Pagar do título);",
+      "data de crédito e representante no lado a receber. Ponto de partida: `parcelasParaLiquidar` e `montarLiquidacao` (`public/shared/financeiro.js`)."
+     ],
+     "extras": {
+      "Detalhe": "**Feito em 18/11:** emissão, tipo de cobrança, valor de/até, juros/multa/desconto por linha, data de crédito e representante (falta portador e liquidação de/até). Antes faltavam: Faltam:"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "b6e05c21a8",
+     "grupo": "Financeiro × WebMais — o que ficou para depois",
+     "texto": "Rateio com mais de um elemento no mesmo título (CP-06)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "**Feito em 18/11** (linhas elemento × centro × valor). Hoje é um elemento por título, rateado entre centros. Para crescer, o registro em `fin/classificacoes/{titulo}` passaria a ter linhas elemento × centro."
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "b0d4ea45a8",
+     "grupo": "Financeiro × WebMais — o que ficou para depois",
+     "texto": "DFC (CR-03)",
+     "subitens": [
+      "o filtro de conta bancária;",
+      "as opções \"exibir descontos\" e \"pedidos de venda e ordens de compra\" (estas existem no fluxo projetado, mas não no DFC). O plano de elementos é proposta: os códigos reais do WebMais se cadastram em Financeiro › Cadastros."
+     ],
+     "extras": {
+      "Detalhe": "**Feito em 18/11** (conta, exibir descontos e previsto, como memorando). Hoje é só mensal e só realizado. Faltam:"
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "5cdb0f82f3",
+     "grupo": "Financeiro × WebMais — o que ficou para depois",
+     "texto": "Fluxo dia a dia (CC-02)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "**Feito em 18/11** (de/até na aba Fluxo). O período é fixo (7 dias passados e 30 futuros); falta escolher de/até."
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "a288e01778",
+     "grupo": "Financeiro × WebMais — o que ficou para depois",
+     "texto": "Gastos e lançamento de despesas (CR-08, PR-03)",
+     "subitens": [
+      "a listagem resumida;",
+      "agrupamento, periodicidade e responsável nas despesas."
+     ],
+     "extras": {
+      "Detalhe": "**Feito em 18/11** (listagem resumida; agrupamento, periodicidade e responsável = quem lançou). Faltam:"
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "54fdeba639",
+     "grupo": "Financeiro × WebMais — o que ficou para depois",
+     "texto": "Lote bancário (CB-05, CC-04)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "Consulta de lotes por período **feita em 18/11** (relatório \"Lotes de pagamento\"); o arquivo de remessa continua fora. Falta o arquivo de remessa e a consulta de lotes por período."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "6536f7be5e",
+     "grupo": "Financeiro × WebMais — o que ficou para depois",
+     "texto": "Folha (CP-03)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "A importação de arquivo de folha não existe; a folha entra pela operação do mês."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "94d7119bb3",
+     "grupo": "Financeiro × WebMais — o que ficou para depois",
+     "texto": "Exportação contábil (CT-03)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "O CSV é genérico, não o layout do Domínio."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "ec39f12049",
+     "grupo": "Financeiro × WebMais — o que ficou para depois",
+     "texto": "Reconciliação da Controladoria",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "**Medido em 18/11: nenhum caso** (83 recebimentos: 5 com todos os lotes PAGO, 78 com nenhum, 0 parcial). Nada mudou. Um recebimento com ENTRADA *parcial* no razão (parte dos lotes com custo PAGO) é tratado como \"tem custo\" e não explica nada. Antes de 12/11 era igual. Medir na base se existe esse caso antes de mexer…"
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "b6445846df",
+     "grupo": "Financeiro × WebMais — o que ficou para depois",
+     "texto": "Plano de elementos",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "**Feito em 18/11** (decisão Q9: só ADM ou Controladoria, com histórico). Qualquer usuário do módulo Financeiro renomeia ou inativa elemento, sem segunda aprovação. Avaliar se o plano deve ser só do ADM ou da Controladoria."
+     },
+     "feito": true,
+     "hash": null
+    },
+    {
+     "id": "12c884d1d7",
+     "grupo": "Financeiro × WebMais — o que ficou para depois",
+     "texto": "Cheques a receber e a pagar",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(custódia, compensação, devolução, filtro \"cheques a compensar\" no DFC): é uma carteira nova inteira. Antes de construir, confirmar se a Kuryos ainda recebe ou emite cheque."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "295f1e11f9",
+     "grupo": "Financeiro × WebMais — o que ficou para depois",
+     "texto": "Remessa bancária (CNAB/boleto registrado)",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ": já estava fora em `PROMPT_FINANCEIRO.md` §14. O OFX resolve a conciliação sem custo."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "19a0696f6c",
+     "grupo": "Financeiro × WebMais — o que ficou para depois",
+     "texto": "Dedução e reembolso de comissão",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ": não há representante nem comissão na base."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "d3a05e90ee",
+     "grupo": "Financeiro × WebMais — o que ficou para depois",
+     "texto": "Filtro \"empresa\"",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "dos relatórios do WebMais: a Kuryos opera com um CNPJ só, então não se aplica."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
+     "id": "6b80c569ac",
+     "grupo": "Financeiro × WebMais — o que ficou para depois",
+     "texto": "Recebimento contra pedido de compra nasce sem centro de custo",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "(27 de 44 títulos na base de 11/11 aparecem em \"Sem centro de custo\"). Dá para derivar o centro pela natureza ou pelo pedido, mas a regra (MP → Produção? embalagem → Rotulagem?) é decisão do Financeiro com a Controladoria."
+     },
+     "feito": false,
+     "hash": null
+    },
     {
      "id": "76c72933b5",
      "grupo": "Cadastros × emissão de OP — o que ficou para depois",
@@ -3038,6 +3680,17 @@
    "titulo": "Depende da Kuryos",
    "itens": [
     {
+     "id": "2eadd8967d",
+     "grupo": "Fiscal + Controladoria + Financeiro (prompt mestre) — o que ficou para depois",
+     "texto": "Inventário (Bloco H) depende do Dia D",
+     "subitens": [],
+     "extras": {
+      "Detalhe": ": o retrato acusa saldo negativo e material sem preço/sem item fiscal (NCM) como impeditivo. Os materiais precisam de item fiscal ligado (Itens fiscais › Material)."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
      "id": "b39965b082",
      "grupo": "Integração entre setores",
      "texto": "Área de endereço para quarentena",
@@ -3110,6 +3763,17 @@
    "titulo": "Decisões pendentes do usuário",
    "itens": [
     {
+     "id": "6ef18c9fff",
+     "grupo": "Controladoria × WebMais — o que ficou para depois",
+     "texto": "Empresas 002 CONNEXXA e 003 NEXT21",
+     "subitens": [],
+     "extras": {
+      "Detalhe": "o WebMais é multiempresa; aqui é um CNPJ. Decidir se entram."
+     },
+     "feito": false,
+     "hash": null
+    },
+    {
      "id": "9a02db27a7",
      "grupo": "Auditoria ponta a ponta — o que ficou para decidir",
      "texto": "Dados que precisam de decisão de quem opera (nada foi alterado no banco)",
@@ -3140,17 +3804,17 @@
  "resumo": {
   "A": {
    "titulo": "Código: o que está adiado (MELHORIAS_FUTURAS.md)",
-   "total": 274,
-   "feitos": 24
+   "total": 332,
+   "feitos": 32
   },
   "B": {
    "titulo": "Depende da Kuryos",
-   "total": 6,
+   "total": 7,
    "feitos": 1
   },
   "C": {
    "titulo": "Decisões pendentes do usuário",
-   "total": 2,
+   "total": 3,
    "feitos": 0
   }
  }

@@ -7,9 +7,9 @@ sugestão dela até o Marlos dizer outra coisa: (1) todos abrem chamado, menos a
 pessoa vê os seus; (3) e-mail ao ADM no chamado novo e ao autor quando muda de etapa ou recebe pergunta; (4) o backlog
 técnico entra no quadro só na Fase 2. Mudar qualquer uma é ajuste pequeno em `functions/chamados.js`.
 
-- **Fase 2 — um Roadmap só:** trazer os itens de `MELHORIAS_FUTURAS.md` (`public/backlog.json`) para o quadro como
+- ~~**Fase 2 — um Roadmap só:** trazer os itens de `MELHORIAS_FUTURAS.md` (`public/backlog.json`) para o quadro como
   cartões, com a ordem no banco; ligar o chamado ao item que o resolve; script que entrega o topo da fila aos agentes
-  e grava o commit ao concluir.
+  e grava o commit ao concluir. feito em `f542dc8`.~~
 - **Fase 3 — medir:** tempo até a primeira resposta e até a conclusão por setor e tipo; anexar sozinho o erro de
   JavaScript da tela; quadro em modo leitura para gestores.
 - **Abrir o formulário direto da tela atual:** hoje o link do menu leva à lista (a tela de origem vai pelo

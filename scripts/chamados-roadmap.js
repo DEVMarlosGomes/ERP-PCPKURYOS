@@ -58,7 +58,10 @@ function marcarConcluido(md, id, commit) {
     const trecho = ['## ' + grupo].concat(linhas.slice(i, fim)).join('\n');
     const candidato = itensDoBacklog(gerador.parseLivre(trecho)).find((item) => item.id === id);
     if (!candidato) continue;
-    linhas[i] = '- ~~' + linhas[i].slice(2).replace(/\s+$/, '') + ' feito em `' + commit.toLowerCase() + '`.~~';
+    linhas[i] = '- ~~' + linhas[i].slice(2).replace(/\s+$/, '');
+    let ultima = fim - 1;
+    while (ultima > i && !linhas[ultima].trim()) ultima--;
+    linhas[ultima] = linhas[ultima].replace(/\s+$/, '') + ' feito em `' + commit.toLowerCase() + '`.~~';
     return linhas.join('\n');
   }
   throw new Error('O item existe no JSON, mas não foi localizado na fonte. Rode node scripts/gerar-backlog.js e tente de novo.');
