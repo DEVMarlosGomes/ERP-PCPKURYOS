@@ -28,7 +28,7 @@ class Ref {
   update(u) { Object.keys(u).forEach((p) => gravar(this.db.data, this.path ? this.path + '/' + p : p, u[p])); return Promise.resolve(); }
   transaction(fn) { const atual = clone(ler(this.db.data, this.path)); const novo = fn(atual === undefined ? null : atual); if (novo === undefined) return Promise.resolve({committed: false, snapshot: new Snap(atual)}); gravar(this.db.data, this.path, novo); return Promise.resolve({committed: true, snapshot: new Snap(novo)}); }
 }
-const USUARIOS = {u1: {nome: 'Yasmin', email: 'yasmin@kuryos.com.br', role: 'pd'}, adm: {nome: 'Gustavo', email: 'adm@kuryos.com.br', role: 'admin'}};
+const USUARIOS = {u1: {nome: 'Yasmin', email: 'yasmin@kuryos.com.br', role: 'pd'}, adm: {nome: 'Gustavo', email: 'adm@kuryos.com.br', role: 'admin'}, gest: {nome: 'Líder', email: 'lider@kuryos.com.br', role: 'gestor'}};
 const dbSrv = {data: {usuarios: clone(USUARIOS)}, seq: 0, ref(p) { return new Ref(this, p); }};
 const uploads = {};
 const emails = [];
@@ -49,6 +49,7 @@ async function abrir(browser, uid, url, largura) {
   const espelho = {usuarios: clone(USUARIOS), chamados_caixa: clone(ler(dbSrv.data, 'chamados_caixa') || {}), chamados_fila_adm: clone(ler(dbSrv.data, 'chamados_fila_adm') || {})};
   await page.addInitScript(({uid, data}) => {
     const db = data; window.__db = db;
+    if (uid === 'u1') sessionStorage.setItem('kuryos-ultimo-erro-js', JSON.stringify({mensagem:'Cannot read properties of undefined',arquivo:'cadastros.js',linha:77,coluna:3,pilha:'TypeError: teste',em:new Date().toISOString(),pagina:'cadastros.html'}));
     const pt = (p) => String(p || '').split('/').filter(Boolean);
     const ler = (p) => pt(p).reduce((x, k) => (x == null ? undefined : x[k]), db);
     const ouvintes = [];
@@ -115,6 +116,7 @@ const contador = (page) => page.evaluate(() => { const e = document.getElementBy
     ok(await page.locator('#unified-navbar a[href*="chamados"]').count() >= 1, 'menu tem "Chamados" no topo, ao lado de Cobranças');
     ok(/Nenhum chamado encontrado/.test(await page.locator('#lista').innerText()), 'lista vazia para quem nunca abriu');
     await page.click('#btnNovo');
+    ok(/Erro técnico detectado automaticamente/.test(await page.locator('#erroAutomatico').innerText()), 'último erro JavaScript será anexado sem digitação');
     await page.selectOption('#novoTipo', 'ERRO');
     await page.selectOption('#novoImpacto', 'ALTO');
     await page.fill('#novoTitulo', 'Não consigo confirmar a amostra de MP');
@@ -135,6 +137,7 @@ const contador = (page) => page.evaluate(() => { const e = document.getElementBy
     const id = Object.keys(dbSrv.data.chamados)[0], ch = dbSrv.data.chamados[id];
     ok(ch.codigo === 'CH-00001' && Object.keys(ch.anexos).length === 3, 'chamado CH-00001 criado com os 3 prints');
     ok(ch.contexto.versao === '65038e6c0ffee' && /\d+x\d+/.test(ch.contexto.viewport), 'contexto automático: versão publicada e tamanho da tela');
+    ok(ch.contexto.erroJavaScript && ch.contexto.erroJavaScript.linha === 77 && ch.setor === 'PD', 'contexto automático inclui erro JavaScript e setor');
     ok(emails.length === 1 && emails[0].para.includes('adm@kuryos.com.br'), 'ADM avisado por e-mail');
     ok(await contador(page) === '', 'nada espera pelo autor: contador escondido');
     await page.close();
@@ -190,7 +193,19 @@ const contador = (page) => page.evaluate(() => { const e = document.getElementBy
     ok(['CRIADO', 'STATUS', 'TRIAGEM', 'CONFIRMADO'].every((t) => hist.includes(t)), 'histórico: criado, movido, triado e confirmado');
     await page.close();
 
-    // ── 4. Celular ────────────────────────────────────────────────────────
+    // ── 4. Gestor consulta sem alterar ─────────────────────────────────────
+    ({page, erros} = await abrir(browser, 'gest', 'chamados.html?visao=GESTAO'));
+    todosErros.push(erros);
+    ok(await page.locator('.ch-tab[data-visao="GESTAO"]').getAttribute('aria-selected') === 'true', 'Gestor entra na visão gerencial');
+    ok(/Chamados concluídos\s*1/.test(await page.locator('#metricas').innerText()) && /PD/.test(await page.locator('#metricas').innerText()), 'painel mostra métricas por setor e tipo');
+    ok(/readonly/.test(await page.locator('#quadro').getAttribute('class')) && await page.locator('.ch-card[data-source="CHAMADO"]').getAttribute('draggable') === 'false', 'quadro gerencial é somente leitura');
+    await shot(page, '4-gestao');
+    await page.click('.ch-card[data-source="CHAMADO"]');
+    await page.waitForSelector('#dtFechar');
+    ok(await page.locator('#dtTriar').count() === 0 && await page.locator('#dtComentar').count() === 0 && /Tempo até conclusão/.test(await page.locator('#detalheDialog').innerText()), 'detalhe gerencial mostra SLA sem controles de alteração');
+    await page.close();
+
+    // ── 5. Celular ────────────────────────────────────────────────────────
     ({page, erros} = await abrir(browser, 'u1', 'chamados.html', 390));
     todosErros.push(erros);
     let rol = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

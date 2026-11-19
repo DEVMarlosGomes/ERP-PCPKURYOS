@@ -59,6 +59,7 @@ async function rejeita(p, code) { await assert.rejects(p, (e) => e && e.code ===
   assert.equal(C.ordemParaSoltar(fila.filter((x) => x.id !== 'x'), null), 3000, 'soltar no vazio vai para o fim');
   assert.equal(C.ordemParaSoltar([], null), 1000, 'coluna vazia');
   assert.equal(C.ROTULO_PRIORIDADE.P0, 'Urgente');
+  assert.equal(C.duracao(90 * 60000), '1,5 h');
   const roadmapMotor = C.itensRoadmap({geradoEm:'2026-11-19T10:00:00Z',secoes:[{letra:'A',titulo:'Código',itens:[{id:'abcdef1234',texto:'Integrar a fila',grupo:'Help Desk',feito:false,subitens:[],extras:{}}]}]}, {abcdef1234:{status:'EM_ANDAMENTO',ordem:42,chamados:{c1:{codigo:'CH-1'}}}});
   assert.equal(roadmapMotor[0].status,'EM_ANDAMENTO'); assert.equal(roadmapMotor[0].ordem,42); assert.equal(roadmapMotor[0].fonte,'ROADMAP');
   ok('motor da tela valida arquivos/formulário, cria caminho seguro e ordena o quadro');
@@ -74,6 +75,7 @@ async function rejeita(p, code) { await assert.rejects(p, (e) => e && e.code ===
     u1:{nome:'Yasmin',email:'yasmin@kuryos.com.br',role:'pd'},
     u2:{nome:'Outro',email:'outro@kuryos.com.br',role:'pcp'},
     adm:{nome:'Administrador',email:'adm@kuryos.com.br',role:'admin'},
+    gest:{nome:'Líder',email:'lider@kuryos.com.br',role:'gestor'},
     off:{nome:'Desativado',email:'off@kuryos.com.br',role:'pcp',desativado:true},
   }});
   const emails = [];
@@ -88,13 +90,15 @@ async function rejeita(p, code) { await assert.rejects(p, (e) => e && e.code ===
   const requestId = 'req_123456789012345';
   const reserva = await servico.executar('u1',{acao:'RESERVAR',requestId});
   assert.ok(reserva.id);
-  const criado = await servico.executar('u1',{acao:'CRIAR',requestId,tipo:'ERRO',impacto:'ALTO',titulo:'Não consigo confirmar a amostra',descricao:'Ao confirmar a amostra, o botão carrega e nada acontece.',contexto:{pagina:'cadastros.html',url:'https://kuryoserp.com.br/cadastros.html?tab=amostras'},anexos:[
+  const criado = await servico.executar('u1',{acao:'CRIAR',requestId,tipo:'ERRO',impacto:'ALTO',titulo:'Não consigo confirmar a amostra',descricao:'Ao confirmar a amostra, o botão carrega e nada acontece.',contexto:{pagina:'cadastros.html',url:'https://kuryoserp.com.br/cadastros.html?tab=amostras',erroJavaScript:{mensagem:'Cannot read properties of undefined',arquivo:'cadastros.js',linha:77,pilha:'TypeError: teste'}},anexos:[
     {caminho:`chamados/u1/${reserva.id}/a.png`},{caminho:`chamados/u1/${reserva.id}/b.webp`},
   ]});
   assert.equal(criado.codigo,'CH-00001');
   assert.equal(ler(db.data,`chamados/${reserva.id}/status`),'NOVO');
   assert.equal(Object.keys(ler(db.data,`chamados/${reserva.id}/anexos`)).length,2);
   assert.equal(ler(db.data,`chamados/${reserva.id}/contexto/pagina`),'cadastros.html');
+  assert.equal(ler(db.data,`chamados/${reserva.id}/contexto/erroJavaScript/linha`),77,'erro JavaScript recente anexado ao contexto');
+  assert.equal(ler(db.data,`chamados/${reserva.id}/setor`),'PD','setor capturado do perfil na abertura');
   assert.equal(typeof ler(db.data,`chamados/${reserva.id}/ordem`),'number','chamado novo já nasce posicionado no quadro');
   assert.equal(emails.length,1);
   assert.equal(ler(db.data,`chamados/${reserva.id}/contexto/versao`),'65038e6abc','versão publicada gravada no chamado');
@@ -110,9 +114,14 @@ async function rejeita(p, code) { await assert.rejects(p, (e) => e && e.code ===
   assert.equal((await servico.executar('u2',{acao:'LISTAR',visao:'MEUS'})).itens.length,0);
   await rejeita(servico.executar('u2',{acao:'DETALHE',id:reserva.id}),'permission-denied');
   await rejeita(servico.executar('u1',{acao:'LISTAR',visao:'QUADRO'}),'permission-denied');
+  await rejeita(servico.executar('u2',{acao:'LISTAR',visao:'GESTAO'}),'permission-denied');
   await rejeita(servico.executar('off',{acao:'LISTAR',visao:'MEUS'}),'permission-denied');
   const quadro = await servico.executar('adm',{acao:'LISTAR',visao:'QUADRO'});
   assert.equal(quadro.itens.length,1); assert.equal(quadro.admin,true);
+  const gestaoAberta = await servico.executar('gest',{acao:'LISTAR',visao:'GESTAO'});
+  assert.equal(gestaoAberta.itens.length,1); assert.equal(gestaoAberta.gestor,true); assert.equal(gestaoAberta.admin,false);
+  assert.equal((await servico.executar('gest',{acao:'DETALHE',id:reserva.id})).gestor,true);
+  await rejeita(servico.executar('gest',{acao:'TRIAR',id:reserva.id,prioridade:'P1'}),'permission-denied');
   ok('autor só vê os seus, terceiro não abre, inativo é recusado e ADM vê o quadro');
 
   await rejeita(servico.executar('u1',{acao:'ROADMAP_SINCRONIZAR',itens:[{id:'abcdef1234',feito:false}]}),'permission-denied');
@@ -129,8 +138,10 @@ async function rejeita(p, code) { await assert.rejects(p, (e) => e && e.code ===
 
   await servico.executar('adm',{acao:'TRIAR',id:reserva.id,prioridade:'P0',responsavel:'Equipe ERP'});
   assert.equal(emails.length,1,'triagem não envia e-mail sem mudança de etapa');
+  assert.equal(ler(db.data,`chamados/${reserva.id}/metricas/primeiraRespostaEm`),undefined,'triagem interna ainda não conta como resposta');
   await servico.executar('adm',{acao:'MOVER',id:reserva.id,status:'NA_FILA',ordem:1000});
   assert.equal(ler(db.data,`chamados/${reserva.id}/ordem`),1000,'posição na fila gravada');
+  assert.ok(ler(db.data,`chamados/${reserva.id}/metricas/tempoPrimeiraRespostaMs`) >= 0,'primeira resposta marcada automaticamente pelo servidor');
   await servico.executar('adm',{acao:'MOVER',id:reserva.id,status:'NA_FILA',ordem:500});
   assert.equal(ler(db.data,`chamados_caixa/u1/${reserva.id}/ordem`),500,'reordenar na mesma coluna');
   assert.equal(emails.length,2,'reordenar na mesma coluna não envia e-mail');
@@ -149,11 +160,20 @@ async function rejeita(p, code) { await assert.rejects(p, (e) => e && e.code ===
   await rejeita(servico.executar('u2',{acao:'CONFIRMAR',id:reserva.id}),'permission-denied');
   await servico.executar('u1',{acao:'CONFIRMAR',id:reserva.id,texto:'Agora funcionou.'});
   assert.equal(ler(db.data,`chamados/${reserva.id}/status`),'CONCLUIDO');
+  assert.ok(ler(db.data,`chamados/${reserva.id}/metricas/tempoConclusaoMs`) >= 0,'conclusão marcada automaticamente pelo servidor');
   assert.equal(ler(db.data,`chamados_caixa/u1/${reserva.id}/status`),'CONCLUIDO');
   assert.ok(Object.keys(ler(db.data,`chamados/${reserva.id}/historico`)).length >= 6);
   assert.equal(ler(db.data,`chamados_caixa/u1/${reserva.id}/aguardaVoce`),false,'concluído não conta mais');
   await rejeita(servico.executar('adm',{acao:'TRIAR',id:reserva.id,prioridade:'P1'}),'failed-precondition');
   ok('ADM tria, move e comenta; somente o autor valida e toda mudança fica no histórico');
+
+  const gestao = await servico.executar('gest',{acao:'LISTAR',visao:'GESTAO'});
+  assert.equal(gestao.metricas.geral.total,1);
+  assert.equal(gestao.metricas.geral.concluidos,1);
+  assert.equal(gestao.metricas.grupos[0].setor,'PD');
+  assert.equal(gestao.metricas.grupos[0].tipo,'ERRO');
+  assert.ok(gestao.metricas.geral.mediaPrimeiraRespostaMs >= 0 && gestao.metricas.geral.mediaConclusaoMs >= 0);
+  ok('Fase 3: Gestor consulta quadro somente leitura e métricas por setor/tipo com marcos automáticos');
 
   // Ligação: a callable passa a versão publicada e o menu tem Chamados com contador.
   const fs = require('fs'), idx = fs.readFileSync('functions/index.js','utf8'), ac = fs.readFileSync('public/auth_check.js','utf8');
@@ -161,6 +181,7 @@ async function rejeita(p, code) { await assert.rejects(p, (e) => e && e.code ===
   assert.match(idx, /exports\.chamadoSistema = onCall/);
   assert.match(ac, /ktLink\('chamados\.html'.*kt-cham-n/);
   assert.match(ac, /ref\('chamados_caixa\/' \+ user\.uid\)/);
+  assert.match(ac, /kuryos-ultimo-erro-js/);
   ok('ligação: versão publicada na callable e Chamados com contador no menu');
 
   console.log('OK run_chamados_test.js: '+n+' grupos.');

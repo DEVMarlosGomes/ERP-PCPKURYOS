@@ -118,12 +118,22 @@
     var d = new Date(v);
     return isNaN(d) ? '—' : d.toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'});
   }
+  function duracao(ms) {
+    var n = Number(ms);
+    if (!isFinite(n) || n < 0) return '—';
+    var minutos = Math.round(n / 60000);
+    if (minutos < 60) return minutos + ' min';
+    var horas = Math.round(minutos / 6) / 10;
+    if (horas < 24) return String(horas).replace('.', ',') + ' h';
+    var dias = Math.round(horas / 2.4) / 10;
+    return String(dias).replace('.', ',') + ' d';
+  }
 
   return {
     STATUS: STATUS, ROTULO_STATUS: ROTULO_STATUS, ROTULO_TIPO: ROTULO_TIPO, ROTULO_IMPACTO: ROTULO_IMPACTO, ROTULO_PRIORIDADE: ROTULO_PRIORIDADE, ordemParaSoltar: ordemParaSoltar, itensRoadmap: itensRoadmap,
     TIPOS_ACEITOS: TIPOS_ACEITOS, LIMITE_BYTES: LIMITE_BYTES, MAX_ANEXOS: MAX_ANEXOS,
     nomeSeguro: nomeSeguro, caminhoAnexo: caminhoAnexo, validarArquivo: validarArquivo,
     validarArquivos: validarArquivos, validarFormulario: validarFormulario, porStatus: porStatus,
-    requestId: requestId, dataHora: dataHora
+    requestId: requestId, dataHora: dataHora, duracao: duracao
   };
 });

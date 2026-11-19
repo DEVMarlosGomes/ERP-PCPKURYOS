@@ -26,6 +26,12 @@ function ativo(perfil) {
 function eAdmin(perfil) {
   return !!perfil && (perfil.role === 'admin' || (perfil.funcoes || {}).admin === true);
 }
+function eGestor(perfil) {
+  return !!perfil && (eAdmin(perfil) || perfil.role === 'gestor' || (perfil.funcoes || {}).gestor === true);
+}
+function setorDoPerfil(perfil) {
+  return (texto(perfil && (perfil.setor || perfil.departamento || perfil.role), 60) || 'NAO_INFORMADO').toUpperCase();
+}
 function nome(perfil, uid) {
   return texto(perfil && perfil.nome, 120) || texto(perfil && perfil.email, 160) || uid;
 }
@@ -57,6 +63,18 @@ function validarCriacao(dados) {
     navegador: texto(contextoEntrada.navegador, 300),
     viewport: texto(contextoEntrada.viewport, 40),
   };
+  const erroEntrada = contextoEntrada.erroJavaScript;
+  if (erroEntrada && texto(erroEntrada.mensagem, 500)) {
+    contexto.erroJavaScript = {
+      mensagem: texto(erroEntrada.mensagem, 500),
+      arquivo: texto(erroEntrada.arquivo, 500),
+      linha: Math.max(0, Math.min(9999999, Number(erroEntrada.linha) || 0)),
+      coluna: Math.max(0, Math.min(9999999, Number(erroEntrada.coluna) || 0)),
+      pilha: texto(erroEntrada.pilha, 2000),
+      em: texto(erroEntrada.em, 40),
+      pagina: texto(erroEntrada.pagina, 120),
+    };
+  }
   return {tipo, impacto, titulo, descricao, contexto};
 }
 function caminhoPermitido(uid, chamadoId, caminho) {
@@ -113,6 +131,8 @@ function resumo(id, c) {
     anexosQuantidade: Object.keys(c.anexos || {}).length,
     ordem: typeof c.ordem === 'number' ? c.ordem : null,
     roadmapId: c.roadmapId || null,
+    setor: c.setor || c.autor && c.autor.setor || 'NAO_INFORMADO',
+    metricas: c.metricas || null,
     aguardaVoce: aguardaVoce(c),
   };
 }
@@ -139,6 +159,60 @@ function montarEmail(c, acao, autorNome) {
   return {assunto, corpo};
 }
 
+function intervaloMs(inicio, fim) {
+  const a = Date.parse(inicio || ''), b = Date.parse(fim || '');
+  return Number.isFinite(a) && Number.isFinite(b) && b >= a ? b - a : null;
+}
+function marcosDoChamado(c, usuarios) {
+  const metricas = c.metricas || {};
+  let primeiraRespostaEm = metricas.primeiraRespostaEm || null;
+  let concluidoEm = metricas.concluidoEm || null;
+  const eventos = Object.keys(c.historico || {}).map((id) => c.historico[id]).filter(Boolean)
+    .sort((a, b) => String(a.em || '').localeCompare(String(b.em || '')));
+  if (!primeiraRespostaEm) {
+    const resposta = eventos.find((ev) => ev.uid !== (c.autor && c.autor.uid) && eAdmin((usuarios || {})[ev.uid]) && ['COMENTARIO', 'STATUS', 'RECUSADO', 'DUPLICADO'].includes(ev.tipo));
+    primeiraRespostaEm = resposta && resposta.em || null;
+  }
+  if (!concluidoEm) {
+    const fim = eventos.find((ev) => ['CONFIRMADO', 'RECUSADO', 'DUPLICADO'].includes(ev.tipo));
+    concluidoEm = fim && fim.em || (STATUS_FINAIS.includes(c.status) ? c.atualizadaEm || null : null);
+  }
+  return {
+    primeiraRespostaEm,
+    tempoPrimeiraRespostaMs: intervaloMs(c.criadaEm, primeiraRespostaEm),
+    concluidoEm,
+    tempoConclusaoMs: intervaloMs(c.criadaEm, concluidoEm),
+  };
+}
+function media(valores) {
+  const validos = valores.filter((v) => Number.isFinite(v) && v >= 0);
+  return validos.length ? Math.round(validos.reduce((a, b) => a + b, 0) / validos.length) : null;
+}
+function calcularMetricas(todos, usuarios) {
+  const grupos = new Map();
+  Object.keys(todos || {}).map((id) => todos[id]).filter(Boolean).forEach((c) => {
+    const setor = texto(c.setor || c.autor && c.autor.setor, 60).toUpperCase() || 'NAO_INFORMADO';
+    const tipo = TIPOS.includes(c.tipo) ? c.tipo : 'NAO_INFORMADO';
+    const chave = setor + '|' + tipo;
+    const g = grupos.get(chave) || {setor, tipo, total: 0, abertos: 0, concluidos: 0, respondidos: 0, primeira: [], conclusao: []};
+    const marcos = marcosDoChamado(c, usuarios);
+    g.total++;
+    if (STATUS_FINAIS.includes(c.status)) g.concluidos++; else g.abertos++;
+    if (marcos.tempoPrimeiraRespostaMs != null) { g.respondidos++; g.primeira.push(marcos.tempoPrimeiraRespostaMs); }
+    if (marcos.tempoConclusaoMs != null) g.conclusao.push(marcos.tempoConclusaoMs);
+    grupos.set(chave, g);
+  });
+  function fechar(g) {
+    return {setor: g.setor, tipo: g.tipo, total: g.total, abertos: g.abertos, concluidos: g.concluidos, respondidos: g.respondidos, mediaPrimeiraRespostaMs: media(g.primeira), mediaConclusaoMs: media(g.conclusao)};
+  }
+  const linhas = Array.from(grupos.values()).map(fechar).sort((a, b) => a.setor.localeCompare(b.setor, 'pt-BR') || a.tipo.localeCompare(b.tipo, 'pt-BR'));
+  const acumulado = Array.from(grupos.values()).reduce((g, item) => {
+    g.total += item.total; g.abertos += item.abertos; g.concluidos += item.concluidos; g.respondidos += item.respondidos;
+    g.primeira.push(...item.primeira); g.conclusao.push(...item.conclusao); return g;
+  }, {setor: 'TODOS', tipo: 'TODOS', total: 0, abertos: 0, concluidos: 0, respondidos: 0, primeira: [], conclusao: []});
+  return {geral: fechar(acumulado), grupos: linhas};
+}
+
 function criarServico(deps) {
   const db = deps.db;
   const obterAnexo = deps.obterAnexo || (async () => { throw new Error('Storage indisponível'); });
@@ -154,7 +228,7 @@ function criarServico(deps) {
     ]);
     const perfil = perfilSnap.val();
     if (!ativo(perfil)) throw erro('permission-denied', 'Seu acesso não está ativo.');
-    return {perfil, usuarios: usuariosSnap.val() || {}, pessoa: {uid, nome: nome(perfil, uid)}};
+    return {perfil, usuarios: usuariosSnap.val() || {}, pessoa: {uid, nome: nome(perfil, uid), setor: setorDoPerfil(perfil)}};
   }
   async function avisar(c, acao, ator, usuarios, destinos) {
     const opcoes = destinos || {};
@@ -204,6 +278,7 @@ function criarServico(deps) {
       prioridade: prioridadeDoImpacto(campos.impacto),
       status: 'NOVO',
       autor: ctx.pessoa,
+      setor: ctx.pessoa.setor,
       criadaEm: quando,
       atualizadaEm: quando,
       // Todo cartão nasce posicionado. Assim, arrastar antes/depois de outro
@@ -227,22 +302,25 @@ function criarServico(deps) {
     return {ok: true, id: pedido.id, codigo, status: 'NOVO', email};
   }
   async function listar(uid, dados, ctx) {
-    const quadro = String(dados.visao || '').toUpperCase() === 'QUADRO';
+    const visao = String(dados.visao || '').toUpperCase();
+    const quadro = visao === 'QUADRO';
+    const gestao = visao === 'GESTAO';
     if (quadro && !eAdmin(ctx.perfil)) throw erro('permission-denied', 'Somente administradores acessam o quadro.');
+    if (gestao && !eGestor(ctx.perfil)) throw erro('permission-denied', 'Somente gestores acessam esta visão.');
     const leituras = [db.ref('chamados').once('value')];
-    if (eAdmin(ctx.perfil)) leituras.push(db.ref('chamados_roadmap').once('value'));
+    if (eAdmin(ctx.perfil) && quadro) leituras.push(db.ref('chamados_roadmap').once('value'));
     const snaps = await Promise.all(leituras);
     const todos = snaps[0].val() || {};
-    const itens = Object.keys(todos).filter((id) => todos[id] && (quadro || todos[id].autor && todos[id].autor.uid === uid))
+    const itens = Object.keys(todos).filter((id) => todos[id] && (quadro || gestao || todos[id].autor && todos[id].autor.uid === uid))
       .map((id) => resumo(id, todos[id])).sort((a, b) => String(b.atualizadaEm).localeCompare(String(a.atualizadaEm)));
-    return {ok: true, admin: eAdmin(ctx.perfil), itens, roadmapEstado: snaps[1] ? snaps[1].val() || {} : {}};
+    return {ok: true, admin: eAdmin(ctx.perfil), gestor: eGestor(ctx.perfil), itens, metricas: gestao ? calcularMetricas(todos, ctx.usuarios) : null, roadmapEstado: snaps[1] ? snaps[1].val() || {} : {}};
   }
   async function detalhe(uid, dados, ctx) {
     if (!idValido(dados.id)) throw erro('invalid-argument', 'Chamado inválido.');
     const c = (await db.ref(`chamados/${dados.id}`).once('value')).val();
     if (!c) throw erro('not-found', 'Chamado não encontrado.');
-    if (!eAdmin(ctx.perfil) && (!c.autor || c.autor.uid !== uid)) throw erro('permission-denied', 'Você não pode abrir este chamado.');
-    return {ok: true, admin: eAdmin(ctx.perfil), chamado: Object.assign({id: dados.id}, c)};
+    if (!eAdmin(ctx.perfil) && !eGestor(ctx.perfil) && (!c.autor || c.autor.uid !== uid)) throw erro('permission-denied', 'Você não pode abrir este chamado.');
+    return {ok: true, admin: eAdmin(ctx.perfil), gestor: eGestor(ctx.perfil), chamado: Object.assign({id: dados.id}, c)};
   }
   async function sincronizarRoadmap(dados, ctx) {
     if (!eAdmin(ctx.perfil)) throw erro('permission-denied', 'Somente administradores sincronizam o Roadmap.');
@@ -431,6 +509,16 @@ function criarServico(deps) {
           throw erro('invalid-argument', 'Ação desconhecida.');
         }
         novo.atualizadaEm = quando;
+        novo.metricas = Object.assign({}, atual.metricas || {});
+        const respostaDoAdmin = admin && ['COMENTARIO', 'STATUS', 'RECUSADO', 'DUPLICADO'].includes(ev.tipo) && ev.tipo !== 'ORDEM';
+        if (respostaDoAdmin && !novo.metricas.primeiraRespostaEm) {
+          novo.metricas.primeiraRespostaEm = quando;
+          novo.metricas.tempoPrimeiraRespostaMs = intervaloMs(atual.criadaEm, quando);
+        }
+        if (STATUS_FINAIS.includes(novo.status) && !novo.metricas.concluidoEm) {
+          novo.metricas.concluidoEm = quando;
+          novo.metricas.tempoConclusaoMs = intervaloMs(atual.criadaEm, quando);
+        }
         novo.versao = (Number(atual.versao) || 0) + 1;
         novo.historico[eventoId] = ev;
         tipoEventoSalvo = ev.tipo;
@@ -470,5 +558,5 @@ function criarServico(deps) {
 
 module.exports = {
   STATUS, STATUS_FINAIS, PRIORIDADES, TIPOS, IMPACTOS, MIME_IMAGEM, LIMITE_ANEXO, LIMITE_ANEXOS,
-  ativo, eAdmin, roadmapIdValido, prioridadeDoImpacto, validarCriacao, caminhoPermitido, validarAnexos, resumo, resumoFila, aguardaVoce, aguardaAdm, montarEmail, criarServico,
+  ativo, eAdmin, eGestor, setorDoPerfil, roadmapIdValido, prioridadeDoImpacto, validarCriacao, caminhoPermitido, validarAnexos, resumo, resumoFila, aguardaVoce, aguardaAdm, montarEmail, marcosDoChamado, calcularMetricas, criarServico,
 };

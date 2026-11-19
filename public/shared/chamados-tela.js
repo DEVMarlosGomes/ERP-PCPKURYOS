@@ -3,7 +3,7 @@
    toda permissão e transição de status é validada novamente pela callable. */
 (function() {
   var C = window.Chamados;
-  var eu = null, admin = false, itens = [], roadmapItens = [], roadmapEstado = {}, visao = 'MEUS', arquivos = [], requestId = '', enviando = false, detalheId = '';
+  var eu = null, admin = false, gestor = false, itens = [], roadmapItens = [], roadmapEstado = {}, metricas = null, visao = 'MEUS', arquivos = [], requestId = '', enviando = false, detalheId = '';
   var $ = function(id) { return document.getElementById(id); };
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
   function chamar(dados) { return firebase.functions().httpsCallable('chamadoSistema')(dados).then(function(r) { return r.data || {}; }); }
@@ -44,7 +44,8 @@
   }
   function renderLista() {
     var lista = filtrados();
-    $('lista').hidden = visao !== 'MEUS'; $('quadro').hidden = visao !== 'QUADRO';
+    $('lista').hidden = visao !== 'MEUS'; $('quadro').hidden = visao === 'MEUS'; $('metricas').hidden = visao !== 'GESTAO';
+    if (visao === 'GESTAO') { renderMetricas(); return renderQuadro(); }
     if (visao !== 'MEUS') return renderQuadro();
     if (!lista.length) {
       $('lista').innerHTML = '<div class="ch-empty"><strong>Nenhum chamado encontrado</strong>' + ($('busca').value || $('filtroStatus').value ? 'Ajuste os filtros para ver outros resultados.' : 'Quando precisar, use “Abrir chamado” e descreva o que aconteceu.') + '</div>';
@@ -56,23 +57,31 @@
     }).join('');
     $('lista').querySelectorAll('[data-id]').forEach(function(b) { b.onclick = function() { abrirDetalhe(b.dataset.id); }; });
   }
+  function renderMetricas() {
+    var m = metricas && metricas.geral || {}, linhas = metricas && metricas.grupos || [];
+    $('metricas').innerHTML = '<div class="ch-kpis"><div class="ch-kpi"><small>Chamados abertos</small><strong>'+Number(m.abertos||0)+'</strong></div><div class="ch-kpi"><small>Chamados concluídos</small><strong>'+Number(m.concluidos||0)+'</strong></div><div class="ch-kpi"><small>Primeira resposta média</small><strong>'+esc(C.duracao(m.mediaPrimeiraRespostaMs))+'</strong></div><div class="ch-kpi"><small>Conclusão média</small><strong>'+esc(C.duracao(m.mediaConclusaoMs))+'</strong></div></div><p class="ch-metrics-note">Médias calculadas com os chamados que já possuem o respectivo marco. O quadro abaixo é somente leitura.</p>'+
+      (linhas.length?'<div class="ch-table-wrap"><table class="ch-metrics-table"><thead><tr><th>Setor</th><th>Tipo</th><th>Total</th><th>Abertos</th><th>1ª resposta</th><th>Conclusão</th></tr></thead><tbody>'+linhas.map(function(g){return '<tr><td>'+esc(g.setor)+'</td><td>'+esc(C.ROTULO_TIPO[g.tipo]||g.tipo)+'</td><td>'+g.total+'</td><td>'+g.abertos+'</td><td>'+esc(C.duracao(g.mediaPrimeiraRespostaMs))+'</td><td>'+esc(C.duracao(g.mediaConclusaoMs))+'</td></tr>';}).join('')+'</tbody></table></div>':'');
+  }
   function renderQuadro() {
-    if (visao !== 'QUADRO') return;
+    if (visao !== 'QUADRO' && visao !== 'GESTAO') return;
+    var somenteLeitura = visao === 'GESTAO';
     var colunas = C.porStatus(filtrados());
     $('quadro').innerHTML = C.STATUS.map(function(status) {
       var cards = colunas[status].map(function(item) {
         if (item.fonte === 'ROADMAP') {
-          return '<article class="ch-card roadmap" draggable="true" tabindex="0" data-id="'+esc(item.id)+'" data-source="ROADMAP"><div class="ch-source"><span class="ch-code">'+esc(item.codigo)+'</span><span class="ch-roadmap-badge">Roadmap</span></div><h3>'+esc(item.titulo)+'</h3><div class="ch-tags">'+tags(item)+'</div><div class="ch-roadmap-group">'+esc(item.grupo||'')+'</div></article>';
+          return '<article class="ch-card roadmap" draggable="'+String(!somenteLeitura)+'" tabindex="0" data-id="'+esc(item.id)+'" data-source="ROADMAP"><div class="ch-source"><span class="ch-code">'+esc(item.codigo)+'</span><span class="ch-roadmap-badge">Roadmap</span></div><h3>'+esc(item.titulo)+'</h3><div class="ch-tags">'+tags(item)+'</div><div class="ch-roadmap-group">'+esc(item.grupo||'')+'</div></article>';
         }
-        return '<article class="ch-card" draggable="true" tabindex="0" data-id="'+esc(item.id)+'" data-source="CHAMADO"><span class="ch-code">'+esc(item.codigo)+'</span><h3>'+esc(item.titulo)+'</h3><div class="ch-tags">'+tags(item)+'</div><small>'+esc(item.autor&&item.autor.nome||'')+' · '+esc(C.dataHora(item.atualizadaEm))+'</small></article>';
+        return '<article class="ch-card" draggable="'+String(!somenteLeitura)+'" tabindex="0" data-id="'+esc(item.id)+'" data-source="CHAMADO"><span class="ch-code">'+esc(item.codigo)+'</span><h3>'+esc(item.titulo)+'</h3><div class="ch-tags">'+tags(item)+'</div><small>'+esc(item.autor&&item.autor.nome||'')+' · '+esc(C.dataHora(item.atualizadaEm))+'</small></article>';
       }).join('');
       return '<section class="ch-column" data-status="'+status+'"><div class="ch-col-head">'+esc(C.ROTULO_STATUS[status])+'<span>'+colunas[status].length+'</span></div><div class="ch-cards">'+cards+'</div></section>';
     }).join('');
+    $('quadro').classList.toggle('readonly',somenteLeitura);
     $('quadro').querySelectorAll('.ch-card').forEach(function(card) {
       card.onclick = function() { abrirCartao(card.dataset.id); };
       card.onkeydown = function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirCartao(card.dataset.id); } };
-      card.ondragstart = function(e) { e.dataTransfer.setData('text/cartao', card.dataset.id); e.dataTransfer.setData('text/plain', card.dataset.id); e.dataTransfer.effectAllowed = 'move'; };
+      if(!somenteLeitura)card.ondragstart = function(e) { e.dataTransfer.setData('text/cartao', card.dataset.id); e.dataTransfer.setData('text/plain', card.dataset.id); e.dataTransfer.effectAllowed = 'move'; };
     });
+    if(somenteLeitura)return;
     $('quadro').querySelectorAll('.ch-column').forEach(function(col) {
       col.ondragover = function(e) { e.preventDefault(); col.classList.add('dragover'); e.dataTransfer.dropEffect='move'; };
       col.ondragleave = function() { col.classList.remove('dragover'); };
@@ -105,9 +114,9 @@
   function carregar() {
     mensagem('Carregando chamados…');
     return chamar({acao:'LISTAR',visao:visao}).then(function(r) {
-      itens = r.itens || []; admin = !!r.admin; roadmapEstado = r.roadmapEstado || {}; $('tabQuadro').hidden = !admin;
+      itens = r.itens || []; admin = !!r.admin; gestor = !!r.gestor; metricas = r.metricas || null; roadmapEstado = r.roadmapEstado || {}; $('tabQuadro').hidden = !admin; $('tabGestao').hidden = !gestor;
       $('filtroOrigem').hidden = !(admin && visao === 'QUADRO');
-      return admin ? carregarRoadmap() : Promise.resolve();
+      return admin && visao === 'QUADRO' ? carregarRoadmap() : Promise.resolve().then(function(){roadmapItens=[];});
     }).then(function() {
       if (!$('mensagem').classList.contains('error')) mensagem('');
       renderLista();
@@ -117,16 +126,29 @@
   }
   function trocarVisao(nova) {
     if (nova === 'QUADRO' && !admin) return;
+    if (nova === 'GESTAO' && !gestor) return;
     visao = nova;
     $('filtroOrigem').hidden = visao !== 'QUADRO';
     document.querySelectorAll('.ch-tab').forEach(function(b){b.setAttribute('aria-selected',String(b.dataset.visao===visao));});
     carregar();
   }
 
+  function erroJavaScriptRecente() {
+    try {
+      var erro=JSON.parse(sessionStorage.getItem('kuryos-ultimo-erro-js')||'null');
+      if(!erro||!erro.mensagem||Date.now()-Date.parse(erro.em||'')>24*60*60*1000)return null;
+      return erro;
+    }catch(_){return null;}
+  }
+  function mostrarErroAutomatico() {
+    var erro=erroJavaScriptRecente(), box=$('erroAutomatico');
+    box.hidden=!erro;
+    box.innerHTML=erro?'<strong>Erro técnico detectado automaticamente</strong><code>'+esc(erro.mensagem)+(erro.pagina?' · '+esc(erro.pagina):'')+(erro.linha?' · linha '+Number(erro.linha):'')+'</code>':'';
+  }
   function abrirNovo() {
     arquivos.forEach(function(a){if(a.preview)URL.revokeObjectURL(a.preview);});
     arquivos=[]; requestId=''; enviando=false; $('formNovo').reset(); $('novoErro').hidden=true; $('uploadProgress').hidden=true; $('uploadProgress').querySelector('i').style.width='0';
-    renderPreviews(); $('novoLayer').hidden=false; document.body.style.overflow='hidden'; setTimeout(function(){$('novoTipo').focus();},0);
+    renderPreviews(); mostrarErroAutomatico(); $('novoLayer').hidden=false; document.body.style.overflow='hidden'; setTimeout(function(){$('novoTipo').focus();},0);
   }
   function fecharNovo() {
     if (enviando) return;
@@ -152,7 +174,9 @@
   function contextoTela() {
     var origem='';
     try{var ref=new URL(document.referrer);if(ref.origin===location.origin)origem=ref.pathname.split('/').pop()||'inicio.html';}catch(e){}
-    return {pagina:origem||'chamados.html',url:(origem?document.referrer:location.href).slice(0,500),navegador:navigator.userAgent.slice(0,300),viewport:innerWidth+'x'+innerHeight};
+    var contexto={pagina:origem||'chamados.html',url:(origem?document.referrer:location.href).slice(0,500),navegador:navigator.userAgent.slice(0,300),viewport:innerWidth+'x'+innerHeight};
+    var erro=erroJavaScriptRecente();if(erro)contexto.erroJavaScript=erro;
+    return contexto;
   }
   function progresso(valor) {$('uploadProgress').hidden=false;$('uploadProgress').querySelector('i').style.width=Math.max(0,Math.min(100,valor))+'%';}
   function enviarArquivos(id) {
@@ -182,7 +206,7 @@
       $('btnEnviar').textContent=arquivos.length?'Enviando prints…':'Enviando…';
       return enviarArquivos(r.id).then(function(anexos){return chamar(Object.assign({acao:'CRIAR',requestId:requestId,anexos:anexos,contexto:contextoTela()},dados));});
     }).then(function(r){
-      enviando=false; mensagem((r.codigo||'Chamado')+' aberto com sucesso.','ok'); fecharNovo(); arquivos=[]; requestId=''; return carregar();
+      enviando=false; mensagem((r.codigo||'Chamado')+' aberto com sucesso.','ok'); try{sessionStorage.removeItem('kuryos-ultimo-erro-js');}catch(_){} fecharNovo(); arquivos=[]; requestId=''; return carregar();
     }).catch(function(err){
       $('novoErro').textContent='O chamado não foi enviado: '+msgErro(err)+' Os dados e prints continuam aqui; tente novamente.';$('novoErro').hidden=false;
     }).finally(function(){enviando=false;$('btnEnviar').disabled=false;$('btnEnviar').textContent='Enviar chamado';});
@@ -237,15 +261,17 @@
   }
   function abrirDetalhe(id) {
     detalheId=id;$('detalheLayer').hidden=false;document.body.style.overflow='hidden';$('detalheDialog').innerHTML='<div class="ch-empty"><strong>Carregando chamado</strong>Aguarde um instante.</div>';
-    chamar({acao:'DETALHE',id:id}).then(function(r){renderDetalhe(r.chamado,!!r.admin);}).catch(function(err){$('detalheDialog').innerHTML='<div class="ch-form-error">'+esc(msgErro(err))+'</div><div class="ch-dialog-actions"><button class="ch-btn secondary" id="dtFechar">Fechar</button></div>';$('dtFechar').onclick=fecharDetalhe;});
+    chamar({acao:'DETALHE',id:id}).then(function(r){renderDetalhe(r.chamado,!!r.admin,visao==='GESTAO');}).catch(function(err){$('detalheDialog').innerHTML='<div class="ch-form-error">'+esc(msgErro(err))+'</div><div class="ch-dialog-actions"><button class="ch-btn secondary" id="dtFechar">Fechar</button></div>';$('dtFechar').onclick=fecharDetalhe;});
   }
-  function renderDetalhe(c, podeAdmin) {
+  function renderDetalhe(c, podeAdmin, somenteLeitura) {
     var autor=c.autor&&c.autor.uid===eu.uid;
-    var adminAcoes=podeAdmin&&!statusFinal(c.status)?'<div class="ch-inline"><label class="ch-field"><span>Prioridade</span><select id="dtPrioridade">'+['P0','P1','P2','P3'].map(function(p){return '<option value="'+p+'" '+(c.prioridade===p?'selected':'')+'>'+esc(C.ROTULO_PRIORIDADE[p])+'</option>';}).join('')+'</select></label><label class="ch-field"><span>Responsável</span><input id="dtResponsavel" maxlength="120" value="'+esc(c.responsavel||'')+'" placeholder="Nome ou equipe"></label><button class="ch-btn small" id="dtTriar">Salvar triagem</button></div><div class="ch-detail-actions">'+C.STATUS.filter(function(s){return s!==c.status;}).map(function(s){return '<button class="ch-btn secondary small" data-mover="'+s+'">'+esc(C.ROTULO_STATUS[s])+'</button>';}).join('')+'<button class="ch-btn secondary small" id="dtDuplicado">Duplicado</button><button class="ch-btn danger small" id="dtRecusar">Recusar</button></div>':'';
-    var roadmapAcoes=podeAdmin?'<div class="ch-inline"><label class="ch-field"><span>Item do Roadmap que este chamado resolve</span><select id="dtRoadmap">'+opcoesRoadmap(c.roadmapId||'')+'</select></label><button class="ch-btn secondary small" id="dtRoadmapSalvar">Salvar vínculo</button></div>':'';
-    var autorAcoes=autor&&c.status==='VALIDAR'?'<div class="ch-detail-actions"><button class="ch-btn" id="dtConfirmar">Confirmar solução</button><button class="ch-btn secondary" id="dtReabrir">Ainda não resolveu</button></div>':'';
-    var podeComentar=!statusFinal(c.status);
-    $('detalheDialog').innerHTML='<div class="ch-dialog-head"><div><span class="ch-code">'+esc(c.codigo)+'</span><h2>'+esc(c.titulo)+'</h2><p>Aberto por '+esc(c.autor&&c.autor.nome||'')+' em '+esc(C.dataHora(c.criadaEm))+'</p></div><button class="ch-close" id="dtFechar" aria-label="Fechar">×</button></div><div class="ch-tags">'+tags(c)+'</div><div class="ch-detail-meta"><div><small>Tipo</small>'+esc(C.ROTULO_TIPO[c.tipo]||c.tipo)+'</div><div><small>Impacto</small>'+esc(C.ROTULO_IMPACTO[c.impacto]||c.impacto)+'</div><div><small>Responsável</small>'+esc(c.responsavel||'Não definido')+'</div><div><small>Tela de origem</small>'+esc(c.contexto&&c.contexto.pagina||'—')+'</div><div><small>Versão</small>'+esc(c.contexto&&c.contexto.versao?String(c.contexto.versao).slice(0,7):'—')+'</div><div><small>Aparelho</small>'+esc(c.contexto&&c.contexto.viewport||'—')+'</div>'+(c.roadmapId?'<div><small>Roadmap</small>RM-'+esc(String(c.roadmapId).slice(0,6).toUpperCase())+'</div>':'')+(c.duplicadoDe?'<div><small>Duplicado de</small>'+esc(c.duplicadoDe)+'</div>':'')+'</div><div class="ch-description">'+esc(c.descricao)+'</div>'+anexosHtml(c.anexos)+adminAcoes+roadmapAcoes+autorAcoes+'<h3>Histórico</h3><ol class="ch-history">'+historicoHtml(c.historico)+'</ol>'+(podeComentar?'<label class="ch-field"><span>Adicionar comentário</span><textarea id="dtComentario" maxlength="2000" placeholder="Registre uma resposta ou informação nova."></textarea></label><div class="ch-dialog-actions"><button class="ch-btn secondary" id="dtFechar2">Fechar</button><button class="ch-btn" id="dtComentar">Enviar comentário</button></div>':'<div class="ch-dialog-actions"><button class="ch-btn secondary" id="dtFechar2">Fechar</button></div>')+'<div class="ch-form-error" id="dtErro" hidden></div>';
+    var adminAcoes=podeAdmin&&!somenteLeitura&&!statusFinal(c.status)?'<div class="ch-inline"><label class="ch-field"><span>Prioridade</span><select id="dtPrioridade">'+['P0','P1','P2','P3'].map(function(p){return '<option value="'+p+'" '+(c.prioridade===p?'selected':'')+'>'+esc(C.ROTULO_PRIORIDADE[p])+'</option>';}).join('')+'</select></label><label class="ch-field"><span>Responsável</span><input id="dtResponsavel" maxlength="120" value="'+esc(c.responsavel||'')+'" placeholder="Nome ou equipe"></label><button class="ch-btn small" id="dtTriar">Salvar triagem</button></div><div class="ch-detail-actions">'+C.STATUS.filter(function(s){return s!==c.status;}).map(function(s){return '<button class="ch-btn secondary small" data-mover="'+s+'">'+esc(C.ROTULO_STATUS[s])+'</button>';}).join('')+'<button class="ch-btn secondary small" id="dtDuplicado">Duplicado</button><button class="ch-btn danger small" id="dtRecusar">Recusar</button></div>':'';
+    var roadmapAcoes=podeAdmin&&!somenteLeitura?'<div class="ch-inline"><label class="ch-field"><span>Item do Roadmap que este chamado resolve</span><select id="dtRoadmap">'+opcoesRoadmap(c.roadmapId||'')+'</select></label><button class="ch-btn secondary small" id="dtRoadmapSalvar">Salvar vínculo</button></div>':'';
+    var autorAcoes=autor&&!somenteLeitura&&c.status==='VALIDAR'?'<div class="ch-detail-actions"><button class="ch-btn" id="dtConfirmar">Confirmar solução</button><button class="ch-btn secondary" id="dtReabrir">Ainda não resolveu</button></div>':'';
+    var podeComentar=!somenteLeitura&&!statusFinal(c.status);
+    var md=c.metricas||{}, metricasDetalhe=(md.primeiraRespostaEm||md.concluidoEm)?'<div class="ch-detail-meta">'+(md.primeiraRespostaEm?'<div><small>Primeira resposta</small>'+esc(C.duracao(md.tempoPrimeiraRespostaMs))+'</div>':'')+(md.concluidoEm?'<div><small>Tempo até conclusão</small>'+esc(C.duracao(md.tempoConclusaoMs))+'</div>':'')+'</div>':'';
+    var erroJs=c.contexto&&c.contexto.erroJavaScript, erroDetalhe=erroJs?'<div class="ch-tech-error"><strong>Erro JavaScript anexado automaticamente</strong><code>'+esc(erroJs.mensagem)+(erroJs.arquivo?'\n'+esc(erroJs.arquivo)+(erroJs.linha?':'+Number(erroJs.linha):''):'')+(erroJs.pilha?'\n'+esc(erroJs.pilha):'')+'</code></div>':'';
+    $('detalheDialog').innerHTML='<div class="ch-dialog-head"><div><span class="ch-code">'+esc(c.codigo)+'</span><h2>'+esc(c.titulo)+'</h2><p>Aberto por '+esc(c.autor&&c.autor.nome||'')+' em '+esc(C.dataHora(c.criadaEm))+'</p></div><button class="ch-close" id="dtFechar" aria-label="Fechar">×</button></div><div class="ch-tags">'+tags(c)+'</div><div class="ch-detail-meta"><div><small>Tipo</small>'+esc(C.ROTULO_TIPO[c.tipo]||c.tipo)+'</div><div><small>Impacto</small>'+esc(C.ROTULO_IMPACTO[c.impacto]||c.impacto)+'</div><div><small>Responsável</small>'+esc(c.responsavel||'Não definido')+'</div><div><small>Setor</small>'+esc(c.setor||c.autor&&c.autor.setor||'Não informado')+'</div><div><small>Tela de origem</small>'+esc(c.contexto&&c.contexto.pagina||'—')+'</div><div><small>Versão</small>'+esc(c.contexto&&c.contexto.versao?String(c.contexto.versao).slice(0,7):'—')+'</div><div><small>Aparelho</small>'+esc(c.contexto&&c.contexto.viewport||'—')+'</div>'+(c.roadmapId?'<div><small>Roadmap</small>RM-'+esc(String(c.roadmapId).slice(0,6).toUpperCase())+'</div>':'')+(c.duplicadoDe?'<div><small>Duplicado de</small>'+esc(c.duplicadoDe)+'</div>':'')+'</div>'+metricasDetalhe+erroDetalhe+'<div class="ch-description">'+esc(c.descricao)+'</div>'+anexosHtml(c.anexos)+adminAcoes+roadmapAcoes+autorAcoes+'<h3>Histórico</h3><ol class="ch-history">'+historicoHtml(c.historico)+'</ol>'+(podeComentar?'<label class="ch-field"><span>Adicionar comentário</span><textarea id="dtComentario" maxlength="2000" placeholder="Registre uma resposta ou informação nova."></textarea></label><div class="ch-dialog-actions"><button class="ch-btn secondary" id="dtFechar2">Fechar</button><button class="ch-btn" id="dtComentar">Enviar comentário</button></div>':'<div class="ch-dialog-actions"><button class="ch-btn secondary" id="dtFechar2">Fechar</button></div>')+'<div class="ch-form-error" id="dtErro" hidden></div>';
     $('dtFechar').onclick=fecharDetalhe;$('dtFechar2').onclick=fecharDetalhe;
     carregarImagens(c);
     if($('dtComentar'))$('dtComentar').onclick=function(){acaoDetalhe({acao:'COMENTAR',texto:$('dtComentario').value},'Comentário enviado.');};
@@ -281,8 +307,8 @@
   (function esperarLogin(){
     if(!window.currentUser){setTimeout(esperarLogin,120);return;}
     eu=window.currentUser;
-    var q=new URLSearchParams(location.search);visao=q.get('visao')==='QUADRO'?'QUADRO':'MEUS';
+    var q=new URLSearchParams(location.search);visao=q.get('visao')==='QUADRO'?'QUADRO':q.get('visao')==='GESTAO'?'GESTAO':'MEUS';
     document.querySelectorAll('.ch-tab').forEach(function(b){b.setAttribute('aria-selected',String(b.dataset.visao===visao));});
-    carregar().then(function(){if(visao==='QUADRO'&&!admin)trocarVisao('MEUS');if(q.get('nova')==='1')abrirNovo();if(q.get('id'))abrirDetalhe(q.get('id'));});
+    carregar().then(function(){if(visao==='QUADRO'&&!admin)trocarVisao('MEUS');if(visao==='GESTAO'&&!gestor)trocarVisao('MEUS');if(q.get('nova')==='1')abrirNovo();if(q.get('id'))abrirDetalhe(q.get('id'));});
   })();
 })();

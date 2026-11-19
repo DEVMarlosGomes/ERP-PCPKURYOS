@@ -1,3 +1,32 @@
+// --- Contexto tecnico para Chamados ---
+// Guarda apenas o ultimo erro JavaScript desta aba. Ao abrir um chamado, a tela
+// inclui esse contexto automaticamente e mostra ao usuario o que sera enviado.
+(function() {
+  var CHAVE = 'kuryos-ultimo-erro-js';
+  function guardar(dados) {
+    try {
+      var registro = {
+        mensagem: String(dados.mensagem || 'Erro JavaScript').slice(0, 500),
+        arquivo: String(dados.arquivo || '').slice(0, 500),
+        linha: Number(dados.linha) || 0,
+        coluna: Number(dados.coluna) || 0,
+        pilha: String(dados.pilha || '').slice(0, 2000),
+        em: new Date().toISOString(),
+        pagina: (location.pathname.split('/').pop() || 'inicio.html').slice(0, 120)
+      };
+      sessionStorage.setItem(CHAVE, JSON.stringify(registro));
+    } catch (_) {}
+  }
+  window.addEventListener('error', function(ev) {
+    if (!ev || !ev.message) return;
+    guardar({mensagem: ev.message, arquivo: ev.filename, linha: ev.lineno, coluna: ev.colno, pilha: ev.error && ev.error.stack});
+  });
+  window.addEventListener('unhandledrejection', function(ev) {
+    var motivo = ev && ev.reason;
+    guardar({mensagem: motivo && motivo.message || motivo || 'Promise rejeitada sem tratamento', pilha: motivo && motivo.stack});
+  });
+})();
+
 // --- Cloud Functions fora do Firebase ---
 // Firebase Hosting e preview local continuam usando as Cloud Functions nativas.
 // O domínio Vercel legado aponta para o Render até o corte. No domínio próprio,
