@@ -477,6 +477,7 @@
       <div class="section-label">Itens recebidos</div>
       <div class="item-row-head"><div>Material</div><div>Fornecedores homologados</div><div>Quantidade</div><div>Un.</div><div>Preço unit. (opcional)</div><div></div></div>
       <div id="pcdItensBuilder"></div>
+      <div id="pcdAmostraHint" class="section-note" style="display:none;margin:6px 0"></div>
       <button class="btn btn-ghost btn-sm" id="btnAddPcdItem">+ Item</button>
 
       <div class="section-label">Cliente e pedidos *</div>
@@ -5500,6 +5501,37 @@ function atualizarPcdPropriedade() {
    ═══════════════════════════════════════════════════════ */
 var pcdItensBuilder = [];
 
+/* Amostra de MP digitada no item (19/11/2026). As amostras do P&D (amostras_mp)
+   não viram PC: entram sozinhas na agenda da Logística, que dá baixa lá
+   (decisão do Marlos). Matéria-prima nova nem tem código, então a busca de
+   materiais não a acha -- e a pessoa ficava sem saber por quê. */
+var pcdAmostras = {};
+try {
+  db.ref('amostras_mp').on('value', function(snap) { pcdAmostras = snap.val() || {}; }, function() { pcdAmostras = {}; });
+} catch (e) { pcdAmostras = {}; }
+function normAmostra(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
+function amostrasParecidas(texto) {
+  var q = normAmostra(texto);
+  if (q.length < 3) return [];
+  return Object.keys(pcdAmostras).map(function(k) { return pcdAmostras[k] || {}; }).filter(function(a) {
+    if (a.status !== 'SOLICITADA') return false;
+    var nome = normAmostra(a.tipo === 'NOVA' ? (a.materialNovo || {}).nome : [(a.material || {}).codigo, (a.material || {}).nome].join(' '));
+    return nome && (nome.indexOf(q) >= 0 || q.indexOf(nome) >= 0);
+  });
+}
+function avisarAmostraPcd(texto) {
+  var box = document.getElementById('pcdAmostraHint');
+  if (!box) return;
+  var am = amostrasParecidas(texto);
+  if (!am.length) { box.style.display = 'none'; return; }
+  box.innerHTML = '🧪 ' + am.map(function(a) {
+    return '<b>' + escapeHtml(a.codigo || '') + '</b> ' + escapeHtml(a.tipo === 'NOVA' ? (a.materialNovo || {}).nome || '' : (a.material || {}).nome || '') +
+      ' (' + escapeHtml((a.fornecedor || {}).nome || '') + ', previsão ' + escapeHtml(a.previsaoChegada ? a.previsaoChegada.split('-').reverse().join('/') : '—') + ')';
+  }).join('; ') + ' — é <b>amostra de MP do P&amp;D</b>: não precisa de Pedido de Compra. Ela já aparece na agenda da Logística ' +
+    '(Logística › Calendário, com 🧪), onde a Logística dá baixa quando chegar.';
+  box.style.display = '';
+}
+
 function renderPcdItensBuilder() {
   var box = document.getElementById('pcdItensBuilder');
   if (!pcdItensBuilder.length) {
@@ -5540,6 +5572,7 @@ function renderPcdItensBuilder() {
     el.addEventListener('input', function() {
       hidden.value = '';
       pcdItensBuilder[+idx].materialCodigo = '';
+      avisarAmostraPcd(el.value);
     });
   });
   document.querySelectorAll('.pcdi-qtd').forEach(function(el) {

@@ -85,7 +85,7 @@ function dados() {
     assert.match(chip('pa:ag1'), /saida sit-AGENDADO/);
     assert.match(chip('pa:ag1'), /↑ T · MISS ROSE/, 'janela "14h–16h" = tarde');
     assert.match(chip('pa:ag2'), /PARCIAL/);
-    if (somar(hoje, -3).slice(0, 7) === hoje.slice(0, 7)) assert.match(chip('pc:pc2'), /sit-ATRASADO[\s\S]*⚠/);
+    if (somar(hoje, -3).slice(0, 7) === hoje.slice(0, 7)) assert.match(chip('pc:pc2'), /sit-ATRASADO/); // o ⚠ vira ícone SVG (kuryos-icon-system.js), não fica no texto
     if (depois.slice(0, 7) === hoje.slice(0, 7)) assert.match(chip('pc:pc3'), /sit-PREVISTO/);
     if (process.env.CAL_SCREENSHOT) await page.locator('#tab-calendario .cal-card').screenshot({path: process.env.CAL_SCREENSHOT + '-mes.png'});
 

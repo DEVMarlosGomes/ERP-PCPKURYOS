@@ -17,6 +17,7 @@
   <script src="shared/servico-compra.js"></script>
   <script src="shared/rotas-pc.js"></script>
   <script src="shared/calendario-logistica.js"></script>
+  <script src="shared/amostras-mp.js"></script>
   <script src="shared/seletor-endereco.js"></script>
   <script src="auth_check.js"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -1392,6 +1393,11 @@ document.addEventListener('DOMContentLoaded', function() {
       renderCalendario();
       renderHistoricoList();
     });
+    // Amostras de MP do P&D na agenda (19/11/2026): entram sozinhas, sem PC.
+    dbOnValue(db.ref('amostras_mp'), function(snap) {
+      calAmostras = snap.val() || {};
+      renderCalendario();
+    });
     dbOnValue(db.ref('enderecos_estoque'), function(snap) {
       allEnderecosEstoque = snap.val() || {};
     });
@@ -1463,7 +1469,7 @@ document.addEventListener('DOMContentLoaded', function() {
 /* ══════════════ Calendário de agendamentos (shared/calendario-logistica.js) ══════════════
    Entradas (PC) e saídas de PA numa vista de mês/semana. Só leitura: as
    ações abrem os fluxos que já existem nesta tela e na Expedição. */
-var calAgendas = {}, calEventos = [], calEstado = {vista: 'mes', ref: todayLocal(), entradas: true, saidas: true, previstos: true, concluidos: false};
+var calAgendas = {}, calAmostras = {}, calEventos = [], calEstado = {vista: 'mes', ref: todayLocal(), entradas: true, saidas: true, previstos: true, concluidos: false};
 try { Object.assign(calEstado, JSON.parse(localStorage.getItem('logistica-calendario') || '{}'), {ref: todayLocal()}); } catch (e) {}
 var CAL_SIT = {AGENDADO: '', ATRASADO: '⚠ atrasado', PREVISTO: 'previsão', PARCIAL: '◐ parcial', CONCLUIDO: '✓ concluído'};
 var CAL_SIT_LONGA = {AGENDADO: 'Agendado', ATRASADO: 'Atrasado: a data passou e não foi concluído', PREVISTO: 'Previsão de entrega de Compras (ainda sem agendamento)',
@@ -1473,9 +1479,9 @@ function calDataBR(d) { return d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + 
 function calChip(ev, completo) {
   // No mês só o ícone cabe; o texto completo fica no título (hover) e na semana.
   var sit = CAL_SIT[ev.situacao] ? '<span class="cal-flag ' + ev.situacao + '">' + (completo ? CAL_SIT[ev.situacao] : (CAL_SIT[ev.situacao].split(' ')[0].length === 1 ? CAL_SIT[ev.situacao].split(' ')[0] : '·')) + '</span>' : '';
-  var seta = ev.tipo === 'ENTRADA' ? '↓' : '↑', faixa = ev.faixa === 'manha' ? 'M · ' : ev.faixa === 'tarde' ? 'T · ' : '';
-  return '<button type="button" class="cal-ev ' + (ev.tipo === 'SAIDA' ? 'saida' : 'entrada') + ' sit-' + ev.situacao + '" data-ev="' + escapeAttr(ev.id) + '" title="' +
-    escapeAttr((ev.tipo === 'ENTRADA' ? 'Entrada' : 'Saída de PA') + ': ' + ev.titulo + ' · ' + ev.subtitulo + (ev.janela ? ' · ' + ev.janela : '') + ' · ' + CAL_SIT_LONGA[ev.situacao]) + '">' +
+  var seta = ev.amostra ? '🧪' : ev.tipo === 'ENTRADA' ? '↓' : '↑', faixa = ev.faixa === 'manha' ? 'M · ' : ev.faixa === 'tarde' ? 'T · ' : '';
+  return '<button type="button" class="cal-ev ' + (ev.tipo === 'SAIDA' ? 'saida' : 'entrada') + (ev.amostra ? ' amostra' : '') + ' sit-' + ev.situacao + '" data-ev="' + escapeAttr(ev.id) + '" title="' +
+    escapeAttr((ev.amostra ? 'Amostra de MP' : ev.tipo === 'ENTRADA' ? 'Entrada' : 'Saída de PA') + ': ' + ev.titulo + ' · ' + ev.subtitulo + (ev.janela ? ' · ' + ev.janela : '') + ' · ' + CAL_SIT_LONGA[ev.situacao]) + '">' +
     '<span class="t">' + seta + ' ' + faixa + escapeHtml(ev.titulo) + sit + '</span>' +
     (completo ? '<span class="s">' + escapeHtml(ev.numero + ' · ' + ev.subtitulo) + '</span>' + (ev.detalhes.transportadora ? '<span class="s">🚚 ' + escapeHtml(ev.detalhes.transportadora) + '</span>' : '') : '') + '</button>';
 }
@@ -1487,7 +1493,7 @@ function renderCalendario() {
   var painel = document.getElementById('tab-calendario');
   if (!painel || !painel.classList.contains('active')) return;
   var hoje = todayLocal();
-  calEventos = CalendarioLogistica.eventos(allPedidosCompra, calAgendas, {hoje: hoje, incluirPrevistos: calEstado.previstos, incluirConcluidos: calEstado.concluidos, nomeOrigem: nomeOrigemPedido});
+  calEventos = CalendarioLogistica.eventos(allPedidosCompra, calAgendas, {hoje: hoje, incluirPrevistos: calEstado.previstos, incluirConcluidos: calEstado.concluidos, nomeOrigem: nomeOrigemPedido, amostras: calAmostras});
   var lista = CalendarioLogistica.filtrar(calEventos, {entradas: calEstado.entradas, saidas: calEstado.saidas});
   var dias = CalendarioLogistica.porDia(lista), g = calIntervalo();
   document.getElementById('calTitulo').textContent = g.titulo.charAt(0).toUpperCase() + g.titulo.slice(1);
@@ -1544,6 +1550,7 @@ function calAbrirDia(data) {
 function calAbrirEvento(id) {
   var ev = calEventos.find(function(e) { return e.id === id; });
   if (!ev) return;
+  if (ev.amostra) { calAbrirAmostra(ev); return; }
   var d = ev.detalhes, dlg = document.getElementById('calDetalhe'), linhas = [];
   var add = function(r, v) { if (v !== '' && v != null) linhas.push('<dt>' + r + '</dt><dd>' + v + '</dd>'); };
   add('Data', calDataBR(ev.data) + (ev.janela ? ' · ' + escapeHtml(ev.janela) : ''));
@@ -1583,6 +1590,51 @@ function calAbrirEvento(id) {
       if (b.dataset.acao === 'agenda') document.querySelector('.tab[data-tab="agenda-pa"]').click();
     };
   });
+  if (!dlg.open) dlg.showModal();
+}
+/* Amostra de MP na agenda (19/11/2026): detalhe e baixa. A baixa é a mesma
+   da aba Amostras de MP do Cadastros: callable amostraMp, ação RECEBER
+   (logística ou ADM; o servidor confere o papel). */
+function calAbrirAmostra(ev) {
+  var d = ev.detalhes, dlg = document.getElementById('calDetalhe'), linhas = [];
+  var add = function(r, v) { if (v !== '' && v != null) linhas.push('<dt>' + r + '</dt><dd>' + v + '</dd>'); };
+  var formas = (window.AmostrasMp && AmostrasMp.FORMAS) || {CORREIO: 'Correio', TRANSPORTADORA: 'Transportadora', MOTOBOY: 'Motoboy'};
+  add(d.status === 'SOLICITADA' ? 'Previsão de chegada' : 'Recebida em', calDataBR(ev.data));
+  add('Situação', escapeHtml(ev.situacao === 'ATRASADO' ? 'Atrasada: a previsão passou e não chegou' : ((window.AmostrasMp && AmostrasMp.STATUS[d.status]) || d.status)));
+  add('Amostra', escapeHtml(ev.numero));
+  add('Material', escapeHtml(d.material));
+  add('Quantidade', escapeHtml(d.quantidade));
+  add('Pedida por', escapeHtml(d.solicitante));
+  if (d.recebimento) add('Baixa', escapeHtml([calDataBR(d.recebimento.data), formas[d.recebimento.forma] || d.recebimento.forma, d.recebimento.por && d.recebimento.por.nome].filter(Boolean).join(' · ')));
+  add('Observações', escapeHtml(d.observacoes));
+  var u = window.currentUser || {}, papel = window.AmostrasMp ? AmostrasMp.papel(u) : null;
+  var podeReceber = d.status === 'SOLICITADA' && papel && (papel.logistica || papel.admin);
+  dlg.querySelector('.cal-corpo').innerHTML = '<div class="field-hint">🧪 Amostra de matéria-prima (P&D) — entra sem Pedido de Compra</div>' +
+    '<h3>' + escapeHtml(ev.titulo) + '</h3><dl>' + linhas.join('') + '</dl>' +
+    (podeReceber ? '<div class="form-grid" style="margin-top:10px"><div class="form-group"><label for="calAmData">Chegou em *</label><input type="date" id="calAmData" value="' + todayLocal() + '"></div>' +
+      '<div class="form-group"><label for="calAmForma">Forma de entrega *</label><select id="calAmForma"><option value="">Selecione…</option>' +
+      Object.keys(formas).map(function(k) { return '<option value="' + escapeAttr(k) + '">' + escapeHtml(formas[k]) + '</option>'; }).join('') + '</select></div></div>' : '');
+  dlg.querySelector('.cal-acoes').innerHTML = '<button type="button" class="btn btn-ghost" data-fechar>Fechar</button>' +
+    '<a class="btn btn-ghost" href="cadastros.html?tab=amostras">Ver em Amostras de MP</a>' +
+    (podeReceber ? '<button type="button" class="btn btn-green" data-baixa>📦 Dar baixa da amostra</button>' : '');
+  dlg.querySelector('[data-fechar]').onclick = function() { dlg.close(); };
+  var bb = dlg.querySelector('[data-baixa]');
+  if (bb) bb.onclick = function() {
+    var dados = {data: document.getElementById('calAmData').value, forma: document.getElementById('calAmForma').value};
+    if (!dados.data) { showAlert('Informe a data em que a amostra chegou.', 'danger'); return; }
+    if (!dados.forma) { showAlert('Escolha a forma de entrega.', 'danger'); return; }
+    bb.disabled = true;
+    var requestId = 'cal-' + ev.ref + '-' + Date.now().toString(36);
+    Promise.resolve().then(function() {
+      return functionsInstance.httpsCallable('amostraMp')({acao: 'RECEBER', id: ev.ref, dados: dados, requestId: requestId});
+    }).then(function() {
+      dlg.close();
+      showAlert('Baixa da amostra ' + ev.numero + ' registrada. O P&D já pode homologar.', 'success');
+    }).catch(function(err) {
+      bb.disabled = false;
+      showAlert('Não foi possível dar baixa: ' + ((err && err.message) || err), 'danger');
+    });
+  };
   if (!dlg.open) dlg.showModal();
 }
 (function iniciarCalendario() {

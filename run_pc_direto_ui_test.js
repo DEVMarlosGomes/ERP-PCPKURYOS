@@ -126,8 +126,24 @@ const VIACEP = {
     await page.waitForFunction(() => !document.getElementById('modalPcDireto').classList.contains('open'));
     assert.equal(await page.isDisabled('#modalPcdSave'), false);
     assert.equal(await page.innerText('#modalPcdSave'), 'Criar e liberar pra recebimento');
+    // Amostra de MP digitada no item (19/11): aviso de que ela vai pela agenda da Logística, sem PC.
+    const aviso = await page.evaluate(() => {
+      pcdAmostras = {am4: {codigo: 'AM-0004', status: 'SOLICITADA', tipo: 'NOVA', materialNovo: {nome: 'ghk cu'}, fornecedor: {nome: 'TC QUIMICA'}, previsaoChegada: '2026-11-23'},
+        am5: {codigo: 'AM-0005', status: 'RECEBIDA', tipo: 'NOVA', materialNovo: {nome: 'ghk cu'}}};
+      avisarAmostraPcd('GHK-CU');
+      const box = document.getElementById('pcdAmostraHint');
+      const r = {visivel: box.style.display !== 'none', texto: box.textContent};
+      avisarAmostraPcd('álcool');
+      r.someSemAmostra = box.style.display === 'none';
+      return r;
+    });
+    assert.equal(aviso.visivel, true);
+    assert.ok(aviso.texto.includes('AM-0004 ghk cu (TC QUIMICA, previsão 23/11/2026)'), aviso.texto);
+    assert.doesNotMatch(aviso.texto, /AM-0005/, 'recebida não entra');
+    assert.match(aviso.texto, /não precisa de Pedido de Compra/);
+    assert.equal(aviso.someSemAmostra, true);
     assert.deepEqual(errors, []);
-    console.log('run_pc_direto_ui_test: OK (rota sem confirmar avisa acima do modal sem travar o botão; confirmada cria o PC)');
+    console.log('run_pc_direto_ui_test: OK (rota sem confirmar avisa acima do modal sem travar o botão; confirmada cria o PC; amostra de MP avisa que vai pela agenda)');
   } finally {
     await browser.close();
   }
