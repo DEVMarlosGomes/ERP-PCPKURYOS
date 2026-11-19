@@ -80,9 +80,11 @@
     '.val{font-size:15pt;font-weight:700;text-align:center;margin-top:2mm;overflow-wrap:anywhere}' +
     '.grande{font-size:48pt;text-align:center;line-height:1.05;font-variant-numeric:tabular-nums}' +
     '.setor{font-size:10pt;color:#333;display:flex;align-items:center}' +
-    '.marca{grid-column:1/-1;background:#0a1c69;border:none!important;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5mm}' +
-    '.marca img{height:19mm;filter:brightness(0) invert(1)}' +
-    '.marca span{color:#fff;font-size:7pt;letter-spacing:.35em}' +
+    // Sem tarja azul (19/11): a faixa cheia gastava tinta em toda etiqueta. A logo
+    // vai com fundo vazado (kuryos-logo-vazado.png), em azul-marinho, sobre o branco.
+    '.marca{grid-column:1/-1;background:transparent;border:none!important;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5mm}' +
+    '.marca img{height:24mm;max-width:100%;object-fit:contain}' +
+    '.marca span{color:#0a1c69;font-size:7pt;letter-spacing:.35em}' +
     '@media screen{body{background:#e9e9e9;padding:10px}.ibc{background:#fff;margin:0 auto 12px;max-width:1100px;height:620px;grid-template-rows:108px 52px 108px 48px 118px 24px 1fr}}';
 
   function pagina(d, setor, c, logoUrl) {
@@ -97,9 +99,9 @@
       '<div class="dir"></div>' +
       '<div class="full"><div class="rot">VALIDADE:</div><div class="grande">' + esc(d.validade) + '</div></div>' +
       '<div class="full"></div>' +
-      // O SVG da marca já traz "INDÚSTRIA DE COSMÉTICOS"; o texto só entra sem o logo.
+      // A logo já traz "INDÚSTRIA DE COSMÉTICOS"; o texto só entra sem ela.
       '<div class="marca">' + (logoUrl ? '<img src="' + esc(logoUrl) + '" alt="Kuryos — Indústria de Cosméticos">'
-        : '<b style="color:#fff;font-size:26pt;letter-spacing:.12em">KURYOS</b><span>INDÚSTRIA DE COSMÉTICOS</span>') + '</div>' +
+        : '<b style="color:#0a1c69;font-size:26pt;letter-spacing:.12em">KURYOS</b><span>INDÚSTRIA DE COSMÉTICOS</span>') + '</div>' +
     '</section>';
   }
   function paginas(op, campos, opcoes) {
@@ -129,7 +131,7 @@
   function abrirDialogo(cfg) {
     var doc = document, op = cfg.op || {}, db = cfg.db;
     var antigo = doc.getElementById('ibcDlg'); if (antigo) antigo.remove();
-    var logoUrl = new URL('kuryos-logo.svg', doc.baseURI).href;
+    var logoUrl = new URL('kuryos-logo-vazado.png', doc.baseURI).href;
     var d = dados(op), falta = faltando(op);
     var campos = normalizarCampos(op.identificacaoIbc);
     var bg = doc.createElement('div');
